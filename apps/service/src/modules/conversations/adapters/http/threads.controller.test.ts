@@ -37,6 +37,7 @@ import { McpServersModule } from "../../../mcp-servers/index.js";
 import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
 import { sessionMemoryProvider } from "../../application/session-memory.fixtures.js";
+import { dutiesProvider } from "../../application/duties.fixtures.js";
 import { ProposalAppliers } from "../../application/proposal-appliers.js";
 import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
@@ -241,6 +242,7 @@ function setUpEachTest(): void {
         ThreadService,
         Briefs,
         sessionMemoryProvider(),
+        dutiesProvider(),
         TaskThreadSetups,
         InitiativeThreadSetups,
         SessionPlaces,
@@ -273,7 +275,7 @@ function setUpEachTest(): void {
       ],
     }));
     app.get(TaskThreadSetups).provide({
-      planner: "planner",
+      planner: () => Promise.resolve("planner"),
       readyForPersonsThread: () => Promise.resolve(undefined),
       planningThreadElsewhere: () => Promise.resolve(undefined),
       setUp: ({ taskId }) =>

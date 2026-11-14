@@ -7,7 +7,13 @@ import {
   type ProjectPipeline,
 } from "../domain/project-pipeline.js";
 import type { BrokenReason } from "../domain/stage-change.js";
-import { agentStageRoles, commandKeysNamedBy } from "../domain/stage.js";
+import {
+  agentStageWorkers,
+  commandKeysNamedBy,
+  mergedWorkers,
+  NO_STAGE_WORKERS,
+  type StageWorkers,
+} from "../domain/stage.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 import { ProjectPipelineRepository } from "../ports/project-pipeline-repository.js";
 
@@ -114,9 +120,9 @@ export class PipelineLibrary {
     };
   }
 
-  /** The Roles the office-wide Pipelines' Agent Stages name, each once. */
-  async rolesNamed(): Promise<ReadonlySet<string>> {
-    return agentStageRoles((await this.list()).flatMap((pipeline) => pipeline.stages));
+  /** The Roles and the duties the office-wide Pipelines' Agent Stages name, each once. */
+  async rolesNamed(): Promise<StageWorkers> {
+    return agentStageWorkers((await this.list()).flatMap((pipeline) => pipeline.stages));
   }
 
   /** The Project's Project Pipelines, or every Project's, each built. */
@@ -150,13 +156,15 @@ export class PipelineLibrary {
       : { kind: "found", pipeline: asPipeline(projectPipeline) };
   }
 
-  /** The Roles each Project's Project Pipelines' built Stages name, by Project. */
-  async rolesNamedByProject(): Promise<ReadonlyMap<string, ReadonlySet<string>>> {
-    const byProject = new Map<string, Set<string>>();
+  /** The Roles and the duties each Project's Project Pipelines' built Stages name, by Project. */
+  async rolesNamedByProject(): Promise<ReadonlyMap<string, StageWorkers>> {
+    const byProject = new Map<string, StageWorkers>();
     for (const { projectPipeline, stages } of await this.projectPipelines()) {
-      const roles = byProject.get(projectPipeline.projectId) ?? new Set<string>();
-      for (const role of agentStageRoles(stages)) roles.add(role);
-      byProject.set(projectPipeline.projectId, roles);
+      const { projectId } = projectPipeline;
+      byProject.set(
+        projectId,
+        mergedWorkers(byProject.get(projectId) ?? NO_STAGE_WORKERS, agentStageWorkers(stages)),
+      );
     }
     return byProject;
   }

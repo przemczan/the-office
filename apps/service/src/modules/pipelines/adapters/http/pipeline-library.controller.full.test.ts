@@ -144,6 +144,7 @@ describe("a Stage naming a Role whose engine can't work an Agent Stage", () => {
     ]);
     expect(pipelines.roleEngines.asked.at(-1)).toEqual({
       roleKeys: [roleKey],
+      dutyKeys: [],
       projectId: undefined,
     });
   });

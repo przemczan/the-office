@@ -26,6 +26,11 @@ export const stageRuns = pgTable(
     sentBack: jsonb("sent_back").$type<SentBack>(),
     /** The Stage Thread an Agent Stage's run works in. */
     threadId: uuid("thread_id"),
+    /**
+     * The Role that worked an Agent Stage's run, as its Stage named it or held its duty when the run
+     * started; null for another kind's run, and for runs kept before it was recorded.
+     */
+    roleKey: text("role_key"),
     /** How the run's session began. */
     session: text("session").$type<StageSessionMove>(),
     /**

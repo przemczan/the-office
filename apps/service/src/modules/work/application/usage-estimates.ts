@@ -20,6 +20,7 @@ import { ModelPrices } from "../ports/model-prices.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { UsageHistory } from "../ports/usage-history.js";
 import { WorkSettings } from "../ports/work-settings.js";
+import { withDutiesHeld } from "./duty-holders.js";
 
 /** A Ready Task's Usage estimate, queued ones' too. */
 export interface TaskUsageEstimate {
@@ -122,15 +123,16 @@ export class UsageEstimates {
 
   /**
    * The Task's Pipeline's Agent Stages with the engine and model the cascade gives each in the
-   * Task's Project; a vacant Role's are left out, and every Stage while no engine is listed. None
+   * Task's Project; a vacant Role's and an unheld duty's are left out, and every Stage while no engine is listed. None
    * while the Task has no Pipeline.
    */
   private async estimatedStages(task: Task): Promise<readonly EstimatedStage[]> {
     if (!hasPipeline(task)) return [];
     const { projectId } = task;
     const pipeline = await this.pipelines.read(task.pipelineId);
+    const held = await withDutiesHeld(pipeline?.stages ?? [], this.people);
     const stages = await Promise.all(
-      (pipeline?.stages ?? []).map(async (stage) => {
+      held.map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);
         if (!person) return [];
         const applying = await this.engineCascade.applying(person.roleKey, projectId);

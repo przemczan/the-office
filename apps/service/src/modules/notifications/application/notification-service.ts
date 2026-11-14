@@ -17,7 +17,7 @@ import {
   usageWindowWords,
 } from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed, shortCommit } from "../../office-updates/index.js";
-import { CTO, OFFICE_MANAGER } from "../../people/index.js";
+import { CARETAKER } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
   GateContinued,
@@ -194,10 +194,12 @@ export class NotificationService implements OnModuleInit {
     );
     this.events.subscribe(InitiativeStateChanged, async ({ initiativeId, to }) => {
       if (to !== "done") return;
-      await this.raise(initiativeDone(initiativeId, await this.hired(CTO)));
+      await this.raise(
+        initiativeDone(initiativeId, await this.people.holderOf("shapes-initiatives")),
+      );
     });
     this.events.subscribe(NoRetriesLeft, async ({ taskId, stageKey, putTo }) => {
-      // Put to the CTO first, it reaches the user only if passed on, as a Decision waiting.
+      // Put to a Consultant first, it reaches the user only if passed on, as a Decision waiting.
       if (putTo !== undefined) return;
       const stage = await this.stageOf(taskId, stageKey);
       await this.raiseFailure(taskId, { kind: "no-retries-left", stageName: stage.name });
@@ -214,11 +216,11 @@ export class NotificationService implements OnModuleInit {
       const move = windowMove(this.windowPercents.get(engineId) ?? 0, percent);
       this.windowPercents.set(engineId, percent);
       if (move === "nearly-used") {
-        await this.raise(windowNearlyUsed(engine, percent, await this.officeManager()));
+        await this.raise(windowNearlyUsed(engine, percent, await this.defaultPerson()));
       }
       if (move === "reset") {
         await this.handle({ kind: "window-reset", engineId });
-        await this.raise(windowReset(engine, await this.officeManager()));
+        await this.raise(windowReset(engine, await this.defaultPerson()));
       }
     });
     this.events.subscribe(UsageWindowUsedUp, async ({ engineId, engineName, window, resetsAt }) => {
@@ -228,7 +230,7 @@ export class NotificationService implements OnModuleInit {
         windowUsedUp(
           { id: engineId, name: engineName },
           { window: usageWindowWords(window), resetsAt },
-          await this.officeManager(),
+          await this.defaultPerson(),
           this.schedule.now(),
         ),
       );
@@ -238,7 +240,7 @@ export class NotificationService implements OnModuleInit {
     );
     this.events.subscribe(EngineDown, async ({ engineId, engineName, reason }) =>
       this.raise(
-        engineDown({ id: engineId, name: engineName }, reason, await this.officeManager()),
+        engineDown({ id: engineId, name: engineName }, reason, await this.defaultPerson()),
       ),
     );
     this.events.subscribe(EngineRemoved, async ({ engineId }) => {
@@ -248,12 +250,12 @@ export class NotificationService implements OnModuleInit {
     // A newer update's result replaces what the last one's said.
     this.events.subscribe(OfficeUpdated, async ({ to }) => {
       await this.handle({ kind: "office-update-opened" });
-      await this.raise(officeUpdated(shortCommit(to), await this.officeManager()));
+      await this.raise(officeUpdated(shortCommit(to), await this.defaultPerson()));
     });
     this.events.subscribe(OfficeUpdateFailed, async ({ from, failedStep }) => {
       await this.handle({ kind: "office-update-opened" });
       await this.raise(
-        officeUpdateFailed(failedStep, shortCommit(from), await this.officeManager()),
+        officeUpdateFailed(failedStep, shortCommit(from), await this.defaultPerson()),
       );
     });
     // A turn that ended came back from its session's engine, which therefore answers again.
@@ -263,14 +265,12 @@ export class NotificationService implements OnModuleInit {
     });
   }
 
-  /** Who the Office kinds come from: the Office Manager while one is hired. */
-  private async officeManager(): Promise<string | undefined> {
-    return this.hired(OFFICE_MANAGER);
-  }
-
-  /** The Role's key while someone fills it. */
-  private async hired(roleKey: string): Promise<string | undefined> {
-    return (await this.people.hiredKeys()).has(roleKey) ? roleKey : undefined;
+  /**
+   * Who the Office kinds come from (spec §2.7): whoever holds Default person to talk to, or the
+   * Caretaker while nobody does.
+   */
+  private async defaultPerson(): Promise<string> {
+    return (await this.people.holderOf("default-person-to-talk-to")) ?? CARETAKER;
   }
 
   private async raiseFailure(taskId: string, failure: Failure): Promise<void> {

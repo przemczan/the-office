@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addCtoTask,
+  addShaperTask,
   addDependencyOfItsTask,
   changeDescriptionOfItsTask,
   changeTitleOfItsTask,
@@ -271,7 +271,7 @@ describe("the CTO's Tasks and their dependencies", () => {
   it("adds a Task and changes its Tasks' dependencies, the blocker anywhere", () => {
     const initiative = anInitiative();
 
-    expect(addCtoTask(initiative, "straight", "task-9", given, setting, at).task).toMatchObject({
+    expect(addShaperTask(initiative, "straight", "task-9", given, setting, at).task).toMatchObject({
       initiativeId: "initiative-1",
     });
     const added = addDependencyOfItsTask(initiative, "straight", its, "blocker", [its, blocker]);
@@ -293,7 +293,7 @@ describe("the CTO's Tasks and their dependencies", () => {
       "its Tasks and their dependencies change straight onto it",
     );
 
-    expect(() => addCtoTask(active, "straight", "task-9", given, setting, at)).toThrow(refusal);
+    expect(() => addShaperTask(active, "straight", "task-9", given, setting, at)).toThrow(refusal);
     expect(() =>
       addDependencyOfItsTask(active, "straight", its, "blocker", [its, blocker]),
     ).toThrow(refusal);
@@ -305,7 +305,9 @@ describe("the CTO's Tasks and their dependencies", () => {
   it("makes each one by Proposal once it is active", () => {
     const active = anInitiative({ state: "active" });
 
-    expect(addCtoTask(active, "by-proposal", "task-9", given, setting, at).task.id).toBe("task-9");
+    expect(addShaperTask(active, "by-proposal", "task-9", given, setting, at).task.id).toBe(
+      "task-9",
+    );
     const added = addDependencyOfItsTask(active, "by-proposal", its, "blocker", [its, blocker]);
     expect(added?.task.blockedBy).toEqual(["blocker"]);
   });
@@ -314,7 +316,7 @@ describe("the CTO's Tasks and their dependencies", () => {
     const active = anInitiative({ state: "active" });
 
     expect(() =>
-      addCtoTask(active, "straight", "task-9", { ...given, title: " " }, setting, at),
+      addShaperTask(active, "straight", "task-9", { ...given, title: " " }, setting, at),
     ).toThrow(TaskRefused);
     expect(() => addDependencyOfItsTask(active, "straight", its, "its", [its])).toThrow(
       TaskRefused,

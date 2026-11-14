@@ -40,7 +40,6 @@ import {
 } from "../../../office-updates/index.fixtures.js";
 import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
 import { ownProjectsStartedTasks } from "../../../pipelines/index.fixtures.js";
-import { PLANNER } from "../../domain/planning.js";
 import { WorkSettingsForTests } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
@@ -327,7 +326,12 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
   };
 }
 
-/** The Planner and the test's own Developer, both hired, with no Memory in use. */
+/** The Role holding Plans in these walks. */
+const PLANNER = "planner";
+
+/**
+ * The Planner, who holds Plans, and the test's own Developer, both hired, with no Memory in use.
+ */
 function roleCardsOf(developerKey: string, taskLimit: number): Partial<RoleCards> {
   const roleOf = (key: string): SessionRole => ({
     roleKey: key,
@@ -344,6 +348,7 @@ function roleCardsOf(developerKey: string, taskLimit: number): Partial<RoleCards
     forNewSession: (key) => Promise.resolve(roleOf(key)),
     forResumedSession: (key) => Promise.resolve(roleOf(key)),
     hiredKeys: () => Promise.resolve(hired),
+    holderOf: (duty) => Promise.resolve(duty === "plans" ? PLANNER : undefined),
     consultants: () => Promise.resolve([]),
     findLetGo: () => Promise.resolve(undefined),
     roleTitle: (key) => roleOf(key).card.title,

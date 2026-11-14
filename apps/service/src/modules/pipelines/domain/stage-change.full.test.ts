@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildStages, emptyChangeIndexes, type BaseStages } from "./stage-change.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, dutyStage, gate, scriptStage } from "./stage.fixtures.js";
 
 const DOCUMENT: BaseStages = {
   name: "Document",
@@ -44,6 +44,37 @@ describe("buildStages, field by field", () => {
     expect(built.stages[1]).toEqual(scriptStage({ key: "review", name: "Review twice" }));
     expect(built.broken.map(({ text }) => text)).toEqual([
       "Changes Brief, Role of Review, which is now a Script Stage.",
+    ]);
+  });
+
+  it("gives a Stage a duty in place of its Role, and a Role in place of its duty", () => {
+    const base = { ...DOCUMENT, stages: [DOCUMENT.stages[0]!, dutyStage("implements")] };
+
+    const built = buildStages(base, [
+      { kind: "change", stageKey: "produce", fields: { duty: "implements" } },
+      { kind: "change", stageKey: "implement", fields: { role: "reviewer" } },
+    ]);
+
+    expect(built.stages[0]).toMatchObject({ duty: "implements" });
+    expect(built.stages[0]).not.toHaveProperty("role");
+    expect(built.stages[1]).toMatchObject({ role: "reviewer" });
+    expect(built.stages[1]).not.toHaveProperty("duty");
+    expect(built.broken).toEqual([]);
+  });
+
+  it("is Broken by a Change giving a Stage both a Role and a duty, which it leaves as it was", () => {
+    const built = buildStages(DOCUMENT, [
+      {
+        kind: "change",
+        stageKey: "produce",
+        stageName: "Produce",
+        fields: { role: "reviewer", duty: "implements" },
+      },
+    ]);
+
+    expect(built.stages[0]).toEqual(DOCUMENT.stages[0]);
+    expect(built.broken.map(({ text }) => text)).toEqual([
+      expect.stringContaining("giving it both a Role and a duty; name one of them."),
     ]);
   });
 
@@ -130,7 +161,7 @@ describe("buildStages, the rules on the built Stages", () => {
     ]);
 
     expect(built.broken.map(({ text }) => text)).toEqual([
-      "Stage 2 · Polish: continuing a session needs the same Role in the Stage before.",
+      "Stage 2 · Polish: continuing a session needs the same Role or the same duty in the Stage before.",
     ]);
   });
 

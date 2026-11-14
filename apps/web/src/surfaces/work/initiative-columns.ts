@@ -31,8 +31,8 @@ export function hasInitiativesFilters(filters: InitiativesFilters): boolean {
 export interface InitiativeColumn {
   readonly key: "shaping" | "active" | "done";
   readonly label: string;
-  /** Under the head; `cto` names who shapes, `archivePeriod` how long an ended one stays. */
-  readonly hint: (cto: string, archivePeriod: number) => string;
+  /** Under the head; `shaper` names who shapes, `archivePeriod` how long an ended one stays. */
+  readonly hint: (shaper: string, archivePeriod: number) => string;
   /** What fills it, said while it has none in any Project. */
   readonly none: (archivePeriod: number) => string;
 }
@@ -41,7 +41,7 @@ export const INITIATIVE_COLUMNS: readonly InitiativeColumn[] = [
   {
     key: "shaping",
     label: "Shaping",
-    hint: (cto) => `With ${cto}, until you confirm them`,
+    hint: (shaper) => `With ${shaper}, until you confirm them`,
     none: () => "Nothing being shaped. Shape an Idea into an Initiative from Ideas.",
   },
   {

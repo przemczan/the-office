@@ -40,7 +40,7 @@ const PROPOSED =
   "The Initiative is active, so this is drafted as a Proposal in this Thread: it changes the Initiative once the user applies it.";
 
 /**
- * The Office tools the CTO shapes an Initiative with, in a Thread on it (spec §2.1 Defaults): each
+ * The Office tools an Initiative is shaped with, in a Thread on it (spec §2.1 Defaults): each
  * writes straight onto the session's own Initiative while it is being shaped, and drafts a Proposal
  * of the change once it is active. `read_initiative` reads any Initiative by its id, so every chat
  * has it too.
@@ -254,14 +254,17 @@ export class ShapingOfficeTools implements OnModuleInit {
     return `In ${projectId} the Initiative follows ${pipeline?.name ?? pipelineId}, on its page.${branch}${noGate}`;
   }
 
-  /** The CTO's change to the session's Initiative, answered as `written` words it or as proposed. */
+  /**
+   * A change by whoever shapes Initiatives to the session's Initiative, answered as `written` words
+   * it or as proposed.
+   */
   private change(
     sessionId: string,
     edit: InitiativeEdit,
     written: (applied: InitiativeEdit) => Promise<string>,
   ): Promise<OfficeToolResult> {
     return answered(async () => {
-      const change = await this.initiatives.changeByCto(
+      const change = await this.initiatives.changeByShaper(
         await this.initiativeIn(sessionId),
         edit,
         await personInSession(this.sessionPeople, sessionId),

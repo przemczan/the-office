@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { Card, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { roleCardQueries, roleQueries } from "../../../api/people.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../../api/pipelines.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useOpenProject } from "../project-page.tsx";
@@ -23,12 +23,15 @@ export function ProjectPipelinesSection(): ReactNode {
   const projectPipelines = useQuery(projectPipelineQueries.list(project.id));
   const officeWide = useQuery(pipelineQueries.list());
   const roles = useQuery(roleQueries.list());
+  const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
   const [adding, setAdding] = useState(false);
   const failure = projectPipelines.error ?? officeWide.error;
   if (failure)
     return <RefusalAlert title={`${project.name}'s Pipelines can't be read`} error={failure} />;
-  if (!projectPipelines.data || !officeWide.data || !roles.data || !options.data) return null;
+  if (!projectPipelines.data || !officeWide.data || !roles.data || !duties.data || !options.data) {
+    return null;
+  }
   const open = projectPipelines.data.find(({ id }) => id === projectPipelineId);
   const listName = `${project.name}'s Pipelines`;
   return (
@@ -63,6 +66,7 @@ export function ProjectPipelinesSection(): ReactNode {
             projectPipeline={open}
             officeWide={officeWide.data}
             roles={roles.data}
+            duties={duties.data}
             options={options.data}
           />
         ) : (

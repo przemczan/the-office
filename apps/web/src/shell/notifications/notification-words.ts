@@ -1,5 +1,6 @@
 import type {
   Channel,
+  Duty,
   Notification,
   NotificationRouting,
   Project,
@@ -12,13 +13,10 @@ import { needsYouWords } from "./now-words.ts";
 /** The product's name: who speaks when no person does, and the tab's title while nothing waits. */
 export const OFFICE_TITLE = "The Office";
 
-/** The Role whose person the Office kinds come from once hired (spec §2.7). */
-const OFFICE_MANAGER = "office-manager";
-
 /**
  * Where opening a Notification goes: the Task or the Initiative it is about, Settings › Updates for
- * an Office update, or Now for the Office's own state, with the Office Manager's chat over it when
- * they speak.
+ * an Office update, or Now for the Office's own state, with the chat of the person who speaks over
+ * it.
  */
 export type NotificationTarget =
   | { readonly to: "/tasks/$taskId"; readonly params: { readonly taskId: string } }
@@ -30,7 +28,7 @@ export type NotificationTarget =
   | { readonly to: "/settings/updates" };
 
 /**
- * An Office kind opens Now even when it opens the Office Manager's chat, since opening Now is what
+ * An Office kind opens Now even when it opens its speaker's chat, since opening Now is what
  * handles the 5-hour window's (spec §2.7 Defaults). What gathers others opens Now too, where Needs
  * you and Since you left show them.
  */
@@ -57,14 +55,16 @@ const BROWSER_CHANNELS: readonly Channel[] = ["in-app", "desktop"];
 
 /**
  * "Service down", which the web raises itself since the service can't while the web has lost it:
- * from the Office Manager while one is hired, as the service's Office kinds are; to the browser's
- * channels the user's routing last read gives it.
+ * from whoever holds Default person to talk to, or the Caretaker while nobody does, as the
+ * service's Office kinds are; to the browser's channels the user's routing last read gives it. It
+ * runs while the service is out of reach, so it reads only what was read before, never fetching.
  */
 export function serviceDown(
+  duties: readonly Duty[] | undefined,
   roles: readonly Role[] | undefined,
   routing: NotificationRouting | undefined,
 ): Notification {
-  const officeManager = roles?.find(({ key, letGoAt }) => key === OFFICE_MANAGER && !letGoAt);
+  const speaker = officeSpeaker(duties, roles);
   const routed = routing?.["office.down.service"];
   // Until the routing is read, ticket 20's default: in-app and the desktop.
   const channels = routed
@@ -73,8 +73,8 @@ export function serviceDown(
   return {
     id: "service-down",
     kind: "office.down.service",
-    roleKey: officeManager ? OFFICE_MANAGER : null,
-    line: officeManager
+    roleKey: speaker ?? null,
+    line: speaker
       ? "I lost touch with the service and am reconnecting."
       : "The Office lost its service and is reconnecting.",
     pointsTo: { kind: "office" },
@@ -83,6 +83,19 @@ export function serviceDown(
     held: [],
     raisedAt: new Date(0).toISOString(),
   };
+}
+
+/**
+ * Who the Office kinds come from (spec §2.7): the holder of Default person to talk to, else the
+ * Caretaker; undefined, so The Office speaks, until the duties and the Roles were read.
+ */
+function officeSpeaker(
+  duties: readonly Duty[] | undefined,
+  roles: readonly Role[] | undefined,
+): string | undefined {
+  const holding = duties?.find(({ key }) => key === "default-person-to-talk-to");
+  if (!holding || !roles) return undefined;
+  return holding.holder?.roleKey ?? roles.find(({ builtIn }) => builtIn)?.key;
 }
 
 /** "(3) The Office" while Needs you holds items, so a tab in the background shows them. */

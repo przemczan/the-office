@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { Notification } from "@the-office/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { notificationQueries } from "../../api/notifications.ts";
-import { roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
 import { useEventStreamStatus } from "../../api/event-stream-provider.tsx";
@@ -21,6 +21,8 @@ import { aboutLine, personOf, serviceDown, targetOf } from "./notification-words
 export function useNotificationChannels(): void {
   const open = useQuery(notificationQueries.open()).data;
   const roles = useQuery(roleQueries.list()).data;
+  // Read while the service answers, so Service down knows who speaks once it doesn't.
+  const duties = useQuery(dutyQueries.list()).data;
   const routing = useQuery(notificationQueries.routing()).data;
   const reconnecting = useEventStreamStatus() === "reconnecting";
   const queryClient = useQueryClient();
@@ -29,8 +31,12 @@ export function useNotificationChannels(): void {
   const [desktop] = useState(() => new DesktopChannel());
   const all = useMemo(
     () =>
-      open === undefined ? undefined : reconnecting ? [...open, serviceDown(roles, routing)] : open,
-    [open, reconnecting, roles, routing],
+      open === undefined
+        ? undefined
+        : reconnecting
+          ? [...open, serviceDown(duties, roles, routing)]
+          : open,
+    [open, reconnecting, duties, roles, routing],
   );
   // Each open Notification's id, with a token for the time it was raised.
   const raised = useRef<ReadonlyMap<string, symbol> | undefined>(undefined);

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { CTO } from "../../people/index.js";
 import {
   A_WAITING_RESULT,
   aDoneResult,
@@ -24,7 +23,8 @@ import {
   failing,
   statusesOf,
   statesOf,
-  hireTheCto,
+  ARCHITECT,
+  hireTheArchitect,
   failuresPutTo,
 } from "../stage-interpreter-decisions.fixtures.js";
 
@@ -67,9 +67,9 @@ describe("StageInterpreter's Decisions", () => {
       expect((await runsOf(pipelines, taskId)).at(-1)?.headCommit).toBe(moved);
     });
 
-    it("asks the user alone about any other move, even with a CTO hired", async () => {
+    it("asks the user alone about any other move, even with a Consultant holding Asked first", async () => {
       const { taskId, asked } = await movedWhileWaiting({ alongBase: false });
-      hireTheCto();
+      hireTheArchitect();
 
       await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
 
@@ -135,12 +135,12 @@ describe("StageInterpreter's Decisions", () => {
     });
   });
 
-  describe("the CTO first", () => {
+  describe("whoever holds Asked first when a Stage runs out of tries", () => {
     const measure = scriptStage("measure", { goBackTo: "draft", rounds: 1 });
 
-    it("puts a round limit to the CTO, whose own words send the work back one more round", async () => {
+    it("puts a round limit to its holder, whose own words send the work back one more round", async () => {
       await startWith(agentDone, agentDone, agentDone);
-      hireTheCto();
+      hireTheArchitect();
       const failures = failuresPutTo();
       failing("2 tests fail.", "Still 2.");
       const taskId = await walkStages(pipelines, [draft, measure]);
@@ -148,15 +148,15 @@ describe("StageInterpreter's Decisions", () => {
       await answerLastDecision(pipelines, taskId, {
         kind: "free-answer",
         text: "Mock the clock.",
-        answeredBy: CTO,
+        answeredBy: ARCHITECT,
       });
 
-      expect(pipelines.decisions.on(taskId)).toMatchObject([{ putTo: CTO }]);
-      expect(failures).toEqual([CTO]);
+      expect(pipelines.decisions.on(taskId)).toMatchObject([{ putTo: ARCHITECT }]);
+      expect(failures).toEqual([ARCHITECT]);
       const runs = await runsOf(pipelines, taskId);
-      expect(runs[4]?.carriedFailure).toMatchObject({ round: 2, rounds: 2, guidedBy: CTO });
+      expect(runs[4]?.carriedFailure).toMatchObject({ round: 2, rounds: 2, guidedBy: ARCHITECT });
       const work = pipelines.stageThreads.requests.at(-1)?.work;
-      expect(work).toContain("Guidance for this round from Bob (CTO):\n\nMock the clock.");
+      expect(work).toContain("Guidance for this round from Bob (Architect):\n\nMock the clock.");
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
     });
   });

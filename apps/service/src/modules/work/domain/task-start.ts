@@ -1,3 +1,4 @@
+import { DUTIES } from "../../people/index.js";
 import { startWaitsForUsage, type UsageAtStart } from "./cap-waits.js";
 import { hasPipeline, NO_PIPELINE_YET, type Task } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
@@ -11,13 +12,18 @@ import { initiativeBranchGoneRefusal } from "./task-branch-base.js";
 import { STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 import { reasonsOf, type Wait } from "./wait.js";
 
-/** A Stage of the Task's Pipeline as Start sees it: an Agent Stage names the Role that works it. */
+/**
+ * A Stage of the Task's Pipeline as Start sees it: an Agent Stage names the Role that works it, or
+ * a duty, whose holder's Role `role` is then; none while nobody holds it.
+ */
 export interface StartingStage {
   readonly name: string;
   readonly role?: string;
+  /** The key of the duty the Stage names, such as implements. */
+  readonly duty?: string;
 }
 
-type AgentStartingStage = StartingStage & { readonly role: string };
+type AgentStartingStage = StartingStage & ({ readonly role: string } | { readonly duty: string });
 
 /** The Office-wide limit on started Tasks until the user changes it in Settings (spec §9). */
 export const DEFAULT_OFFICE_WIDE_LIMIT = 3;
@@ -101,7 +107,9 @@ export interface StartReasons {
 
 /** The Agent Stage whose Role's person the Task counts against, as the click-through counts. */
 export function firstAgentStage(stages: readonly StartingStage[]): AgentStartingStage | undefined {
-  return stages.find((stage): stage is AgentStartingStage => stage.role !== undefined);
+  return stages.find(
+    (stage): stage is AgentStartingStage => stage.role !== undefined || stage.duty !== undefined,
+  );
 }
 
 /** Every reason the Task can't start now, the refusals apart from the waits. */
@@ -169,6 +177,11 @@ export function startTask(
   );
 }
 
+/** The duty's label, such as Implements. */
+function dutyLabel(duty: string): string {
+  return DUTIES.find(({ key }) => key === duty)?.label ?? duty;
+}
+
 function refusedFor(reason: string): StartReasons {
   return { refusals: [reason], waits: [] };
 }
@@ -178,6 +191,11 @@ function personRefusals(
   person: StartingPerson | undefined,
 ): string[] {
   if (!stage) return [];
+  if (stage.role === undefined && stage.duty !== undefined) {
+    return [
+      `Nobody holds ${dutyLabel(stage.duty)}, which ${stage.name} needs: choose who holds it in Settings › Duties first.`,
+    ];
+  }
   if (!person) {
     return [`Nobody fills the Role ${stage.name} needs: hire a person for it on People first.`];
   }
@@ -236,7 +254,7 @@ function taskLimitWaits(
   person: StartingPerson | undefined,
   others: readonly Task[],
 ): Wait[] {
-  if (!stage || !person || person.taskLimit === "none") return [];
+  if (stage?.role === undefined || !person || person.taskLimit === "none") return [];
   const theirs = others.filter((other) => other.personRole === stage.role).length;
   if (theirs < person.taskLimit) return [];
   return [

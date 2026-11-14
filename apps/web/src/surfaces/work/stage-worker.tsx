@@ -1,7 +1,7 @@
 import type { Role, TaskStage } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { NamedTag, PersonTag } from "../../shell/person-tag.tsx";
-import { stageWorkerWords } from "./stage-rail-words.ts";
+import { stageWorkerWords, workingRoleKey } from "./stage-rail-words.ts";
 
 /** Who works a Stage, as the rail and the Stage history draw them. */
 export function StageWorker({
@@ -26,6 +26,7 @@ export function StageWorker({
       </span>
     );
   }
-  const role = roles?.find(({ key }) => key === stage.role);
+  const roleKey = workingRoleKey(taskStage);
+  const role = roles?.find(({ key }) => key === roleKey);
   return role ? <PersonTag roleKey={role.key} name={role.card.name} /> : words;
 }

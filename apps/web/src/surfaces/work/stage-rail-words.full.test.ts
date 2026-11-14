@@ -15,6 +15,7 @@ import {
   stageWaitsForRunEnvironment,
   stageWorkerWords,
   stoppedAtCurrentStage,
+  workingRoleKey,
   type LoopBack,
 } from "./stage-rail-words.ts";
 import { stageNamesOf, STAGE_STATE_WORDS } from "./stage-words.ts";
@@ -187,6 +188,19 @@ describe("stageWorkerWords", () => {
 
   it("names the user at a Gate", () => {
     expect(stageWorkerWords(aTaskStage(review), [dana])).toBe("You");
+  });
+
+  it("names who works a duty's Stage, or that nobody holds the duty", () => {
+    const implementing: Stage = { ...implement, role: undefined, duty: "implements" };
+    expect(stageWorkerWords(aTaskStage(implementing, { workedBy: "developer" }), [dana])).toBe(
+      "Dana",
+    );
+    expect(stageWorkerWords(aTaskStage(implementing, { workedBy: null }), [dana])).toBe(
+      "Implements · nobody holds it",
+    );
+    expect(stageWorkerWords(aTaskStage(implementing), [dana])).toBe("Implements");
+    expect(workingRoleKey(aTaskStage(implementing, { workedBy: "developer" }))).toBe("developer");
+    expect(workingRoleKey(aTaskStage(implement))).toBe("developer");
   });
 
   it("names a Script Stage's command once it ran it", () => {

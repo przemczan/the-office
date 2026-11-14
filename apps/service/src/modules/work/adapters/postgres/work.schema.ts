@@ -105,6 +105,11 @@ export const initiatives = pgTable(
     pausedAt: timestamp("paused_at", { withTimezone: true }),
     /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
     planningThreadId: uuid("planning_thread_id"),
+    /** Every planning Thread it opened, oldest first (Initiative.planningThreadIds). */
+    planningThreadIds: uuid("planning_thread_ids")
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
     /** Who asked for its latest planning Thread; null until it is first planned. */
     planningStartedBy: jsonb("planning_started_by").$type<AuthorRow>(),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),

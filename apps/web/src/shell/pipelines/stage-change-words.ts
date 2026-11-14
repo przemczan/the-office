@@ -1,4 +1,5 @@
 import type {
+  Duty,
   ProjectCommand,
   ProjectPipeline,
   Role,
@@ -30,6 +31,7 @@ export function counted(count: number, one: string, many: string): string {
 export const STAGE_FIELD_LABELS: Readonly<Record<StageField, string>> = {
   name: "Name",
   role: "Who works it",
+  duty: "Duty",
   command: "Project command",
   publishTarget: "Publishes",
   afterConflict: "After a conflict",
@@ -120,6 +122,8 @@ export function stageChangeLine(stageChange: StageChange): string {
 /** What a field reads, given the Stage and the Stages its loop may name. */
 export interface FieldWordsContext {
   readonly roles: readonly Role[];
+  /** Who holds each duty, for a Stage naming one; its label alone while they aren't read. */
+  readonly duties?: readonly Duty[];
   readonly stages: readonly Stage[];
   readonly commands?: readonly Pick<ProjectCommand, "key" | "name">[];
 }
@@ -129,7 +133,10 @@ export function fieldWords(stage: Stage, field: StageField, context: FieldWordsC
   const value = (stage as Partial<Record<StageField, unknown>>)[field];
   switch (field) {
     case "role":
-      return stage.kind === "agent" ? whoWorks(stage, context.roles) : "None";
+    case "duty":
+      return stage.kind === "agent"
+        ? whoWorks(stage, context.roles, undefined, context.duties)
+        : "None";
     case "command":
       return stage.kind === "script" ? commandWords(stage.command, context.commands) : "None";
     case "publishTarget":

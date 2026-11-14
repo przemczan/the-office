@@ -34,11 +34,16 @@ import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-to
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import {
   ALLOW_CHANGES_ADVICE,
+  CALLING_RULE,
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
+  chatOfficeTools,
   CONSULT_TOOL,
+  CREATE_INITIATIVE_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
   HANDOVER_REQUEST,
+  POST_LINK_CARD_TOOL,
+  READ_REPOSITORY_TOOL,
 } from "../domain/session-instructions.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -64,6 +69,7 @@ import { Briefs } from "./briefs.js";
 import { Consultations } from "./consultations.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { DutiesStandIn, dutiesProvider } from "./duties.fixtures.js";
 import { DecisionService } from "./decision-service.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
@@ -108,6 +114,9 @@ import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postg
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import type { UserRef } from "../domain/user.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
+
+/** Who holds each duty: their default Roles, until a test moves one. */
+let duties: DutiesStandIn;
 
 const outputMasks = new ProjectOutputMasksForTests();
 
@@ -192,6 +201,7 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-threads-"));
   versions = [PLANNER];
   roleKey = `role-${randomUUID()}`;
+  duties = new DutiesStandIn();
   cascade = new EngineCascadeStandIn();
   cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" });
   mcpServersOnStart = NO_MCP_SERVERS;
@@ -286,6 +296,7 @@ async function startOn(
       ThreadService,
       Briefs,
       sessionMemoryProvider(),
+      dutiesProvider(duties),
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
@@ -332,7 +343,7 @@ async function startOn(
   }
   // As the Work module sets up its Tasks' Threads.
   app.get(TaskThreadSetups).provide({
-    planner: "planner",
+    planner: () => Promise.resolve("planner"),
     readyForPersonsThread: () => Promise.resolve(undefined),
     planningThreadElsewhere: () => Promise.resolve(undefined),
     setUp: ({ taskId, firstSession }) =>
@@ -1613,7 +1624,9 @@ async function plannerAnswering(): Promise<Thread> {
   return runner.send(opened.id, PLAN_IT, ANN_LEE);
 }
 
-/** The log without context lines and tool activity, whose order around a tool's own lines varies. */
+/**
+ * The log without context lines and tool activity, whose order around a tool's own lines varies.
+ */
 function exchanges(log: readonly Message[]): MessageDraft[] {
   return drafts(log).filter(({ kind }) => kind !== "context" && kind !== "tool-activity");
 }
@@ -2818,6 +2831,127 @@ function switchLines(log: readonly Message[]): MessageDraft[] {
   return drafts(log).filter(({ kind }) => kind === "context" || kind === "changes-allowed");
 }
 
+/**
+ * Registers a stand-in for each of `names` no module here registers, as Work, People and Pipelines
+ * do.
+ */
+function standInsFor(names: readonly string[]): void {
+  const registry = app.get(OfficeToolRegistry);
+  for (const name of names) {
+    try {
+      registry.named([name]);
+    } catch {
+      registry.register({
+        name,
+        description: `Stands in for ${name}.`,
+        input: z.object({}),
+        run: () => Promise.resolve({ text: "Nothing.", isError: false }),
+      });
+    }
+  }
+}
+
+/** The Office tools of the Thread's `index`th session, by name. */
+function toolsOf(index: number): readonly string[] | undefined {
+  return engine.sessions[index]?.options.officeTools.map(({ name }) => name);
+}
+
+describe("a chat's built-in tools, by the duties its person holds", () => {
+  it("give a Role under another key holding Default person to talk to the drafting and pointing tools, and no calling", async () => {
+    duties.set("default-person-to-talk-to", roleKey);
+    await startWith(started(...aTurn("brief", "Hello.")));
+    standInsFor(chatOfficeTools(["default-person-to-talk-to"]));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Who handles deploys?", ANN_LEE);
+    await answered(thread.id, 3);
+
+    expect(toolsOf(0)).toEqual(chatOfficeTools(["default-person-to-talk-to"]));
+    expect(toolsOf(0)).toContain(POST_LINK_CARD_TOOL);
+    expect(toolsOf(0)).not.toContain(CONSULT_TOOL);
+    expect(toolsOf(0)).not.toContain("create_task");
+    expect(engine.sessions[0]?.options.instructions).not.toContain(CALLING_RULE);
+    expect((await threads.read(thread.id)).session?.heldDuties).toEqual([
+      "default-person-to-talk-to",
+    ]);
+  });
+
+  it("give a Role under another key holding Onboards Projects the Project tools and reading a repository", async () => {
+    duties.set("onboards-projects", roleKey);
+    await startWith(started(...aTurn("brief", "Hello.")));
+    standInsFor(chatOfficeTools(["onboards-projects"]));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Onboard this repository.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    expect(toolsOf(0)).toEqual(chatOfficeTools(["onboards-projects"]));
+    expect(toolsOf(0)).toEqual(
+      expect.arrayContaining(["propose_project_commands", READ_REPOSITORY_TOOL, CONSULT_TOOL]),
+    );
+    expect(engine.sessions[0]?.options.instructions).toContain(
+      `Read it only with ${READ_REPOSITORY_TOOL}`,
+    );
+  });
+
+  it("give a Role under another key holding Shapes Initiatives creating an Initiative", async () => {
+    duties.set("shapes-initiatives", roleKey);
+    await startWith(started(...aTurn("brief", "Hello.")));
+    standInsFor([CREATE_INITIATIVE_TOOL]);
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Let's start an Initiative.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CREATE_INITIATIVE_TOOL, CONSULT_TOOL]);
+  });
+
+  it("give a Role holding no duty the plain chat's tools, its key the default holder's or not", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
+    expect(engine.sessions[0]?.options.instructions).toContain(CALLING_RULE);
+    expect((await threads.read(thread.id)).session?.heldDuties).toEqual([]);
+  });
+
+  it("start the person fresh with their new tools once a duty moves to them, never resuming the session", async () => {
+    await startWith(started(...aTurn("brief", "Hello."), { step: "end" }), [
+      { step: "start", brief: { id: "brief", text: "" } },
+      ...aTurn("brief", "I onboard Projects now."),
+    ]);
+    standInsFor(chatOfficeTools(["onboards-projects"]));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    duties.set("onboards-projects", roleKey);
+    await runner.send(thread.id, "Onboard this repository.", ANN_LEE);
+    const log = await answered(thread.id, 6);
+
+    expect(engine.sessions).toHaveLength(2);
+    expect(engine.sessions[0]?.received.at(-1)).toEqual({ step: "end" });
+    expect(toolsOf(0)).not.toContain(READ_REPOSITORY_TOOL);
+    expect(toolsOf(1)).toEqual(chatOfficeTools(["onboards-projects"]));
+    expect(drafts(log).filter(({ kind }) => kind === "context")).toEqual([
+      contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
+      contextLine({
+        move: "fresh",
+        reason: "duties-changed",
+        contextTokens: 32_000,
+        briefTokens: expect.any(Number),
+      }),
+    ]);
+    expect((await threads.read(thread.id)).session).toMatchObject({
+      id: engine.sessions[1]?.id,
+      heldDuties: ["onboards-projects"],
+    });
+  });
+});
+
 describe("the Caretaker's chat", () => {
   beforeEach(() => {
     roleKey = CARETAKER;
@@ -2840,6 +2974,20 @@ describe("the Caretaker's chat", () => {
       "This Thread only reads until the user allows changes",
     );
     await expect(app.get(AllowChanges).inThread(thread)).resolves.toBe(false);
+  });
+
+  it("keeps only the chat's own tools and the set-up while standing in for an unheld Default person to talk to", async () => {
+    duties.set("default-person-to-talk-to", undefined);
+    await startWith(started(...aTurn("brief", "Nobody greets the user yet.")));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Who do I talk to?", ANN_LEE);
+    await answered(thread.id, 3);
+
+    expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL, PROPOSE_OFFICE_SETUP_TOOL]);
+    expect(toolsOf(0)).not.toContain(POST_LINK_CARD_TOOL);
+    expect(engine.sessions[0]?.options.instructions).toContain(CALLING_RULE);
+    expect((await threads.read(thread.id)).session?.heldDuties).toEqual([]);
   });
 
   it("starts the next session on the workstation once changes are allowed, and only reads again once switched off", async () => {
@@ -2938,7 +3086,9 @@ function withoutHolds(options: object | undefined): object {
 describe("a Thread's Sub-agents and Processes", () => {
   const SECRET = "s3cret";
 
-  /** A foreground Sub-agent that reports back, then a Process left running across the turn's end. */
+  /**
+   * A foreground Sub-agent that reports back, then a Process left running across the turn's end.
+   */
   const aSubAgentAndAProcess: Step[] = [
     background({
       kind: "sub-agent-started",

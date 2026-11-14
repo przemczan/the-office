@@ -84,7 +84,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 41 | [The Graphite and Paper palettes, the densities, skill usage counts](41-palettes-densities-skill-usage-counts.md) | Settings | done |
 | 55 | [An Agent's Attachment is replaced, not repeated, until the next Gate](55-attachments-replaced-within-a-gate.md) | Work and the Task page | done |
 | 55 | [Users and signing in](55-users-and-signing-in.md) | All | in progress |
-| 56 | [Duties: built-in jobs any hired Role can hold](56-duties.md) | People | in progress |
+| 56 | [Duties: built-in jobs any hired Role can hold](56-duties.md) | People | done |
 | 42 | Email and chat-app Notifications | Now | todo |
 | 43 | Talking to The Office from chat apps | Conversations | todo |
 | 44 | Stack-specific checks for installs and publishing | Projects | todo |

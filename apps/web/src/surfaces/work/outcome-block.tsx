@@ -11,8 +11,8 @@ import { useFold } from "./record-folds.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 
 /**
- * What must be true once the Initiative is done. The user edits it while it is being shaped;
- * once it is active, it changes only by the CTO's Proposal (spec §2.1 Defaults).
+ * What must be true once the Initiative is done. The user edits it while it is being shaped; once
+ * it is active, it changes only by a Proposal of whoever shapes Initiatives (spec §2.1 Defaults).
  */
 export function OutcomeBlock({ initiative }: { readonly initiative: Initiative }): ReactNode {
   const fold = useFold({ kind: "initiative", id: initiative.id }, "outcome", true);

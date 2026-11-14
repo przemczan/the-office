@@ -1109,8 +1109,12 @@ test(
     await page.getByRole("button", { name: "Add a skill" }).click();
     const dialog = page.getByRole("dialog");
 
-    await expect(dialog).toContainText("Installing needs someone with the Devops Role");
-    await expect(dialog.getByRole("link", { name: "Hire one on the People page." })).toBeVisible();
+    await expect(dialog).toContainText(
+      "Installing needs whoever holds Onboards and repairs Projects",
+    );
+    await expect(
+      dialog.getByRole("link", { name: "hire someone on the People page." }),
+    ).toBeVisible();
     await expect(dialog.getByRole("button", { name: /to install it$/ })).toHaveCount(0);
   },
 );
@@ -1594,6 +1598,15 @@ function editorRow(page: Page, name: string) {
   });
 }
 
+/** Chooses the person whose Role title is `title` among the people in the Stage's "Who works it". */
+async function chooseWhoWorks(row: Locator, title: string): Promise<void> {
+  const list = await openPipelinePicker(row, "Who works it");
+  await list
+    .getByRole("group", { name: "People", exact: true })
+    .getByRole("option", { name: new RegExp(` · ${title}$`) })
+    .click();
+}
+
 test(
   "Edit for this Task swaps the Pipeline and sets every field of its Stages, which hold after a reload",
   { tag: "@full" },
@@ -1648,7 +1661,7 @@ test(
 
       const implement = editorRow(page, "Implement");
       await implement.getByRole("button", { name: "Edit Implement" }).click();
-      await implement.getByLabel("Who works it").selectOption("reviewer");
+      await chooseWhoWorks(implement, "Reviewer");
       // A Stage has no model of its own: the engine cascade gives it.
       await expect(implement.getByLabel("Model")).toHaveCount(0);
       await implement.getByLabel("Effort").selectOption("high");
@@ -1690,7 +1703,7 @@ test(
       for (let move = 0; move < 3; move += 1) {
         await added.getByRole("button", { name: "Move New Stage up" }).click();
       }
-      await added.getByLabel("Who works it").selectOption("reviewer");
+      await chooseWhoWorks(added, "Reviewer");
       await added.getByLabel("Session").selectOption("continue");
       await added.getByText("Optional: skipped when the Definition of Done is already met").click();
       await added.getByLabel("Name", { exact: true }).fill("Review");
@@ -1736,6 +1749,8 @@ test(
       expect(own.stages?.map(({ stage }) => stage)).toEqual([
         {
           ...libraryImplement,
+          // Choosing the Reviewer clears the Implements duty the library's Stage names.
+          duty: undefined,
           role: "reviewer",
           effort: "high",
           budget: 120_000,
@@ -1857,7 +1872,7 @@ test(
       await pickPipeline(page.getByRole("dialog"), "Pipeline", "Quick fix");
       const implement = editorRow(page, "Implement");
       await implement.getByRole("button", { name: "Edit Implement" }).click();
-      await implement.getByLabel("Who works it").selectOption("reviewer");
+      await chooseWhoWorks(implement, "Reviewer");
       await expect(
         implement.getByLabel(`MCP tool ${server}/environment-variable`).locator("option"),
       ).toHaveText(["Role default: Consult Devops", "Ask me", "Never"]);

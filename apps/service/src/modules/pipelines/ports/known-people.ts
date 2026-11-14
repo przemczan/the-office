@@ -36,6 +36,12 @@ export abstract class KnownPeople {
   abstract holderOf(duty: string): Promise<string | undefined>;
 
   /**
+   * The key of the Role the duty keyed `duty` names, hired or not, so a flag can name a holder let
+   * go; undefined while it is set to none.
+   */
+  abstract dutyRoleKey(duty: string): Promise<string | undefined>;
+
+  /**
    * Why a Stage's narrowing of the Role's profile can't stand, in the UI's words; empty when it
    * can, or when nobody fills the Role.
    */

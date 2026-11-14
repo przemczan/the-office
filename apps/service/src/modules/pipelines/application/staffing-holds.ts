@@ -2,7 +2,7 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { DecisionAnswered } from "../../conversations/index.js";
-import { RoleLetGo } from "../../people/index.js";
+import { DutyHolderChanged, RoleLetGo } from "../../people/index.js";
 import {
   STAFFING_OPTIONS,
   staffingDecision,
@@ -17,7 +17,8 @@ const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "pau
 
 /**
  * Holds a Task whose next Stages nobody can work (spec §2.2), such as after the person who filled
- * their Role was let go: the Task is paused behind a Decision, and resumes or drops by the answer.
+ * their Role was let go, or the duty they name was left unheld: the Task is paused behind a
+ * Decision, and resumes or drops by the answer.
  * The Pipeline keeps the Stage as it was, so a Role filled again gets the Task back where it stopped.
  */
 @Injectable()
@@ -35,6 +36,8 @@ export class StaffingHolds implements OnModuleInit {
 
   onModuleInit(): void {
     this.events.subscribe(RoleLetGo, () => this.holdTasksLackingPeople());
+    // A Stage naming the duty goes to its new holder, or to nobody (spec §2.3).
+    this.events.subscribe(DutyHolderChanged, () => this.holdTasksLackingPeople());
     this.events.subscribe(DecisionAnswered, async ({ decision }) => {
       const { answer } = decision;
       if (!answer) return;

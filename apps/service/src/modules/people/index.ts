@@ -36,7 +36,7 @@ export {
   type HardSwitchKey,
   type HardSwitchValue,
 } from "./domain/hard-switches.js";
-export { CARETAKER, CTO, DEVOPS, OFFICE_MANAGER } from "./domain/known-roles.js";
+export { CARETAKER } from "./domain/known-roles.js";
 export {
   mcpToolSettingsFor,
   narrowedMcpToolSetting,

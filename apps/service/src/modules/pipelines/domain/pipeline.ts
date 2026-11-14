@@ -1,4 +1,10 @@
-import type { AgentStage, OnFailure, Stage } from "./stage.js";
+import {
+  sameWorkerNamed,
+  stageWorker,
+  type AgentStage,
+  type OnFailure,
+  type Stage,
+} from "./stage.js";
 
 /** A named, ordered set of Stages that a Task's work follows: a straight list, never a branch. */
 export interface Pipeline {
@@ -74,7 +80,7 @@ function nameProblems(stage: Stage, earlierStages: readonly Stage[]): string[] {
 function kindProblems(stage: Stage): string[] {
   const problems: string[] = [];
   if (stage.kind === "agent") {
-    if (stage.role.trim() === "") problems.push("choose who works it.");
+    problems.push(...workerProblems(stage));
     if (!isPositiveWholeNumber(stage.budget)) {
       problems.push("its budget must be a whole number of tokens above 0.");
     }
@@ -88,10 +94,16 @@ function kindProblems(stage: Stage): string[] {
   return problems;
 }
 
+function workerProblems(stage: AgentStage): string[] {
+  const namesRole = stage.role !== undefined && stage.role.trim() !== "";
+  if (namesRole && stage.duty !== undefined) return ["name a Role or a duty, not both."];
+  return stageWorker(stage) ? [] : ["choose who works it."];
+}
+
 function continueProblems(stage: AgentStage, previous: Stage | undefined): string[] {
   return stage.session === "continue" &&
-    (previous?.kind !== "agent" || previous.role !== stage.role)
-    ? ["continuing a session needs the same Role in the Stage before."]
+    (previous?.kind !== "agent" || !sameWorkerNamed(previous, stage))
+    ? ["continuing a session needs the same Role or the same duty in the Stage before."]
     : [];
 }
 

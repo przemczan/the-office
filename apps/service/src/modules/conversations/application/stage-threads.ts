@@ -6,6 +6,7 @@ import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { EngineSessions, type EngineId, type EngineModel } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
+  Duties,
   EngineCascade,
   mcpToolSettingsFor,
   RoleCards,
@@ -32,6 +33,7 @@ import {
   sessionOfficeTools,
   stageCapabilityOfficeTools,
   workThreadInstructions,
+  type HeldDuties,
   type SessionPerson,
 } from "../domain/session-instructions.js";
 import {
@@ -217,12 +219,13 @@ export class StageThreads {
     private readonly officeInstructions: OfficeInstructions,
     private readonly masks: ProjectOutputMasks,
     private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
+    private readonly duties: Duties,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
   async open(request: StageThreadRequest): Promise<StageThread> {
     const now = new Date();
-    const { current, applying, previous, brief, move } = await this.decide(request, now);
+    const { current, held, applying, previous, brief, move } = await this.decide(request, now);
     const undelivered =
       previous && request.carryMessagesSince
         ? undeliveredSince(await this.repository.messages(previous.id), request.carryMessagesSince)
@@ -235,14 +238,14 @@ export class StageThreads {
           : undefined,
     };
     if (move.move === "resume" && previous?.session) {
-      return this.continueIn(previous, carrying, applying, move, brief, now);
+      return this.continueIn(previous, carrying, { held, applying, move, brief }, now);
     }
     if (previous?.session) await this.forget(previous.session.id);
     // The user's choice is spent on this run, as a message spends it (`beginStageWork`).
     if (previous?.override) {
       await this.change(previous.id, (latest) => chooseOverride(latest, undefined, now));
     }
-    return this.startIn(carrying, current, applying, move, brief, now);
+    return this.startIn(carrying, current, { held, applying, move, brief }, now);
   }
 
   /**
@@ -273,14 +276,14 @@ export class StageThreads {
   private async decide(
     request: StageSessionRequest,
     now: Date,
-  ): Promise<{
-    readonly current: SessionRole;
-    readonly applying: EngineModel;
-    readonly previous: Thread | undefined;
-    readonly brief: Brief;
-    readonly move: ContextDecision;
-  }> {
+  ): Promise<
+    StageSessionDecision & {
+      readonly current: SessionRole;
+      readonly previous: Thread | undefined;
+    }
+  > {
     const current = await this.roleCards.forNewSession(request.roleKey);
+    const held = await this.duties.heldBy(request.roleKey);
     const applying = await this.engineCascade.of(request.roleKey, request.projectId);
     const previous = await this.previousThread(request.previousThreadId);
     const brief = taskThreadBrief({
@@ -303,10 +306,11 @@ export class StageThreads {
         override: request.declared === undefined ? previous?.override : undefined,
         declared: request.declared,
         briefTokens: brief.tokens,
+        heldDuties: held,
       },
       await this.settings.current(),
     );
-    return { current, applying, previous, brief, move };
+    return { current, held, applying, previous, brief, move };
   }
 
   /**
@@ -383,9 +387,7 @@ export class StageThreads {
   private async continueIn(
     previous: Thread,
     { request, carried }: Carrying,
-    applying: EngineModel,
-    move: ContextDecision,
-    brief: Brief,
+    { held, applying, move, brief }: StageSessionDecision,
     now: Date,
   ): Promise<StageThread> {
     const session = previous.session;
@@ -411,7 +413,16 @@ export class StageThreads {
       leftOut = servers.leftOut;
       return this.engine.resume(
         session.id,
-        this.settingsOf(previous.id, session, request, person, applying, skills, servers.servers),
+        this.settingsOf(
+          previous.id,
+          session,
+          request,
+          person,
+          held,
+          applying,
+          skills,
+          servers.servers,
+        ),
       );
     });
     const work = { id: randomUUID(), text: request.work };
@@ -438,9 +449,7 @@ export class StageThreads {
   private async startIn(
     { request, carried }: Carrying,
     role: SessionRole,
-    applying: EngineModel,
-    move: ContextDecision,
-    brief: Brief,
+    { held, applying, move, brief }: StageSessionDecision,
     now: Date,
   ): Promise<StageThread> {
     const { thread, event } = startStageThread(
@@ -463,6 +472,7 @@ export class StageThreads {
         officeInstructionsVersion: office.version,
         engineId: applying.engineId,
         changesAllowed: false,
+        heldDuties: held,
       },
       now,
     );
@@ -500,6 +510,7 @@ export class StageThreads {
           session,
           request,
           { ...role, officeInstructions: office.text },
+          held,
           applying,
           skills,
           servers.servers,
@@ -560,6 +571,7 @@ export class StageThreads {
       mcpToolDefault,
       officeInstructions,
     }: SessionRole & Pick<SessionPerson, "officeInstructions">,
+    held: HeldDuties,
     applying: EngineModel,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
     mcpServers: SessionSettings["mcpServers"],
@@ -587,7 +599,7 @@ export class StageThreads {
       officeTools: sessionOfficeTools(
         [
           ...request.session.officeTools,
-          ...roleOfficeTools(roleKey),
+          ...roleOfficeTools(held),
           ...stageCapabilityOfficeTools(card.capabilities),
         ],
         card,
@@ -847,6 +859,17 @@ interface StageWorkPlace {
   readonly mask: TextMask;
   readonly taskId: string;
   readonly began: Date;
+}
+
+/**
+ * What a Stage's session starts or continues with: the duties the person holds, which decide their
+ * built-in tools, the engine, the Context policy's move and the Brief.
+ */
+interface StageSessionDecision {
+  readonly held: HeldDuties;
+  readonly applying: EngineModel;
+  readonly move: ContextDecision;
+  readonly brief: Brief;
 }
 
 /** A Stage's request with its work carrying the user's undelivered messages, if any. */

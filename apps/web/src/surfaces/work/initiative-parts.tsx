@@ -6,14 +6,14 @@ import { INITIATIVE_STATE_TONES, initiativeStateName } from "./initiative-words.
 
 export function InitiativeStateBadge({
   initiative,
-  cto,
+  shaper,
 }: {
   readonly initiative: Initiative;
-  readonly cto: Role | undefined;
+  readonly shaper: Role | undefined;
 }): ReactNode {
   return (
     <Badge tone={INITIATIVE_STATE_TONES[initiative.state]} dot>
-      {initiativeStateName(initiative.state, cto?.card.name)}
+      {initiativeStateName(initiative.state, shaper?.card.name)}
     </Badge>
   );
 }

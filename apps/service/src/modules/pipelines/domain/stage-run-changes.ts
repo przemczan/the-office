@@ -13,6 +13,8 @@ export interface NewStageRun {
   readonly stageKey: string;
   readonly carriedFailure: CarriedFailure | undefined;
   readonly sentBack: SentBack | undefined;
+  /** The Role working an Agent Stage's run; left out for another kind's. */
+  readonly roleKey?: string;
 }
 
 /** The Task's next Stage run, after `earlierRuns` of them, with the event that announces it. */
@@ -23,6 +25,7 @@ export function startStageRun(
 ): { readonly run: StageRun; readonly event: StageRunStarted } {
   const run: StageRun = {
     ...given,
+    roleKey: given.roleKey,
     number: earlierRuns + 1,
     threadId: undefined,
     session: undefined,

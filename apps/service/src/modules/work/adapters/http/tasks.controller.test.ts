@@ -21,6 +21,7 @@ import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskStageEdits } from "../../application/task-stage-edits.js";
 import { TaskService } from "../../application/task-service.js";
+import type { Author } from "../../domain/author.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
 import { makeAPlanOpening } from "../../domain/planning.js";
 import { TaskPaused } from "../../domain/task-events.js";
@@ -65,6 +66,9 @@ import {
 
 let officeData: string;
 let work: WorkApplication;
+/** Whoever holds Plans in these tests. */
+const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
+
 /** The test's own Project: every test file shares the database. */
 let projectId: string;
 
@@ -240,9 +244,21 @@ async function proposedWithMakeAPlan(autoMode: boolean): Promise<Task> {
   const task = await create();
   await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, { autoMode });
   const planning = work.app.get(PlanningService);
-  await planning.proposePlan(task.id, { plan: "Keep the requested path through the sign-in." });
-  await planning.proposeDefinitionOfDone(task.id, ["Signing in returns to the page asked for."]);
-  await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
+  await planning.proposePlan(
+    task.id,
+    { plan: "Keep the requested path through the sign-in." },
+    THE_PLANNER,
+  );
+  await planning.proposeDefinitionOfDone(
+    task.id,
+    ["Signing in returns to the page asked for."],
+    THE_PLANNER,
+  );
+  await planning.proposePipeline(
+    task.id,
+    { pipelineId: "full", reason: "It changes code." },
+    THE_PLANNER,
+  );
   return task;
 }
 
@@ -568,7 +584,11 @@ describe("Start", () => {
     await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: own.id });
     await library.breakProjectPipelinesOf(base);
     const planning = work.app.get(PlanningService);
-    await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
+    await planning.proposePipeline(
+      task.id,
+      { pipelineId: "full", reason: "It changes code." },
+      THE_PLANNER,
+    );
 
     const kept = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: own.id });
     const chosen = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, {

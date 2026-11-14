@@ -15,11 +15,13 @@ import {
 } from "@the-office/contracts";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { NOBODY_PLANS } from "../../domain/duties.js";
 import {
   ANOTHER_SIGNED_IN_FOR_TESTS,
   signedInAs,
 } from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { makeAPlanOpening } from "../../domain/planning.js";
+import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { FireAlarmService } from "../../application/fire-alarm-service.js";
@@ -373,9 +375,7 @@ describe("POST /api/tasks/:id/planning", () => {
     const noWorktree = await plan(task.id);
 
     expect(noPlanner.status).toBe(422);
-    expect(workRefusalSchema.parse(await noPlanner.json()).reasons).toEqual([
-      "Hire a Planner on People first: planning is a conversation with them.",
-    ]);
+    expect(workRefusalSchema.parse(await noPlanner.json()).reasons).toEqual([NOBODY_PLANS]);
     expect(workRefusalSchema.parse(await noWorktree.json()).reasons).toEqual([
       "The Task's worktree couldn't be made: git fetch failed",
     ]);
@@ -415,6 +415,63 @@ describe("POST /api/tasks/:id/planning", () => {
     expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
       "A Task in Dropped can't move to Planning.",
     ]);
+  });
+});
+
+describe("planning with whoever holds Plans", () => {
+  it("opens Make a plan's and Plan with…'s Threads with the lead holding Plans", async () => {
+    work.app.get(KnownPeopleForTests).hold("plans", "lead");
+    const [madeAPlan, plannedWith] = [await create(), await create()];
+
+    await sendJson(work, "POST", `/tasks/${madeAPlan.id}/make-a-plan`, { autoMode: false });
+    await plan(plannedWith.id);
+
+    const threads = work.app.get(TaskThreadsForTests);
+    expect(threads.started).toEqual([
+      expect.objectContaining({ taskId: madeAPlan.id, roleKey: "lead" }),
+    ]);
+    expect(threads.opened).toEqual([
+      expect.objectContaining({ taskId: plannedWith.id, roleKey: "lead" }),
+    ]);
+  });
+
+  it("records the lead's write on a Ready Task as the lead's move back to Planning", async () => {
+    work.app.get(KnownPeopleForTests).hold("plans", "lead");
+    const byTheLead = { kind: "person", roleKey: "lead" } as const;
+    const task = await readyTask();
+
+    await work.app
+      .get(PlanningService)
+      .proposePlan(task.id, { plan: "The lead's Plan." }, byTheLead);
+
+    expect((await readTask(task.id)).state).toBe("planning");
+    const changes = await work.app.get(TaskRepository).stateChangesOf(task.id);
+    expect(changes.at(-1)).toMatchObject({ from: "ready", to: "planning", by: byTheLead });
+  });
+
+  it("refuses Make a plan and Plan with… while nobody holds Plans, though writing the Plan by hand works", async () => {
+    work.app.get(KnownPeopleForTests).hold("plans", undefined);
+    const task = await create();
+
+    const madeAPlan = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, {
+      autoMode: false,
+    });
+    const plannedWith = await plan(task.id);
+
+    for (const refused of [madeAPlan, plannedWith]) {
+      expect(refused.status).toBe(422);
+      const [reason] = workRefusalSchema.parse(await refused.json()).reasons;
+      expect(reason).toContain("Settings › Duties");
+    }
+    expect((await readTask(task.id)).state).toBe("backlog");
+    const threads = work.app.get(TaskThreadsForTests);
+    expect([...threads.started, ...threads.opened]).toEqual([]);
+    const byHand = await readyFromBacklog();
+    expect(await readTask(byHand.id)).toMatchObject({
+      state: "ready",
+      plan: "Mine.",
+      planConfirmed: true,
+    });
   });
 });
 
@@ -1066,7 +1123,8 @@ describe("The queue", () => {
     const first = await deskTaken();
     const second = await ownReadyTask();
     await requestStart(second.id);
-    const reason = "Nobody fills the Role Implement needs: hire a person for it on People first.";
+    const reason =
+      "Nobody holds Implements, which Implement needs: choose who holds it in Settings › Duties first.";
     work.app.get(KnownPeopleForTests).vacant.add("developer");
     work.published.length = 0;
 
@@ -1208,7 +1266,7 @@ describe("The queue", () => {
       expect((await readTask(task.id)).state).toBe("in-progress");
     });
 
-    it("refuses a blocked Task with a vacant Role, every reason listed, queuing nothing", async () => {
+    it("refuses a blocked Task whose duty nobody holds, every reason listed, queuing nothing", async () => {
       const blocker = await ownBlocker("Queue schema");
       const task = await ownReadyTask();
       await addDependency(task.id, blocker.id);
@@ -1217,7 +1275,7 @@ describe("The queue", () => {
       const refused = await requestStart(task.id);
 
       expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
-        "Nobody fills the Role Implement needs: hire a person for it on People first.",
+        "Nobody holds Implements, which Implement needs: choose who holds it in Settings › Duties first.",
         blockedBy("Queue schema"),
       ]);
       expect(await ownQueue()).toEqual([]);

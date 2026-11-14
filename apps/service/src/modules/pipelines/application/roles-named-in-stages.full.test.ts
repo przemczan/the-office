@@ -43,7 +43,11 @@ describe("RolesNamedInStages", () => {
 
     const named = await pipelines.app.get(PipelineRoleSources, { strict: false }).rolesNamed();
 
-    expect(named.everywhere).toEqual(await pipelines.app.get(PipelineLibrary).rolesNamed());
+    const library = await pipelines.app.get(PipelineLibrary).rolesNamed();
+    expect(named.everywhere).toEqual(library.roles);
+    // The built-ins name duties, which People weighs by their holders.
+    expect(named.duties?.everywhere).toEqual(library.duties);
+    expect(library.duties.has("implements")).toBe(true);
     expect(named.byProject.get(open)).toEqual(new Set(["designer"]));
     expect(named.byProject.has(dropped)).toBe(false);
   });

@@ -241,7 +241,7 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
         expect.objectContaining({
           commandLine: "",
           outcome: "could-not-run",
-          output: `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask Devops.`,
+          output: `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask whoever onboards Projects.`,
           movedFiles: undefined,
         }),
       ]);
@@ -258,7 +258,8 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
       expect.objectContaining({
         commandLine: "",
         outcome: "could-not-run",
-        output: "The Project has no e2e command. Add it on the Project's page, or ask Devops.",
+        output:
+          "The Project has no e2e command. Add it on the Project's page, or ask whoever onboards Projects.",
         movedFiles: undefined,
       }),
     ]);

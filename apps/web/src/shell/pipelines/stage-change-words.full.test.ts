@@ -1,4 +1,4 @@
-import type { BuiltStage, ProjectPipeline, Role, Stage } from "@the-office/contracts";
+import type { BuiltStage, Duty, ProjectPipeline, Role, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import type { StageChangeRow } from "./stage-change-edits.ts";
 import {
@@ -98,6 +98,19 @@ describe("a Change's fields beside the base Pipeline's values", () => {
     expect(fieldWords(IMPLEMENT, "onFailure", context)).toBe("Ask you");
   });
 
+  it("reads a duty with its holder", () => {
+    const duties = [
+      { key: "reviews", holder: { roleKey: "developer", name: "Jim", title: "Developer" } },
+    ] as Duty[];
+    const reviewing: Stage = { ...IMPLEMENT, role: undefined, duty: "reviews" };
+    const context = { roles: ROLES, duties, stages: [reviewing] };
+    expect(fieldWords(reviewing, "duty", context)).toBe("Reviews · Jim");
+    expect(fieldWords(reviewing, "duty", { roles: ROLES, stages: [reviewing] })).toBe(
+      "Reviews · nobody yet",
+    );
+    expect(fieldWords(IMPLEMENT, "duty", context)).toBe("Jim");
+  });
+
   it("names a Stage change in a line", () => {
     expect(
       stageChangeLine({
@@ -107,6 +120,14 @@ describe("a Change's fields beside the base Pipeline's values", () => {
         fields: { brief: "x", budget: 1000 },
       }),
     ).toBe("Changes Implement: Brief, Budget");
+    expect(
+      stageChangeLine({
+        kind: "change",
+        stageKey: "implement",
+        stageName: "Implement",
+        fields: { duty: "implements" },
+      }),
+    ).toBe("Changes Implement: Duty");
   });
 });
 

@@ -58,10 +58,10 @@ const SETTING_DRAFTED =
   "The Proposal is in this chat as a card; nothing changes until the user applies it. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 /**
- * The Office tools the Office Manager drafts Proposals with (spec §2.2): a Role (a new one, from
- * scratch or from a preset, or a change to one) and an Office setting, each a Proposal the user
- * applies with a click, and the read of the Office instructions a draft of them starts from; and
- * the Caretaker's set-up of The Office, its hires and duties in one Proposal. They
+ * The Office tools the Default person to talk to drafts Proposals with (spec §2.2): a Role (a new
+ * one, from scratch or from a preset, or a change to one) and an Office setting, each a Proposal
+ * the user applies with a click, and the read of the Office instructions a draft of them starts
+ * from; and the Caretaker's set-up of The Office, its hires and duties in one Proposal. They
  * change nothing themselves, so they sit behind no Hard switch: the user's click is the approval.
  * They return at once, with the owner's reasons when it would refuse.
  */

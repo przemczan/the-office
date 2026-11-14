@@ -1,3 +1,4 @@
+import type { DutyKey } from "../../people/index.js";
 import type { AgentStage, Gate, ScriptStage } from "./stage.js";
 
 /** The Developer's `implement` Stage, unless `fields` say otherwise. */
@@ -13,6 +14,12 @@ export function agentStage(fields: Partial<AgentStage> = {}): AgentStage {
     optional: false,
     ...fields,
   };
+}
+
+/** The `implement` Agent Stage naming `duty` rather than a Role, unless `fields` say otherwise. */
+export function dutyStage(duty: DutyKey, fields: Partial<AgentStage> = {}): AgentStage {
+  const { role: _role, ...stage } = agentStage(fields);
+  return { ...stage, duty, ...fields };
 }
 
 /** The `tests` Stage running the Project's test command, unless `fields` say otherwise. */

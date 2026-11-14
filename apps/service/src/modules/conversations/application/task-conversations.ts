@@ -31,11 +31,12 @@ export class TaskConversations {
 
   async tabs(taskId: string): Promise<readonly ConversationTab[]> {
     const threads = await this.repository.listIn({ kind: "task", taskId });
-    const [decisions, elsewhere] = await Promise.all([
+    const [planner, decisions, elsewhere] = await Promise.all([
+      this.taskThreads.planner(),
       this.consultedDecisions(threads),
       this.taskThreads.planningThreadElsewhere(taskId),
     ]);
-    return conversationTabs(this.taskThreads.planner(), threads, decisions, elsewhere);
+    return conversationTabs(planner, threads, decisions, elsewhere);
   }
 
   /** Who is working on each Task right now, in one read for the whole board. */

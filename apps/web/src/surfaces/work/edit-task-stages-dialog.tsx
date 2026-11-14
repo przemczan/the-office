@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  Duty,
   Initiative,
   Project,
   Role,
@@ -10,7 +11,7 @@ import type {
 } from "@the-office/contracts";
 import { Alert, Button, Dialog } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { roleCardQueries, roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { editTaskStages, pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, setPipeline } from "../../api/work.ts";
@@ -46,13 +47,21 @@ export function EditTaskStagesDialog({
   const taskStages = useQuery(pipelineQueries.taskStages(task.id));
   const library = useProjectPipelineChoices(task.projectId);
   const roles = useQuery(roleQueries.list());
+  const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
   const project = useQuery(projectQueries.one(task.projectId));
   const initiative = useQuery({
     ...initiativeQueries.one(task.initiativeId ?? ""),
     enabled: task.initiativeId !== null,
   });
-  if (!taskStages.data || !library || !roles.data || !options.data || !project.data) {
+  if (
+    !taskStages.data ||
+    !library ||
+    !roles.data ||
+    !duties.data ||
+    !options.data ||
+    !project.data
+  ) {
     return null;
   }
   const groups = taskPipelineChoices(project.data, library.officeWide, library.projectPipelines);
@@ -66,6 +75,7 @@ export function EditTaskStagesDialog({
       taskStages={taskStages.data}
       groups={groups}
       roles={roles.data}
+      duties={duties.data}
       options={options.data}
       project={project.data}
       initiative={initiative.data}
@@ -141,6 +151,7 @@ function EditTaskStagesForm({
   taskStages,
   groups,
   roles,
+  duties,
   options,
   project,
   initiative,
@@ -151,6 +162,7 @@ function EditTaskStagesForm({
   /** What the Task may follow instead: its Project's own Pipelines, then the office-wide ones. */
   readonly groups: readonly PipelineChoiceGroup[];
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   readonly project: Project;
   /** The Initiative the Task is part of, if it is. */
@@ -253,6 +265,7 @@ function EditTaskStagesForm({
           lockedNotes={lockedNotes}
           problems={problems}
           roles={roles}
+          duties={duties}
           options={options}
           commands={commandsOf(task, project, initiative)}
         />

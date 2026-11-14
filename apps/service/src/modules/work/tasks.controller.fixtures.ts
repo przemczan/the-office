@@ -18,6 +18,7 @@ import { EventBus } from "../../platform/events/event-bus.js";
 import { Schedule } from "../../platform/schedule/schedule.js";
 import { PlanningService } from "./application/planning-service.js";
 import { TaskService } from "./application/task-service.js";
+import type { Author } from "./domain/author.js";
 import type { TaskChange } from "./domain/task-changes.js";
 import { STARTED_STATES } from "./domain/task-states.js";
 import type { Task as StoredTask } from "./domain/task.js";
@@ -32,6 +33,9 @@ import {
 import { WorkSettings } from "./ports/work-settings.js";
 import { sendJson, type WorkApplication } from "./work-application.fixtures.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
+
+/** Whoever holds Plans in these tests. */
+const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
 
 /** What a test of the Tasks routes is on now: its app and its own Project. */
 export interface TasksHttpTest {
@@ -125,9 +129,21 @@ export function tasksHttp(current: () => TasksHttpTest) {
     const task = await create();
     await plan(task.id);
     const planning = work().app.get(PlanningService);
-    await planning.proposePlan(task.id, { plan: "Keep the requested path through the sign-in." });
-    await planning.proposeDefinitionOfDone(task.id, ["Signing in returns to the page asked for."]);
-    await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
+    await planning.proposePlan(
+      task.id,
+      { plan: "Keep the requested path through the sign-in." },
+      THE_PLANNER,
+    );
+    await planning.proposeDefinitionOfDone(
+      task.id,
+      ["Signing in returns to the page asked for."],
+      THE_PLANNER,
+    );
+    await planning.proposePipeline(
+      task.id,
+      { pipelineId: "full", reason: "It changes code." },
+      THE_PLANNER,
+    );
     return task;
   }
 

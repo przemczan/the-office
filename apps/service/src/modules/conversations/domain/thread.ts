@@ -3,7 +3,8 @@ import type { Decision } from "./decision.js";
 
 /**
  * Where a conversation lives (spec §2.4): a person's chat, a Task's conversation, or an
- * Initiative's, where the CTO shapes it with the user and the Planner plans its Tasks.
+ * Initiative's, where whoever shapes Initiatives shapes it with the user and whoever plans
+ * plans its Tasks.
  */
 export type Home =
   | { readonly kind: "chat"; readonly roleKey: string }
@@ -80,6 +81,12 @@ export interface ThreadSession {
    * switching them on or off never resumes it, as it runs under other rules.
    */
   readonly changesAllowed: boolean;
+  /**
+   * The duties its person held as it started, which decided their built-in tools and instructions:
+   * once they hold others it is never resumed, so a moved duty reaches them from their next
+   * session (spec §2.2). Undefined on sessions saved before duties, which it never decided.
+   */
+  readonly heldDuties?: readonly string[];
 }
 
 /** What the user chose for the Thread's next message: "Start fresh" or "Continue anyway". */

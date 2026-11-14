@@ -17,7 +17,7 @@ import { ProjectBlock } from "../project-block.tsx";
  */
 export function DefaultPipelineBlock({ project }: { readonly project: Project }): ReactNode {
   const library = useProjectPipelineChoices(project.id);
-  const planner = usePlanner()?.card.name ?? "the Planner";
+  const planner = usePlanner()?.card.name ?? "whoever holds Plans";
   const groups = library
     ? defaultPipelineChoices(project, library.officeWide, library.projectPipelines)
     : [];

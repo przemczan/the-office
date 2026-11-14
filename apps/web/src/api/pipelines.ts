@@ -31,16 +31,7 @@ import {
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
-
-/**
- * The office-wide Pipelines and the Project Pipelines alike: a save of an office-wide one changes
- * the Project Pipelines built from it, and both publish the same events.
- */
-const PIPELINES_KEY: readonly unknown[] = ["pipelines"];
-
-const PROJECT_PIPELINES_KEY: readonly unknown[] = [...PIPELINES_KEY, "project-pipelines"];
-
-const STAGE_TEMPLATES_KEY: readonly unknown[] = ["stage-templates"];
+import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pipeline-keys.ts";
 
 /** Apart from the Task's key, or the walk's and Work's events would read a run's whole output again. */
 const COMMAND_OUTPUTS_KEY: readonly unknown[] = ["stage-run-command-outputs"];

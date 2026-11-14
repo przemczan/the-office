@@ -155,7 +155,7 @@ describe("PUT /api/tasks/:id/stages", () => {
       },
       {
         stageIndex: 1,
-        text: "Stage 2 · implement: continuing a session needs the same Role in the Stage before.",
+        text: "Stage 2 · implement: continuing a session needs the same Role or the same duty in the Stage before.",
       },
     ]);
   });

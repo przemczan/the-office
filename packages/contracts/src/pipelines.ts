@@ -247,6 +247,11 @@ export const taskStageSchema = z.object({
   tokens: tokenTotalsSchema,
   /** Set when its latest run failed and its loop went back to an earlier Stage. */
   wentBack: wentBackSchema.nullable(),
+  /**
+   * Only for an Agent Stage naming a duty: the key of the Role working it, its latest run's once
+   * started, the duty's holder before; null while nobody holds it.
+   */
+  workedBy: z.string().nullable().optional(),
   /** Oldest first. */
   runs: z.array(stageRunSchema),
 });

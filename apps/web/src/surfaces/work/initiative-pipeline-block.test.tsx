@@ -375,7 +375,7 @@ describe("the Initiative's Pipelines card", () => {
     expect(website.textContent).toContain("None · publishes Task by Task");
     expect(website.textContent).not.toContain("initiative/usage-exports");
     expect(page.textContent).toContain(
-      "Another Pipeline for a Project comes by the CTO's Proposal.",
+      "Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.",
     );
 
     document.body.replaceChildren();

@@ -3,7 +3,6 @@ import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
   CARETAKER,
-  OFFICE_MANAGER,
   Duties,
   EngineCascade,
   PeopleModule,
@@ -21,6 +20,7 @@ import {
   PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_ROLE_TOOL,
+  caretakerChatOfficeTools,
   chatOfficeTools,
 } from "../domain/session-instructions.js";
 import { randomUUID } from "node:crypto";
@@ -100,6 +100,9 @@ import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-rep
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
+
+/** The Role holding Default person to talk to by default. */
+const OFFICE_MANAGER = "office-manager";
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -263,6 +266,12 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   settings = app.get(ContextPolicySettingsService);
   officeInstructions = app.get(OfficeInstructions);
   duties = app.get(Duties);
+  // The Office Manager stands in through RoleCards, hired nowhere People's own Duties reads, so
+  // they hold Default person to talk to as the preset does by default.
+  const heldBy = duties.heldBy.bind(duties);
+  vi.spyOn(duties, "heldBy").mockImplementation((key) =>
+    key === OFFICE_MANAGER ? Promise.resolve(["default-person-to-talk-to"]) : heldBy(key),
+  );
 }
 
 /** Work's applier of the Office-wide limit, which Work registers as it starts (a module apart). */
@@ -304,7 +313,10 @@ function chatToolStandIns(): FactoryProvider {
     provide: "chat tool stand-ins",
     inject: [OfficeToolRegistry],
     useFactory: (registry: OfficeToolRegistry) => {
-      const names = new Set([...chatOfficeTools(OFFICE_MANAGER), ...chatOfficeTools(CARETAKER)]);
+      const names = new Set([
+        ...chatOfficeTools(["default-person-to-talk-to"]),
+        ...caretakerChatOfficeTools([]),
+      ]);
       for (const name of names) {
         if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) || TOOLS_OF_PEOPLE.includes(name)) {
           continue;

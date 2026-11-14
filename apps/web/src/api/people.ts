@@ -28,6 +28,7 @@ import {
   sendToApi,
 } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { staleStaffing } from "./pipeline-keys.ts";
 
 const ROLES = ["roles"] as const;
 /** Apart from ROLES, since Projects and the Office default change it too. */
@@ -156,18 +157,19 @@ export function clearMemory(key: string): Promise<void> {
 
 /**
  * Every People event makes the Roles stale; ["roles"] also covers each Role's own queries. A hire
- * also changes who the other Roles' Consult values reach and who holds each duty.
+ * also changes who the other Roles' Consult values reach and who holds each duty; that and a duty
+ * change also change who works the Stages naming it, and what the Stage editor flags.
  */
 export const roleEventInvalidations: Readonly<
   Record<RoleWebEvent["type"], EventInvalidations[string]>
 > = {
-  "role.hired": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS],
-  "role.let-go": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS],
-  "role.hired-back": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS],
+  "role.hired": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
+  "role.let-go": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
+  "role.hired-back": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
   "role.card-changed": () => [ROLES, ENGINE_CASCADE],
   "role.avatar-changed": () => [ROLES],
   "role.memory-changed": () => [ROLES],
-  "duty.changed": () => [DUTIES, ROLES, ROLE_CARD_OPTIONS],
+  "duty.changed": () => [DUTIES, ROLES, ROLE_CARD_OPTIONS, ...staleStaffing()],
 };
 
 function rolePath(key: string): `/${string}` {

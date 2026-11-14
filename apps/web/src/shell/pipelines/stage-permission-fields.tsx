@@ -59,7 +59,7 @@ export function StagePermissionFields({
   const profile = role.card.permissionProfile;
   const permissions = stage.permissions ?? {};
   const roleTitles = roleTitlesOf(options);
-  const consultable = options.knownRoles.map(({ key }) => key).filter((key) => key !== stage.role);
+  const consultable = options.knownRoles.map(({ key }) => key).filter((key) => key !== role.key);
   const tools = role.mcpServers.flatMap((server) =>
     server.tools.map((tool) => ({ key: mcpToolKey(server.name, tool.name), card: tool.setting })),
   );

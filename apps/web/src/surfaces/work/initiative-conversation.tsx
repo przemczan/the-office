@@ -9,7 +9,7 @@ import {
 import { Button, Icon, Tabs } from "@the-office/ui";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
-import { roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { startShapingThread } from "../../api/work.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { threadTitle } from "../../shell/conversation/thread-title.ts";
@@ -19,7 +19,8 @@ import { roleName } from "../../shell/person-name.ts";
 import { PersonTag } from "../../shell/person-tag.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { CTO_ROLE_KEY } from "../../shell/work/use-cto.ts";
+import { DutyUnheldNote } from "../../shell/duty-unheld-note.tsx";
+import { dutyHolderOf } from "../../shell/use-duty-holder.ts";
 import {
   CloseConversation,
   ConversationPanel,
@@ -34,7 +35,7 @@ import {
   initiativeTabLine,
   initiativeTabs,
   threadAsked,
-  unfilledRoleName,
+  unfilledTabName,
   type InitiativeTab,
 } from "./initiative-conversation-tabs.ts";
 import { InitiativeTabFoot } from "./initiative-tab-foot.tsx";
@@ -54,9 +55,9 @@ const NO_LINES: ReadonlyMap<string, ToLine> = new Map();
 const NOBODY_DRAFTING: ReadonlySet<string> = new Set();
 
 /**
- * The Initiative's conversation: a tab per person, the CTO's and the Planner's always, each holding
- * that person's Threads on the Initiative. The address names a person's tab by their key or by one
- * of their Threads, which then unfolds and takes the To line.
+ * The Initiative's conversation: a tab per person, those of whoever holds Shapes Initiatives and
+ * Plans always, each holding that person's Threads on the Initiative. The address names a person's
+ * tab by their key or by one of their Threads, which then unfolds and takes the To line.
  */
 export function InitiativeConversation({
   initiative,
@@ -65,13 +66,24 @@ export function InitiativeConversation({
 }): ReactNode {
   const { initiativeThread } = useSearch({ from: "/work/initiatives/$initiativeId" });
   const threads = useQuery(threadQueries.onInitiative(initiative.id)).data;
+  const duties = useQuery(dutyQueries.list()).data;
+  const roles = useQuery(roleQueries.list()).data;
   useDrawerFollowsAddress(
     threads
       ? { threadId: initiativeThread, decisionId: undefined, decisionIsOpen: false }
       : undefined,
   );
   const [held, setHeld] = useState<string>();
-  const tabs = threads && initiativeTabs(threads);
+  // The pinned tabs wait for who holds their duties, so a holder's tab never stands in for a
+  // moment.
+  const tabs =
+    threads &&
+    duties &&
+    roles &&
+    initiativeTabs(threads, {
+      shaper: dutyHolderOf("shapes-initiatives", duties, roles),
+      planner: dutyHolderOf("plans", duties, roles),
+    });
   const askedTab = tabs && initiativeTabAsked(initiativeThread, tabs);
   const opening = held ?? (tabs && firstInitiativeTab(tabs));
   // The first tab is chosen once: what happens later must not change the tab under the reader.
@@ -154,11 +166,12 @@ function PeopleTabs({
     tab.threads.reduce((sum, { id }) => sum + unseenOf(id), 0);
   const landedIn = threads.findLast(({ id }) => unseenOf(id) > 0)?.id;
 
-  const nameOf = (key: string): string =>
-    roles?.find((role) => role.key === key)?.card.name ?? unfilledRoleName(key);
-  const role = roles?.find((each) => each.key === roleKey);
-  const shownName = nameOf(roleKey);
-  const shownLabel = role ? roleName(roleKey, roles) : unfilledRoleName(roleKey);
+  const roleOf = (tab: InitiativeTab): Role | undefined =>
+    tab.unheldLabel === undefined ? roles?.find((each) => each.key === tab.roleKey) : undefined;
+  const nameOf = (tab: InitiativeTab): string => roleOf(tab)?.card.name ?? unfilledTabName(tab);
+  const role = roleOf(shown);
+  const shownName = nameOf(shown);
+  const shownLabel = role ? roleName(roleKey, roles) : unfilledTabName(shown);
   const pick = (picked: string): void => {
     void navigate({
       search: (search) => ({ ...search, initiativeThread: picked }),
@@ -193,7 +206,7 @@ function PeopleTabs({
         <Tabs
           tabs={tabs.map((tab) => ({
             value: tab.roleKey,
-            label: <TabLabel roleKey={tab.roleKey} name={nameOf(tab.roleKey)} />,
+            label: <TabLabel roleKey={tab.roleKey} name={nameOf(tab)} />,
             count: unseenIn(tab) > 0 ? unseenIn(tab) : undefined,
           }))}
           value={roleKey}
@@ -204,7 +217,7 @@ function PeopleTabs({
       <header className="timeline-head">
         <div className="timeline-head-title">
           <h3>{shownLabel}</h3>
-          <p>{initiativeTabLine(roleKey)}</p>
+          <p>{initiativeTabLine(shown)}</p>
         </div>
         <DetailsSwitch />
       </header>
@@ -229,7 +242,7 @@ function PeopleTabs({
               ) : (
                 <NoThreadYet
                   initiative={initiative}
-                  roleKey={roleKey}
+                  tab={shown}
                   hired={hired}
                   ended={readOnlyReason !== undefined}
                 />
@@ -288,21 +301,24 @@ function TabThreads({
   return children;
 }
 
-/** A tab with no Thread: the CTO's offers to start shaping; the Planner's starts from the head. */
+/**
+ * A tab with no Thread: the shaper's offers to start shaping; the planner's starts from the head; a
+ * duty's while nobody holds it points to Settings › Duties.
+ */
 function NoThreadYet({
   initiative,
-  roleKey,
+  tab,
   hired,
   ended,
 }: {
   readonly initiative: Initiative;
-  readonly roleKey: string;
+  readonly tab: InitiativeTab;
   /** Whoever fills the Role; undefined while nobody does. */
   readonly hired: Role | undefined;
   readonly ended: boolean;
 }): ReactNode {
   const words = emptyInitiativeTabWords({
-    roleKey,
+    tab,
     personName: hired?.card.name,
     initiativeName: initiative.name,
     ended,
@@ -310,8 +326,11 @@ function NoThreadYet({
   return (
     <EmptyCard>
       {words}
-      {roleKey === CTO_ROLE_KEY && !ended && hired && (
-        <StartShaping initiative={initiative} cto={hired} />
+      {tab.duties.includes("shapes-initiatives") && !ended && hired && (
+        <StartShaping initiative={initiative} shaper={hired} />
+      )}
+      {tab.unheldLabel !== undefined && !ended && tab.duties[0] && (
+        <DutyUnheldNote duty={tab.duties[0]} />
       )}
     </EmptyCard>
   );
@@ -319,10 +338,10 @@ function NoThreadYet({
 
 function StartShaping({
   initiative,
-  cto,
+  shaper,
 }: {
   readonly initiative: Initiative;
-  readonly cto: Role;
+  readonly shaper: Role;
 }): ReactNode {
   const showToast = useToast();
   const starting = useMutation({
@@ -337,7 +356,7 @@ function StartShaping({
         loading={starting.isPending}
         onClick={() => starting.mutate()}
       >
-        Shape it with {cto.card.name}
+        Shape it with {shaper.card.name}
       </Button>
     </div>
   );

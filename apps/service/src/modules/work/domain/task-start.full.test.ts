@@ -207,3 +207,41 @@ describe("startReasons", () => {
     );
   });
 });
+
+describe("a first Agent Stage naming a duty", () => {
+  /** Implements, held by the Developer, as Start's conditions give it once its holder is read. */
+  const heldByTheDeveloper: StartConditions = {
+    ...conditions,
+    stages: [{ name: "Implement", duty: "implements", role: "developer" }, { name: "Tests" }],
+  };
+  const unheld: StartConditions = {
+    ...conditions,
+    stages: [{ name: "Implement", duty: "implements" }, { name: "Tests" }],
+    person: undefined,
+  };
+
+  it("starts counted against the holder's Role", () => {
+    const { task } = startTask(ready, heldByTheDeveloper, held([]), ANN_LEE);
+
+    expect(task.personRole).toBe("developer");
+  });
+
+  it("refuses while nobody holds the duty, naming it and Settings › Duties", () => {
+    expect(startReasons(ready, unheld, held([]))).toEqual(
+      refused(
+        "Nobody holds Implements, which Implement needs: choose who holds it in Settings › Duties first.",
+      ),
+    );
+  });
+
+  it("waits while the holder is at the Task limit", () => {
+    const others = [
+      started("a", { personRole: "developer" }),
+      started("b", { personRole: "developer" }),
+    ];
+
+    expect(startReasons(ready, heldByTheDeveloper, held(others))).toEqual(
+      waiting("Ada is at the Task limit (2)."),
+    );
+  });
+});

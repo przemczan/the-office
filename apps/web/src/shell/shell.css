@@ -1460,3 +1460,9 @@ a.person-tag:hover .person-tag-name {
     animation: none;
   }
 }
+
+.duty-unheld-note {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}

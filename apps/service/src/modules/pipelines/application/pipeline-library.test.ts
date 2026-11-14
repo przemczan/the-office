@@ -53,15 +53,12 @@ describe("PipelineLibrary", () => {
     await expect(library.has("nightly")).resolves.toBe(false);
   });
 
-  it("names each Role its Agent Stages name once", async () => {
-    const builtInRoles = builtInPipelines.flatMap((pipeline) =>
-      pipeline.stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])),
-    );
-
+  it("names each duty its Agent Stages name once, apart from the Roles", async () => {
     const named = await library.rolesNamed();
 
-    expect(builtInRoles.length).toBeGreaterThan(0);
-    expect([...named]).toEqual(expect.arrayContaining(builtInRoles));
+    // Other test files add Pipelines naming Roles to the shared database.
+    expect([...named.duties]).toEqual(expect.arrayContaining(["implements", "onboards-projects"]));
+    expect(named.roles).not.toContain("implements");
   });
 
   it("lists a Pipeline added later after the built-ins, and reads it as saved until removed", async () => {

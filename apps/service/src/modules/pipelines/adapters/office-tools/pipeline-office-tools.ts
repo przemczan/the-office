@@ -21,6 +21,7 @@ import {
   type ProjectPipelineBreak,
 } from "../../application/pipeline-library-editor.js";
 import { PipelineLibrary } from "../../application/pipeline-library.js";
+import { RoleFillings } from "../../application/role-fillings.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
 import { StageHistory } from "../../application/stage-history.js";
 import { StageProjectCommands } from "../../application/stage-project-commands.js";
@@ -28,7 +29,9 @@ import { StageRunEnvironmentDefinitions } from "../../application/stage-run-envi
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf } from "../../domain/agent-command.js";
 import type { BuiltProjectPipeline } from "../../domain/project-pipeline.js";
+import { agentStageWorkers, type Stage } from "../../domain/stage.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
+import { dutyLabel, fillingKey } from "../../domain/stage-staffing.js";
 import { STAGE_HISTORY_READ_LIMIT } from "../../domain/stage-history-words.js";
 import { ProjectDefaults, type ProjectDefault } from "../../ports/project-defaults.js";
 import { ProposalDrafts, type ProjectPipelineFields } from "../../ports/proposal-drafts.js";
@@ -67,6 +70,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     private readonly projectCommands: StageProjectCommands,
     private readonly stageHistory: StageHistory,
     private readonly runEnvironmentDefinitions: StageRunEnvironmentDefinitions,
+    private readonly roleFillings: RoleFillings,
   ) {}
 
   onModuleInit(): void {
@@ -173,7 +177,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
       description:
-        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages, in the shape propose_library_pipeline takes them; then the Project Pipelines, each with its id, Project, name, description, base Pipeline (an office-wide one, by id and name), Stage changes, built Stages, and Broken with its reasons (empty when it isn't), in the shape propose_project_pipeline takes them. Give a Project to list only its Project Pipelines.",
+        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages, in the shape propose_library_pipeline takes them; then the Project Pipelines, each with its id, Project, name, description, base Pipeline (an office-wide one, by id and name), Stage changes, built Stages, and Broken with its reasons (empty when it isn't), in the shape propose_project_pipeline takes them; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines.",
       input: z.object({
         project: z
           .string()
@@ -196,6 +200,10 @@ export class PipelineOfficeTools implements OnModuleInit {
         const listed = {
           officeWidePipelines: officeWide.map(toPipelineResponse),
           projectPipelines: projectPipelines.map((built) => listedProjectPipeline(built, projects)),
+          duties: await this.dutyWords([
+            ...officeWide.flatMap(({ stages }) => stages),
+            ...projectPipelines.flatMap(({ stages }) => stages),
+          ]),
         };
         return { text: JSON.stringify(listed, null, 2), isError: false };
       },
@@ -316,17 +324,34 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_STAGE_TEMPLATES_TOOL,
       description:
-        "Lists the Stage templates: each template's id and Stage, as JSON in the shape propose_stage_template takes it.",
+        "Lists the Stage templates as JSON: each template's id and Stage, in the shape propose_stage_template takes it; then, for each duty a Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts.",
       input: z.object({}),
-      run: async () => ({
-        text: JSON.stringify(
-          (await this.stageTemplates.list()).map(toStageTemplateResponse),
-          null,
-          2,
-        ),
-        isError: false,
-      }),
+      run: async () => {
+        const templates = await this.stageTemplates.list();
+        const listed = {
+          templates: templates.map(toStageTemplateResponse),
+          duties: await this.dutyWords(templates.map(({ stage }) => stage)),
+        };
+        return { text: JSON.stringify(listed, null, 2), isError: false };
+      },
     });
+  }
+
+  /**
+   * Who holds each duty `stages` name, by its key, such as "Implements (Ada · Developer)": a Stage
+   * naming a duty runs as its holder when it starts (spec §2.3).
+   */
+  private async dutyWords(stages: readonly Stage[]): Promise<Record<string, string>> {
+    const fillings = await this.roleFillings.of(stages);
+    return Object.fromEntries(
+      [...agentStageWorkers(stages).duties].map((duty) => {
+        const filling = fillings.get(fillingKey({ duty }));
+        const holder = filling?.person
+          ? `${filling.person.name} · ${filling.title}`
+          : "nobody holds it";
+        return [duty, `${dutyLabel(duty)} (${holder})`];
+      }),
+    );
   }
 
   private registerProposeStageTemplate(): void {

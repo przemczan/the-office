@@ -113,7 +113,9 @@ export const OFFICE_SETTINGS = [
   "duties",
 ] as const satisfies readonly OfficeSetting[];
 
-/** A new value for an Office setting (`to`), and its value when the Proposal was drafted (`from`). */
+/**
+ * A new value for an Office setting (`to`), and its value when the Proposal was drafted (`from`).
+ */
 export type ProposedSettingChange<Setting extends OfficeSetting = OfficeSetting> = {
   readonly [Kind in Setting]: {
     readonly kind: Kind;
@@ -131,8 +133,8 @@ export type ProposedSettingValue = {
 }[OfficeSetting];
 
 /**
- * A change the CTO wants to an active Initiative (spec §2.1 Defaults), which Work applies under the
- * Initiative's hold, refusing it once the Initiative is done or dropped.
+ * A change whoever shapes Initiatives wants to an active Initiative (spec §2.1 Defaults), which
+ * Work applies under the Initiative's hold, refusing it once the Initiative is done or dropped.
  */
 export interface ProposedInitiativeChange {
   readonly kind: "initiative";
@@ -170,9 +172,9 @@ export type InitiativeEdit =
     };
 
 /**
- * Devops' change to a Project's install command, install inputs and commands (spec §2.3): each
- * field as the Project had it when drafted, and as proposed. Projects refuses to apply it once one
- * of them changed.
+ * A change, by whoever onboards Projects, to a Project's install command, install inputs and
+ * commands (spec §2.3): each field as the Project had it when drafted, and as proposed. Projects
+ * refuses to apply it once one of them changed.
  */
 export interface ProposedProjectCommands {
   readonly kind: "project-commands";
@@ -181,9 +183,9 @@ export interface ProposedProjectCommands {
 }
 
 /**
- * Devops' new Stages for a library Pipeline (spec §2.3), and its Stages when drafted (`from`);
- * Pipelines refuses to apply it once they changed. Conversations keeps the Stages as Pipelines
- * gave them, without reading them, since Pipelines calls Conversations.
+ * New Stages, by whoever onboards Projects, for a library Pipeline (spec §2.3), and its Stages when
+ * drafted (`from`); Pipelines refuses to apply it once they changed. Conversations keeps the Stages
+ * as Pipelines gave them, without reading them, since Pipelines calls Conversations.
  */
 export interface ProposedPipelineChange {
   readonly kind: "pipeline";
@@ -193,8 +195,9 @@ export interface ProposedPipelineChange {
 }
 
 /**
- * Devops' new Stage for a Stage template (spec §2.3), and its Stage when drafted (`from`);
- * Pipelines refuses to apply it once it changed. Kept unread, as a Pipeline's Stages are.
+ * A new Stage, by whoever onboards Projects, for a Stage template (spec §2.3), and its Stage when
+ * drafted (`from`); Pipelines refuses to apply it once it changed. Kept unread, as a Pipeline's
+ * Stages are.
  */
 export interface ProposedStageTemplateChange {
   readonly kind: "stage-template";
@@ -204,9 +207,10 @@ export interface ProposedStageTemplateChange {
 }
 
 /**
- * Devops' new Project Pipeline, or its change to one (spec §2.3): the fields as the Project Pipeline
- * had them when drafted (`from`, null for a new one), and as proposed (`to`). Pipelines refuses to
- * apply it once one of them changed; a Proposal never removes one or sets a Project's default.
+ * A new Project Pipeline by whoever onboards Projects, or their change to one (spec §2.3): the
+ * fields as the Project Pipeline had them when drafted (`from`, null for a new one), and as
+ * proposed (`to`). Pipelines refuses to apply it once one of them changed; a Proposal never removes
+ * one or sets a Project's default.
  */
 export interface ProposedProjectPipelineChange {
   readonly kind: "project-pipeline";
@@ -217,7 +221,9 @@ export interface ProposedProjectPipelineChange {
   readonly to: ProjectPipelineFields;
 }
 
-/** What a Proposal of a Project Pipeline gives it, its Stage changes kept unread as its Stages are. */
+/**
+ * What a Proposal of a Project Pipeline gives it, its Stage changes kept unread as its Stages are.
+ */
 export interface ProjectPipelineFields {
   readonly name: string;
   readonly description: string;
@@ -226,8 +232,8 @@ export interface ProjectPipelineFields {
 }
 
 /**
- * A Project Devops drafted to onboard (spec §2.1 Defaults): applying it adds the Project and its
- * Onboard Task, Ready on the Onboard Pipeline.
+ * A Project whoever onboards Projects drafted to onboard (spec §2.1 Defaults): applying it adds the
+ * Project and its Onboard Task, Ready on the Onboard Pipeline.
  */
 export interface ProposedProject {
   readonly kind: "project";
@@ -239,9 +245,10 @@ export interface ProposedProject {
 }
 
 /**
- * A skill Devops drafted to install from a Source (spec §2.6): the one in `folder` of `repository`
- * at its pinned version, as it was read when drafted. Applying fetches it into the library, off
- * until reviewed, refused once the name is taken or the Source's files changed.
+ * A skill whoever onboards Projects drafted to install from a Source (spec §2.6): the one in
+ * `folder` of `repository` at its pinned version, as it was read when drafted. Applying fetches it
+ * into the library, off until reviewed, refused once the name is taken or the Source's files
+ * changed.
  */
 export interface ProposedSkillInstall {
   readonly kind: "skill-install";
@@ -258,10 +265,10 @@ export interface ProposedSkillInstall {
 }
 
 /**
- * An installed skill's update Devops drafted with notes (spec §2.6): from the pinned version the
- * skill had (`from`) to its Source's newer one (`to`), with its files there as read when drafted.
- * Applying is its review: the skill is pinned at `to`, on or off as it was; refused once it moved
- * off `from` or the Source's files changed.
+ * An installed skill's update whoever onboards Projects drafted with notes (spec §2.6): from the
+ * pinned version the skill had (`from`) to its Source's newer one (`to`), with its files there as
+ * read when drafted. Applying is its review: the skill is pinned at `to`, on or off as it was;
+ * refused once it moved off `from` or the Source's files changed.
  */
 export interface ProposedSkillUpdate {
   readonly kind: "skill-update";
@@ -270,7 +277,7 @@ export interface ProposedSkillUpdate {
   readonly folder: string;
   readonly from: PinnedVersion;
   readonly to: PinnedVersion;
-  /** Devops' words on what the update changes. */
+  /** Its drafter's words on what the update changes. */
   readonly notes: string;
   /** Its files' paths at `to`, in its folder. */
   readonly files: readonly string[];
@@ -338,8 +345,8 @@ export type EditedHire =
   | { readonly kind: "hire-from-preset"; readonly name: string };
 
 /**
- * A change to the Role keyed `roleKey`, whose card is `card` now: the fields of `fields` that differ
- * from the card, each with the card's value as it was then.
+ * A change to the Role keyed `roleKey`, whose card is `card` now: the fields of `fields` that
+ * differ from the card, each with the card's value as it was then.
  */
 export function proposedRoleChange(
   roleKey: string,
@@ -357,7 +364,9 @@ function fieldsOf(source: RoleCardFields, fields: readonly (keyof RoleCard)[]): 
   return Object.fromEntries(fields.map((field) => [field, source[field]])) as RoleCardFields;
 }
 
-/** Every problem with what is proposed that its owner doesn't judge, in words the drafter acts on. */
+/**
+ * Every problem with what is proposed that its owner doesn't judge, in words the drafter acts on.
+ */
 export function proposedChangeProblems(change: ProposedChange): string[] {
   if (change.kind !== "change") return [];
   return Object.keys(change.to).length === 0

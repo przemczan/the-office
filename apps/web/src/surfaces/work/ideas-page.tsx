@@ -32,7 +32,7 @@ import { useSignedInUserId } from "../../shell/use-user-name.ts";
 import { EditIdeaDialog } from "../../shell/work/edit-idea-dialog.tsx";
 import { ShapeIdeaDialog } from "../../shell/work/shape-idea-dialog.tsx";
 import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
-import { useCto } from "../../shell/work/use-cto.ts";
+import { useShaper } from "../../shell/work/use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName, projectIdsOfIdea } from "../../shell/work/work-words.ts";
 import { useShaping, useShapingIntoInitiative } from "./use-shaping.ts";
@@ -160,13 +160,13 @@ function IdeaCard({
   const copyLink = useCopyRecordLink();
   const shaping = useShaping(idea);
   const planning = useIdeaPlanning(idea);
-  const cto = useCto();
+  const shaper = useShaper();
   const signedInUserId = useSignedInUserId();
   const shapingIntoInitiative = useShapingIntoInitiative(idea);
   const actions: Readonly<Record<IdeaAction, IdeaActionWords>> = {
     shape: { label: "Shape into a Task", icon: "list-checks", mutation: shaping },
     plan: {
-      label: `Plan as a Task with ${planner?.card.name ?? "the Planner"}`,
+      label: `Plan as a Task with ${planner?.card.name ?? "whoever holds Plans"}`,
       icon: "map",
       mutation: planning,
     },
@@ -260,7 +260,9 @@ function IdeaCard({
           loading={shapingIntoInitiative.isPending}
           onClick={() => shapingIntoInitiative.mutate()}
         >
-          {cto ? `Shape into an Initiative with ${cto.card.name}` : "Shape into an Initiative"}
+          {shaper
+            ? `Shape into an Initiative with ${shaper.card.name}`
+            : "Shape into an Initiative"}
         </Button>
       </div>
       {editing && <EditIdeaDialog idea={idea} onClose={() => setEditing(false)} />}

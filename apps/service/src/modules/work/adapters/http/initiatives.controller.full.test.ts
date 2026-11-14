@@ -15,10 +15,12 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { NOBODY_SHAPES_INITIATIVES } from "../../domain/duties.js";
 import { SHAPING_OPENING } from "../../domain/shaping.js";
 import { InitiativeStateChanged } from "../../domain/initiative-events.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { DroppedInitiativeTasks } from "../../application/dropped-initiative-tasks.js";
+import { InitiativeService } from "../../application/initiative-service.js";
 import { InitiativeRepository } from "../../ports/initiative-repository.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import {
@@ -93,13 +95,59 @@ describe("the shaping Thread", () => {
 
     expect(refused.status).toBe(422);
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
-      "Hire a CTO on People first: shaping is a conversation with them.",
+      NOBODY_SHAPES_INITIATIVES,
     ]);
     expect(started.status).toBe(200);
     expect(initiativeSchema.parse(await started.json()).id).toBe(initiative.id);
     expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
       { initiativeId: initiative.id, ...shaping },
     ]);
+  });
+
+  it("opens with whoever holds Shapes Initiatives, an architect, as an Idea is shaped or one is created", async () => {
+    work.app.get(KnownPeopleForTests).hold("shapes-initiatives", "architect");
+
+    const fromAnIdea = await shape(await capture());
+    const { initiative: created, shaping: opening } = await work.app
+      .get(InitiativeService)
+      .create({ name: `Audit trail ${randomUUID()}`, outcome: "Every change is kept." }, ANN_LEE);
+
+    expect(opening).toMatchObject({ shaper: { roleKey: "architect" }, opened: true });
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
+      { initiativeId: fromAnIdea.id, ...shaping, roleKey: "architect" },
+      expect.objectContaining({ initiativeId: created.id, roleKey: "architect" }),
+    ]);
+  });
+
+  it("lets the user start it with the architect holding Shapes Initiatives, though a CTO is hired too", async () => {
+    const people = work.app.get(KnownPeopleForTests);
+    people.hold("shapes-initiatives", undefined);
+    const initiative = await shape(await capture());
+    people.hold("shapes-initiatives", "architect");
+
+    const started = await sendJson(work, "POST", `/initiatives/${initiative.id}/shaping`);
+
+    expect(started.status).toBe(200);
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
+      { initiativeId: initiative.id, ...shaping, roleKey: "architect" },
+    ]);
+  });
+
+  it("isn't opened while nobody holds Shapes Initiatives, and Start shaping points to Settings › Duties", async () => {
+    work.app.get(KnownPeopleForTests).hold("shapes-initiatives", undefined);
+
+    const initiative = await shape(await capture());
+    const { shaping: opening } = await work.app
+      .get(InitiativeService)
+      .create({ name: `Audit trail ${randomUUID()}`, outcome: "Every change is kept." }, ANN_LEE);
+    const refused = await sendJson(work, "POST", `/initiatives/${initiative.id}/shaping`);
+
+    expect((await read(initiative)).state).toBe("shaping");
+    expect(opening).toEqual({ shaper: undefined, opened: false });
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([]);
+    expect(refused.status).toBe(422);
+    const [reason] = workRefusalSchema.parse(await refused.json()).reasons;
+    expect(reason).toContain("Settings › Duties");
   });
 
   it("leaves the Initiative shaped when its Thread can't open", async () => {

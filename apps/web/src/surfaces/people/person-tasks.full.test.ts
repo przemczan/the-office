@@ -1,4 +1,4 @@
-import type { Decision, Pipeline, Task, Thread } from "@the-office/contracts";
+import type { Decision, DutyKey, Pipeline, Stage, Task, Thread } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { inFilter, personTasks, WORK_FILTERS, type WorkFilter } from "./person-tasks.ts";
 
@@ -95,9 +95,11 @@ function aThreadOn(taskId: string, fields: Partial<Thread>): Thread {
   };
 }
 
+const NO_DUTIES: ReadonlySet<DutyKey> = new Set();
+
 describe("personTasks", () => {
   it("names the Stages the person's Role works", () => {
-    expect(personTasks("developer", [aTask({})], [FULL], [])).toEqual([
+    expect(personTasks("developer", [aTask({})], [FULL], [], NO_DUTIES)).toEqual([
       { task: aTask({}), part: "Implement · Review & fix" },
     ]);
   });
@@ -105,13 +107,13 @@ describe("personTasks", () => {
   it("leaves out an archived Task, and with it from every filter's count", () => {
     const archived = aTask({ state: "done", archivedAt: "2026-11-07T10:00:00.000Z" });
 
-    expect(personTasks("developer", [archived], [FULL], [])).toEqual([]);
+    expect(personTasks("developer", [archived], [FULL], [], NO_DUTIES)).toEqual([]);
   });
 
   it("lists a Task the person created, with no Stage of theirs", () => {
     const created = aTask({ createdBy: { kind: "person", roleKey: "planner" } });
 
-    expect(personTasks("planner", [created], [FULL], [])).toEqual([
+    expect(personTasks("planner", [created], [FULL], [], NO_DUTIES)).toEqual([
       { task: created, part: "Created it" },
     ]);
   });
@@ -124,13 +126,29 @@ describe("personTasks", () => {
       aThreadOn("another-task", { title: "Implement" }),
     ];
 
-    expect(personTasks("planner", [task], [FULL], threads)).toEqual([
+    expect(personTasks("planner", [task], [FULL], threads, NO_DUTIES)).toEqual([
       { task, part: "Created it · Planning" },
     ]);
   });
 
+  it("names the Stages naming a duty the person holds", () => {
+    const implementing = {
+      ...FULL,
+      stages: FULL.stages.map((stage): Stage => {
+        if (stage.kind !== "agent") return stage;
+        const { role: _developer, ...namingNobody } = stage;
+        return { ...namingNobody, duty: "implements" };
+      }),
+    };
+
+    expect(
+      personTasks("architect", [aTask({})], [implementing], [], new Set(["implements"])),
+    ).toEqual([{ task: aTask({}), part: "Implement · Review & fix" }]);
+    expect(personTasks("developer", [aTask({})], [implementing], [], NO_DUTIES)).toEqual([]);
+  });
+
   it("leaves out the Tasks the person has no part in", () => {
-    expect(personTasks("reviewer", [aTask({})], [FULL], [])).toEqual([]);
+    expect(personTasks("reviewer", [aTask({})], [FULL], [], NO_DUTIES)).toEqual([]);
   });
 });
 

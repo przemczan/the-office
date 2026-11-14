@@ -81,6 +81,7 @@ async function rendered(): Promise<HTMLElement> {
           <LibraryPipelineForm
             pipeline={FULL}
             roles={[]}
+            duties={[]}
             options={{} as RoleCardOptions}
             onDone={() => undefined}
           />

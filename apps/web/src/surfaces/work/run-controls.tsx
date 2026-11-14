@@ -1,5 +1,5 @@
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Role, Stage, Task, Thread } from "@the-office/contracts";
+import type { Role, Task, TaskStage, Thread } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
@@ -58,7 +58,7 @@ function ResumeButton({ task }: { readonly task: Task }): ReactNode {
   const words = resumeWords({
     latestRun: latest?.run,
     thread,
-    personName: personOf(latest?.taskStage.stage, roles),
+    personName: personOf(latest?.taskStage, roles),
     decisionOpen,
   });
   return (
@@ -83,8 +83,11 @@ function useStageThread(threadId: string | null): Thread | undefined {
   }).data;
 }
 
-function personOf(stage: Stage | undefined, roles: readonly Role[] | undefined): string {
-  const role = stage?.kind === "agent" ? roles?.find(({ key }) => key === stage.role) : undefined;
+/** Who works the Stage: the Role it names, or whoever works its duty (`workedBy`). */
+function personOf(taskStage: TaskStage | undefined, roles: readonly Role[] | undefined): string {
+  const stage = taskStage?.stage;
+  const roleKey = stage?.kind === "agent" ? (stage.role ?? taskStage?.workedBy) : undefined;
+  const role = roles?.find(({ key }) => key === roleKey);
   return role?.card.name ?? "the Agent";
 }
 
