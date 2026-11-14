@@ -113,7 +113,8 @@ export class OfficeRules {
     const { paths, workingFolder, readableFolders } = this.rules;
     const secret = this.secretRefusal(path);
     if (secret !== undefined || this.rules.workstation) return secret;
-    if (this.rules.readsEngineTranscripts && this.secrets.isEngineTranscript(path)) return undefined;
+    if (this.rules.readsEngineTranscripts && this.secrets.isEngineTranscript(path))
+      return undefined;
     const resolved = paths.resolve(workingFolder, path);
     return [workingFolder, ...readableFolders].some((folder) => paths.isWithin(resolved, folder))
       ? undefined

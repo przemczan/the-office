@@ -570,9 +570,7 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
   ];
 
   /** The data directory as a Bash command names it from the home folder. */
-  const dataFromHome = platform.dataDirectory
-    .slice(platform.home.length + 1)
-    .replaceAll("\\", "/");
+  const dataFromHome = platform.dataDirectory.slice(platform.home.length + 1).replaceAll("\\", "/");
   const engine = `${dataFromHome}/engines/claude-code`;
   const transcript = "projects/-work-shop/0b1c.jsonl";
 
