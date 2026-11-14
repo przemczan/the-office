@@ -81,6 +81,16 @@ export class TokensCounted extends DomainEvent {
   }
 }
 
+/** The person's running turn read the session's context again, before the turn's own reading. */
+export class ContextRead extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readAt: Date,
+  ) {
+    super(readAt);
+  }
+}
+
 /** The user chose "Start fresh" or "Continue anyway" for the next message, or went back to the policy. */
 export class ContextOverrideChosen extends DomainEvent {
   constructor(

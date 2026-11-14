@@ -234,6 +234,9 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     threadId: run.threadId ?? null,
     session: run.session ?? null,
     tokens: run.tokens,
+    context: run.context
+      ? { contextTokens: run.context.tokens, contextWindow: run.context.window }
+      : null,
     carriedFailure: carried
       ? { stageKey: carried.stageKey, round: carried.round, rounds: carried.rounds }
       : null,

@@ -22,6 +22,7 @@ function aRun(fields: Partial<StageRun>): StageRun {
     threadId: null,
     session: null,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+    context: null,
     carriedFailure: null,
     sentBack: null,
     gateAction: null,

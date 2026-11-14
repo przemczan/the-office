@@ -46,6 +46,7 @@ function aRun(stageKey: string, gateAction?: GateAction): StageRun {
     headCommit: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
+    context: undefined,
     engineId: undefined,
     engineName: undefined,
     model: undefined,

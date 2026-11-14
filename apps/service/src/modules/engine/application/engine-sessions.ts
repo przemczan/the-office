@@ -103,6 +103,12 @@ export class EngineSessions {
     return this.engines.of(await this.listed(engineId)).capabilities;
   }
 
+  /** Whether `engineId`'s sessions report how full their context is; false once none lists it. */
+  async reportsContext(engineId: EngineId): Promise<boolean> {
+    const engine = await this.find(engineId);
+    return engine !== undefined && this.engines.of(engine).capabilities.contextUsage;
+  }
+
   /** The name Settings › Engines gives `engineId`, or the id itself once none lists it. */
   async nameOf(engineId: EngineId): Promise<string> {
     return (await this.find(engineId))?.name ?? engineId;

@@ -41,6 +41,8 @@ export interface ThreadSessionRow {
   readonly startedAt: string;
   readonly lastCallAt: string | null;
   readonly contextTokens: number;
+  /** Absent before the first reading, and on sessions saved before the window was kept. */
+  readonly contextWindow?: number;
   readonly startContextTokens: number | null;
   readonly full: boolean;
   /** Absent on sessions saved before Allow changes: none had changes allowed. */

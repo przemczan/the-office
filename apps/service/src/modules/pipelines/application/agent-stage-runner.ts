@@ -499,6 +499,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const counted = async (turn: StageTurn): Promise<StageTurn> => {
       tokens = addTokens(tokens, turn.tokens);
       await this.runs.saveTokens(work.run.id, tokens);
+      if (turn.context) await this.runs.saveContext(work.run.id, turn.context);
       return turn;
     };
     // Stopped while the session opened, before there was a turn to stop.

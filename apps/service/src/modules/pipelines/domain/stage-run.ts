@@ -174,6 +174,12 @@ export interface StageTokens {
 
 export const NO_STAGE_TOKENS: StageTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
+/** A session's context after a turn, against its model's window. */
+export interface StageRunContext {
+  readonly tokens: number;
+  readonly window: number;
+}
+
 export function addTokens(total: StageTokens, more: StageTokens): StageTokens {
   return {
     input: total.input + more.input,
@@ -341,6 +347,13 @@ export interface StageRun {
   readonly model: string | undefined;
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;
+  /**
+   * Its session's context after the run's last turn, kept with the run, as a later run that resumes
+   * the session moves the Thread's on. Undefined for a run that read none: one that opened no
+   * session, stopped before the first turn ended, ran on an engine that can't report its context,
+   * or was kept before this was.
+   */
+  readonly context: StageRunContext | undefined;
   /** The Decisions the walk opened on the run, at most one of each kind. */
   readonly decisions: readonly StageRunDecision[];
   /**

@@ -61,6 +61,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     endedAt: each.outcome && new Date(0),
     ...each,
     tokens: each.tokens ?? NO_STAGE_TOKENS,
+    context: undefined,
     engineId: undefined,
     engineName: undefined,
     model: undefined,

@@ -13,11 +13,12 @@ const assistant = (content: unknown[]): SDKMessage =>
   }) as unknown as SDKMessage;
 
 describe("StreamEvents", () => {
-  it("gives a message's events, then the running turn's tokens", () => {
+  it("gives a message's events, then the context it read and the running turn's tokens", () => {
     const events = new StreamEvents([]).of(assistant([{ type: "text", text: "hi" }]));
 
     expect(events).toEqual([
       { kind: "text", text: "hi", withinToolCall: undefined },
+      { kind: "context-read", tokens: 10 },
       {
         kind: "turn-tokens",
         soFar: { input: 10, output: 2, cacheRead: 0, cacheCreation: 0 },

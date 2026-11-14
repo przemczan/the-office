@@ -7,8 +7,8 @@ import type {
 
 /**
  * The words of what the next message does to the session, and why (spec §2.5). Under the composer:
- * "Continues · cache warm, 41 min left · 41k context". In the log's context lines:
- * "Continuing · cache warm · 41k context"; "Fresh · cache expired, 48k context · brief ~3k".
+ * "Continues · cache warm, 41 min left", the size being the context reading's. In the log's context
+ * lines: "Continuing · cache warm · 41k context"; "Fresh · cache expired, 48k context · brief ~3k".
  */
 
 export const MOVE_WORDS: Readonly<Record<ContextMove, string>> = {
@@ -84,33 +84,33 @@ export function offersAChoice({ alternatives }: Pick<ThreadContext, "alternative
   return alternatives.length > 0;
 }
 
-/** What the next message does under the choice, and what that costs. */
+/**
+ * What the next message does under the choice, and what that costs. The size itself is the
+ * context reading's, right above the message input, so it shows once.
+ */
 export function contextChoiceWords(
   context: ChoiceContext,
   choice: ContextChoice,
   cache: CacheState,
   personName: string,
 ): string {
-  const size = `${tokensShort(context.contextTokens)} context`;
   const brief = briefCost(freshBriefTokens(context));
   if (choice === "fresh") return `Starts fresh · ${brief}`;
-  if (cache.kind === "warm") {
-    return `Continues · cache warm, ${cache.minutesLeft} min left · ${size}`;
-  }
+  if (cache.kind === "warm") return `Continues · cache warm, ${cache.minutesLeft} min left`;
   if (choice === "continue") {
-    return `Continues anyway · cache cold, so the ${size} is read again in full`;
+    return "Continues anyway · cache cold, so the whole context is read again";
   }
   // The move shown is the user's, so what the policy would do with a cold cache isn't known here.
   if (context.override !== null) return "Back to the Context policy's choice";
   if (context.reason === "session-default") {
     const sessionDefault = `${personName}'s session default`;
     return context.move === "resume"
-      ? `Continues · ${sessionDefault} · ${size}`
+      ? `Continues · ${sessionDefault}`
       : `Starts fresh · ${sessionDefault} · ${brief}`;
   }
   return context.move === "resume"
-    ? `Continues · cache cold, but only ${size}`
-    : `Starts fresh · cache cold, ${size} · ${brief}`;
+    ? "Continues · cache cold, but the context is small"
+    : `Starts fresh · cache cold, context large · ${brief}`;
 }
 
 /** The Brief's estimate: the context's own while the move starts fresh, else the alternative's. */
@@ -131,32 +131,40 @@ function oneDecimal(value: number): string {
   return value.toFixed(1).replace(/\.0$/, "");
 }
 
-/** What a move and its reason read as, after the move's own word. */
+type LabelContext = Pick<ThreadContext, "move" | "reason" | "contextTokens" | "briefTokens">;
+
+/**
+ * What a move and its reason read as, after the move's own word. `sized` false leaves the size out,
+ * where the context reading beside it says it.
+ */
 export function contextDetail(
-  {
-    move,
-    reason,
-    contextTokens,
-    briefTokens,
-  }: Pick<ThreadContext, "move" | "reason" | "contextTokens" | "briefTokens">,
+  { move, reason, contextTokens, briefTokens }: LabelContext,
   personName: string,
+  sized = true,
 ): string {
-  const parts = [reasonWords(reason, contextTokens, personName)];
-  if (move === "resume" && reason !== "cache-expired")
+  const parts = [reasonWords(reason, sized ? contextTokens : undefined, personName)];
+  if (sized && move === "resume" && reason !== "cache-expired")
     parts.push(`${tokensShort(contextTokens)} context`);
   if (move !== "resume" && briefTokens !== null) parts.push(`brief ~${tokensShort(briefTokens)}`);
   return parts.join(" · ");
 }
 
-/** The whole label: "Continuing · cache warm · 41k context". */
-export function contextLabel(
-  context: Pick<ThreadContext, "move" | "reason" | "contextTokens" | "briefTokens">,
-  personName: string,
-): string {
+/** The whole label, as the log's context lines keep it: "Continuing · cache warm · 41k context". */
+export function contextLabel(context: LabelContext, personName: string): string {
   return `${MOVE_WORDS[context.move]} · ${contextDetail(context, personName)}`;
 }
 
-function reasonWords(reason: ContextReason, contextTokens: number, personName: string): string {
+/** The Context bar's label with no choice offered: the size is the context reading's. */
+export function contextBarLabel(context: LabelContext, personName: string): string {
+  return `${MOVE_WORDS[context.move]} · ${contextDetail(context, personName, false)}`;
+}
+
+/** Without `contextTokens`, a large context reads as such, as the reading beside it says how large. */
+function reasonWords(
+  reason: ContextReason,
+  contextTokens: number | undefined,
+  personName: string,
+): string {
   switch (reason) {
     case "new-thread":
       return "new Thread";
@@ -167,7 +175,9 @@ function reasonWords(reason: ContextReason, contextTokens: number, personName: s
     case "small-context":
       return "cache expired, small context";
     case "cache-expired":
-      return `cache expired, ${tokensShort(contextTokens)} context`;
+      return contextTokens === undefined
+        ? "cache expired, context large"
+        : `cache expired, ${tokensShort(contextTokens)} context`;
     case "session-default":
       return `${personName}'s session default`;
     case "your-choice":

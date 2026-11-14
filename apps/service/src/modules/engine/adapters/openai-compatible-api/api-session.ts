@@ -155,12 +155,12 @@ export class ApiSession implements EngineSession {
    * (spec §2.5). A server that counts no tokens is estimated from the conversation's length.
    */
   async readContextUsage(): Promise<ContextUsage> {
-    const { system, tools, contextWindow } = this.parts;
-    return {
-      tokens:
-        this.requestTokens ?? estimatedTokens([system, ...this.conversation], tools.definitions),
-      window: contextWindow,
-    };
+    return { tokens: this.contextTokens(), window: this.parts.contextWindow };
+  }
+
+  private contextTokens(): number {
+    const { system, tools } = this.parts;
+    return this.requestTokens ?? estimatedTokens([system, ...this.conversation], tools.definitions);
   }
 
   async end(): Promise<void> {
@@ -216,6 +216,7 @@ export class ApiSession implements EngineSession {
           this.conversation.push({ role: "user", content: OUTPUT_REMINDER });
           continue;
         }
+        this.reported.push({ kind: "context-read", tokens: this.contextTokens() });
         this.reported.push({ kind: "turn-tokens", soFar: usage });
         for (const call of calls) {
           const answered = await this.toolCall(call, signal);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cacheStateAt,
   CONTEXT_CHOICES,
+  contextBarLabel,
   contextChoiceOf,
   contextChoiceWords,
   contextLabel,
@@ -50,6 +51,21 @@ describe("a Thread's context label", () => {
         "Sam",
       ),
     ).toBe("Fresh · Allow changes switched · brief ~1.2k");
+  });
+
+  it("leaves the size out under the composer, where the context reading says it", () => {
+    expect(
+      contextBarLabel(
+        { move: "resume", reason: "cache-warm", contextTokens: 41_234, briefTokens: null },
+        "Jan",
+      ),
+    ).toBe("Continuing · cache warm");
+    expect(
+      contextBarLabel(
+        { move: "fresh", reason: "cache-expired", contextTokens: 48_000, briefTokens: 3_100 },
+        "Jan",
+      ),
+    ).toBe("Fresh · cache expired, context large · brief ~3.1k");
   });
 
   it("counts tokens in thousands from a thousand", () => {
@@ -111,12 +127,12 @@ describe("contextChoiceWords", () => {
     override: null,
   };
 
-  it("says what each choice does with a warm cache, and its cost", () => {
+  it("says what each choice does with a warm cache, and its cost, leaving the size to the reading", () => {
     expect(contextChoiceWords(resuming, "auto", warm, "Jan")).toBe(
-      "Continues · cache warm, 41 min left · 41k context",
+      "Continues · cache warm, 41 min left",
     );
     expect(contextChoiceWords(resuming, "continue", warm, "Jan")).toBe(
-      "Continues · cache warm, 41 min left · 41k context",
+      "Continues · cache warm, 41 min left",
     );
     expect(contextChoiceWords(resuming, "fresh", warm, "Jan")).toBe(
       "Starts fresh · Brief ~3.1k tokens",
@@ -125,10 +141,10 @@ describe("contextChoiceWords", () => {
 
   it("says what each choice does with a cold cache, and its cost", () => {
     expect(contextChoiceWords(startingFresh, "auto", cold, "Jan")).toBe(
-      "Starts fresh · cache cold, 48k context · Brief ~3.1k tokens",
+      "Starts fresh · cache cold, context large · Brief ~3.1k tokens",
     );
     expect(contextChoiceWords(startingFresh, "continue", cold, "Jan")).toBe(
-      "Continues anyway · cache cold, so the 48k context is read again in full",
+      "Continues anyway · cache cold, so the whole context is read again",
     );
     expect(
       contextChoiceWords(
@@ -137,7 +153,7 @@ describe("contextChoiceWords", () => {
         cold,
         "Jan",
       ),
-    ).toBe("Continues · cache cold, but only 12k context");
+    ).toBe("Continues · cache cold, but the context is small");
   });
 
   it("names the person's session default when it decided", () => {

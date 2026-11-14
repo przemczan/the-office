@@ -67,6 +67,7 @@ import {
   keepAnswerForTurnEnd,
   logMessages,
   openDecisionOf,
+  readRunningContext,
   reopenDecision,
   type Opening,
   type ThreadChange,
@@ -87,6 +88,7 @@ import { WorkRecords } from "./work-records.js";
 import type { TextMask } from "../ports/project-output-masks.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
+type ContextUsage = Awaited<ReturnType<EngineSession["readContextUsage"]>>;
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
 type SessionEvent = EngineSession["events"] extends AsyncIterable<infer Event> ? Event : never;
 type TurnEndedEvent = Extract<SessionEvent, { kind: "turn-ended" }>;
@@ -832,6 +834,10 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.change(threadId, (thread) => countRunningTurn(thread, event.soFar, new Date()));
       return;
     }
+    if (event.kind === "context-read") {
+      await this.change(threadId, (thread) => readRunningContext(thread, event.tokens, new Date()));
+      return;
+    }
     const lines = sessionLogLines(event, live);
     if (lines.length > 0) await this.log(threadId, lines);
   }
@@ -858,14 +864,17 @@ export class ThreadRunner implements OnModuleDestroy {
         },
       ]);
     }
-    const usage = await live.session.readContextUsage();
+    const usage = await this.contextUsageOf(threadId, live);
     const wroteNote = live.handingOver;
     const handingOver =
-      !wroteNote && usage.tokens >= usage.window * DEFAULT_CONTEXT_POLICY_SETTINGS.handOverAtShare;
+      !wroteNote &&
+      usage !== undefined &&
+      usage.tokens >= usage.window * DEFAULT_CONTEXT_POLICY_SETTINGS.handOverAtShare;
     await this.change(threadId, (thread) =>
       endTurn(thread, {
         usage: turn.usage,
-        contextTokens: usage.tokens,
+        contextTokens: usage?.tokens ?? 0,
+        contextWindow: usage?.window,
         handingOver,
         officeSendsNext: false,
         endedAt: new Date(),
@@ -888,6 +897,16 @@ export class ThreadRunner implements OnModuleDestroy {
         `Thread ${threadId}'s waiting answers weren't handed over: ${messageOf(error)}`,
       );
     });
+  }
+
+  /** The session's context as its turn ended; undefined when its engine can't report it. */
+  private async contextUsageOf(
+    threadId: string,
+    live: LiveSession,
+  ): Promise<ContextUsage | undefined> {
+    const engineId = (await this.repository.find(threadId))?.session?.engineId;
+    if (engineId === undefined || !(await this.engine.reportsContext(engineId))) return undefined;
+    return live.session.readContextUsage();
   }
 
   private async endLive(threadId: string): Promise<void> {

@@ -73,7 +73,10 @@ export function sessionEvents(message: SDKMessage): SessionEvent[] {
 export class TurnTokens {
   private readonly byMessage = new Map<string, TokenUsage>();
 
-  /** A turn-tokens event when the message changed the running count; none otherwise. */
+  /**
+   * A turn-tokens event when the message changed the running count, after a context-read event
+   * when it is the Agent's next answer: its input is the context the model read for it.
+   */
   eventsOf(message: SDKMessage): SessionEvent[] {
     if (message.type === "result") {
       this.byMessage.clear();
@@ -85,7 +88,10 @@ export class TurnTokens {
     const before = this.byMessage.get(id);
     if (before && sameUsage(before, counted)) return [];
     this.byMessage.set(id, counted);
-    return [{ kind: "turn-tokens", soFar: this.soFar() }];
+    const tokens: SessionEvent = { kind: "turn-tokens", soFar: this.soFar() };
+    if (before) return [tokens];
+    const { input, cacheRead, cacheCreation } = counted;
+    return [{ kind: "context-read", tokens: input + cacheRead + cacheCreation }, tokens];
   }
 
   /**

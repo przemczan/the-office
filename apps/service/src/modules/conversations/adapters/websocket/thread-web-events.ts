@@ -3,6 +3,7 @@ import type { ThreadWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
   ContextOverrideChosen,
+  ContextRead,
   DecisionAnswered,
   DecisionOpened,
   DeliveryMarked,
@@ -75,6 +76,12 @@ export class ThreadWebEvents implements OnModuleInit {
       type: "thread.tokens-counted",
       ...namesOf(event.thread),
       tokens: tokensSoFar(event.thread),
+    }));
+    this.forwarding.forward(ContextRead, (event): WebEventOf<"thread.context-read"> => ({
+      type: "thread.context-read",
+      ...namesOf(event.thread),
+      contextTokens: event.thread.session?.contextTokens ?? 0,
+      contextWindow: event.thread.session?.contextWindow ?? null,
     }));
     this.forwarding.forward(
       ContextOverrideChosen,

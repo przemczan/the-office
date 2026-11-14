@@ -254,7 +254,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, CommandJudgement, OfficeTo
 - `office-tool.fixtures.ts`: anOfficeToolCall
 - `office-tool.ts`: CommandJudgement, OfficeToolCall, OfficeToolPicture, OfficeToolResult, OfficeTool
 - `search-endpoint-client.ts`: SearchResult, SearchFailed, SearchEndpointClient
-- `session-events.ts`: TokenUsage, NO_TOKENS, addedTokens, countedTokens, TextEvent, ToolCallEvent, ToolResultEvent, BackgroundEnding, SubAgentStartedEvent, SubAgentChangedEvent, SubAgentEndedEvent, ProcessStartedEvent, ProcessOutputEvent, ProcessEndedEvent, RefusedBy, ToolRefusedEvent, TurnTokensEvent, TurnOutcome, UNKNOWN_RESET_RETRY_MS, UsedUpWindow, TurnEndedEvent, RateLimitStatus, RateLimitEvent, McpServerNotStartedEvent, BackgroundEvent, SessionEvent, KnownUsageWindowName, UsageWindowName
+- `session-events.ts`: TokenUsage, NO_TOKENS, addedTokens, countedTokens, TextEvent, ToolCallEvent, ToolResultEvent, BackgroundEnding, SubAgentStartedEvent, SubAgentChangedEvent, SubAgentEndedEvent, ProcessStartedEvent, ProcessOutputEvent, ProcessEndedEvent, RefusedBy, ToolRefusedEvent, TurnTokensEvent, ContextReadEvent, TurnOutcome, UNKNOWN_RESET_RETRY_MS, UsedUpWindow, TurnEndedEvent, RateLimitStatus, RateLimitEvent, McpServerNotStartedEvent, BackgroundEvent, SessionEvent, KnownUsageWindowName, UsageWindowName
 - `session-language-servers.ts`: PreparedLanguageServers, SessionLanguageServers
 - `session-options.ts`: Effort, SessionSkills, SessionMcpServer, SessionMcpServerLaunch, SessionMcpServerTool, ToolHold, ApprovalCall, ApprovalHold, JsonSchema, SessionOptions
 - `usage-window-sample-repository.fixtures.ts`: UsageWindowSamplesForTests

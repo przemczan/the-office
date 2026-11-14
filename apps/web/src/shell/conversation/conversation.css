@@ -81,6 +81,164 @@
   color: var(--fg-3);
 }
 
+/* ---- the row above the message input: the Sub-agents and processes line fills its left, the
+   context reading keeps its right end at its own width, so neither moves the other
+   (docs/design/session-context.html) */
+.session-row {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  container: session-row / inline-size;
+}
+
+.session-row > .sub-agents-and-processes-line {
+  flex: 1;
+  width: auto;
+  padding-right: 12px;
+  border-top: 0;
+}
+
+.context-reading-slot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 31px;
+  margin-left: auto;
+  padding: 0 16px 0 12px;
+}
+
+.session-row > .sub-agents-and-processes-line + .context-reading-slot {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.context-reading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: -3px -5px;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-2);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.context-reading:hover {
+  background: var(--control-hover);
+}
+
+.context-reading:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 0;
+}
+
+.context-reading strong {
+  border-radius: 3px;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.context-reading[data-quiet] {
+  color: var(--fg-3);
+}
+
+.context-reading[data-near],
+.context-reading[data-near] strong {
+  color: var(--warning-fg);
+}
+
+.context-reading-ticked {
+  animation: context-reading-tick 900ms var(--ease-out);
+}
+
+@keyframes context-reading-tick {
+  from {
+    background: color-mix(in oklab, var(--success) 18%, transparent);
+  }
+
+  to {
+    background: transparent;
+  }
+}
+
+.context-reading-wide,
+.context-reading-narrow {
+  display: none;
+}
+
+@container session-row (min-width: 520px) {
+  .context-reading-wide {
+    display: inline;
+  }
+}
+
+/* A phone's row leaves the Sub-agents and processes line its room: the reading drops its extra
+   words, which its Tooltip keeps. */
+@container session-row (max-width: 400px) {
+  .context-reading-not-narrow {
+    display: none;
+  }
+
+  .context-reading-narrow {
+    display: inline;
+  }
+}
+
+.context-meter {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+}
+
+.context-meter[data-empty] {
+  background: none;
+  outline: 1px dashed var(--border-strong);
+}
+
+.context-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 3px;
+  border-radius: inherit;
+  background: var(--fg-3);
+  transition:
+    width 700ms var(--ease-out),
+    background var(--duration-base) var(--ease-out);
+}
+
+.context-reading[data-near] .context-meter-fill {
+  background: var(--warning);
+}
+
+/* Where The Office asks for a Handover note: 80% of the window. */
+.context-meter-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 80%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--fg-2);
+  box-shadow: 0 0 0 1px var(--surface);
+}
+
+.context-reading[data-near] .context-meter-mark {
+  background: var(--warning-fg);
+}
+
+.context-meter[data-empty] .context-meter-mark {
+  background: var(--border-strong);
+}
+
 .cache-mark {
   display: inline-flex;
   align-items: center;

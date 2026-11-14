@@ -16,6 +16,8 @@ function aThread(fields: Partial<Thread>): Thread {
       cacheWarm: false,
       cacheWarmUntil: null,
       contextTokens: 0,
+      contextWindow: null,
+      contextReported: true,
       briefTokens: 3_000,
       alternatives: [],
       override: null,

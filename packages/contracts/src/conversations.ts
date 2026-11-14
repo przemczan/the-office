@@ -70,6 +70,13 @@ export const threadContextSchema = z.object({
   /** When the warm cache goes cold, which the UI counts down to; null while it isn't warm. */
   cacheWarmUntil: z.iso.datetime().nullable(),
   contextTokens: z.number().int().nonnegative(),
+  /**
+   * The session's model's context window, read with `contextTokens`; null with no session, before
+   * the first reading, and when the engine can't report its context.
+   */
+  contextWindow: z.number().int().positive().nullable(),
+  /** False when the session's engine can't report its context, so it is never read. */
+  contextReported: z.boolean(),
   /** The Brief's estimate when the move starts a session with one. */
   briefTokens: z.number().int().nonnegative().nullable(),
   /** What the user may choose instead, with its estimated tokens. */
@@ -968,6 +975,16 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("thread.tokens-counted"),
     ...threadWebEventFields,
     tokens: tokenTotalsSchema,
+  }),
+  /**
+   * The running turn read the session's context again, after one of the model's answers: the size
+   * now, and the window as last read, as GET /threads/:id's `context` has them.
+   */
+  webEventSchema.extend({
+    type: z.literal("thread.context-read"),
+    ...threadWebEventFields,
+    contextTokens: z.number().int().nonnegative(),
+    contextWindow: z.number().int().positive().nullable(),
   }),
   webEventSchema.extend({ type: z.literal("thread.delivery-marked"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.override-chosen"), ...threadWebEventFields }),

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ContextRead,
   DeliveryMarked,
   ThreadRenamed,
   ThreadStarted,
@@ -15,6 +16,7 @@ import {
   failAnswer,
   logMessages,
   markDelivery,
+  readRunningContext,
   renameThread,
   startChatThread,
   startTaskThread,
@@ -243,6 +245,7 @@ describe("a Thread's tokens", () => {
     const { thread } = endTurn(counting, {
       usage,
       contextTokens: 31_000,
+      contextWindow: 200_000,
       handingOver: false,
       officeSendsNext: false,
       endedAt: AT,
@@ -251,7 +254,16 @@ describe("a Thread's tokens", () => {
     expect(thread).toMatchObject({
       tokens: { input: 14, output: 300, cacheRead: 14_500, cacheCreation: 1_000 },
       runningTurnTokens: NO_TOKENS,
+      session: { contextTokens: 31_000, contextWindow: 200_000 },
     });
+  });
+
+  it("keep the running turn's context reading on the session while the person answers", () => {
+    const read = readRunningContext(running, 42_000, AT);
+
+    expect(read?.thread.session).toMatchObject({ contextTokens: 42_000 });
+    expect(read?.event).toEqual(new ContextRead(read?.thread ?? running, AT));
+    expect(readRunningContext(aThread({ session }), 42_000, AT)).toBeUndefined();
   });
 
   it("keep the running count as spent when the session ends before its turn does", () => {

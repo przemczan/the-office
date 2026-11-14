@@ -45,7 +45,7 @@ import type {
 import type { PublishTarget } from "../domain/stage.js";
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
-import type { StageSessionMove } from "../domain/stage-run.js";
+import type { StageRunContext, StageSessionMove } from "../domain/stage-run.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import {
   TaskCommands,
@@ -428,6 +428,9 @@ export class StageThreadsForTests extends StageThreads {
   /** How each Stage's session begins, as a test sets it: a new session, unless set. */
   move: StageSessionMove = "fresh";
 
+  /** The session's context after each turn, as a test sets it: not reported, unless set. */
+  contextAfterTurn: StageRunContext | undefined = undefined;
+
   /** What `sessionAhead` answers, as a test sets it: a new session, unless set. */
   ahead: StageSessionAhead = { move: "fresh", cacheWarm: false, contextTokens: 0, briefTokens: 0 };
 
@@ -488,6 +491,7 @@ export class StageThreadsForTests extends StageThreads {
             output: event.output,
             problem,
             tokens: event.usage,
+            context: this.contextAfterTurn,
             ...(usedUpWindow && {
               usedUpWindow: { window: usedUpWindow.window, resetsAt: usedUpWindow.resetsAt },
             }),

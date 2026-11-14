@@ -81,6 +81,8 @@ function aThreadOn(taskId: string, fields: Partial<Thread>): Thread {
       cacheWarm: true,
       cacheWarmUntil: null,
       contextTokens: 32_000,
+      contextWindow: null,
+      contextReported: true,
       briefTokens: null,
       alternatives: [],
       override: null,

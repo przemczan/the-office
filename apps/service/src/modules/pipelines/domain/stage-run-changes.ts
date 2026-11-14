@@ -32,6 +32,7 @@ export function startStageRun(
     headCommit: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
+    context: undefined,
     decisions: [],
     heldBy: undefined,
     heldByUser: undefined,

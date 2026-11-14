@@ -1103,6 +1103,8 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await expect(chat.getByText("No threads with Jan yet.")).toBeVisible();
   await startNewThread(chat);
   await expect(contextLabel(page)).toHaveText(/^Starts a session with a Brief ~[\d.]+k? tokens$/);
+  // The context reading above the message input: no session to measure yet.
+  await expect(chat.getByRole("img", { name: "Context: no session yet" })).toBeVisible();
 
   await chat.getByRole("textbox", { name: "Message" }).fill("Read the deploy workflow.");
   await chat.getByRole("textbox", { name: "Message" }).press("Enter");
@@ -1117,9 +1119,9 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await expect(chat.getByText(/deploy-production\.yml$/)).toBeVisible();
   await expect(chat.locator(".message-office").first()).toBeVisible();
   await expect(chat.getByRole("heading", { name: "Read the deploy workflow" })).toBeVisible();
-  await expect(contextLabel(page)).toHaveText(
-    /^Continues · cache warm, \d+ min left · 32k context$/,
-  );
+  // The size is the reading's, read as the turn ended; the Context bar's words leave it out.
+  await expect(contextLabel(page)).toHaveText(/^Continues · cache warm, \d+ min left$/);
+  await expect(chat.getByRole("img", { name: /^Context: 32k of \d+(\.\d)?[kM]$/ })).toBeVisible();
   await expect(chat.getByText("32k tokens in this Thread")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-chat.png") });
 
@@ -1131,16 +1133,16 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await expect(contextLabel(page)).toHaveText(/^Starts fresh · Brief ~[\d.]+k? tokens$/);
   await expect(chat.getByRole("tab", { name: "Continue" })).toHaveAttribute(
     "title",
-    /^Continues · cache warm, \d+ min left · 32k context$/,
+    /^Continues · cache warm, \d+ min left$/,
   );
   await chat.getByRole("textbox", { name: "Message" }).fill("And the tests?");
   await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
   await expect(chat.getByText("The tests run with npm test.")).toBeVisible();
   await expect(chat.getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
-  await expect(contextLabel(page)).toHaveText(
-    /^Continues · cache warm, \d+ min left · 21k context$/,
-  );
+  // A fresh session's reading starts over.
+  await expect(contextLabel(page)).toHaveText(/^Continues · cache warm, \d+ min left$/);
+  await expect(chat.getByRole("img", { name: /^Context: 21k of / })).toBeVisible();
 
   // The browser remembers the switch.
   await page.reload();
@@ -1169,9 +1171,8 @@ test("a Thread is renamed, and an old one stays readable and continues", async (
   await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
   await expect(chat.getByText("You're welcome.")).toBeVisible();
-  await expect(contextLabel(page)).toHaveText(
-    /^Continues · cache warm, \d+ min left · 21k context$/,
-  );
+  await expect(contextLabel(page)).toHaveText(/^Continues · cache warm, \d+ min left$/);
+  await expect(chat.getByRole("img", { name: /^Context: 21k of / })).toBeVisible();
 
   await page.reload();
   await expect(chatWith(page, "Jan").getByText("You're welcome.")).toBeVisible();
@@ -3487,7 +3488,10 @@ test(
       // The session is warm now: the To line counts its cache down, before the person's name.
       await expect(cacheMark).toHaveAccessibleName(/^Cache warm: \d+ min left/);
       await expect(cacheMark).toHaveText(/^\d+m$/);
-      await expect(contextWords).toHaveText(/^Continues · cache warm, \d+ min left · 30k context$/);
+      await expect(contextWords).toHaveText(/^Continues · cache warm, \d+ min left$/);
+      await expect(
+        conversation.getByRole("img", { name: /^Context: \d+(\.\d)?k of \d+(\.\d)?[kM]$/ }),
+      ).toBeVisible();
       await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-conversation-warm.png") });
       await showPalette(page, "dark");
       await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-conversation-warm.png") });
@@ -3568,7 +3572,7 @@ test(
       await page.reload();
       await expect(cacheMark).toHaveAccessibleName(/^Cache cold/);
       await expect(contextWords).toHaveText(
-        "Starts fresh · cache cold, 48k context · Brief ~3k tokens",
+        "Starts fresh · cache cold, context large · Brief ~3k tokens",
       );
       await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-conversation-cold.png") });
       await showPalette(page, "dark");
@@ -3576,7 +3580,7 @@ test(
       await showPalette(page, "light");
       await expect(conversation.getByRole("tab", { name: "Continue" })).toHaveAttribute(
         "title",
-        "Continues anyway · cache cold, so the 48k context is read again in full",
+        "Continues anyway · cache cold, so the whole context is read again",
       );
       await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-cache-cold.png") });
       await showPalette(page, "dark");

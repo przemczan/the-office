@@ -10,6 +10,8 @@ import { roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { SubAgentsAndProcessesLine } from "../sub-agents-and-processes/sub-agents-and-processes-line.tsx";
 import { Composer } from "./composer.tsx";
+import { ContextReading, SessionRow } from "./context-reading.tsx";
+import { threadReadingLook } from "./context-reading-words.ts";
 import { useHandoverNotes } from "./handover-notes.tsx";
 import { useThreadDrafts } from "./thread-drafts.tsx";
 import { takesMessages } from "./thread-writing.ts";
@@ -21,7 +23,8 @@ import { takesMessages } from "./thread-writing.ts";
  * a composer that `keepsDraft` leaves its own there, for when it comes back. Given the Open page, as
  * the chat drawer is, it shows the line that says the message goes with it, which the user can
  * leave out. Right above the message input, or the note saying why there is none, the line says
- * what Sub-agents and Processes the session runs (spec 2.9).
+ * what Sub-agents and Processes the session runs (spec 2.9), and beside it, where a message can be
+ * written, the context reading says how full the session's context is (spec §2.5).
  */
 export function ThreadComposer({
   thread,
@@ -89,10 +92,19 @@ export function ThreadComposer({
       {readOnlyReason === undefined && openPage && onLeaveOutOpenPage && (
         <OpenPageLine page={openPage} onLeaveOut={onLeaveOutOpenPage} />
       )}
-      <SubAgentsAndProcessesLine
-        thread={thread}
-        personName={personName}
-        onShow={onShowSubAgentsAndProcesses}
+      <SessionRow
+        line={
+          <SubAgentsAndProcessesLine
+            thread={thread}
+            personName={personName}
+            onShow={onShowSubAgentsAndProcesses}
+          />
+        }
+        reading={
+          readOnlyReason === undefined && (
+            <ContextReading look={threadReadingLook(thread, personName)} />
+          )
+        }
       />
       {readOnlyReason === undefined ? (
         <Composer

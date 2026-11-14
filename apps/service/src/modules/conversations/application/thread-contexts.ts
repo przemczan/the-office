@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { EngineSessions } from "../../engine/index.js";
 import { EngineCascade, RoleCards } from "../../people/index.js";
 import type { Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
@@ -18,6 +19,8 @@ interface ThreadBrief {
 /** What a Thread's reading shows besides its record. */
 export interface ThreadReading {
   readonly context: ContextDecision;
+  /** False when the engine of the Thread's session can't report its context; true with none. */
+  readonly contextReported: boolean;
   /** Undefined for a Thread with no Allow changes switch: any but the Caretaker's chat. */
   readonly changesAllowed: boolean | undefined;
 }
@@ -35,12 +38,17 @@ export class ThreadContexts {
     private readonly taskThreads: TaskThreadSetups,
     private readonly settings: ContextPolicySettingsService,
     private readonly allowChanges: AllowChanges,
+    private readonly engine: EngineSessions,
   ) {}
 
-  /** The Thread's context, and whether changes are allowed in it. */
+  /** The Thread's context, whether its session reports it, and whether changes are allowed in it. */
   async read(thread: Thread): Promise<ThreadReading> {
     const changesAllowed = await this.allowChanges.inThread(thread);
-    return { context: await this.of(thread, new Date(), changesAllowed), changesAllowed };
+    const [context, contextReported] = await Promise.all([
+      this.of(thread, new Date(), changesAllowed),
+      thread.session ? this.engine.reportsContext(thread.session.engineId) : true,
+    ]);
+    return { context, contextReported, changesAllowed };
   }
 
   async of(

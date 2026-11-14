@@ -6,6 +6,7 @@ import type {
   GateAction,
   PublishedWork,
   StageRun,
+  StageRunContext,
   StageRunDecision,
   StageTokens,
   AskedInterruption,
@@ -54,6 +55,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
 
   async saveTokens(runId: string, tokens: StageTokens): Promise<void> {
     await this.database.update(stageRuns).set({ tokens }).where(eq(stageRuns.id, runId));
+  }
+
+  async saveContext(runId: string, context: StageRunContext): Promise<void> {
+    await this.database.update(stageRuns).set({ context }).where(eq(stageRuns.id, runId));
   }
 
   async saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void> {
@@ -136,6 +141,7 @@ function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">):
     engineId: row.engineId ?? undefined,
     engineName: row.engineName ?? undefined,
     model: row.model ?? undefined,
+    context: row.context ?? undefined,
     headCommit: row.headCommit ?? undefined,
     heldBy: row.heldBy ?? undefined,
     heldByUser: row.heldByUser ?? undefined,

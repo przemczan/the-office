@@ -330,6 +330,16 @@ describe("StageInterpreter's Decisions", () => {
       const [run] = await runsOf(pipelines, taskId);
       expect(run?.tokens).toEqual({ input: 10, output: 10, cacheRead: 0, cacheCreation: 0 });
     });
+
+    it("keeps the run's context after its last turn, for its Thread tab once it ended", async () => {
+      await startWith(agentDone);
+      pipelines.stageThreads.contextAfterTurn = { tokens: 132_000, window: 200_000 };
+
+      const taskId = await walkStages(pipelines, [draft]);
+
+      const [run] = await runsOf(pipelines, taskId);
+      expect(run?.context).toEqual({ tokens: 132_000, window: 200_000 });
+    });
   });
 
   describe("an optional Stage", () => {

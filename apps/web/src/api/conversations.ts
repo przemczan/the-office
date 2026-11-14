@@ -30,7 +30,6 @@ import {
   type SubAgentMessages,
   type Thread,
   type ThreadWebEvent,
-  type TokenTotals,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendToApi } from "./api-client.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
@@ -320,7 +319,7 @@ export function answerDecision(id: string, answer: DecisionAnswer): Promise<Thre
 }
 
 /** The Conversations events that carry what changed, which `threadEventCacheUpdates` applies. */
-type CarryingEventType = "thread.tokens-counted";
+type CarryingEventType = "thread.tokens-counted" | "thread.context-read";
 
 /**
  * A session's Sub-agents and Processes (spec 2.9): each event carries the item or the new part,
@@ -367,8 +366,8 @@ export const threadEventInvalidations: Readonly<
 };
 
 /**
- * A running turn's tokens change just that Thread, wherever it is cached, and with it its Task's
- * total, refetching no log: a long turn counts many times.
+ * A running turn's tokens and context readings change just that Thread, wherever it is cached, and
+ * with it its Task's total, refetching no log: a long turn counts many times.
  */
 export const threadEventCacheUpdates: Readonly<
   Record<CarryingEventType, EventCacheUpdates[string]>
@@ -376,24 +375,34 @@ export const threadEventCacheUpdates: Readonly<
   "thread.tokens-counted": (event, queryClient) => {
     const counted = threadWebEventSchema.parse(event);
     if (counted.type !== "thread.tokens-counted") return;
-    showTokens(queryClient, counted.threadId, counted.home, counted.tokens);
+    const { tokens } = counted;
+    changeThread(queryClient, counted.threadId, counted.home, (thread) => ({ ...thread, tokens }));
+  },
+  "thread.context-read": (event, queryClient) => {
+    const read = threadWebEventSchema.parse(event);
+    if (read.type !== "thread.context-read") return;
+    const { contextTokens, contextWindow } = read;
+    changeThread(queryClient, read.threadId, read.home, (thread) => ({
+      ...thread,
+      context: { ...thread.context, contextTokens, contextWindow },
+    }));
   },
 };
 
-function showTokens(
+function changeThread(
   queryClient: QueryClient,
   threadId: string,
   home: Home,
-  tokens: TokenTotals,
+  change: (thread: Thread) => Thread,
 ): void {
   queryClient.setQueryData(
     threadQueries.one(threadId).queryKey,
-    (thread) => thread && { ...thread, tokens },
+    (thread) => thread && change(thread),
   );
   // A list without the Thread stays as it is, so nothing showing it renders again.
   const inList = (threads: Thread[] | undefined): Thread[] | undefined =>
     threads?.some(({ id }) => id === threadId)
-      ? threads.map((thread) => (thread.id === threadId ? { ...thread, tokens } : thread))
+      ? threads.map((thread) => (thread.id === threadId ? change(thread) : thread))
       : threads;
   queryClient.setQueryData(homeThreadsQuery(home).queryKey, inList);
   // Every person's list of their Threads on Tasks, since the event doesn't name whose it is.

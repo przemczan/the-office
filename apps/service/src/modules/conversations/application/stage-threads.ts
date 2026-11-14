@@ -52,6 +52,7 @@ import {
   freshSession,
   logMessages,
   markDelivery,
+  readRunningContext,
   startStageThread,
   type StageWorkEnding,
   type ThreadChange,
@@ -143,8 +144,16 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens, as the Thread counts them. */
   readonly tokens: TokenTotals;
+  /** The session's context after the turn; undefined when its engine can't report it. */
+  readonly context: StageTurnContext | undefined;
   /** Set when the engine refused the turn as a usage window is used up: which, and its reset. */
   readonly usedUpWindow?: { readonly window: string; readonly resetsAt: Date };
+}
+
+/** A session's context after a turn, against its model's window. */
+export interface StageTurnContext {
+  readonly tokens: number;
+  readonly window: number;
 }
 
 /** A Decision the person asked in a Stage Thread, with the id it is answered by. */
@@ -660,6 +669,11 @@ export class StageThreads {
           await this.change(threadId, (thread) => countRunningTurn(thread, soFar, new Date()));
           continue;
         }
+        if (next.value.kind === "context-read") {
+          const { tokens } = next.value;
+          await this.change(threadId, (thread) => readRunningContext(thread, tokens, new Date()));
+          continue;
+        }
         const lines = sessionLogLines(next.value, logger);
         if (lines.length > 0) await this.log(threadId, lines);
       }
@@ -752,11 +766,14 @@ export class StageThreads {
           (turn.outcome === "interrupted"
             ? "The turn was interrupted."
             : "The engine ended the turn.");
-    const usage = await session.readContextUsage();
+    const context = (await this.engine.reportsContext(engineId))
+      ? await session.readContextUsage()
+      : undefined;
     await this.change(threadId, (thread) =>
       endTurn(thread, {
         usage: turn.usage,
-        contextTokens: usage.tokens,
+        contextTokens: context?.tokens ?? 0,
+        contextWindow: context?.window,
         handingOver: false,
         officeSendsNext: true,
         endedAt: new Date(),
@@ -778,6 +795,7 @@ export class StageThreads {
       output: turn.output,
       problem,
       tokens: turn.usage,
+      context: context && { tokens: context.tokens, window: context.window },
       ...(usedUpWindow && {
         usedUpWindow: { window: usedUpWindow.window, resetsAt: usedUpWindow.resetsAt },
       }),

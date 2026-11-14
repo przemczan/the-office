@@ -12,6 +12,7 @@ import {
 } from "./decision.js";
 import {
   ContextOverrideChosen,
+  ContextRead,
   DeliveryMarked,
   DecisionAnswered,
   DecisionOpened,
@@ -861,6 +862,8 @@ export interface TurnCount {
   readonly usage: TokenTotals;
   /** The session's context after the turn. */
   readonly contextTokens: number;
+  /** Its model's context window; undefined when the engine can't report its context. */
+  readonly contextWindow: number | undefined;
   /** The context neared its limit, so The Office asks for a Handover note next. */
   readonly handingOver: boolean;
   /**
@@ -878,7 +881,7 @@ export interface TurnCount {
  */
 export function endTurn(
   thread: Thread,
-  { usage, contextTokens, handingOver, officeSendsNext, endedAt }: TurnCount,
+  { usage, contextTokens, contextWindow, handingOver, officeSendsNext, endedAt }: TurnCount,
 ): ThreadChange<TurnEnded> {
   if (!thread.session) throw new Error(`Thread ${thread.id} has no session to end a turn of.`);
   const ended: Thread = {
@@ -890,6 +893,7 @@ export function endTurn(
       ...thread.session,
       lastCallAt: endedAt,
       contextTokens,
+      contextWindow,
       startContextTokens: thread.session.startContextTokens ?? contextTokens,
       full: thread.session.full || handingOver,
     },
@@ -909,6 +913,20 @@ export function countRunningTurn(
   if (thread.state !== "answering") return undefined;
   const counted: Thread = { ...thread, runningTurnTokens: soFar };
   return { thread: counted, logged: [], event: new TokensCounted(counted, countedAt) };
+}
+
+/**
+ * Keeps the running turn's latest context reading on the Thread's session, until the turn's own
+ * reading replaces it; none once the person no longer answers in it.
+ */
+export function readRunningContext(
+  thread: Thread,
+  contextTokens: number,
+  readAt: Date,
+): ThreadChange<ContextRead> | undefined {
+  if (thread.state !== "answering" || !thread.session) return undefined;
+  const read: Thread = { ...thread, session: { ...thread.session, contextTokens } };
+  return { thread: read, logged: [], event: new ContextRead(read, readAt) };
 }
 
 /**

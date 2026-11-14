@@ -227,6 +227,16 @@ export const stageRunSchema = z.object({
   /** How its session began; null for a run that opened none. */
   session: contextMoveSchema.nullable(),
   tokens: tokenTotalsSchema,
+  /**
+   * Its session's context after the run's latest turn, against its model's window, kept with the
+   * run; null for a run that read none.
+   */
+  context: z
+    .object({
+      contextTokens: z.int().nonnegative(),
+      contextWindow: z.int().positive(),
+    })
+    .nullable(),
   /** The failure a loop went back with, which the run was briefed with. */
   carriedFailure: wentBackSchema.nullable(),
   /** The feedback a Gate sent the work back to this Stage with, which the run was briefed with. */

@@ -161,6 +161,16 @@ export interface TurnTokensEvent {
 }
 
 /**
+ * The session's context as the model's latest answer in the running turn read it: that answer's
+ * input, cache reads and cache writes. For showing it live; `EngineSession.readContextUsage` at
+ * the turn's end stays the reading the Context policy decides on.
+ */
+export interface ContextReadEvent {
+  readonly kind: "context-read";
+  readonly tokens: number;
+}
+
+/**
  * How a turn ended. `usage-window-used-up`: the engine refused it because one of its account's usage
  * windows is used up (spec 5.4), which is no failure; the turn's end names the window.
  */
@@ -248,6 +258,7 @@ export type SessionEvent =
   | ToolResultEvent
   | ToolRefusedEvent
   | TurnTokensEvent
+  | ContextReadEvent
   | TurnEndedEvent
   | RateLimitEvent
   | McpServerNotStartedEvent

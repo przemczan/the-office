@@ -132,6 +132,7 @@ const sessionEvent = z.discriminatedUnion("kind", [
     refusedBy: z.enum(["office-rules", "engine"]),
   }),
   z.object({ kind: z.literal("turn-tokens"), soFar: tokenUsage }),
+  z.object({ kind: z.literal("context-read"), tokens: z.number().int().nonnegative() }),
   z.object({
     kind: z.literal("turn-ended"),
     outcome: z.enum(["completed", "interrupted", "failed", "usage-window-used-up"]),

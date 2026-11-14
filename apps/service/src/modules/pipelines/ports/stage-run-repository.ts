@@ -3,6 +3,7 @@ import type {
   GateAction,
   PublishedWork,
   StageRun,
+  StageRunContext,
   StageRunDecision,
   StageSessionMove,
   StageTokens,
@@ -43,6 +44,9 @@ export abstract class StageRunRepository {
 
   /** Saves the run's tokens so far, replacing those saved before. */
   abstract saveTokens(runId: string, tokens: StageTokens): Promise<void>;
+
+  /** Saves the run's session's context after its latest turn, replacing what was saved before. */
+  abstract saveContext(runId: string, context: StageRunContext): Promise<void>;
 
   /** Saves the Decisions the walk opened on the run, replacing those saved before. */
   abstract saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void>;

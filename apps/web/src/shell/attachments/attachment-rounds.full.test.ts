@@ -50,6 +50,7 @@ function aRun(
     threadId: null,
     session: null,
     tokens: NO_TOKENS,
+    context: null,
     carriedFailure: null,
     sentBack: null,
     commandRuns: [],

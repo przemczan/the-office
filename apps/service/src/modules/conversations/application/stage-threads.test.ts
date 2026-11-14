@@ -467,7 +467,12 @@ describe("StageThreads", () => {
 
     const { stageThread, turn } = await aStageRun(request);
 
-    expect(turn).toEqual({ output: { status: "done" }, problem: undefined, tokens: USAGE });
+    expect(turn).toEqual({
+      output: { status: "done" },
+      problem: undefined,
+      tokens: USAGE,
+      context: { tokens: 30_000, window: 1_000_000 },
+    });
     expect(stageThread.move).toMatchObject({ move: "fresh", reason: "new-thread" });
     const thread = await threadOf(stageThread.threadId);
     expect(thread).toMatchObject({
@@ -613,6 +618,7 @@ describe("Stop", () => {
       output: undefined,
       problem: "The turn was interrupted.",
       tokens: USAGE,
+      context: { tokens: 30_000, window: 1_000_000 },
     });
     // Between turns there is nothing to stop.
     await stageThread.interrupt();

@@ -9,8 +9,8 @@ import { useCacheState } from "./cache-mark.tsx";
 import {
   CONTEXT_CHOICES,
   contextChoiceOf,
+  contextBarLabel,
   contextChoiceWords,
-  contextLabel,
   offersAChoice,
   overrideOf,
   startsASessionWords,
@@ -75,5 +75,5 @@ export function ContextBar({
 function noChoiceWords({ context }: Thread, cache: CacheState, personName: string): string {
   return cache.kind === "none" && context.reason === "new-thread" && context.briefTokens !== null
     ? startsASessionWords(context.briefTokens)
-    : contextLabel(context, personName);
+    : contextBarLabel(context, personName);
 }

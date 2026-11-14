@@ -1721,6 +1721,32 @@
   padding: 7px 12px;
 }
 
+/* In the foot's padding, the row is quieter: no rule, the line a rounded hover. */
+.run-thread-foot .session-row,
+.timeline-foot .session-row {
+  margin: 0 0 6px;
+  border-top: 0;
+}
+
+.run-thread-foot .session-row > .sub-agents-and-processes-line,
+.timeline-foot .session-row > .sub-agents-and-processes-line {
+  margin: 0;
+}
+
+.run-thread-foot .context-reading-slot,
+.timeline-foot .context-reading-slot {
+  min-height: 29px;
+  padding: 0 4px 0 10px;
+}
+
+.run-thread > .session-row > .sub-agents-and-processes-line {
+  padding: 7px 12px;
+}
+
+.run-thread > .session-row .context-reading-slot {
+  padding: 0 12px 0 10px;
+}
+
 .run-thread-closed {
   display: flex;
   flex: none;

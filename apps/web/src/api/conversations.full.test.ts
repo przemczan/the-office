@@ -20,6 +20,8 @@ function aStageThread(id: string, tokens: TokenTotals): Thread {
       cacheWarm: false,
       cacheWarmUntil: null,
       contextTokens: 0,
+      contextWindow: null,
+      contextReported: true,
       briefTokens: null,
       alternatives: [],
       override: null,
@@ -86,5 +88,30 @@ describe("a running turn's tokens", () => {
       .filter((query) => query.state.isInvalidated);
     expect(stale).toEqual([]);
     expect(queryClient.getQueryData(threadQueries.onTasksWith("tester").queryKey)).toBe(otherList);
+  });
+});
+
+describe("a running turn's context reading", () => {
+  it("moves the Thread's reading at once, refetching nothing", () => {
+    const queryClient = aQueryClient();
+    const event: ThreadWebEvent = {
+      type: "thread.context-read",
+      occurredAt: "2026-10-26T09:05:00.000Z",
+      threadId: running.id,
+      home: running.home,
+      contextTokens: 118_000,
+      contextWindow: 200_000,
+    };
+
+    threadEventCacheUpdates["thread.context-read"](event, queryClient);
+
+    expect(queryClient.getQueryData(threadQueries.one(running.id).queryKey)?.context).toMatchObject(
+      { contextTokens: 118_000, contextWindow: 200_000, reason: "new-thread" },
+    );
+    const stale = queryClient
+      .getQueryCache()
+      .findAll()
+      .filter((query) => query.state.isInvalidated);
+    expect(stale).toEqual([]);
   });
 });

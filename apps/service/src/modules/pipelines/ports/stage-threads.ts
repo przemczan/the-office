@@ -2,7 +2,12 @@ import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import type { Effort, StageSession } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
-import type { StageDecision, StageSessionMove, StageTokens } from "../domain/stage-run.js";
+import type {
+  StageDecision,
+  StageRunContext,
+  StageSessionMove,
+  StageTokens,
+} from "../domain/stage-run.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
 export interface StageSessionSettings {
@@ -67,6 +72,8 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens. */
   readonly tokens: StageTokens;
+  /** The session's context after the turn; undefined when its engine can't report it. */
+  readonly context: StageRunContext | undefined;
   /**
    * Set when the engine refused the turn because a usage window of its account is used up (spec
    * 5.4): the window, as the engine module names it, and when it resets. No failure.

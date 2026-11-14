@@ -6,6 +6,7 @@ import type {
   SentBack,
   PublishedWork,
   StageOutcome,
+  StageRunContext,
   StageRunDecision,
   StageSessionMove,
   StageTokens,
@@ -49,6 +50,8 @@ export const stageRuns = pgTable(
       .$type<StageTokens>()
       .notNull()
       .default({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }),
+    /** The run's session's context after its latest turn; null for a run that read none. */
+    context: jsonb("context").$type<StageRunContext>(),
     /** The Decisions the walk opened on the run, with the user's answers. */
     decisions: jsonb("decisions").$type<readonly StageRunDecision[]>().notNull().default([]),
     /** What the user asked of the run while it ran: pause or stop. */

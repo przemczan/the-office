@@ -66,6 +66,11 @@ export interface ThreadSession {
   /** How large its context was after the last call. */
   readonly contextTokens: number;
   /**
+   * Its model's context window, read with `contextTokens`; absent before the first reading and on
+   * an engine that can't report its context.
+   */
+  readonly contextWindow?: number;
+  /**
    * Its context after its first turn: the engine's own prompt and tools, the Brief and the first
    * exchange, which a fresh session takes too. Undefined until that turn ends.
    */

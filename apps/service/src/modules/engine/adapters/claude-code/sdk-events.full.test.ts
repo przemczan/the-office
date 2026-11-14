@@ -137,7 +137,7 @@ const frame = (id: string, output: number, parent: string | null = null): SDKMes
   });
 
 describe("TurnTokens", () => {
-  it("counts each message once, at its latest frame's usage", () => {
+  it("counts each message once, at its latest frame's usage, and reads the context at each new one", () => {
     const turnTokens = new TurnTokens();
 
     const first = turnTokens.eventsOf(frame("msg-1", 10));
@@ -146,6 +146,7 @@ describe("TurnTokens", () => {
     const next = turnTokens.eventsOf(frame("msg-2", 5));
 
     expect(first).toEqual([
+      { kind: "context-read", tokens: 1003 },
       { kind: "turn-tokens", soFar: { input: 3, output: 10, cacheRead: 1000, cacheCreation: 0 } },
     ]);
     expect(repeated).toEqual([]);
@@ -153,6 +154,7 @@ describe("TurnTokens", () => {
       { kind: "turn-tokens", soFar: { input: 3, output: 40, cacheRead: 1000, cacheCreation: 0 } },
     ]);
     expect(next).toEqual([
+      { kind: "context-read", tokens: 1003 },
       { kind: "turn-tokens", soFar: { input: 6, output: 45, cacheRead: 2000, cacheCreation: 0 } },
     ]);
   });
@@ -163,6 +165,7 @@ describe("TurnTokens", () => {
 
     expect(turnTokens.eventsOf(frame("msg-2", 5, "call-1"))).toEqual([]);
     expect(turnTokens.eventsOf(frame("msg-3", 7))).toEqual([
+      { kind: "context-read", tokens: 1003 },
       { kind: "turn-tokens", soFar: { input: 6, output: 17, cacheRead: 2000, cacheCreation: 0 } },
     ]);
   });
@@ -174,6 +177,7 @@ describe("TurnTokens", () => {
     expect(turnTokens.eventsOf(message({ ...RESULT, subtype: "success" }))).toEqual([]);
     expect(turnTokens.eventsOf(message({ type: "system", subtype: "init" }))).toEqual([]);
     expect(turnTokens.eventsOf(frame("msg-2", 7))).toEqual([
+      { kind: "context-read", tokens: 1003 },
       { kind: "turn-tokens", soFar: { input: 3, output: 7, cacheRead: 1000, cacheCreation: 0 } },
     ]);
   });

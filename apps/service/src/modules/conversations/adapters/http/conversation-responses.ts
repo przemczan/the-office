@@ -26,7 +26,7 @@ import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 export function toThreadResponse(
   thread: Thread,
-  { context, changesAllowed }: ThreadReading,
+  { context, contextReported, changesAllowed }: ThreadReading,
   activity: ThreadActivity | undefined,
 ): ThreadResponse {
   return {
@@ -42,6 +42,8 @@ export function toThreadResponse(
       cacheWarm: context.cacheWarm,
       cacheWarmUntil: context.cacheWarmUntil?.toISOString() ?? null,
       contextTokens: context.contextTokens,
+      contextWindow: thread.session?.contextWindow ?? null,
+      contextReported,
       briefTokens: context.briefTokens ?? null,
       alternatives: context.alternatives.map(({ override, tokens }) => ({ override, tokens })),
       override: thread.override ?? null,

@@ -51,6 +51,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     threadId: null,
     session: null,
     tokens: NO_TOKENS,
+    context: null,
     carriedFailure: null,
     sentBack: null,
     gateAction: null,

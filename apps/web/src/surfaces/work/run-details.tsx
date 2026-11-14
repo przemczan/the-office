@@ -8,6 +8,8 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { attachmentQueries } from "../../api/work.ts";
 import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
 import { attachmentsOfGateRun, oneRound } from "../../shell/attachments/attachment-rounds.ts";
+import { ContextReading, SessionRow } from "../../shell/conversation/context-reading.tsx";
+import { endedRunReadingLook } from "../../shell/conversation/context-reading-words.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
@@ -414,10 +416,17 @@ function RunThread({
         </div>
       ) : (
         <>
-          <SubAgentsAndProcessesLine
-            thread={thread}
-            personName={personName}
-            onShow={onShowSubAgentsAndProcesses}
+          <SessionRow
+            line={
+              <SubAgentsAndProcessesLine
+                thread={thread}
+                personName={personName}
+                onShow={onShowSubAgentsAndProcesses}
+              />
+            }
+            reading={
+              run.session !== null && <ContextReading look={endedRunReadingLook(run, personName)} />
+            }
           />
           <div className="run-thread-closed">
             <ReadOnlyNote reason={runThreadClosedWords(run)} />
