@@ -15,9 +15,10 @@ import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RecordMention } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
-import { answerWords, namedAttachments } from "./decision-words.ts";
+import { answerWords, atUsersRequestWords, namedAttachments } from "./decision-words.ts";
 import { roleFirstName } from "../person-name.ts";
 import { NamedTag, PersonTag } from "../person-tag.tsx";
+import { userName, useSignedInUserId } from "../use-user-name.ts";
 import { MessageField } from "./message-field.tsx";
 import { ThreadLink } from "./thread-link.tsx";
 import "./conversation.css";
@@ -159,17 +160,24 @@ function AnsweredBy({
   readonly decision: Decision;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
-  const { atUsersRequest, answeredBy, answeredByTheOffice } = decision;
+  const signedInUserId = useSignedInUserId();
+  const { atUsersRequest, answeredBy, answeredByUser, answeredByTheOffice } = decision;
   if (answeredByTheOffice) return "Answered by The Office: ";
   if (atUsersRequest !== null) {
     return (
       <>
         Answered by {roleFirstName(atUsersRequest.roleKey, roles)}{" "}
-        <ThreadLink threadId={atUsersRequest.threadId}>at your request</ThreadLink>:{" "}
+        <ThreadLink threadId={atUsersRequest.threadId}>
+          {atUsersRequestWords(atUsersRequest.user, signedInUserId)}
+        </ThreadLink>
+        :{" "}
       </>
     );
   }
-  return answeredBy === null ? "Answered: " : `Answered by ${consultantName(answeredBy, roles)}: `;
+  if (answeredBy !== null) return `Answered by ${consultantName(answeredBy, roles)}: `;
+  return answeredByUser === null
+    ? "Answered: "
+    : `Answered by ${userName(answeredByUser, signedInUserId, "you")}: `;
 }
 
 /**

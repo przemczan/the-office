@@ -30,6 +30,7 @@ import {
   type TaskConversation as TaskConversationResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { ChatActivity } from "../../application/chat-activity.js";
 import { DecisionService } from "../../application/decision-service.js";
@@ -162,14 +163,20 @@ export class ThreadsController {
    * and the next message starts one reaching the workstation but secrets.
    */
   @Put("threads/:id/allow-changes")
-  async allow(@Param("id", ParseUUIDPipe) id: string): Promise<ThreadResponse> {
-    return this.toResponse(await this.allowChanges.allow(id));
+  async allow(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ThreadResponse> {
+    return this.toResponse(await this.allowChanges.allow(id, userOf(signedIn)));
   }
 
   /** Switches changes off in the Thread: its session ends, and the Caretaker only reads again. */
   @Delete("threads/:id/allow-changes")
-  async switchOff(@Param("id", ParseUUIDPipe) id: string): Promise<ThreadResponse> {
-    return this.toResponse(await this.allowChanges.switchOff(id));
+  async switchOff(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ThreadResponse> {
+    return this.toResponse(await this.allowChanges.switchOff(id, userOf(signedIn)));
   }
 
   /** The user has seen the chat Thread up to the message (spec §2.4). */
@@ -201,19 +208,20 @@ export class ThreadsController {
   }
 
   /**
-   * The user's message, mentioning a record by linking to its page, with the page open beside the
-   * chat drawer, and saying whose Handover note it started from when a Link card gave it; the
-   * person's answer comes into the log as it is written.
+   * The signed-in user's message, mentioning a record by linking to its page, with the page open
+   * beside the chat drawer, and saying whose Handover note it started from when a Link card gave
+   * it; the person's answer comes into the log as it is written.
    */
   @Post("threads/:id/messages")
   @HttpCode(HttpStatus.ACCEPTED)
   async send(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(newMessageSchema)) { text, handoverNoteFrom, openPage }: NewMessage,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ThreadResponse> {
     const mentions = recordLinksIn(text).map(toMention);
     return this.toResponse(
-      await this.runner.send(id, text, { mentions, handoverNoteFrom, openPage }),
+      await this.runner.send(id, text, userOf(signedIn), { mentions, handoverNoteFrom, openPage }),
     );
   }
 

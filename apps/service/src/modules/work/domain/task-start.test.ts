@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import type { Task } from "./task.js";
 import { TaskStarted } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
@@ -11,7 +10,7 @@ import {
   type StartReasons,
 } from "./task-start.js";
 import type { Wait } from "./wait.js";
-import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { ANN_LEE, aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
 
@@ -54,7 +53,7 @@ function waiting(...waits: Wait[]): StartReasons {
 
 describe("startTask", () => {
   it("moves a Ready Task to In progress, counted against its first Agent Stage's Role", () => {
-    const { task, event } = startTask(ready, conditions, held([]), THE_USER);
+    const { task, event } = startTask(ready, conditions, held([]), ANN_LEE);
 
     expect(task).toEqual({ ...ready, state: "in-progress", personRole: "developer" });
     expect(event).toBeInstanceOf(TaskStarted);
@@ -69,7 +68,7 @@ describe("startTask", () => {
     ];
     const vacant = { ...conditions, person: undefined };
 
-    expect(() => startTask(ready, vacant, held(others), THE_USER)).toThrow(
+    expect(() => startTask(ready, vacant, held(others), ANN_LEE)).toThrow(
       new TaskRefused([
         "Nobody fills the Role Implement needs: hire a person for it on People first.",
         "The Office-wide limit is reached: all 3 desks are in use.",
@@ -80,7 +79,7 @@ describe("startTask", () => {
   it("refuses while a Task it waits for isn't Done or Dropped, though a blocker only waits", () => {
     const blockers = [aTask({ id: "b1", title: "Queue schema", state: "ready" })];
 
-    expect(() => startTask(ready, conditions, held([], blockers), THE_USER)).toThrow(
+    expect(() => startTask(ready, conditions, held([], blockers), ANN_LEE)).toThrow(
       new TaskRefused(['Blocked by "Queue schema", which must be Done first.']),
     );
   });

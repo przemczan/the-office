@@ -14,6 +14,8 @@ import { SignInChanges } from "./sign-in-changes.js";
 /** GitHub's codes last ten minutes, so a trip to GitHub that takes longer can't finish anyway. */
 const SIGN_IN_TRIP_MS = 10 * 60 * 1000;
 
+const REDIRECT_URI_MISMATCH = "redirect_uri_mismatch";
+
 /** Sign in with GitHub as Settings › Office identity shows it; no token is part of it. */
 export type SignInState =
   | { readonly status: "not-registered" }
@@ -111,6 +113,13 @@ export class GitHubSignIn implements OnModuleInit, OnModuleDestroy {
    */
   async complete({ code, state, error }: SignInReturn): Promise<void> {
     const pending = this.pending.take(state);
+    if (pending === undefined && error === REDIRECT_URI_MISMATCH) {
+      // GitHub sends a mismatch to the App's first callback URL, this one, whoever started it:
+      // most likely Continue with GitHub from an address whose callback URL the App doesn't list.
+      throw new GitHubSignInFailed(
+        "GitHub refused to send the browser back to this address: its callback URL isn't in the GitHub App's settings. Add the URLs Settings › Office identity lists to the App on GitHub, then try again.",
+      );
+    }
     if (pending === undefined) {
       throw new GitHubSignInFailed(
         "This sign-in wasn't started from this Office, or took longer than ten minutes. Sign in again.",
@@ -161,7 +170,8 @@ export class GitHubSignIn implements OnModuleInit, OnModuleDestroy {
   }
 
   private async loginOf(tokens: UserTokens): Promise<string> {
-    return this.api.loginOf(tokens.accessToken).catch(failedSignIn);
+    const user = await this.api.userOf(tokens.accessToken).catch(failedSignIn);
+    return user.login;
   }
 
   /** Tokens issued under the App registered before won't refresh under the new one's Client ID. */
@@ -196,7 +206,7 @@ export function refusalReason(error: string): string {
       return "GitHub no longer knows this sign-in's code: a code is used once, within ten minutes. Sign in again.";
     case "incorrect_client_credentials":
       return "GitHub refused the App's Client ID and client secret: the App may have been deleted or its secret reset. Register the App again.";
-    case "redirect_uri_mismatch":
+    case REDIRECT_URI_MISMATCH:
       return "GitHub sends the browser back only to the address the App was registered from. Open The Office at that address and sign in again, or register the App again from this one.";
     case "unverified_user_email":
       return "GitHub asks for your primary email address to be verified first. Verify it on GitHub, then sign in again.";

@@ -11,6 +11,7 @@ import {
   type MessageInHistory,
   type ThreadMessagesRead,
 } from "./thread-history-words.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const FROM = new Date("2026-11-05T00:00:00.000Z");
 const TO = new Date("2026-11-12T23:59:59.999Z");
@@ -27,7 +28,7 @@ const proposal = aProposal({
     skills: [],
     roleKey: undefined,
   },
-  status: { kind: "applied", at: new Date("2026-11-06T11:00:00.000Z") },
+  status: { kind: "applied", at: new Date("2026-11-06T11:00:00.000Z"), by: ANN_LEE },
 });
 
 const RECORDS: HistoryRecords = {
@@ -81,9 +82,16 @@ function aMessageInHistory(threadId: string, text: string, index: number): Messa
 describe("messageInHistory", () => {
   it("names the user, the person by name and Role, and The Office as speakers", () => {
     expect(
-      words(aMessage("a", "06T09:00:00", { kind: "user", text: "Hi", delivery: "delivered" })),
+      words(
+        aMessage("a", "06T09:00:00", {
+          kind: "user",
+          text: "Hi",
+          delivery: "delivered",
+          writtenBy: ANN_LEE,
+        }),
+      ),
     ).toEqual({
-      speaker: "the user",
+      speaker: "the user Ann Lee",
       text: "Hi",
     });
     expect(

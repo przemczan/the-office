@@ -11,8 +11,8 @@ export class ProjectsSetUpRegistration implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.registry.register(async (projectId) => {
-      await this.projectRunEnvironments.setUp(projectId);
+    this.registry.register(async (projectId, by) => {
+      await this.projectRunEnvironments.setUp(projectId, by);
     });
   }
 }

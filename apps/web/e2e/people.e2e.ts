@@ -33,7 +33,9 @@ import {
   taskStagesSchema,
   threadListSchema,
   decisionListSchema,
+  dutyListSchema,
   threadSchema,
+  type Duty,
   type Thread,
   type ClaudeCodeEngineEdit,
   type EngineSettings,
@@ -43,6 +45,7 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
+import { E2E_STORAGE_STATE } from "./e2e-user.ts";
 import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
@@ -1965,7 +1968,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await decision.getByRole("button", { name: "Keep the query string" }).click();
   await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
   await expect(decision).toHaveCount(0);
-  await expect(inThread).toContainText("Answered: Keep the query string");
+  await expect(inThread).toContainText("Answered by you: Keep the query string");
   await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
   await expect(readinessLine("No Decision open")).toHaveClass(/task-checklist-met/);
 
@@ -2363,7 +2366,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(
     history.getByText("Signing in now returns to the page it started from."),
   ).toBeVisible();
-  await expect(history.getByText("Answered: The page it started from")).toBeVisible();
+  await expect(history.getByText("Answered by you: The page it started from")).toBeVisible();
   await expect(conversation.getByText("Signing in now returns")).toHaveCount(0);
   await expect(history.getByRole("group", { name: "Details" })).toBeVisible();
   await expect(newestRun.getByRole("note")).toHaveText(
@@ -3333,7 +3336,7 @@ test(
       await decision.getByRole("button", { name: CONSULTATION_OPTION }).click();
       await expect(decision).toHaveCount(0);
       await expect(needsYou).toContainText("Ready: start it when you want");
-      await expect(inThread).toContainText(`Answered: ${CONSULTATION_OPTION}`);
+      await expect(inThread).toContainText(`Answered by you: ${CONSULTATION_OPTION}`);
       await expect(conversation.getByText("Then the migration goes first.")).toBeVisible();
       await expect(adamTab).toHaveCount(0);
 
@@ -3956,6 +3959,107 @@ test(
       await page.request.put("/api/settings/size-threshold", {
         data: { sizeThreshold: threshold },
       });
+    }
+  },
+);
+
+/**
+ * Puts each duty back as `before` had it, in the records: a duty never set is unset again, which no
+ * screen or API can do, and a holder since let go can't be set again through the API.
+ */
+async function restoreDuties(page: Page, before: readonly Duty[]): Promise<void> {
+  const now = new Map((await dutiesNow(page)).map((duty) => [duty.key, duty]));
+  for (const { key, set, roleKey } of before) {
+    const changed = now.get(key);
+    if (changed?.set === set && changed.roleKey === roleKey) continue;
+    await queryOfficeDatabase("delete from duty_assignments where duty = $1", [key]);
+    if (set) {
+      await queryOfficeDatabase(
+        "insert into duty_assignments (duty, role_key, changed_at) values ($1, $2, now())",
+        [key, roleKey],
+      );
+    }
+  }
+}
+
+async function dutiesNow(page: Page): Promise<Duty[]> {
+  return dutyListSchema.parse(await (await page.request.get("/api/settings/duties")).json());
+}
+
+function isPlans({ key }: Duty): boolean {
+  return key === "plans";
+}
+
+test(
+  "the user sets a duty's holder in Settings › Duties, sees it on the Role card and in People, and applies Marta's Proposal of duties",
+  { tag: "@full" },
+  async ({ page }) => {
+    const MCP_DUTY = "Default Consultant for MCP tool hard switches";
+    const before = await dutiesNow(page);
+    const { card } = roleSchema.parse(await (await page.request.get("/api/roles/planner")).json());
+    const planner = `${card.name} · ${card.title}`;
+    try {
+      await page.goto("/settings/duties");
+      await expect(page.getByRole("link", { name: "Duties" })).toBeVisible();
+      const picker = page.getByLabel(MCP_DUTY, { exact: true });
+      await picker.selectOption({ label: planner });
+      await expect(page.getByText(`${MCP_DUTY}: ${planner} holds it now.`)).toBeVisible();
+      await page.reload();
+      await expect(page.getByLabel(MCP_DUTY, { exact: true })).toHaveValue("planner");
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-duties.png") });
+
+      await page.goto("/people/planner/role");
+      await expect(roleCardGroup(page, "Identity")).toContainText(MCP_DUTY);
+      await page.goto("/people");
+      const tile = page.locator(".person-card").filter({ hasText: card.name });
+      const mark = tile.getByRole("img", { name: new RegExp(`duties?: .*${MCP_DUTY}`) });
+      await expect(mark).toBeVisible();
+      await mark.hover();
+      await expect(page.getByRole("tooltip")).toContainText(MCP_DUTY);
+      await page.mouse.move(0, 0);
+      // The mark's Tooltip trigger is the focus stop around it.
+      await mark.locator("xpath=..").focus();
+      await expect(page.getByRole("tooltip")).toContainText(MCP_DUTY);
+
+      await page.goto("/settings/duties");
+      await page.getByLabel(MCP_DUTY, { exact: true }).selectOption({ label: "Nobody" });
+      await expect(page.getByText(`${MCP_DUTY}: nobody holds it now.`)).toBeVisible();
+      const row = page.locator(".duty-row").filter({ hasText: MCP_DUTY });
+      await expect(row).toContainText("You do it yourself.");
+
+      const started = await page.request.post("/api/chats/office-manager/threads");
+      const { id: threadId } = threadSchema.parse(await started.json());
+      const askedFirst = before.find(({ key }) => key === "asked-first-when-out-of-tries");
+      await seedProposal(threadId, {
+        kind: "duties",
+        from: { "mcp-tool-consultant": null, "asked-first-when-out-of-tries": askedFirst?.roleKey },
+        to: { "mcp-tool-consultant": "planner", "asked-first-when-out-of-tries": "planner" },
+      });
+      // Drafted from a holder Plans no longer has, as if it changed after the draft.
+      await seedProposal(threadId, {
+        kind: "duties",
+        from: { plans: "a-role-gone-since" },
+        to: { plans: null },
+      });
+
+      await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+      const proposals = chatWith(page, "Marta").getByRole("region", {
+        name: "Proposal: Change duties",
+      });
+      const applied = proposals.filter({ hasText: MCP_DUTY });
+      await expect(applied.getByRole("listitem").first()).toContainText(`${planner}`);
+      await applied.getByRole("button", { name: "Apply change" }).click();
+      await expect(applied).toContainText("Applied");
+      const holders = new Map((await dutiesNow(page)).map(({ key, roleKey }) => [key, roleKey]));
+      expect(holders.get("mcp-tool-consultant")).toBe("planner");
+      expect(holders.get("asked-first-when-out-of-tries")).toBe("planner");
+
+      const stale = proposals.filter({ hasText: "Plans" }).filter({ hasNotText: MCP_DUTY });
+      await stale.getByRole("button", { name: "Apply change" }).click();
+      await expect(stale).toContainText("Plans was changed meanwhile");
+      expect((await dutiesNow(page)).find(isPlans)?.roleKey).toBe(before.find(isPlans)?.roleKey);
+    } finally {
+      await restoreDuties(page, before);
     }
   },
 );
@@ -5509,7 +5613,10 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     const otherTab = await page.context().newPage();
     await otherTab.goto("/work");
     await expect(chatButton(otherTab)).toHaveAccessibleName("Chat: nothing new");
-    const elsewhere = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const elsewhere = await browser.newContext({
+      baseURL: new URL(page.url()).origin,
+      storageState: E2E_STORAGE_STATE,
+    });
     const otherBrowser = await elsewhere.newPage();
     await otherBrowser.goto("/now");
     await chatButton(otherBrowser).click();

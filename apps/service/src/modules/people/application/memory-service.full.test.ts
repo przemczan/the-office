@@ -13,6 +13,7 @@ import { changeRoleCard, letGo } from "../domain/role-changes.js";
 import { RoleMemoryChanged } from "../domain/role-events.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRefused } from "../domain/role-refused.js";
+import { ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
 import { MemoryRepository } from "../ports/memory-repository.js";
 import { RoleRepository } from "../ports/role-repository.js";
 import { MemoryService } from "./memory-service.js";
@@ -72,6 +73,17 @@ describe("MemoryService", () => {
     expect(published).toContainEqual(expect.any(RoleMemoryChanged));
   });
 
+  it("keeps the user who wrote a note, each their own", async () => {
+    const roleKey = await aPerson(true);
+
+    const anns = await memory.write(aDraft(roleKey, { source: { kind: "user", user: ANN_LEE } }));
+    const bens = await memory.write(aDraft(roleKey, { source: { kind: "user", user: BEN_ITO } }));
+
+    const { notes } = await memory.read(roleKey);
+    expect(notes.find(({ id }) => id === anns.id)?.source).toEqual({ kind: "user", user: ANN_LEE });
+    expect(notes.find(({ id }) => id === bens.id)?.source).toEqual({ kind: "user", user: BEN_ITO });
+  });
+
   it("writes nothing while Shared memory is off, and keeps what was there", async () => {
     const roleKey = await aPerson(true);
     const note = await memory.write(aDraft(roleKey));
@@ -83,6 +95,7 @@ describe("MemoryService", () => {
           { ...role.card, capabilities: { ...role.card.capabilities, sharedMemory: false } },
           CARD_CONTEXT,
           new Date(),
+          null,
         ),
       );
 

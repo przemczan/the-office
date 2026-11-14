@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { THE_USER } from "./author.js";
+import type { Author } from "./author.js";
 import { normalizedFilesToChange } from "./files-to-change.js";
 import { THE_PLANNER } from "./planning.js";
 import type { ProposedPipeline, Task } from "./task.js";
@@ -55,15 +55,20 @@ export function proposePlan(
 
 /**
  * The user's Plan. Changing it leaves it unconfirmed, and a Ready Task goes back to Planning, or
- * to Backlog when it has no planning Thread.
+ * to Backlog when it has no planning Thread, moved by `by`, who saved it.
  */
-export function savePlan(task: Task, writing: PlanWriting): TaskChange<TaskPlanSaved> | undefined {
+export function savePlan(
+  task: Task,
+  writing: PlanWriting,
+  by: Author,
+): TaskChange<TaskPlanSaved> | undefined {
   const written = writtenPlan(task, writing);
   refuseWith([...changingProblems(task, "Plan"), ...writtenPlanProblems(written)]);
   if (samePlan(task, written)) return undefined;
   return savedPart(
     task,
     { ...task, ...written, planConfirmed: false },
+    by,
     (leftReady) => new TaskPlanSaved(task.id, leftReady),
   );
 }
@@ -115,6 +120,7 @@ export function proposeDefinitionOfDone(
 export function saveDefinitionOfDone(
   task: Task,
   statements: readonly string[],
+  by: Author,
 ): TaskChange<TaskDefinitionOfDoneSaved> | undefined {
   const trimmed = trimmedStatements(statements);
   refuseWith([
@@ -125,6 +131,7 @@ export function saveDefinitionOfDone(
   return savedPart(
     task,
     { ...task, definitionOfDone: trimmed, definitionOfDoneConfirmed: false },
+    by,
     (leftReady) => new TaskDefinitionOfDoneSaved(task.id, leftReady),
   );
 }
@@ -154,16 +161,11 @@ export function confirmDefinitionOfDone(
 function savedPart<Event extends DomainEvent>(
   task: Task,
   saved: Task,
+  by: Author,
   announced: (leftReady: TaskStateChanged | undefined) => Event,
 ): TaskChange<Event> {
   if (task.state !== "ready") return { task: saved, event: announced(undefined) };
-  return outOfReady(
-    task,
-    saved,
-    task.hasPlanningThread ? "planning" : "backlog",
-    THE_USER,
-    announced,
-  );
+  return outOfReady(task, saved, task.hasPlanningThread ? "planning" : "backlog", by, announced);
 }
 
 /**

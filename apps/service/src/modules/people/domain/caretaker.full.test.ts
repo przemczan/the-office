@@ -46,6 +46,7 @@ describe("the Caretaker's card", () => {
       },
       CARD_CONTEXT,
       at,
+      null,
     );
 
     expect(changed?.role.cardVersion).toBe(2);
@@ -63,12 +64,20 @@ describe("the Caretaker's card", () => {
     ["Task limit", { taskLimit: 2 }],
   ])("refuses a change to its %s", (part, fields) => {
     expect(
-      refusal(() => changeRoleCard(caretaker, { ...caretakerCard, ...fields }, CARD_CONTEXT, at)),
+      refusal(() =>
+        changeRoleCard(caretaker, { ...caretakerCard, ...fields }, CARD_CONTEXT, at, null),
+      ),
     ).toEqual([expect.stringContaining(`The Caretaker's ${part}`)]);
   });
 
   it("leaves every other Role's card free", () => {
-    const changed = changeRoleCard(aRole(), aRoleCard({ taskLimit: "none" }), CARD_CONTEXT, at);
+    const changed = changeRoleCard(
+      aRole(),
+      aRoleCard({ taskLimit: "none" }),
+      CARD_CONTEXT,
+      at,
+      null,
+    );
 
     expect(changed?.role.card.taskLimit).toBe("none");
   });
@@ -83,7 +92,7 @@ describe("the Caretaker's Role", () => {
 
   it("takes nobody hired from scratch into its key", () => {
     expect(
-      refusal(() => hireFromScratch(CARETAKER, caretakerCard, CARD_CONTEXT, undefined, at)),
+      refusal(() => hireFromScratch(CARETAKER, caretakerCard, CARD_CONTEXT, undefined, at, null)),
     ).toContain("The Caretaker is built in: nobody else is hired into their Role.");
   });
 });

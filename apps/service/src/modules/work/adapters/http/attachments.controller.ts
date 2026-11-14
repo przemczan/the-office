@@ -24,11 +24,13 @@ import {
 } from "@the-office/contracts";
 import type { Response } from "express";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
-import { THE_USER } from "../../domain/author.js";
+import type { Author } from "../../domain/author.js";
 import { toAttachmentResponse } from "./work-responses.js";
+import { authorOf } from "./signed-in-author.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 /** The routes the upload body is read on; WorkModule applies `uploadBody` to them. */
@@ -70,24 +72,27 @@ export class AttachmentsController {
   async addLinkToIdea(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(newLinkSchema)) link: NewLink,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<AttachmentResponse> {
-    return this.addLink({ kind: "idea", ideaId: id }, link);
+    return this.addLink({ kind: "idea", ideaId: id }, link, authorOf(signedIn));
   }
 
   @Post("initiatives/:id/attachments/links")
   async addLinkToInitiative(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(newLinkSchema)) link: NewLink,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<AttachmentResponse> {
-    return this.addLink({ kind: "initiative", initiativeId: id }, link);
+    return this.addLink({ kind: "initiative", initiativeId: id }, link, authorOf(signedIn));
   }
 
   @Post("tasks/:id/attachments/links")
   async addLinkToTask(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(newLinkSchema)) link: NewLink,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<AttachmentResponse> {
-    return this.addLink({ kind: "task", taskId: id }, link);
+    return this.addLink({ kind: "task", taskId: id }, link, authorOf(signedIn));
   }
 
   @Post(ATTACHMENT_UPLOAD_ROUTES[0])
@@ -95,8 +100,9 @@ export class AttachmentsController {
     @Param("id", ParseUUIDPipe) id: string,
     @Query(new ContractPipe(attachmentUploadQuerySchema)) query: AttachmentUploadQuery,
     @Body() body: unknown,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<AttachmentResponse> {
-    return this.addFile({ kind: "idea", ideaId: id }, query, body);
+    return this.addFile({ kind: "idea", ideaId: id }, query, body, authorOf(signedIn));
   }
 
   @Post(ATTACHMENT_UPLOAD_ROUTES[1])
@@ -104,8 +110,9 @@ export class AttachmentsController {
     @Param("id", ParseUUIDPipe) id: string,
     @Query(new ContractPipe(attachmentUploadQuerySchema)) query: AttachmentUploadQuery,
     @Body() body: unknown,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<AttachmentResponse> {
-    return this.addFile({ kind: "initiative", initiativeId: id }, query, body);
+    return this.addFile({ kind: "initiative", initiativeId: id }, query, body, authorOf(signedIn));
   }
 
   @Post(ATTACHMENT_UPLOAD_ROUTES[2])
@@ -113,8 +120,9 @@ export class AttachmentsController {
     @Param("id", ParseUUIDPipe) id: string,
     @Query(new ContractPipe(attachmentUploadQuerySchema)) query: AttachmentUploadQuery,
     @Body() body: unknown,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<AttachmentResponse> {
-    return this.addFile({ kind: "task", taskId: id }, query, body);
+    return this.addFile({ kind: "task", taskId: id }, query, body, authorOf(signedIn));
   }
 
   /**
@@ -147,17 +155,22 @@ export class AttachmentsController {
     return (await this.attachments.listOf(owner)).map(toAttachmentResponse);
   }
 
-  private async addLink(owner: AttachmentOwner, link: NewLink): Promise<AttachmentResponse> {
-    return toAttachmentResponse(await this.attachments.addLink(owner, link, THE_USER));
+  private async addLink(
+    owner: AttachmentOwner,
+    link: NewLink,
+    addedBy: Author,
+  ): Promise<AttachmentResponse> {
+    return toAttachmentResponse(await this.attachments.addLink(owner, link, addedBy));
   }
 
   private async addFile(
     owner: AttachmentOwner,
     { fileName, mediaType }: AttachmentUploadQuery,
     body: unknown,
+    addedBy: Author,
   ): Promise<AttachmentResponse> {
     const file = { name: fileName, mediaType, content: uploadedBytes(body) };
-    return toAttachmentResponse(await this.attachments.addFile(owner, file, THE_USER));
+    return toAttachmentResponse(await this.attachments.addFile(owner, file, addedBy));
   }
 }
 

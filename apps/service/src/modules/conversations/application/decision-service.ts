@@ -14,6 +14,7 @@ import {
   type DecisionOnTask,
 } from "../domain/decision.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
+import { latestWriter } from "../domain/message.js";
 import type { Home, Thread } from "../domain/thread.js";
 import { openDecision, openDecisionOf, recordDecisionAnswer } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
@@ -77,8 +78,9 @@ export class DecisionService {
   /**
    * Answers the Decision for the user, as the person whose engine session is `sessionId`, when the
    * user asked them to in that Thread (spec §2.4): the person's word is trusted, and the answer is
-   * recorded as given at the user's request, then follows every rule of `answer`. Refused outside
-   * a Thread the user talks to them in, for a Decision put to a Consultant, an approval of a call,
+   * recorded as given at the user's request, by the user who wrote the latest message in that
+   * Thread, then follows every rule of `answer`; answers the Decision as answered. Refused outside a
+   * Thread the user talks to them in, for a Decision put to a Consultant, an approval of a call,
    * and one in the person's own Thread (`answerForUserProblems`).
    */
   async answerForUser(sessionId: string, id: string, answer: DecisionAnswer): Promise<Decision> {
@@ -89,25 +91,27 @@ export class DecisionService {
     const problems = answerForUserProblems(decision, caller);
     if (problems.length > 0) throw new ThreadRefused(problems);
     const person = await this.roleCards.find(caller.roleKey);
+    const user = latestWriter(await this.repository.messages(caller.id)) ?? null;
     await this.answer(id, answer, {
       kind: "at-users-request",
       roleKey: caller.roleKey,
       threadId: caller.id,
+      user,
       name: person?.card.name ?? caller.roleKey,
     });
-    return decision;
+    return (await this.repository.decision(id)) ?? decision;
   }
 
   /**
-   * Answers the Decision, as the user or as `answerer`: the Consultant it was put to, or a person the
-   * user asked to answer it for them; the person who asked takes the answer in its Thread as their
-   * next message.
+   * Answers the Decision as `answerer`: a user, any signed-in one, as Decisions are shared; the
+   * Consultant it was put to, a person the user asked to answer it for them, or The Office. The
+   * person who asked takes the answer in its Thread as their next message.
    * The answer to The Office's Decision, or to one in a Stage Thread, goes to the Task's Pipeline
    * instead, which runs on from it, even when given while the asking Stage still runs: the
    * Pipeline reads it as the Stage ends. Refused once it is answered, and while the person is
    * still answering.
    */
-  async answer(id: string, answer: DecisionAnswer, answerer?: Answerer): Promise<Thread> {
+  async answer(id: string, answer: DecisionAnswer, answerer: Answerer): Promise<Thread> {
     const decision = await this.repository.decision(id);
     if (!decision) throw new DecisionNotFound(id);
     if (decision.answer) throw new ThreadRefused(["This Decision is answered already."]);

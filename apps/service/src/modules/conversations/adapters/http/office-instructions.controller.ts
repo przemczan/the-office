@@ -4,6 +4,7 @@ import {
   type OfficeInstructions as OfficeInstructionsText,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { OfficeInstructions } from "../../application/office-instructions.js";
 
 /** Settings › Office instructions: the text every new session gets. */
@@ -21,8 +22,9 @@ export class OfficeInstructionsController {
   async change(
     @Body(new ContractPipe(officeInstructionsSchema))
     { officeInstructions }: OfficeInstructionsText,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<OfficeInstructionsText> {
-    const { text } = await this.instructions.save(officeInstructions);
+    const { text } = await this.instructions.save(officeInstructions, userOf(signedIn));
     return { officeInstructions: text };
   }
 }

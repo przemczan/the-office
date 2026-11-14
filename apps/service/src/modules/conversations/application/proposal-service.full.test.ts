@@ -2,7 +2,9 @@ import { OFFICE_INSTRUCTIONS_MAX_CHARACTERS } from "@the-office/contracts";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
+  CARETAKER,
   OFFICE_MANAGER,
+  Duties,
   EngineCascade,
   PeopleModule,
   RoleCards,
@@ -37,11 +39,16 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
+import {
+  DutyRepository,
+  DutyRepositoryForTests,
+  EngineCascadeStandIn,
+} from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
+import { DutyProposals } from "../adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "../adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-proposals.js";
 import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
@@ -87,6 +94,7 @@ import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
+import { ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -123,6 +131,8 @@ let roles: RoleService;
 let settings: ContextPolicySettingsService;
 
 let officeInstructions: OfficeInstructions;
+
+let duties: Duties;
 
 let officeWideLimit: OfficeWideLimitStandIn;
 
@@ -200,6 +210,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       RoleProposals,
       SizeThresholdProposals,
       OfficeInstructionsProposals,
+      DutyProposals,
       ProposalOfficeTools,
       chatToolStandIns(),
       {
@@ -211,7 +222,11 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         },
       },
     ],
-    overrides: [{ provide: RoleCards, useValue: roleCards }],
+    // Every test file shares the stored duties, which decide who other files' sessions consult.
+    overrides: [
+      { provide: RoleCards, useValue: roleCards },
+      { provide: DutyRepository, useValue: new DutyRepositoryForTests() },
+    ],
     moduleOverrides: [{ module: EngineModule, useModule: scriptedEngine }],
   }));
   threads = app.get(ThreadService);
@@ -220,6 +235,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   roles = app.get(RoleService);
   settings = app.get(ContextPolicySettingsService);
   officeInstructions = app.get(OfficeInstructions);
+  duties = app.get(Duties);
 }
 
 /** Work's applier of the Office-wide limit, which Work registers as it starts (a module apart). */
@@ -346,7 +362,7 @@ async function askOfficeManager(text: string): Promise<{
   readonly drafted: readonly Proposal[];
 }> {
   const started = await threads.startInChat(OFFICE_MANAGER);
-  await runner.send(started.id, text);
+  await runner.send(started.id, text, ANN_LEE);
   const thread = await vi.waitFor(
     async () => {
       const read = await threads.read(started.id);
@@ -372,7 +388,7 @@ function drafts(text: string): SessionScript {
 /** Starts on the text `now`, with the Office Manager's draft of `text` open. */
 async function draftOver(now: string, text: string): Promise<Proposal> {
   await startWith(drafts(text));
-  await officeInstructions.save(now);
+  await officeInstructions.save(now, ANN_LEE);
   return theOnlyProposal("Ask for plain words.");
 }
 
@@ -412,7 +428,11 @@ describe("a Proposal of a new Role", () => {
     if (!proposal) throw new Error("No Proposal was drafted.");
 
     await expect(
-      proposals.apply(proposal.id, { kind: "hire", card: { ...card, name: "" }, skills: [] }),
+      proposals.apply(proposal.id, ANN_LEE, {
+        kind: "hire",
+        card: { ...card, name: "" },
+        skills: [],
+      }),
     ).rejects.toThrow("Give the person a name.");
 
     expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
@@ -458,12 +478,12 @@ describe("a Proposal of a person in a preset's Role", () => {
     expect(presetHiringProblems).toHaveBeenCalledWith("developer", "Ada");
     expect(hire).not.toHaveBeenCalled();
 
-    const applied = await proposals.apply(proposal.id, {
+    const applied = await proposals.apply(proposal.id, ANN_LEE, {
       kind: "hire-from-preset",
       name: " Grace ",
     });
 
-    expect(hire).toHaveBeenCalledWith("developer", " Grace ", OFFICE_MANAGER);
+    expect(hire).toHaveBeenCalledWith("developer", " Grace ", ANN_LEE, OFFICE_MANAGER);
     expect(applied).toMatchObject({
       change: { kind: "hire-from-preset", roleKey: "developer", name: "Grace" },
       status: { kind: "applied" },
@@ -500,7 +520,7 @@ describe("a Proposal of the size threshold", () => {
     expect(toolResultRead().isError).toBe(false);
     expect(await settings.sizeThreshold()).toBe(sizeThreshold);
 
-    await proposals.apply(proposal.id);
+    await proposals.apply(proposal.id, ANN_LEE);
 
     expect(await settings.sizeThreshold()).toBe(60_000);
     expect((await proposals.read(proposal.id)).status).toMatchObject({ kind: "applied" });
@@ -512,7 +532,7 @@ describe("a Proposal of the size threshold", () => {
     );
     const proposal = await theOnlyProposal("Sessions restart too often.");
 
-    await proposals.decline(proposal.id);
+    await proposals.decline(proposal.id, ANN_LEE);
 
     expect(await settings.sizeThreshold()).toBe(sizeThreshold);
   });
@@ -542,7 +562,7 @@ describe("a Proposal of the Office-wide limit", () => {
     expect(proposal.change).toEqual({ kind: "office-wide-limit", from: 3, to: 5 });
     expect(officeWideLimit.applied).toEqual([]);
 
-    await proposals.apply(proposal.id);
+    await proposals.apply(proposal.id, ANN_LEE);
 
     expect(officeWideLimit.applied).toEqual([
       { change: { kind: "office-wide-limit", from: 3, to: 5 }, by: OFFICE_MANAGER },
@@ -553,7 +573,7 @@ describe("a Proposal of the Office-wide limit", () => {
     await startWith(calls(PROPOSE_OFFICE_SETTING_TOOL, { setting: "office-wide-limit", value: 5 }));
     const proposal = await theOnlyProposal("Let more Tasks run at once.");
 
-    await proposals.decline(proposal.id);
+    await proposals.decline(proposal.id, ANN_LEE);
 
     expect(officeWideLimit.limit).toBe(3);
     expect(officeWideLimit.applied).toEqual([]);
@@ -595,7 +615,7 @@ describe("a Proposal of the Office instructions", () => {
       announced.push(event);
     });
 
-    await proposals.apply(proposal.id);
+    await proposals.apply(proposal.id, ANN_LEE);
 
     expect(await officeInstructions.current()).toEqual({ version: 2, text: "Keep it short." });
     expect(announced).toEqual([expect.objectContaining({ version: 2 })]);
@@ -605,7 +625,7 @@ describe("a Proposal of the Office instructions", () => {
   it("is applied over no text at all", async () => {
     const proposal = await draftOver("", "Keep it short.");
 
-    await proposals.apply(proposal.id);
+    await proposals.apply(proposal.id, ANN_LEE);
 
     expect(await officeInstructions.current()).toEqual({ version: 1, text: "Keep it short." });
   });
@@ -613,14 +633,14 @@ describe("a Proposal of the Office instructions", () => {
   it("empties them when a text of spaces is applied", async () => {
     const proposal = await draftOver("Write in plain words.", "   ");
 
-    await proposals.apply(proposal.id);
+    await proposals.apply(proposal.id, ANN_LEE);
 
     expect(await officeInstructions.current()).toEqual({ version: 2, text: "" });
   });
 
   it("is not drafted on the text they are now, even with spaces around it", async () => {
     await startWith(drafts("  Write in plain words.  "));
-    await officeInstructions.save("Write in plain words.");
+    await officeInstructions.save("Write in plain words.", ANN_LEE);
 
     const { drafted } = await askOfficeManager("Ask for plain words.");
 
@@ -645,7 +665,7 @@ describe("a Proposal of the Office instructions", () => {
 
   it("lets the Office Manager read the text now, newer than their session's", async () => {
     await startWith(calls(READ_OFFICE_INSTRUCTIONS_TOOL, {}));
-    await officeInstructions.save("Write in plain words.");
+    await officeInstructions.save("Write in plain words.", ANN_LEE);
 
     await askOfficeManager("What do the Office instructions say?");
 
@@ -666,7 +686,7 @@ describe("a Proposal of a change to a Role", () => {
       }),
       ...endsTurn("Here is the card."),
     ]);
-    await roles.hireFromScratch(aProposedCard({ title, instructions }), []);
+    await roles.hireFromScratch(aProposedCard({ title, instructions }), [], ANN_LEE);
 
     const proposal = await theOnlyProposal("Ask the tester for a Handover note.");
 
@@ -682,9 +702,9 @@ describe("a Proposal of a change to a Role", () => {
     });
   });
 
-  it("changes only the fields it names, when the user applies it, saying who proposed it", async () => {
+  it("changes only the fields it names, when the user applies it, saying who proposed it and who applied it", async () => {
     await startWith(proposes({ role: roleKey, card: { effort: "high" } }));
-    await roles.hireFromScratch(aProposedCard({ title }), []);
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
 
     const { drafted } = await askOfficeManager("Let the tester think harder.");
     const [proposal] = drafted;
@@ -699,9 +719,9 @@ describe("a Proposal of a change to a Role", () => {
     expect((await roles.read(roleKey)).role.card.effort).toBe("medium");
     // The user renames the person meanwhile: applying keeps that.
     const { role: renamed, skills } = await roles.read(roleKey);
-    await roles.changeCard(roleKey, { ...renamed.card, name: "Tom" }, skills);
+    await roles.changeCard(roleKey, { ...renamed.card, name: "Tom" }, skills, ANN_LEE);
 
-    await proposals.apply(proposal.id);
+    await proposals.apply(proposal.id, BEN_ITO);
 
     expect((await roles.read(roleKey)).role.card).toMatchObject({ name: "Tom", effort: "high" });
     const [latest, byTheUser] = await roles.history(roleKey);
@@ -709,21 +729,117 @@ describe("a Proposal of a change to a Role", () => {
       kind: "card-changed",
       changes: [{ field: "effort", from: "medium", to: "high" }],
       proposedBy: OFFICE_MANAGER,
+      savedBy: BEN_ITO,
     });
-    expect(byTheUser).toMatchObject({ kind: "card-changed", proposedBy: undefined });
+    expect(byTheUser).toMatchObject({
+      kind: "card-changed",
+      proposedBy: undefined,
+      savedBy: ANN_LEE,
+    });
   });
 
   it("changes nothing when the user declines it", async () => {
     await startWith(proposes({ role: roleKey, card: { effort: "high" } }));
-    await roles.hireFromScratch(aProposedCard({ title }), []);
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
     const { drafted } = await askOfficeManager("Let the tester think harder.");
     const [proposal] = drafted;
     if (!proposal) throw new Error("No Proposal was drafted.");
 
-    const declined = await proposals.decline(proposal.id);
+    const declined = await proposals.decline(proposal.id, ANN_LEE);
 
     expect(declined.status).toMatchObject({ kind: "declined" });
     expect((await roles.read(roleKey)).role.cardVersion).toBe(1);
-    await expect(proposals.apply(proposal.id)).rejects.toThrow("This Proposal was declined.");
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
+      "This Proposal was declined.",
+    );
+  });
+});
+
+/** The Office Manager proposes the duties' new holders, each `[duty, holder]`. */
+function proposesHolders(...holders: [string, string | null][]): SessionScript {
+  return calls(PROPOSE_OFFICE_SETTING_TOOL, {
+    setting: "duties",
+    duties: holders.map(([duty, holder]) => ({ duty, holder })),
+  });
+}
+
+async function holdersOf(...named: string[]): Promise<Record<string, string | null>> {
+  const now = await duties.list();
+  return Object.fromEntries(
+    now
+      .filter(({ duty }) => named.includes(duty))
+      .map((holding) => [holding.duty, holding.roleKey]),
+  );
+}
+
+describe("a Proposal of who holds the duties", () => {
+  it("is drafted from the holders now of the duties it names, changing nothing", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["reviews", null]));
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
+
+    const proposal = await theOnlyProposal("Let the tester plan.");
+
+    expect(toolResultRead().isError).toBe(false);
+    expect(proposal.change).toEqual({
+      kind: "duties",
+      from: { plans: "planner", reviews: "reviewer" },
+      to: { plans: roleKey, reviews: null },
+    });
+    expect(await holdersOf("plans", "reviews")).toEqual({ plans: "planner", reviews: "reviewer" });
+  });
+
+  it("sets every duty it names when the user applies it", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
+    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+
+    const applied = await proposals.apply(proposal.id, ANN_LEE);
+
+    expect(applied.status).toMatchObject({ kind: "applied" });
+    expect(await holdersOf("plans", "shapes-initiatives")).toEqual({
+      plans: roleKey,
+      "shapes-initiatives": roleKey,
+    });
+  });
+
+  it("is refused once a duty it names changed since, and changes none of them", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
+    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+    await duties.change("shapes-initiatives", null);
+
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
+      "Shapes Initiatives was changed meanwhile, so this change no longer applies.",
+    );
+
+    expect(await holdersOf("plans", "shapes-initiatives")).toEqual({
+      plans: "planner",
+      "shapes-initiatives": null,
+    });
+    expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
+  });
+
+  it("is not drafted for a Role nobody is hired as, and the Agent reads why", async () => {
+    await startWith(proposesHolders(["plans", roleKey]));
+
+    const { drafted } = await askOfficeManager("Let the tester plan.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: `Plans goes to a hired Role, and nobody is hired as "${roleKey}".`,
+      isError: true,
+    });
+  });
+
+  it("is not drafted for the Caretaker, and the Agent reads why", async () => {
+    await startWith(proposesHolders(["plans", CARETAKER]));
+
+    const { drafted } = await askOfficeManager("Let the Caretaker plan.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: "The Caretaker is built in and holds no duty, so not Plans.",
+      isError: true,
+    });
   });
 });

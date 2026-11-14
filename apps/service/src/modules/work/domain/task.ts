@@ -1,4 +1,4 @@
-import type { Author } from "./author.js";
+import type { ArchivedBy, Author } from "./author.js";
 import { normalizedTags, tagsProblems } from "./task-tags.js";
 import { titleProblem } from "./title.js";
 
@@ -147,8 +147,12 @@ export interface Task {
    * it off the board, never a state, so everything reading its state reads it as before.
    */
   readonly archivedAt: Date | undefined;
+  /** Who archived it, while it is; undefined too for one archived before that was kept. */
+  readonly archivedBy: ArchivedBy | undefined;
   /** When it was last restored from the Archive, kept for archiving it again automatically. */
   readonly restoredAt: Date | undefined;
+  /** Who last restored it, with `restoredAt`. */
+  readonly restoredBy: Author | undefined;
   /**
    * When it last moved to Done or Dropped (`withStateChange`); undefined while it hasn't ended, and
    * for a Task whose end was never recorded. The board's Done column shows the latest first.

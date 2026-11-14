@@ -4,6 +4,7 @@ import {
   save,
   setUpEachTest,
 } from "./postgres-office-instructions-repository.fixtures.js";
+import { ANN_LEE } from "../../domain/user.fixtures.js";
 
 setUpEachTest();
 
@@ -23,9 +24,13 @@ describe("PostgresOfficeInstructionsRepository", () => {
       const saved = await save(repository, "Write in plain words.");
 
       await expect(
-        repository.update(() => {
-          throw refusal;
-        }, new Date()),
+        repository.update(
+          () => {
+            throw refusal;
+          },
+          new Date(),
+          ANN_LEE,
+        ),
       ).rejects.toBe(refusal);
 
       expect(await repository.current()).toEqual(saved);

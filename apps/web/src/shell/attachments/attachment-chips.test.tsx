@@ -31,7 +31,7 @@ function aFile(
     id: crypto.randomUUID(),
     owner: { kind: "task", taskId: crypto.randomUUID() },
     name,
-    addedBy: { kind: "user" },
+    addedBy: { kind: "user", user: null },
     addedAt: "2026-11-10T10:00:00.000Z",
     mediaType,
     size: 64,

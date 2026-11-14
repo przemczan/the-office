@@ -6,6 +6,7 @@ import {
   type RunEnvironmentChange,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import {
   ProjectRunEnvironments,
   type ProjectRunEnvironment,
@@ -32,8 +33,11 @@ export class ProjectRunEnvironmentsController {
   }
 
   @Post("set-up")
-  async setUp(@Param("id") id: string): Promise<ProjectRunEnvironmentResponse> {
-    return toResponse(await this.runEnvironments.setUp(id));
+  async setUp(
+    @Param("id") id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ProjectRunEnvironmentResponse> {
+    return toResponse(await this.runEnvironments.setUp(id, userOf(signedIn)));
   }
 }
 

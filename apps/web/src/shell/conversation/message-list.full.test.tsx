@@ -107,6 +107,7 @@ it("leaves a reader who scrolled up where they are, until they send something th
     id: "3",
     kind: "user",
     text: "Three",
+    writtenBy: null,
     handoverNoteFrom: null,
     openPage: null,
     delivery: "waiting",
@@ -279,8 +280,8 @@ it("shows Allow changes and a held Stage as The Office's small notes, a run on a
   const root = createRoot(page);
   const at = "2026-11-03T10:00:00.000Z";
   const messages: Message[] = [
-    { at, id: "1", kind: "changes-allowed", allowed: true },
-    { at, id: "2", kind: "changes-allowed", allowed: false },
+    { at, id: "1", kind: "changes-allowed", allowed: true, by: null },
+    { at, id: "2", kind: "changes-allowed", allowed: false, by: null },
     { at, id: "3", kind: "held", heldBy: "pause", text: "Paused by you" },
   ];
 

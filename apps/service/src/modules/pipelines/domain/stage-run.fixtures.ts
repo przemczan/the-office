@@ -20,6 +20,7 @@ export function aStageRun(fields: Partial<StageRun> = {}): StageRun {
     tokens: NO_STAGE_TOKENS,
     decisions: [],
     heldBy: undefined,
+    heldByUser: undefined,
     published: undefined,
     waitingSince: undefined,
     gateAction: undefined,

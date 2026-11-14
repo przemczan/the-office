@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import {
   changePriority,
   changeStartedTaskState,
@@ -16,14 +15,14 @@ import { TaskHeldAtAllClear, TaskPriorityChanged, TaskReordered } from "./task-e
 import { TaskRefused } from "./task-refused.js";
 import type { Neighbours } from "./manual-order.js";
 import type { Task } from "./task.js";
-import { aTask } from "./work.fixtures.js";
+import { ANN_LEE, aTask } from "./work.fixtures.js";
 
 const createdAt = new Date("2026-10-25T10:00:00.000Z");
 const setting = {
   order: "a3",
   originIdeaId: undefined,
   initiativeId: undefined,
-  createdBy: THE_USER,
+  createdBy: ANN_LEE,
 };
 
 describe("createTask", () => {
@@ -166,40 +165,48 @@ describe("changeStartedTaskState", () => {
 
 describe("Pause, Stop and Resume", () => {
   it("changes nothing on a Pause of a Paused Task, while a Stop still stops its running Stage", () => {
-    expect(pauseTask(aTask({ state: "paused" }), THE_USER)).toBeUndefined();
-    expect(stopTask(aTask({ state: "paused" })).event).toMatchObject({ from: "paused" });
+    expect(pauseTask(aTask({ state: "paused" }), ANN_LEE)).toBeUndefined();
+    expect(stopTask(aTask({ state: "paused" }), ANN_LEE).event).toMatchObject({ from: "paused" });
   });
 
   it("keeps a Resume while the fire alarm is on as the alarm holding the Task, and refuses one it holds", () => {
-    const resumed = resumeTask(aTask({ state: "paused" }), {
-      fireAlarmOn: true,
-      initiativePaused: false,
-    });
+    const resumed = resumeTask(
+      aTask({ state: "paused" }),
+      {
+        fireAlarmOn: true,
+        initiativePaused: false,
+      },
+      ANN_LEE,
+    );
 
     expect(resumed.task).toEqual(aTask({ state: "paused", pausedBy: "alarm" }));
     expect(resumed.event).toMatchObject({ from: "paused", by: "alarm" });
-    expect(() => resumeTask(resumed.task, { fireAlarmOn: true, initiativePaused: false })).toThrow(
-      new TaskRefused(["The fire alarm is on. The Task resumes with the all clear."]),
-    );
+    expect(() =>
+      resumeTask(resumed.task, { fireAlarmOn: true, initiativePaused: false }, ANN_LEE),
+    ).toThrow(new TaskRefused(["The fire alarm is on. The Task resumes with the all clear."]));
   });
 
   it("makes a Task the alarm paused the user's own once they stop it, or it resumes", () => {
     const heldByAlarm = aTask({ state: "paused", pausedBy: "alarm" });
 
-    expect(stopTask(heldByAlarm).task.pausedBy).toBeUndefined();
-    expect(resumeTask(heldByAlarm, { fireAlarmOn: false, initiativePaused: false }).task).toEqual(
-      aTask({ state: "in-progress" }),
-    );
+    expect(stopTask(heldByAlarm, ANN_LEE).task.pausedBy).toBeUndefined();
+    expect(
+      resumeTask(heldByAlarm, { fireAlarmOn: false, initiativePaused: false }, ANN_LEE).task,
+    ).toEqual(aTask({ state: "in-progress" }));
   });
 
   it("keeps who or what made each move, and no move when the state stays", () => {
     const office = { kind: "office", reason: "nobody can work its next Stages." } as const;
     const held = pauseTask(aTask({ state: "in-progress" }), office);
     const alarm = pauseTaskForAlarm(aTask({ state: "in-progress" }));
-    const keptAsAlarm = resumeTask(aTask({ state: "paused" }), {
-      fireAlarmOn: true,
-      initiativePaused: false,
-    });
+    const keptAsAlarm = resumeTask(
+      aTask({ state: "paused" }),
+      {
+        fireAlarmOn: true,
+        initiativePaused: false,
+      },
+      ANN_LEE,
+    );
 
     expect(held?.stateChange).toEqual({
       from: "in-progress",
@@ -208,23 +215,27 @@ describe("Pause, Stop and Resume", () => {
       by: office,
     });
     expect(alarm?.stateChange).toMatchObject({ to: "paused", by: { kind: "fire-alarm" } });
-    expect(stopTask(aTask({ state: "in-progress" })).stateChange?.by).toEqual(THE_USER);
-    expect(stopTask(aTask({ state: "paused" })).stateChange).toBeUndefined();
+    expect(stopTask(aTask({ state: "in-progress" }), ANN_LEE).stateChange?.by).toEqual(ANN_LEE);
+    expect(stopTask(aTask({ state: "paused" }), ANN_LEE).stateChange).toBeUndefined();
     expect(keptAsAlarm.stateChange).toBeUndefined();
   });
 
   it("refuses a Task that isn't running, and a Resume of one that isn't Paused", () => {
-    expect(() => pauseTask(aTask({ state: "ready" }), THE_USER)).toThrow(
+    expect(() => pauseTask(aTask({ state: "ready" }), ANN_LEE)).toThrow(
       new TaskRefused(["Only a Task in progress can be paused; this one is in Ready."]),
     );
-    expect(() => stopTask(aTask({ state: "done" }))).toThrow(
+    expect(() => stopTask(aTask({ state: "done" }), ANN_LEE)).toThrow(
       new TaskRefused(["Only a Task in progress can be stopped; this one is in Done."]),
     );
     expect(() =>
-      resumeTask(aTask({ state: "waiting-on-you" }), {
-        fireAlarmOn: false,
-        initiativePaused: false,
-      }),
+      resumeTask(
+        aTask({ state: "waiting-on-you" }),
+        {
+          fireAlarmOn: false,
+          initiativePaused: false,
+        },
+        ANN_LEE,
+      ),
     ).toThrow(
       new TaskRefused(["Only a Paused Task can be resumed; this one is in Waiting on you."]),
     );
@@ -309,8 +320,8 @@ describe("giveTaskAllClear", () => {
   const pausedByAlarm = aTask({ state: "paused", pausedBy: "alarm" });
 
   it("holds it as the user's own Pause, or drops it", () => {
-    const held = giveTaskAllClear(pausedByAlarm, "hold");
-    const dropped = giveTaskAllClear(pausedByAlarm, "drop");
+    const held = giveTaskAllClear(pausedByAlarm, "hold", ANN_LEE);
+    const dropped = giveTaskAllClear(pausedByAlarm, "drop", ANN_LEE);
 
     expect(held?.task).toMatchObject({ state: "paused", pausedBy: undefined });
     expect(held?.event).toBeInstanceOf(TaskHeldAtAllClear);
@@ -325,8 +336,8 @@ describe("giveTaskAllClear", () => {
       aTask({ state: "paused", pausedBy: undefined }),
       aTask({ state: "in-progress" }),
     ]) {
-      expect(giveTaskAllClear(task, "resume")).toBeUndefined();
-      expect(giveTaskAllClear(task, "drop")).toBeUndefined();
+      expect(giveTaskAllClear(task, "resume", ANN_LEE)).toBeUndefined();
+      expect(giveTaskAllClear(task, "drop", ANN_LEE)).toBeUndefined();
     }
   });
 });

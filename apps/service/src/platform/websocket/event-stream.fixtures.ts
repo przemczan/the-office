@@ -1,6 +1,11 @@
+import type { IncomingMessage } from "node:http";
+import { Injectable, Module, type DynamicModule } from "@nestjs/common";
 import { serverMessageSchema, webEventSchema } from "@the-office/contracts";
 import { z } from "zod";
 import { DomainEvent } from "../events/domain-event.js";
+import type { Unsubscribe } from "../events/event-bus.js";
+import { RequestAccessModule } from "../http/request-access.module.js";
+import { SignedInRequests, type SignedIn } from "../http/signed-in-requests.js";
 import type { WebEventForwarding } from "./web-event-forwarding.js";
 
 // The test brings its own events, through the same path a module uses.
@@ -71,4 +76,55 @@ export async function changeSubscription(
 ): Promise<Message> {
   client.send(JSON.stringify({ type, events, threadId }));
   return next();
+}
+
+/** Signs in a request whose cookie is `device=<id>` while that device is signed in. */
+@Injectable()
+export class DevicesForTests extends SignedInRequests {
+  private readonly signedIn = new Set<string>();
+  private readonly listeners = new Set<(signedInDeviceIds: readonly string[]) => void>();
+
+  signIn(signedInDeviceId: string): string {
+    this.signedIn.add(signedInDeviceId);
+    return `device=${signedInDeviceId}`;
+  }
+
+  signOut(signedInDeviceId: string): void {
+    this.signedIn.delete(signedInDeviceId);
+    for (const listener of this.listeners) listener([signedInDeviceId]);
+  }
+
+  /** Signs the device out without telling `onSignedOut`, as another process or an expiry does. */
+  signOutUntold(signedInDeviceId: string): void {
+    this.signedIn.delete(signedInDeviceId);
+  }
+
+  signedOutAmong(signedInDeviceIds: readonly string[]): Promise<readonly string[]> {
+    return Promise.resolve(signedInDeviceIds.filter((id) => !this.signedIn.has(id)));
+  }
+
+  signedInOf(request: IncomingMessage): Promise<SignedIn | undefined> {
+    const signedInDeviceId = /^device=(.+)$/.exec(request.headers.cookie ?? "")?.[1];
+    return Promise.resolve(
+      signedInDeviceId !== undefined && this.signedIn.has(signedInDeviceId)
+        ? { userId: "user", name: "Ann Lee", signedInDeviceId }
+        : undefined,
+    );
+  }
+
+  onSignedOut(listener: (signedInDeviceIds: readonly string[]) => void): Unsubscribe {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+}
+
+@Module({ providers: [DevicesForTests], exports: [DevicesForTests] })
+class DevicesForTestsModule {}
+
+export function devicesForTests(): DynamicModule {
+  return RequestAccessModule.register({
+    publicAddress: undefined,
+    imports: [DevicesForTestsModule],
+    signedInRequests: DevicesForTests,
+  });
 }

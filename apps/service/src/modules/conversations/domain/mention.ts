@@ -1,5 +1,6 @@
 import { estimatedTokens, type Brief } from "./brief.js";
 import { answerWords, type Decision } from "./decision.js";
+import { userWords } from "./user.js";
 
 /**
  * A record the user mentions in a chat message, by its link or with `@` (spec §2.4): the Agent
@@ -79,9 +80,9 @@ function standing(decision: Decision): string {
   const { answer, putTo } = decision;
   if (answer) {
     const by = answer.atUsersRequest
-      ? `the person in the Role ${answer.atUsersRequest.roleKey}, for the user at their request in the Thread ${answer.atUsersRequest.threadId},`
+      ? `the person in the Role ${answer.atUsersRequest.roleKey}, for ${userWords(answer.atUsersRequest.user)} at their request in the Thread ${answer.atUsersRequest.threadId},`
       : answer.answeredBy === undefined
-        ? "the user"
+        ? userWords(answer.user ?? null)
         : `the person in the Role ${answer.answeredBy}`;
     return `Answered by ${by} on ${answer.answeredAt.toISOString()}: ${answerWords(decision, answer)}`;
   }

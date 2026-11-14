@@ -4,6 +4,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { versionAfter, type OfficeInstructionsVersion } from "../../domain/office-instructions.js";
 import { PostgresOfficeInstructionsRepository } from "./postgres-office-instructions-repository.js";
+import { ANN_LEE } from "../../domain/user.fixtures.js";
 
 // What postgres-office-instructions-repository.test.ts and postgres-office-instructions-repository.full.test.ts share.
 
@@ -29,7 +30,7 @@ export function save(
   repository: PostgresOfficeInstructionsRepository,
   text: string,
 ): Promise<OfficeInstructionsVersion> {
-  return repository.update((current) => versionAfter(current, text), new Date());
+  return repository.update((current) => versionAfter(current, text), new Date(), ANN_LEE);
 }
 
 /** The hooks every test of both files runs. */

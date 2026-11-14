@@ -102,6 +102,13 @@
   display: inline-flex;
 }
 
+.person-tile-duties {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 .person-tile-let-go {
   color: var(--fg-3);
   font: var(--type-caption);
@@ -334,6 +341,7 @@
 }
 
 .role-card-capabilities,
+.role-card-duties,
 .role-card-switches {
   display: flex;
   flex-direction: column;

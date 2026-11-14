@@ -1,6 +1,7 @@
 import type { Avatar } from "./avatar.js";
 import type { RoleCard } from "./role-card.js";
 import type { RoleCardFieldChange } from "./role-card-changes.js";
+import type { UserRef } from "./user.js";
 
 /** A job the user hired for, filled by the one person its card names. */
 export interface Role {
@@ -21,6 +22,12 @@ export interface Role {
    */
   readonly cardProposedBy: string | undefined;
   /**
+   * The user who saved the current version: who wrote it, hired the person or applied the Proposal
+   * of it. Null when no user did (an Agent's own `change_role`, an engine's removal moving the Role
+   * override) or the version is from before users existed, until the first user claims it.
+   */
+  readonly cardSavedBy: UserRef | null;
+  /**
    * When the user let the person go; undefined while they fill the Role. A person let go keeps
    * their card, Memory and chats, unused and readable, until hired back (spec §2.2).
    */
@@ -37,4 +44,6 @@ export interface RoleCardVersion {
   readonly savedAt: Date;
   /** Who proposed it, by the key of their Role; undefined when the user wrote it themselves. */
   readonly proposedBy: string | undefined;
+  /** The user who saved it, as `Role.cardSavedBy` says. */
+  readonly savedBy: UserRef | null;
 }

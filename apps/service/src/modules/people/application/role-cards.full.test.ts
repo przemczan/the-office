@@ -21,6 +21,7 @@ import { Duties } from "./duties.js";
 import { DutyChangeChecks } from "./duty-change-checks.js";
 import { DutyRepository } from "../ports/duty-repository.js";
 import { DutyRepositoryForTests } from "../ports/duty-repository.fixtures.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 import { RoleCards } from "./role-cards.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
 import { RoleService } from "./role-service.js";
@@ -70,7 +71,7 @@ describe("RoleCards", () => {
     await repository.add(role);
 
     const before = await roleCards.forNewSession(role.key);
-    await roles.changeCard(role.key, aRoleCard({ effort: "medium", taskLimit: 2 }), []);
+    await roles.changeCard(role.key, aRoleCard({ effort: "medium", taskLimit: 2 }), [], ANN_LEE);
     const after = await roleCards.forNewSession(role.key);
 
     // Where an MCP tool starts follows Devops, whom roles.controller.test hires and lets go.

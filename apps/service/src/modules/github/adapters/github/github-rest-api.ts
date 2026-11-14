@@ -12,6 +12,7 @@ import {
   GitHubApi,
   GitHubApiFailure,
   GitHubUnreachable,
+  type GitHubUser,
   type PullRequestAnswer,
   type SignInCode,
   type TokenAnswer,
@@ -50,7 +51,7 @@ const userTokensSchema = z.object({
   refresh_token_expires_in: z.number().positive().optional(),
 });
 
-const userSchema = z.object({ login: z.string().min(1) });
+const userSchema = z.object({ id: z.number().int().positive(), login: z.string().min(1) });
 
 const installationsPageSchema = z.object({
   installations: z.array(z.object({ id: z.number(), suspended_at: z.string().nullish() })),
@@ -135,7 +136,7 @@ export class GitHubRestApi extends GitHubApi {
     return tokenAnswerOf(response, "renewing the sign-in");
   }
 
-  async loginOf(accessToken: string): Promise<string> {
+  async userOf(accessToken: string): Promise<GitHubUser> {
     const response = await this.call(gitHubUrl(this.urls.api, "/user"), {
       headers: { ...REST_HEADERS, authorization: `Bearer ${accessToken}` },
     });
@@ -145,7 +146,28 @@ export class GitHubRestApi extends GitHubApi {
         `GitHub didn't say who signed in (HTTP ${response.status}). Sign in again.`,
       );
     }
-    return parsed.data.login;
+    return parsed.data;
+  }
+
+  async revokeUserToken(app: GitHubApp, accessToken: string): Promise<void> {
+    // docs.github.com/rest/apps/oauth-applications#delete-an-app-token: this token only, never
+    // `/grant`, which would end every token of the user's, the git identity's among them.
+    const credentials = Buffer.from(`${app.clientId}:${app.clientSecret}`).toString("base64");
+    const response = await this.call(
+      gitHubUrl(this.urls.api, `/applications/${encodeURIComponent(app.clientId)}/token`),
+      {
+        method: "DELETE",
+        headers: {
+          ...REST_HEADERS,
+          authorization: `Basic ${credentials}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ access_token: accessToken }),
+      },
+    );
+    if (response.status !== 204) {
+      throw new GitHubApiFailure(`GitHub didn't revoke the token (HTTP ${response.status}).`);
+    }
   }
 
   async repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]> {

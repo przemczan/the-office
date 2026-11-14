@@ -130,7 +130,7 @@ beforeEach(async () => {
   const library = app.get(SkillLibrary);
   await library.write({ name: tdd, description: "Test first.", instructions: "Write the test." });
   await library.turnOn(tdd);
-  await app.get(RoleSkills).assignToRole(roleKey, [tdd]);
+  await app.get(RoleSkills).assignToRole(roleKey, [tdd], null);
 });
 
 afterEach(async () => {

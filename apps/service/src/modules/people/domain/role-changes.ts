@@ -21,6 +21,7 @@ import {
   RoleLetGo,
 } from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
+import type { UserRef } from "./user.js";
 
 /** A Role after a change, with the event that announces it. */
 export interface RoleChange<Event extends DomainEvent> {
@@ -30,7 +31,7 @@ export interface RoleChange<Event extends DomainEvent> {
 
 /**
  * Hires `name` into the Role of the preset keyed `roleKey`, with the preset's card, as the user
- * chose it or applied a Proposal of it by the person `proposedBy`. Refuses with every reason, also
+ * `savedBy` chose it or applied a Proposal of it by the person `proposedBy`. Refuses with every reason, also
  * when `filledBy` already fills the Role: one person fills each.
  */
 export function hire(
@@ -38,6 +39,7 @@ export function hire(
   name: string,
   filledBy: Role | undefined,
   hiredAt: Date,
+  savedBy: UserRef | null,
   proposedBy?: string,
 ): RoleChange<RoleHired> {
   const preset = presetFor(roleKey);
@@ -52,6 +54,7 @@ export function hire(
     hiredAt,
     cardSavedAt: hiredAt,
     cardProposedBy: proposedBy,
+    cardSavedBy: savedBy,
     letGoAt: undefined,
     avatar: null,
   };
@@ -60,7 +63,7 @@ export function hire(
 
 /**
  * Hires the person on `card` into a new Role keyed `roleKey`, which the card's title makes, as the
- * user wrote the card or applied a Proposal of it by the person `proposedBy`. Refuses with every
+ * user `savedBy` wrote the card or applied a Proposal of it by the person `proposedBy`. Refuses with every
  * reason: a card that breaks a rule, a key the presets or the Caretaker keep, or a Role `filledBy`
  * someone already.
  */
@@ -70,6 +73,7 @@ export function hireFromScratch(
   context: RoleCardContext,
   filledBy: Role | undefined,
   hiredAt: Date,
+  savedBy: UserRef | null,
   proposedBy?: string,
 ): RoleChange<RoleHired> {
   const card = trimmedRoleCard(edit);
@@ -92,6 +96,7 @@ export function hireFromScratch(
     hiredAt,
     cardSavedAt: hiredAt,
     cardProposedBy: proposedBy,
+    cardSavedBy: savedBy,
     letGoAt: undefined,
     avatar: null,
   };
@@ -131,8 +136,9 @@ export function hireBack(role: Role, hiredBackAt: Date): RoleChange<RoleHiredBac
 }
 
 /**
- * Saves the edit as the card's next version, as the user wrote it or applied a Proposal of it by
- * the person `proposedBy`. Undefined when nothing would change; refuses with every reason when the
+ * Saves the edit as the card's next version, as the user `savedBy` wrote it or applied a Proposal
+ * of it by the person `proposedBy`, or as that person changed it on their own (`savedBy` null).
+ * Undefined when nothing would change; refuses with every reason when the
  * card would break a rule.
  */
 export function changeRoleCard(
@@ -140,6 +146,7 @@ export function changeRoleCard(
   edit: RoleCard,
   context: RoleCardContext,
   savedAt: Date,
+  savedBy: UserRef | null,
   proposedBy?: string,
 ): RoleChange<RoleCardChanged> | undefined {
   if (role.letGoAt) {
@@ -158,6 +165,7 @@ export function changeRoleCard(
     cardVersion: role.cardVersion + 1,
     cardSavedAt: savedAt,
     cardProposedBy: proposedBy,
+    cardSavedBy: savedBy,
   };
   return { role: changed, event: new RoleCardChanged(changed, changes) };
 }
@@ -165,8 +173,8 @@ export function changeRoleCard(
 /**
  * Saves the card as its next version with its Role override where `move` puts it, as the user
  * removing an engine moves it (spec §5.4), to none with the only engine; undefined when the
- * override stays. A let-go Role's card
- * moves too, as hiring the person back restores it.
+ * override stays. A let-go Role's card moves too, as hiring the person back restores it. The
+ * version names no user: Engine's removal doesn't say who removed the engine.
  */
 export function moveRoleOverride(
   role: Role,
@@ -184,6 +192,7 @@ export function moveRoleOverride(
     cardVersion: role.cardVersion + 1,
     cardSavedAt: savedAt,
     cardProposedBy: undefined,
+    cardSavedBy: null,
   };
   return {
     role: changed,

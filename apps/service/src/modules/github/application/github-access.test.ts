@@ -97,8 +97,8 @@ describe("GitHubAccess", () => {
     expect(after.accessToken).not.toBe(before.accessToken);
     expect(after.refreshToken).not.toBe(before.refreshToken);
     expect(after.accessTokenExpiresAt?.getTime()).toBeGreaterThan(Date.now() + 7 * 60 * MINUTE_MS);
-    expect(await api.loginOf(after.accessToken)).toBe("office-user");
-    await expect(api.loginOf(before.accessToken)).rejects.toThrow("HTTP 401");
+    expect((await api.userOf(after.accessToken)).login).toBe("office-user");
+    await expect(api.userOf(before.accessToken)).rejects.toThrow("HTTP 401");
     // The client secret and refresh token travel in the body, never in a URL.
     expect(github.requests.filter((request) => request.grantType === "refresh_token")).toEqual([
       expect.objectContaining({ method: "POST", search: "", accept: "application/json" }),

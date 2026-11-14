@@ -1,0 +1,15 @@
+/* ---- the authenticator code's field, with its switch to a recovery code under it */
+.code-answer-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--gap-card);
+}
+
+.code-answer-field > * {
+  align-self: stretch;
+}
+
+.code-answer-field > .text-button {
+  align-self: flex-start;
+}

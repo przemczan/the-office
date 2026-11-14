@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import {
   attachingToIdeaProblems,
   captureIdea,
@@ -18,7 +17,7 @@ import {
 import { IdeaRefused } from "./idea-refused.js";
 import { InitiativeCreated } from "./initiative-events.js";
 import { TaskCreated } from "./task-events.js";
-import { anIdea, anInitiative, aTask } from "./work.fixtures.js";
+import { ANN_LEE, anIdea, anInitiative, aTask } from "./work.fixtures.js";
 
 const at = new Date("2026-10-25T11:00:00.000Z");
 
@@ -31,7 +30,7 @@ describe("captureIdea", () => {
         notes: " Monthly, per Project, for the accountant. ",
         projectId: "admin-panel",
       },
-      THE_USER,
+      ANN_LEE,
       anIdea().capturedAt,
     );
 
@@ -54,13 +53,13 @@ describe("captureIdea", () => {
 
   it("refuses an Idea without a title", () => {
     expect(() =>
-      captureIdea("idea-2", { title: "", notes: "Something", projectId: undefined }, THE_USER, at),
+      captureIdea("idea-2", { title: "", notes: "Something", projectId: undefined }, ANN_LEE, at),
     ).toThrow(new IdeaRefused(["Give the Idea a title."]));
   });
 });
 
 describe("shapeIdeaIntoTask", () => {
-  const setting = { order: "a4", createdBy: THE_USER };
+  const setting = { order: "a4", createdBy: ANN_LEE };
 
   it("makes a Task in Backlog named after the Idea, its notes the Description, with the Idea as its origin and no Pipeline yet", () => {
     const { ideaShaped, taskCreated } = shapeIdeaIntoTask(
@@ -104,7 +103,7 @@ describe("shapeIdeaIntoInitiative", () => {
     const shaping = shapeIdeaIntoInitiative(
       anIdea({ title: "Usage exports" }),
       "initiative-1",
-      THE_USER,
+      ANN_LEE,
       anInitiative().createdAt,
     );
 
@@ -120,10 +119,10 @@ describe("shapeIdeaIntoInitiative", () => {
 
   it("refuses a shaped or dropped Idea", () => {
     expect(() =>
-      shapeIdeaIntoInitiative(anIdea({ state: "shaped" }), "initiative-1", THE_USER, at),
+      shapeIdeaIntoInitiative(anIdea({ state: "shaped" }), "initiative-1", ANN_LEE, at),
     ).toThrow(new IdeaRefused(["This Idea is already shaped."]));
     expect(() =>
-      shapeIdeaIntoInitiative(anIdea({ state: "dropped" }), "initiative-1", THE_USER, at),
+      shapeIdeaIntoInitiative(anIdea({ state: "dropped" }), "initiative-1", ANN_LEE, at),
     ).toThrow(new IdeaRefused(["A dropped Idea can't be shaped; restore it first."]));
   });
 });

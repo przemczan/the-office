@@ -65,6 +65,7 @@ import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 
 const outputMasks = new ProjectOutputMasksForTests();
 
@@ -271,7 +272,7 @@ async function askOfficeManager(text: string): Promise<{
   readonly cards: readonly Extract<Message, { kind: "link-card" }>[];
 }> {
   const started = await threads.startInChat(OFFICE_MANAGER);
-  await runner.send(started.id, text);
+  await runner.send(started.id, text, ANN_LEE);
   await vi.waitFor(
     async () => {
       if ((await threads.read(started.id)).state !== "waiting") throw new Error("Answering.");

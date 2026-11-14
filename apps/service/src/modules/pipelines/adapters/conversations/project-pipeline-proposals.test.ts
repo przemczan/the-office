@@ -12,6 +12,7 @@ import {
   projectPipelineRequests,
 } from "../http/project-pipeline-library.controller.fixtures.js";
 import { aChangeTo, aNewOne } from "./project-pipeline-proposals.fixtures.js";
+import { ANN_LEE } from "../../../conversations/index.fixtures.js";
 
 // The test database is shared by every test file: these tests make Pipelines and Projects of their
 // own, under names no one else uses, and never change the built-ins.
@@ -56,7 +57,7 @@ describe("a Proposal of a Project Pipeline", () => {
     const proposal = aNewOne(projectId, to);
 
     expect(await appliers().problemsWith(proposal)).toEqual([]);
-    const applied = await appliers().apply(proposal, "devops");
+    const applied = await appliers().apply(proposal, "devops", ANN_LEE);
 
     expect(applied).toEqual({ ...proposal, pipelineId: expect.any(String) });
     const pipelineId = applied.kind === "project-pipeline" ? applied.pipelineId : null;
@@ -86,7 +87,7 @@ describe("a Proposal of a Project Pipeline", () => {
       stageChanges: [{ kind: "insert-before", stageKey: "tests", stage: lint }],
     });
 
-    const applied = await appliers().apply(proposal, "devops");
+    const applied = await appliers().apply(proposal, "devops", ANN_LEE);
 
     expect(applied).toEqual(proposal);
     expect(await read(projectPipeline.id)).toMatchObject({
@@ -111,7 +112,7 @@ describe("a Proposal of a Project Pipeline", () => {
     const reason = `${projectPipeline.name} changed since this was proposed.`;
 
     expect(await appliers().problemsWith(proposal)).toEqual([reason]);
-    await expect(appliers().apply(proposal, "devops")).rejects.toThrow(ProposalRefused);
+    await expect(appliers().apply(proposal, "devops", ANN_LEE)).rejects.toThrow(ProposalRefused);
     expect((await read(projectPipeline.id)).description).toBe("Edited by hand.");
   });
 });

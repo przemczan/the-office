@@ -1,3 +1,4 @@
+import type { Author } from "../domain/author.js";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -52,10 +53,10 @@ export class FireAlarmService {
    * `finishSounding` pauses them again for an alarm still on, and nothing is left paused by an
    * alarm that is off.
    */
-  async giveAllClear(choices: AllClearChoices): Promise<FireAlarm> {
+  async giveAllClear(choices: AllClearChoices, by: Author): Promise<FireAlarm> {
     if (!(await this.alarm.read()).on) return this.alarm.read();
     const changes = await this.tasks.updateEveryStarted((task) =>
-      giveTaskAllClear(task, choiceFor(task.id, choices)),
+      giveTaskAllClear(task, choiceFor(task.id, choices), by),
     );
     if (await this.alarm.allClear()) {
       for (const { event } of changes) await this.events.publish(event);

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { reportedMetCount, taskStateWords } from "./work-words.ts";
+import type { Role } from "@the-office/contracts";
+import { BY_ANN, BY_YOU, SIGNED_IN } from "../user.fixtures.ts";
+import { authorName, reportedMetCount, taskStateWords } from "./work-words.ts";
 
 describe("taskStateWords", () => {
   it("reads a Paused Task by what holds it", () => {
@@ -24,5 +26,19 @@ describe("taskStateWords", () => {
 describe("reportedMetCount", () => {
   it("counts only the numbers that are statements", () => {
     expect(reportedMetCount(["One.", "Two."], [2, 5])).toBe(1);
+  });
+});
+
+describe("authorName", () => {
+  const roles = [{ key: "cto", card: { name: "Grace" } }] as unknown as Role[];
+
+  it("names the signed-in user You, another user by name, and a person by first name", () => {
+    expect(authorName({ kind: "user", user: BY_YOU }, roles, SIGNED_IN.id)).toBe("You");
+    expect(authorName({ kind: "user", user: BY_ANN }, roles, SIGNED_IN.id)).toBe("Ann Lee");
+    expect(authorName({ kind: "person", roleKey: "cto" }, roles, SIGNED_IN.id)).toBe("Grace");
+  });
+
+  it("keeps You on a record from before users existed", () => {
+    expect(authorName({ kind: "user", user: null }, roles, SIGNED_IN.id)).toBe("You");
   });
 });

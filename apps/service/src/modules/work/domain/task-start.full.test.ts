@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import type { Task } from "./task.js";
 import {
   startReasons,
@@ -9,7 +8,7 @@ import {
   type StartReasons,
 } from "./task-start.js";
 import type { Wait } from "./wait.js";
-import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { ANN_LEE, aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
 
@@ -61,13 +60,13 @@ describe("startTask", () => {
   it("counts against nobody when the Pipeline has no Agent Stage", () => {
     const scriptsOnly = { ...conditions, stages: [{ name: "Tests" }], person: undefined };
 
-    expect(startTask(ready, scriptsOnly, held([]), THE_USER).task.personRole).toBeUndefined();
+    expect(startTask(ready, scriptsOnly, held([]), ANN_LEE).task.personRole).toBeUndefined();
   });
 
   it("starts beside another Task in progress in the same Project, below its Project limit", () => {
     const other = started("a", { projectId: "admin-panel" });
 
-    expect(startTask(ready, conditions, held([other]), THE_USER).task.state).toBe("in-progress");
+    expect(startTask(ready, conditions, held([other]), ANN_LEE).task.state).toBe("in-progress");
   });
 });
 
@@ -222,7 +221,7 @@ describe("a first Agent Stage naming a duty", () => {
   };
 
   it("starts counted against the holder's Role", () => {
-    const { task } = startTask(ready, heldByTheDeveloper, held([]), THE_USER);
+    const { task } = startTask(ready, heldByTheDeveloper, held([]), ANN_LEE);
 
     expect(task.personRole).toBe("developer");
   });

@@ -86,6 +86,7 @@ import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -342,7 +343,7 @@ async function askOfficeManager(text: string): Promise<{
   readonly drafted: readonly Proposal[];
 }> {
   const started = await threads.startInChat(OFFICE_MANAGER);
-  await runner.send(started.id, text);
+  await runner.send(started.id, text, ANN_LEE);
   const thread = await vi.waitFor(
     async () => {
       const read = await threads.read(started.id);
@@ -368,7 +369,7 @@ function drafts(text: string): SessionScript {
 /** Starts on the text `now`, with the Office Manager's draft of `text` open. */
 async function draftOver(now: string, text: string): Promise<Proposal> {
   await startWith(drafts(text));
-  await officeInstructions.save(now);
+  await officeInstructions.save(now, ANN_LEE);
   return theOnlyProposal("Ask for plain words.");
 }
 
@@ -409,7 +410,7 @@ describe("a Proposal of a new Role", () => {
     ]);
     await expect(roles.read(roleKey)).rejects.toThrow(RoleNotFound);
 
-    const applied = await proposals.apply(proposal.id, {
+    const applied = await proposals.apply(proposal.id, ANN_LEE, {
       kind: "hire",
       card: { ...card, name: "Tom" },
       skills: [],
@@ -421,22 +422,24 @@ describe("a Proposal of a new Role", () => {
     });
     expect((await roles.read(roleKey)).role.card.name).toBe("Tom");
     expect(await roles.history(roleKey)).toEqual([
-      { kind: "hired", at: expect.any(Date), proposedBy: OFFICE_MANAGER },
+      { kind: "hired", at: expect.any(Date), proposedBy: OFFICE_MANAGER, savedBy: ANN_LEE },
     ]);
-    await expect(proposals.apply(proposal.id)).rejects.toThrow("This Proposal is applied already.");
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
+      "This Proposal is applied already.",
+    );
   });
 });
 
 describe("a Proposal of the Office instructions", () => {
   it("is refused once the text changed since the draft, keeping the edit and staying open", async () => {
     const proposal = await draftOver("Write in plain words.", "Keep it short.");
-    await officeInstructions.save("Edited in Settings.");
+    await officeInstructions.save("Edited in Settings.", ANN_LEE);
     const announced: OfficeInstructionsChanged[] = [];
     app.get(EventBus).subscribe(OfficeInstructionsChanged, (event) => {
       announced.push(event);
     });
 
-    await expect(proposals.apply(proposal.id)).rejects.toMatchObject({
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toMatchObject({
       reasons: [expect.stringContaining("Ask the Office Manager for a new draft.")],
     });
 

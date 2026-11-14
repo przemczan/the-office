@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
+import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { DutyHolderChanged } from "../../people/index.js";
 import type { Stage } from "../domain/stage.js";
 import {
@@ -15,6 +17,8 @@ import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { TaskStagesService } from "./task-stages-service.js";
+
+const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
 /** An Agent Stage naming Implements, which the Developer holds by default. */
 function implementing(key: string): Stage {
@@ -71,7 +75,7 @@ describe("an Agent Stage naming a duty", () => {
       ["polish", "architect"],
     ]);
 
-    await pipelines.app.get(GateService).continue(taskId);
+    await pipelines.app.get(GateService).continue(taskId, ANN);
     await pipelines.app.get(StageInterpreter).walked(taskId);
 
     expect(await rolesOfRuns(taskId)).toEqual([

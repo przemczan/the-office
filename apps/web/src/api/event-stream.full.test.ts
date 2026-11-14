@@ -1,6 +1,11 @@
 import type { ServerMessage, WebEvent } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EventStream, RECONNECT_DELAYS_MS, type EventStreamOptions } from "./event-stream.ts";
+import {
+  EventStream,
+  RECONNECT_DELAYS_MS,
+  SIGNED_OUT_CLOSE_CODE,
+  type EventStreamOptions,
+} from "./event-stream.ts";
 
 /** A WebSocket the test opens, feeds and closes as the service would. */
 class FakeWebSocket extends EventTarget {
@@ -25,6 +30,11 @@ class FakeWebSocket extends EventTarget {
   receive(message: ServerMessage | string): void {
     const data = typeof message === "string" ? message : JSON.stringify(message);
     this.dispatchEvent(new MessageEvent("message", { data }));
+  }
+
+  /** This device was signed out: the service closes its connection with 4401. */
+  signedOut(): void {
+    this.dispatchEvent(new CloseEvent("close", { code: SIGNED_OUT_CLOSE_CODE }));
   }
 
   /** The service went away, as on a restart: it closes its clients with 1001. */
@@ -341,6 +351,18 @@ describe("the event stream", () => {
     eventStream.stop();
     vi.advanceTimersByTime(60_000);
 
+    expect(sockets).toHaveLength(1);
+  });
+
+  it("stops, connecting no more, once the service closes it as this device was signed out", () => {
+    const onSignedOut = vi.fn<() => void>();
+    startStream({ onSignedOut });
+    latestSocket().open();
+
+    latestSocket().signedOut();
+    vi.advanceTimersByTime(60_000);
+
+    expect(onSignedOut).toHaveBeenCalledOnce();
     expect(sockets).toHaveLength(1);
   });
 });

@@ -6,17 +6,20 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type {
-  Duty,
-  Preset,
-  ProjectPipelineBreak,
-  ProjectPipelineCheckRequest,
-  ProjectPipelineFields,
-  Proposal,
-  ProposalApplication,
-  ProposedChange,
-  Role,
-  RoleCard,
+import {
+  dutyKeySchema,
+  type Duty,
+  type DutyHolders,
+  type Preset,
+  type ProjectPipelineBreak,
+  type ProjectPipelineCheckRequest,
+  type ProjectPipelineFields,
+  type Proposal,
+  type ProposalApplication,
+  type ProposalStatus,
+  type ProposedChange,
+  type Role,
+  type RoleCard,
 } from "@the-office/contracts";
 import { Alert, Badge, Button, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -28,6 +31,7 @@ import {
   threadQueries,
 } from "../../api/conversations.ts";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
+import { fallbackWords, holderNameOf } from "../duty-words.ts";
 import {
   pipelineQueries,
   projectPipelineQueries,
@@ -63,6 +67,7 @@ import { pinnedVersionLabel } from "../skill-words.ts";
 import { momentWords } from "../time.ts";
 import { PRIORITY_NAMES } from "../work/work-words.ts";
 import { useToast } from "../toasts.tsx";
+import { useUserName } from "../use-user-name.ts";
 import { tokensShort } from "./context-words.ts";
 import {
   commandWords,
@@ -78,6 +83,7 @@ import "./conversation.css";
 type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
 type ProposedPresetHire = Extract<ProposedChange, { kind: "hire-from-preset" }>;
 type ProposedRoleChange = Extract<ProposedChange, { kind: "change" }>;
+type ProposedDutiesChange = Extract<ProposedChange, { kind: "duties" }>;
 type ProposedLimitChange = Extract<ProposedChange, { kind: OfficeLimit }>;
 type ProposedPipelineChange = Extract<ProposedChange, { kind: "pipeline" }>;
 type ProposedProjectPipeline = Extract<ProposedChange, { kind: "project-pipeline" }>;
@@ -173,6 +179,18 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             changes={[officeInstructionsQuery().queryKey]}
             appliedToast="Change applied. Sessions that start from now on get them."
             openNote={`Applies to sessions that start after it. ${STALE_NOTE}`}
+          />
+        </ProposalFrame>
+      );
+    case "duties":
+      return (
+        <ProposalFrame title="Change duties">
+          <ProposedDuties change={change} roles={roles} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[dutyQueries.list().queryKey]}
+            appliedToast="Duties changed."
+            openNote={`Applies to what starts after it. ${STALE_NOTE}`}
           />
         </ProposalFrame>
       );
@@ -697,6 +715,45 @@ function ProposedLimit({ change }: { readonly change: ProposedLimitChange }): Re
   );
 }
 
+/** Each duty's holder as it was when drafted and as proposed, in the duties' order. */
+function ProposedDuties({
+  change,
+  roles,
+}: {
+  readonly change: ProposedDutiesChange;
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  const duties = useQuery(dutyQueries.list()).data;
+  return (
+    <ul className="proposal-changes">
+      {dutyKeySchema.options
+        .filter((key) => key in change.to)
+        .map((key) => {
+          const to = holderOf(change.to, key);
+          return (
+            <li key={key}>
+              <span className="proposal-change-label">{dutyLabel(key, duties)}</span>
+              <span className="proposal-change-from">
+                {holderNameOf(holderOf(change.from, key), roles)}
+              </span>
+              <Icon name="arrow-right" size={14} aria-label="to" />
+              <span className="proposal-change-to">{holderNameOf(to, roles)}</span>
+              {to === null && <span className="proposal-note">{fallbackWords(key)}</span>}
+            </li>
+          );
+        })}
+    </ul>
+  );
+}
+
+function holderOf(holders: DutyHolders, key: Duty["key"]): string | null {
+  return holders[key] ?? null;
+}
+
+function dutyLabel(key: Duty["key"], duties: readonly Duty[] | undefined): string {
+  return duties?.find((duty) => duty.key === key)?.label ?? key;
+}
+
 /** The text as the sessions will get it, whole: the user reads all of it before applying it. */
 function ProposedOfficeInstructions({ text }: { readonly text: string }): ReactNode {
   return (
@@ -731,7 +788,7 @@ function HireFoot({
       {status.kind === "applied" && (
         <>
           <Badge tone="success">Hired</Badge>
-          <span className="proposal-note">by you · {momentWords(status.at)}</span>
+          <AnsweredNote status={status} />
           {change.roleKey !== null && (
             <Link
               className="proposal-link"
@@ -743,7 +800,12 @@ function HireFoot({
           )}
         </>
       )}
-      {status.kind === "declined" && <Badge tone="neutral">Not hired</Badge>}
+      {status.kind === "declined" && (
+        <>
+          <Badge tone="neutral">Not hired</Badge>
+          <AnsweredNote status={status} />
+        </>
+      )}
       {status.kind === "open" && (
         <>
           <Button
@@ -807,7 +869,7 @@ function PresetHireFoot({
       {status.kind === "applied" && (
         <>
           <Badge tone="success">Hired</Badge>
-          <span className="proposal-note">by you · {momentWords(status.at)}</span>
+          <AnsweredNote status={status} />
           <Link
             className="proposal-link"
             to="/people/$roleKey"
@@ -817,7 +879,12 @@ function PresetHireFoot({
           </Link>
         </>
       )}
-      {status.kind === "declined" && <Badge tone="neutral">Not hired</Badge>}
+      {status.kind === "declined" && (
+        <>
+          <Badge tone="neutral">Not hired</Badge>
+          <AnsweredNote status={status} />
+        </>
+      )}
       {status.kind === "open" && (
         <>
           {editedName !== undefined && (
@@ -943,13 +1010,15 @@ function AnswerFoot({
       {status.kind === "applied" && (
         <>
           <Badge tone="success">Applied</Badge>
-          <span className="proposal-note">
-            by you · {momentWords(status.at)}
-            {appliedNote && ` · ${appliedNote}`}
-          </span>
+          <AnsweredNote status={status} more={appliedNote} />
         </>
       )}
-      {status.kind === "declined" && <Badge tone="neutral">Not applied</Badge>}
+      {status.kind === "declined" && (
+        <>
+          <Badge tone="neutral">Not applied</Badge>
+          <AnsweredNote status={status} />
+        </>
+      )}
       {status.kind === "open" && (
         <>
           <Button
@@ -985,6 +1054,23 @@ interface ProposalAnswering {
   /** Either is on its way, so neither can be clicked. */
   readonly busy: boolean;
   readonly error: Error | null;
+}
+
+/** Who applied or declined it, "by you" or "by Ann Lee", and when; then `more`, if any. */
+function AnsweredNote({
+  status,
+  more,
+}: {
+  readonly status: Extract<ProposalStatus, { kind: "applied" | "declined" }>;
+  readonly more?: string | undefined;
+}): ReactNode {
+  const nameOfUser = useUserName();
+  return (
+    <span className="proposal-note">
+      by {nameOfUser(status.by, "you")} · {momentWords(status.at)}
+      {more && ` · ${more}`}
+    </span>
+  );
 }
 
 /**

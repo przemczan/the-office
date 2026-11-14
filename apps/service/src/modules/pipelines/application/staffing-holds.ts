@@ -10,7 +10,7 @@ import {
 } from "../domain/staffing-decision.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StaffingHoldRepository } from "../ports/staffing-hold-repository.js";
-import { StartedTasks } from "../ports/started-tasks.js";
+import { StartedTasks, type ResumedOrDroppedBy } from "../ports/started-tasks.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
@@ -39,7 +39,9 @@ export class StaffingHolds implements OnModuleInit {
     // A Stage naming the duty goes to its new holder, or to nobody (spec §2.3).
     this.events.subscribe(DutyHolderChanged, () => this.holdTasksLackingPeople());
     this.events.subscribe(DecisionAnswered, async ({ decision }) => {
-      if (decision.answer) await this.answered(decision.id, decision.answer);
+      const { answer } = decision;
+      if (!answer) return;
+      await this.answered(decision.id, answer, answeredBy(answer));
     });
   }
 
@@ -74,21 +76,36 @@ export class StaffingHolds implements OnModuleInit {
     }
   }
 
-  /** The user's answer: drop the Task, or resume it, which holds it again while the lack stands. */
+  /**
+   * The answer, given `by` a user or a Consultant: drop the Task, or resume it, which holds it again
+   * while the lack stands.
+   */
   private async answered(
     decisionId: string,
     answer: { readonly kind: string; readonly option?: number },
+    by: ResumedOrDroppedBy,
   ): Promise<void> {
     const taskId = await this.holds.release(decisionId);
     if (!taskId) return;
     const { state } = await this.tasks.read(taskId);
     if (state !== "paused") return;
     if (answer.kind === "option" && answer.option === STAFFING_OPTIONS.drop) {
-      await this.tasks.drop(taskId);
+      await this.tasks.drop(taskId, by);
       return;
     }
-    await this.tasks.resume(taskId);
+    await this.tasks.resume(taskId, by);
   }
+}
+
+/**
+ * Who the answer's Resume or Drop is recorded by: the Consultant who gave it, or else the user, as a
+ * person's answer at the user's request is the user's own.
+ */
+function answeredBy(
+  answer: NonNullable<DecisionAnswered["decision"]["answer"]>,
+): ResumedOrDroppedBy {
+  if (answer.answeredBy !== undefined) return { kind: "person", roleKey: answer.answeredBy };
+  return { kind: "user", user: answer.atUsersRequest?.user ?? answer.user ?? null };
 }
 
 function stackOf(reason: unknown): string {

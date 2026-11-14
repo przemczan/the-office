@@ -12,7 +12,7 @@ import {
   stopTask,
 } from "./task-changes.js";
 import { TaskPaused, TaskResumed } from "./task-events.js";
-import { anInitiative, aTask } from "./work.fixtures.js";
+import { ANN_LEE, anInitiative, aTask } from "./work.fixtures.js";
 
 // A pause by the usage window (spec §2.1), with the alarm and an Initiative's Pause (spec §2.8).
 
@@ -108,20 +108,28 @@ describe("resumeTaskAtReset", () => {
 
 describe("the user's actions on a Task the usage window paused", () => {
   it("Resume, Stop and Drop work as usual, each clearing the resume time", () => {
-    const resumed = resumeTask(pausedByTheWindow, { fireAlarmOn: false, initiativePaused: false });
-    const keptByTheAlarm = resumeTask(pausedByTheWindow, {
-      fireAlarmOn: true,
-      initiativePaused: false,
-    });
+    const resumed = resumeTask(
+      pausedByTheWindow,
+      { fireAlarmOn: false, initiativePaused: false },
+      ANN_LEE,
+    );
+    const keptByTheAlarm = resumeTask(
+      pausedByTheWindow,
+      {
+        fireAlarmOn: true,
+        initiativePaused: false,
+      },
+      ANN_LEE,
+    );
 
     expect(resumed.task).toMatchObject({ state: "in-progress", resumesAt: undefined });
     expect(keptByTheAlarm.task).toMatchObject({ pausedBy: "alarm", resumesAt: undefined });
-    expect(stopTask(pausedByTheWindow).task).toMatchObject({
+    expect(stopTask(pausedByTheWindow, ANN_LEE).task).toMatchObject({
       state: "paused",
       pausedBy: undefined,
       resumesAt: undefined,
     });
-    expect(changeTaskState(pausedByTheWindow, "dropped", { kind: "user" })?.task).toMatchObject({
+    expect(changeTaskState(pausedByTheWindow, "dropped", ANN_LEE)?.task).toMatchObject({
       state: "dropped",
       pausedBy: undefined,
       resumesAt: undefined,
@@ -135,7 +143,7 @@ describe("the user's actions on a Task the usage window paused", () => {
 
 describe("an Initiative's Pause and the usage window", () => {
   it("Pause the Initiative takes it over, keeping the reset", () => {
-    const change = pauseTaskForInitiative(pausedByTheWindow);
+    const change = pauseTaskForInitiative(pausedByTheWindow, ANN_LEE);
 
     expect(change?.task).toMatchObject({ pausedBy: "initiative", resumesAt: RESET });
     expect(change?.event).toMatchObject({ from: "paused", by: "initiative" });
@@ -144,8 +152,8 @@ describe("an Initiative's Pause and the usage window", () => {
   it("Resume the Initiative before the reset hands it back to the usage window, after it resumes it", () => {
     const held = aTask({ state: "paused", pausedBy: "initiative", resumesAt: RESET });
 
-    const before = resumeTaskForInitiative(held, { fireAlarmOn: false, now: NOW });
-    const after = resumeTaskForInitiative(held, { fireAlarmOn: false, now: RESET });
+    const before = resumeTaskForInitiative(held, { fireAlarmOn: false, now: NOW }, ANN_LEE);
+    const after = resumeTaskForInitiative(held, { fireAlarmOn: false, now: RESET }, ANN_LEE);
 
     expect(before?.task).toMatchObject({ pausedBy: "usage-window", resumesAt: RESET });
     expect(before?.event).toMatchObject({ from: "paused", by: "usage-window" });
@@ -157,7 +165,7 @@ describe("an Initiative's Pause and the usage window", () => {
     const initiative = anInitiative({ state: "active", pausedAt: NOW });
     const held = aTask({ state: "paused", pausedBy: "initiative", resumesAt: RESET });
 
-    const change = resumeInitiative(initiative, [held], { fireAlarmOn: false, now: NOW });
+    const change = resumeInitiative(initiative, [held], { fireAlarmOn: false, now: NOW }, ANN_LEE);
 
     expect(change.taskChanges.map(({ task }) => task.pausedBy)).toEqual(["usage-window"]);
   });

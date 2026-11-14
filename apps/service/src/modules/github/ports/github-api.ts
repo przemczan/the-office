@@ -12,6 +12,12 @@ export interface SignInCode {
   readonly codeVerifier: string;
 }
 
+/** A user on GitHub: their numeric id, which never changes, and their login, which can. */
+export interface GitHubUser {
+  readonly id: number;
+  readonly login: string;
+}
+
 /**
  * GitHub's answer to a token request: the tokens, or its refusal by its `error` code (such as
  * `bad_verification_code` or `incorrect_client_credentials`), which the application words.
@@ -32,8 +38,14 @@ export abstract class GitHubApi {
   /** Exchanges a sign-in's code for the user's tokens, with the App's client secret. */
   abstract exchangeSignInCode(app: GitHubApp, code: SignInCode): Promise<TokenAnswer>;
 
-  /** The login of the user the token belongs to. Also throws `GitHubApiFailure` when GitHub refuses. */
-  abstract loginOf(accessToken: string): Promise<string>;
+  /** The user the token belongs to. Also throws `GitHubApiFailure` when GitHub refuses. */
+  abstract userOf(accessToken: string): Promise<GitHubUser>;
+
+  /**
+   * Revokes this one user token, with the App's client ID and secret; the user's authorization of
+   * the App and their other tokens stay. Also throws `GitHubApiFailure` when GitHub refuses.
+   */
+  abstract revokeUserToken(app: GitHubApp, accessToken: string): Promise<void>;
 
   /**
    * Trades the refresh token for a new user token and refresh token, with the App's client secret.

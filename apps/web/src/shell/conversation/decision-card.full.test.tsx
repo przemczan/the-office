@@ -13,6 +13,7 @@ import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { taskQueries } from "../../api/work.ts";
 import { ToastProvider } from "../toasts.tsx";
+import { BY_ANN, BY_YOU, signIn } from "../user.fixtures.ts";
 import { DecisionInThread } from "./decision-card.tsx";
 
 declare global {
@@ -44,6 +45,7 @@ function aDecision(threadId: string): Decision {
     passedOn: [],
     answer: null,
     answeredAt: null,
+    answeredByUser: null,
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,
@@ -64,6 +66,7 @@ async function rendered(decision: Decision): Promise<HTMLElement> {
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER, REVIEWER]);
+  signIn(queryClient);
   queryClient.setQueryData(taskQueries.one(TASK.id).queryKey, TASK);
   queryClient.setQueryData(
     threadQueries.one(PLANNING_THREAD).queryKey,
@@ -225,7 +228,7 @@ describe("an answered Decision in its Thread", () => {
 
   it("names the person who answered at the user's request, linking to the chat they were asked in", async () => {
     const page = await rendered(
-      answered({ atUsersRequest: { roleKey: "reviewer", threadId: CHAT_THREAD } }),
+      answered({ atUsersRequest: { roleKey: "reviewer", threadId: CHAT_THREAD, user: null } }),
     );
 
     const line = answeredLine(page);
@@ -236,9 +239,31 @@ describe("an answered Decision in its Thread", () => {
     );
   });
 
+  it("names the user who answered: you, or another user by name", async () => {
+    const byYou = await rendered(answered({ answeredByUser: BY_YOU }));
+    expect(answeredLine(byYou).textContent).toBe("Answered by you: JSON");
+    document.body.replaceChildren();
+
+    const byAnn = await rendered(answered({ answeredByUser: BY_ANN }));
+    expect(answeredLine(byAnn).textContent).toBe("Answered by Ann Lee: JSON");
+  });
+
+  it("names the user at whose request a person answered", async () => {
+    const atYours = await rendered(
+      answered({ atUsersRequest: { roleKey: "reviewer", threadId: CHAT_THREAD, user: BY_YOU } }),
+    );
+    expect(answeredLine(atYours).textContent).toBe("Answered by Michael at your request: JSON");
+    document.body.replaceChildren();
+
+    const atAnns = await rendered(
+      answered({ atUsersRequest: { roleKey: "reviewer", threadId: CHAT_THREAD, user: BY_ANN } }),
+    );
+    expect(answeredLine(atAnns).textContent).toBe("Answered by Michael at Ann Lee's request: JSON");
+  });
+
   it("links to a Thread on a Task the user asked in on the Task's page", async () => {
     const page = await rendered(
-      answered({ atUsersRequest: { roleKey: "reviewer", threadId: TASK_THREAD } }),
+      answered({ atUsersRequest: { roleKey: "reviewer", threadId: TASK_THREAD, user: null } }),
     );
 
     expect(answeredLine(page).querySelector("a")?.getAttribute("href")).toBe(

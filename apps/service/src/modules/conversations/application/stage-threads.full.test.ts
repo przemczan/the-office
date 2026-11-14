@@ -82,6 +82,7 @@ import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
+import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -590,7 +591,7 @@ describe("StageThreads", () => {
     it("starts a Stage's session with the current text, before the Role's and the Stage's instructions", async () => {
       await startWith(started(...aTurn({ status: "done" })));
       const ada = aPerson("Ada");
-      await app.get(OfficeInstructions).save("Answer in plain words.");
+      await app.get(OfficeInstructions).save("Answer in plain words.", ANN_LEE);
 
       const { stageThread } = await aStageRun(aStage({ roleKey: ada }));
 
@@ -607,9 +608,9 @@ describe("StageThreads", () => {
         resumed(...aTurn({ status: "done" }, "Reviewing.")),
       );
       const ada = aPerson("Ada");
-      await app.get(OfficeInstructions).save("Answer in plain words.");
+      await app.get(OfficeInstructions).save("Answer in plain words.", ANN_LEE);
       const first = await aStageRun(aStage({ roleKey: ada }));
-      await app.get(OfficeInstructions).save("Answer in French.");
+      await app.get(OfficeInstructions).save("Answer in French.", ANN_LEE);
 
       await aStageRun(theNextStage(ada, first), "Reviewed.");
 
@@ -625,7 +626,7 @@ describe("StageThreads", () => {
         resumed(...aTurn({ status: "done" }, "Reviewing.")),
       );
       const ada = aPerson("Ada");
-      await app.get(OfficeInstructions).save("Answer in plain words.");
+      await app.get(OfficeInstructions).save("Answer in plain words.", ANN_LEE);
       const first = await aStageRun(aStage({ roleKey: ada }));
       await repository.update(first.stageThread.threadId, storedBeforeOfficeInstructions);
 
@@ -640,9 +641,9 @@ describe("StageThreads", () => {
     it("gives a Stage declared fresh the new text, and records its version", async () => {
       await startWith(started(...aTurn({ status: "done" })), started(...aTurn({ status: "done" })));
       const ada = aPerson("Ada");
-      await app.get(OfficeInstructions).save("Answer in plain words.");
+      await app.get(OfficeInstructions).save("Answer in plain words.", ANN_LEE);
       const first = await aStageRun(aStage({ roleKey: ada }));
-      await app.get(OfficeInstructions).save("Answer in French.");
+      await app.get(OfficeInstructions).save("Answer in French.", ANN_LEE);
 
       const second = await aStageRun(
         aStage({ roleKey: ada, previousThreadId: first.stageThread.threadId }),
@@ -806,9 +807,9 @@ describe("StageThreads", () => {
     await startWith(started(...aTurn({ status: "done" })));
     const { stageThread } = await aStageRun(aStage({ roleKey: aPerson("Ada") }));
 
-    await expect(app.get(ThreadRunner).send(stageThread.threadId, "Hello?")).rejects.toThrow(
-      ThreadRefused,
-    );
+    await expect(
+      app.get(ThreadRunner).send(stageThread.threadId, "Hello?", ANN_LEE),
+    ).rejects.toThrow(ThreadRefused);
   });
 });
 
@@ -825,14 +826,19 @@ describe("barge-in", () => {
       ),
     );
     const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
-    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.");
+    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
 
     const turn = await stageThread.nextTurn();
 
     expect(turn.output).toEqual({ status: "done", list: true });
     expect(turn.tokens.output).toBe(USAGE.output * 2);
     expect(await userMessages(stageThread.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "Rename it on the list too.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+      },
     ]);
     await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
@@ -850,12 +856,17 @@ describe("barge-in", () => {
     await stageThread.nextTurn();
 
     // Sent now, it would start a turn the Stage would read as the correction's answer.
-    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.");
+    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
     const corrected = await stageThread.send("Correct it.", "The result was invalid.");
 
     expect(corrected.output).toEqual({ status: "done" });
     expect(await userMessages(stageThread.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "Rename it on the list too.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+      },
     ]);
     await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
@@ -864,16 +875,21 @@ describe("barge-in", () => {
     await startWith(started(...aTurn({ status: "done" })));
     const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
     await stageThread.nextTurn();
-    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.");
+    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
 
     await stageThread.endSession();
 
     expect(await userMessages(stageThread.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list too.", delivery: "not-delivered" },
+      {
+        kind: "user",
+        text: "Rename it on the list too.",
+        delivery: "not-delivered",
+        writtenBy: ANN_LEE,
+      },
     ]);
-    await expect(stageThreads.bargeIn(stageThread.threadId, "And the page?")).rejects.toThrow(
-      ThreadRefused,
-    );
+    await expect(
+      stageThreads.bargeIn(stageThread.threadId, "And the page?", ANN_LEE),
+    ).rejects.toThrow(ThreadRefused);
     await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
 });
@@ -958,7 +974,7 @@ describe("Stop", () => {
     const since = new Date();
     const stopped = await stageThreads.open(aStage({ roleKey: ada }));
     const turn = stopped.nextTurn();
-    await stageThreads.bargeIn(stopped.threadId, "Rename it on the list instead.");
+    await stageThreads.bargeIn(stopped.threadId, "Rename it on the list instead.", ANN_LEE);
     await stopped.interrupt();
     await turn;
     await stopped.end({
@@ -966,7 +982,12 @@ describe("Stop", () => {
       closing: { kind: "held", heldBy: "stop", text: "Stopped by the user." },
     });
     expect(await userMessages(stopped.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list instead.", delivery: "not-delivered" },
+      {
+        kind: "user",
+        text: "Rename it on the list instead.",
+        delivery: "not-delivered",
+        writtenBy: ANN_LEE,
+      },
     ]);
 
     const again = await stageThreads.open(
@@ -986,14 +1007,24 @@ describe("Stop", () => {
       },
     });
     expect(await userMessages(stopped.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list instead.", delivery: "waiting" },
+      {
+        kind: "user",
+        text: "Rename it on the list instead.",
+        delivery: "waiting",
+        writtenBy: ANN_LEE,
+      },
     ]);
 
     await again.nextTurn();
 
     expect(again.threadId).toBe(stopped.threadId);
     expect(await userMessages(stopped.threadId)).toEqual([
-      { kind: "user", text: "Rename it on the list instead.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "Rename it on the list instead.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+      },
     ]);
     await again.end({ handoverNote: undefined, closing: undefined });
   });
@@ -1006,7 +1037,7 @@ describe("Stop", () => {
     const ada = aPerson("Ada");
     const earlier = await stageThreads.open(aStage({ roleKey: ada }));
     await earlier.nextTurn();
-    await stageThreads.bargeIn(earlier.threadId, "An old message.");
+    await stageThreads.bargeIn(earlier.threadId, "An old message.", ANN_LEE);
     await earlier.end({ handoverNote: undefined, closing: undefined });
 
     await stageThreads.open(
@@ -1021,7 +1052,7 @@ describe("Stop", () => {
     const sent = engine.sessions[1]?.received.find(({ step }) => step === "send");
     expect(sent).toMatchObject({ message: { text: "## The Stage: Implement\n\nBuild it." } });
     expect(await userMessages(earlier.threadId)).toEqual([
-      { kind: "user", text: "An old message.", delivery: "not-delivered" },
+      { kind: "user", text: "An old message.", delivery: "not-delivered", writtenBy: ANN_LEE },
     ]);
   });
 });
@@ -1046,7 +1077,9 @@ describe("StageDecisions", () => {
       draft,
     });
     const opened = await repository.decision(id);
-    await app.get(DecisionService).answer(id, { kind: "free-answer", text: "Mock the clock." });
+    await app
+      .get(DecisionService)
+      .answer(id, { kind: "free-answer", text: "Mock the clock." }, ANSWERED_BY_ANN_LEE);
 
     expect(opened).toMatchObject({ threadId: planning?.id, roleKey: undefined });
     expect((await repository.decision(id))?.answer).toMatchObject({ kind: "free-answer" });
@@ -1131,7 +1164,7 @@ describe("Office tools on a Stage", () => {
     const id = (await threadOf(stageThread.threadId)).openDecisions[0]?.id ?? "";
     const answered = answeredEvents();
 
-    await app.get(DecisionService).answer(id, { kind: "option", option: 1 });
+    await app.get(DecisionService).answer(id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
 
     expect(answered.map((event) => event.decision.id)).toEqual([id]);
     // Answered before the Stage's run keeps it: the Pipeline reads the answer as it would wait.
@@ -1159,7 +1192,9 @@ describe("Office tools on a Stage", () => {
     await first.nextTurn();
     const earlier = await first.askedDecision();
     await first.end({ handoverNote: undefined, closing: undefined });
-    await app.get(DecisionService).answer(earlier?.id ?? "", { kind: "option", option: 1 });
+    await app
+      .get(DecisionService)
+      .answer(earlier?.id ?? "", { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
 
     const again = await stageThreads.open({
       ...request,

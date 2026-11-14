@@ -37,6 +37,7 @@ import type {
   StageOutcome,
   StageRun,
   AskedInterruption,
+  HoldingUser,
 } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import { staffedRole } from "../domain/stage-staffing.js";
@@ -149,13 +150,16 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   onModuleInit(): void {
     this.events.subscribe(TaskStarted, ({ taskId }) => this.walkInBackground(taskId));
     this.events.subscribe(TaskResumed, ({ taskId }) => this.walkInBackground(taskId));
-    this.events.subscribe(TaskPaused, async ({ taskId, by }) => {
+    this.events.subscribe(TaskPaused, async ({ taskId, by, user }) => {
       // The Stage runner pauses a Task for a used-up usage window once it held the run itself.
       if (by === "usage-window") return;
-      await this.interrupt(taskId, by === "alarm" ? "alarm" : "pause");
+      if (by === "alarm") await this.interrupt(taskId, "alarm");
+      else await this.interrupt(taskId, "pause", user && holdingUserOf(user));
     });
     this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
-    this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
+    this.events.subscribe(TaskStopped, ({ taskId, user }) =>
+      this.interrupt(taskId, "stop", user && holdingUserOf(user)),
+    );
     this.events.subscribe(OfficeUpdateCancelled, () => this.walkHeldForUpdate());
     this.events.subscribe(TaskStateChanged, async ({ taskId, from, to }) => {
       // A started Task dropped, alone or with its Initiative, has its running Stage stopped.
@@ -244,14 +248,18 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   /**
    * Holds the Stage run of the Task's walk, if one goes on: its runner stops the Agent's turn now
    * (Stop) or once it ends (Pause, the fire alarm), and ends the run as interrupted. A walk about to start one
-   * records it held without running it. The run records what the user asked, so a start after a
-   * crash honours it.
+   * records it held without running it. The run records what the user asked, and `heldByUser`, who
+   * asked, so a start after a crash honours it.
    */
-  async interrupt(taskId: string, interruption: AskedInterruption): Promise<void> {
-    this.interruptions.get(taskId)?.request(interruption);
+  async interrupt(
+    taskId: string,
+    interruption: AskedInterruption,
+    heldByUser?: HoldingUser,
+  ): Promise<void> {
+    this.interruptions.get(taskId)?.request(interruption, heldByUser);
     const running = (await this.runs.list(taskId)).at(-1);
     if (!running || running.outcome || !outranks(interruption, running.heldBy)) return;
-    await this.runs.saveHeldBy(running.id, interruption);
+    await this.runs.saveHeldBy(running.id, interruption, heldByUser);
   }
 
   /**
@@ -341,13 +349,17 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     held: Pick<StartedTask, "state" | "pausedBy">,
   ): Promise<void> {
     const interruption: StageInterruption = run.heldBy ?? heldByAfterRestart(held);
+    const { heldByUser } = run;
     const task = await this.records.read(run.taskId);
     const discarded = await this.stageGit.settleLeftRunning(
       { run, earlierRuns },
       task,
       interruption,
     );
-    const outcome = interruptedOutcome(interruption, discarded, { cutShortBy: "restart" });
+    const outcome = interruptedOutcome(interruption, discarded, {
+      cutShortBy: "restart",
+      heldByUser,
+    });
     const ended = endStageRun(run, outcome, new Date());
     await this.runs.saveEnded(ended.run);
     const closing = closingOf(outcome);
@@ -580,7 +592,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   private async outcomeOf(work: StageWork): Promise<StageOutcome> {
     const { stage, run, interruption } = work;
     // Held before it began, so it did nothing to discard.
-    if (interruption.requested) return interruptedOutcome(interruption.requested, []);
+    if (interruption.requested) {
+      return interruptedOutcome(interruption.requested, [], {
+        heldByUser: interruption.heldByUser,
+      });
+    }
     try {
       const runner = this.runners.runnerOf(stage.kind);
       // Each kind's runner registers as the module starts, so a missing one is a fault.
@@ -680,6 +696,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       await this.events.publish(new DefinitionOfDoneNotMet(taskId, question.unmet));
     }
   }
+}
+
+/** The user Work's event names, as the run keeps them. */
+function holdingUserOf({ userId, name }: HoldingUser): HoldingUser {
+  return { userId, name };
 }
 
 /** What holds a run left running with nothing recorded on it, by the state of its Task. */

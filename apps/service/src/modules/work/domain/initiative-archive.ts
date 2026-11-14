@@ -1,3 +1,4 @@
+import { BY_THE_DAILY_RUN, type ArchivedBy, type Author } from "./author.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
 import { InitiativeArchived, InitiativeRestored } from "./initiative-events.js";
@@ -52,6 +53,7 @@ export function isEndedOnTheBoard(initiative: Initiative): boolean {
 export function archiveInitiative(
   initiative: Initiative,
   at: Date,
+  by: ArchivedBy,
 ): InitiativeChange<InitiativeArchived> | undefined {
   if (!isEnded(initiative)) {
     throw new InitiativeRefused([
@@ -60,7 +62,7 @@ export function archiveInitiative(
   }
   if (isInitiativeArchived(initiative)) return undefined;
   return {
-    initiative: { ...initiative, archivedAt: at },
+    initiative: { ...initiative, archivedAt: at, archivedBy: by },
     event: new InitiativeArchived(initiative.id, at),
   };
 }
@@ -72,10 +74,17 @@ export function archiveInitiative(
 export function restoreInitiative(
   initiative: Initiative,
   at: Date,
+  by: Author,
 ): InitiativeChange<InitiativeRestored> | undefined {
   if (!isInitiativeArchived(initiative)) return undefined;
   return {
-    initiative: { ...initiative, archivedAt: undefined, restoredAt: at },
+    initiative: {
+      ...initiative,
+      archivedAt: undefined,
+      archivedBy: undefined,
+      restoredAt: at,
+      restoredBy: by,
+    },
     event: new InitiativeRestored(initiative.id, at),
   };
 }
@@ -93,7 +102,7 @@ export function initiativeArchivePeriodStart(initiative: Initiative): Date | und
 
 /**
  * Archives a Done or Dropped Initiative on the board whose Archive period started before `cutoff`
- * (archiveCutoff); undefined for any other, which stays as it is.
+ * (archiveCutoff), as The Office's daily run; undefined for any other, which stays as it is.
  */
 export function archiveInitiativeIfDue(
   initiative: Initiative,
@@ -103,7 +112,7 @@ export function archiveInitiativeIfDue(
   if (!isEndedOnTheBoard(initiative)) return undefined;
   const start = initiativeArchivePeriodStart(initiative);
   if (start && start >= cutoff) return undefined;
-  return archiveInitiative(initiative, at);
+  return archiveInitiative(initiative, at, BY_THE_DAILY_RUN);
 }
 
 function isEnded({ state }: Initiative): boolean {

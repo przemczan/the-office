@@ -8,7 +8,6 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
-import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
 import {
   KnownProjectsForTests,
@@ -18,6 +17,8 @@ import {
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import { SHAPING_OFFICE_TOOLS } from "../conversations/initiative-thread-records.js";
 import { CHOOSE_PIPELINE } from "./shaping-office-tools.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
+import { ANN_LEE as ANN_LEE_USER } from "../../../conversations/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -42,12 +43,12 @@ beforeEach(async () => {
   shortName = `pipeline-sync-${randomUUID().slice(0, 8)}`;
   const idea = await work.app
     .get(IdeaService)
-    .capture({ title: shortName, notes: "", projectId: undefined }, THE_USER);
-  initiative = await work.app.get(InitiativeService).shape(idea.id, THE_USER);
+    .capture({ title: shortName, notes: "", projectId: undefined }, ANN_LEE);
+  initiative = await work.app.get(InitiativeService).shape(idea.id, ANN_LEE);
   projectId = `project-${randomUUID()}`;
   await work.app
     .get(InitiativeService)
-    .addTask(initiative.id, { title: "Queue writes", projectId, priority: "normal" }, [], THE_USER);
+    .addTask(initiative.id, { title: "Queue writes", projectId, priority: "normal" }, [], ANN_LEE);
   work.app.get(SessionInitiativesForTests).initiatives.set(SESSION, initiative.id);
 });
 
@@ -69,7 +70,7 @@ async function confirmedOn(pipelineId: string | null): Promise<void> {
   await work.app
     .get(InitiativeService)
     .choosePipeline(initiative.id, projectId, pipelineId, "straight");
-  await work.app.get(InitiativeService).confirm(initiative.id);
+  await work.app.get(InitiativeService).confirm(initiative.id, ANN_LEE);
 }
 
 function proposed(pipelineId: string | null, inProject = projectId) {
@@ -149,7 +150,7 @@ describe("a Proposal of another Pipeline", () => {
     const appliers = work.app.get(ProposalAppliers);
 
     expect(await appliers.problemsWith(proposed("quick-fix"))).toEqual([]);
-    await appliers.apply(proposed("quick-fix"), "cto");
+    await appliers.apply(proposed("quick-fix"), "cto", ANN_LEE_USER);
 
     expect(await current()).toMatchObject({
       pipelines: [{ projectId, pipelineId: "quick-fix" }],
@@ -164,7 +165,9 @@ describe("a Proposal of another Pipeline", () => {
     expect(await appliers.problemsWith(proposed("full"))).toEqual([
       `Whether the Initiative has a Pipeline in The ${projectId} was fixed at Confirm.`,
     ]);
-    await expect(appliers.apply(proposed("full"), "cto")).rejects.toThrow(ProposalRefused);
+    await expect(appliers.apply(proposed("full"), "cto", ANN_LEE_USER)).rejects.toThrow(
+      ProposalRefused,
+    );
   });
 
   it("is refused when that Project lacks a command the Pipeline runs", async () => {
@@ -175,7 +178,9 @@ describe("a Proposal of another Pipeline", () => {
     expect(await appliers.problemsWith(proposed("quick-fix"))).toEqual([
       `The Pipeline Quick fix runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
     ]);
-    await expect(appliers.apply(proposed("quick-fix"), "cto")).rejects.toThrow(ProposalRefused);
+    await expect(appliers.apply(proposed("quick-fix"), "cto", ANN_LEE_USER)).rejects.toThrow(
+      ProposalRefused,
+    );
   });
 });
 

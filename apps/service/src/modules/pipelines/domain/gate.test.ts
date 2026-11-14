@@ -52,6 +52,7 @@ function aRun(stageKey: string, gateAction?: GateAction): StageRun {
     model: undefined,
     decisions: [],
     heldBy: undefined,
+    heldByUser: undefined,
     published: undefined,
     waitingSince: undefined,
     gateAction,

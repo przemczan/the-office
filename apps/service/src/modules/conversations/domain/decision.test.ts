@@ -11,6 +11,7 @@ import {
 } from "./thread-changes.js";
 import { aThread } from "./thread.fixtures.js";
 import { aDecision, AT, TASK_HOME, SESSION, DRAFT, WARM, refusalOf } from "./decision.fixtures.js";
+import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "./user.fixtures.js";
 
 describe("opening a Decision", () => {
   it("logs its card and makes the Thread on the Task wait on it", () => {
@@ -76,7 +77,7 @@ describe("answering a Decision", () => {
 });
 
 describe("answering a Decision for the user, at their request", () => {
-  const AT_USERS_REQUEST = { roleKey: "cto", threadId: "thread-of-the-cto" };
+  const AT_USERS_REQUEST = { roleKey: "cto", threadId: "thread-of-the-cto", user: ANN_LEE };
   const open = aDecision({ id: "decision-1" });
   const waiting = aThread({ home: TASK_HOME, session: SESSION, openDecisions: [open] });
 
@@ -136,8 +137,8 @@ describe("answering a Decision for the user, at their request", () => {
     ]);
   });
 
-  it("keeps a Consultant's answer and the user's own as they were", () => {
-    expect(answerGivenBy(undefined)).toEqual({});
+  it("records the user who answered, the Consultant, and the person who answered for the user", () => {
+    expect(answerGivenBy(ANSWERED_BY_ANN_LEE)).toEqual({ user: ANN_LEE });
     expect(answerGivenBy({ kind: "consultant", roleKey: "cto", name: "Ada" })).toEqual({
       answeredBy: "cto",
     });
