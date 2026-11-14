@@ -860,8 +860,9 @@ export class ThreadRunner implements OnModuleDestroy {
     this.live.set(threadId, live);
     void this.read(threadId, live, start)
       .then(() => (live.ending ? undefined : this.endedEarly(threadId, session.id)))
-      .catch((error: unknown) => this.fail(threadId, error))
+      .catch((error: unknown) => this.fail(threadId, error, { logged: start.failed(error) }))
       .finally(() => {
+        start.ended();
         if (live.idle) clearTimeout(live.idle);
         if (this.live.get(threadId) === live) this.live.delete(threadId);
       });
@@ -883,11 +884,7 @@ export class ThreadRunner implements OnModuleDestroy {
         start.spoke();
         await this.readEvent(threadId, live, event);
       }
-    } catch (error) {
-      start.failed(error);
-      throw error;
     } finally {
-      start.ended();
       await live.following.end();
     }
   }
