@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { CommandRun } from "../domain/command-run.js";
 import { OutputMask } from "../domain/output-mask.js";
 import type { Project } from "../domain/project.js";
+import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { Git } from "../ports/git.js";
 import { commandRunOf, ProjectCommandRunner } from "./project-command-runner.js";
 import {
@@ -33,6 +34,8 @@ export interface TaskCommand {
    * judged it as; a run environment runs every command in its own sh.
    */
   readonly writtenByAgent?: boolean;
+  /** Set over the Project's own variables, such as what a Publish shipped. */
+  readonly variables?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -61,23 +64,24 @@ export class TaskCommandRunner {
     project: Project,
     taskId: string,
     worktree: string,
-    { commandLine, timeoutMs, signal, wait, outputFile, writtenByAgent }: TaskCommand,
+    { commandLine, timeoutMs, signal, wait, outputFile, writtenByAgent, variables }: TaskCommand,
   ): Promise<CommandRun> {
+    const environment = withVariables(project.environment, variables);
     if (project.runEnvironment !== "on") {
       return this.host.run({
         commandLine,
         folder: worktree,
-        environment: project.environment,
+        environment,
         timeoutMs,
         signal,
         outputFile,
         inAgentBash: writtenByAgent,
       });
     }
-    const mask = OutputMask.of(project.environment);
+    const mask = OutputMask.of(environment);
     const finished = await this.runEnvironments.run(
       await this.taskInRunEnvironment(project, taskId, worktree),
-      { commandLine, environment: project.environment, mask, timeoutMs, signal, wait, outputFile },
+      { commandLine, environment, mask, timeoutMs, signal, wait, outputFile },
     );
     return commandRunOf(commandLine, finished, mask);
   }
@@ -101,4 +105,14 @@ export class TaskCommandRunner {
       installVariables: project.environment.set,
     };
   }
+}
+
+/** The Project's environment with `variables` set after its own, so they win over one of the same name. */
+function withVariables(
+  environment: ProjectEnvironment,
+  variables: Readonly<Record<string, string>> | undefined,
+): ProjectEnvironment {
+  if (variables === undefined) return environment;
+  const added = Object.entries(variables).map(([name, value]) => ({ name, value, secret: false }));
+  return { ...environment, set: [...environment.set, ...added] };
 }

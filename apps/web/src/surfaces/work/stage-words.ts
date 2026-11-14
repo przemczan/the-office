@@ -77,7 +77,8 @@ export function stageRule(stage: Stage, names: StageNames): string[] {
 }
 
 /**
- * The pull request of the Task's newest Publish that ran to the end. A Publish going again doesn't
+ * The pull request of the Task's newest Publish that shipped the work: one that ran to the end, or
+ * one whose after publishing line failed once the work had shipped. A Publish going again doesn't
  * hide the one already open; undefined when that run kept none, as a run from before it was kept.
  */
 export function pullRequestUrlOf(
@@ -86,12 +87,18 @@ export function pullRequestUrlOf(
   const newest = (taskStages ?? [])
     .filter(({ stage }) => stage.kind === "script" && stage.command === "publish")
     .flatMap(({ runs }) => runs)
-    .flatMap(({ number, outcome }) =>
-      outcome?.status === "done" && !outcome.skipped ? [{ number, outcome }] : [],
-    )
+    .flatMap(({ number, outcome }) => {
+      if (outcome?.status === "done" && !outcome.skipped) {
+        return [{ number, pullRequestUrl: outcome.pullRequestUrl }];
+      }
+      if (outcome?.status === "failed" && outcome.afterPublishingFailed) {
+        return [{ number, pullRequestUrl: outcome.afterPublishingFailed.pullRequestUrl }];
+      }
+      return [];
+    })
     .toSorted((earlier, later) => earlier.number - later.number)
     .at(-1);
-  return newest?.outcome.pullRequestUrl ?? undefined;
+  return newest?.pullRequestUrl ?? undefined;
 }
 
 /** The command line a Script Stage ran, as the Project names it, once it has run it. */

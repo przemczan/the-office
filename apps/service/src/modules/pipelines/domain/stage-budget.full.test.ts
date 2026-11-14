@@ -31,6 +31,7 @@ function aRun(stageKey: string, decisions: StageRunDecision[]): StageRun {
     model: undefined,
     decisions,
     heldBy: undefined,
+    published: undefined,
     waitingSince: undefined,
     sentBack: undefined,
     gateAction: undefined,

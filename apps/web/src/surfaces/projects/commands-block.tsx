@@ -1,12 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Project, ProjectCommand, ProjectCommandKind } from "@the-office/contracts";
+import {
+  publishingModeSchema,
+  type Project,
+  type ProjectCommand,
+  type ProjectCommandKind,
+  type PublishingMode,
+} from "@the-office/contracts";
 import { Badge, Button, Dialog, Icon, IconButton, Input, Select } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import {
   addCommand,
+  changeAfterPublishingCommand,
+  changeBeforePublishingCommand,
   changeCommand,
   changeInstallCommand,
   changeInstallInputs,
+  changePublishingMode,
   projectQueries,
   removeCommand,
 } from "../../api/projects.ts";
@@ -17,6 +26,7 @@ import {
   INSTALL_INPUTS_LABEL,
   INSTALL_LABEL,
   installInputsLine,
+  publishingLabel,
 } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -28,12 +38,17 @@ const KIND_OPTIONS = COMMAND_KINDS.map((kind) => ({
   label: COMMAND_KIND_LABELS[kind],
 }));
 
-/** What the block edits in place: install's line, the install inputs, a command, or a new one. */
-type Editing = "install" | "install-inputs" | { readonly key: string } | "new-command";
+type LineId = "install" | "install-inputs" | "before-publishing" | "after-publishing";
 
-/** Install's line or the install inputs, shown as text and changed in place. */
+/**
+ * What the block edits in place: install's line, the install inputs, a publishing line, a command,
+ * or a new one.
+ */
+type Editing = LineId | { readonly key: string } | "new-command";
+
+/** Install's line, the install inputs or a publishing line, shown as text and changed in place. */
 interface LineRow {
-  readonly id: "install" | "install-inputs";
+  readonly id: LineId;
   readonly label: string;
   /** The row's pencil, as a screen reader names it. */
   readonly changeLabel: string;
@@ -43,14 +58,18 @@ interface LineRow {
   readonly line: string;
   /** What the row shows when `line` is empty. */
   readonly emptyLine: string;
-  readonly savedMessage: string;
+  /** What the line is for, under it. */
+  readonly hint?: string;
+  /** The toast once saved; `line` is what was saved, trimmed. */
+  savedMessage(line: string): string;
   isUnchanged(line: string): boolean;
   save(line: string): Promise<Project>;
 }
 
 /**
  * The Project's install command and install inputs, then its commands in their order, each changed
- * in place (spec §9: edited directly in tier 1); a command can also be added and removed.
+ * in place (spec §9: edited directly in tier 1); a command can also be added and removed. Then the
+ * Publish group: the publishing mode and the before and after publishing lines (spec §2.3).
  */
 export function CommandsBlock({ project }: { readonly project: Project }): ReactNode {
   const [editing, setEditing] = useState<Editing>();
@@ -66,23 +85,13 @@ export function CommandsBlock({ project }: { readonly project: Project }): React
           draft={`Can you propose a change to the commands of ${project.name}? `}
         />
       }
-      note="Script Stages run these in the Task's worktree with no Agent, as they are when the Stage runs. A test command's runs never reach the work."
     >
       <div className="commands">
         {lineRowsOf(project).map((row) =>
           editing === row.id ? (
             <LineEditor key={row.id} row={row} onDone={done} />
           ) : (
-            <div key={row.id} className="command-row">
-              <span className="command-key">{row.label}</span>
-              <CommandLine line={row.line} emptyLine={row.emptyLine} />
-              <IconButton
-                icon={<Icon name="pencil" size={14} />}
-                label={row.changeLabel}
-                size="sm"
-                onClick={() => setEditing(row.id)}
-              />
-            </div>
+            <LineRowView key={row.id} row={row} onChange={() => setEditing(row.id)} />
           ),
         )}
         {project.commands.map((command) =>
@@ -111,6 +120,26 @@ export function CommandsBlock({ project }: { readonly project: Project }): React
           </Button>
         </div>
       )}
+      <p className="project-block-note">
+        Script Stages run these in the Task&apos;s worktree with no Agent, as they are when the
+        Stage runs. A test command&apos;s runs never reach the work.
+      </p>
+      <h3 className="commands-group-title">Publish</h3>
+      <div className="commands" role="group" aria-label="Publish">
+        <PublishingModeRow project={project} />
+        {publishLineRowsOf(project).map((row) =>
+          editing === row.id ? (
+            <LineEditor key={row.id} row={row} onDone={done} />
+          ) : (
+            <LineRowView key={row.id} row={row} onChange={() => setEditing(row.id)} />
+          ),
+        )}
+      </div>
+      <p className="project-block-note">
+        Publish runs both lines with the Project&apos;s own variables, never The Office&apos;s
+        credentials: keep a token in a Secret variable. Each runs again every time Publish runs, so
+        it must be safe to run twice, and the Script Stage time limit of 30 minutes applies.
+      </p>
       {removing && (
         <RemoveCommandDialog
           project={project}
@@ -133,7 +162,7 @@ function lineRowsOf(project: Project): LineRow[] {
       // Left blank when the Project was added: it can be set here, but once set not cleared.
       emptyLine: "Not set",
       // A running Task reads it before its next Stage, so a change reaches it there (task 24).
-      savedMessage: "Install command saved. Tasks install with it before their next Stage.",
+      savedMessage: () => "Install command saved. Tasks install with it before their next Stage.",
       isUnchanged: (line) => line.trim() === project.installCommand,
       save: (line) => changeInstallCommand(project.id, line),
     },
@@ -145,11 +174,106 @@ function lineRowsOf(project: Project): LineRow[] {
       placeholder: "package-lock.json, apps/web/package.json",
       line: installInputsLine(project.installInputs),
       emptyLine: "None: a worktree installs once.",
-      savedMessage: "Install inputs saved.",
+      savedMessage: () => "Install inputs saved.",
       isUnchanged: (line) => installInputsFrom(line).join() === project.installInputs.join(),
       save: (line) => changeInstallInputs(project.id, installInputsFrom(line)),
     },
   ];
+}
+
+/** The lines Publish runs around shipping the work; unlike install's, either can be cleared. */
+function publishLineRowsOf(project: Project): LineRow[] {
+  return [
+    {
+      id: "before-publishing",
+      label: "Before publishing",
+      changeLabel: "Change the before publishing line",
+      inputLabel: "Before publishing line",
+      placeholder: "npm run changelog",
+      line: project.beforePublishingCommand,
+      emptyLine: "None",
+      hint: "Runs in the Task's worktree before anything leaves; what it changes is committed and published.",
+      savedMessage: (line) =>
+        line === "" ? "Before publishing line cleared." : "Before publishing line saved.",
+      isUnchanged: (line) => line.trim() === project.beforePublishingCommand,
+      save: (line) => changeBeforePublishingCommand(project.id, line.trim()),
+    },
+    {
+      id: "after-publishing",
+      label: "After publishing",
+      changeLabel: "Change the after publishing line",
+      inputLabel: "After publishing line",
+      placeholder: "./scripts/notify.sh",
+      line: project.afterPublishingCommand,
+      emptyLine: "None",
+      hint: "Runs in the Task's worktree once the pull request opens or the merge lands, with OFFICE_PUBLISHED_BRANCH, OFFICE_PUBLISHED_COMMIT, OFFICE_PULL_REQUEST_URL when there is one, and OFFICE_PUBLISHING_MODE.",
+      savedMessage: (line) =>
+        line === "" ? "After publishing line cleared." : "After publishing line saved.",
+      isUnchanged: (line) => line.trim() === project.afterPublishingCommand,
+      save: (line) => changeAfterPublishingCommand(project.id, line.trim()),
+    },
+  ];
+}
+
+function LineRowView({
+  row,
+  onChange,
+}: {
+  readonly row: LineRow;
+  readonly onChange: () => void;
+}): ReactNode {
+  return (
+    <div className="command-row" role="group" aria-label={row.label}>
+      <span className="command-key">{row.label}</span>
+      <CommandLine line={row.line} emptyLine={row.emptyLine} />
+      <IconButton
+        icon={<Icon name="pencil" size={14} />}
+        label={row.changeLabel}
+        size="sm"
+        onClick={onChange}
+      />
+      {row.hint !== undefined && <p className="command-hint">{row.hint}</p>}
+    </div>
+  );
+}
+
+/** How Publish ships the Task's work, saved at once. */
+function PublishingModeRow({ project }: { readonly project: Project }): ReactNode {
+  const keep = useSavedProject();
+  const showToast = useToast();
+  const choosing = useMutation({
+    mutationFn: (mode: PublishingMode) => changePublishingMode(project.id, mode),
+    onSuccess: (saved) => {
+      keep(saved);
+      showToast(
+        `Publishing saved. Tasks in ${saved.name} ${publishingLabel(saved.publishingMode, saved.baseBranch).toLowerCase()}.`,
+      );
+    },
+  });
+  const select = useId();
+  return (
+    <div className="command-row">
+      <label htmlFor={select} className="command-key">
+        Publishing
+      </label>
+      <Select
+        id={select}
+        size="sm"
+        value={project.publishingMode}
+        options={publishingModeSchema.options.map((mode) => ({
+          value: mode,
+          label: publishingLabel(mode, project.baseBranch),
+        }))}
+        disabled={choosing.isPending}
+        onChange={(mode) => choosing.mutate(publishingModeSchema.parse(mode))}
+      />
+      {choosing.error && (
+        <p className="command-error" role="alert">
+          {choosing.error.message}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function CommandLine({
@@ -219,9 +343,9 @@ function LineEditor({
   const showToast = useToast();
   const saving = useMutation({
     mutationFn: (changed: string) => row.save(changed),
-    onSuccess: (saved) => {
+    onSuccess: (saved, changed) => {
       keep(saved);
-      showToast(row.savedMessage);
+      showToast(row.savedMessage(changed.trim()));
       onDone();
     },
   });
@@ -258,6 +382,7 @@ function LineEditor({
           {saving.error.message}
         </p>
       )}
+      {row.hint !== undefined && <p className="command-hint">{row.hint}</p>}
     </form>
   );
 }

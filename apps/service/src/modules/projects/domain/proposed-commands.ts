@@ -5,12 +5,16 @@ import {
   commandProblem,
   INSTALL_COMMAND_KEY,
   installInputsProblems,
+  PUBLISHING_LINE_NAMES,
+  PUBLISHING_LINES,
+  publishingLineProblem,
   sameCommandFields,
   trimmedCommand,
   trimmedInstallInputs,
   type Project,
   type ProjectCommand,
   type ProjectCommandFields,
+  type PublishingLine,
 } from "./project.js";
 
 /** A field as the Project had it when the Proposal was drafted (`from`), and as proposed (`to`). */
@@ -30,6 +34,8 @@ export interface ProposedCommand {
 export interface ProposedCommands {
   readonly installCommand?: ProposedValue<string> | undefined;
   readonly installInputs?: ProposedValue<readonly string[]> | undefined;
+  readonly beforePublishingCommand?: ProposedValue<string> | undefined;
+  readonly afterPublishingCommand?: ProposedValue<string> | undefined;
   readonly commands: readonly ProposedCommand[];
 }
 
@@ -37,6 +43,10 @@ export interface ProposedCommands {
 export interface CommandsToPropose {
   readonly installCommand?: string | undefined;
   readonly installInputs?: readonly string[] | undefined;
+  /** Blank clears it. */
+  readonly beforePublishingCommand?: string | undefined;
+  /** Blank clears it. */
+  readonly afterPublishingCommand?: string | undefined;
   /** Each added, or changed by its key, whole. */
   readonly commands?: readonly ProjectCommand[] | undefined;
   /** The keys of the commands to remove. */
@@ -77,8 +87,19 @@ export function proposedCommands(project: Project, given: CommandsToPropose): Pr
       installInputs && !sameInstallInputs(installInputs, project.installInputs)
         ? { from: project.installInputs, to: installInputs }
         : undefined,
+    beforePublishingCommand: proposedLine(project, "beforePublishingCommand", given),
+    afterPublishingCommand: proposedLine(project, "afterPublishingCommand", given),
     commands: [...commands.values()],
   };
+}
+
+function proposedLine(
+  project: Project,
+  line: PublishingLine,
+  given: CommandsToPropose,
+): ProposedValue<string> | undefined {
+  const to = given[line]?.trim();
+  return to !== undefined && to !== project[line] ? { from: project[line], to } : undefined;
 }
 
 /** The keys of the commands the Proposal removes. */
@@ -93,14 +114,16 @@ export function removedCommandKeys({ commands }: ProposedCommands): string[] {
  */
 export function proposedCommandsProblems(project: Project, proposed: ProposedCommands): string[] {
   const { installCommand, installInputs, commands } = proposed;
-  if (!installCommand && !installInputs && commands.length === 0) {
+  const changedLines = PUBLISHING_LINES.filter((line) => proposed[line]);
+  if (!installCommand && !installInputs && changedLines.length === 0 && commands.length === 0) {
     return [
-      "Nothing changes: give the install command, install inputs or commands that change, each one whole.",
+      "Nothing changes: give the install command, install inputs, before or after publishing lines or commands that change, each one whole.",
     ];
   }
   return [
     ...(installCommand ? installCommandChangeProblems(project, installCommand) : []),
     ...(installInputs ? installInputsChangeProblems(project, installInputs) : []),
+    ...changedLines.flatMap((line) => publishingLineChangeProblems(project, line, proposed[line])),
     ...commands.flatMap((command, index) =>
       commandChangeProblems(project, command, commands.slice(0, index)),
     ),
@@ -114,6 +137,19 @@ function installCommandChangeProblems(
   if (from !== project.installCommand)
     return ["The install command changed since this was proposed."];
   const problem = commandProblem(INSTALL_COMMAND_KEY, to);
+  return problem ? [problem] : [];
+}
+
+function publishingLineChangeProblems(
+  project: Project,
+  line: PublishingLine,
+  proposed: ProposedValue<string> | undefined,
+): string[] {
+  if (!proposed) return [];
+  if (proposed.from !== project[line]) {
+    return [`The ${PUBLISHING_LINE_NAMES[line]} line changed since this was proposed.`];
+  }
+  const problem = publishingLineProblem(line, proposed.to);
   return problem ? [problem] : [];
 }
 

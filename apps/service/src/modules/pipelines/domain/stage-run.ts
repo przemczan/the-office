@@ -69,6 +69,12 @@ export type StageOutcome = (
        */
       readonly baseMoved?: BaseMoved;
       /**
+       * Set on a Publish run whose publication shipped but whose after publishing line failed:
+       * its own outcome, as the work did ship, which skips the on-failure loop and is escalated
+       * (spec §2.3 Loops).
+       */
+      readonly afterPublishingFailed?: PublishedWork;
+      /**
        * Set on a run The Office refused as it found the branch moved somewhere other than along
        * the base: the user is asked, and no round goes (spec §2.3).
        */
@@ -123,6 +129,20 @@ export type AskedInterruption = Extract<
   StageInterruption,
   "stop" | "pause" | "alarm" | "usage-window"
 >;
+
+/**
+ * A publication that shipped by the publishing mode (spec §2.3 Defaults, "Publish's before and
+ * after lines"): a pull request opened, or the branch merged. Kept on the Publish run before its
+ * after line runs, so a retry runs only that line and never publishes again.
+ */
+export interface PublishedWork {
+  readonly kind: "pull-request-opened" | "merged";
+  /** The Task's branch that shipped. */
+  readonly branch: string;
+  /** The commit that shipped: after a merge, the merged commit. */
+  readonly commit: string;
+  readonly pullRequestUrl?: string;
+}
 
 /** The base branch moved on since the Task's branch left it, so Publish can't take the branch. */
 export interface BaseMoved {
@@ -204,8 +224,8 @@ export interface SentBack {
  * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
  * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), a Publish
- * that found the Task's branch no longer applies cleanly on the base branch, or a branch moved
- * outside The Office.
+ * that found the Task's branch no longer applies cleanly on the base branch, a branch moved
+ * outside The Office, or a Publish that shipped but whose after publishing line failed.
  */
 export type StageDecisionKind =
   | "agent"
@@ -214,7 +234,8 @@ export type StageDecisionKind =
   | "definition-of-done"
   | "restart"
   | "base-moved"
-  | "branch-moved";
+  | "branch-moved"
+  | "after-publishing-failed";
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =
@@ -322,6 +343,11 @@ export interface StageRun {
   readonly gateAction: GateAction | undefined;
   /** Undefined while the Stage runs. */
   readonly outcome: StageOutcome | undefined;
+  /**
+   * What a Publish run shipped, kept before its after publishing line runs; undefined for every
+   * other run, and for a Publish that shipped nothing or runs no such line.
+   */
+  readonly published: PublishedWork | undefined;
   /**
    * Since when a Script Stage's run waits for a free run environment, every one Run environments at
    * once allows being in use; undefined while it doesn't, and once its command starts.

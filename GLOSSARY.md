@@ -17,6 +17,14 @@ One of a Project's named commands, beside its install command: a key, fixed once
 What a Project command does: build, lint or test. A run of a test command, under any key, gets the test handling: one re-run on failure, the worktree restored, the files it wrote moved out of it.
 _Avoid_: Command type
 
+**Before publishing**:
+A Project's optional command line that runs in the Task's worktree before Publish ships anything, with the Project's own variables; what it changes is committed and shipped. Not a Project command: it has no key, and blank runs nothing. It runs again each time Publish runs.
+_Avoid_: Pre-publish hook, publish command
+
+**After publishing**:
+A Project's optional command line that runs in the Task's worktree once Publish opened the pull request or merged, with the Project's own variables and what shipped. Not a Project command: it has no key, and blank runs nothing. Its failure is escalated, never looped.
+_Avoid_: Post-publish hook, publish command
+
 **Mark**:
 A Project's short label on a colour, one of four offered or a custom one, shown with its name, and what any picture of the Project falls back to.
 _Avoid_: Avatar, initials

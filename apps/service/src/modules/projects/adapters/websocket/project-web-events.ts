@@ -8,6 +8,8 @@ import {
 } from "../../domain/environment-check-events.js";
 import {
   ProjectAdded,
+  ProjectAfterPublishingCommandChanged,
+  ProjectBeforePublishingCommandChanged,
   ProjectCommandAdded,
   ProjectCommandChanged,
   ProjectCommandRemoved,
@@ -54,6 +56,20 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectInstallCommandChanged,
       (event): WebEventOf<"project.install-command-changed"> => ({
         type: "project.install-command-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectBeforePublishingCommandChanged,
+      (event): WebEventOf<"project.before-publishing-command-changed"> => ({
+        type: "project.before-publishing-command-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectAfterPublishingCommandChanged,
+      (event): WebEventOf<"project.after-publishing-command-changed"> => ({
+        type: "project.after-publishing-command-changed",
         projectId: event.projectId,
       }),
     );

@@ -22,5 +22,6 @@ export function projectCommandsOf(project: Project): StageCommandSource {
     kind: "project",
     commands: project.commands,
     publishing: publishingLabel(project.publishingMode, project.baseBranch).toLowerCase(),
+    publishingLines: project,
   };
 }

@@ -118,6 +118,13 @@ describe("the Default Pipeline block", () => {
     );
   });
 
+  it("leaves the publishing mode to the Commands block's Publish group", () => {
+    const page = block(PROJECT);
+
+    expect(page.querySelector("select")).toBeNull();
+    expect(page.textContent).not.toContain("Publishing");
+  });
+
   it("flags a Broken default with why", () => {
     const page = block({ ...PROJECT, defaultPipeline: "spec-change" });
 

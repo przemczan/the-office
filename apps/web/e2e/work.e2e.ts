@@ -2461,6 +2461,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
               budgetReached: null,
               interrupted: null,
               refusedTurn: null,
+              afterPublishingFailed: null,
               handoverNote: null,
             },
           },

@@ -34,15 +34,22 @@ const STAGE_CHANGE_WORDS: Readonly<Record<StageChange["change"], string>> = {
 };
 
 /**
- * The install command, the install inputs and each command a Proposal changes, from now to as
- * proposed: a command added comes from nothing, one removed goes to nothing.
+ * The install command, the install inputs, the before and after publishing lines and each command a
+ * Proposal changes, from now to as proposed: a command added comes from nothing, one removed goes to
+ * nothing, and a publishing line cleared goes to None.
  */
 export function ProposedCommandChanges({
   changes,
 }: {
   readonly changes: ProposedProjectCommands;
 }): ReactNode {
-  const { installCommand, installInputs, commands } = changes;
+  const {
+    installCommand,
+    installInputs,
+    beforePublishingCommand,
+    afterPublishingCommand,
+    commands,
+  } = changes;
   return (
     <ul className="proposal-changes">
       {installCommand && (
@@ -57,6 +64,20 @@ export function ProposedCommandChanges({
           label={INSTALL_INPUTS_LABEL}
           from={installInputsLine(installInputs.from) || "None"}
           to={installInputsLine(installInputs.to) || "None"}
+        />
+      )}
+      {beforePublishingCommand && (
+        <ChangeRow
+          label="Before publishing"
+          from={beforePublishingCommand.from || "None"}
+          to={beforePublishingCommand.to || "None"}
+        />
+      )}
+      {afterPublishingCommand && (
+        <ChangeRow
+          label="After publishing"
+          from={afterPublishingCommand.from || "None"}
+          to={afterPublishingCommand.to || "None"}
         />
       )}
       {commands.map(({ key, from, to }) => {

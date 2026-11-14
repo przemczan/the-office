@@ -271,5 +271,6 @@ function commandsOf(
     kind: "project",
     commands: project.commands,
     publishing: taskPublishingWords(task, project, initiative),
+    publishingLines: project,
   };
 }

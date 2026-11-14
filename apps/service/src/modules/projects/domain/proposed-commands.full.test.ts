@@ -128,7 +128,49 @@ describe("proposedCommandsProblems", () => {
       'The Project has no command with the key "e2e".',
     ]);
     expect(proposedCommandsProblems(aProject(), { commands: [] })).toEqual([
-      "Nothing changes: give the install command, install inputs or commands that change, each one whole.",
+      "Nothing changes: give the install command, install inputs, before or after publishing lines or commands that change, each one whole.",
     ]);
+  });
+});
+
+describe("A Proposal of the publishing lines", () => {
+  const project = aProject({ afterPublishingCommand: "gh workflow run release.yml" });
+
+  it("keeps each line that differs, with its value now, and may clear one", () => {
+    expect(
+      proposedCommands(project, {
+        beforePublishingCommand: " npx changeset version ",
+        afterPublishingCommand: "",
+      }),
+    ).toMatchObject({
+      beforePublishingCommand: { from: "", to: "npx changeset version" },
+      afterPublishingCommand: { from: "gh workflow run release.yml", to: "" },
+    });
+    expect(
+      proposedCommands(project, { afterPublishingCommand: "gh workflow run release.yml" })
+        .afterPublishingCommand,
+    ).toBeUndefined();
+  });
+
+  it("applies while each line is as it was, and is refused once one changed or breaks a rule", () => {
+    const proposed: ProposedCommands = {
+      beforePublishingCommand: { from: "", to: "npx changeset version" },
+      afterPublishingCommand: { from: "gh workflow run release.yml", to: "" },
+      commands: [],
+    };
+
+    expect(proposedCommandsProblems(project, proposed)).toEqual([]);
+    expect(
+      proposedCommandsProblems(aProject({ beforePublishingCommand: "make release" }), proposed),
+    ).toEqual([
+      "The before publishing line changed since this was proposed.",
+      "The after publishing line changed since this was proposed.",
+    ]);
+    expect(
+      proposedCommandsProblems(project, {
+        beforePublishingCommand: { from: "", to: "one\ntwo" },
+        commands: [],
+      }),
+    ).toEqual(["The before publishing command must be one line."]);
   });
 });

@@ -251,6 +251,10 @@ export const projectSchema = newProjectSchema.extend({
   logo: projectImageVersionsSchema,
   /** What the repository was cloned from; null for a Project added by its path. */
   repositoryUrl: z.string().nullable(),
+  /** Run in the Task's worktree before Publish ships anything (spec §2.3); blank runs nothing. */
+  beforePublishingCommand: z.string(),
+  /** Run in the Task's worktree once Publish opened a pull request or merged; blank runs nothing. */
+  afterPublishingCommand: z.string(),
   environment: projectEnvironmentSchema,
   useProjectSkills: z.boolean(),
   /** The keys of the repository's skills and commands turned off, each by itself; any other is on. */
@@ -277,6 +281,10 @@ export const projectListSchema = z.array(projectSchema);
 export const proposedProjectCommandsSchema = z.object({
   installCommand: z.object({ from: z.string(), to: z.string() }).optional(),
   installInputs: z.object({ from: z.array(z.string()), to: z.array(z.string()) }).optional(),
+  /** Blank `to` clears the line. */
+  beforePublishingCommand: z.object({ from: z.string(), to: z.string() }).optional(),
+  /** Blank `to` clears the line. */
+  afterPublishingCommand: z.object({ from: z.string(), to: z.string() }).optional(),
   /** By key: `from` null for a command added, `to` null for one removed. */
   commands: z.array(
     z.object({
@@ -291,6 +299,14 @@ export type ProposedProjectCommands = z.infer<typeof proposedProjectCommandsSche
 /** PUT /projects/:id/install-command */
 export const installCommandChangeSchema = z.object({ commandLine: z.string() });
 export type InstallCommandChange = z.infer<typeof installCommandChangeSchema>;
+
+/** PUT /projects/:id/before-publishing-command: blank clears it. */
+export const beforePublishingCommandChangeSchema = z.object({ commandLine: z.string() });
+export type BeforePublishingCommandChange = z.infer<typeof beforePublishingCommandChangeSchema>;
+
+/** PUT /projects/:id/after-publishing-command: blank clears it. */
+export const afterPublishingCommandChangeSchema = z.object({ commandLine: z.string() });
+export type AfterPublishingCommandChange = z.infer<typeof afterPublishingCommandChangeSchema>;
 
 /** PUT /projects/:id/commands/:key: the command's name, kind and command line, each whole. */
 export const commandChangeSchema = projectCommandFieldsSchema;
@@ -438,6 +454,14 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("project.added"), projectId: z.string() }),
   webEventSchema.extend({
     type: z.literal("project.install-command-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.before-publishing-command-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.after-publishing-command-changed"),
     projectId: z.string(),
   }),
   webEventSchema.extend({

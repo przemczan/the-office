@@ -4,6 +4,7 @@ import type {
   CarriedFailure,
   GateAction,
   SentBack,
+  PublishedWork,
   StageOutcome,
   StageRunDecision,
   StageSessionMove,
@@ -54,6 +55,8 @@ export const stageRuns = pgTable(
     /** What the user did at a Gate's run. */
     gateAction: jsonb("gate_action").$type<GateAction>(),
     outcome: jsonb("outcome").$type<StageOutcome>(),
+    /** What a Publish run shipped, kept before its after publishing line runs. */
+    published: jsonb("published").$type<PublishedWork>(),
     /** Since when a Script Stage's run waits for a free run environment. */
     waitingSince: timestamp("waiting_since", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

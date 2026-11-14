@@ -60,6 +60,8 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
       return baseMovedDecision(question.stage, question.error);
     case "branch-moved":
       return branchMovedDecision(question.stage, question.error);
+    case "after-publishing-failed":
+      return afterPublishingFailedDecision(question.stage, question.error);
   }
 }
 
@@ -87,10 +89,18 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
 
 /**
  * Whether The Office puts what the walk asks to the CTO before the user (spec §2.3): a Stage
- * failing with no retries left, unless the CTO already sent that Stage back once in this walk.
- * Every other question, budget limits included, is the user's.
+ * failing with no retries left, unless the CTO already sent that Stage back once in this walk; and
+ * a Publish's after publishing line failing, the first time only, so a second failure reaches the
+ * user. Every other question, budget limits included, is the user's.
  */
 export function asksTheCtoFirst(question: WalkQuestion, runs: readonly StageRun[]): boolean {
+  if (question.kind === "after-publishing-failed") {
+    return !runs.some(
+      ({ stageKey, decisions }) =>
+        stageKey === question.stage.key &&
+        decisions.some(({ kind }) => kind === "after-publishing-failed"),
+    );
+  }
   if (question.kind !== "no-retries-left") return false;
   return !runs.some(
     ({ stageKey, decisions }) =>
@@ -191,6 +201,26 @@ function branchMovedDecision(stage: Stage, error: string): WalkDecision {
       { kind: "one-more-round", guidance: undefined },
       { kind: "drop" },
     ],
+  };
+}
+
+/**
+ * The work shipped, so going back can't help (spec §2.3 Loops): run the after line again, never
+ * publishing again, or go on with the failure noted.
+ */
+function afterPublishingFailedDecision(stage: Stage, error: string): WalkDecision {
+  return {
+    kind: "after-publishing-failed",
+    draft: {
+      question: `"${stage.name}" published the work, but the Project's after publishing line failed. What now?`,
+      context: `${error}\n\nThe work has shipped and the Task's worktree is kept. Retry runs only the after publishing line, never publishing again; Continue marks "${stage.name}" done with the failure noted, removes the worktree and goes on. Or answer in your own words: the after publishing line runs again.`,
+      options: ["Retry the after publishing line", "Continue"],
+      recommendation: {
+        option: 0,
+        reason: "Fix what the line needs, such as a Secret variable, then run it again.",
+      },
+    },
+    options: [{ kind: "one-more-round", guidance: undefined }, { kind: "accept-issues" }],
   };
 }
 
@@ -348,7 +378,10 @@ export function acceptedIssues(
   return runs.flatMap(({ stageKey, outcome, decisions }) => {
     const accepted = decisions.some(
       ({ kind, answer }) =>
-        (kind === "no-retries-left" || kind === "base-moved") && answer?.kind === "accept-issues",
+        (kind === "no-retries-left" ||
+          kind === "base-moved" ||
+          kind === "after-publishing-failed") &&
+        answer?.kind === "accept-issues",
     );
     if (!accepted || outcome?.status !== "failed") return [];
     const stageName = stages.find(({ key }) => key === stageKey)?.name ?? stageKey;

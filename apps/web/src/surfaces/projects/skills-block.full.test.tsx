@@ -30,6 +30,8 @@ const PROJECT: Project = {
   icon: { light: null, dark: null },
   logo: { light: null, dark: null },
   repositoryUrl: null,
+  beforePublishingCommand: "",
+  afterPublishingCommand: "",
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],

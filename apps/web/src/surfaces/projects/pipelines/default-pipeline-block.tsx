@@ -1,24 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { publishingModeSchema, type Project, type PublishingMode } from "@the-office/contracts";
-import { Alert, Select } from "@the-office/ui";
-import { useId, type ReactNode } from "react";
-import {
-  changeDefaultPipeline,
-  changePublishingMode,
-  projectQueries,
-} from "../../../api/projects.ts";
+import type { Project } from "@the-office/contracts";
+import { Alert } from "@the-office/ui";
+import type { ReactNode } from "react";
+import { changeDefaultPipeline, projectQueries } from "../../../api/projects.ts";
 import { choiceById, defaultPipelineChoices } from "../../../shell/pipelines/pipeline-choices.ts";
 import { PipelinePicker } from "../../../shell/pipelines/pipeline-picker.tsx";
 import { useProjectPipelineChoices } from "../../../shell/pipelines/use-pipelines.ts";
-import { publishingLabel } from "../../../shell/project-words.ts";
 import { useToast } from "../../../shell/toasts.tsx";
 import { usePlanner } from "../../../shell/work/use-planner.ts";
 import { ProjectBlock } from "../project-block.tsx";
 
 /**
  * The Pipeline the Project's Tasks usually follow, one of its own Project Pipelines or an
- * office-wide one, which the Planner starts from and a Task with none lists first, and how its
- * work is published. A Broken default is flagged with why.
+ * office-wide one, which the Planner starts from and a Task with none lists first. A Broken
+ * default is flagged with why. How its work is published is in the Commands block's Publish group.
  */
 export function DefaultPipelineBlock({ project }: { readonly project: Project }): ReactNode {
   const library = useProjectPipelineChoices(project.id);
@@ -39,18 +34,8 @@ export function DefaultPipelineBlock({ project }: { readonly project: Project })
       showToast(`${saved.name}'s default Pipeline is ${name ?? saved.defaultPipeline} now.`);
     },
   });
-  const choosingPublishing = useMutation({
-    mutationFn: (mode: PublishingMode) => changePublishingMode(project.id, mode),
-    onSuccess: (saved) => {
-      keep(saved);
-      showToast(
-        `Publishing saved. Tasks in ${saved.name} ${publishingLabel(saved.publishingMode, saved.baseBranch).toLowerCase()}.`,
-      );
-    },
-  });
-  const publishingSelect = useId();
   const current = choiceById(groups, project.defaultPipeline);
-  const failure = choosingPipeline.error ?? choosingPublishing.error;
+  const failure = choosingPipeline.error;
   return (
     <ProjectBlock icon="route" title="Default Pipeline">
       {current?.brokenWhy !== undefined && (
@@ -76,22 +61,6 @@ export function DefaultPipelineBlock({ project }: { readonly project: Project })
           starting from this one, or you choose one.
         </p>
       )}
-      <div className="project-row">
-        <label htmlFor={publishingSelect} className="project-row-label">
-          Publishing
-        </label>
-        <Select
-          id={publishingSelect}
-          size="sm"
-          value={project.publishingMode}
-          options={publishingModeSchema.options.map((mode) => ({
-            value: mode,
-            label: publishingLabel(mode, project.baseBranch),
-          }))}
-          disabled={choosingPublishing.isPending}
-          onChange={(mode) => choosingPublishing.mutate(publishingModeSchema.parse(mode))}
-        />
-      </div>
       {failure && (
         <p className="project-block-error" role="alert">
           {failure.message}

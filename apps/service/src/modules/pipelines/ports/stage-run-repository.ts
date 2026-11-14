@@ -1,6 +1,7 @@
 import type { StageCommandRunWithOutput } from "../domain/stage-command-run.js";
 import type {
   GateAction,
+  PublishedWork,
   StageRun,
   StageRunDecision,
   StageSessionMove,
@@ -45,10 +46,13 @@ export abstract class StageRunRepository {
   /** Saves the Decisions the walk opened on the run, replacing those saved before. */
   abstract saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void>;
 
-  /** Saves what the user asked of the run while it runs, replacing what they asked before. */
+  /** Saves what a Publish run shipped, before its after publishing line runs. */
+  abstract savePublished(runId: string, published: PublishedWork): Promise<void>;
+
   /** Since when the running run waits for a free run environment; undefined once it doesn't. */
   abstract saveWaitingSince(runId: string, waitingSince: Date | undefined): Promise<void>;
 
+  /** Saves what the user asked of the run while it runs, replacing what they asked before. */
   abstract saveHeldBy(runId: string, heldBy: AskedInterruption): Promise<void>;
 
   /**

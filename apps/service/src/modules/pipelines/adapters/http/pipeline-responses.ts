@@ -292,6 +292,14 @@ function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
               sessionLeft: outcome.refused.sessionLeft,
             }
           : null,
+        afterPublishingFailed: outcome.afterPublishingFailed
+          ? {
+              kind: outcome.afterPublishingFailed.kind,
+              branch: outcome.afterPublishingFailed.branch,
+              commit: outcome.afterPublishingFailed.commit,
+              pullRequestUrl: outcome.afterPublishingFailed.pullRequestUrl ?? null,
+            }
+          : null,
         handoverNote,
       };
   }

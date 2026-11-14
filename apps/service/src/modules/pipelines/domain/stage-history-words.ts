@@ -2,6 +2,7 @@ import { STAGE_KIND_NAMES, type Stage } from "./stage.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import type {
   GateAction,
+  PublishedWork,
   RefusedTurn,
   StageInterruption,
   StageOutcome,
@@ -257,6 +258,7 @@ function failedWhy(outcome: Extract<StageOutcome, { status: "failed" }>): string
       `the Task's ${outcome.budgetReached.used} tokens reached the Stage's budget of ${outcome.budgetReached.budget}`,
     outcome.baseMoved && baseMovedWords(outcome.baseMoved.conflictedFiles),
     outcome.branchMoved && "the branch had moved outside The Office",
+    outcome.afterPublishingFailed && publishedWords(outcome.afterPublishingFailed),
   ].filter((reason): reason is string => typeof reason === "string");
   return reasons.length === 0 ? "" : ` (${reasons.join("; ")})`;
 }
@@ -265,6 +267,12 @@ function failedWhy(outcome: Extract<StageOutcome, { status: "failed" }>): string
 function refusedWords({ message, engineName, windowWords, resetsAt }: RefusedTurn): string {
   const refused = message === "work" ? "the Stage's work" : "the correction";
   return `the engine refused ${refused}: ${engineName}'s ${windowWords} is used up until ${resetsAt}`;
+}
+
+function publishedWords({ kind, branch, pullRequestUrl }: PublishedWork): string {
+  return kind === "merged"
+    ? `${branch} was merged before the after publishing line failed`
+    : `${branch} was pushed and the pull request ${pullRequestUrl ?? ""} opened before the after publishing line failed`;
 }
 
 function baseMovedWords(conflictedFiles: readonly string[]): string {
@@ -300,6 +308,7 @@ const WALK_DECISION_WORDS: Readonly<Record<WalkDecisionKind, string>> = {
   restart: "The Office restarted during the Stage",
   "base-moved": "The branch conflicts with the base branch at Publish",
   "branch-moved": "The branch moved outside The Office",
+  "after-publishing-failed": "Publish shipped the work, but the after publishing line failed",
 };
 
 function decisionLines(decisions: readonly StageRunDecision[]): string[] {
@@ -354,6 +363,8 @@ const PURPOSE_WORDS: Readonly<Record<StageCommandPurpose, string>> = {
   install: "Install",
   command: "Command",
   "re-run": "Re-run",
+  "before-publishing": "Before publishing",
+  "after-publishing": "After publishing",
 };
 
 const OUTCOME_WORDS: Readonly<Record<CommandOutcome, string>> = {

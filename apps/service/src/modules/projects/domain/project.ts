@@ -37,6 +37,19 @@ export const PUBLISHING_MODES = ["push-and-pull-request", "merge"] as const;
 export type PublishingMode = (typeof PUBLISHING_MODES)[number];
 
 /**
+ * Publish's before and after lines (spec §2.3 Defaults): the Project's own steps around The
+ * Office's push, pull request or merge. They aren't Project commands: no key, and blank runs nothing.
+ */
+export const PUBLISHING_LINES = ["beforePublishingCommand", "afterPublishingCommand"] as const;
+export type PublishingLine = (typeof PUBLISHING_LINES)[number];
+
+/** Each line as its problems name it. */
+export const PUBLISHING_LINE_NAMES: Readonly<Record<PublishingLine, string>> = {
+  beforePublishingCommand: "before publishing",
+  afterPublishingCommand: "after publishing",
+};
+
+/**
  * Whether the Project's checks run in its run environment: "not-decided" until the user picks On
  * or Off, and run on the host meanwhile, as with Off.
  */
@@ -87,6 +100,10 @@ export interface Project {
    */
   readonly installInputs: readonly string[];
   readonly publishingMode: PublishingMode;
+  /** Run in the Task's worktree before Publish ships anything; blank runs nothing. */
+  readonly beforePublishingCommand: string;
+  /** Run in the Task's worktree once Publish opened a pull request or merged; blank runs nothing. */
+  readonly afterPublishingCommand: string;
   /** The id of the Pipeline a new Task starts from. */
   readonly defaultPipeline: string;
   readonly environment: ProjectEnvironment;
@@ -297,6 +314,11 @@ export function commandProblem(key: string, commandLine: string): string | undef
 export function commandLineProblem(key: string, commandLine: string): string | undefined {
   if (/[\r\n]/.test(commandLine)) return `The ${key} command must be one line.`;
   return undefined;
+}
+
+/** Why a before or after publishing line can't be saved; a blank one is saved, and runs nothing. */
+export function publishingLineProblem(line: PublishingLine, commandLine: string): string | undefined {
+  return commandLineProblem(PUBLISHING_LINE_NAMES[line], commandLine);
 }
 
 /** Whether the Project has this command: one left blank while adding it is not set. */

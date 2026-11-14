@@ -23,6 +23,8 @@ import {
   type ProjectEnvironmentEdit,
   type CommandChange,
   type InstallCommandChange,
+  type BeforePublishingCommandChange,
+  type AfterPublishingCommandChange,
   type ProjectCommand,
   type ProjectImageFromRepository,
   type ProjectImageKey,
@@ -177,6 +179,18 @@ export function startRepositoryClone(url: string): Promise<RepositoryClone> {
 export function changeInstallCommand(id: string, commandLine: string): Promise<Project> {
   const change: InstallCommandChange = { commandLine };
   return sendToApi("PUT", `${projectPath(id)}/install-command`, change, projectSchema);
+}
+
+/** The line run before Publish ships anything; blank clears it. */
+export function changeBeforePublishingCommand(id: string, commandLine: string): Promise<Project> {
+  const change: BeforePublishingCommandChange = { commandLine };
+  return sendToApi("PUT", `${projectPath(id)}/before-publishing-command`, change, projectSchema);
+}
+
+/** The line run once Publish opened a pull request or merged; blank clears it. */
+export function changeAfterPublishingCommand(id: string, commandLine: string): Promise<Project> {
+  const change: AfterPublishingCommandChange = { commandLine };
+  return sendToApi("PUT", `${projectPath(id)}/after-publishing-command`, change, projectSchema);
 }
 
 export function addCommand(id: string, command: ProjectCommand): Promise<Project> {
@@ -379,6 +393,8 @@ export const projectEventInvalidations: Readonly<
 > = {
   "project.added": () => [PROJECTS],
   "project.install-command-changed": () => [PROJECTS],
+  "project.before-publishing-command-changed": () => [PROJECTS],
+  "project.after-publishing-command-changed": () => [PROJECTS],
   "project.command-added": () => [PROJECTS],
   "project.command-changed": () => [PROJECTS],
   "project.command-removed": () => [PROJECTS],

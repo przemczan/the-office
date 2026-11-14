@@ -265,6 +265,7 @@ describe("loopBacks", () => {
     budgetReached: null,
     interrupted: null,
     refusedTurn: null,
+    afterPublishingFailed: null,
     handoverNote: null,
   } as const;
   const lint: Stage = { ...tests, key: "lint", name: "Lint" };

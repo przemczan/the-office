@@ -291,10 +291,14 @@ const STAGES = stageSchema.array();
 function toProposedProjectCommandsResponse({
   installCommand,
   installInputs,
+  beforePublishingCommand,
+  afterPublishingCommand,
   commands,
 }: ProposedProjectCommands["changes"]): ProposedProjectCommandsResponse {
   return {
     ...(installCommand && { installCommand: { ...installCommand } }),
+    ...(beforePublishingCommand && { beforePublishingCommand: { ...beforePublishingCommand } }),
+    ...(afterPublishingCommand && { afterPublishingCommand: { ...afterPublishingCommand } }),
     ...(installInputs && {
       installInputs: { from: [...installInputs.from], to: [...installInputs.to] },
     }),
