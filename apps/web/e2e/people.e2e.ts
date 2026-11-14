@@ -2301,8 +2301,8 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(running).toContainText("Implement");
   await expect(running).toContainText(/in Stage$/);
   const strip = page.getByRole("status", { name: "Status strip" });
-  await expect(strip).toContainText(/\d+ needs? you/);
-  await expect(strip).toContainText("desks in use");
+  await expect(strip.getByRole("button", { name: /^\d+ needs? you/ })).toBeVisible();
+  await expect(strip).toContainText("Desks in use");
   // While the Decision waits the figure is the alert, and once it is answered it is calm again.
   // Narrowed to this Project: other files' Decisions wait in the shared database, which leaves
   // the figure its softer tint for other Projects at most.
@@ -2310,7 +2310,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await projectFilter.click();
   await page.getByRole("button", { name: "Show only Sign-in", exact: true }).click();
   const needsYouFigure = strip.getByRole("button", { name: /needs? you/ });
-  await expect(needsYouFigure).toContainText(/^1 needs you/);
+  await expect(needsYouFigure).toHaveAccessibleName(/^1 needs you/);
   await expect(needsYouFigure).toHaveClass(/\balert\b/);
   await expect(needsYouFigure.locator(".live-dot")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-now.png") });
@@ -2322,7 +2322,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(page.locator("html")).toHaveAttribute("data-palette", "light");
   await onNow.getByRole("button", { name: "The page it started from" }).click();
   await expect(onNow).toHaveCount(0);
-  await expect(needsYouFigure).toContainText(/^0 need you/);
+  await expect(needsYouFigure).toHaveAccessibleName(/^0 need you/);
   await expect(needsYouFigure).not.toHaveClass(/\balert\b/);
   await expect(needsYouFigure.locator(".live-dot")).toHaveCount(0);
   await projectFilter.click();
@@ -2913,14 +2913,11 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     );
     await expect(finishedConversation.getByRole("textbox", { name: "Message" })).toHaveCount(0);
 
-    // Now lists it Done since the user left, and the strip counts it.
+    // Now lists it Done since the user left.
     await page.goto("/");
     await expect(
       page.getByRole("article", { name: "Done: Settings keep their changes" }),
     ).toBeVisible();
-    await expect(page.getByRole("status", { name: "Status strip" })).toContainText(
-      "done since you left",
-    );
   } finally {
     await repository.remove();
   }
@@ -5579,8 +5576,20 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     await expect(jan.getByRole("textbox", { name: "Message" })).toBeVisible();
 
     await page.setViewportSize({ width: 900, height: 800 });
-    await expect.poll(() => jan.evaluate((chat) => getComputedStyle(chat).position)).toBe("fixed");
+    await expect
+      .poll(() => jan.evaluate((chat) => getComputedStyle(chat).position))
+      .toBe("absolute");
     expect(await page.locator(".shell-main").evaluate((main) => main.clientWidth)).toBe(844);
+    // Right under the status strip, which takes a second row on a strip under 600px wide.
+    const strip = page.getByRole("status", { name: "Status strip" });
+    const underTheStrip = async (): Promise<boolean> => {
+      const [chatBox, stripBox] = [await jan.boundingBox(), await strip.boundingBox()];
+      return chatBox !== null && stripBox !== null && chatBox.y === stripBox.y + stripBox.height;
+    };
+    expect(await underTheStrip()).toBe(true);
+    await page.setViewportSize({ width: 640, height: 800 });
+    await expect.poll(async () => (await strip.boundingBox())?.height).toBe(94);
+    await expect.poll(underTheStrip).toBe(true);
     expect(await windowOverflow(page)).toBe(0);
 
     await page.setViewportSize({ width: 390, height: 800 });

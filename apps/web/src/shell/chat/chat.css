@@ -18,20 +18,23 @@
 /* Under anything else opened after it, as a panel's dimmed backdrop, and over the page's own. */
 .chat-drawer.over,
 .chat-drawer.fills {
-  position: fixed;
-  top: 104px;
-  right: 0;
-  bottom: 0;
   z-index: calc(var(--z-dropdown) - 1);
 }
 
+/* Over the page, right below the status strip whatever its height (52px, or 94px in two rows): the
+   page's row of the shell's grid, across the page's column and its own, holds it. */
 .chat-drawer.over {
+  position: absolute;
+  grid-column: 2 / -1;
+  top: 0;
+  right: 0;
+  bottom: 0;
   box-shadow: var(--shadow-3);
 }
 
 .chat-drawer.fills {
-  top: 0;
-  left: 0;
+  position: fixed;
+  inset: 0;
   width: auto;
   border-left: 0;
 }

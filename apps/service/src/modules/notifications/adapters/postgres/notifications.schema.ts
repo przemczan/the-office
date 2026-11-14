@@ -57,16 +57,6 @@ function tokenKindColumns() {
   };
 }
 
-/** The Tasks with a Stage run on each day. */
-export const tasksTouched = pgTable(
-  "tasks_touched",
-  {
-    day: date("day", { mode: "string" }).notNull(),
-    taskId: uuid("task_id").notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.day, table.taskId] })],
-);
-
 /** Each Notification raised; cleared once the user handled what it points to. */
 export const notifications = pgTable(
   "notifications",
@@ -76,6 +66,8 @@ export const notifications = pgTable(
     /** Who speaks; null when The Office does. */
     roleKey: text("role_key"),
     line: text("line").notNull(),
+    /** The line cut to fit the status strip, for the kinds that have one. */
+    shortLine: text("short_line"),
     pointsTo: jsonb("points_to").$type<Pointer>().notNull(),
     channels: jsonb("channels").$type<readonly Channel[]>().notNull(),
     raisedAt: timestamp("raised_at", { withTimezone: true }).notNull(),

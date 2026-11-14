@@ -47,18 +47,27 @@ test("Settings › Updates checks, schedules an update that waits for what is bu
   await available.getByRole("button", { name: "Update" }).click();
   const waitingFor = page.getByRole("list", { name: "What the update waits for" });
   await expect(waitingFor).toContainText(`The environment check of the Project "${project.name}"`);
-  await expect(page.getByRole("status", { name: "Status strip" })).toContainText(
-    "Update scheduled",
-  );
+  // The strip's slot lists it among what The Office tells the user.
+  const officeMessages = page.getByRole("dialog", { name: /^Office Notifications/ });
+  const slot = page
+    .getByRole("status", { name: "Status strip" })
+    .getByRole("button", { name: /^Office Notifications: / });
+  await slot.click();
+  await expect(officeMessages).toContainText("An Office update is scheduled");
+  await page.keyboard.press("Escape");
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-settings-updates-scheduled.png"),
   });
 
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(waitingFor).toBeHidden();
-  await expect(page.getByRole("status", { name: "Status strip" })).not.toContainText(
-    "Update scheduled",
-  );
+  await expect(slot.filter({ hasText: "Update scheduled" })).toHaveCount(0);
+  // Something else, such as the desktop ask, may keep the slot: then its list no longer has it.
+  if ((await slot.count()) > 0) {
+    await slot.click();
+    await expect(officeMessages).not.toContainText("Update scheduled");
+    await page.keyboard.press("Escape");
+  }
   await expect(available.getByRole("button", { name: "Update" })).toBeVisible();
 });
 

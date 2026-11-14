@@ -47,7 +47,7 @@ for (const palette of PALETTES) {
           await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
           // Connected to the service, the strip shows the Office's figures and no reconnecting note.
           const strip = page.getByRole("status", { name: "Status strip" });
-          await expect(strip).toContainText("tokens today");
+          await expect(strip).toContainText("Tokens today");
           await expect(strip).not.toContainText("Reconnecting");
           const rail = page.getByRole("navigation", { name: "Surfaces" });
           for (const surface of SURFACES) {
@@ -456,7 +456,7 @@ test.describe("the usage figure", { tag: "@full" }, () => {
     sevenDay: { percentUsed: 17, resetsAt: RESETS_AT },
   });
 
-  test("one engine shows both windows, the meter and the reset, and opens nothing", async ({
+  test("one engine shows its 5-hour window with the meter, the reset and the 7-day window, and opens the list", async ({
     page,
   }) => {
     await stubEngines(
@@ -466,16 +466,41 @@ test.describe("the usage figure", { tag: "@full" }, () => {
     );
     await page.goto("/now");
     const strip = page.getByRole("status", { name: "Status strip" });
+    const figure = strip.getByRole("button", { name: "5-hour window: Home account 42%" });
 
-    await expect(strip).toContainText("5h 42% · 7d 17%");
-    await expect(strip).toContainText(/resets \d\d:\d\d|resets \d+ \w+, \d\d:\d\d/);
-    await expect(strip.locator(".shell-strip-meter")).toBeVisible();
-    await expect(strip.getByRole("button", { name: /5-hour window/ })).toHaveCount(0);
+    await expect(figure.getByText("5-hour window", { exact: true })).toBeVisible();
+    await expect(figure.getByText(/^· resets \d\d:\d\d$/)).toBeVisible();
+    await expect(figure.locator("b")).toHaveText("42%");
+    await expect(figure.getByText("7d 17%", { exact: true })).toBeVisible();
+    await expect(figure.locator(".shell-strip-meter")).toBeVisible();
+    await expect(figure.locator("b")).toHaveAttribute("data-tone", "calm");
 
     await page.screenshot({ path: path.join(SCREENSHOTS, "usage-figure-one-engine.png") });
 
-    await strip.getByText("5h 42%").click();
-    await expect(page.getByRole("dialog", { name: "Usage by engine" })).toHaveCount(0);
+    await figure.click();
+    const list = page.getByRole("dialog", { name: "Usage by engine" });
+    await expect(list.getByRole("listitem")).toHaveCount(1);
+    await expect(list).toContainText("Home account");
+  });
+
+  test("the 5-hour window turns amber from 90% and red once used up, saying until when", async ({
+    page,
+  }) => {
+    await stubEngines(page, [claudeCode("home", "Home account")], [windowsOf("home", 91)]);
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+    const figure = strip.getByRole("button", { name: /^5-hour window: / });
+
+    await expect(figure.locator("b")).toHaveAttribute("data-tone", "nearly-used");
+    await expect(figure.locator(".shell-strip-meter")).toHaveAttribute("data-tone", "nearly-used");
+    await strip.screenshot({ path: path.join(SCREENSHOTS, "usage-figure-nearly-used.png") });
+
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await stubEngines(page, [claudeCode("home", "Home account")], [windowsOf("home", 100)]);
+    await page.reload();
+    await expect(figure.locator("b")).toHaveAttribute("data-tone", "used-up");
+    await expect(figure.getByText(/^· used up until \d\d:\d\d$/)).toBeVisible();
+    await strip.screenshot({ path: path.join(SCREENSHOTS, "usage-figure-used-up.png") });
   });
 
   test("the Now page and Office limits keep showing each engine's 5-hour window", async ({
@@ -514,16 +539,17 @@ test.describe("the usage figure", { tag: "@full" }, () => {
       name: "5-hour window: Home account 42%, Work account 80%, Spare account 12%",
     });
 
-    await expect(figure).toHaveText("5h 42% · 80% · 12%");
+    await expect(figure.getByText("· 3 engines", { exact: true })).toBeVisible();
+    await expect(figure.locator("b")).toHaveText(["42%", "80%", "12%"]);
     await expect(figure.getByTitle("Work account")).toHaveText("80%");
-    await expect(strip.locator(".shell-strip-meter")).toHaveCount(0);
+    await expect(figure.locator(".shell-strip-meter")).toHaveCount(3);
 
     const list = page.getByRole("dialog", { name: "Usage by engine" });
     await figure.click();
     const engines = list.getByRole("listitem");
     await expect(engines).toHaveCount(3);
     await expect(engines.nth(0)).toContainText("Home account");
-    await expect(engines.nth(0)).toContainText(/5h 42% resets .+ · 7d 17% resets /);
+    await expect(engines.nth(0)).toContainText(/^Home account5h42%resets .+7d17%resets /);
     await expect(engines.nth(1)).toContainText("Work account");
     await expect(engines.nth(2)).toContainText("Spare account");
     await expect(list).not.toContainText("Local models");
@@ -551,10 +577,91 @@ test.describe("the usage figure", { tag: "@full" }, () => {
     await page.goto("/now");
     const strip = page.getByRole("status", { name: "Status strip" });
 
-    await expect(strip.getByRole("button", { name: /5-hour window/ })).toHaveText(
-      "5h 80% max · 5 engines",
-    );
+    const figure = strip.getByRole("button", { name: /5-hour window/ });
+    await expect(figure.getByText("· 5 engines", { exact: true })).toBeVisible();
+    await expect(figure.locator("b")).toHaveText("80%");
+    await expect(figure.getByText("highest", { exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "usage-figure-five-engines.png") });
+  });
+});
+
+test.describe("the status strip on a phone", () => {
+  test.use({ colorScheme: "light", viewport: { width: 390, height: 844 } });
+
+  // A read still in a route when a test ends would fail it: its response is gone by then.
+  test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
+  const RESETS_AT = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  /** Raised before Notifications had a short line, so the slot shows its whole line, cut. */
+  const LONG_NOTIFICATION: Notification = {
+    id: randomUUID(),
+    kind: "office.down.engine",
+    roleKey: null,
+    line: "Home account is down: connection refused (ECONNREFUSED 127.0.0.1:8443) while starting its session.",
+    pointsTo: { kind: "office", engineId: "home" },
+    channels: ["in-app"],
+    held: [],
+    raisedAt: new Date().toISOString(),
+  };
+
+  test("keeps the four figures whole and in view, and a long Office Notification moves none of them", async ({
+    page,
+  }) => {
+    let open: Notification[] = [];
+    await page.route(/\/api\/notifications$/, (route) => route.fulfill({ json: open }));
+    await stubEngines(
+      page,
+      [claudeCode("home", "Home account")],
+      [
+        {
+          engineId: "home",
+          fiveHour: { percentUsed: 91, resetsAt: RESETS_AT },
+          sevenDay: { percentUsed: 41, resetsAt: RESETS_AT },
+        },
+      ],
+    );
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+    // Each figure by its short label, as a strip under 600px wide shows them.
+    const figures = new Map([
+      ["Needs you", strip.getByRole("button", { name: /^\d+ needs? you/ })],
+      ["5h window", strip.getByRole("button", { name: /^5-hour window: / })],
+      ["Desks", strip.getByTitle(/ desks in use$/)],
+      ["Tokens", strip.locator(".shell-strip-figure").filter({ hasText: "Tokens" })],
+    ]);
+    const boxes = async () =>
+      Promise.all([...figures.values()].map(async (figure) => figure.boundingBox()));
+
+    // Two rows, 94px in all: the four figures alone on the first, with short labels.
+    await expect.poll(async () => (await strip.boundingBox())?.height).toBe(94);
+    for (const [label, figure] of figures) {
+      await expect(figure).toBeInViewport({ ratio: 1 });
+      await expect(figure.getByText(label, { exact: true })).toBeVisible();
+    }
+    await expect(strip.getByRole("button", { name: /^5-hour window: / }).locator("b")).toHaveText(
+      "91%",
+    );
+    const stripBox = await strip.boundingBox();
+    const before = await boxes();
+    for (const box of before) {
+      expect(box && stripBox && box.x + box.width <= stripBox.x + stripBox.width).toBe(true);
+    }
+    await strip.screenshot({ path: path.join(SCREENSHOTS, "light-390-strip.png") });
+
+    open = [LONG_NOTIFICATION];
+    await page.reload();
+    const slot = strip.getByRole("button", { name: /^Office Notifications: Home account is down/ });
+    await expect(slot).toBeVisible();
+    // Polled, as the figures settle while the page loads again.
+    await expect.poll(boxes).toEqual(before);
+    // Cut on the slot, whole in its list.
+    await slot.click();
+    await expect(page.getByRole("dialog", { name: /^Office Notifications/ })).toContainText(
+      LONG_NOTIFICATION.line,
+    );
+    await strip.screenshot({
+      path: path.join(SCREENSHOTS, "light-390-strip-long-notification.png"),
+    });
   });
 });
 
@@ -570,7 +677,9 @@ test.describe("the Workstation figure", { tag: "@full" }, () => {
 
     // The service measures over the time since its last read, which the next 2 s poll gives.
     await expect(figure).toHaveAccessibleName(/^Workstation: \d+% CPU, \d+ cores?$/);
-    await expect(figure).toHaveText(/^\d+%CPU · \d+ cores?$/);
+    await expect(figure.getByText("Workstation", { exact: true })).toBeVisible();
+    await expect(figure.locator(".shell-strip-cores")).toHaveText(/^· \d+ cores?$/);
+    await expect(figure.locator(".shell-strip-cores")).toBeVisible();
 
     await figure.click();
     const panel = page.getByRole("dialog", { name: "Workstation" });
@@ -584,11 +693,12 @@ test.describe("the Workstation figure", { tag: "@full" }, () => {
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Narrow, it keeps the icon and the % alone.
+    // On a narrower strip it leaves its cores to the panel, and its label becomes "CPU".
     await page.setViewportSize({ width: 700, height: 900 });
     await expect(figure.locator("b")).toHaveText(/^\d+%$/);
     await expect(figure.locator("b")).toBeVisible();
-    await expect(figure.locator(".shell-strip-workstation-detail")).toBeHidden();
+    await expect(figure.locator(".shell-strip-cores")).toBeHidden();
+    await expect(figure.getByText("CPU", { exact: true })).toBeVisible();
   });
 
   test.describe("in Dark on a phone", () => {
@@ -648,7 +758,7 @@ test.describe("losing the service", { tag: "@full" }, () => {
     await page.goto("/now");
     await openRead;
     const strip = page.getByRole("status", { name: "Status strip" });
-    await expect(strip).toContainText("tokens today");
+    await expect(strip).toContainText("Tokens today");
     const titleBefore = await page.title();
 
     reachable = false;
@@ -718,7 +828,7 @@ test.describe("Notifications as the service sends them", { tag: "@full" }, () =>
     };
     await recordDesktopNotifications(page);
     await page.goto("/projects");
-    await expect(page.getByRole("status", { name: "Status strip" })).toContainText("tokens today");
+    await expect(page.getByRole("status", { name: "Status strip" })).toContainText("Tokens today");
     await expect.poll(() => caughtUp).toBeDefined();
     await caughtUp;
     const toasts = page.locator(".toasts");

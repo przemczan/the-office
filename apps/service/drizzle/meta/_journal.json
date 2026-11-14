@@ -1037,6 +1037,13 @@
       "when": 1794641907441,
       "tag": "0147_google_client",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1794676945839,
+      "tag": "0148_status_strip_short_line",
+      "breakpoints": true
     }
   ]
 }

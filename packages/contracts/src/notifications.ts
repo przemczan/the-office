@@ -132,6 +132,9 @@ export const usageWindowSchema = z.object({
   resetsAt: z.iso.datetime().nullable(),
 });
 
+/** The 5-hour window's use from which "Window nearly used" is raised, and the strip turns amber. */
+export const WINDOW_NEARLY_USED_PERCENT = 90;
+
 /**
  * Since you left for the user asking: where it begins, at the start of their own last absence,
  * and each Task's latest outcome since then. Read again on each `now.changed`.
@@ -151,8 +154,6 @@ export const nowSchema = z.object({
   /** The queue for Start, first place first. */
   queue: z.array(queuedOnNowSchema),
   tokensToday: tokenTotalsSchema,
-  /** The Tasks with a Stage run today. */
-  tasksTouched: z.number().int().nonnegative(),
   /** The running Tasks against the Office-wide limit. */
   desks: z.object({ inUse: z.number().int().nonnegative(), limit: z.number().int().positive() }),
   /** Each engine whose account's windows were read, in the order each was first read. */
@@ -240,6 +241,11 @@ export const notificationSchema = z.object({
   roleKey: z.string().min(1).nullable(),
   /** In the person's first person, or the UI's own voice. */
   line: z.string().min(1),
+  /**
+   * The line cut to fit the status strip, never in a person's voice, as the strip shows who says
+   * it beside it. Only The Office's own kinds have one; the strip shows `line` without it.
+   */
+  shortLine: z.string().min(1).optional(),
   pointsTo: pointerSchema,
   /** Where its kind's routing sends it. */
   channels: z.array(channelSchema),

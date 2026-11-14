@@ -174,8 +174,6 @@ export interface Now {
   /** The queue for Start, first place first (spec §2.1, "A queue for Start"). */
   readonly queue: readonly QueuedTask[];
   readonly tokensToday: TokenKinds;
-  /** The Tasks with a Stage run today (the user's answer of 2026-10-27). */
-  readonly tasksTouched: number;
   readonly desks: Desks;
   /** Each engine's whose account's windows were read, in the order each was first read. */
   readonly usageWindows: readonly EngineUsageWindows[];
@@ -217,7 +215,6 @@ export interface NowParts {
   readonly queued: readonly QueuedOnNow[];
   readonly tasks: readonly OfficeTask[];
   readonly tokensToday: TokenKinds;
-  readonly tasksTouched: number;
   readonly officeWideLimit: number;
   readonly usageWindows: readonly EngineUsageWindows[];
   readonly fireAlarm: NowFireAlarm;
@@ -244,7 +241,6 @@ export function nowOf(parts: NowParts): Now {
     running,
     queue: queueOf(parts.queued, parts.tasks),
     tokensToday: parts.tokensToday,
-    tasksTouched: parts.tasksTouched,
     desks: { inUse: parts.started.length, limit: parts.officeWideLimit },
     usageWindows: parts.usageWindows,
     fireAlarm: fireAlarmOf(parts, running),

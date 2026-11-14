@@ -171,6 +171,7 @@ function gathering(
     kind,
     roleKey: undefined,
     line,
+    shortLine: undefined,
     pointsTo: { kind: "since-you-left" },
     channels,
     raisedAt: at,

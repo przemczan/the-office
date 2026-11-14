@@ -6,6 +6,8 @@ import {
   gateWaiting,
   handles,
   notificationOf,
+  officeUpdated,
+  officeUpdateFailed,
   samePointer,
   taskDone,
   taskFailed,
@@ -13,6 +15,7 @@ import {
   windowMove,
   windowNearlyUsed,
   windowReset,
+  windowUsedUp,
   type NotificationDraft,
 } from "./notification.js";
 
@@ -88,6 +91,7 @@ describe("the Notifications' content", () => {
       kind: "outcomes.task-failed",
       roleKey: "developer",
       line: "Tests failed and I have no retries left.",
+      shortLine: undefined,
       pointsTo: { kind: "task", taskId: "t1" },
     });
   });
@@ -129,6 +133,31 @@ describe("the Notifications' content", () => {
       kind: "office",
       engineId: "claude-code",
     });
+  });
+
+  it("gives the Office kinds a short line in nobody's voice, whoever speaks, and others none", () => {
+    const usedUp = { window: "5-hour window", resetsAt: new Date(2026, 9, 27, 14, 20) };
+    const shortLines = (officeManager: string | undefined) =>
+      [
+        windowNearlyUsed(CLAUDE_CODE, 91.4, officeManager),
+        windowReset(CLAUDE_CODE, officeManager),
+        windowUsedUp(CLAUDE_CODE, usedUp, officeManager, new Date(2026, 9, 27, 12, 0)),
+        engineDown(WORK_ACCOUNT, "connection refused", officeManager),
+        officeUpdated("1.8.0", officeManager),
+        officeUpdateFailed("install", "1.7.2", officeManager),
+      ].map(({ shortLine }) => shortLine);
+
+    const expected = [
+      "Claude Code: 91% of 5-hour window",
+      "Claude Code's window reset",
+      "Claude Code used up until 14:20",
+      "Work account is down",
+      "Updated to 1.8.0",
+      "Update failed, back on 1.7.2",
+    ];
+    expect(shortLines("office-manager")).toEqual(expected);
+    expect(shortLines(undefined)).toEqual(expected);
+    expect(taskDone("t1", "developer").shortLine).toBeUndefined();
   });
 
   it("goes to the channels its kind routes to", () => {

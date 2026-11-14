@@ -3,6 +3,7 @@ import { Icon } from "@the-office/ui";
 import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { workstationQueries } from "../../api/workstation.ts";
+import { StripFigure } from "../strip-figure.tsx";
 import { useClosedFromOutside } from "../use-closed-from-outside.ts";
 import { usePlacedList } from "../use-placed-list.ts";
 import { useWorkstationHistory } from "./workstation-history.ts";
@@ -28,28 +29,35 @@ export function WorkstationFigure(): ReactNode {
   const { use, cores } = load.cpu;
   const level = use ? loadLevel(use.percent) : "calm";
   return (
-    <div ref={anchor} className="shell-strip-stat">
-      <button
-        type="button"
-        className="shell-strip-usage shell-strip-workstation"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={`Workstation: ${use ? `${percentWords(use.percent)} CPU` : MEASURING}, ${coresWords(cores)}`}
-        onClick={() => setOpen(!open)}
-      >
-        <Icon name="cpu" size={14} />
-        {use ? (
-          // Tinted only when busy or high, so the strip stays quiet while all is well.
-          <b data-level={level === "calm" ? undefined : level}>{percentWords(use.percent)}</b>
-        ) : (
-          <span className="shell-strip-faint">{MEASURING}</span>
-        )}
-        {/* Left out on a narrow page, keeping the icon and the %. */}
-        <span className="shell-strip-workstation-detail">
-          {use && "CPU "}
-          <span className="shell-strip-faint">· {coresWords(cores)}</span>
-        </span>
-      </button>
+    <div ref={anchor} className="shell-strip-anchor">
+      <StripFigure
+        className="shell-strip-workstation"
+        label={
+          <>
+            <span className="shell-strip-roomy">Workstation</span>
+            <span className="shell-strip-tight">CPU</span>
+          </>
+        }
+        value={
+          <>
+            <Icon name="cpu" size={13} />
+            {use ? (
+              // Tinted only when busy or high, so the strip stays quiet while all is well.
+              <b data-level={level === "calm" ? undefined : level}>{percentWords(use.percent)}</b>
+            ) : (
+              <span className="shell-strip-faint">{MEASURING}</span>
+            )}
+            {/* Left to the panel on a strip under 1,180px. */}
+            <span className="shell-strip-faint shell-strip-cores">· {coresWords(cores)}</span>
+          </>
+        }
+        action={{
+          kind: "button",
+          name: `Workstation: ${use ? `${percentWords(use.percent)} CPU` : MEASURING}, ${coresWords(cores)}`,
+          expanded: open,
+          onClick: () => setOpen(!open),
+        }}
+      />
       {open &&
         // On the page's body, as the strip clips what leaves it.
         createPortal(

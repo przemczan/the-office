@@ -1,8 +1,6 @@
-import type { FinishedTask, TaskOutcome } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   desksWords,
-  doneSinceYouLeft,
   fiveHourWindowName,
   inStageWords,
   namedUsageWindows,
@@ -11,8 +9,8 @@ import {
   sinceWords,
   usageFigureLabel,
   usageFigureWords,
+  usageTone,
   type NamedUsageWindows,
-  type UsageFigurePart,
 } from "./now-words.ts";
 
 describe("needsYouWords", () => {
@@ -45,24 +43,6 @@ describe("inStageWords", () => {
     const stage = { key: "build", name: "Build", role: "developer", since: "2026-10-27T09:00:00Z" };
 
     expect(inStageWords(stage, new Date("2026-10-27T09:18:10Z"))).toBe("18 min in Stage");
-  });
-});
-
-function finished(outcome: TaskOutcome): FinishedTask {
-  return {
-    taskId: crypto.randomUUID(),
-    title: "A Task",
-    projectId: "p1",
-    outcome,
-    occurredAt: "2026-10-27T09:00:00Z",
-  };
-}
-
-describe("doneSinceYouLeft", () => {
-  it("counts only the Done outcomes", () => {
-    expect(
-      doneSinceYouLeft({ finished: [finished("done"), finished("failed"), finished("done")] }),
-    ).toBe(2);
   });
 });
 
@@ -122,33 +102,75 @@ const named = (engineName: string, percentUsed: number): NamedUsageWindows => ({
   ...reading(engineName, percentUsed),
   engineName,
 });
-const shown = (parts: readonly UsageFigurePart[]): string =>
-  parts
-    .map(({ before, figure, after }) => [before, figure, after].filter(Boolean).join(" "))
-    .join(" · ");
+const percents = (windows: readonly NamedUsageWindows[]) =>
+  usageFigureWords(windows)?.readings.map(({ engineName, percent }) => [engineName, percent]);
+
+describe("usageTone", () => {
+  it("is calm under 90%, nearly used from 90%, where Window nearly used is raised, and used up at 100%", () => {
+    expect([0, 89.9, 90, 99.9, 100, 104].map((percentUsed) => usageTone({ percentUsed }))).toEqual([
+      "calm",
+      "calm",
+      "nearly-used",
+      "nearly-used",
+      "used-up",
+      "used-up",
+    ]);
+  });
+});
 
 describe("usageFigureWords", () => {
   it("shows nothing until an engine is read", () => {
-    expect(usageFigureWords([])).toEqual([]);
+    expect(usageFigureWords([])).toBeUndefined();
   });
 
-  it("shows one engine's two windows, rounded", () => {
-    expect(shown(usageFigureWords([named("Home", 41.6)]))).toBe("5h 42% · 7d 17%");
+  it("shows one engine's 5-hour window, rounded, its reset, and its 7-day window after it", () => {
+    const resetsAt = new Date(2026, 9, 27, 16, 40).toISOString();
+    const figure = usageFigureWords([
+      { ...named("Home", 41.6), fiveHour: { percentUsed: 41.6, resetsAt } },
+    ]);
+
+    expect(figure).toEqual({
+      shows: "one",
+      detail: "resets 16:40",
+      readings: [{ engineName: "Home", percent: "42%", filled: 41.6, tone: "calm" }],
+      after: "7d 17%",
+    });
   });
 
-  it("shows two or three engines' 5-hour windows in their order, each by its engine", () => {
-    const parts = usageFigureWords([named("Home", 42), named("Work", 80), named("Spare", 12)]);
+  it("says until when one engine's window is used up, its meter full", () => {
+    const resetsAt = new Date(2026, 9, 27, 14, 20).toISOString();
+    const figure = usageFigureWords([
+      { ...named("Home", 104), fiveHour: { percentUsed: 104, resetsAt } },
+    ]);
 
-    expect(shown(parts)).toBe("5h 42% · 80% · 12%");
-    expect(parts.map(({ engineName }) => engineName)).toEqual(["Home", "Work", "Spare"]);
-    expect(shown(usageFigureWords([named("Home", 42), named("Work", 80)]))).toBe("5h 42% · 80%");
+    expect(figure?.detail).toBe("used up until 14:20");
+    expect(figure?.readings[0]).toMatchObject({ filled: 100, tone: "used-up" });
   });
 
-  it("shows the highest 5-hour window and a count from four engines", () => {
+  it("shows two or three engines' 5-hour windows in their order, each with its tone", () => {
+    const figure = usageFigureWords([named("Home", 42), named("Work", 91), named("Spare", 12)]);
+
+    expect(figure?.shows).toBe("each");
+    expect(figure?.detail).toBe("3 engines");
+    expect(figure?.after).toBeUndefined();
+    expect(figure?.readings.map(({ percent, tone }) => [percent, tone])).toEqual([
+      ["42%", "calm"],
+      ["91%", "nearly-used"],
+      ["12%", "calm"],
+    ]);
+    expect(percents([named("Home", 42), named("Work", 80)])).toEqual([
+      ["Home", "42%"],
+      ["Work", "80%"],
+    ]);
+  });
+
+  it("shows the highest 5-hour window and the count from four engines", () => {
     const windows = [10, 80, 30, 20, 79.4].map((percent, index) => named(`E${index}`, percent));
+    const figure = usageFigureWords(windows);
 
-    expect(shown(usageFigureWords(windows))).toBe("5h 80% max · 5 engines");
-    expect(shown(usageFigureWords(windows.slice(0, 4)))).toBe("5h 80% max · 4 engines");
+    expect(figure).toMatchObject({ shows: "highest", detail: "5 engines", after: "highest" });
+    expect(percents(windows)).toEqual([["E1", "80%"]]);
+    expect(usageFigureWords(windows.slice(0, 4))?.detail).toBe("4 engines");
   });
 });
 

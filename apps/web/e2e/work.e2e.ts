@@ -1948,8 +1948,8 @@ test(
     await page.getByRole("button", { name: "Show only Waiting alpha" }).click();
     await expect(alphaDecision).toBeVisible();
     await expect(betaDecision).toHaveCount(0);
-    await expect(strip.getByRole("button", { name: /need/ })).toContainText(
-      /^1 needs you\+\d+ in other Projects$/,
+    await expect(strip.getByRole("button", { name: /need/ })).toHaveAccessibleName(
+      /^1 needs you, \d+ more in other Projects$/,
     );
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-filter-now.png") });
 
