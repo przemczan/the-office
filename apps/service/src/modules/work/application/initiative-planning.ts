@@ -15,9 +15,9 @@ import { KnownPeople } from "../ports/known-people.js";
 import { WorkSettings } from "../ports/work-settings.js";
 
 /**
- * Plan the Initiative (spec §2.1): one planning Thread with whoever holds Plans on an active Initiative,
- * which plans its Backlog Tasks in their dependency order, in auto mode or not as the user chose,
- * the choice becoming Make a plan's remembered default too.
+ * Plan the Initiative (spec §2.1): one planning Thread with whoever holds Plans on an active
+ * Initiative, which plans its Backlog Tasks in their dependency order, in auto mode or not as the
+ * user chose, the choice becoming Make a plan's remembered default too.
  */
 @Injectable()
 export class InitiativePlanning {
@@ -30,9 +30,9 @@ export class InitiativePlanning {
   ) {}
 
   /**
-   * Opens a new planning Thread on the Initiative, where whoever holds Plans starts at once. Refused
-   * with the reasons while nobody holds Plans, unless the Initiative is active with a Task in
-   * Backlog, and while one of its Tasks is still being planned in an earlier planning Thread.
+   * Opens a new planning Thread on the Initiative, where whoever holds Plans starts at once.
+   * Refused with the reasons while nobody holds Plans, unless the Initiative is active with a Task
+   * in Backlog, and while one of its Tasks is still being planned in an earlier planning Thread.
    */
   async plan(initiativeId: string, autoMode: boolean): Promise<Initiative> {
     const planner = await this.people.holderOf(PLANS);

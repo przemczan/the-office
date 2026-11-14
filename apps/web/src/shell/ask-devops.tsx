@@ -5,9 +5,10 @@ import { DutyUnheldNote } from "./duty-unheld-note.tsx";
 import { useDutyHolder } from "./use-duty-holder.ts";
 
 /**
- * Asks whoever holds Onboards and repairs Projects from a page, with `draft` waiting in a new Thread
- * of their chat (spec §2.3): they onboard Projects, propose Project commands, library Pipelines and
- * Stage templates, and install skills from a Source. While nobody holds it, the page says so.
+ * Asks whoever holds Onboards and repairs Projects from a page, with `draft` waiting in a new
+ * Thread of their chat (spec §2.3): they onboard Projects, propose Project commands, library
+ * Pipelines and Stage templates, and install skills from a Source. While nobody holds it, the page
+ * says so.
  */
 export function AskDevopsButton({
   label,

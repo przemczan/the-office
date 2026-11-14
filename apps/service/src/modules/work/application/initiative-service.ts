@@ -14,7 +14,7 @@ import {
   type ArchiveSearch,
 } from "../domain/initiative-archive.js";
 import {
-  addCtoTask,
+  addShaperTask,
   addDependencyOfItsTask,
   addTaskToInitiative,
   blockingItsPublishingTask,
@@ -93,8 +93,11 @@ function requiredProject(
   return project;
 }
 
-/** A change by whoever shapes Initiatives as written straight onto the Initiative, or drafted as a Proposal. */
-export type CtoChange =
+/**
+ * A change by whoever shapes Initiatives as written straight onto the Initiative, or drafted as a
+ * Proposal.
+ */
+export type ShaperChange =
   { readonly kind: "written"; readonly edit: InitiativeEdit } | { readonly kind: "proposed" };
 
 /** An Initiative that names a Pipeline in one Project it spans, as the library weighs it. */
@@ -118,8 +121,9 @@ export interface ShapingThreadOpening {
 
 /**
  * The Initiatives use cases: shaped from an Idea or created from none, its outcome, Tasks, their
- * titles, Descriptions and dependencies written while shaping or by Proposals of whoever shapes Initiatives once
- * active, confirmed, dropped, and done once their Tasks are. Each change is saved first and its events published after.
+ * titles, Descriptions and dependencies written while shaping or by Proposals of whoever shapes
+ * Initiatives once active, confirmed, dropped, and done once their Tasks are. Each change is saved
+ * first and its events published after.
  */
 @Injectable()
 export class InitiativeService implements OnModuleInit {
@@ -184,7 +188,8 @@ export class InitiativeService implements OnModuleInit {
     const shaperKey = await this.people.holderOf(SHAPES_INITIATIVES);
     const shaper = shaperKey === undefined ? undefined : await this.people.find(shaperKey);
     if (!shaper) return { shaper: undefined, opened: false };
-    // An Initiative stands without its Thread, so one that couldn't open leaves the user to start it.
+    // An Initiative stands without its Thread, so one that couldn't open leaves the user to start
+    // it.
     try {
       await this.openShapingThread(initiative, shaper.roleKey);
       return { shaper, opened: true };
@@ -258,7 +263,10 @@ export class InitiativeService implements OnModuleInit {
     return initiative;
   }
 
-  /** Every Initiative's Tasks, by the Initiative's id, from one read of the board (tasksByInitiative). */
+  /**
+   * Every Initiative's Tasks, by the Initiative's id, from one read of the board
+   * (tasksByInitiative).
+   */
   async tasksByInitiative(): Promise<ReadonlyMap<string, readonly Task[]>> {
     return tasksByInitiative(await this.tasks.list());
   }
@@ -272,8 +280,8 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * What the Initiative's record and a planning Brief's Initiative section are worded from, from one
-   * read of the board. Throws InitiativeNotFound when there is no such Initiative.
+   * What the Initiative's record and a planning Brief's Initiative section are worded from, from
+   * one read of the board. Throws InitiativeNotFound when there is no such Initiative.
    */
   async record(id: string): Promise<InitiativeRecord> {
     const initiative = await this.read(id);
@@ -333,10 +341,11 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * The Initiative's Pipeline in one Project it spans, null for None: by the user or whoever shapes Initiatives
-   * straight onto it while it is being shaped, or by a Proposal of whoever shapes Initiatives once active. Refused for a
-   * Project it doesn't span, and for a Pipeline that Project's Tasks couldn't follow (spec 2.3):
-   * unknown, another Project's Project Pipeline, Broken, or running a command the Project lacks.
+   * The Initiative's Pipeline in one Project it spans, null for None: by the user or whoever shapes
+   * Initiatives straight onto it while it is being shaped, or by a Proposal of whoever shapes
+   * Initiatives once active. Refused for a Project it doesn't span, and for a Pipeline that
+   * Project's Tasks couldn't follow (spec 2.3): unknown, another Project's Project Pipeline,
+   * Broken, or running a command the Project lacks.
    */
   async choosePipeline(
     id: string,
@@ -368,8 +377,8 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * Every reason applying a Proposal of whoever shapes Initiatives of another Pipeline in one Project would be refused
-   * now.
+   * Every reason applying the shaper's Proposal of another Pipeline in one Project would be
+   * refused now.
    */
   private async pipelineChangeProblems(
     initiative: Initiative,
@@ -430,8 +439,8 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * What must be true once it is done: by the user, or by whoever shapes Initiatives, straight onto it while it is
-   * being shaped, or by Proposal.
+   * What must be true once it is done: by the user, or by whoever shapes Initiatives, straight onto
+   * it while it is being shaped, or by Proposal.
    */
   async writeOutcome(
     id: string,
@@ -456,7 +465,7 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /** A new Task by whoever shapes Initiatives, as `addTask`, by the route the change takes. */
-  private async addCtoTask(
+  private async addShaperTask(
     id: string,
     given: NewTask,
     blockedBy: readonly string[],
@@ -467,7 +476,7 @@ export class InitiativeService implements OnModuleInit {
       id,
       given,
       createdBy,
-      (initiative, ...made) => addCtoTask(initiative, route, ...made),
+      (initiative, ...made) => addShaperTask(initiative, route, ...made),
       blockedBy,
     );
   }
@@ -496,8 +505,8 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * Every reason a Proposal of `edit` would be refused if the user applied it now, in words whoever shapes Initiatives
-   * acts on: applying it judges again, under the Initiative's hold.
+   * Every reason a Proposal of `edit` would be refused if the user applied it now, in words whoever
+   * shapes Initiatives acts on: applying it judges again, under the Initiative's hold.
    */
   async problemsWithProposal(id: string, edit: InitiativeEdit): Promise<readonly string[]> {
     const initiative = await this.repository.find(id);
@@ -516,18 +525,18 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * A change by whoever shapes Initiatives (spec §2.1 Defaults): straight onto the Initiative while it is being shaped;
-   * once it is active, drafted as a Proposal in the Thread of `sessionId` for the user to apply,
-   * refused with every reason applying it would be.
+   * A change by whoever shapes Initiatives (spec §2.1 Defaults): straight onto the Initiative while
+   * it is being shaped; once it is active, drafted as a Proposal in the Thread of `sessionId` for
+   * the user to apply, refused with every reason applying it would be.
    */
-  async changeByCto(
+  async changeByShaper(
     id: string,
     edit: InitiativeEdit,
-    cto: Author,
+    shaper: Author,
     sessionId: string,
-  ): Promise<CtoChange> {
+  ): Promise<ShaperChange> {
     try {
-      return { kind: "written", edit: await this.applyEdit(id, edit, cto, "straight") };
+      return { kind: "written", edit: await this.applyEdit(id, edit, shaper, "straight") };
     } catch (error) {
       if (!(error instanceof InitiativeNotShaping && error.state === "active")) throw error;
     }
@@ -539,8 +548,9 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * Carries out a Proposal of whoever shapes Initiatives the user applied, as proposed by `proposedBy`, and answers the
-   * edit as applied: a new Task with its id. An edit that changes nothing now holds already.
+   * Carries out a Proposal of whoever shapes Initiatives the user applied, as proposed by
+   * `proposedBy`, and answers the edit as applied: a new Task with its id. An edit that changes
+   * nothing now holds already.
    */
   async applyProposal(
     id: string,
@@ -553,7 +563,7 @@ export class InitiativeService implements OnModuleInit {
   private async applyEdit(
     id: string,
     edit: InitiativeEdit,
-    cto: Author,
+    shaper: Author,
     route: InitiativeChangeRoute,
   ): Promise<InitiativeEdit> {
     switch (edit.kind) {
@@ -561,7 +571,7 @@ export class InitiativeService implements OnModuleInit {
         await this.writeOutcome(id, edit.outcome, route);
         return edit;
       case "add-task": {
-        const task = await this.addCtoTask(id, newTaskOf(edit), edit.blockedBy, cto, route);
+        const task = await this.addShaperTask(id, newTaskOf(edit), edit.blockedBy, shaper, route);
         return { ...edit, taskId: task.id };
       }
       case "add-dependency":
@@ -740,10 +750,10 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * The Initiative's Pipeline in one Project, as whoever shapes Initiatives writes it while shaping or the user applies
-   * their Proposal: refused once that Project's Publishing Task has started; the Initiative's branch
-   * made there when a Project it came to span once active gets its first Pipeline; and the
-   * Pipeline swapped on that Project's Publishing Task not yet started.
+   * The Initiative's Pipeline in one Project, as whoever shapes Initiatives writes it while shaping
+   * or the user applies their Proposal: refused once that Project's Publishing Task has started;
+   * the Initiative's branch made there when a Project it came to span once active gets its first
+   * Pipeline; and the Pipeline swapped on that Project's Publishing Task not yet started.
    */
   private async changePipeline(
     id: string,

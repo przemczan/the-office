@@ -30,7 +30,8 @@ export function chatInstructions(person: SessionPerson, held: HeldDuties): strin
     ...personInstructions(person),
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title. When you and the user already know how it will be done and what must be true when it is, give it a Plan and a Definition of Done too, both or neither, for the user to confirm on the Task page.`,
     ...(held.includes("default-person-to-talk-to") ? [] : [CALLING_RULE]),
-    // Devops reached for Grep on the repository it onboarded, refused outside its folders (task 33's run).
+    // Devops reached for Grep on the repository it onboarded, refused outside its folders (task
+    // 33's run).
     ...(held.includes("onboards-projects") ? [READ_REPOSITORY_RULE] : []),
   ].join("\n\n");
 }
@@ -144,8 +145,8 @@ export const READING_OFFICE_TOOLS = [
 
 /**
  * The Office tool a person reads a Task's Stage history with, each run and its Project commands'
- * output and an Agent Stage run's Stage Thread messages, which Pipelines registers. Agent Stages get
- * it too, beside `READING_OFFICE_TOOLS` (Pipelines' `AGENT_STAGE_OFFICE_TOOLS`), but planning
+ * output and an Agent Stage run's Stage Thread messages, which Pipelines registers. Agent Stages
+ * get it too, beside `READING_OFFICE_TOOLS` (Pipelines' `AGENT_STAGE_OFFICE_TOOLS`), but planning
  * sessions and Initiative Threads don't.
  */
 export const READ_STAGE_HISTORY_TOOL = "read_stage_history";
@@ -189,66 +190,103 @@ export const CHAT_OFFICE_TOOLS = [
 ] as const;
 
 /**
- * The Office tool the Default person to talk to drafts a Proposal of a Role with; the contracts name it too,
- * for the web to hide its activity line, and a test keeps the two the same.
+ * The Office tool the Default person to talk to drafts a Proposal of a Role with; the contracts
+ * name it too, for the web to hide its activity line, and a test keeps the two the same.
  */
 export const PROPOSE_ROLE_TOOL = "propose_role";
 
-/** The Office tool the Default person to talk to drafts a Proposal of an Office setting with, named as above. */
+/**
+ * The Office tool the Default person to talk to drafts a Proposal of an Office setting with, named
+ * as above.
+ */
 export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 
 /**
- * The Office tool the Default person to talk to reads the Office instructions with before drafting a change:
- * their session holds the version it started with, and a draft of an old copy would undo an edit.
+ * The Office tool the Default person to talk to reads the Office instructions with before drafting
+ * a change: their session holds the version it started with, and a draft of an old copy would undo
+ * an edit.
  */
 export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
 
-/** The Office tool the Default person to talk to points the user to someone with, a Link card; named as above. */
+/**
+ * The Office tool the Default person to talk to points the user to someone with, a Link card; named
+ * as above.
+ */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
-/** The Office tool the Default person to talk to shows the Office status with, which Notifications registers. */
+/**
+ * The Office tool the Default person to talk to shows the Office status with, which Notifications
+ * registers.
+ */
 export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 
-/** The Office tool whoever onboards Projects drafts a Proposal of a Project's commands with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Project's commands with; named
+ * as above.
+ */
 export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 
-/** The Office tool whoever onboards Projects drafts a Proposal of a library Pipeline's Stages with, which Pipelines registers. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a library Pipeline's Stages with,
+ * which Pipelines registers.
+ */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
-/** The Office tool whoever onboards Projects drafts a Proposal of a Project Pipeline with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Project Pipeline with; named as
+ * above.
+ */
 export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
 
-/** The Office tool whoever onboards Projects drafts a Project to onboard with, which Work registers; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Project to onboard with, which Work registers;
+ * named as above.
+ */
 export const PROPOSE_PROJECT_TOOL = "propose_project";
 
 /**
- * The Office tool whoever onboards Projects reads the Pipelines with, the office-wide ones and the Project Pipelines,
- * which Pipelines registers.
+ * The Office tool whoever onboards Projects reads the Pipelines with, the office-wide ones and the
+ * Project Pipelines, which Pipelines registers.
  */
 export const LIST_PIPELINES_TOOL = "list_pipelines";
 
-/** The Office tool whoever onboards Projects reads the Stage templates with, which Pipelines registers. */
+/**
+ * The Office tool whoever onboards Projects reads the Stage templates with, which Pipelines
+ * registers.
+ */
 export const LIST_STAGE_TEMPLATES_TOOL = "list_stage_templates";
 
-/** The Office tool whoever onboards Projects drafts a Proposal of a Stage template's Stage with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Stage template's Stage with;
+ * named as above.
+ */
 export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
 
 /** The Office tool whoever onboards Projects reads the skills a Source holds with. */
 export const LIST_SOURCE_SKILLS_TOOL = "list_source_skills";
 
-/** The Office tool whoever onboards Projects drafts installing a skill from a Source with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts installing a skill from a Source with; named as
+ * above.
+ */
 export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
 
-/** The Office tool whoever onboards Projects reads an installed skill's update with: its versions and its diff. */
+/**
+ * The Office tool whoever onboards Projects reads an installed skill's update with: its versions
+ * and its diff.
+ */
 export const READ_SKILL_UPDATE_TOOL = "read_skill_update";
 
-/** The Office tool whoever onboards Projects drafts an installed skill's update with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts an installed skill's update with; named as
+ * above.
+ */
 export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
 /**
- * The Office tool whoever onboards Projects reads a repository with before it is a Project, on the workstation by its
- * path or on a host by its Repository URL, which Projects registers: its branches, and the names and
- * manifest files of one folder at a time.
+ * The Office tool whoever onboards Projects reads a repository with before it is a Project, on the
+ * workstation by its path or on a host by its Repository URL, which Projects registers: its
+ * branches, and the names and manifest files of one folder at a time.
  */
 export const READ_REPOSITORY_TOOL = "read_repository";
 
@@ -379,7 +417,9 @@ export function consultationInstructions(person: SessionPerson, canCall: boolean
   ].join("\n\n");
 }
 
-/** The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on. */
+/**
+ * The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on.
+ */
 export const REMEMBER_TOOL = "remember";
 
 /** The Office tool an Agent rewords a Role with; it sits behind the Change Roles Hard switch. */

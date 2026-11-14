@@ -1555,7 +1555,9 @@ async function plannerAnswering(): Promise<Thread> {
   return runner.send(opened.id, PLAN_IT);
 }
 
-/** The log without context lines and tool activity, whose order around a tool's own lines varies. */
+/**
+ * The log without context lines and tool activity, whose order around a tool's own lines varies.
+ */
 function exchanges(log: readonly Message[]): MessageDraft[] {
   return drafts(log).filter(({ kind }) => kind !== "context" && kind !== "tool-activity");
 }
@@ -2705,7 +2707,10 @@ function switchLines(log: readonly Message[]): MessageDraft[] {
   return drafts(log).filter(({ kind }) => kind === "context" || kind === "changes-allowed");
 }
 
-/** Registers a stand-in for each of `names` no module here registers, as Work, People and Pipelines do. */
+/**
+ * Registers a stand-in for each of `names` no module here registers, as Work, People and Pipelines
+ * do.
+ */
 function standInsFor(names: readonly string[]): void {
   const registry = app.get(OfficeToolRegistry);
   for (const name of names) {
@@ -2953,7 +2958,9 @@ function withoutHolds(options: object | undefined): object {
 describe("a Thread's Sub-agents and Processes", () => {
   const SECRET = "s3cret";
 
-  /** A foreground Sub-agent that reports back, then a Process left running across the turn's end. */
+  /**
+   * A foreground Sub-agent that reports back, then a Process left running across the turn's end.
+   */
   const aSubAgentAndAProcess: Step[] = [
     background({
       kind: "sub-agent-started",

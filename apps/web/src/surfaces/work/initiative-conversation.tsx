@@ -56,8 +56,8 @@ const NOBODY_DRAFTING: ReadonlySet<string> = new Set();
 
 /**
  * The Initiative's conversation: a tab per person, those of whoever holds Shapes Initiatives and
- * Plans always, each holding that person's Threads on the Initiative. The address names a person's tab by their key or by one
- * of their Threads, which then unfolds and takes the To line.
+ * Plans always, each holding that person's Threads on the Initiative. The address names a person's
+ * tab by their key or by one of their Threads, which then unfolds and takes the To line.
  */
 export function InitiativeConversation({
   initiative,
@@ -74,7 +74,8 @@ export function InitiativeConversation({
       : undefined,
   );
   const [held, setHeld] = useState<string>();
-  // The pinned tabs wait for who holds their duties, so a holder's tab never stands in for a moment.
+  // The pinned tabs wait for who holds their duties, so a holder's tab never stands in for a
+  // moment.
   const tabs =
     threads &&
     duties &&

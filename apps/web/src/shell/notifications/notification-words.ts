@@ -55,9 +55,9 @@ const BROWSER_CHANNELS: readonly Channel[] = ["in-app", "desktop"];
 
 /**
  * "Service down", which the web raises itself since the service can't while the web has lost it:
- * from whoever holds Default person to talk to, or the Caretaker while nobody does, as the service's
- * Office kinds are; to the browser's channels the user's routing last read gives it. It runs while
- * the service is out of reach, so it reads only what was read before, never fetching.
+ * from whoever holds Default person to talk to, or the Caretaker while nobody does, as the
+ * service's Office kinds are; to the browser's channels the user's routing last read gives it. It
+ * runs while the service is out of reach, so it reads only what was read before, never fetching.
  */
 export function serviceDown(
   duties: readonly Duty[] | undefined,

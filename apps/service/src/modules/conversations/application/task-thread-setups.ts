@@ -59,7 +59,9 @@ export interface TaskThreadSetup {
 
 /** Sets up the sessions of Threads on Tasks. */
 export interface TaskThreadSource {
-  /** Whoever holds Plans, whose tab comes first, by their Role's key; undefined while nobody does. */
+  /**
+   * Whoever holds Plans, whose tab comes first, by their Role's key; undefined while nobody does.
+   */
   planner(): Promise<string | undefined>;
   setUp(thread: TaskThreadRequest): Promise<TaskThreadSetup>;
   /**

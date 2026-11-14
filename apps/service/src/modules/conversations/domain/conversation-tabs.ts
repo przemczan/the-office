@@ -25,7 +25,10 @@ export interface ConversationTab {
   readonly roleKey: string;
   /** Their one Thread on the Task; undefined until it is opened. */
   readonly threadId: string | undefined;
-  /** On the tab of whoever holds Plans, while the Task is planned in its Initiative's planning Thread. */
+  /**
+   * On the tab of whoever holds Plans, while the Task is planned in its Initiative's planning
+   * Thread.
+   */
   readonly planningThreadElsewhere: PlanningThreadElsewhere | undefined;
   readonly stageRunning: boolean;
   /** In the order answered, then those still waiting on the Consultant. */

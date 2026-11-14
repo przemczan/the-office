@@ -22,7 +22,10 @@ import {
 } from "../../work-application.fixtures.js";
 import { SHAPING_OFFICE_TOOLS } from "./initiative-thread-records.js";
 
-/** The Role holding Plans: its Threads on an Initiative are shaping ones unless Plan the Initiative opened them. */
+/**
+ * The Role holding Plans: its Threads on an Initiative are shaping ones unless Plan the Initiative
+ * opened them.
+ */
 const PLANNER = "planner";
 
 let officeData: string;
@@ -237,8 +240,8 @@ describe("what the Threads on an Initiative read", () => {
     ];
     const { initiative, tasks } = await anInitiativeOn("full", [api, web]);
     await post(`/initiatives/${initiative.id}/confirm`);
-    // Its only Task in web moves to app, spanned after Confirm so on None: web keeps the branch made
-    // there, and both are read at their base.
+    // Its only Task in web moves to app, spanned after Confirm so on None: web keeps the branch
+    // made there, and both are read at their base.
     await post(`/tasks/${tasks[1]?.id ?? ""}/move`, { projectId: app });
 
     expect((await setUp(initiative, "cto")).branchReads?.projectIds).toEqual([api]);

@@ -5,7 +5,7 @@ import {
   changeTitleOfItsTask,
   chooseInitiativePipeline,
   removeDependencyOfItsTask,
-  requireCtoTaskAllowed,
+  requireShaperTaskAllowed,
   writeOutcome,
 } from "./initiative-changes.js";
 import { InitiativeRefused } from "./initiative-refused.js";
@@ -15,9 +15,9 @@ import { TaskNotFound } from "./task-not-found.js";
 import { TaskRefused } from "./task-refused.js";
 
 /**
- * A change by whoever shapes Initiatives to an Initiative (spec §2.1 Defaults): its outcome, a new Task, the
- * title, Description or a dependency of one of its Tasks, or the Initiative's Pipeline in one
- * Project (null for None). Written straight onto it while it is being shaped; once it is
+ * A change by whoever shapes Initiatives to an Initiative (spec §2.1 Defaults): its outcome, a new
+ * Task, the title, Description or a dependency of one of its Tasks, or the Initiative's Pipeline in
+ * one Project (null for None). Written straight onto it while it is being shaped; once it is
  * active, a Proposal carries it, which Conversations keeps as drafted and Work applies.
  */
 export type InitiativeEdit =
@@ -65,10 +65,11 @@ export function sameDescriptionWords(task: Pick<Task, "title">): string {
 }
 
 /**
- * Every reason applying the edit to the Initiative as it is now would be refused, judged as applying
- * it judges, in words whoever shapes Initiatives acts on; an edit that changes nothing is refused too. `board` is
- * every Task, and `names` those of the Project and the Pipeline a `pipeline` edit names, their ids
- * when left out. Whether that Project, or that Pipeline, is known is the caller's to judge.
+ * Every reason applying the edit to the Initiative as it is now would be refused, judged as
+ * applying it judges, in words whoever shapes Initiatives acts on; an edit that changes nothing is
+ * refused too. `board` is every Task, and `names` those of the Project and the Pipeline a
+ * `pipeline` edit names, their ids when left out. Whether that Project, or that Pipeline, is known
+ * is the caller's to judge.
  */
 export function initiativeEditProblems(
   initiative: Initiative,
@@ -100,7 +101,7 @@ function whatStaysAsItIs(
         ? undefined
         : "The Initiative's outcome says so already.";
     case "add-task":
-      requireCtoTaskAllowed(
+      requireShaperTaskAllowed(
         initiative,
         "by-proposal",
         newTaskOf(edit),

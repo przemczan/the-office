@@ -25,8 +25,8 @@ export interface InitiativeHolders {
 
 /**
  * The tabs of whoever holds Shapes Initiatives and Plans, one when one person holds both, or the
- * duty's own while nobody holds it; then anyone else's with a Thread here, in the order they joined.
- * Threads stay with the person who had them, so a former holder keeps their own tab.
+ * duty's own while nobody holds it; then anyone else's with a Thread here, in the order they
+ * joined. Threads stay with the person who had them, so a former holder keeps their own tab.
  */
 export function initiativeTabs(
   threads: readonly Thread[],
@@ -69,7 +69,9 @@ function pinnedTabs(
   return tabs;
 }
 
-/** The person with the newest Thread, where the conversation stands; with none yet, the first tab. */
+/**
+ * The person with the newest Thread, where the conversation stands; with none yet, the first tab.
+ */
 export function firstInitiativeTab(tabs: readonly InitiativeTab[]): string | undefined {
   const newest = threadsInOrder(tabs.flatMap(({ threads }) => threads)).at(-1);
   return newest?.roleKey ?? tabs[0]?.roleKey;

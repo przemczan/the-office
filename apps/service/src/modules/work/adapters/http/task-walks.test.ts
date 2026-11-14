@@ -355,7 +355,9 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
 /** The Role holding Plans in these walks. */
 const PLANNER = "planner";
 
-/** The Planner, who holds Plans, and the test's own Developer, both hired, with no Memory in use. */
+/**
+ * The Planner, who holds Plans, and the test's own Developer, both hired, with no Memory in use.
+ */
 function roleCardsOf(developerKey: string, taskLimit: number): Partial<RoleCards> {
   const roleOf = (key: string): SessionRole => ({
     roleKey: key,

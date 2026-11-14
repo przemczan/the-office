@@ -54,7 +54,9 @@ export const PLANNING_OFFICE_TOOLS = [
   CONSULT_TOOL,
 ] as const;
 
-/** What whoever holds Plans does in the Planning Thread, calling a person only when the user asks. */
+/**
+ * What whoever holds Plans does in the Planning Thread, calling a person only when the user asks.
+ */
 export const PLANNING_THREAD_INSTRUCTIONS = `${PLANNING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
 
 /** What a person does in their Thread on a Task, calling someone only when the user asks. */
@@ -73,8 +75,9 @@ export const ASKING_OFFICE_TOOLS = [
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Thread of
- * whoever holds Plans plans it until the Task starts; every other person's Thread only reads. A Stage's session is
- * set up by its Stage, and a Consultation's gets its own tools and instructions from Conversations.
+ * whoever holds Plans plans it until the Task starts; every other person's Thread only reads. A
+ * Stage's session is set up by its Stage, and a Consultation's gets its own tools and instructions
+ * from Conversations.
  */
 @Injectable()
 export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {

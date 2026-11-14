@@ -198,11 +198,11 @@ export function rewritingProblems(
 /**
  * The Planner rewrites a part of an already planned Task from the Initiative's latest planning
  * Thread `threadId` (spec §2.1), in one save with `write`, the part's own change: a Ready Task goes
- * back to Planning in this Thread, in one move `by` the person planning it; a Task in Planning from an earlier
- * planning Thread is planned in this one. Either
- * is no longer marked planned, in the Initiative's auto mode, so mark_planned accepts it again.
- * Undefined when `write` changes nothing, which moves nothing. Refused with the reasons of
- * `rewritingProblems`, and from an earlier planning Thread.
+ * back to Planning in this Thread, in one move `by` the person planning it; a Task in Planning from
+ * an earlier planning Thread is planned in this one. Either is no longer marked planned, in the
+ * Initiative's auto mode, so mark_planned accepts it again. Undefined when `write` changes nothing,
+ * which moves nothing. Refused with the reasons of `rewritingProblems`, and from an earlier
+ * planning Thread.
  */
 export function rewriteInInitiative<Event extends DomainEvent>(
   initiative: Initiative,
@@ -246,7 +246,10 @@ export function rewriteInInitiative<Event extends DomainEvent>(
   );
 }
 
-/** The Tasks inside its Initiative it waits for that are neither planned, Ready or beyond, nor Dropped. */
+/**
+ * The Tasks inside its Initiative it waits for that are neither planned, Ready or beyond, nor
+ * Dropped.
+ */
 export function unplannedBlockers(task: Task, tasks: readonly Task[]): Task[] {
   const inInitiative = new Map(
     tasks.filter(({ initiativeId }) => initiativeId === task.initiativeId).map((t) => [t.id, t]),

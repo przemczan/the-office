@@ -5,12 +5,14 @@ import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 export const SHAPING_THREAD_TITLE = "Shaping";
 
 /**
- * What whoever shapes Initiatives does in an Initiative's shaping Thread, after their card's instructions. The same for every
- * session of it, so it stays in the cached prefix.
+ * What whoever shapes Initiatives does in an Initiative's shaping Thread, after their card's
+ * instructions. The same for every session of it, so it stays in the cached prefix.
  */
 export const SHAPING_INSTRUCTIONS = `In this Thread you shape an Initiative with the user: one outcome reached by Tasks across Projects, each Task in one Project, ordered by what must be Done first. You read each Project where The Projects in your Brief say: its base branch, or the Initiative's branch once it has one; you change no file, and ${READ_ONLY_SHELL_RULE}. With The Office's tools you read its records of Projects, people, Tasks, Ideas and Initiatives and any of their Attachments, and read_initiative reads this Initiative as it stands. Agree with the user on the outcome first and write it with write_outcome, then agree on the Tasks and add each with add_task, naming in it the Tasks it waits for, and change which must wait for which with add_dependency and remove_dependency. Give a Task a Description in add_task when its title doesn't say it all, and rewrite one of its Tasks with write_task_title and write_task_description until that Task starts. Each Project the Initiative spans has a Pipeline of its own, None unless one is chosen, and with None each of its Tasks there publishes on its own; with a Pipeline chosen for it with choose_pipeline, from the office-wide ones and that Project's own, the Project's Tasks publish into the Initiative's branch there, initiative/<Short name>, and its Publishing Task publishes the whole change. Whether each Project has one is fixed at Confirm, and only the user edits the Short name, on its page. While the Initiative is being shaped, each lands on its page at once, and the user confirms the Initiative on its page once its outcome and Tasks are agreed. Once it is active, the same tools draft each change as a Proposal in this Thread, which the user applies or declines.`;
 
-/** The Office's first message in a new Thread on an Initiative shaped from an Idea, after the Brief. */
+/**
+ * The Office's first message in a new Thread on an Initiative shaped from an Idea, after the Brief.
+ */
 export const SHAPING_OPENING =
   "Read the Initiative and the Idea it was shaped from, then ask the user what outcome they want. When the Idea was captured Office-wide, also ask which Projects it touches; when it was captured in a Project, ask only whether it reaches other Projects too. Keep it short: the user answers in this Thread.";
 

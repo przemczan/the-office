@@ -11,9 +11,9 @@ import { TaskNotFound } from "../../domain/task-not-found.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 
 /**
- * Proposals of the changes of whoever shapes Initiatives to an active Initiative (spec §2.1 Defaults), which Work judges
- * and applies under the Initiative's hold. Work fills Conversations' registry itself, since Work
- * calls Conversations.
+ * Proposals of the shaper's changes to an active Initiative (spec §2.1 Defaults), the shaper being
+ * whoever holds Shapes Initiatives, which Work judges and applies under the Initiative's hold. Work
+ * fills Conversations' registry itself, since Work calls Conversations.
  */
 @Injectable()
 export class InitiativeProposals implements OnModuleInit {

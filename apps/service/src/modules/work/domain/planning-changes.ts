@@ -172,8 +172,8 @@ function savedPart<Event extends DomainEvent>(
 /**
  * The Planner's change to a part, unconfirmed by now and no longer marked planned. A Ready Task
  * goes back to Planning in the same save, moved `by` the person planning it, as the user's Save
- * takes it. The Planner writes here in the Task's own planning Thread (an Initiative's rewrites go through
- * `rewriteInInitiative`), so from then on the Task is planned in that Thread.
+ * takes it. The Planner writes here in the Task's own planning Thread (an Initiative's rewrites go
+ * through `rewriteInInitiative`), so from then on the Task is planned in that Thread.
  */
 function proposedPart<Event extends DomainEvent>(
   task: Task,

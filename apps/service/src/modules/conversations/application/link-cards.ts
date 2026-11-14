@@ -21,8 +21,9 @@ export interface LinkCardRequest {
 type LinkCardMessage = Extract<Message, { kind: "link-card" }>;
 
 /**
- * Link cards (spec §2.2): the Default person to talk to points the user to whoever is responsible, with a
- * Handover note the user may edit or drop, and sends themselves; the Default person to talk to never relays.
+ * Link cards (spec §2.2): the Default person to talk to points the user to whoever is responsible,
+ * with a Handover note the user may edit or drop, and sends themselves; the Default person to talk
+ * to never relays.
  */
 @Injectable()
 export class LinkCards {

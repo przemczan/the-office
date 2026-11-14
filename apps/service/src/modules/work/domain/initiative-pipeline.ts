@@ -9,10 +9,11 @@ import {
 } from "./pipeline-commands.js";
 
 /**
- * Every reason applying a Proposal of whoever shapes Initiatives of another Pipeline in one Project would be refused now,
- * in words whoever shapes Initiatives acts on: what Confirm fixed, a Pipeline the Project follows already, the
- * Pipeline having started in that Project's Publishing Task (`tasks`, the Initiative's), then
- * whether the Project can follow the Pipeline, as a Task of it could (`choice`, undefined for None).
+ * Every reason applying the shaper's Proposal of another Pipeline in one Project would be refused
+ * now, in words whoever shapes Initiatives acts on: what Confirm fixed, a Pipeline
+ * the Project follows already, the Pipeline having started in that Project's Publishing Task
+ * (`tasks`, the Initiative's), then whether the Project can follow the Pipeline, as a Task of it
+ * could (`choice`, undefined for None).
  */
 export function initiativePipelineChangeProblems(
   initiative: Initiative,

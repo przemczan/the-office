@@ -54,12 +54,12 @@ import { WorkSettings } from "../ports/work-settings.js";
 import { IdeaService } from "./idea-service.js";
 
 /**
- * Planning a Task as a conversation with whoever holds Plans (spec §2.1): its own worktree on the freshly
- * fetched base branch, and a planning Thread. Plan with… opens it for the user's first message, so
- * a Plan the user writes alone costs no model call; Make a plan has the Planner start at once from
- * the record. The Planner proposes the Plan, the Definition of Done and a Pipeline; the user
- * confirms them and marks the Task Ready. Planning is optional: the user may save and confirm
- * both parts in Backlog and mark the Task Ready from there.
+ * Planning a Task as a conversation with whoever holds Plans (spec §2.1): its own worktree on the
+ * freshly fetched base branch, and a planning Thread. Plan with… opens it for the user's first
+ * message, so a Plan the user writes alone costs no model call; Make a plan has the Planner start
+ * at once from the record. The Planner proposes the Plan, the Definition of Done and a Pipeline;
+ * the user confirms them and marks the Task Ready. Planning is optional: the user may save and
+ * confirm both parts in Backlog and mark the Task Ready from there.
  */
 
 /** A part the user saved, or the Planner wrote; either may take a Ready Task out of Ready. */
@@ -151,9 +151,9 @@ export class PlanningService {
 
   /**
    * start_planning in an Initiative's planning Thread: Backlog → Planning for one of its Tasks, in
-   * the Initiative's auto mode, the Task then planned in that Thread, moved `by` its person. No worktree is made, as the
-   * Thread reads each Project's checkout, at its base branch or at the Initiative's branch once it
-   * has one: Start makes it, as for a Task marked Ready from Backlog.
+   * the Initiative's auto mode, the Task then planned in that Thread, moved `by` its person. No
+   * worktree is made, as the Thread reads each Project's checkout, at its base branch or at the
+   * Initiative's branch once it has one: Start makes it, as for a Task marked Ready from Backlog.
    * Refused with the reasons of `startPlanningInInitiative`.
    */
   async startPlanningInInitiative(
@@ -202,8 +202,9 @@ export class PlanningService {
   }
 
   /**
-   * The Task's planning Thread with `planner`, who holds Plans; when it can't be opened, the move to Planning is
-   * undone and refused with the reason, so a Task is never in Planning without its Thread.
+   * The Task's planning Thread with `planner`, who holds Plans; when it can't be opened, the move
+   * to Planning is undone and refused with the reason, so a Task is never in Planning without its
+   * Thread.
    */
   private async openPlanningThread(
     taskId: string,
@@ -232,8 +233,8 @@ export class PlanningService {
   }
 
   /**
-   * The Planner's Plan. `rewriteFrom`, the Initiative's planning Thread, rewrites an already planned
-   * Task from there, as `rewriteInInitiative` does; so do the other parts' proposals.
+   * The Planner's Plan. `rewriteFrom`, the Initiative's planning Thread, rewrites an already
+   * planned Task from there, as `rewriteInInitiative` does; so do the other parts' proposals.
    */
   async proposePlan(
     taskId: string,
@@ -290,7 +291,8 @@ export class PlanningService {
 
   /**
    * The user's Pipeline for the Task: the proposed one, or another from the library. The Task names
-   * it by id only; Pipelines keeps a Task's own Stages, made when it starts or is edited for itself.
+   * it by id only; Pipelines keeps a Task's own Stages, made when it starts or is edited for
+   * itself.
    */
   async confirmPipeline(taskId: string, pipelineId: string): Promise<Task> {
     const task = await this.read(taskId);
@@ -303,8 +305,8 @@ export class PlanningService {
   }
 
   /**
-   * Mark Ready, from Backlog or Planning: refused with the reasons until the Plan and Definition of Done are confirmed,
-   * the Pipeline proposal is answered and no Decision on the Task is open.
+   * Mark Ready, from Backlog or Planning: refused with the reasons until the Plan and Definition of
+   * Done are confirmed, the Pipeline proposal is answered and no Decision on the Task is open.
    */
   async markReady(taskId: string): Promise<Task> {
     const openDecisions = await this.decisions.openOn(taskId);
@@ -328,9 +330,10 @@ export class PlanningService {
   }
 
   /**
-   * The Planner's write of a part: onto a Task in Planning or Ready, which goes back to Planning, or,
-   * from the Initiative's planning Thread, rewriting an already planned one in the same save, then
-   * publishing the part's event and the moves it made, so the queue lets go of a Task that left Ready.
+   * The Planner's write of a part: onto a Task in Planning or Ready, which goes back to Planning,
+   * or, from the Initiative's planning Thread, rewriting an already planned one in the same save,
+   * then publishing the part's event and the moves it made, so the queue lets go of a Task that
+   * left Ready.
    */
   private async write<Event extends Proposed>(
     taskId: string,

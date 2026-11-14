@@ -72,7 +72,8 @@ export interface NewInitiative {
 
 /**
  * An Initiative being shaped that comes from no Idea (create_initiative, spec 2.1): named and with
- * its outcome written, no Tasks yet, waiting for the user's Confirm as one shaped from an Idea does.
+ * its outcome written, no Tasks yet, waiting for the user's Confirm as one shaped from an Idea
+ * does.
  */
 export function createInitiative(
   setting: NewInitiative,
@@ -172,11 +173,11 @@ function sameProjects(first: readonly string[], second: readonly string[]): bool
 
 /**
  * The Initiative's Pipeline in one Project (spec 2.1), undefined for None: chosen straight while
- * shaping, by a Proposal of whoever shapes Initiatives once active. Confirm fixed whether each Project it spanned then
- * has one, so a Proposal only swaps one Pipeline for another there; a Project it came to span
- * since has None until a Proposal gives it one. The first Pipeline chosen in any Project derives
- * the Short name from the title, past those `taken`; None everywhere leaves it none. Undefined when
- * the Project follows that Pipeline already.
+ * shaping, by a Proposal of whoever shapes Initiatives once active. Confirm fixed whether each
+ * Project it spanned then has one, so a Proposal only swaps one Pipeline for another there; a
+ * Project it came to span since has None until a Proposal gives it one. The first Pipeline chosen
+ * in any Project derives the Short name from the title, past those `taken`; None everywhere leaves
+ * it none. Undefined when the Project follows that Pipeline already.
  */
 export function chooseInitiativePipeline(
   initiative: Initiative,
@@ -316,7 +317,9 @@ export function finishInitiative(
   return moveTo(initiative, "done", at);
 }
 
-/** What the Initiative's done check came to: the Publishing Tasks it added, and its move to done. */
+/**
+ * What the Initiative's done check came to: the Publishing Tasks it added, and its move to done.
+ */
 export interface InitiativeSettling {
   readonly initiative: Initiative;
   readonly event: InitiativeStateChanged | undefined;
@@ -389,14 +392,15 @@ export function addTaskToInitiative(
 
 /**
  * How a change reaches an Initiative (spec §2.1 Defaults): straight onto it, only while it is being
- * shaped, or by a Proposal of whoever shapes Initiatives, which the user applies, while it is shaping or active.
+ * shaped, or by a Proposal of whoever shapes Initiatives, which the user applies, while it is
+ * shaping or active.
  */
 export type InitiativeChangeRoute = "straight" | "by-proposal";
 
 /**
- * What must be true once it is done, written by whoever shapes Initiatives or the user; undefined when it says so
- * already. Each change below judges what it asks before the Initiative's state, so a request that
- * is wrong or changes nothing is answered as such, never turned into a Proposal.
+ * What must be true once it is done, written by whoever shapes Initiatives or the user; undefined
+ * when it says so already. Each change below judges what it asks before the Initiative's state, so
+ * a request that is wrong or changes nothing is answered as such, never turned into a Proposal.
  */
 export function writeOutcome(
   initiative: Initiative,
@@ -415,8 +419,11 @@ export function writeOutcome(
   };
 }
 
-/** A new Task by whoever shapes Initiatives in the Initiative; the user adds one with addTaskToInitiative. */
-export function addCtoTask(
+/**
+ * A new Task by whoever shapes Initiatives in the Initiative; the user adds one with
+ * addTaskToInitiative.
+ */
+export function addShaperTask(
   initiative: Initiative,
   route: InitiativeChangeRoute,
   id: string,
@@ -424,15 +431,15 @@ export function addCtoTask(
   setting: Omit<NewTaskSetting, "initiativeId" | "originIdeaId">,
   at: Date,
 ): TaskChange<TaskCreated> {
-  requireCtoTaskAllowed(initiative, route, given);
+  requireShaperTaskAllowed(initiative, route, given);
   return addTaskToInitiative(initiative, id, given, setting, at);
 }
 
 /**
- * Refuses a new Task by whoever shapes Initiatives as addCtoTask would, without making it, together with
- * `blockerProblems`, the reasons it couldn't wait for the Tasks it asks to.
+ * Refuses a new Task by whoever shapes Initiatives as addShaperTask would, without making it,
+ * together with `blockerProblems`, the reasons it couldn't wait for the Tasks it asks to.
  */
-export function requireCtoTaskAllowed(
+export function requireShaperTaskAllowed(
   initiative: Initiative,
   route: InitiativeChangeRoute,
   given: NewTask,
@@ -444,8 +451,8 @@ export function requireCtoTaskAllowed(
 }
 
 /**
- * Whoever shapes Initiatives makes one of the Initiative's Tasks wait for `blockerId`, any Task anywhere; the rules
- * are addDependency's.
+ * Whoever shapes Initiatives makes one of the Initiative's Tasks wait for `blockerId`, any Task
+ * anywhere; the rules are addDependency's.
  */
 export function addDependencyOfItsTask(
   initiative: Initiative,
@@ -466,7 +473,10 @@ export function removeDependencyOfItsTask(
   return changeItsTask(initiative, route, task, () => removeDependency(task, blockerId));
 }
 
-/** Whoever shapes Initiatives rewrites the title of one of the Initiative's Tasks; the rules are changeTitle's. */
+/**
+ * Whoever shapes Initiatives rewrites the title of one of the Initiative's Tasks; the rules are
+ * changeTitle's.
+ */
 export function changeTitleOfItsTask(
   initiative: Initiative,
   route: InitiativeChangeRoute,
@@ -476,7 +486,10 @@ export function changeTitleOfItsTask(
   return changeItsTask(initiative, route, task, () => changeTitle(task, title));
 }
 
-/** Whoever shapes Initiatives rewrites the Description of one of its Tasks; the rules are changeDescription's. */
+/**
+ * Whoever shapes Initiatives rewrites the Description of one of its Tasks; the rules are
+ * changeDescription's.
+ */
 export function changeDescriptionOfItsTask(
   initiative: Initiative,
   route: InitiativeChangeRoute,

@@ -174,9 +174,10 @@ export function projectsToPublish(
 }
 
 /**
- * The Initiative's Pipeline in its Project, as an applied Proposal of whoever shapes Initiatives changed it, on a
- * Publishing Task not yet started (spec 2.1, "An Initiative's Pipeline"). Undefined when it
- * follows that Pipeline already; whether its Stages were edited for it is the caller's to judge.
+ * The Initiative's Pipeline in its Project, as an applied Proposal of whoever shapes Initiatives
+ * changed it, on a Publishing Task not yet started (spec 2.1, "An Initiative's Pipeline").
+ * Undefined when it follows that Pipeline already; whether its Stages were edited for it is the
+ * caller's to judge.
  */
 export function swapPublishingPipeline(
   task: Task,

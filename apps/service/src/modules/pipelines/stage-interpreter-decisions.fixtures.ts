@@ -102,7 +102,10 @@ export function statesOf(taskId: string): string[] {
 /** A Consultant under a key no preset has, so nothing follows the Role key itself. */
 export const ARCHITECT = "architect";
 
-/** Hires Bob as the Architect, who can be consulted, holding Asked first unless `holdsAskedFirst` is false. */
+/**
+ * Hires Bob as the Architect, who can be consulted, holding Asked first unless `holdsAskedFirst` is
+ * false.
+ */
 export function hireTheArchitect({ holdsAskedFirst = true } = {}): void {
   pipelines.decisions.consultants.add(ARCHITECT);
   pipelines.people.people.set(ARCHITECT, aPerson("Bob"));

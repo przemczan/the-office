@@ -21,8 +21,8 @@ const TABS = [
 const BLANK: WrittenSkill = { name: "", description: "", instructions: "" };
 
 /**
- * "Add a skill": ask whoever onboards Projects to install it from a source, upload one or write it in place; however
- * it comes, it arrives off until reviewed (spec §2.6).
+ * "Add a skill": ask whoever onboards Projects to install it from a source, upload one or write it
+ * in place; however it comes, it arrives off until reviewed (spec §2.6).
  */
 export function AddSkillDialog({
   onClose,

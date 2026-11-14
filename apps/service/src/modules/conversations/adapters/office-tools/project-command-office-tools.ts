@@ -10,9 +10,9 @@ const DRAFTED =
   "The Proposal is in this Thread as a card, with the Project's values now and as proposed; nothing changes until the user applies it, and it is refused if those values change first. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 /**
- * The Office tool whoever onboards Projects drafts a change to a Project's install command, install inputs and
- * commands with (spec §2.3), a Proposal the user applies with a click. Like every Proposal tool it changes nothing
- * itself, so it sits behind no Hard switch, and returns at once.
+ * The Office tool whoever onboards Projects drafts a change to a Project's install command, install
+ * inputs and commands with (spec §2.3), a Proposal the user applies with a click. Like every
+ * Proposal tool it changes nothing itself, so it sits behind no Hard switch, and returns at once.
  */
 @Injectable()
 export class ProjectCommandOfficeTools implements OnModuleInit {

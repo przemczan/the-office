@@ -244,7 +244,9 @@ export const taskQueries = {
       queryKey: TASKS,
       queryFn: ({ signal }) => getFromApi("/tasks", taskListSchema, signal),
     }),
-  /** The Tasks the board's search matches, by the service's full-text search; under the Tasks' key. */
+  /**
+   * The Tasks the board's search matches, by the service's full-text search; under the Tasks' key.
+   */
   matching: (query: string) =>
     queryOptions({
       queryKey: [...TASKS, "matching", query],
@@ -256,7 +258,9 @@ export const taskQueries = {
       queryKey: [...TASKS, id],
       queryFn: ({ signal }) => getFromApi(taskPath(id), taskSchema, signal),
     }),
-  /** The queue for Start, first place first; under the Tasks' key, so any Task event refreshes it. */
+  /**
+   * The queue for Start, first place first; under the Tasks' key, so any Task event refreshes it.
+   */
   queue: () =>
     queryOptions({
       queryKey: [...TASKS, "queue"],
@@ -279,7 +283,10 @@ export const taskQueries = {
       queryFn: ({ signal }): Promise<StartCheck> =>
         getFromApi(`${taskPath(id)}/start`, startCheckSchema, signal),
     }),
-  /** Why the Task can't move to another Project now; under the Task's key, so any Task event refreshes it. */
+  /**
+   * Why the Task can't move to another Project now; under the Task's key, so any Task event
+   * refreshes it.
+   */
   moveCheck: (id: string) =>
     queryOptions({
       queryKey: [...TASKS, id, "move"],
@@ -349,12 +356,17 @@ export function shapeIdea(id: string, projectId: string): Promise<Task> {
   return sendToApi("POST", `${ideaPath(id)}/shape`, { projectId }, taskSchema);
 }
 
-/** Plan as a Task with whoever holds Plans: the Task the Idea became, in Planning with its Thread. */
+/**
+ * Plan as a Task with whoever holds Plans: the Task the Idea became, in Planning with its Thread.
+ */
 export function planIdea(id: string, projectId: string): Promise<Task> {
   return sendToApi("POST", `${ideaPath(id)}/plan`, { projectId }, taskSchema);
 }
 
-/** The Initiative the Idea became, being shaped; with whoever shapes Initiatives in its Thread while someone does. */
+/**
+ * The Initiative the Idea became, being shaped; with whoever shapes Initiatives in its Thread while
+ * someone does.
+ */
 export function shapeIntoInitiative(id: string): Promise<Initiative> {
   return sendToApi("POST", `${ideaPath(id)}/initiative`, {}, initiativeSchema);
 }
@@ -365,8 +377,8 @@ export function startShapingThread(id: string): Promise<Initiative> {
 }
 
 /**
- * Plan the Initiative: a new planning Thread with whoever holds Plans, who plans its Backlog Tasks at once,
- * in auto mode or not. The choice becomes the remembered default.
+ * Plan the Initiative: a new planning Thread with whoever holds Plans, who plans its Backlog Tasks
+ * at once, in auto mode or not. The choice becomes the remembered default.
  */
 export function planInitiative(id: string, autoMode: boolean): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/planning`, { autoMode }, initiativeSchema);
@@ -435,7 +447,10 @@ export function writeShortName(id: string, shortName: string): Promise<Initiativ
   return sendToApi("PUT", `${initiativePath(id)}/short-name`, change, initiativeSchema);
 }
 
-/** "Add a Task": in Shaping or Backlog in its Project, as the Initiative stands, waiting for the Tasks it names. */
+/**
+ * "Add a Task": in Shaping or Backlog in its Project, as the Initiative stands, waiting for the
+ * Tasks it names.
+ */
 export function addTaskToInitiative(id: string, newTask: NewInitiativeTask): Promise<Task> {
   return sendToApi("POST", `${initiativePath(id)}/tasks`, newTask, taskSchema);
 }
@@ -477,8 +492,8 @@ export function planTask(id: string): Promise<Task> {
 }
 
 /**
- * Make a plan: the Task moves to Planning, in auto mode or not, and whoever holds Plans starts at once
- * from its record. The choice becomes the remembered default.
+ * Make a plan: the Task moves to Planning, in auto mode or not, and whoever holds Plans starts at
+ * once from its record. The choice becomes the remembered default.
  */
 export function makeAPlan(id: string, autoMode: boolean): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/make-a-plan`, { autoMode }, taskSchema);
@@ -516,7 +531,9 @@ export function confirmDefinitionOfDone(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/definition-of-done/confirm`, {}, taskSchema);
 }
 
-/** Sets the Task's Pipeline: the proposed one to confirm it, or another; either ends the proposal. */
+/**
+ * Sets the Task's Pipeline: the proposed one to confirm it, or another; either ends the proposal.
+ */
 export function setPipeline(id: string, pipelineId: string): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/pipeline`, { pipelineId }, taskSchema);
 }

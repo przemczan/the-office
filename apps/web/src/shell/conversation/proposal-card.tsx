@@ -585,7 +585,10 @@ const INITIATIVE_EDIT_TITLES: Readonly<Record<InitiativeEdit["kind"], string>> =
   pipeline: "Another Pipeline for the Initiative",
 };
 
-/** The change to the Initiative proposed by whoever shapes Initiatives, its Tasks and Projects by name. */
+/**
+ * The change to the Initiative proposed by whoever shapes Initiatives, its Tasks and Projects by
+ * name.
+ */
 function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): ReactNode {
   const tasks = useQuery(taskQueries.list()).data;
   const projects = useQuery(projectQueries.list()).data;
@@ -765,8 +768,8 @@ function HireFoot({
 }
 
 /**
- * Hiring into a preset's Role: under the proposed name, or one the user gives first. A preset's Role
- * is hired on its preset's card, so the name is all there is to edit.
+ * Hiring into a preset's Role: under the proposed name, or one the user gives first. A preset's
+ * Role is hired on its preset's card, so the name is all there is to edit.
  */
 function PresetHireFoot({
   proposal,
