@@ -57,12 +57,9 @@ export function EditTaskStagesDialog({
   }
   const groups = taskPipelineChoices(project.data, library.officeWide, library.projectPipelines);
   if (task.initiativeId !== null && !initiative.data) return null;
-  if (task.pipelineId === null) {
-    return <ChoosePipelineForm task={task} groups={groups} onClose={onClose} />;
-  }
   return (
     <EditTaskStagesForm
-      task={{ ...task, pipelineId: task.pipelineId }}
+      task={task}
       taskStages={taskStages.data}
       groups={groups}
       roles={roles.data}
@@ -75,67 +72,10 @@ export function EditTaskStagesDialog({
 }
 
 /**
- * A Task with no Pipeline yet chooses one first, the Project's default listed first; its Stages are
- * edited for the Task once the Pipeline is saved.
+ * The Stages as a draft until Save. A Task with no Pipeline yet (spec 2.1) starts with none chosen,
+ * the Project's default listed first, and shows the Stages of the one chosen to edit at once; Save
+ * sets the Pipeline, then saves the Stages if they were edited.
  */
-function ChoosePipelineForm({
-  task,
-  groups,
-  onClose,
-}: {
-  readonly task: Task;
-  readonly groups: readonly PipelineChoiceGroup[];
-  readonly onClose: () => void;
-}): ReactNode {
-  const [chosenPipelineId, setChosenPipelineId] = useState("");
-  const showToast = useToast();
-  const choosing = useRecordChange(task, (pipelineId: string) => setPipeline(task.id, pipelineId));
-  const chosen = choiceById(groups, chosenPipelineId);
-  return (
-    <Dialog
-      size="medium"
-      title={`Choose a Pipeline for ${task.title}`}
-      onClose={onClose}
-      actions={
-        <>
-          <Button
-            loading={choosing.isPending}
-            disabled={!chosen}
-            title={chosen ? undefined : "Choose a Pipeline first."}
-            onClick={() =>
-              choosing.mutate(chosenPipelineId, {
-                onSuccess: () => {
-                  showToast(`${task.title} follows ${chosen?.name ?? chosenPipelineId}.`);
-                  onClose();
-                },
-              })
-            }
-          >
-            Choose
-          </Button>
-          <span className="dialog-hint">
-            Once it is chosen, Edit for this Task changes its Stages for this Task alone.
-          </span>
-        </>
-      }
-    >
-      <div className="work-form">
-        <PipelinePicker
-          placeholder="Choose a Pipeline"
-          value={chosenPipelineId}
-          groups={groups}
-          disabled={choosing.isPending}
-          onChange={setChosenPipelineId}
-        />
-        {chosen && <p className="pipeline-choice-stages">{chosen.line}</p>}
-        {choosing.error && (
-          <RefusalAlert title="The Pipeline wasn't chosen" error={choosing.error} />
-        )}
-      </div>
-    </Dialog>
-  );
-}
-
 function EditTaskStagesForm({
   task,
   taskStages,
@@ -146,7 +86,7 @@ function EditTaskStagesForm({
   initiative,
   onClose,
 }: {
-  readonly task: Task & { readonly pipelineId: string };
+  readonly task: Task;
   readonly taskStages: TaskStages;
   /** What the Task may follow instead: its Project's own Pipelines, then the office-wide ones. */
   readonly groups: readonly PipelineChoiceGroup[];
@@ -161,13 +101,17 @@ function EditTaskStagesForm({
     (pipelineId === task.pipelineId ? taskStages.stages?.map(({ stage }) => stage) : undefined) ??
     choiceById(groups, pipelineId)?.stages ??
     [];
-  const [chosenPipelineId, setChosenPipelineId] = useState(task.pipelineId);
-  const [stages, setStages] = useState(() => stagesOf(task.pipelineId));
+  // "" while a Task with no Pipeline has none chosen yet.
+  const followed = task.pipelineId ?? "";
+  const notChosen = task.pipelineId === null;
+  const [chosenPipelineId, setChosenPipelineId] = useState(followed);
+  const [stages, setStages] = useState(() => stagesOf(followed));
   const [edited, setEdited] = useState(false);
   const pipeline = choiceById(groups, chosenPipelineId);
-  const swapped = chosenPipelineId !== task.pipelineId;
+  const swapped = chosenPipelineId !== followed;
   const check = useQuery({
-    ...pipelineQueries.stagesCheck(task.id, stages),
+    ...pipelineQueries.stagesCheck(task.id, stages, chosenPipelineId),
+    enabled: chosenPipelineId !== "",
     placeholderData: keepPreviousData,
   });
   const problems = check.data?.problems ?? [];
@@ -180,7 +124,8 @@ function EditTaskStagesForm({
     return changed;
   });
   const saving = useMutation({
-    mutationFn: async () => {
+    // Answers the toast's words for what it did, as the Task it was given changes as it goes.
+    mutationFn: async (): Promise<string> => {
       // In this order: the swap resets the Task's own Stages, so an edit saved before it would go.
       if (swapped) await swapping.mutateAsync(chosenPipelineId);
       // A swap alone keeps the Task following the library, so it saves no Stages of its own.
@@ -188,9 +133,12 @@ function EditTaskStagesForm({
         const saved = await editTaskStages(task.id, stages);
         queryClient.setQueryData(pipelineQueries.taskStages(task.id).queryKey, saved);
       }
+      return notChosen
+        ? `${task.title} follows ${pipeline?.name ?? chosenPipelineId}.`
+        : `Stages saved for ${task.title}.`;
     },
-    onSuccess: () => {
-      showToast(`Stages saved for ${task.title}.`);
+    onSuccess: (words) => {
+      showToast(words);
       onClose();
     },
   });
@@ -202,13 +150,14 @@ function EditTaskStagesForm({
   return (
     <Dialog
       size="medium"
-      title={`Stages of ${task.title}`}
+      title={notChosen ? `Choose a Pipeline for ${task.title}` : `Stages of ${task.title}`}
       onClose={onClose}
       actions={
         <>
           <Button
             loading={saving.isPending}
             disabled={(!edited && !swapped) || editWaits}
+            title={chosenPipelineId === "" ? "Choose a Pipeline first." : undefined}
             onClick={() => saving.mutate()}
           >
             Save for this Task
@@ -218,16 +167,23 @@ function EditTaskStagesForm({
       }
     >
       <div className="work-form">
-        <Alert tone="info">
-          Changes apply to <b>{task.title}</b> only.{" "}
-          {pipeline
-            ? `The ${pipeline.name} Pipeline itself stays as it is.`
-            : "Its Pipeline was removed from the library."}
-          {lockedNotes.length > 0 && " Stages already started are locked."}
-        </Alert>
+        {(pipeline || !notChosen) && (
+          <Alert tone="info">
+            Changes apply to <b>{task.title}</b> only.{" "}
+            {pipeline
+              ? `The ${pipeline.name} Pipeline itself stays as it is.`
+              : "Its Pipeline was removed from the library."}
+            {lockedNotes.length > 0 && " Stages already started are locked."}
+          </Alert>
+        )}
         {notStarted && (
           <PipelinePicker
-            hint="Another Pipeline brings its own Stages. Saving it sets aside those edited for this Task."
+            placeholder={notChosen ? "Choose a Pipeline" : undefined}
+            hint={
+              notChosen
+                ? "Its Stages show below, to edit for this Task before you save."
+                : "Another Pipeline brings its own Stages. Saving it sets aside those edited for this Task."
+            }
             value={chosenPipelineId}
             groups={groups}
             disabled={saving.isPending}
@@ -240,22 +196,30 @@ function EditTaskStagesForm({
         )}
         {saving.error && (
           <RefusalAlert
-            title={swapping.error ? "The Pipeline wasn't swapped" : "The Stages weren't saved"}
+            title={
+              swapping.error
+                ? notChosen
+                  ? "The Pipeline wasn't chosen"
+                  : "The Pipeline wasn't swapped"
+                : "The Stages weren't saved"
+            }
             error={saving.error}
           />
         )}
-        <StageEditor
-          stages={stages}
-          onChange={(changed) => {
-            setStages(changed);
-            setEdited(true);
-          }}
-          lockedNotes={lockedNotes}
-          problems={problems}
-          roles={roles}
-          options={options}
-          commands={commandsOf(task, project, initiative)}
-        />
+        {chosenPipelineId !== "" && (
+          <StageEditor
+            stages={stages}
+            onChange={(changed) => {
+              setStages(changed);
+              setEdited(true);
+            }}
+            lockedNotes={lockedNotes}
+            problems={problems}
+            roles={roles}
+            options={options}
+            commands={commandsOf(task, project, initiative)}
+          />
+        )}
       </div>
     </Dialog>
   );

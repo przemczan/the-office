@@ -82,14 +82,15 @@ export const pipelineQueries = {
         ),
     }),
   /**
-   * What saving the edited Stages would be refused for. Under the Task's Stages, so whatever makes
-   * those stale checks the edit again.
+   * What saving the edited Stages would be refused for, as if the Task followed `pipelineId`, the
+   * Pipeline the draft follows. Under the Task's Stages, so whatever makes those stale checks the
+   * edit again.
    */
-  stagesCheck: (taskId: string, stages: readonly Stage[]) =>
+  stagesCheck: (taskId: string, stages: readonly Stage[], pipelineId: string) =>
     queryOptions({
-      queryKey: [...taskStagesKey(taskId), "check", stages],
+      queryKey: [...taskStagesKey(taskId), "check", pipelineId, stages],
       queryFn: () =>
-        sendToApi("POST", `${stagesPath(taskId)}/check`, { stages }, stagesCheckSchema),
+        sendToApi("POST", `${stagesPath(taskId)}/check`, { stages, pipelineId }, stagesCheckSchema),
     }),
 };
 

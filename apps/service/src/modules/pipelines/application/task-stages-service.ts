@@ -117,9 +117,16 @@ export class TaskStagesService implements OnModuleInit {
     });
   }
 
-  /** Every reason `edit` would refuse the edited Stages now, for the editor to flag before Save. */
-  async check(taskId: string, edited: readonly Stage[]): Promise<readonly StageProblem[]> {
-    return (await this.review(taskId, edited)).problems;
+  /**
+   * Every reason `edit` would refuse the edited Stages now, for the editor to flag before Save; with
+   * `pipelineId`, as if the Task followed that Pipeline, as a draft does that chooses or swaps it.
+   */
+  async check(
+    taskId: string,
+    edited: readonly Stage[],
+    pipelineId?: string,
+  ): Promise<readonly StageProblem[]> {
+    return (await this.review(taskId, edited, pipelineId)).problems;
   }
 
   /**
@@ -171,11 +178,18 @@ export class TaskStagesService implements OnModuleInit {
 
   /**
    * The edit is weighed as the Task's own Stages alone: the editor shows Resolve's too, which The
-   * Office puts back as the walk goes.
+   * Office puts back as the walk goes. `followed` weighs it against that Pipeline in place of the
+   * Task's own.
    */
-  private async review(taskId: string, shown: readonly Stage[]): Promise<ReviewedEdit> {
+  private async review(
+    taskId: string,
+    shown: readonly Stage[],
+    followed?: string,
+  ): Promise<ReviewedEdit> {
     const edited = withoutResolveStages(shown);
-    const { state, pipelineId, projectId } = await this.tasks.read(taskId);
+    const task = await this.tasks.read(taskId);
+    const { state, projectId } = task;
+    const pipelineId = followed ?? task.pipelineId;
     if (pipelineId === undefined) {
       throw new StagesEditRefused([{ text: "The Task has no Pipeline yet: choose one first." }]);
     }

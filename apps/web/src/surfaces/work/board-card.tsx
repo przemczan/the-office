@@ -167,7 +167,8 @@ export function BoardCard({
       onDragEnd={onDragEnd}
     >
       <div className="board-card-head">
-        <PriorityIcon priority={task.priority} />
+        {/* Most Tasks are Normal, so a card marks only High and Low. */}
+        {task.priority !== "normal" && <PriorityIcon priority={task.priority} />}
         <Link
           ref={titleLink}
           to="/tasks/$taskId"

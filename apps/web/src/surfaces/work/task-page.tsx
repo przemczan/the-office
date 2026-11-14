@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
-import { Icon, Tabs } from "@the-office/ui";
+import { Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -12,7 +12,7 @@ import { stoppedAtCurrentStage } from "./stage-rail-words.ts";
 import { PIPELINE_NOT_CHOSEN, pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
-import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { ArchivedBadge, RestoreButton } from "./archive-parts.tsx";
@@ -179,7 +179,7 @@ function TaskHead({
         </div>
         <div className="task-head-meta">
           <span className="task-head-priority">
-            <Icon name="flag" size={12} />
+            <PriorityGlyph priority={task.priority} size={12} />
             {PRIORITY_NAMES[task.priority]} priority
           </span>
           <HeadPipeline task={task} pipeline={pipeline} editedForTask={editedForTask} />

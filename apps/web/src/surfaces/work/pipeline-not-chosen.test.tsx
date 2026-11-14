@@ -10,7 +10,7 @@ import type {
 } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -77,7 +77,26 @@ const PROJECT_PIPELINES = [
     projectId: "admin-panel",
     name: "Full with sort check",
     basePipeline: { id: "full", name: "Full" },
-    stages: [{ name: "Implement" }, { name: "Sort check" }],
+    stages: [
+      {
+        kind: "agent",
+        key: "implement",
+        name: "Implement",
+        optional: false,
+        role: "developer",
+        brief: "Implement the Plan.",
+        session: "fresh",
+        budget: 100000,
+      },
+      {
+        kind: "script",
+        key: "sort-check",
+        name: "Sort check",
+        optional: false,
+        command: "test",
+        onFailure: undefined,
+      },
+    ],
     broken: [],
   },
   {
@@ -167,6 +186,13 @@ function buttonNamed(name: string): HTMLButtonElement | undefined {
   );
 }
 
+/** The Stages the dialog's Stage editor shows, by name. */
+function stageNames(): (string | null)[] {
+  return [...document.querySelectorAll('[role="dialog"] [aria-label="Stages"] > li')].map((row) =>
+    row.getAttribute("aria-label"),
+  );
+}
+
 describe("a Task with no Pipeline yet", () => {
   afterEach(() => document.body.replaceChildren());
 
@@ -214,10 +240,68 @@ describe("a Task with no Pipeline yet", () => {
     act(() => broken?.click());
 
     expect(document.querySelector('[role="combobox"]')?.textContent).toBe("Choose a Pipeline");
-    const choose = document.querySelector<HTMLButtonElement>(
+    const save = document.querySelector<HTMLButtonElement>(
       '[role="dialog"] button[title="Choose a Pipeline first."]',
     );
-    expect(choose?.disabled).toBe(true);
+    expect(save?.disabled).toBe(true);
+    expect(document.querySelector('[role="dialog"] [aria-label="Stages"]')).toBeNull();
+  });
+
+  it("shows the chosen Pipeline's Stages to edit at once, checked against it, and Save sets the Pipeline then the Stages", async () => {
+    const requests: { method: string; url: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>((input, init) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        requests.push({
+          method,
+          url,
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        if (url.endsWith("/stages/check")) return Promise.resolve(Response.json({ problems: [] }));
+        if (url.endsWith("/pipeline")) {
+          return Promise.resolve(Response.json({ ...TASK, pipelineId: "sort-check" }));
+        }
+        return Promise.resolve(Response.json({ ...NO_STAGES_OF_ITS_OWN, editedForTask: true }));
+      }),
+    );
+    rail(TASK);
+    act(() => buttonNamed("Choose a Pipeline")?.click());
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      `Choose a Pipeline for ${TASK.title}`,
+    );
+    act(() => document.querySelector<HTMLElement>('[role="combobox"]')?.click());
+    act(() => optionNamed("Full with sort check")?.click());
+
+    expect(stageNames()).toEqual(["Implement", "Sort check"]);
+
+    act(() =>
+      document.querySelector<HTMLButtonElement>('button[aria-label="Remove Sort check"]')?.click(),
+    );
+    expect(stageNames()).toEqual(["Implement"]);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve));
+    });
+    const lastCheck = requests.filter(({ url }) => url.endsWith("/stages/check")).at(-1);
+    expect(lastCheck?.body).toMatchObject({
+      pipelineId: "sort-check",
+      stages: [{ key: "implement" }],
+    });
+
+    await act(async () => {
+      buttonNamed("Save for this Task")?.click();
+      await new Promise((resolve) => setTimeout(resolve));
+    });
+
+    expect(
+      requests.filter(({ method }) => method === "PUT").map(({ url, body }) => [url, body]),
+    ).toEqual([
+      [`/api/tasks/${TASK.id}/pipeline`, { pipelineId: "sort-check" }],
+      [`/api/tasks/${TASK.id}/stages`, { stages: [expect.objectContaining({ key: "implement" })] }],
+    ]);
+    expect(document.body.textContent).toContain(`${TASK.title} follows Full with sort check.`);
+    vi.unstubAllGlobals();
   });
 
   it("reads Not chosen yet in the head, never removed", () => {

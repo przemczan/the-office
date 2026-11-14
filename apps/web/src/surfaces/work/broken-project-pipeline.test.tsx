@@ -100,7 +100,7 @@ function rendered(content: ReactNode, { editedForTask = false } = {}): HTMLEleme
     pipelineQueries.taskStages(TASK.id).queryKey,
     stagesOfItsOwn(editedForTask),
   );
-  queryClient.setQueryData(pipelineQueries.stagesCheck(TASK.id, FULL.stages).queryKey, {
+  queryClient.setQueryData(pipelineQueries.stagesCheck(TASK.id, FULL.stages, FULL.id).queryKey, {
     problems: [],
   });
   queryClient.setQueryData(roleQueries.list().queryKey, [] as Role[]);

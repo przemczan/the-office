@@ -5806,7 +5806,7 @@ test(
         .click();
       const choosing = page.getByRole("dialog");
       await pickPipeline(choosing, "Pipeline", "Quick fix");
-      await choosing.getByRole("button", { name: "Choose", exact: true }).click();
+      await choosing.getByRole("button", { name: "Save for this Task" }).click();
       await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
       await expect(markReady).toBeEnabled();
       await markReady.click();

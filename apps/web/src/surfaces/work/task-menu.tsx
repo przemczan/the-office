@@ -6,12 +6,8 @@ import { changePriority, taskQueries } from "../../api/work.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import {
-  canBeArchived,
-  NOT_STARTED,
-  PRIORITY_ICONS,
-  PRIORITY_NAMES,
-} from "../../shell/work/work-words.ts";
+import { PriorityGlyph } from "../../shell/work/task-state-badge.tsx";
+import { canBeArchived, NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { MoveTaskDialog } from "./move-task-dialog.tsx";
@@ -71,7 +67,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
       ? [
           { heading: "Priority" },
           ...PRIORITIES.map((priority) => ({
-            icon: <Icon name={PRIORITY_ICONS[priority]} size={14} />,
+            icon: <PriorityGlyph priority={priority} size={14} />,
             label: (
               <span className="menu-choice">
                 {PRIORITY_NAMES[priority]}

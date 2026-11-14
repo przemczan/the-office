@@ -424,6 +424,10 @@
   gap: 6px;
 }
 
+.board-filter-initiative {
+  width: 13rem;
+}
+
 .board-filters-search {
   flex: 1;
   min-width: 220px;
@@ -617,6 +621,11 @@
   align-items: center;
   gap: 6px 10px;
   padding: 0 2px;
+}
+
+/* A press anywhere on the head folds it (board-group.tsx); a group shown alone stays plain. */
+.group-head.foldable {
+  cursor: pointer;
 }
 
 .group-head > .fold-button {
@@ -1011,11 +1020,6 @@
   display: inline-flex;
   gap: 4px;
   align-items: center;
-}
-
-.task-head-priority svg {
-  color: var(--accent);
-  fill: currentcolor;
 }
 
 /* The state and the Archived mark side by side, as one item of the line. */

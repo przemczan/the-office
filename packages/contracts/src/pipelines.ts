@@ -298,6 +298,15 @@ export const stageProblemSchema = z.object({
 export type StageProblem = z.infer<typeof stageProblemSchema>;
 
 /**
+ * POST /tasks/:id/stages/check: the Stages as the editor holds them, and `pipelineId`, the Pipeline
+ * the draft follows when it isn't the Task's own yet, as one chosen or swapped to before Save.
+ */
+export const stagesCheckRequestSchema = taskStagesEditSchema.extend({
+  pipelineId: z.string().min(1).optional(),
+});
+export type StagesCheckRequest = z.infer<typeof stagesCheckRequestSchema>;
+
+/**
  * POST /tasks/:id/stages/check: what saving the edited Stages would be refused for, so the editor
  * flags it before Save; empty when they can be saved.
  */

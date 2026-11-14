@@ -102,8 +102,8 @@ export const PRIORITY_NAMES: Readonly<Record<Priority, string>> = {
 
 export const PRIORITY_ICONS: Readonly<Record<Priority, string>> = {
   high: "chevrons-up",
-  normal: "minus",
-  low: "chevron-down",
+  normal: "equal",
+  low: "chevrons-down",
 };
 
 /**

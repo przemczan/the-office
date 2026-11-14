@@ -35,6 +35,13 @@ function aTask(state = "ready", pipelineId = "quick-fix"): string {
   return taskId;
 }
 
+/** A Task in Backlog whose Pipeline is not chosen yet. */
+function aTaskWithNoPipeline(): string {
+  const taskId = randomUUID();
+  pipelines.tasks.put(taskId, { state: "backlog", pipelineId: undefined });
+  return taskId;
+}
+
 function eventsOf<Event extends DomainEvent>(type: new (...args: never[]) => Event): Event[] {
   return pipelines.published.filter((event): event is Event => event instanceof type);
 }
@@ -133,6 +140,46 @@ describe("swapping the Pipeline before Start", () => {
       stages: builtIn("full"),
       editedForTask: false,
     });
+  });
+});
+
+describe("checking a draft against the Pipeline it follows", () => {
+  it("refuses a Task with no Pipeline when none is given, as before", async () => {
+    const taskId = aTaskWithNoPipeline();
+
+    expect(await refusalOf(service.check(taskId, quickFix))).toEqual([
+      "The Task has no Pipeline yet: choose one first.",
+    ]);
+  });
+
+  it("checks a Task with no Pipeline against the one chosen, saving nothing", async () => {
+    const [implement, ...rest] = quickFix;
+    if (implement?.kind !== "agent") throw new Error("Quick fix starts with an Agent Stage.");
+    pipelines.people.people.set("translator", aPerson());
+    pipelines.roleEngines.incapableRoles.add("translator");
+    const taskId = aTaskWithNoPipeline();
+
+    expect(await service.check(taskId, quickFix, "quick-fix")).toEqual([]);
+    expect(
+      await service.check(taskId, [{ ...implement, role: "translator" }, ...rest], "quick-fix"),
+    ).toEqual([{ text: "The translator's engine can't work an Agent Stage." }]);
+    expect(await service.progress(taskId)).toBeUndefined();
+  });
+
+  it("checks a swap against the new Pipeline, not the Stages edited for the old one", async () => {
+    const taskId = aTask();
+    await service.edit(taskId, withGate);
+
+    expect(await service.check(taskId, builtIn("full"), "full")).toEqual([]);
+    expect((await service.progress(taskId))?.editedForTask).toBe(true);
+  });
+
+  it("refuses a chosen Pipeline the Task's Project can't follow", async () => {
+    const taskId = aTaskWithNoPipeline();
+
+    await expect(service.check(taskId, quickFix, "no-such-pipeline")).rejects.toThrow(
+      'There is no Pipeline "no-such-pipeline"',
+    );
   });
 });
 

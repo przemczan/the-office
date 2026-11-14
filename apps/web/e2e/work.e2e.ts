@@ -724,10 +724,7 @@ test(
       .poll(() => titlesInGroup(page, "Backlog", "No Initiative"))
       .toEqual(["Grouped loose first"]);
 
-    await page
-      .getByRole("search", { name: "Filter the board" })
-      .getByRole("combobox", { name: "Initiative" })
-      .selectOption({ label: "Grouped display" });
+    await filterByInitiative(page, "Grouped display");
     await expect(groups).toHaveCount(1);
     // Alone, its group is always open, its name plain.
     await expect(
@@ -735,6 +732,14 @@ test(
     ).toBeVisible();
     await expect(displayFold).toHaveCount(0);
     await expect(layout.getByRole("button", { name: /Fold all|Unfold all/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Clear the Initiative filter" }).click();
+    await expect(page).not.toHaveURL(/initiative=/);
+    await expect(
+      page.getByRole("search", { name: "Filter the board" }).getByRole("combobox", {
+        name: "Initiative",
+      }),
+    ).toHaveValue("");
+    await expect(displayFold).toBeVisible();
 
     // Remembered in this browser: an address without `group` opens the board as last chosen.
     await page.goto("/work");
@@ -836,14 +841,24 @@ test(
     await expect.poll(() => titlesInBlock(radioBlock)).toEqual(reordered);
 
     // With the Initiative filter set, the columns are flat.
-    await page
-      .getByRole("search", { name: "Filter the board" })
-      .getByRole("combobox", { name: "Initiative" })
-      .selectOption({ label: "Block display" });
+    await filterByInitiative(page, "Block display");
     await expect(backlog.getByRole("article", { name: "Block display first" })).toBeVisible();
     await expect(page.locator(".board").getByRole("group")).toHaveCount(0);
   },
 );
+
+/** Types the Initiative's name in the board's Initiative filter and picks it among the matches. */
+async function filterByInitiative(page: Page, name: string): Promise<void> {
+  const filter = page
+    .getByRole("search", { name: "Filter the board" })
+    .getByRole("combobox", { name: "Initiative" });
+  await filter.fill(name);
+  await page
+    .getByRole("listbox", { name: "Initiative" })
+    .getByRole("option", { name, exact: true })
+    .click();
+  await expect(filter).toHaveValue(name);
+}
 
 /** A word no other test's records hold, so a search shows only this test's Initiatives. */
 function aWordOfItsOwn(): string {
@@ -1627,10 +1642,23 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   expect(listBox?.width).toBeGreaterThanOrEqual(fieldBox?.width ?? Infinity);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline-open.png") });
   await pipelines.getByRole("option", { name: "Quick fix", exact: true }).click();
+  // Its Stages show at once, to edit for this Task in the same window before Save.
+  const draftStages = choosing.getByRole("list", { name: "Stages" });
+  await expect(draftStages.getByRole("listitem")).toHaveCount(3);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline.png") });
-  await choosing.getByRole("button", { name: "Choose", exact: true }).click();
-  const quickFixRail = page.getByRole("region", { name: "Pipeline · Quick fix" });
-  await expect(quickFixRail.getByRole("list", { name: "Stages" })).toContainText("Implement");
+  // The edit is checked against the chosen Pipeline as it goes: nobody fills Developer here.
+  await draftStages.getByRole("button", { name: "Remove Tests" }).click();
+  await expect(draftStages.getByRole("listitem")).toHaveCount(2);
+  await expect(choosing.getByText("nobody fills Developer")).toBeVisible();
+  await expect(choosing.getByRole("button", { name: "Save for this Task" })).toBeDisabled();
+  await draftStages.getByRole("button", { name: "Remove Implement" }).click();
+  await expect(choosing.getByText("nobody fills Developer")).toHaveCount(0);
+  await choosing.getByRole("button", { name: "Save for this Task" }).click();
+  await expect(page.getByText("Export keeps the filters follows Quick fix.")).toBeVisible();
+  const quickFixRail = page.getByRole("region", { name: /^Pipeline · Quick fix/ });
+  const railStages = quickFixRail.getByRole("list", { name: "Stages" });
+  await expect(railStages.getByRole("listitem")).toHaveCount(1);
+  await expect(railStages).toContainText("Publish");
   await expect(page.locator(".task-head-meta")).toContainText("Pipeline Quick fix");
   await expect(readinessLine("Pipeline chosen")).toHaveClass(/task-checklist-met/);
 
@@ -3386,9 +3414,9 @@ test(
     await expect(pipelines.getByRole("group", { name: "Office-wide Pipelines" })).toBeVisible();
     // Forced, as Playwright waits for a disabled option to be enabled: clicking it chooses nothing.
     await brokenOption.click({ force: true });
-    await expect(choosing.getByRole("button", { name: "Choose", exact: true })).toBeDisabled();
+    await expect(choosing.getByRole("button", { name: "Save for this Task" })).toBeDisabled();
     await ownGroup.getByRole("option", { name: own.name, exact: true }).click();
-    await choosing.getByRole("button", { name: "Choose", exact: true }).click();
+    await choosing.getByRole("button", { name: "Save for this Task" }).click();
     await expect(page.getByRole("region", { name: `Pipeline · ${own.name}` })).toBeVisible();
 
     // Ready on it, then its base Pipeline's save breaks it: the rail flags it and Start refuses it.

@@ -1114,8 +1114,12 @@ body,
   color: var(--danger-fg);
 }
 
+.priority-icon.priority-normal {
+  color: var(--success-fg);
+}
+
 .priority-icon.priority-low {
-  color: var(--fg-3);
+  color: var(--info-fg);
 }
 
 .attachment-chips,
