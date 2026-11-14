@@ -2668,7 +2668,9 @@ test("Continue with notes at a Gate sends them on, and the Gate's run shows them
     state: "done",
     tokens: noTokens,
     wentBack: null,
-    runs: [{ ...aStageRun(1, at(0), at(5)), outcome: { ...gateReached, summary: "Two versions." } }],
+    runs: [
+      { ...aStageRun(1, at(0), at(5)), outcome: { ...gateReached, summary: "Two versions." } },
+    ],
   };
   const gateRun = { ...aStageRun(2, at(5), at(5)), outcome: gateReached };
   const notes = "The design is accepted: implement version B.";
