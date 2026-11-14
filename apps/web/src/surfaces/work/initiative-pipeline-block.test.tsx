@@ -215,10 +215,10 @@ function pickerOf(page: HTMLElement, projectName: string): HTMLButtonElement {
   return picker;
 }
 
-/** The picker's groups, each with its options' names, as it lists them open. */
+/** The picker's groups, each with its options' names, as it lists them open apart from the card. */
 function groupsOffered(page: HTMLElement, projectName: string): string[][] {
   act(() => pickerOf(page, projectName).click());
-  const groups = [...page.querySelectorAll('[role="listbox"] [role="group"]')].map((group) => [
+  const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map((group) => [
     group.querySelector(".grouped-select-group")?.textContent ?? "",
     ...[...group.querySelectorAll(".grouped-select-label")].map(({ textContent }) => textContent),
   ]);
@@ -226,8 +226,9 @@ function groupsOffered(page: HTMLElement, projectName: string): string[][] {
   return groups;
 }
 
-function optionNamed(page: HTMLElement, name: string): HTMLElement {
-  const option = [...page.querySelectorAll<HTMLElement>('[role="option"]')].find(
+/** An option of the open list, which lies apart from the card. */
+function optionNamed(name: string): HTMLElement {
+  const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
     (candidate) => candidate.querySelector(".grouped-select-label")?.textContent === name,
   );
   if (!option) throw new Error(`There is no option ${name}.`);
@@ -281,7 +282,7 @@ describe("the Initiative's Pipelines card", () => {
 
     act(() => pickerOf(page, "Admin panel").click());
     await act(async () => {
-      optionNamed(page, "Admin's reviewed").click();
+      optionNamed("Admin's reviewed").click();
       await new Promise((resolve) => setTimeout(resolve));
     });
 

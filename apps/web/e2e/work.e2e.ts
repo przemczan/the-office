@@ -1479,8 +1479,18 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await expect(readinessLine("Pipeline chosen")).toContainText("Choose a Pipeline on the rail");
   await rail.getByRole("button", { name: "Choose a Pipeline" }).click();
   const choosing = page.getByRole("dialog");
+  const choosingBody = choosing.locator(".dialog-body");
+  const bodyHeight = (): Promise<number> => choosingBody.evaluate((body) => body.scrollHeight);
+  const closedBodyHeight = await bodyHeight();
   const pipelines = await openPipelinePicker(choosing, "Pipeline");
   await expect(pipelines.getByRole("option").first()).toContainText("Project default");
+  // Its list opens over the window: whole, at least as wide as the field, the body not grown for it.
+  await expect(pipelines).toBeInViewport({ ratio: 1 });
+  expect(await bodyHeight()).toBe(closedBodyHeight);
+  const fieldBox = await choosing.getByRole("combobox", { name: "Pipeline" }).boundingBox();
+  const listBox = await pipelines.boundingBox();
+  expect(listBox?.width).toBeGreaterThanOrEqual(fieldBox?.width ?? Infinity);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline-open.png") });
   await pipelines.getByRole("option", { name: "Quick fix", exact: true }).click();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline.png") });
   await choosing.getByRole("button", { name: "Choose", exact: true }).click();

@@ -6,7 +6,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -17,7 +16,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Tooltip, useEscapeWaitsFor } from "./overlays.tsx";
-import { popoverPlace, type TooltipPlace } from "./tooltip-place.ts";
+import { usePlaceUnder } from "./place-under.ts";
 
 export interface PopoverProps {
   /** What the popover holds, named so by its trigger and itself. */
@@ -184,40 +183,6 @@ function PopoverBody({
     </div>,
     document.body,
   );
-}
-
-/** Under the trigger, placed again as the page scrolls or resizes; closed once it leaves the view. */
-function usePlaceUnder(
-  trigger: RefObject<HTMLElement | null>,
-  body: RefObject<HTMLElement | null>,
-  onClose: () => void,
-): TooltipPlace | undefined {
-  const [place, setPlace] = useState<TooltipPlace>();
-  useLayoutEffect(() => {
-    const [from, shown] = [trigger.current, body.current];
-    if (from === null || shown === null) return;
-    const placeIt = (): void => {
-      const { clientWidth: width, clientHeight: height } = document.documentElement;
-      const anchor = from.getBoundingClientRect();
-      if (anchor.bottom < 0 || anchor.top > height) {
-        onClose();
-        return;
-      }
-      setPlace(popoverPlace(anchor, shown.getBoundingClientRect(), { width, height }));
-    };
-    placeIt();
-    const resizing = new ResizeObserver(placeIt);
-    resizing.observe(shown);
-    // Scroll events don't bubble, so only the capture phase hears every scroller.
-    window.addEventListener("scroll", placeIt, { capture: true, passive: true });
-    window.addEventListener("resize", placeIt);
-    return () => {
-      resizing.disconnect();
-      window.removeEventListener("scroll", placeIt, { capture: true });
-      window.removeEventListener("resize", placeIt);
-    };
-  }, [trigger, body, onClose]);
-  return place;
 }
 
 /**

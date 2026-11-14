@@ -87,7 +87,8 @@ describe("the Default Pipeline block", () => {
     expect(picker?.textContent).toBe("Full with Linux check");
     act(() => picker?.click());
 
-    const groups = [...page.querySelectorAll('[role="group"]')].map((group) => [
+    // The list opens apart from the block.
+    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map((group) => [
       group.firstElementChild?.textContent,
       [...group.querySelectorAll('[role="option"]')].map(labelOf),
     ]);
@@ -95,8 +96,8 @@ describe("the Default Pipeline block", () => {
       ["the-office's Pipelines", ["Full with Linux check", "Spec change"]],
       ["Office-wide Pipelines", ["Full"]],
     ]);
-    expect(page.textContent).not.toContain("Project default");
-    const broken = [...page.querySelectorAll('[role="option"]')].find(
+    expect(document.body.textContent).not.toContain("Project default");
+    const broken = [...document.querySelectorAll('[role="listbox"] [role="option"]')].find(
       (option) => labelOf(option) === "Spec change",
     );
     expect(broken?.getAttribute("aria-disabled")).toBe("true");

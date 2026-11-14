@@ -1,9 +1,10 @@
 // A Select whose options come in named groups, each option with a second line and badges, and an
 // option that can't be chosen saying why (docs/spec/4.1-ui-rules.md: every disabled control says
 // why). A native `<select>` can't: its `optgroup` has no second line, and a disabled `option` says
-// why only on hover. So this is the select-only combobox pattern, a button over a list that opens
-// under it, drawn on the design system's tokens.
+// why only on hover. So this is the select-only combobox pattern, a button and a list that opens
+// under it, over everything, drawn on the design system's tokens.
 import {
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -12,8 +13,10 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import { Field } from "../../../design-system/components/forms/Input.jsx";
 import { useEscapeWaitsFor } from "./overlays.tsx";
+import { usePlaceUnder } from "./place-under.ts";
 
 export interface GroupedSelectOption {
   readonly value: string;
@@ -65,11 +68,10 @@ export function GroupedSelect({
   const field = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  // One for the field's life, as the list's placing and listeners depend on it.
+  const closeQuietly = useCallback(() => setOpen(false), []);
   useEscapeWaitsFor(open);
-  useClosedOnPressOutside(open, field, setOpen);
-  useEffect(() => {
-    if (open) list.current?.focus();
-  }, [open]);
+  useClosedOnPressOutside(open, field, list, closeQuietly);
 
   const optionId = (optionValue: string): string => `${id}-option-${optionValue}`;
 
@@ -127,7 +129,10 @@ export function GroupedSelect({
       event.preventDefault();
       close();
     } else if (event.key === "Tab") {
-      setOpen(false);
+      // The list lies apart from the field, so Tab goes on from the trigger, as it did before the
+      // list opened: forwards by the browser's own Tab, backwards to the trigger itself.
+      if (event.shiftKey) event.preventDefault();
+      close();
     }
   };
 
@@ -156,15 +161,14 @@ export function GroupedSelect({
         </svg>
       </button>
       {open && (
-        <div
-          ref={list}
+        <GroupedSelectList
           id={`${id}-list`}
-          className="grouped-select-list"
-          role="listbox"
-          aria-label={label}
-          tabIndex={-1}
-          aria-activedescendant={active === undefined ? undefined : optionId(active)}
+          list={list}
+          trigger={trigger}
+          label={label}
+          activeOptionId={active === undefined ? undefined : optionId(active)}
           onKeyDown={onListKeyDown}
+          onClose={closeQuietly}
         >
           {groups
             .filter((group) => group.options.length > 0)
@@ -186,7 +190,7 @@ export function GroupedSelect({
                 ))}
               </div>
             ))}
-        </div>
+        </GroupedSelectList>
       )}
     </div>
   );
@@ -250,18 +254,71 @@ function GroupedSelectRow({
   );
 }
 
-/** A press anywhere outside the field closes its list, as a native select's does. */
+/**
+ * The open list, on the window holding the field (so it stays inside the window for assistive
+ * technology), else on the body, and fixed: nothing around the field, such as a window's scrolling
+ * body or a card, clips it or grows a scrollbar for it. It follows the field as the page scrolls.
+ */
+function GroupedSelectList({
+  id,
+  list,
+  trigger,
+  label,
+  activeOptionId,
+  onKeyDown,
+  onClose,
+  children,
+}: {
+  readonly id: string;
+  readonly list: RefObject<HTMLDivElement | null>;
+  readonly trigger: RefObject<HTMLButtonElement | null>;
+  readonly label: string;
+  readonly activeOptionId: string | undefined;
+  readonly onKeyDown: (event: KeyboardEvent) => void;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+}): ReactNode {
+  const place = usePlaceUnder(trigger, list, onClose);
+  const placed = place !== undefined;
+  // Only once placed: a list still hidden can't take the focus.
+  useEffect(() => {
+    if (placed) list.current?.focus();
+  }, [placed, list]);
+  const holder = trigger.current?.closest('[aria-modal="true"]') ?? document.body;
+  const fieldWidth = trigger.current?.getBoundingClientRect().width;
+  return createPortal(
+    <div
+      ref={list}
+      id={id}
+      className="grouped-select-list"
+      role="listbox"
+      aria-label={label}
+      tabIndex={-1}
+      aria-activedescendant={activeOptionId}
+      style={{ minWidth: fieldWidth, ...(place ?? { visibility: "hidden" }) }}
+      onKeyDown={onKeyDown}
+    >
+      {children}
+    </div>,
+    holder,
+  );
+}
+
+/** A press anywhere outside the field and its list closes the list, as a native select's does. */
 function useClosedOnPressOutside(
   open: boolean,
   field: RefObject<HTMLElement | null>,
-  setOpen: (open: boolean) => void,
+  list: RefObject<HTMLElement | null>,
+  onClose: () => void,
 ): void {
   useEffect(() => {
     if (!open) return;
-    const closeOutside = (event: PointerEvent): void => {
-      if (!field.current?.contains(event.target as Node)) setOpen(false);
+    const closeOutside = ({ target }: PointerEvent): void => {
+      if (!(target instanceof Node)) return;
+      if (field.current?.contains(target) || list.current?.contains(target)) return;
+      onClose();
     };
     document.addEventListener("pointerdown", closeOutside);
     return () => document.removeEventListener("pointerdown", closeOutside);
-  }, [open, field, setOpen]);
+  }, [open, field, list, onClose]);
 }
