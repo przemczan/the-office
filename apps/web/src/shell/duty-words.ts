@@ -62,6 +62,13 @@ export function fallbackWords(key: DutyKey): string {
   return FALLBACK_WORDS[DUTY_WORDS[key].fallback];
 }
 
+/** The labels of the duties in `duties` that fall back on `fallback` while nobody holds them. */
+export function labelsFallingBackTo(fallback: DutyFallback, duties: readonly Duty[]): string[] {
+  return duties
+    .filter(({ key }) => DUTY_WORDS[key].fallback === fallback)
+    .map(({ label }) => label);
+}
+
 /** The Roles a duty may go to: hired, never the Caretaker, never someone let go. */
 export function holderOptions(
   roles: readonly Role[],

@@ -4,11 +4,18 @@ import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { useAskInChat } from "../../shell/chat/ask-in-chat.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { dutyLabels } from "../../shell/duty-words.ts";
+import { dutyLabels, labelsFallingBackTo } from "../../shell/duty-words.ts";
 import { CAPABILITIES, taskLimitShort } from "../../shell/role-card-words.ts";
 
 /** What the Caretaker's set-up Thread opens with, for the user to finish and send. */
 const SET_UP_DRAFT = "Help me set up The Office. I work on ";
+
+const LIST_WORDS = new Intl.ListFormat("en", { type: "conjunction" });
+
+/** "Implements and Reviews". */
+function inWords(labels: readonly string[]): string {
+  return LIST_WORDS.format(labels);
+}
 
 /**
  * People while nobody is hired (spec §2.2, "Setting up an Office with nobody hired"), in place of the
@@ -49,9 +56,10 @@ export function OfficeSetupHint({
         ))}
       </ul>
       <p className="office-setup-fallback">
-        While nobody holds a duty, you do it yourself, except Default person to talk to, which goes
-        to {caretakerName}, and Implements and Reviews, whose Pipelines can't start. A Role from
-        scratch can take any duty in <Link to="/settings/duties">Settings › Duties</Link>.
+        While nobody holds a duty, you do it yourself, except{" "}
+        {inWords(labelsFallingBackTo("caretaker", duties))}, which goes to {caretakerName}, and{" "}
+        {inWords(labelsFallingBackTo("unstaffed", duties))}, whose Pipelines can't start. A Role
+        from scratch can take any duty in <Link to="/settings/duties">Settings › Duties</Link>.
       </p>
       <div className="hire-tile-actions">
         {onHire && (

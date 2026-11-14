@@ -7,6 +7,7 @@ import {
   holderName,
   holderNameOf,
   holderOptions,
+  labelsFallingBackTo,
   letGoHolderWords,
   passedOverWords,
 } from "./duty-words.ts";
@@ -27,6 +28,18 @@ describe("the duty words", () => {
       "Pipelines whose Stages name it are flagged, and Start is refused.",
     );
     expect(fallbackWords("reviews")).toBe(fallbackWords("implements"));
+  });
+
+  it("names the duties that fall back the same way", () => {
+    const duties = [
+      dutyOf("default-person-to-talk-to", "Default person to talk to", null, null),
+      dutyOf("plans", "Plans", null, null),
+      dutyOf("implements", "Implements", null, null),
+      dutyOf("reviews", "Reviews", null, null),
+    ];
+    expect(labelsFallingBackTo("caretaker", duties)).toEqual(["Default person to talk to"]);
+    expect(labelsFallingBackTo("unstaffed", duties)).toEqual(["Implements", "Reviews"]);
+    expect(labelsFallingBackTo("user", duties)).toEqual(["Plans"]);
   });
 
   it("names a holder, or Nobody", () => {
