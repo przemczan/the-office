@@ -59,7 +59,9 @@ function ClientForm({ saved }: { readonly saved: GoogleClient | undefined }): Re
     onSuccess: async () => {
       setClientSecret("");
       await queryClient.invalidateQueries({ queryKey: GOOGLE_CLIENT });
-      showToast("The Google OAuth client was saved: Continue with Google is offered.");
+      showToast(
+        "The Google OAuth client was saved: Continue with Google is offered at localhost and the public address.",
+      );
     },
   });
   const secretSaved = saved?.secretSet === true;
@@ -157,7 +159,9 @@ function RemoveClientDialog({ onClose }: { readonly onClose: () => void }): Reac
   );
 }
 
-/** The redirect URIs the client must list: localhost's, where this page is, and the public address's. */
+/**
+ * The redirect URIs the client must list: this page's, at localhost, and the public address's.
+ */
 function RedirectUris(): ReactNode {
   const urls = useQuery(linkedIdentityQueries.callbackUrls("google"));
   const listed =

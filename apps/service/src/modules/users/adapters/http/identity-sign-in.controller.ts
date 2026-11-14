@@ -109,7 +109,8 @@ export class IdentitySignInController {
   /**
    * A page the browser navigates to, so every outcome redirects: signed in, to where the sign-in
    * page was to return, or first to the code page when the authenticator code is needed; linked,
-   * to the account; refused, to the sign-in page or the account with why. A link needs the signed-in device that started it, checked here as the guard skips this.
+   * to the account; refused, to the sign-in page or the account with why. A link needs the
+   * signed-in device that started it, checked here as the guard skips this.
    */
   private async returned(
     provider: IdentityProviderId,

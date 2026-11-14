@@ -72,8 +72,8 @@ export type SignInPage = z.infer<typeof signInPageSchema>;
 export const SIGN_IN_FAILED_PARAMETER = "signInFailed";
 
 /**
- * `POST /sign-in/github` and `POST /sign-in/google`: where the sign-in page returns to once signed in, as its `?returnTo=`
- * says; The Office keeps it only when it is a path of its own.
+ * `POST /sign-in/github` and `POST /sign-in/google`: where the sign-in page returns to once signed
+ * in, as its `?returnTo=` says; The Office keeps it only when it is a path of its own.
  */
 export const identitySignInSchema = z.object({ returnTo: z.string().optional() });
 export type IdentitySignIn = z.infer<typeof identitySignInSchema>;

@@ -29,8 +29,8 @@ export interface ProviderAnswer {
 /**
  * A provider a user links an identity of and signs in with (spec §2.10), by OAuth's authorization
  * code flow with PKCE. It only proves who the person is: whatever token it is handed is thrown
- * away. GitHub is bound to `GitHubIdentityProvider`; Google adds its own adapter and joins
- * `UsersModule.register`'s `identityProviders`.
+ * away. Each provider's adapter, such as `GitHubIdentityProvider` and `GoogleIdentityProvider`, is
+ * bound through `UsersModule.register`'s `identityProviders`.
  */
 export abstract class IdentityProvider {
   abstract readonly provider: IdentityProviderId;
