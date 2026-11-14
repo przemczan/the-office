@@ -266,7 +266,7 @@ export class PublishStage {
 
   /**
    * Ends a run whose before publishing line The Office stopped, nothing published: what the line
-   * left uncommitted is discarded after a shutdown and kept after the alarm, as for a Script Stage.
+   * left uncommitted is kept after a shutdown and after the alarm, as for a Script Stage.
    */
   private async stopped(
     { run, interruption }: StageWork<"script">,

@@ -1,5 +1,6 @@
 import {
   addressableStatements,
+  RESTARTS_ASKED_AT,
   statementList,
   type UnmetOutOfReach,
   type WalkQuestion,
@@ -42,7 +43,7 @@ const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more 
 /**
  * The Decision for what the walk asks (spec §2.3), The Office's: when a Stage fails with no
  * retries left or reaches its budget, the Pipeline ends with the Definition of Done not reported
- * met, The Office restarted during a Stage, or a conflict at Publish is left to the user. The Agent
+ * met, The Office restarted during a Stage too often, or a conflict at Publish is left to the user. The Agent
  * asks its own with an Office tool, never
  * through the walk. The user always may answer in their own words (`walkAnswerOf`).
  */
@@ -225,40 +226,32 @@ function afterPublishingFailedDecision(stage: Stage, error: string): WalkDecisio
   };
 }
 
-/** The run's error says what The Office discarded; words of the user's own go into the next run. */
+/**
+ * The `RESTARTS_ASKED_AT`th restart in a row during the Stage, which may be a crash loop, so The
+ * Office stops going on by itself (spec §2.4); words of the user's own go into the next run.
+ */
 function restartDecision(stage: Stage, { id, outcome }: StageRun): WalkDecision {
   if (outcome?.status !== "failed" || outcome.interrupted !== "restart") {
     throw new Error(`Stage run ${id} didn't end as The Office restarted.`);
   }
-  if (outcome.notStarted) return notStartedDecision(stage);
+  const times = RESTART_TIMES[RESTARTS_ASKED_AT] ?? `${RESTARTS_ASKED_AT} times`;
   return {
     kind: "restart",
     draft: {
-      question: `The Office restarted during "${stage.name}". Run it again?`,
-      context: `${outcome.error}\n\nThe Office never runs a Stage again by itself after a restart. Or answer in your own words: your answer goes with the Stage as it runs again.`,
+      question: `The Office restarted ${times} in a row during "${stage.name}". Run it again?`,
+      context: `${outcome.error}\n\nThe Office goes on by itself after a restart, but not after ${times} in a row during one Stage, in case the Stage itself makes it stop. Or answer in your own words: your answer goes with the Stage as it runs again.`,
       options: [`Run "${stage.name}" again`, DROP_THE_TASK],
       recommendation: {
         option: 0,
-        reason: "The Stage starts again from where the last Stage left the work.",
+        reason:
+          "The Stage goes on with the edits it kept, unless something keeps stopping The Office.",
       },
     },
     options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
   };
 }
 
-function notStartedDecision(stage: Stage): WalkDecision {
-  return {
-    kind: "restart",
-    draft: {
-      question: `The Office restarted before "${stage.name}". Start it?`,
-      context:
-        "The Office stopped between Stages, so nothing of this one ran. It never starts a Stage by itself after a restart. Or answer in your own words: your answer goes with the Stage as it starts.",
-      options: [`Start "${stage.name}"`, DROP_THE_TASK],
-      recommendation: { option: 0, reason: "The work goes on from where the last Stage left it." },
-    },
-    options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
-  };
-}
+const RESTART_TIMES: Readonly<Record<number, string>> = { 2: "twice", 3: "three times" };
 
 /**
  * A conflict at Publish the user decides about (spec §2.3, "Conflicts at Publish"): after Resolve

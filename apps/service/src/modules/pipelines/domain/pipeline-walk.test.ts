@@ -62,6 +62,11 @@ const outOfReach = (met: number[], ...statements: number[]): StageOutcome => ({
   definitionOfDoneOutOfReach: statements.map((statement) => ({ statement, why: "Live." })),
 });
 const failed = (error: string): StageOutcome => ({ status: "failed", error });
+const restarted: StageOutcome = {
+  status: "failed",
+  error: "The Office restarted during this Stage.",
+  interrupted: "restart",
+};
 const asks: StageOutcome = {
   status: "needs-decision",
   question: "Which page?",
@@ -224,12 +229,7 @@ describe("nextMove", () => {
     }
   });
 
-  it("waits on the Agent's Decision before asking to run again a Stage The Office restarted during", () => {
-    const restarted: StageOutcome = {
-      status: "failed",
-      error: "Restarted.",
-      interrupted: "restart",
-    };
+  it("waits on the Agent's Decision of a Stage The Office restarted during, then runs it again", () => {
     const waiting = runs(["write", restarted, decided("agent")]);
     const answered = runs([
       "write",
@@ -239,26 +239,39 @@ describe("nextMove", () => {
 
     expect(nextMove(stages, waiting, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
     expect(nextMove(stages, answered, NO_DEFINITION_OF_DONE)).toMatchObject({
-      move: "ask",
-      question: { kind: "restart" },
+      move: "run",
+      stage: { key: "write" },
     });
   });
 
-  it("asks before running again a Stage The Office restarted during, then runs it using no round, or drops the Task", () => {
-    const restarted: StageOutcome = {
-      status: "failed",
-      error: "The Office restarted during this Stage.",
-      interrupted: "restart",
-    };
+  it("runs a Stage The Office restarted during again by itself, using no round, with the failure it carried", () => {
     const carried = { stageKey: "check", error: "2 tests fail.", round: 1, rounds: 2 };
     const before: Ran[] = [
       ["write", done],
       ["check", failed("2 tests fail.")],
     ];
 
+    expect(
+      nextMove(
+        stages,
+        runs(...before, ["write", restarted], ["write", restarted]),
+        NO_DEFINITION_OF_DONE,
+      ),
+    ).toEqual({ move: "run", stage: stages[0], carriedFailure: carried });
+  });
+
+  it("asks at the third restart in a row during the Stage, then runs it using no round, or drops the Task", () => {
+    const carried = { stageKey: "check", error: "2 tests fail.", round: 1, rounds: 2 };
+    const before: Ran[] = [
+      ["write", done],
+      ["check", failed("2 tests fail.")],
+      ["write", restarted],
+      ["write", restarted],
+    ];
+
     expect(nextMove(stages, runs(...before, ["write", restarted]), NO_DEFINITION_OF_DONE)).toEqual({
       move: "ask",
-      run: expect.objectContaining({ id: "run-3" }),
+      run: expect.objectContaining({ id: "run-5" }),
       question: { kind: "restart", stage: stages[0] },
     });
     const waiting = runs(...before, ["write", restarted, decided("restart")]);
@@ -271,6 +284,44 @@ describe("nextMove", () => {
     expect(
       nextMove(stages, runs(...before, ["write", restarted, drop]), NO_DEFINITION_OF_DONE),
     ).toEqual({ move: "drop" });
+  });
+
+  it("counts restarts in a row only since the Stage last got past one, or the user answered one", () => {
+    const paused: StageOutcome = { status: "failed", error: "Paused.", interrupted: "pause" };
+    const answered = decided("restart", { kind: "one-more-round", guidance: undefined });
+
+    expect(
+      nextMove(
+        stages,
+        runs(["write", restarted], ["write", restarted], ["write", paused], ["write", restarted]),
+        NO_DEFINITION_OF_DONE,
+      ),
+    ).toMatchObject({ move: "run" });
+    expect(
+      nextMove(
+        stages,
+        runs(
+          ["write", restarted],
+          ["write", restarted],
+          ["write", restarted, answered],
+          ["write", restarted],
+          ["write", restarted],
+        ),
+        NO_DEFINITION_OF_DONE,
+      ),
+    ).toMatchObject({ move: "run" });
+    expect(
+      nextMove(
+        stages,
+        runs(
+          ["write", restarted, answered],
+          ["write", restarted],
+          ["write", restarted],
+          ["write", restarted],
+        ),
+        NO_DEFINITION_OF_DONE,
+      ),
+    ).toMatchObject({ move: "ask", question: { kind: "restart" } });
   });
 
   it("asks of a conflict at Publish asked about before Resolve, or with no Agent Stage to resolve it, then runs it again, continues or drops", () => {

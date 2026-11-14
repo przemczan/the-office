@@ -255,7 +255,7 @@ function interruptionWords(
 const INTERRUPTION_WORDS: Readonly<Record<Exclude<StageInterruption, "stop" | "pause">, string>> = {
   alarm: "held by the fire alarm",
   "usage-window": "paused as the engine's usage window was used up",
-  restart: "ended as The Office restarted",
+  restart: "cut short as The Office restarted, its edits kept for the Stage to go on with",
 };
 
 function failedWhy(outcome: Extract<StageOutcome, { status: "failed" }>): string {

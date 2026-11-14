@@ -145,9 +145,9 @@ describe("resumeWords", () => {
     expect(resumeWords(heldWork({ decisionOpen: true })).label).toBe("Resume · after your answer");
   });
 
-  it("asks before running a Stage The Office restarted during", () => {
+  it("goes on in the Thread of a Stage The Office restarted during, which no longer asks", () => {
     expect(resumeWords(heldWork({ latestRun: held("restart") })).label).toBe(
-      "Resume · asks before running it again",
+      "Resume · continues Ada's session",
     );
   });
 

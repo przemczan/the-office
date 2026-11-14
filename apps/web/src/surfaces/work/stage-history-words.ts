@@ -116,6 +116,8 @@ export function runBadge(
       ) {
         return { words: STAGE_STATE_WORDS.paused, tone: "warning" };
       }
+      // No failure: the Stage went on with its edits (spec 2.4).
+      if (outcome.interrupted === "restart") return { words: "Restarted", tone: "warning" };
       // The work shipped; only the Project's after publishing line failed.
       if (outcome.afterPublishingFailed) {
         return { words: "Published; after publishing failed", tone: "warning" };

@@ -93,8 +93,9 @@ function stateOf(stage: Stage, { outcome, decisions, gateAction }: StageRun): St
 }
 
 /**
- * A restart stays a failure: The Office, not the user, ended the run. The fire alarm holds a run
- * as a Pause does.
+ * A restart holds nothing: its Stage runs again at once, or waits on the user's Decision after
+ * restarts in a row, so a restarted run left last shows as failed. The fire alarm holds a run as a
+ * Pause does.
  */
 function heldState(interrupted: StageInterruption | undefined): StageState | undefined {
   if (interrupted === "pause" || interrupted === "alarm" || interrupted === "usage-window") {

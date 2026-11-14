@@ -159,7 +159,8 @@ export interface StagePipeline {
 
 /**
  * The Stage's last run, interrupted: held by the user, who resumed the Task, or ended by The Office
- * restarting, which the user answered by running it again, maybe in their own words.
+ * restarting, after which it goes on by itself, or as the user answered after restarts in a row,
+ * maybe in their own words.
  */
 export interface HeldRun {
   readonly by: StageInterruption;
@@ -289,7 +290,7 @@ The user sounded the fire alarm while this Stage ran, which held it after your l
 Your engine refused your last turn because a usage window of its account was used up, so The Office paused this Stage until the window reset, and has resumed it now. Your edits are in the worktree as you left them.`,
   restart: `## The Office restarted
 
-The Office restarted while this Stage ran, which ended your session at once, and the user chose to run the Stage again. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
+The Office restarted while this Stage ran, which cut your last turn short, and the Stage goes on now. The Stage's uncommitted edits are still in the worktree, but the cut may have left one half-done, such as a file half-written: check \`git status\` and \`git diff\` first, then go on with the Stage's work from there, and end with its result.`,
 };
 
 /** What cut the Agent's last turn short: The Office restarting, or the fire alarm's hard stop. */

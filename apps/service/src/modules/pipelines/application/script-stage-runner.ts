@@ -111,7 +111,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
   /**
    * Ends a run whose commands The Office stopped, as it does when shutting down or for the fire
    * alarm: interrupted, not failed by what the stopped command printed, and with what it left
-   * uncommitted discarded after a shutdown, kept for the Stage's run again after the alarm.
+   * uncommitted kept for the Stage's run again, which runs its commands from the start.
    */
   private async stopped(
     { run, interruption }: StageWork<"script">,

@@ -37,7 +37,7 @@ describe("StageRunInterruption", () => {
     expect([interruption.requested, interruption.cutShortBy]).toEqual(["alarm", "restart"]);
   });
 
-  it("stops the Project commands on a restart, which outranks a Stop without a second interrupt", () => {
+  it("stops the Project commands on a restart, and keeps the user's Stop, which discards the edits, over it", () => {
     const interruption = new StageRunInterruption();
     const stopped: string[] = [];
     interruption.onNow(() => stopped.push("now"));
@@ -48,7 +48,7 @@ describe("StageRunInterruption", () => {
     interruption.request("restart");
     interruption.request("stop");
     expect([interruption.requested, interruption.commandsSignal.aborted, stopped]).toEqual([
-      "restart",
+      "stop",
       true,
       ["now"],
     ]);

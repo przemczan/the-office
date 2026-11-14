@@ -259,14 +259,14 @@ describe("agentStageWork", () => {
     );
   });
 
-  it("tells a Stage run again after a restart that its edits are gone, with the user's words", () => {
+  it("tells a Stage going on after a restart that its last turn was cut short and its edits kept, to check them first, with the user's words", () => {
     const work = agentStageWork(
       { key: "implement", name: "Implement", brief: "Build it." },
       { held: { by: "restart", guidance: "Skip the dialog's tests." } },
     );
 
     expect(work).toBe(
-      "## The Stage: Implement\n\nBuild it.\n\n## The Office restarted\n\nThe Office restarted while this Stage ran, which ended your session at once, and the user chose to run the Stage again. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.\n\nThe user's words for it:\n\nSkip the dialog's tests.",
+      "## The Stage: Implement\n\nBuild it.\n\n## The Office restarted\n\nThe Office restarted while this Stage ran, which cut your last turn short, and the Stage goes on now. The Stage's uncommitted edits are still in the worktree, but the cut may have left one half-done, such as a file half-written: check `git status` and `git diff` first, then go on with the Stage's work from there, and end with its result.\n\nThe user's words for it:\n\nSkip the dialog's tests.",
     );
   });
 });

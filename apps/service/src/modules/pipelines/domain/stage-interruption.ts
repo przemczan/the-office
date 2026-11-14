@@ -1,11 +1,13 @@
 import type { HoldingUser, RefusedTurn, StageInterruption, StageOutcome } from "./stage-run.js";
 
 interface InterruptionRule {
-  /**
-   * Whether it stops the Agent's running turn now and discards the Stage's uncommitted edits, or
-   * waits for the turn to end and keeps them for the Stage to go on with.
-   */
+  /** Whether it stops the Agent's running turn now, or waits for the turn to end. */
   readonly actsNow: boolean;
+  /**
+   * Whether it discards the Stage's uncommitted edits, or keeps them for the Stage to go on with.
+   * Only the user's Stop discards them (spec §5.5).
+   */
+  readonly discardsEdits: boolean;
   /**
    * Whether it stops a Project command running for the Stage too. The user's Stop doesn't: the
    * command runs to its end (the user's answer of 2026-10-26); The Office shutting down can't wait.
@@ -15,17 +17,21 @@ interface InterruptionRule {
 
 /** The one interrupted-run rule (spec §2.4), by kind. */
 const RULES: Readonly<Record<StageInterruption, InterruptionRule>> = {
-  pause: { actsNow: false, stopsCommands: false },
+  pause: { actsNow: false, discardsEdits: false, stopsCommands: false },
   // The refused turn has ended already: the run is held as it stands, its commands left to end.
-  "usage-window": { actsNow: false, stopsCommands: false },
+  "usage-window": { actsNow: false, discardsEdits: false, stopsCommands: false },
   // A Script Stage stops at once; an Agent's turn goes on to its safe point (spec §2.8).
-  alarm: { actsNow: false, stopsCommands: true },
-  stop: { actsNow: true, stopsCommands: false },
-  restart: { actsNow: true, stopsCommands: true },
+  alarm: { actsNow: false, discardsEdits: false, stopsCommands: true },
+  // The Office shutting down can't wait for the turn, but the Stage goes on with its edits.
+  restart: { actsNow: true, discardsEdits: false, stopsCommands: true },
+  stop: { actsNow: true, discardsEdits: true, stopsCommands: false },
 };
 
-/** Weakest first: each asks more of a run than those before it. */
-const RANKS: readonly StageInterruption[] = ["pause", "usage-window", "alarm", "stop", "restart"];
+/**
+ * Weakest first: each asks more of a run than those before it. The user's Stop outranks a restart,
+ * so a run they stopped still has its edits discarded as The Office shuts down.
+ */
+const RANKS: readonly StageInterruption[] = ["pause", "usage-window", "alarm", "restart", "stop"];
 
 /**
  * What cut a held run's Agent turn short, before it ended by itself: The Office shutting down, or
@@ -35,6 +41,10 @@ export type CutShortBy = "restart" | "alarm";
 
 export function actsNow(interruption: StageInterruption): boolean {
   return RULES[interruption].actsNow;
+}
+
+export function discardsEdits(interruption: StageInterruption): boolean {
+  return RULES[interruption].discardsEdits;
 }
 
 export function stopsCommands(interruption: StageInterruption): boolean {
@@ -57,25 +67,9 @@ export function outranks(
   return asked === undefined || RANKS.indexOf(interruption) > RANKS.indexOf(asked);
 }
 
-/** The first words of a run The Office restarted during, which the user reads in its Decision. */
-export const RESTARTED = "The Office restarted during this Stage.";
-
-/**
- * The run The Office records for the Stage it would start next, having restarted between Stages
- * (spec §2.4): never started, so nothing to discard, and asked about as a restart is.
- */
-export function notStartedOutcome(): StageOutcome {
-  return {
-    status: "failed",
-    error: "The Office restarted before this Stage started.",
-    interrupted: "restart",
-    notStarted: true,
-  };
-}
-
 /**
  * How an interrupted run ends: failed, marked so the walk doesn't count a failure (spec §2.4,
- * §5.5). A Stop or a restart names what The Office discarded; a Pause or the fire alarm keeps the
+ * §5.5). A Stop names what The Office discarded; a Pause, the fire alarm or a restart keeps the
  * worktree as the Agent left it, even once its turn was cut short. A Pause or a Stop names the
  * user who asked for it, `heldByUser`, when known.
  */
@@ -174,7 +168,7 @@ function errorOf(
     case "alarm":
       return "Held by the fire alarm. The Stage's uncommitted edits stay in the worktree for it to go on with after the all clear.";
     case "restart":
-      return `${RESTARTED} ${discardedWords(discardedPaths.length)}`;
+      return "The Office restarted during this Stage, which cut it short. Its uncommitted edits stay in the worktree, and the Stage goes on with them by itself.";
     case "usage-window":
       return "Paused as the engine's usage window was used up. The Stage's uncommitted edits stay in the worktree for it to go on with once the window resets.";
   }
@@ -189,7 +183,7 @@ function discardedWords(count: number): string {
 /**
  * The line a Stage's work in its Thread closes with: that the user held it with Pause or Stop, the
  * fire alarm did, or a used-up usage window, which is no failure (spec §2.3, §2.4, §2.8), or why it
- * failed. A restart is a failure: The Office ended it.
+ * failed. A restart closes as The Office ending the work, though the walk counts no failure for it.
  */
 export type StageWorkClosing =
   | { readonly kind: "failure"; readonly reason: string }

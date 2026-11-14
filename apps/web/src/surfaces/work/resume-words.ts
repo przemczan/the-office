@@ -52,12 +52,6 @@ export function resumeWords({
       hint: `The Stage runs again in its Thread: ${contextLabel(thread.context, personName)}.`,
     };
   }
-  if (latestRun?.outcome?.status === "failed" && latestRun.outcome.interrupted === "restart") {
-    return {
-      label: "Resume · asks before running it again",
-      hint: "The Office restarted during the Stage, so it asks you before the Stage runs again.",
-    };
-  }
   return { label: "Resume", hint: "The Pipeline goes on from where you paused it." };
 }
 
@@ -66,7 +60,10 @@ function beginsAnew({ outcome }: StageRun): boolean {
   return outcome?.status === "failed" && outcome.refusedTurn?.sessionLeft === false;
 }
 
-/** A run still ending its turn, or one the user held, goes on in its Stage Thread. */
+/**
+ * A run still ending its turn, one the user held, or one The Office restarted during goes on in its
+ * Stage Thread.
+ */
 function goesOnInItsThread({ threadId, outcome }: StageRun): boolean {
   if (threadId === null) return false;
   if (!outcome) return true;
@@ -74,7 +71,8 @@ function goesOnInItsThread({ threadId, outcome }: StageRun): boolean {
     outcome.status === "failed" &&
     (outcome.interrupted === "pause" ||
       outcome.interrupted === "stop" ||
-      outcome.interrupted === "usage-window")
+      outcome.interrupted === "usage-window" ||
+      outcome.interrupted === "restart")
   );
 }
 

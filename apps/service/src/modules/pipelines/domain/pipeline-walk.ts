@@ -29,7 +29,10 @@ export type WalkQuestion =
   | { readonly kind: "no-retries-left"; readonly stage: Stage; readonly error: string }
   /** The Task's tokens reached the Stage's budget before an engine call. */
   | { readonly kind: "budget"; readonly stage: Stage; readonly reached: BudgetReached }
-  /** The Office restarted during the Stage: it never runs again unless the user says so. */
+  /**
+   * The Office restarted during the Stage `RESTARTS_ASKED_AT` times in a row: it runs again only
+   * once the user says so.
+   */
   | { readonly kind: "restart"; readonly stage: Stage }
   /**
    * Resolve gave up on a conflict at Publish, or left it to the user as it came back too often;
@@ -105,6 +108,12 @@ interface Walk {
   /** Rounds the user allowed beyond each loop's own, by the same key. */
   readonly roundsAdded: Map<string, number>;
 }
+
+/**
+ * The restart in a row during one Stage that asks the user before it runs again, rather than going
+ * on by itself, so a crash loop stops (spec §2.4).
+ */
+export const RESTARTS_ASKED_AT = 3;
 
 /** The key the Definition of Done check's own rounds count under: no Stage's key has a space. */
 const DEFINITION_OF_DONE_ROUNDS = "definition of done";
@@ -242,7 +251,7 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
     case "failed":
       // A held run keeps the Decision its Agent opened: nothing runs until the user answers it.
       if (outcome.interrupted && waitsOnItsAgent(run)) return { move: "wait", run };
-      if (outcome.interrupted === "restart") return afterRestart(run, stage);
+      if (outcome.interrupted === "restart") return afterRestart(walk, run, stage);
       // Held by the user: the walk stays at the Stage, with the failure it carried, using no round.
       if (outcome.interrupted) return undefined;
       if (outcome.branchMoved) return afterBranchMoved(walk, run, stage, outcome.error);
@@ -352,10 +361,16 @@ function afterBudget(
 }
 
 /**
- * The Office restarted during the run, which always asks the user (spec §2.4): run again, it stays
- * at the Stage as a run the user held does, with the failure it carried and using no round.
+ * The Office restarted during the run (spec §2.4): the walk stays at the Stage as for a run the user
+ * held, with the failure it carried and using no round, so the Stage goes on by itself. The
+ * `RESTARTS_ASKED_AT`th restart in a row during the Stage asks the user instead, against a crash
+ * loop: run again, and it goes on the same way.
  */
-function afterRestart(run: StageRun, stage: Stage): StoppingMove | undefined {
+function afterRestart(walk: Walk, run: StageRun, stage: Stage): StoppingMove | undefined {
+  // A run asked about keeps its Decision, as do those asked about before restarts went on.
+  if (!decisionOf(run, "restart") && restartsInARow(walk.replayed) < RESTARTS_ASKED_AT) {
+    return undefined;
+  }
   const waiting = waitingOn(run, "restart", { kind: "restart", stage });
   if (waiting) return waiting;
   const answer = answerOf(run, "restart");
@@ -367,6 +382,21 @@ function afterRestart(run: StageRun, stage: Stage): StoppingMove | undefined {
     default:
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a restart.`);
   }
+}
+
+/**
+ * The restarts in a row the replayed runs end with, the last one's included: every run since the
+ * Stage last got past a restart (a run ending any other way) or the user answered one.
+ */
+function restartsInARow(replayed: readonly StageRun[]): number {
+  let restarts = 0;
+  for (const run of replayed.toReversed()) {
+    const { outcome } = run;
+    if (outcome?.status !== "failed" || outcome.interrupted !== "restart") break;
+    if (restarts > 0 && decisionOf(run, "restart")?.answer) break;
+    restarts += 1;
+  }
+  return restarts;
 }
 
 /**

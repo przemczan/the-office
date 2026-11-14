@@ -23,6 +23,7 @@ import {
   review,
   tests,
   RESTART_QUESTION,
+  RESTARTED,
   open,
   start,
   close,
@@ -101,11 +102,7 @@ describe("Shutting down during a Stage", () => {
 
     const after = await start();
     const [run, ...more] = await runsOf(after, taskId);
-    expect(run?.outcome).toEqual({
-      status: "failed",
-      error: "The Office restarted during this Stage. The Stage had left no uncommitted edits.",
-      interrupted: "restart",
-    });
+    expect(run?.outcome).toEqual({ status: "failed", error: RESTARTED, interrupted: "restart" });
     expect(run?.commandRuns).toEqual([
       expect.objectContaining({ commandLine: "npm run test", outcome: "stopped" }),
     ]);
@@ -136,7 +133,7 @@ describe("Shutting down during a Stage", () => {
 });
 
 describe("Starting with a run left running", () => {
-  it("keeps the Decision its Agent had opened: the walk waits on it before asking to run the Stage again, whose next run takes its answer", async () => {
+  it("keeps the Decision its Agent had opened: the walk waits on it, then runs the Stage again with its answer", async () => {
     const pipelines = await start([anAgentSession(aDoneResult()), anAgentSession(aDoneResult())]);
     const threadId = randomUUID();
     const taskId = await aRunLeftRunning(pipelines, [implement, review], threadId);
@@ -155,27 +152,24 @@ describe("Starting with a run left running", () => {
 
     await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
 
-    expect(pipelines.decisions.on(taskId).map(({ draft }) => draft.question)).toEqual([
-      RESTART_QUESTION,
-    ]);
-    expect(pipelines.engine.sessions).toEqual([]);
-
-    await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
-
+    expect(pipelines.decisions.on(taskId)).toEqual([]);
     expect(pipelines.stageThreads.requests[0]?.work).toContain(
       "You asked the user: Which page?\n\nTheir answer: The device page",
     );
   });
 
-  it("drops the Task when the user answers so", async () => {
+  it("drops the Task when the user answers so at the third restart in a row", async () => {
     const pipelines = await start();
-    const taskId = await aRunLeftRunning(pipelines, [implement]);
+    const taskId = await aRunLeftRunning(pipelines, [implement], undefined, 2);
     await startUp(pipelines, taskId, "in-progress");
+    expect(pipelines.decisions.on(taskId).map(({ draft }) => draft.question)).toEqual([
+      RESTART_QUESTION,
+    ]);
 
     await answerLastDecision(pipelines, taskId, { kind: "option", option: 1 });
 
     expect((await pipelines.tasks.read(taskId)).state).toBe("dropped");
-    expect(await runsOf(pipelines, taskId)).toHaveLength(1);
+    expect(await runsOf(pipelines, taskId)).toHaveLength(3);
     expect(pipelines.engine.sessions).toEqual([]);
   });
 
@@ -252,4 +246,25 @@ describe("Starting with a run left running", () => {
     expect(pipelines.git.discarded).toEqual([]);
     expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
   });
+  it.each(["alarm", "usage-window"] as const)(
+    "holds the run of a Task paused by the %s as it was, its edits kept, and starts nothing",
+    async (pausedBy) => {
+      const pipelines = await start();
+      const taskId = await aRunLeftRunning(pipelines, [implement], randomUUID());
+      pipelines.git.uncommitted.set(taskId, ["src/dialog.ts"]);
+      pipelines.tasks.put(taskId, { state: "paused", pipelineId: "for-tests", pausedBy });
+      const interpreter = pipelines.app.get(StageInterpreter, { strict: false });
+
+      await interpreter.onApplicationBootstrap();
+      await interpreter.walked(taskId);
+
+      expect(await outcomesOf(pipelines, taskId)).toEqual([
+        expect.objectContaining({ interrupted: pausedBy, cutShort: true }),
+      ]);
+      expect(pipelines.git.discarded).toEqual([]);
+      expect(pipelines.decisions.on(taskId)).toEqual([]);
+      expect(pipelines.engine.sessions).toEqual([]);
+      expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
+    },
+  );
 });

@@ -48,6 +48,8 @@ export class StageRunInterruption {
 
   /** `user` asked for it, for the user's Pause or Stop. */
   request(interruption: StageInterruption, user?: HoldingUser): void {
+    // Even one that doesn't replace what was asked: a shutdown after the user's Stop can't wait.
+    if (stopsCommands(interruption)) this.commandsStop.abort();
     if (!outranks(interruption, this.asked)) return;
     const wasNow = this.now;
     if (interruption === "restart" && waitsForTheTurn(this.asked)) this.cutBy = "restart";
@@ -55,7 +57,6 @@ export class StageRunInterruption {
       this.asked = interruption;
       this.askedBy = user;
     }
-    if (stopsCommands(interruption)) this.commandsStop.abort();
     if (!wasNow && this.now) this.tellNow();
   }
 

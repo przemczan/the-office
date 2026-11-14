@@ -7,7 +7,8 @@ import {
   type PipelinesApplication,
 } from "./pipelines-application.fixtures.js";
 import type { Stage } from "./domain/stage.js";
-import { startStageRun } from "./domain/stage-run-changes.js";
+import { interruptedOutcome } from "./domain/stage-interruption.js";
+import { endStageRun, startStageRun } from "./domain/stage-run-changes.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
 import { TaskStagesRepository } from "./ports/task-stages-repository.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
@@ -24,7 +25,12 @@ export const tests: Stage = {
   command: "test",
 };
 
-export const RESTART_QUESTION = 'The Office restarted during "Implement". Run it again?';
+export const RESTART_QUESTION =
+  'The Office restarted three times in a row during "Implement". Run it again?';
+
+/** The error of a run The Office restarted during. */
+export const RESTARTED =
+  "The Office restarted during this Stage, which cut it short. Its uncommitted edits stay in the worktree, and the Stage goes on with them by itself.";
 
 export const open = new Set<PipelinesApplication>();
 
@@ -54,12 +60,14 @@ export async function startUp(
 
 /**
  * A Task following `stages` whose first Stage's run is still running, as a crash leaves it, in
- * the Stage Thread `threadId` when it has one.
+ * the Stage Thread `threadId` when it has one, after `restartsBefore` runs of the Stage The Office
+ * restarted during.
  */
 export async function aRunLeftRunning(
   { app }: PipelinesApplication,
   stages: readonly Stage[],
   threadId?: string,
+  restartsBefore = 0,
 ): Promise<string> {
   const taskId = randomUUID();
   await app.get(TaskStagesRepository, { strict: false }).save({
@@ -70,18 +78,25 @@ export async function aRunLeftRunning(
     editedForTask: false,
     trace: undefined,
   });
-  const { run } = startStageRun(
-    {
-      id: randomUUID(),
-      taskId,
-      stageKey: stages[0]?.key ?? "",
-      carriedFailure: undefined,
-      sentBack: undefined,
-    },
-    0,
-    new Date(),
-  );
   const runs = app.get(StageRunRepository, { strict: false });
+  const startRun = (number: number) =>
+    startStageRun(
+      {
+        id: randomUUID(),
+        taskId,
+        stageKey: stages[0]?.key ?? "",
+        carriedFailure: undefined,
+        sentBack: undefined,
+      },
+      number,
+      new Date(),
+    ).run;
+  for (let number = 0; number < restartsBefore; number += 1) {
+    const restarted = startRun(number);
+    await runs.saveNew(restarted);
+    await runs.saveEnded(endStageRun(restarted, interruptedOutcome("restart", []), new Date()).run);
+  }
+  const run = startRun(restartsBefore);
   await runs.saveNew(run);
   if (threadId) {
     await runs.saveThread(run.id, {

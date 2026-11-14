@@ -8,7 +8,7 @@ import {
   type ExpectedHead,
 } from "../domain/stage-commit.js";
 import { baseWords } from "../domain/base-words.js";
-import { actsNow } from "../domain/stage-interruption.js";
+import { discardsEdits } from "../domain/stage-interruption.js";
 import type { StageInterruption, StageOutcome, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskGit } from "../ports/task-git.js";
@@ -142,7 +142,7 @@ export class StageGit {
 
   /**
    * Ends an interrupted run's edits as the interruption says, committing nothing: discarded after
-   * one that acts now, kept after a Pause. Returns the discarded paths.
+   * the user's Stop, kept after a Pause, the fire alarm or a restart. Returns the discarded paths.
    */
   async settleInterrupted(
     run: StageRun,
@@ -150,7 +150,7 @@ export class StageGit {
     expected: ExpectedHead,
     interruption: StageInterruption,
   ): Promise<readonly string[]> {
-    if (actsNow(interruption)) return this.discard(run, task, expected);
+    if (discardsEdits(interruption)) return this.discard(run, task, expected);
     await this.leaveAt(run, expected);
     return [];
   }

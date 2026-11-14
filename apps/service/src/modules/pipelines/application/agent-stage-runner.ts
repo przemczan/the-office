@@ -119,8 +119,9 @@ type ResultReading =
  * ends the session with what it left running, checks git is where it left it, and commits the
  * Stage's work (spec §5.5); a Resolve Stage's merge is The Office's around the Agent's turn
  * (`ResolveStageGit`). An interrupted run (spec §2.4) ends its session uncommitted instead:
- * a Stop, or The Office shutting down, stops the running turn now and discards the Stage's
- * uncommitted edits; a Pause waits for the turn to end and keeps them for the Stage to go on with.
+ * a Stop stops the running turn now and discards the Stage's uncommitted edits; The Office
+ * shutting down stops it now too but keeps them, and a Pause waits for the turn to end and keeps
+ * them, for the Stage to go on with.
  * A turn the engine refuses for a used-up usage window, its first or the correction, holds the run
  * as a Pause does (spec 2.3): no correction follows, the Task is paused until the window resets,
  * and the Stage is sent the refused message again as it resumes.
@@ -281,9 +282,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   }
 
   /**
-   * Ends an interrupted run, committing nothing: after a Stop or a restart what it left
-   * uncommitted is discarded, so the Stage runs again from where it began; after a Pause it stays,
-   * for the Stage to go on with, even when a shutdown cut its turn short. A Stage that changed git
+   * Ends an interrupted run, committing nothing: after a Stop what it left uncommitted is
+   * discarded, so the Stage runs again from where it began; after a Pause, the fire alarm or a
+   * restart it stays, for the Stage to go on with, even when a shutdown cut its turn short. A Stage that changed git
    * itself fails as it would have, its work left for the user to see.
    */
   private async holdWork(

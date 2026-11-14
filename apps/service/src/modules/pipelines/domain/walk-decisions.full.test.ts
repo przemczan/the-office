@@ -77,9 +77,9 @@ describe("walkDecision", () => {
     expect(decision.options[1]).toEqual({ kind: "mark-done" });
   });
 
-  it("asks whether to run again a Stage The Office restarted during, or drop the Task", () => {
+  it("asks whether to run again a Stage The Office restarted during three times in a row, saying so, or drop the Task", () => {
     const error =
-      "The Office restarted during this Stage. The Office discarded the Stage's uncommitted edits to 1 file.";
+      "The Office restarted during this Stage, which cut it short. Its uncommitted edits stay in the worktree, and the Stage goes on with them by itself.";
     const restarted = aRun("implement", { status: "failed", error, interrupted: "restart" });
 
     const decision = walkDecision(restarted, { kind: "restart", stage: implement });
@@ -87,13 +87,16 @@ describe("walkDecision", () => {
     expect(decision).toMatchObject({
       kind: "restart",
       draft: {
-        question: 'The Office restarted during "Implement". Run it again?',
+        question: 'The Office restarted three times in a row during "Implement". Run it again?',
         options: ['Run "Implement" again', "Drop the Task"],
         recommendation: { option: 0 },
       },
       options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
     });
     expect(decision.draft.context).toContain(error);
+    expect(decision.draft.context).toContain(
+      "The Office goes on by itself after a restart, but not after three times in a row during one Stage",
+    );
     const ownWords = { kind: "free-answer", text: " Keep the dialog small. " } as const;
     expect(walkAnswerOf({ id: "d-1", ...decision, answer: undefined }, ownWords)).toEqual({
       kind: "one-more-round",

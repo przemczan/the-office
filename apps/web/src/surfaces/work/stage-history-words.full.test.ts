@@ -188,8 +188,8 @@ describe("runBadge", () => {
       "Paused",
     );
     expect(runBadge(aRun({ outcome: failed({ interrupted: "restart" }) }), "failed")).toEqual({
-      words: "Failed",
-      tone: "danger",
+      words: "Restarted",
+      tone: "warning",
     });
   });
 

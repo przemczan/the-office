@@ -25,12 +25,7 @@ import {
 import { StaffingHolds } from "./staffing-holds.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
-import {
-  closingOf,
-  interruptedOutcome,
-  notStartedOutcome,
-  outranks,
-} from "../domain/stage-interruption.js";
+import { closingOf, interruptedOutcome, outranks } from "../domain/stage-interruption.js";
 import type {
   StageInterruption,
   StageOutcome,
@@ -105,7 +100,8 @@ type AskMove = Extract<NextMove, { move: "ask" }>;
  * stop has that turn stopped now (spec §2.4). Either way the Stage runs again once resumed. The
  * fire alarm holds every running Stage as a Pause does, its commands stopped now, and cuts the
  * turns still running short at its hard stop (spec §2.8). The Office shutting down stops every
- * running turn and command now; a Stage it restarted during runs again only once the user says so.
+ * running turn and command now, keeping the Stage's edits, and the Stage goes on by itself as it
+ * starts again (spec §2.4).
  */
 @Injectable()
 export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, OnModuleDestroy {
@@ -265,12 +261,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * Takes up what the service left as it last stopped (spec §2.4): a run left running ends as The
-   * Office restarted during it, or as held with its edits on a Task the user paused or the fire
-   * alarm holds, its Stage Thread with it. An In progress Task is walked on, unless the alarm is on
-   * (a sounding the service stopped during), which holds it instead; but a Stage it would start,
-   * after one The Office restarted between, is first recorded as not started, so the walk asks the
-   * user before any Stage runs again or starts. A Paused Task stays as the user, or the alarm,
-   * holds it.
+   * Office restarted during it, its edits kept, or as held on a Task the user paused or stopped, or
+   * the fire alarm or a usage window holds, its Stage Thread with it. An In progress Task is walked
+   * on, so the Stage it ran, or the one due next, goes on by itself, unless the alarm is on (a
+   * sounding the service stopped during), which holds it instead. A Paused Task stays as the user,
+   * the alarm or the usage window holds it.
    */
   async onApplicationBootstrap(): Promise<void> {
     for (const task of await this.tasks.list()) {
@@ -327,18 +322,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     if (last && !last.outcome) {
       await this.endLeftRunning(last, runs.slice(0, -1), { state, pausedBy });
     }
-    if (state !== "in-progress") return;
-    const { definitionOfDone } = await this.records.read(id);
-    const ended = await this.runs.list(id);
-    const move = nextMove(own.stages, ended, definitionOfDone);
-    if (move.move === "run" || move.move === "skip") {
-      await this.recordNotStarted(id, move, ended);
-    }
-    this.walkInBackground(id);
+    if (state === "in-progress") this.walkInBackground(id);
   }
 
   /**
-   * Ends the run as The Office restarted during it, its uncommitted edits discarded, and its Stage
+   * Ends the run as The Office restarted during it, its uncommitted edits kept, and its Stage
    * Thread's work with it; or as asked of it before the crash: a Stop ends it stopped, its edits
    * discarded, and a Pause or the fire alarm, waiting for the Agent's turn the crash cut short,
    * holds it with its edits kept. A Paused Task with nothing recorded counts as held by whoever
@@ -375,26 +363,6 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.logger.warn(
       `Stage run ${run.id} of Task ${run.taskId} was left running as The Office stopped.`,
     );
-  }
-
-  /** Records the Stage the walk would start next as not started, which the walk then asks about. */
-  private async recordNotStarted(
-    taskId: string,
-    { stage, ...move }: RunMove | SkipMove,
-    earlierRuns: readonly StageRun[],
-  ): Promise<void> {
-    const { carriedFailure, sentBack } =
-      move.move === "run" ? move : { carriedFailure: undefined, sentBack: undefined };
-    const now = new Date();
-    const started = startStageRun(
-      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack },
-      earlierRuns.length,
-      now,
-    );
-    if (!(await this.runs.saveNew(started.run))) return;
-    const ended = endStageRun(started.run, notStartedOutcome(), now);
-    await this.runs.saveEnded(ended.run);
-    await this.events.publish(ended.event);
   }
 
   private walkHeldForUpdate(): void {
