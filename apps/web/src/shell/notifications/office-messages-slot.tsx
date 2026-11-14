@@ -9,7 +9,7 @@ import {
   officeMessageKey,
   officeMessageWords,
   type OfficeMessage,
-  type OfficeMessages as Messages,
+  type OfficeMessageList,
 } from "./office-messages.ts";
 
 /**
@@ -22,7 +22,7 @@ export function OfficeMessages({
   roles,
   onAskForDesktop,
 }: {
-  readonly messages: Messages;
+  readonly messages: OfficeMessageList;
   readonly roles: readonly Role[] | undefined;
   readonly onAskForDesktop: () => void;
 }): ReactNode {

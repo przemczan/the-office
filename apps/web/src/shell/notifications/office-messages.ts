@@ -22,7 +22,7 @@ export interface OfficeMessageSources {
 }
 
 /** The slot's messages in the order it shows them: the first on the slot, "+more" for the rest. */
-export interface OfficeMessages {
+export interface OfficeMessageList {
   readonly all: readonly OfficeMessage[];
   readonly first: OfficeMessage;
   readonly more: number;
@@ -37,7 +37,7 @@ export function officeMessages({
   notifications,
   updateWaitingFor,
   desktopAsk,
-}: OfficeMessageSources): OfficeMessages | undefined {
+}: OfficeMessageSources): OfficeMessageList | undefined {
   const all: OfficeMessage[] = [
     ...(reconnecting ? [{ kind: "reconnecting" } as const] : []),
     ...notifications

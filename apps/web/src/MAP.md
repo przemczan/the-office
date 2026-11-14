@@ -230,7 +230,7 @@
 - `notification-words.ts`: OFFICE_TITLE, NotificationTarget, targetOf, serviceDown, tabTitle, blinkingTabTitle, personOf, aboutLine
 - `now-words.ts`: OUTCOME_NAMES, OUTCOME_TONES, OUTCOME_EDGES, needsYouWords, desksWords, sinceWords, inStageWords, resetWords, resetMomentWords, UsageWindows, UsageWindow, NamedUsageWindows, namedUsageWindows, fiveHourWindowName, percentWords, UsageTone, usageTone, meterFilled, UsageReading, UsageFigureWords, usageFigureWords, usageFigureLabel
 - `office-messages-slot.tsx`: OfficeMessages
-- `office-messages.ts`: OfficeMessage, OfficeMessageSources, OfficeMessages, officeMessages, OfficeMessageTone, OfficeMessageWords, officeMessageWords, officeMessageKey
+- `office-messages.ts`: OfficeMessage, OfficeMessageSources, OfficeMessageList, officeMessages, OfficeMessageTone, OfficeMessageWords, officeMessageWords, officeMessageKey
 - `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel
 - `use-needs-you.ts`: useNeedsYou
 - `use-usage-windows.ts`: useUsageWindows
