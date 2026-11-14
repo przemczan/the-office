@@ -183,6 +183,8 @@ describe("the whole app, signed out", () => {
         { method: "POST", path: "/api/sign-in/set-password" },
         { method: "POST", path: "/api/sign-in/github" },
         { method: "GET", path: "/api/sign-in/github/callback" },
+        { method: "POST", path: "/api/sign-in/google" },
+        { method: "GET", path: "/api/sign-in/google/callback" },
         { method: "GET", path: "/api/health" },
       ]),
     );
@@ -199,6 +201,12 @@ describe("the whole app, signed out", () => {
         { method: "POST", path: "/api/account/linked-identities/github" },
         { method: "DELETE", path: "/api/account/linked-identities/github" },
         { method: "GET", path: "/api/account/identity-callback-urls/github" },
+        { method: "POST", path: "/api/account/linked-identities/google" },
+        { method: "DELETE", path: "/api/account/linked-identities/google" },
+        { method: "GET", path: "/api/account/identity-callback-urls/google" },
+        { method: "GET", path: "/api/settings/google-client" },
+        { method: "PUT", path: "/api/settings/google-client" },
+        { method: "DELETE", path: "/api/settings/google-client" },
       ]),
     );
 

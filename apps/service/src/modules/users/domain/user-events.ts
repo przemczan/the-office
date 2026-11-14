@@ -148,3 +148,21 @@ export class IdentityUnlinked extends DomainEvent {
     super();
   }
 }
+
+/** A user saved the Google OAuth client, new or changed; never its secret. */
+export class GoogleClientSaved extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly clientId: string,
+    savedAt: Date,
+  ) {
+    super(savedAt);
+  }
+}
+
+/** A user removed the Google OAuth client: Continue with Google is no longer offered. */
+export class GoogleClientRemoved extends DomainEvent {
+  constructor(readonly userId: string) {
+    super();
+  }
+}

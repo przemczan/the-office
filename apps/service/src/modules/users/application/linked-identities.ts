@@ -9,6 +9,8 @@ import {
   type LinkedIdentity,
   type ProviderIdentity,
 } from "../domain/linked-identity.js";
+import type { PageAddress } from "../domain/page-address.js";
+import type { WayUnavailable } from "../domain/sign-in-way.js";
 import { IdentityLinked, IdentityUnlinked, UserRemoved } from "../domain/user-events.js";
 import { LinkedIdentityNotFound } from "../domain/user-refused.js";
 import { IdentityProviderFailed } from "../ports/identity-provider.js";
@@ -16,10 +18,14 @@ import { LinkedIdentityRepository } from "../ports/linked-identity-repository.js
 import { IdentityProviders } from "./identity-providers.js";
 import { IdentityTrips } from "./identity-trips.js";
 
-/** Each provider bound, whether it is set up, and the user's identity there when linked. */
+/**
+ * Each provider bound, whether it is set up, why it doesn't work at the page's address, and the
+ * user's identity there when linked.
+ */
 export interface ProviderLink {
   readonly provider: IdentityProviderId;
   readonly available: boolean;
+  readonly unavailableHere: WayUnavailable | undefined;
   readonly linked: LinkedIdentity | undefined;
 }
 
@@ -42,31 +48,38 @@ export class LinkedIdentities implements OnModuleInit {
     this.eventBus.subscribe(UserRemoved, ({ userId }) => this.linkedIdentities.removeAllOf(userId));
   }
 
-  async listOf(userId: string): Promise<readonly ProviderLink[]> {
+  async listOf(userId: string, page: PageAddress): Promise<readonly ProviderLink[]> {
     const linked = await this.linkedIdentities.listOf(userId);
     return Promise.all(
       this.providers.all.map(async (bound) => ({
         provider: bound.provider,
         available: await bound.isAvailable(),
+        unavailableHere: bound.unavailableAt(page),
         linked: linked.find((identity) => identity.provider === bound.provider),
       })),
     );
   }
 
+  /** Why the provider doesn't work at the page's address, or undefined when it does. */
+  unavailableAt(provider: IdentityProviderId, page: PageAddress): WayUnavailable | undefined {
+    return this.providers.of(provider).unavailableAt(page);
+  }
+
   /**
    * The provider's authorize page, for linking the identity the person signs in to there; the
    * provider sends the browser back to `redirectUri`, The Office's callback, which links it only
-   * for this signed-in device. Throws `IdentityRefused` when the provider isn't set up.
+   * for this signed-in device. Throws `IdentityRefused` when the provider isn't set up or doesn't
+   * work at the page's address.
    */
   async startLinking(
     userId: string,
     signedInDeviceId: string,
     provider: IdentityProviderId,
+    page: PageAddress,
     redirectUri: string,
     returnTo: string,
   ): Promise<string> {
-    const bound = this.providers.of(provider);
-    if (!(await bound.isAvailable())) throw IdentityRefused.unavailable(provider);
+    const bound = await this.providers.startingAt(provider, page);
     const { state, codeVerifier } = this.trips.start({
       provider,
       purpose: { kind: "link", userId, signedInDeviceId },

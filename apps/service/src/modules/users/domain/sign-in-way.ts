@@ -41,13 +41,19 @@ export const PASSWORD_WAY: SignInWay = {
   isAvailable: () => Promise.resolve(true),
 };
 
+/**
+ * Why a page at this address isn't a name the browser treats as secure, `localhost` or the public
+ * address's domain over HTTPS, which a passkey's relying party and Google's redirect URIs need.
+ */
+export function secureNameMissingAt(page: PageAddress): WayUnavailable | undefined {
+  const relyingParty = relyingPartyAt(page);
+  return "unavailable" in relyingParty ? relyingParty.unavailable : undefined;
+}
+
 /** A passkey works where the page's address can be its relying party. */
 export const PASSKEY_WAY: SignInWay = {
   kind: "passkey",
   enoughAlone: true,
-  unavailableAt: (page) => {
-    const relyingParty = relyingPartyAt(page);
-    return "unavailable" in relyingParty ? relyingParty.unavailable : undefined;
-  },
+  unavailableAt: secureNameMissingAt,
   isAvailable: () => Promise.resolve(true),
 };

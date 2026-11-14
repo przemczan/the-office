@@ -15,6 +15,7 @@ const LINKED: LinkedIdentityList = [
   {
     provider: "github",
     available: true,
+    unavailableHere: null,
     linked: {
       name: "ada-on-github",
       linkedAt: "2026-11-10T09:00:00.000Z",
@@ -22,7 +23,9 @@ const LINKED: LinkedIdentityList = [
     },
   },
 ];
-const NOT_LINKED: LinkedIdentityList = [{ provider: "github", available: true, linked: null }];
+const NOT_LINKED: LinkedIdentityList = [
+  { provider: "github", available: true, unavailableHere: null, linked: null },
+];
 
 const pages = {
   "account/linked-identities": (): ReactNode => (
@@ -62,7 +65,7 @@ describe("Account › Linked identities", () => {
     stubService({
       "GET /api/account/linked-identities": () => ({
         status: 200,
-        body: [{ provider: "github", available: false, linked: null }],
+        body: [{ provider: "github", available: false, unavailableHere: null, linked: null }],
       }),
     });
 
@@ -105,5 +108,61 @@ describe("Account › Linked identities", () => {
 
     await until(() => expect(page.textContent).toContain(why));
     expect(page.textContent).toContain("The identity wasn't linked");
+  });
+
+  it("shows the linked Google email, and Link for Google disabled without a client or at an IP address", async () => {
+    stubService({
+      "GET /api/account/linked-identities": () => ({
+        status: 200,
+        body: [
+          {
+            provider: "google",
+            available: true,
+            unavailableHere: null,
+            linked: {
+              name: "ada@example.com",
+              linkedAt: "2026-11-10T09:00:00.000Z",
+              lastSignedInAt: null,
+            },
+          },
+        ],
+      }),
+    });
+    const linked = await openPage("/account/linked-identities", pages);
+    await until(() => expect(linked.page.textContent).toContain("ada@example.com"));
+    expect(buttonNamed(linked.page, "Unlink Google")).toBeDefined();
+    closePage();
+
+    stubService({
+      "GET /api/account/linked-identities": () => ({
+        status: 200,
+        body: [{ provider: "google", available: false, unavailableHere: null, linked: null }],
+      }),
+    });
+    const withoutClient = await openPage("/account/linked-identities", pages);
+    await until(() => expect(buttonNamed(withoutClient.page, "Link Google")?.disabled).toBe(true));
+    expect(withoutClient.page.textContent).toContain(
+      "Save a Google OAuth client in Settings › Signing in first.",
+    );
+    closePage();
+
+    stubService({
+      "GET /api/account/linked-identities": () => ({
+        status: 200,
+        body: [
+          {
+            provider: "google",
+            available: true,
+            unavailableHere: { reason: "ip-address", elsewhere: "http://localhost:4310" },
+            linked: null,
+          },
+        ],
+      }),
+    });
+    const atIp = await openPage("/account/linked-identities", pages);
+    await until(() => expect(buttonNamed(atIp.page, "Link Google")?.disabled).toBe(true));
+    expect(atIp.page.textContent).toContain(
+      "Continue with Google doesn't work at an IP address. Open The Office at localhost:4310 to link it.",
+    );
   });
 });

@@ -1,12 +1,20 @@
 import { providerNameOf, type IdentityProviderId } from "./linked-identity.js";
+import type { WayUnavailable } from "./sign-in-way.js";
 
 /**
  * Why Continue with a provider didn't sign in or link: the trip back wasn't one this browser
  * started, the identity isn't linked to a user, it is linked to another user, the user has
- * another identity there linked already, the provider isn't set up, or the provider refused.
+ * another identity there linked already, the provider isn't set up or doesn't work at the page's
+ * address, or the provider refused.
  */
 export type IdentityRefusal =
-  "trip" | "not-linked" | "linked-to-another" | "already-linked" | "unavailable" | "provider";
+  | "trip"
+  | "not-linked"
+  | "linked-to-another"
+  | "already-linked"
+  | "unavailable"
+  | "not-here"
+  | "provider";
 
 /** Continue with a provider refused, with why in the page's words. */
 export class IdentityRefused extends Error {
@@ -53,6 +61,15 @@ export class IdentityRefused extends Error {
     return new IdentityRefused(
       "unavailable",
       `Continue with ${providerNameOf(provider)} isn't set up in this Office.`,
+    );
+  }
+
+  /** The provider doesn't work at the page's address, such as Google at an IP address. */
+  static notHere(provider: IdentityProviderId, why: WayUnavailable): IdentityRefused {
+    const at = why.elsewhere ?? "localhost or its public address";
+    return new IdentityRefused(
+      "not-here",
+      `Continue with ${providerNameOf(provider)} doesn't work at this address: open The Office at ${at}.`,
     );
   }
 

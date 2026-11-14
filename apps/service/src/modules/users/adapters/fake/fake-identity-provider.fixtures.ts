@@ -1,4 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import type { IdentityProviderId } from "../../domain/linked-identity.js";
+import type { PageAddress } from "../../domain/page-address.js";
+import { secureNameMissingAt, type WayUnavailable } from "../../domain/sign-in-way.js";
 import {
   IdentityProvider,
   IdentityProviderFailed,
@@ -13,11 +16,12 @@ export const FAKE_AUTHORIZE_URL = "https://provider.invalid/authorize";
 /**
  * A provider standing for GitHub's: its authorize URL carries the state, verifier and callback URL
  * as given, and each code it hands out answers the person signed in to it when it was handed out.
- * It is bound as the `github` provider, so the routes and ways are GitHub's own.
+ * It is bound as the `github` provider, so the routes and ways are GitHub's own;
+ * `FakeGoogleIdentityProvider` is the same bound as `google`.
  */
 @Injectable()
 export class FakeIdentityProvider extends IdentityProvider {
-  readonly provider = "github";
+  readonly provider: IdentityProviderId = "github";
   /** Whether it is set up, as the GitHub App registered. */
   available = true;
   /** Who signs in at the provider. */
@@ -30,7 +34,7 @@ export class FakeIdentityProvider extends IdentityProvider {
     return Promise.resolve(this.available);
   }
 
-  unavailableAt(): undefined {
+  unavailableAt(_page: PageAddress): WayUnavailable | undefined {
     return undefined;
   }
 
@@ -59,5 +63,16 @@ export class FakeIdentityProvider extends IdentityProvider {
       return Promise.reject(new IdentityProviderFailed("The provider no longer knows this code."));
     }
     return Promise.resolve({ subject: answer.subject, name: answer.name });
+  }
+}
+
+/** The fake bound as `google`, which works only at `localhost` and the public address over HTTPS. */
+@Injectable()
+export class FakeGoogleIdentityProvider extends FakeIdentityProvider {
+  override readonly provider: IdentityProviderId = "google";
+  override signedInAs: ProviderAnswer = { subject: "1150000000000000001", name: "ada@example.com" };
+
+  override unavailableAt(page: PageAddress): WayUnavailable | undefined {
+    return secureNameMissingAt(page);
   }
 }

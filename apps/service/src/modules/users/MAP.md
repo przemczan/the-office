@@ -6,23 +6,25 @@
 
 **The code step:** `SecondSteps` is bound to `AuthenticatorSecondStep`: after a way not `enoughAlone` (a `SignInWay` flag; only the passkey's is true), a user whose authenticator is on gets a pending sign-in (`pending_sign_ins`: the SHA-256 of its token, 5 minutes) instead of a signed-in device, and the outcome `code-needed`; a right one-time password answers `set-password` before any of this, and the first password then ends in `SignIns.finish` too. `adapters/http/sign-in-answers.ts` writes every way's answer: `answerSignIn` in the body, `redirectSignIn` for a callback (to `/sign-in/code?returnTo=…` when the code is needed); the pending token travels only in `office_pending_sign_in` (`HttpOnly`, `SameSite=Lax`, `Path=/api/sign-in`, `Max-Age=300`). `POST /sign-in/code` (`CodeSignIn`) checks the code, uses the pending sign-in up and signs the device in through `SignIns.signIn`, which clears the wrong tries; an ended pending sign-in answers 401.
 
-**Linked identities** (`linked_identities`: provider, `subject` (the provider's own id for the person, GitHub's numeric user id as text), `name` (the GitHub login, display only, updated at each sign-in and each link again), linked at, last signed in at; unique on (provider, subject) and (user, provider); rows go on `UserRemoved` and cascade with the row): `LinkedIdentities` (`/account/linked-identities`) lists each bound provider with whether it is set up and the user's identity there, starts linking (a trip tied to the user and signed-in device, returning to `/account/linked-identities`), links (again as the same user only takes the new name; one linked to another user is refused without saying whose, a second of the same provider is refused, a race on either unique index is caught by `onConflictDoNothing`) and unlinks (`IdentityLinked`, `IdentityUnlinked`). **Continue with GitHub** (`IdentitySignIns`, `/sign-in/github`): the start answers the provider's authorize URL and sets the trip cookie (`office_identity_trip`, the nonce whose SHA-256 the trip keeps: `HttpOnly`, `SameSite=Lax`, `Path=/api/sign-in`, 10 minutes, `Secure` over HTTPS); `GET /sign-in/github/callback` is the one callback for signing in and linking (one URL per address to list on GitHub): it takes the trip by its state (`IdentityTrips`, in memory, at most 1000, 10 minutes, each taken once), checks a sign-in's trip cookie or a link's signed-in device (read here through `CookieSignedInRequests`, as the guard skips `/sign-in`), asks the provider who it is, then links, or finds the user only by (provider, subject), never by email or login (a removed user is refused as not linked) and ends in `SignIns.finish` with the provider's way (never enough alone, so the code step applies); it always redirects: signed in through `redirectSignIn` to `returnTo` (a path of The Office's own only, `ownPathOr`, else `/`), or first to the code page, linked to the account, refused to `/sign-in?signInFailed=` or `/account/linked-identities?linkFailed=` with why (an unknown trip goes to the account when the browser is signed in). The redirect URI is the page's address (`identity-callback-urls.ts`): the request's protocol and checked Host, or the configured public address there; `GET /account/identity-callback-urls/github` answers this address's and the public address's for Settings › Office identity.
+**Linked identities** (`linked_identities`: provider, `subject` (the provider's own id for the person, GitHub's numeric user id as text, Google's ID token `sub`), `name` (the GitHub login or the Google email, display only, updated at each sign-in and each link again), linked at, last signed in at; unique on (provider, subject) and (user, provider); rows go on `UserRemoved` and cascade with the row): `LinkedIdentities` (`/account/linked-identities`) lists each bound provider with whether it is set up, why it doesn't work at the page's address (`unavailableHere`) and the user's identity there, starts linking (a trip tied to the user and signed-in device, returning to `/account/linked-identities`), links (again as the same user only takes the new name; one linked to another user is refused without saying whose, a second of the same provider is refused, a race on either unique index is caught by `onConflictDoNothing`) and unlinks (`IdentityLinked`, `IdentityUnlinked`). **Continue with GitHub and Continue with Google** (`IdentitySignIns`, `/sign-in/github`, `/sign-in/google`): a start (sign-in or link) goes through `IdentityProviders.startingAt`, refusing a provider not set up or one whose `unavailableAt(page)` says it doesn't work at the page's address (`IdentityRefused.notHere`, 409, with where it works); the sign-in's start answers the provider's authorize URL and sets the trip cookie (`office_identity_trip`, the nonce whose SHA-256 the trip keeps: `HttpOnly`, `SameSite=Lax`, `Path=/api/sign-in`, 10 minutes, `Secure` over HTTPS); `GET /sign-in/<provider>/callback` is each provider's one callback for signing in and linking (one URL per address to list on GitHub): it takes the trip by its state (`IdentityTrips`, in memory, at most 1000, 10 minutes, each taken once), checks a sign-in's trip cookie or a link's signed-in device (read here through `CookieSignedInRequests`, as the guard skips `/sign-in`), asks the provider who it is, then links, or finds the user only by (provider, subject), never by email or login (a removed user is refused as not linked) and ends in `SignIns.finish` with the provider's way (never enough alone, so the code step applies); it always redirects: signed in through `redirectSignIn` to `returnTo` (a path of The Office's own only, `ownPathOr`, else `/`), or first to the code page, linked to the account, refused to `/sign-in?signInFailed=` or `/account/linked-identities?linkFailed=` with why (an unknown trip goes to the account when the browser is signed in). The redirect URI is the page's address (`identity-callback-urls.ts`): the request's protocol and checked Host, or the configured public address there; `GET /account/identity-callback-urls/<provider>` answers this address's (null where the provider doesn't work, Google at an IP address) and the public address's, for Settings › Office identity and Settings › Signing in.
 
-**Extension points:** `SignIns.finish(user, way, request)` is where every way of signing in ends, given the `SignInWay` itself: unless the way is `enoughAlone` (only a passkey is), it asks the `SecondSteps` port, then makes the signed-in device; a later way answers its callback with `redirectSignIn`. `SignInWays` is the registry of ways (`SignInWay`: its kind, `enoughAlone`, `unavailableAt(page)` with a reason and where it works instead, whether it is set up); `password` and `passkey` are built in, a later way's module `add`s itself, and `GET /sign-in` lists those that work at the page's address and, as `unavailable`, those set up that don't, with `reason` and `elsewhere`, which Continue with Google reuses. **`IdentityProvider`** (`ports/identity-provider.ts`: `provider`, `isAvailable`, `unavailableAt(page)`, `authorizeUrl`, `identityOf`, failures as `IdentityProviderFailed`) is the extension point for Continue with Google: `UsersModule.register({ imports, identityProviders })` binds each adapter (`GitHubIdentityProvider` in `adapters/github/`, over the github module's `GitHubIdentities`), `IdentityProviders` lists them, and `IdentitySignIns` adds each as a way (never enough alone); Google adds `"google"` to `IdentityProviderId` and the contracts' `identityProviderSchema`, an adapter, and its own explicit `/sign-in/google` and `/account/linked-identities/google` routes (no `:provider` route, which would shadow `/sign-in/password`), reusing `IdentityTrips`, the trip cookie, the device check and the linked identities. Contracts' `SignInWay` and the sign-in answer's `outcome` are discriminated unions (`password`, `passkey` and `github`; `signed-in`, `code-needed` and `set-password`), as is the web's way-kind map (`surfaces/sign-in/sign-in-ways.tsx`). Every later way's callback lives under `/api/sign-in/`, the only path open without a signed-in device.
+**The Google OAuth client** (`google_client`, one row: client id, client secret as entered, since it is sent to Google, saved at): `GoogleClients` (Settings › Signing in, `/settings/google-client`) answers only the client id and `secretSet`, never the secret; saving with an empty secret keeps the saved one (`domain/google-client.ts`'s `googleClientOf`, trimming both, every problem a `UserRefused`, 422); removing it keeps the linked Google identities, as `sub` doesn't depend on the client (`GoogleClientSaved`, `GoogleClientRemoved`, never the secret). **`GoogleIdentityProvider`** (`adapters/google/`, the only user of `arctic`): available while a client is saved; works where `secureNameMissingAt(page)` says so, the passkeys' rule (`localhost`, or the public address's name over HTTPS); builds arctic's `Google` per trip, since arctic fixes the redirect URI in its constructor; asks `openid email` with PKCE S256 and no `access_type=offline`; checks the ID token's `iss` (`https://accounts.google.com` or `accounts.google.com`), `aud` (the client id) and `exp` on the `Schedule`, not its signature (it comes straight from Google's token endpoint over TLS); answers `sub` and the email; throws the access token away unrevoked (revoking would make Google ask for consent at every sign-in); maps Google's errors to readable reasons (`redirect_uri_mismatch` names the URI to add) and logs only the OAuth error code.
 
-**Talks to:** the platform's `SignedInRequests` port, bound in `app.module.ts` to `CookieSignedInRequests` through `RequestAccessModule`, which the platform's guard and event stream ask who a request's device is, and whose `onSignedOut` (the `SignedOut` event) closes that device's WebSockets at once, and `signedOutAmong` each minute those of devices signed out by the recovery command's own process or expired; the platform's `OfficeAddresses` for the address kind (`adapters/http/sign-in-request.ts` maps it to the domain's own copy); the `Schedule` for the time; the github module's `GitHubIdentities` (through `GitHubIdentityProvider`), which never touches Sign in with GitHub. Publishes `UserCreated`, `UserChanged`, `UserRemoved`, `SignedIn`, `SignedOut`, `PasswordSet`, `AuthenticatorSetUp`, `AuthenticatorRemoved`, `RecoveryCodesMade`, `RecoveryCodeUsed`, `PasskeyAdded`, `PasskeyRenamed`, `PasskeyRemoved`, `IdentityLinked`, `IdentityUnlinked`, none carrying a secret, token or code; `adapters/websocket/user-web-events.ts` forwards the first three to the web. A later Task's own tables of a user's clean up on `UserRemoved`, as `passkeys` and `linked_identities` do, since the user's row stays and nothing cascades; `Users.remove` itself ends the user's pending sign-ins and removes their authenticator and recovery codes.
+**Extension points:** `SignIns.finish(user, way, request)` is where every way of signing in ends, given the `SignInWay` itself: unless the way is `enoughAlone` (only a passkey is), it asks the `SecondSteps` port, then makes the signed-in device; a later way answers its callback with `redirectSignIn`. `SignInWays` is the registry of ways (`SignInWay`: its kind, `enoughAlone`, `unavailableAt(page)` with a reason and where it works instead, whether it is set up); `password` and `passkey` are built in, a later way's module `add`s itself, and `GET /sign-in` lists those that work at the page's address and, as `unavailable`, those set up that don't, with `reason` and `elsewhere`, which Continue with Google reuses. **`IdentityProvider`** (`ports/identity-provider.ts`: `provider`, `isAvailable`, `unavailableAt(page)`, `authorizeUrl`, `identityOf`, failures as `IdentityProviderFailed`) is the extension point for identity providers: `UsersModule.register({ imports, identityProviders })` binds each adapter (`GitHubIdentityProvider` in `adapters/github/`, over the github module's `GitHubIdentities`; `GoogleIdentityProvider` in `adapters/google/`), `IdentityProviders` lists them, and `IdentitySignIns` adds each as a way (never enough alone). A provider adds its id to `IdentityProviderId` and the contracts' `identityProviderSchema`, an adapter, and its own explicit `/sign-in/<provider>`, callback and `/account/linked-identities/<provider>` routes (no `:provider` route, which would shadow `/sign-in/password`), reusing `IdentityTrips`, the trip cookie, the device check and the linked identities, with no branch of its own in `IdentitySignIns` or `LinkedIdentities`. Contracts' `SignInWay` and the sign-in answer's `outcome` are discriminated unions (`password`, `passkey`, `github` and `google`; `signed-in`, `code-needed` and `set-password`), as is the web's way-kind map (`surfaces/sign-in/sign-in-ways.tsx`). Every later way's callback lives under `/api/sign-in/`, the only path open without a signed-in device.
 
-**Traps:** a signed-in device is never called a session, in code, API or database. `UserRepository.find` answers removed users too (for the records); everything that signs in or lists goes through `findByEmail`, `listActive` or a check of `removedAt`. `set-password.ts` boots the module without the event stream, so it provides its own `WebEventForwarding`. The domain keeps its own `AddressKind`, since the boundary lint allows it nothing from the platform but `DomainEvent`. Unknown emails' wrong tries are in memory and start again at a restart; a user's are in the database and don't. Other modules' tests boot unguarded (`startTestApplication` binds `EveryoneSignedIn`); a test that needs the guard uses `startUsersApplication` and `signedInCookie` from `index.fixtures.ts`, and `turnOnAuthenticator` and `authenticatorCodeOf` for a user with an authenticator; a code of the confirming step is taken already, so the next sign-in uses the next step's code (`ManualSchedule.advanceBy` 30 s, or one step of drift). The fixtures' `send` gives a body's Content-Length, without which Node sends no DELETE body. A pending sign-in is never called a session. Passkey tests use `passkeys.fixtures.ts` (pages at `localhost`, `127.0.0.1` and the public address, `addPasskey`) and `adapters/webauthn/software-authenticator.fixtures.ts`, a P-256 key that answers as a browser would, with tampering for origin, rp id, user verification and user handle. The library's own counter check is given 0, since the counter's rule is the domain's; pending ceremonies are lost at a restart, which only means starting again. `UsersModule` is registered once in `app.module.ts` and that one instance is given to `RequestAccessModule` too; `set-password.ts` and `startUsersApplication` register it with no identity provider unless a test binds `FakeIdentityProvider` (`adapters/fake/`, bound as `github`; `linked-identities.fixtures.ts`'s `startWithFakeProvider`, `linkAt`, `continueAt`). The `linked_identities` table is shared by every test of a run, so a test's provider identity takes a random subject. A redirect URI mismatch is sent by GitHub to the App's first callback URL, Sign in with GitHub's, so its page words it (the github module's map).
+**Talks to:** the platform's `SignedInRequests` port, bound in `app.module.ts` to `CookieSignedInRequests` through `RequestAccessModule`, which the platform's guard and event stream ask who a request's device is, and whose `onSignedOut` (the `SignedOut` event) closes that device's WebSockets at once, and `signedOutAmong` each minute those of devices signed out by the recovery command's own process or expired; the platform's `OfficeAddresses` for the address kind (`adapters/http/sign-in-request.ts` maps it to the domain's own copy); the `Schedule` for the time; the github module's `GitHubIdentities` (through `GitHubIdentityProvider`), which never touches Sign in with GitHub; Google's authorize page and token endpoint, through `arctic` in `GoogleIdentityProvider`. Publishes `UserCreated`, `UserChanged`, `UserRemoved`, `SignedIn`, `SignedOut`, `PasswordSet`, `AuthenticatorSetUp`, `AuthenticatorRemoved`, `RecoveryCodesMade`, `RecoveryCodeUsed`, `PasskeyAdded`, `PasskeyRenamed`, `PasskeyRemoved`, `IdentityLinked`, `IdentityUnlinked`, `GoogleClientSaved`, `GoogleClientRemoved`, none carrying a secret, token or code; `adapters/websocket/user-web-events.ts` forwards the first three to the web. A later Task's own tables of a user's clean up on `UserRemoved`, as `passkeys` and `linked_identities` do, since the user's row stays and nothing cascades; `Users.remove` itself ends the user's pending sign-ins and removes their authenticator and recovery codes.
+
+**Traps:** a signed-in device is never called a session, in code, API or database. `UserRepository.find` answers removed users too (for the records); everything that signs in or lists goes through `findByEmail`, `listActive` or a check of `removedAt`. `set-password.ts` boots the module without the event stream, so it provides its own `WebEventForwarding`. The domain keeps its own `AddressKind`, since the boundary lint allows it nothing from the platform but `DomainEvent`. Unknown emails' wrong tries are in memory and start again at a restart; a user's are in the database and don't. Other modules' tests boot unguarded (`startTestApplication` binds `EveryoneSignedIn`); a test that needs the guard uses `startUsersApplication` and `signedInCookie` from `index.fixtures.ts`, and `turnOnAuthenticator` and `authenticatorCodeOf` for a user with an authenticator; a code of the confirming step is taken already, so the next sign-in uses the next step's code (`ManualSchedule.advanceBy` 30 s, or one step of drift). The fixtures' `send` gives a body's Content-Length, without which Node sends no DELETE body. A pending sign-in is never called a session. Passkey tests use `passkeys.fixtures.ts` (pages at `localhost`, `127.0.0.1` and the public address, `addPasskey`) and `adapters/webauthn/software-authenticator.fixtures.ts`, a P-256 key that answers as a browser would, with tampering for origin, rp id, user verification and user handle. The library's own counter check is given 0, since the counter's rule is the domain's; pending ceremonies are lost at a restart, which only means starting again. `UsersModule` is registered once in `app.module.ts` and that one instance is given to `RequestAccessModule` too; `set-password.ts` and `startUsersApplication` register it with no identity provider unless a test binds `FakeIdentityProvider` (`adapters/fake/`, bound as `github`) or `FakeGoogleIdentityProvider` (bound as `google`, unavailable at an IP address); `linked-identities.fixtures.ts`'s `startWithFakeProvider`, `startWithFakeGoogle`, `linkAt` and `continueAt` follow the bound one. `google_client` is one row of the database every test file shares: only `postgres-google-client-repository.test.ts` writes it, and other tests bind `googleClientForTests()` (`ports/google-client-repository.fixtures.ts`). The `linked_identities` table is shared by every test of a run, so a test's provider identity takes a random subject. A redirect URI mismatch is sent by GitHub to the App's first callback URL, Sign in with GitHub's, so its page words it (the github module's map).
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
 ## Public entry (`index.ts`)
 
-GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Accounts, Authenticators, Passwords, SignInWays, SignIns, SignInOutcome, SignedInOutcome, SignedInDevices, Users, AddressKind, SignInRequest, SignInWay, SignInWayKind, AuthenticatorRemoved, AuthenticatorSetUp, IdentityLinked, IdentityUnlinked, PasswordSet, RecoveryCodeUsed, RecoveryCodesMade, SignedIn, SignedOut, UserChanged, UserCreated, UserRemoved, UserNotFound, UserRefused, UsersModule, UsersModuleOptions
+GitHubIdentityProvider, GoogleIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Accounts, Authenticators, Passwords, SignInWays, SignIns, SignInOutcome, SignedInOutcome, SignedInDevices, Users, AddressKind, SignInRequest, SignInWay, SignInWayKind, AuthenticatorRemoved, AuthenticatorSetUp, IdentityLinked, IdentityUnlinked, PasswordSet, RecoveryCodeUsed, RecoveryCodesMade, SignedIn, SignedOut, UserChanged, UserCreated, UserRemoved, UserNotFound, UserRefused, UsersModule, UsersModuleOptions
 
 ## Domain events
 
-- `domain/user-events.ts`: UserCreated, UserChanged, UserRemoved, SignedIn, SignedOut, PasswordSet, AuthenticatorSetUp, AuthenticatorRemoved, RecoveryCodesMade, RecoveryCodeUsed, PasskeyAdded, PasskeyRenamed, PasskeyRemoved, IdentityLinked, IdentityUnlinked
+- `domain/user-events.ts`: UserCreated, UserChanged, UserRemoved, SignedIn, SignedOut, PasswordSet, AuthenticatorSetUp, AuthenticatorRemoved, RecoveryCodesMade, RecoveryCodeUsed, PasskeyAdded, PasskeyRenamed, PasskeyRemoved, IdentityLinked, IdentityUnlinked, GoogleClientSaved, GoogleClientRemoved
 
 ## HTTP routes (under `/api`)
 
@@ -37,12 +39,20 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 - `PUT /account/appearance`: AccountController.setAppearance
 - `GET /account/signed-in-devices`: AccountController.signedInDeviceList
 - `DELETE /account/signed-in-devices/:id`: AccountController.signOutDevice
+- `GET /settings/google-client`: GoogleClientController.setting
+- `PUT /settings/google-client`: GoogleClientController.save
+- `DELETE /settings/google-client`: GoogleClientController.remove
 - `POST /sign-in/github`: IdentitySignInController.startGitHub
 - `GET /sign-in/github/callback`: IdentitySignInController.gitHubReturned
+- `POST /sign-in/google`: IdentitySignInController.startGoogle
+- `GET /sign-in/google/callback`: IdentitySignInController.googleReturned
 - `GET /account/linked-identities`: LinkedIdentitiesController.list
 - `POST /account/linked-identities/github`: LinkedIdentitiesController.linkGitHub
 - `DELETE /account/linked-identities/github`: LinkedIdentitiesController.unlinkGitHub
 - `GET /account/identity-callback-urls/github`: LinkedIdentitiesController.gitHubCallbackUrls
+- `POST /account/linked-identities/google`: LinkedIdentitiesController.linkGoogle
+- `DELETE /account/linked-identities/google`: LinkedIdentitiesController.unlinkGoogle
+- `GET /account/identity-callback-urls/google`: LinkedIdentitiesController.googleCallbackUrls
 - `POST /sign-in/passkey/options`: PasskeySignInController.options
 - `POST /sign-in/passkey`: PasskeySignInController.signIn
 - `GET /account/passkeys`: PasskeysController.list
@@ -62,6 +72,7 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 
 ## Tables
 
+- `adapters/postgres/google-client.schema.ts`: google_client
 - `adapters/postgres/linked-identities.schema.ts`: linked_identities
 - `adapters/postgres/passkeys.schema.ts`: passkeys
 - `adapters/postgres/users.schema.ts`: users, signed_in_devices, earlier_records_claimed, authenticators, recovery_codes, pending_sign_ins
@@ -71,7 +82,7 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 ### ./
 
 - `index.fixtures.ts`: A_PASSWORD, UserForTests, addUser, signedInCookie, authenticatorCodeOf, turnOnAuthenticator, send, setCookieOf, startUsersApplication, UsersApplication
-- `linked-identities.fixtures.ts`: OfficeWithProvider, startWithFakeProvider, cookieNamed, stateOf, backFromProvider, startLinking, linkAt, startSignIn, continueAt, locationOf
+- `linked-identities.fixtures.ts`: OfficeWithProvider, startWithFakeProvider, startWithFakeGoogle, cookieNamed, stateOf, backFromProvider, startLinking, linkAt, startSignIn, continueAt, locationOf
 - `passkeys.fixtures.ts`: PageAt, atLocalhost, atLoopbackIp, atPublicAddress, sendFrom, signedInAt, addingOptions, addPasskey, SoftwareAuthenticator
 - `users-application.fixtures.ts`: PUBLIC_ADDRESS, testPasswordHashing, UsersApplication, UsersApplicationOptions, startUsersApplication, Sent, Answer, send, setCookieOf
 - `users.module.ts`: UsersModuleOptions, UsersModule
@@ -83,17 +94,23 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 
 ### adapters/fake/
 
-- `fake-identity-provider.fixtures.ts`: FAKE_AUTHORIZE_URL, FakeIdentityProvider
+- `fake-identity-provider.fixtures.ts`: FAKE_AUTHORIZE_URL, FakeIdentityProvider, FakeGoogleIdentityProvider
 
 ### adapters/github/
 
 - `github-identity-provider.ts`: GitHubIdentityProvider
 - Tests: github-identity-provider.test.ts
 
+### adapters/google/
+
+- `google-identity-provider.ts`: GoogleIdentityProvider
+- Tests: google-identity-provider.test.ts
+
 ### adapters/http/
 
 - `account.controller.ts`: AccountController
 - `cookie-signed-in-requests.ts`: CookieSignedInRequests
+- `google-client.controller.ts`: GoogleClientController
 - `identity-callback-urls.ts`: pageOriginOf, identityCallbackUrlOf, identityCallbackUrlsOf
 - `identity-sign-in.controller.ts`: IdentitySignInController
 - `identity-trip-cookie.ts`: IDENTITY_TRIP_COOKIE, identityTripCookie, clearedIdentityTripCookie
@@ -108,7 +125,7 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 - `sign-in.controller.ts`: SignInController
 - `user-refusals.filter.ts`: UserRefusalsFilter
 - `users.controller.ts`: UsersController
-- Tests: account.controller.test.ts, authenticator.test.ts, identity-sign-in.controller.test.ts, linked-identities.controller.test.ts, passkey-sign-in.controller.test.ts, passkeys.controller.test.ts, sign-in-answers.test.ts, sign-in.controller.test.ts, users.controller.test.ts
+- Tests: account.controller.test.ts, authenticator.test.ts, google-client.controller.test.ts, google-sign-in.test.ts, identity-sign-in.controller.test.ts, linked-identities.controller.test.ts, passkey-sign-in.controller.test.ts, passkeys.controller.test.ts, sign-in-answers.test.ts, sign-in.controller.test.ts, users.controller.test.ts
 
 ### adapters/in-memory/
 
@@ -117,16 +134,18 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 
 ### adapters/postgres/
 
+- `google-client.schema.ts`: googleClient
 - `linked-identities.schema.ts`: linkedIdentities
 - `passkeys.schema.ts`: passkeys
 - `postgres-authenticator-repository.ts`: PostgresAuthenticatorRepository
+- `postgres-google-client-repository.ts`: PostgresGoogleClientRepository
 - `postgres-linked-identity-repository.ts`: PostgresLinkedIdentityRepository
 - `postgres-passkey-repository.ts`: PostgresPasskeyRepository
 - `postgres-pending-sign-in-repository.ts`: PostgresPendingSignInRepository
 - `postgres-signed-in-device-repository.ts`: PostgresSignedInDeviceRepository
 - `postgres-user-repository.ts`: PostgresUserRepository
 - `users.schema.ts`: users, signedInDevices, earlierRecordsClaimed, authenticators, recoveryCodes, pendingSignIns
-- Tests: postgres-passkey-repository.test.ts
+- Tests: postgres-google-client-repository.test.ts, postgres-passkey-repository.test.ts
 
 ### adapters/second-steps/
 
@@ -150,6 +169,7 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 - `earlier-records-claims.ts`: EarlierRecordsClaims
 - `first-password.ts`: FirstPasswordRequest, FirstPassword
 - `first-user.ts`: FirstUser
+- `google-clients.ts`: GoogleClientShown, GoogleClients
 - `identity-providers.ts`: IdentityProviders
 - `identity-sign-ins.ts`: IdentitySignInStart, ProviderReturn, ReturningBrowser, IdentityReturnOutcome, IdentitySignIns
 - `identity-trips.ts`: IDENTITY_TRIPS_CAP, StartedTrip, NewTrip, IdentityTrips
@@ -175,6 +195,7 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 
 - `address-kind.ts`: AddressKind, ADDRESS_KINDS
 - `authenticator.ts`: Authenticator, isOn, timeStepAt, matchingStep, keyUriOf
+- `google-client.ts`: GoogleClient, GoogleClientEntry, googleClientOf
 - `identity-refused.ts`: IdentityRefusal, IdentityRefused
 - `identity-trip.ts`: IDENTITY_TRIP_MS, TripPurpose, IdentityTrip, isUnderway, ownPathOr
 - `linked-identity.ts`: IdentityProviderId, providerNameOf, ProviderIdentity, LinkedIdentity, linkedIdentityOf, signedInWith
@@ -186,9 +207,9 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 - `recovery-code.ts`: RECOVERY_CODE_COUNT, RECOVERY_CODE_ALPHABET, RECOVERY_CODE_LENGTH, shownRecoveryCode, normalisedRecoveryCode
 - `relying-party.ts`: RelyingParty, RelyingPartyAt, relyingPartyAt, PasskeyAt, passkeyAt
 - `sign-in-refused.ts`: SignInRefusal, TriedWith, SignInRefused
-- `sign-in-way.ts`: SignInWayKind, WayUnavailableReason, WayUnavailable, SignInWay, PASSWORD_WAY, PASSKEY_WAY
+- `sign-in-way.ts`: SignInWayKind, WayUnavailableReason, WayUnavailable, SignInWay, PASSWORD_WAY, secureNameMissingAt, PASSKEY_WAY
 - `signed-in-device.ts`: SignedInDevice, SignInRequest, signedInDeviceOf, isSignedIn, seenAt
-- `user-events.ts`: UserCreated, UserChanged, UserRemoved, SignedIn, SignedOut, PasswordSet, AuthenticatorSetUp, AuthenticatorRemoved, RecoveryCodesMade, RecoveryCodeUsed, PasskeyAdded, PasskeyRenamed, PasskeyRemoved, IdentityLinked, IdentityUnlinked
+- `user-events.ts`: UserCreated, UserChanged, UserRemoved, SignedIn, SignedOut, PasswordSet, AuthenticatorSetUp, AuthenticatorRemoved, RecoveryCodesMade, RecoveryCodeUsed, PasskeyAdded, PasskeyRenamed, PasskeyRemoved, IdentityLinked, IdentityUnlinked, GoogleClientSaved, GoogleClientRemoved
 - `user-refused.ts`: UserRefused, FirstUserExists, UserNotFound, PendingSignInEnded, UserIdNotFound, SignedInDeviceNotFound, PasskeyNotFound, LinkedIdentityNotFound
 - `user.ts`: User, Appearance, DEFAULT_APPEARANCE, Profile, NewUser, newUserProblems, profileProblems, passwordProblems, keptEmail, sameEmail, userOf, addedUserOf, withPassword, withOneTimePassword, isWaitingForFirstSignIn, isOneTimePasswordExpired, withProfile, withAppearance, removalProblems, removed
 - `wrong-tries.ts`: WrongTries, NO_WRONG_TRIES, tryRefusal, afterWrongTry, wrongTryAnswer
@@ -197,6 +218,8 @@ GitHubIdentityProvider, CookieSignedInRequests, answerSignIn, redirectSignIn, Ac
 ### ports/
 
 - `authenticator-repository.ts`: AuthenticatorRepository
+- `google-client-repository.fixtures.ts`: InMemoryGoogleClientRepository, googleClientForTests
+- `google-client-repository.ts`: GoogleClientRepository
 - `identity-provider.ts`: IdentityAuthorization, IdentityReturn, ProviderAnswer, IdentityProvider, IdentityProviderFailed
 - `linked-identity-repository.ts`: LinkedIdentityRepository
 - `passkey-ceremonies.ts`: CeremonyStart, CeremonyAnswer, PasskeyCeremonies

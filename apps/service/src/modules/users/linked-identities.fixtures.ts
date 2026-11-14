@@ -1,7 +1,11 @@
 import { identityAuthorizationSchema } from "@the-office/contracts";
 import { expect } from "vitest";
-import { FakeIdentityProvider } from "./adapters/fake/fake-identity-provider.fixtures.js";
+import {
+  FakeGoogleIdentityProvider,
+  FakeIdentityProvider,
+} from "./adapters/fake/fake-identity-provider.fixtures.js";
 import { IDENTITY_TRIP_COOKIE } from "./adapters/http/identity-trip-cookie.js";
+import type { IdentityProviderId } from "./domain/linked-identity.js";
 import { sendFrom, type PageAt } from "./passkeys.fixtures.js";
 import {
   send,
@@ -26,6 +30,17 @@ export async function startWithFakeProvider(
   return { ...office, provider: office.app.get(FakeIdentityProvider) };
 }
 
+/** The users module with `FakeGoogleIdentityProvider` bound as Google. */
+export async function startWithFakeGoogle(
+  options: Omit<UsersApplicationOptions, "identityProviders"> = {},
+): Promise<OfficeWithProvider> {
+  const office = await startUsersApplication({
+    ...options,
+    identityProviders: { imports: [], identityProviders: [FakeGoogleIdentityProvider] },
+  });
+  return { ...office, provider: office.app.get(FakeGoogleIdentityProvider) };
+}
+
 /** The value of the cookie named `name` an answer set, or undefined when it set none. */
 export function cookieNamed(answer: Answer, name: string): string | undefined {
   const set = (answer.headers["set-cookie"] ?? []).find((cookie) => cookie.startsWith(`${name}=`));
@@ -43,19 +58,25 @@ export function backFromProvider(
   page: PageAt,
   query: Readonly<Record<string, string>>,
   cookie?: string,
+  provider: IdentityProviderId = "github",
 ): Promise<Answer> {
   return send(port, {
-    path: `/api/sign-in/github/callback?${new URLSearchParams(query)}`,
+    path: `/api/sign-in/${provider}/callback?${new URLSearchParams(query)}`,
     host: page.host,
     headers: cookie === undefined ? {} : { cookie },
   });
 }
 
 /** Starts linking from the account at `page`; answers the authorize URL. */
-export async function startLinking(port: number, page: PageAt, cookie: string): Promise<string> {
+export async function startLinking(
+  port: number,
+  page: PageAt,
+  cookie: string,
+  provider: IdentityProviderId = "github",
+): Promise<string> {
   const answer = await sendFrom(port, page, {
     method: "POST",
-    path: "/api/account/linked-identities/github",
+    path: `/api/account/linked-identities/${provider}`,
     cookie,
   });
   expect(answer.status).toBe(200);
@@ -68,24 +89,27 @@ export async function linkAt(
   page: PageAt,
   cookie: string,
 ): Promise<Answer> {
-  const state = stateOf(await startLinking(office.port, page, cookie));
+  const { provider } = office.provider;
+  const state = stateOf(await startLinking(office.port, page, cookie, provider));
   return backFromProvider(
     office.port,
     page,
     { state, code: office.provider.codeOf(state) },
     cookie,
+    provider,
   );
 }
 
-/** Starts Continue with GitHub on the sign-in page at `page`: the authorize URL and the trip cookie. */
+/** Starts Continue with a provider on the sign-in page at `page`: the authorize URL and the trip cookie. */
 export async function startSignIn(
   port: number,
   page: PageAt,
   returnTo?: string,
+  provider: IdentityProviderId = "github",
 ): Promise<{ readonly authorizeUrl: string; readonly tripCookie: string }> {
   const answer = await sendFrom(port, page, {
     method: "POST",
-    path: "/api/sign-in/github",
+    path: `/api/sign-in/${provider}`,
     body: returnTo === undefined ? {} : { returnTo },
   });
   expect(answer.status).toBe(200);
@@ -97,19 +121,21 @@ export async function startSignIn(
   };
 }
 
-/** Continue with GitHub from the sign-in page at `page`, as the provider's signed-in person. */
+/** Continue with the bound provider from the sign-in page at `page`, as its signed-in person. */
 export async function continueAt(
   office: OfficeWithProvider,
   page: PageAt,
   returnTo?: string,
 ): Promise<Answer> {
-  const { authorizeUrl, tripCookie } = await startSignIn(office.port, page, returnTo);
+  const { provider } = office.provider;
+  const { authorizeUrl, tripCookie } = await startSignIn(office.port, page, returnTo, provider);
   const state = stateOf(authorizeUrl);
   return backFromProvider(
     office.port,
     page,
     { state, code: office.provider.codeOf(state) },
     tripCookie,
+    provider,
   );
 }
 

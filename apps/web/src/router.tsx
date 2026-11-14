@@ -46,6 +46,7 @@ import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx"
 import { McpServersSection } from "./surfaces/settings/mcp-servers/mcp-servers-section.tsx";
 import { OfficeIdentitySection } from "./surfaces/settings/office-identity/office-identity-section.tsx";
 import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx";
+import { SigningInSection } from "./surfaces/settings/signing-in/signing-in-section.tsx";
 import { UsersSection } from "./surfaces/settings/users/users-section.tsx";
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
@@ -594,6 +595,13 @@ const settingsUsersRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsSigningInRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "signing-in",
+  component: SigningInSection,
+  staticData: { title: "Settings" },
+});
+
 // Palette and density are each user's own since users came (spec §2.10): an old link lands there.
 const settingsAppearanceRoute = createRoute({
   getParentRoute: () => settingsRoute,
@@ -656,6 +664,7 @@ export const router = createRouter({
       settingsOfficeInstructionsRoute,
       settingsNotificationsRoute,
       settingsUsersRoute,
+      settingsSigningInRoute,
       settingsUpdatesRoute,
       settingsAppearanceRoute,
     ]),

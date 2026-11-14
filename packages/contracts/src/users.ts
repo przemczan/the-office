@@ -10,10 +10,9 @@ export const addressKindSchema = z.enum(["localhost", "loopback-ip", "local-netw
 export type AddressKind = z.infer<typeof addressKindSchema>;
 
 /**
- * The providers a user links an identity of from their account and signs in with (spec §2.10):
- * GitHub now, Google with its Task.
+ * The providers a user links an identity of from their account and signs in with (spec §2.10).
  */
-export const identityProviderSchema = z.enum(["github"]);
+export const identityProviderSchema = z.enum(["github", "google"]);
 export type IdentityProvider = z.infer<typeof identityProviderSchema>;
 
 /**
@@ -25,30 +24,33 @@ export function identityCallbackPath(provider: IdentityProvider): string {
   return `${API_PATH}/sign-in/${provider}/callback`;
 }
 
-/**
- * A way to sign in the sign-in page offers. A union by `kind`, which Continue with Google joins
- * with its Task.
- */
+/** A way to sign in the sign-in page offers. A union by `kind`. */
 export const signInWaySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("password") }),
   z.object({ kind: z.literal("passkey") }),
   z.object({ kind: z.literal("github") }),
+  z.object({ kind: z.literal("google") }),
 ]);
 export type SignInWay = z.infer<typeof signInWaySchema>;
 export type SignInWayKind = SignInWay["kind"];
 
 /**
  * Why a way doesn't work at the page's address: it is an IP address (`127.0.0.1`, which a passkey
- * can't be kept for), or it isn't a domain name over HTTPS.
+ * can't be kept for and Google refuses), or it isn't a domain name over HTTPS.
  */
 export const wayUnavailableReasonSchema = z.enum(["ip-address", "needs-https-domain"]);
 export type WayUnavailableReason = z.infer<typeof wayUnavailableReasonSchema>;
 
-/** A way set up that doesn't work here, why, and the address it works at instead, when one does. */
-export const unavailableWaySchema = z.object({
-  kind: z.enum(["password", "passkey", "github"]) satisfies z.ZodType<SignInWayKind>,
+/** Why something doesn't work here, and the address it works at instead, when one does. */
+export const wayUnavailableSchema = z.object({
   reason: wayUnavailableReasonSchema,
   elsewhere: z.string().optional(),
+});
+export type WayUnavailable = z.infer<typeof wayUnavailableSchema>;
+
+/** A way set up that doesn't work here, why, and the address it works at instead, when one does. */
+export const unavailableWaySchema = wayUnavailableSchema.extend({
+  kind: z.enum(["password", "passkey", "github", "google"]) satisfies z.ZodType<SignInWayKind>,
 });
 export type UnavailableWay = z.infer<typeof unavailableWaySchema>;
 
@@ -70,7 +72,7 @@ export type SignInPage = z.infer<typeof signInPageSchema>;
 export const SIGN_IN_FAILED_PARAMETER = "signInFailed";
 
 /**
- * `POST /sign-in/github`: where the sign-in page returns to once signed in, as its `?returnTo=`
+ * `POST /sign-in/github` and `POST /sign-in/google`: where the sign-in page returns to once signed in, as its `?returnTo=`
  * says; The Office keeps it only when it is a path of its own.
  */
 export const identitySignInSchema = z.object({ returnTo: z.string().optional() });
@@ -305,26 +307,50 @@ export type LinkedIdentity = z.infer<typeof linkedIdentitySchema>;
 
 /**
  * `GET /account/linked-identities`: each provider, whether it is set up (GitHub once the GitHub App
- * is registered) and the user's identity there, when linked.
+ * is registered, Google once its OAuth client is saved), why it doesn't work at the page's address
+ * (Google at an IP address), and the user's identity there, when linked.
  */
 export const linkedIdentityListSchema = z.array(
   z.object({
     provider: identityProviderSchema,
     available: z.boolean(),
+    unavailableHere: wayUnavailableSchema.nullable(),
     linked: linkedIdentitySchema.nullable(),
   }),
 );
 export type LinkedIdentityList = z.infer<typeof linkedIdentityListSchema>;
 
 /**
- * `GET /account/identity-callback-urls/github`: the callback URLs a provider must list for
- * Continue with it to come back to The Office, at this page's address and at the public address.
+ * `GET /account/identity-callback-urls/<provider>`: the callback URLs a provider must list for
+ * Continue with it to come back to The Office, at this page's address, null where the provider
+ * doesn't work (Google at an IP address), and at the public address.
  */
 export const identityCallbackUrlsSchema = z.object({
-  thisAddress: z.string(),
+  thisAddress: z.string().nullable(),
   publicAddress: z.string().nullable(),
 });
 export type IdentityCallbackUrls = z.infer<typeof identityCallbackUrlsSchema>;
+
+/**
+ * The Google OAuth client Continue with Google signs in through, as Settings › Signing in shows
+ * it: its client ID, and whether a secret is saved; the secret itself is never sent.
+ */
+export const googleClientSchema = z.object({
+  clientId: z.string(),
+  secretSet: z.boolean(),
+});
+export type GoogleClient = z.infer<typeof googleClientSchema>;
+
+/** `GET /settings/google-client`: the saved client, or null before one is. */
+export const googleClientSettingSchema = z.object({ client: googleClientSchema.nullable() });
+export type GoogleClientSetting = z.infer<typeof googleClientSettingSchema>;
+
+/** `PUT /settings/google-client`: the client ID and secret; an empty secret keeps the saved one. */
+export const saveGoogleClientSchema = z.object({
+  clientId: z.string(),
+  clientSecret: z.string(),
+});
+export type SaveGoogleClient = z.infer<typeof saveGoogleClientSchema>;
 
 /**
  * The user who did something, as a record keeps them: their id and their name as it was then, so a

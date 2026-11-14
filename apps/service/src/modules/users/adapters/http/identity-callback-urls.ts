@@ -24,15 +24,19 @@ export function identityCallbackUrlOf(
   return `${pageOriginOf(page, request)}${identityCallbackPath(provider)}`;
 }
 
-/** The callback URLs to list at the provider: this page's address's, and the public address's. */
+/**
+ * The callback URLs to list at the provider: this page's address's when the provider works here,
+ * and the public address's.
+ */
 export function identityCallbackUrlsOf(
   page: PageAddress,
   request: Request,
   provider: IdentityProviderId,
+  worksHere: boolean,
 ): IdentityCallbackUrls {
   const { publicAddress } = page;
   return {
-    thisAddress: identityCallbackUrlOf(page, request, provider),
+    thisAddress: worksHere ? identityCallbackUrlOf(page, request, provider) : null,
     publicAddress:
       publicAddress === undefined ? null : `${publicAddress}${identityCallbackPath(provider)}`,
   };

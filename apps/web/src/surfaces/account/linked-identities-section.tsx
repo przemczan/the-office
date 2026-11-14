@@ -5,6 +5,7 @@ import {
   LINKED_IDENTITIES_PATH,
   type IdentityProvider,
   type LinkedIdentityList,
+  type WayUnavailable,
 } from "@the-office/contracts";
 import { Alert, Badge, Button, Card, Dialog, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -14,6 +15,8 @@ import {
   startLinking,
   unlinkIdentity,
 } from "../../api/linked-identities.ts";
+import { GoogleMark } from "../../shell/google-mark.tsx";
+import { googleUnavailableWords } from "../../shell/google-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { momentWords } from "../../shell/time.ts";
@@ -22,17 +25,36 @@ import { AccountCardTitle } from "./account-card-title.tsx";
 
 type ProviderLink = LinkedIdentityList[number];
 
-/** Each provider as the page names it, and why linking it isn't possible before it is set up. */
+/**
+ * Each provider as the page names it, why linking it isn't possible before it is set up, and why
+ * not at this address.
+ */
 const PROVIDERS: Readonly<
   Record<
     IdentityProvider,
-    { readonly name: string; readonly icon: string; readonly notSetUp: string }
+    {
+      readonly name: string;
+      readonly icon: ReactNode;
+      readonly notSetUp: string;
+      readonly notHere: (why: WayUnavailable) => string;
+    }
   >
 > = {
   github: {
     name: "GitHub",
-    icon: "github",
+    icon: <Icon name="github" size={18} />,
     notSetUp: "Register the GitHub App in Settings › Office identity first.",
+    // GitHub sends the browser back to any callback URL the App lists, so it works at every address.
+    notHere: () => "Linking GitHub doesn't work at this address.",
+  },
+  google: {
+    name: "Google",
+    icon: <GoogleMark size={18} />,
+    notSetUp: "Save a Google OAuth client in Settings › Signing in first.",
+    notHere: ({ reason, elsewhere }) =>
+      `${googleUnavailableWords(reason)} Open The Office at ${
+        elsewhere === undefined ? "localhost or its public address" : new URL(elsewhere).host
+      } to link it.`,
   },
 };
 
@@ -50,7 +72,7 @@ export function LinkedIdentitiesSection(): ReactNode {
       <Card
         padding="none"
         title={<AccountCardTitle icon="link">Linked identities</AccountCardTitle>}
-        subtitle="Continue with GitHub on the sign-in page signs you in with the GitHub account linked here, never by your email."
+        subtitle="Continue with GitHub or Google on the sign-in page signs you in with the account linked here, never by your email."
       >
         <LinkFailure />
         {list.error && (
@@ -101,7 +123,7 @@ function ProviderRow({
   const { linked } = link;
   return (
     <li className="account-identity">
-      <Icon name={provider.icon} size={18} />
+      {provider.icon}
       <span className="account-identity-main">
         <span className="account-device">
           {provider.name}
@@ -118,9 +140,7 @@ function ProviderRow({
                   ? "never signed in with"
                   : `last signed in ${momentWords(linked.lastSignedInAt)}`
               }`
-            : link.available
-              ? "Not linked."
-              : provider.notSetUp}
+            : (whyNotLinkable(link) ?? "Not linked.")}
         </span>
       </span>
       <span className="account-row-actions">
@@ -134,26 +154,37 @@ function ProviderRow({
             Unlink
           </Button>
         ) : (
-          <LinkButton provider={link.provider} available={link.available} />
+          <LinkButton provider={link.provider} notLinkable={whyNotLinkable(link)} />
         )}
       </span>
     </li>
   );
 }
 
+/** Why Link can't start: the provider isn't set up, or doesn't work at this address. */
+function whyNotLinkable({
+  provider,
+  available,
+  unavailableHere,
+}: ProviderLink): string | undefined {
+  if (!available) return PROVIDERS[provider].notSetUp;
+  if (unavailableHere !== null) return PROVIDERS[provider].notHere(unavailableHere);
+  return undefined;
+}
+
 /** Goes to the provider, which sends the browser back to the account linked or with why not. */
 function LinkButton({
   provider,
-  available,
+  notLinkable,
 }: {
   readonly provider: IdentityProvider;
-  readonly available: boolean;
+  readonly notLinkable: string | undefined;
 }): ReactNode {
   const linking = useMutation({
     mutationFn: () => startLinking(provider),
     onSuccess: ({ authorizeUrl }) => window.location.assign(authorizeUrl),
   });
-  const { name, notSetUp } = PROVIDERS[provider];
+  const { name } = PROVIDERS[provider];
   return (
     <>
       {linking.error && <RefusalAlert title="Linking can't start" error={linking.error} />}
@@ -161,8 +192,8 @@ function LinkButton({
         variant="primary"
         size="sm"
         aria-label={`Link ${name}`}
-        disabled={!available}
-        title={available ? undefined : notSetUp}
+        disabled={notLinkable !== undefined}
+        title={notLinkable}
         // Still going once answered, until the browser leaves for the provider.
         loading={linking.isPending || linking.isSuccess}
         onClick={() => linking.mutate()}

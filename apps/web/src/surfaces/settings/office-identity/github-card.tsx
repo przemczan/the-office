@@ -217,10 +217,7 @@ type RegisteredApp = Extract<GitHubState, { readonly app: unknown }>["app"];
 function ContinueWithGitHubSetup({ app }: { readonly app: RegisteredApp }): ReactNode {
   const urls = useQuery(linkedIdentityQueries.callbackUrls("github"));
   const callbackUrls = urls.data && [
-    ...new Set([
-      urls.data.thisAddress,
-      ...(urls.data.publicAddress === null ? [] : [urls.data.publicAddress]),
-    ]),
+    ...new Set([urls.data.thisAddress, urls.data.publicAddress].filter((url) => url !== null)),
   ];
   return (
     <section className="office-identity-continue" aria-label="Continue with GitHub">

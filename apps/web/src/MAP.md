@@ -41,6 +41,7 @@
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, ThreadEvents, ThreadEventsContext, EventStreamProvider, useThreadEvents, useConnectedEventStream, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, ThreadSubscription, SIGNED_OUT_CLOSE_CODE, RECONNECT_DELAYS_MS, EventStream
 - `github.ts`: gitHubQueries, gitHubAppManifestForm, startGitHubSignIn, signOutOfGitHub, gitHubEventInvalidations
+- `google-client.ts`: GOOGLE_CLIENT, googleClientQueries, saveGoogleClient, removeGoogleClient
 - `linked-identities.ts`: LINKED_IDENTITIES, linkedIdentityQueries, continueWith, startLinking, unlinkIdentity
 - `mcp-servers.ts`: mcpServerQueries, addMcpServer, readPastedConfig, changeMcpServer, changeMcpServerState, assignMcpServer, removeMcpServer, mcpServerEventInvalidations
 - `notifications.ts`: nowQueries, notificationQueries, setTiming, setRoutingChannel, resetRouting, reportActivity, notificationEventCacheUpdates
@@ -70,6 +71,8 @@
 - `engine-model-fields.tsx`: OfferedEngine, EngineModelFields
 - `engine-words.ts`: EFFORT_LABELS, modelLabel
 - `floating-menu.tsx`: FloatingMenu
+- `google-mark.tsx`: GoogleMark
+- `google-words.ts`: googleUnavailableWords
 - `image-row.tsx`: IMAGE_LIMIT_IN_MB, ImageChanging, ImageRow, ImageRowEmpty
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
 - `mark-colours.ts`: markLabelColour

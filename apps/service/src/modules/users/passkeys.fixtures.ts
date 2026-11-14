@@ -40,7 +40,7 @@ export function sendFrom(
   port: number,
   page: PageAt,
   request: {
-    method?: "GET" | "POST" | "PATCH" | "DELETE";
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;
     cookie?: string;
     body?: unknown;

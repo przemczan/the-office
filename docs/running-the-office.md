@@ -76,6 +76,19 @@ Users sign in with their GitHub account through the GitHub App registered for Si
 
 Not yet checked on real GitHub, only against the fake one: that GitHub takes a plain-HTTP callback URL on a local network IP; whether a loopback callback (`localhost`, `127.0.0.1`) must match its port exactly; and, as the App's user tokens expire, that revoking the access token also ends the refresh token GitHub hands out with it, so that repeated Continue with GitHub from the git identity's account never reaches GitHub's ten tokens per user and App, past which it revokes the oldest, Sign in with GitHub's among them.
 
+### Continue with Google
+
+Users sign in with their Google account through a Google OAuth client one user registers in Google Cloud Console and enters in Settings › Signing in, one for every user. Each user links their Google account from their account (Account › Linked identities) first, and only a linked account signs in: The Office finds the user by Google's own id for the account (the ID token's `sub`), never by the email, which it keeps only to show. It asks only for `openid` and `email`, no offline access, and keeps none of Google's tokens. Registering the client:
+
+1. In Google Cloud Console, APIs & Services › Credentials, choose Create credentials › OAuth client ID, with the application type **Web application**.
+2. Under **Authorized redirect URIs**, add `/api/sign-in/google/callback` on each address users sign in at: `http://localhost:4310/api/sign-in/google/callback` (with The Office's port) and `https://office.example.com/api/sign-in/google/callback` for the public address. Google refuses an IP address and plain HTTP but on `localhost`, so never a local network IP (`192.168.1.20`) or `127.0.0.1`: Continue with Google isn't offered there, and the sign-in page and the account say to open The Office at `localhost` or the public address. Settings › Signing in lists both URIs, each with Copy. A URI the client doesn't list makes Google refuse with `redirect_uri_mismatch`.
+3. Copy the client ID and client secret into Settings › Signing in and save. The secret is kept as the GitHub App's is and never shown again; saving with the secret left empty keeps it, so only the client ID changes.
+4. On the **OAuth consent screen**, choose External, with the scopes `openid` and `email`. While the app is in Testing, Google lets only its test users sign in: add each user's Google account there. Or publish it: these scopes need no verification by Google.
+
+Removing the client in Settings › Signing in takes Continue with Google off the sign-in page and keeps the linked Google accounts, which sign in again once a client is saved, since Google's `sub` for an account doesn't depend on the client.
+
+Not yet checked on real Google, only with Google's endpoints stubbed and its authorize page caught in the e2e test.
+
 ## Setting a user's password on the host
 
 A user who lost their password gets back in through a command on the host, in the checkout:

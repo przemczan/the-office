@@ -77,7 +77,9 @@ function linkFailureOf(location: URL): string | null {
 
 describe("/api/account/linked-identities", () => {
   it("links the identity the user signs in to at the provider, keeping the provider, its id and the name", async () => {
-    expect(await listed()).toEqual([{ provider: "github", available: true, linked: null }]);
+    expect(await listed()).toEqual([
+      { provider: "github", available: true, unavailableHere: null, linked: null },
+    ]);
 
     const answer = await linkAt(office, localhost, cookie);
 
@@ -86,6 +88,7 @@ describe("/api/account/linked-identities", () => {
       {
         provider: "github",
         available: true,
+        unavailableHere: null,
         linked: { name: "ada-on-github", linkedAt: NOW.toISOString(), lastSignedInAt: null },
       },
     ]);
@@ -184,7 +187,9 @@ describe("/api/account/linked-identities", () => {
       cookie,
     });
 
-    expect(await listed()).toEqual([{ provider: "github", available: false, linked: null }]);
+    expect(await listed()).toEqual([
+      { provider: "github", available: false, unavailableHere: null, linked: null },
+    ]);
     expect(start.status).toBe(409);
   });
 

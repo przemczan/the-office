@@ -1,10 +1,13 @@
 /**
- * The providers a user links an identity of (spec §2.10): GitHub now; Google joins with its Task,
- * here and in the contracts' `identityProviderSchema`.
+ * The providers a user links an identity of (spec §2.10), as the contracts'
+ * `identityProviderSchema` lists them.
  */
-export type IdentityProviderId = "github";
+export type IdentityProviderId = "github" | "google";
 
-const PROVIDER_NAMES: Readonly<Record<IdentityProviderId, string>> = { github: "GitHub" };
+const PROVIDER_NAMES: Readonly<Record<IdentityProviderId, string>> = {
+  github: "GitHub",
+  google: "Google",
+};
 
 /** The provider as the pages name it. */
 export function providerNameOf(provider: IdentityProviderId): string {

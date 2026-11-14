@@ -5,7 +5,9 @@ import {
   elsewhereWords,
   passkeysUnavailableWords,
 } from "../../shell/passkey-words.ts";
+import { googleUnavailableWords } from "../../shell/google-words.ts";
 import { GitHubWay } from "./github-way.tsx";
+import { GoogleWay } from "./google-way.tsx";
 import { PasskeyWay } from "./passkey-way.tsx";
 import { PasswordWay } from "./password-way.tsx";
 
@@ -16,23 +18,25 @@ export type SignInWayView<Kind extends SignInWayKind> = (props: {
 
 /**
  * Each way to sign in by its kind. Every kind the contract's union has needs its entry, so a way a
- * later Task adds (Continue with Google) can't be left undrawn.
+ * later Task adds can't be left undrawn.
  */
 export const SIGN_IN_WAYS: { readonly [Kind in SignInWayKind]: SignInWayView<Kind> } = {
   password: PasswordWay,
   passkey: PasskeyWay,
   github: GitHubWay,
+  google: GoogleWay,
 };
 
 /**
  * Why a way set up doesn't work at this address, by its kind; a password works everywhere. Later
- * ways that depend on the address (Continue with Google) add their words here.
+ * ways that depend on the address add their words here.
  */
 const UNAVAILABLE_WORDS: { readonly [Kind in SignInWayKind]: (way: UnavailableWay) => string } = {
   password: () => "Signing in with a password doesn't work at this address.",
   passkey: (way) => passkeysUnavailableWords(way.reason),
   // GitHub sends the browser back to any callback URL the App lists, so it works at every address.
   github: () => "Continue with GitHub doesn't work at this address.",
+  google: (way) => googleUnavailableWords(way.reason),
 };
 
 /**

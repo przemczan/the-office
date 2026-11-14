@@ -9,6 +9,7 @@ import type { Request } from "express";
 import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
 import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { LinkedIdentities } from "../../application/linked-identities.js";
+import type { IdentityProviderId } from "../../domain/linked-identity.js";
 import { identityCallbackUrlOf, identityCallbackUrlsOf } from "./identity-callback-urls.js";
 import { pageAddressOf } from "./sign-in-request.js";
 import { UserRefusalsFilter } from "./user-refusals.filter.js";
@@ -27,11 +28,16 @@ export class LinkedIdentitiesController {
   ) {}
 
   @Get("linked-identities")
-  async list(@SignedIn() { userId }: SignedIn): Promise<LinkedIdentityList> {
-    const links = await this.linkedIdentities.listOf(userId);
-    return links.map(({ provider, available, linked }) => ({
+  async list(
+    @SignedIn() { userId }: SignedIn,
+    @Req() request: Request,
+  ): Promise<LinkedIdentityList> {
+    const page = pageAddressOf(request, this.officeAddresses);
+    const links = await this.linkedIdentities.listOf(userId, page);
+    return links.map(({ provider, available, unavailableHere, linked }) => ({
       provider,
       available,
+      unavailableHere: unavailableHere ?? null,
       linked:
         linked === undefined
           ? null
@@ -46,19 +52,11 @@ export class LinkedIdentitiesController {
   /** GitHub's authorize page, for linking the GitHub account the user signs in to there. */
   @Post("linked-identities/github")
   @HttpCode(200)
-  async linkGitHub(
-    @SignedIn() { userId, signedInDeviceId }: SignedIn,
+  linkGitHub(
+    @SignedIn() signedIn: SignedIn,
     @Req() request: Request,
   ): Promise<IdentityAuthorization> {
-    const page = pageAddressOf(request, this.officeAddresses);
-    const authorizeUrl = await this.linkedIdentities.startLinking(
-      userId,
-      signedInDeviceId,
-      "github",
-      identityCallbackUrlOf(page, request, "github"),
-      LINKED_IDENTITIES_PATH,
-    );
-    return { authorizeUrl };
+    return this.startLinking("github", signedIn, request);
   }
 
   @Delete("linked-identities/github")
@@ -70,6 +68,52 @@ export class LinkedIdentitiesController {
   /** The callback URLs the GitHub App must list, for Settings › Office identity. */
   @Get("identity-callback-urls/github")
   gitHubCallbackUrls(@Req() request: Request): IdentityCallbackUrls {
-    return identityCallbackUrlsOf(pageAddressOf(request, this.officeAddresses), request, "github");
+    return this.callbackUrls("github", request);
+  }
+
+  /** Google's authorize page, for linking the Google account the user signs in to there. */
+  @Post("linked-identities/google")
+  @HttpCode(200)
+  linkGoogle(
+    @SignedIn() signedIn: SignedIn,
+    @Req() request: Request,
+  ): Promise<IdentityAuthorization> {
+    return this.startLinking("google", signedIn, request);
+  }
+
+  @Delete("linked-identities/google")
+  @HttpCode(204)
+  async unlinkGoogle(@SignedIn() { userId }: SignedIn): Promise<void> {
+    await this.linkedIdentities.unlink(userId, "google");
+  }
+
+  /** The redirect URIs the Google OAuth client must list, for Settings › Signing in. */
+  @Get("identity-callback-urls/google")
+  googleCallbackUrls(@Req() request: Request): IdentityCallbackUrls {
+    return this.callbackUrls("google", request);
+  }
+
+  private async startLinking(
+    provider: IdentityProviderId,
+    { userId, signedInDeviceId }: SignedIn,
+    request: Request,
+  ): Promise<IdentityAuthorization> {
+    const page = pageAddressOf(request, this.officeAddresses);
+    const authorizeUrl = await this.linkedIdentities.startLinking(
+      userId,
+      signedInDeviceId,
+      provider,
+      page,
+      identityCallbackUrlOf(page, request, provider),
+      LINKED_IDENTITIES_PATH,
+    );
+    return { authorizeUrl };
+  }
+
+  /** This address's callback URL only where the provider works, and the public address's. */
+  private callbackUrls(provider: IdentityProviderId, request: Request): IdentityCallbackUrls {
+    const page = pageAddressOf(request, this.officeAddresses);
+    const worksHere = this.linkedIdentities.unavailableAt(provider, page) === undefined;
+    return identityCallbackUrlsOf(page, request, provider, worksHere);
   }
 }

@@ -4,6 +4,7 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import { IdentityRefused } from "../domain/identity-refused.js";
 import type { IdentityTrip, TripPurpose } from "../domain/identity-trip.js";
 import { signedInWith, type IdentityProviderId } from "../domain/linked-identity.js";
+import type { PageAddress } from "../domain/page-address.js";
 import type { SignInWay } from "../domain/sign-in-way.js";
 import type { SignInRequest } from "../domain/signed-in-device.js";
 import type { IdentityProvider } from "../ports/identity-provider.js";
@@ -79,15 +80,16 @@ export class IdentitySignIns implements OnModuleInit {
   /**
    * The provider's authorize page for signing in, the provider sending the browser back to
    * `redirectUri`, and the nonce the browser keeps in its trip cookie, without which the trip back
-   * signs nothing in. Throws `IdentityRefused` when the provider isn't set up.
+   * signs nothing in. Throws `IdentityRefused` when the provider isn't set up or doesn't work at
+   * the page's address.
    */
   async start(
     provider: IdentityProviderId,
+    page: PageAddress,
     redirectUri: string,
     returnTo: string,
   ): Promise<IdentitySignInStart> {
-    const bound = this.providers.of(provider);
-    if (!(await bound.isAvailable())) throw IdentityRefused.unavailable(provider);
+    const bound = await this.providers.startingAt(provider, page);
     const nonce = randomBytes(32).toString("base64url");
     const { state, codeVerifier } = this.trips.start({
       provider,

@@ -33,10 +33,10 @@ import { UserRefusalsFilter } from "./user-refusals.filter.js";
 const SIGN_IN_PATH = "/sign-in";
 
 /**
- * Continue with GitHub (spec §2.10), under `/sign-in`, which the guard leaves open: the sign-in's
- * start, with a trip cookie, and the one callback GitHub sends the browser back to, for signing in
- * and for linking alike, which redirects on every outcome. Each provider has its own explicit
- * routes, so none shadows `/sign-in/password`.
+ * Continue with GitHub and Continue with Google (spec §2.10), under `/sign-in`, which the guard
+ * leaves open: each sign-in's start, with a trip cookie, and the one callback each provider sends
+ * the browser back to, for signing in and for linking alike, which redirects on every outcome.
+ * Each provider has its own explicit routes, so none shadows `/sign-in/password`.
  */
 @Controller("sign-in")
 @UseFilters(UserRefusalsFilter)
@@ -68,6 +68,27 @@ export class IdentitySignInController {
     return this.returned("github", { code, state, error }, request, response);
   }
 
+  @Post("google")
+  @HttpCode(200)
+  startGoogle(
+    @Body(new ContractPipe(identitySignInSchema)) { returnTo }: IdentitySignIn,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<IdentityAuthorization> {
+    return this.start("google", returnTo, request, response);
+  }
+
+  @Get("google/callback")
+  googleReturned(
+    @Query("code") code: unknown,
+    @Query("state") state: unknown,
+    @Query("error") error: unknown,
+    @Req() request: Request,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.returned("google", { code, state, error }, request, response);
+  }
+
   private async start(
     provider: IdentityProviderId,
     returnTo: string | undefined,
@@ -77,6 +98,7 @@ export class IdentitySignInController {
     const page = pageAddressOf(request, this.officeAddresses);
     const { authorizeUrl, nonce } = await this.identitySignIns.start(
       provider,
+      page,
       identityCallbackUrlOf(page, request, provider),
       ownPathOr(returnTo, "/"),
     );
@@ -86,8 +108,8 @@ export class IdentitySignInController {
 
   /**
    * A page the browser navigates to, so every outcome redirects: signed in, to where the sign-in
-   * page was to return, or first to the code page when the authenticator code is needed; linked, to the account; refused, to the sign-in page or the account with
-   * why. A link needs the signed-in device that started it, checked here as the guard skips this.
+   * page was to return, or first to the code page when the authenticator code is needed; linked,
+   * to the account; refused, to the sign-in page or the account with why. A link needs the signed-in device that started it, checked here as the guard skips this.
    */
   private async returned(
     provider: IdentityProviderId,
