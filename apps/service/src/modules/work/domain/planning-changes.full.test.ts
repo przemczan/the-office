@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER, type Author } from "./author.js";
+import type { Author } from "./author.js";
 import {
   acceptInAutoMode,
   markingPlannedProblems,
@@ -25,7 +25,7 @@ import {
 } from "./task-events.js";
 import { changeTaskState } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
-import { aPlannedTask, aTask } from "./work.fixtures.js";
+import { ANN_LEE, aPlannedTask, aTask } from "./work.fixtures.js";
 
 /** Whoever holds Plans in these tests; the writes are theirs, whatever their Role key. */
 const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
@@ -224,7 +224,7 @@ describe("the Planner's writes on a Ready Task", () => {
 
 describe("savePlan", () => {
   it("writes the user's Plan without confirming it, before planning too", () => {
-    const change = savePlan(aTask(), { plan: "  Mine.  " });
+    const change = savePlan(aTask(), { plan: "  Mine.  " }, ANN_LEE);
 
     expect(change?.task).toMatchObject({ plan: "Mine.", planConfirmed: false, state: "backlog" });
     expect(change?.event).toBeInstanceOf(TaskPlanSaved);
@@ -235,7 +235,7 @@ describe("savePlan", () => {
   it("leaves a confirmed Plan unconfirmed once changed, and the Task in Planning", () => {
     const task = aPlannedTask({ state: "planning" });
 
-    expect(savePlan(task, { plan: "Edited." })?.task).toMatchObject({
+    expect(savePlan(task, { plan: "Edited." }, ANN_LEE)?.task).toMatchObject({
       plan: "Edited.",
       planConfirmed: false,
       state: "planning",
@@ -247,20 +247,22 @@ describe("savePlan", () => {
     const confirmed = aPlannedTask();
     const unconfirmed = aPlannedTask({ planConfirmed: false });
 
-    expect(savePlan(confirmed, { plan: ` ${confirmed.plan} ` })).toBeUndefined();
-    expect(savePlan(unconfirmed, { plan: unconfirmed.plan })).toBeUndefined();
-    expect(savePlan(aPlannedTask({ state: "ready" }), { plan: confirmed.plan })).toBeUndefined();
+    expect(savePlan(confirmed, { plan: ` ${confirmed.plan} ` }, ANN_LEE)).toBeUndefined();
+    expect(savePlan(unconfirmed, { plan: unconfirmed.plan }, ANN_LEE)).toBeUndefined();
+    expect(
+      savePlan(aPlannedTask({ state: "ready" }), { plan: confirmed.plan }, ANN_LEE),
+    ).toBeUndefined();
   });
 
   it("counts a change to the files to change, refusing one outside the repository", () => {
     const task = aPlannedTask();
 
     expect(
-      savePlan(task, { plan: task.plan, filesToChange: ["src/login.ts"] })?.task,
+      savePlan(task, { plan: task.plan, filesToChange: ["src/login.ts"] }, ANN_LEE)?.task,
     ).toMatchObject({ filesToChange: ["src/login.ts"], planConfirmed: false });
-    expect(() => savePlan(task, { plan: task.plan, filesToChange: ["../secrets"] })).toThrow(
-      new TaskRefused(["Files to change stay inside the repository: ../secrets."]),
-    );
+    expect(() =>
+      savePlan(task, { plan: task.plan, filesToChange: ["../secrets"] }, ANN_LEE),
+    ).toThrow(new TaskRefused(["Files to change stay inside the repository: ../secrets."]));
   });
 
   it("moves a planned Ready Task back to Planning, keeping its Thread and auto mode, the move the user's", () => {
@@ -271,7 +273,7 @@ describe("savePlan", () => {
       initiativePlanningThreadId: "initiative-thread",
     });
 
-    const change = savePlan(ready, { plan: "Edited." });
+    const change = savePlan(ready, { plan: "Edited." }, ANN_LEE);
 
     expect(change?.task).toMatchObject({
       plan: "Edited.",
@@ -296,9 +298,13 @@ describe("savePlan", () => {
   });
 
   it("moves a Ready Task never planned (marked Ready from Backlog) to Backlog", () => {
-    const change = savePlan(aPlannedTask({ state: "ready", hasPlanningThread: false }), {
-      plan: "Edited.",
-    });
+    const change = savePlan(
+      aPlannedTask({ state: "ready", hasPlanningThread: false }),
+      {
+        plan: "Edited.",
+      },
+      ANN_LEE,
+    );
 
     expect(change?.task).toMatchObject({ state: "backlog", planConfirmed: false });
     expect(change?.event.leftReady).toMatchObject({ from: "ready", to: "backlog" });
@@ -306,13 +312,13 @@ describe("savePlan", () => {
   });
 
   it("is the only way back from Ready: nobody can ask for that move", () => {
-    expect(() => changeTaskState(aPlannedTask({ state: "ready" }), "backlog", THE_USER)).toThrow(
+    expect(() => changeTaskState(aPlannedTask({ state: "ready" }), "backlog", ANN_LEE)).toThrow(
       new TaskRefused(["A Task in Ready can't move to Backlog."]),
     );
   });
 
   it("refuses once the Task has started, and an empty Plan", () => {
-    expect(() => savePlan(aPlannedTask({ state: "in-progress" }), { plan: "" })).toThrow(
+    expect(() => savePlan(aPlannedTask({ state: "in-progress" }), { plan: "" }, ANN_LEE)).toThrow(
       new TaskRefused(["A Task keeps its Plan once it has started.", "The Plan can't be empty."]),
     );
   });
@@ -383,7 +389,7 @@ describe("proposeDefinitionOfDone", () => {
 
 describe("saveDefinitionOfDone", () => {
   it("writes the statements, trimmed, without confirming them", () => {
-    const change = saveDefinitionOfDone(aPlannedTask({ state: "planning" }), [" Mine. "]);
+    const change = saveDefinitionOfDone(aPlannedTask({ state: "planning" }), [" Mine. "], ANN_LEE);
 
     expect(change?.task).toMatchObject({
       definitionOfDone: ["Mine."],
@@ -399,15 +405,20 @@ describe("saveDefinitionOfDone", () => {
     const confirmed = aPlannedTask();
     const unconfirmed = aPlannedTask({ definitionOfDoneConfirmed: false });
 
-    expect(saveDefinitionOfDone(confirmed, [...confirmed.definitionOfDone])).toBeUndefined();
-    expect(saveDefinitionOfDone(unconfirmed, [...unconfirmed.definitionOfDone])).toBeUndefined();
+    expect(
+      saveDefinitionOfDone(confirmed, [...confirmed.definitionOfDone], ANN_LEE),
+    ).toBeUndefined();
+    expect(
+      saveDefinitionOfDone(unconfirmed, [...unconfirmed.definitionOfDone], ANN_LEE),
+    ).toBeUndefined();
   });
 
   it("moves a planned Ready Task back to Planning, and one never planned to Backlog, the user's moves", () => {
-    const planned = saveDefinitionOfDone(aPlannedTask({ state: "ready" }), ["Mine."]);
+    const planned = saveDefinitionOfDone(aPlannedTask({ state: "ready" }), ["Mine."], ANN_LEE);
     const neverPlanned = saveDefinitionOfDone(
       aPlannedTask({ state: "ready", hasPlanningThread: false }),
       ["Mine."],
+      ANN_LEE,
     );
 
     expect(planned?.task).toMatchObject({
@@ -427,10 +438,10 @@ describe("saveDefinitionOfDone", () => {
   });
 
   it("refuses no statements, and once the Task has started", () => {
-    expect(() => saveDefinitionOfDone(aPlannedTask(), [])).toThrow(
+    expect(() => saveDefinitionOfDone(aPlannedTask(), [], ANN_LEE)).toThrow(
       new TaskRefused(["A Definition of Done needs at least one statement."]),
     );
-    expect(() => saveDefinitionOfDone(aPlannedTask({ state: "done" }), ["One."])).toThrow(
+    expect(() => saveDefinitionOfDone(aPlannedTask({ state: "done" }), ["One."], ANN_LEE)).toThrow(
       new TaskRefused(["A Task keeps its Definition of Done once it has started."]),
     );
   });

@@ -6,11 +6,12 @@ import { ProposalAppliers, ProposalRefused } from "../../../conversations/index.
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { InitiativeEdit } from "../../domain/initiative-edit.js";
 import type { Task } from "../../domain/task.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
+import { ANN_LEE as ANN_LEE_USER } from "../../../conversations/index.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -29,9 +30,9 @@ beforeEach(async () => {
   work = await startWorkApplication(officeData);
   const idea = await work.app
     .get(IdeaService)
-    .capture({ title: "Offline sync", notes: "", projectId: undefined }, THE_USER);
-  const shaped = await work.app.get(InitiativeService).shape(idea.id, THE_USER);
-  initiative = await work.app.get(InitiativeService).confirm(shaped.id);
+    .capture({ title: "Offline sync", notes: "", projectId: undefined }, ANN_LEE);
+  const shaped = await work.app.get(InitiativeService).shape(idea.id, ANN_LEE);
+  initiative = await work.app.get(InitiativeService).confirm(shaped.id, ANN_LEE);
 });
 
 afterEach(async () => {
@@ -49,7 +50,7 @@ function itsTask(): Promise<Task> {
       initiative.id,
       { title: "Queue writes", projectId: "api", priority: "normal" },
       [],
-      THE_USER,
+      ANN_LEE,
     );
 }
 
@@ -63,14 +64,14 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     const change = proposed({ kind: "outcome", outcome: "Writes made offline reach the server." });
 
     expect(await appliers.problemsWith(change)).toEqual([]);
-    expect(await appliers.apply(change, "cto")).toEqual(change);
+    expect(await appliers.apply(change, "cto", ANN_LEE_USER)).toEqual(change);
     expect((await current()).outcome).toBe("Writes made offline reach the server.");
   });
 
   it("add the Task in the CTO's name, waiting for its blockers, answering it with its id", async () => {
     const blocker = await work.app
       .get(TaskService)
-      .create({ title: "Store the queue", projectId: "web", priority: "normal" }, THE_USER);
+      .create({ title: "Store the queue", projectId: "web", priority: "normal" }, ANN_LEE);
     const added = {
       kind: "add-task",
       title: "Queue schema",
@@ -80,7 +81,7 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     } as const;
     const change = proposed({ ...added, taskId: undefined });
 
-    const applied = await work.app.get(ProposalAppliers).apply(change, "cto");
+    const applied = await work.app.get(ProposalAppliers).apply(change, "cto", ANN_LEE_USER);
 
     const [task] =
       (await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id) ?? [];
@@ -106,6 +107,7 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
         taskId: undefined,
       }),
       "cto",
+      ANN_LEE_USER,
     );
 
     const [task] =
@@ -125,8 +127,8 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
 
     expect(await appliers.problemsWith(title)).toEqual([]);
     expect(await appliers.problemsWith(description)).toEqual([]);
-    expect(await appliers.apply(title, "cto")).toEqual(title);
-    expect(await appliers.apply(description, "cto")).toEqual(description);
+    expect(await appliers.apply(title, "cto", ANN_LEE_USER)).toEqual(title);
+    expect(await appliers.apply(description, "cto", ANN_LEE_USER)).toEqual(description);
     expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
       title: "Keep the queue",
       description: "It survives a restart.",
@@ -137,18 +139,20 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     const task = await itsTask();
     const change = proposed({ kind: "task-title", taskId: task.id, title: task.title });
 
-    expect(await work.app.get(ProposalAppliers).apply(change, "cto")).toEqual(change);
+    expect(await work.app.get(ProposalAppliers).apply(change, "cto", ANN_LEE_USER)).toEqual(change);
   });
 
   it("are refused a Task's title past Start, as it stands when applied", async () => {
     const appliers = work.app.get(ProposalAppliers);
     const task = await itsTask();
     const change = proposed({ kind: "task-title", taskId: task.id, title: "Keep the queue" });
-    await work.app.get(TaskService).drop(task.id);
+    await work.app.get(TaskService).drop(task.id, ANN_LEE);
     const reason = "A Task keeps its title once it has started.";
 
     expect(await appliers.problemsWith(change)).toEqual([reason]);
-    await expect(appliers.apply(change, "cto")).rejects.toThrow(new ProposalRefused([reason]));
+    await expect(appliers.apply(change, "cto", ANN_LEE_USER)).rejects.toThrow(
+      new ProposalRefused([reason]),
+    );
     expect((await work.app.get(TaskService).read(task.id)).title).toBe(task.title);
   });
 
@@ -156,9 +160,9 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     const tasks = work.app.get(TaskService);
     const blocker = await tasks.create(
       { title: "Store the queue", projectId: "web", priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
-    await tasks.drop(blocker.id);
+    await tasks.drop(blocker.id, ANN_LEE);
     const appliers = work.app.get(ProposalAppliers);
     const change = proposed({
       kind: "add-task",
@@ -171,7 +175,9 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     const reason = `"Store the queue" was dropped, so nothing waits for it.`;
 
     expect(await appliers.problemsWith(change)).toEqual([reason]);
-    await expect(appliers.apply(change, "cto")).rejects.toThrow(new ProposalRefused([reason]));
+    await expect(appliers.apply(change, "cto", ANN_LEE_USER)).rejects.toThrow(
+      new ProposalRefused([reason]),
+    );
     expect((await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id)).toBe(
       undefined,
     );
@@ -180,12 +186,12 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
   it("are refused once the Initiative is dropped, leaving the Proposal to stay open", async () => {
     const appliers = work.app.get(ProposalAppliers);
     const change = proposed({ kind: "outcome", outcome: "Sync works." });
-    await work.app.get(InitiativeService).drop(initiative.id);
+    await work.app.get(InitiativeService).drop(initiative.id, ANN_LEE);
 
     expect(await appliers.problemsWith(change)).toEqual([
       "The Initiative is dropped: it changes no more.",
     ]);
-    await expect(appliers.apply(change, "cto")).rejects.toThrow(
+    await expect(appliers.apply(change, "cto", ANN_LEE_USER)).rejects.toThrow(
       new ProposalRefused(["The Initiative is dropped: it changes no more."]),
     );
     expect((await current()).outcome).toBe("");
@@ -199,17 +205,17 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
         initiative.id,
         { title: "Queue writes", projectId: "api", priority: "normal" },
         [],
-        THE_USER,
+        ANN_LEE,
       );
     const blocker = await tasks.create(
       { title: "Store the queue", projectId: "web", priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
     await tasks.addDependency(blocker.id, task.id);
 
     const cycle = proposed({ kind: "add-dependency", taskId: task.id, blockerId: blocker.id });
 
-    await expect(work.app.get(ProposalAppliers).apply(cycle, "cto")).rejects.toThrow(
+    await expect(work.app.get(ProposalAppliers).apply(cycle, "cto", ANN_LEE_USER)).rejects.toThrow(
       ProposalRefused,
     );
     expect((await tasks.read(task.id)).blockedBy).toEqual([]);

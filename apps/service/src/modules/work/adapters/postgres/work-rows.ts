@@ -2,15 +2,24 @@ import { eq, sql } from "drizzle-orm";
 import type { Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
+import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
-import type { StateChange } from "../../domain/state-change.js";
+import type { StateChange, StateChangeCause } from "../../domain/state-change.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { TaskCreated } from "../../domain/task-events.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import type { TaskUpdate } from "../../ports/task-repository.js";
-import { attachments, ideas, initiatives, tasks, taskStateChanges } from "./work.schema.js";
+import {
+  attachments,
+  ideas,
+  initiatives,
+  tasks,
+  taskStateChanges,
+  type AuthorRow,
+  type StateChangeCauseRow,
+} from "./work.schema.js";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
@@ -140,8 +149,25 @@ export async function stateChangesOf(
     from: row.fromState ?? undefined,
     to: row.toState,
     at: row.changedAt,
-    by: row.changedBy,
+    by: causeOf(row.changedBy),
   }));
+}
+
+/** A user's Author from before users existed names nobody until the first user claims it. */
+export function authorOf(row: AuthorRow): Author {
+  return row.kind === "user" ? { kind: "user", user: row.user ?? null } : row;
+}
+
+function causeOf(row: StateChangeCauseRow): StateChangeCause {
+  switch (row.kind) {
+    case "user":
+    case "person":
+      return authorOf(row);
+    case "queue":
+      return { kind: "queue", queuedBy: row.queuedBy ? authorOf(row.queuedBy) : null };
+    default:
+      return row;
+  }
 }
 
 /** Every Task's order key, but `besidesTaskId`'s. */
@@ -177,7 +203,7 @@ export function toIdea(row: IdeaRow): Idea {
     state: row.state,
     taskId: row.taskId ?? undefined,
     initiativeId: row.initiativeId ?? undefined,
-    capturedBy: row.capturedBy,
+    capturedBy: authorOf(row.capturedBy),
     capturedAt: row.capturedAt,
     droppedAt: row.droppedAt ?? undefined,
   };
@@ -189,10 +215,13 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
     originIdeaId: initiative.originIdeaId ?? null,
     endedAt: initiative.endedAt ?? null,
     archivedAt: initiative.archivedAt ?? null,
+    archivedBy: initiative.archivedBy ?? null,
     restoredAt: initiative.restoredAt ?? null,
+    restoredBy: initiative.restoredBy ?? null,
     pausedAt: initiative.pausedAt ?? null,
     planningThreadId: initiative.planningThreadId ?? null,
     planningThreadIds: [...initiative.planningThreadIds],
+    planningStartedBy: initiative.planningStartedBy ?? null,
     pipelines: initiative.pipelines.map(({ projectId, pipelineId }) => ({
       projectId,
       pipelineId: pipelineId ?? null,
@@ -209,11 +238,15 @@ export function toInitiative(row: InitiativeRow): Initiative {
   return {
     ...row,
     originIdeaId: row.originIdeaId ?? undefined,
+    createdBy: authorOf(row.createdBy),
     endedAt: row.endedAt ?? undefined,
     archivedAt: row.archivedAt ?? undefined,
+    archivedBy: row.archivedBy ?? undefined,
     restoredAt: row.restoredAt ?? undefined,
+    restoredBy: row.restoredBy ? authorOf(row.restoredBy) : undefined,
     pausedAt: row.pausedAt ?? undefined,
     planningThreadId: row.planningThreadId ?? undefined,
+    planningStartedBy: row.planningStartedBy ? authorOf(row.planningStartedBy) : undefined,
     pipelines: row.pipelines.map(({ projectId, pipelineId }) => ({
       projectId,
       pipelineId: pipelineId ?? undefined,
@@ -256,7 +289,9 @@ export function toTaskRow(task: Task): TaskRow {
     createdBy: task.createdBy,
     createdAt: task.createdAt,
     archivedAt: task.archivedAt ?? null,
+    archivedBy: task.archivedBy ?? null,
     restoredAt: task.restoredAt ?? null,
+    restoredBy: task.restoredBy ?? null,
     endedAt: task.endedAt ?? null,
   };
 }
@@ -290,11 +325,17 @@ export function toTask(row: TaskRow): Task {
     blockedBy: row.blockedBy,
     originIdeaId: row.originIdeaId ?? undefined,
     initiativeId: row.initiativeId ?? undefined,
-    projectMoves: row.projectMoves.map((move) => ({ ...move, at: new Date(move.at) })),
-    createdBy: row.createdBy,
+    projectMoves: row.projectMoves.map((move) => ({
+      ...move,
+      at: new Date(move.at),
+      by: authorOf(move.by),
+    })),
+    createdBy: authorOf(row.createdBy),
     createdAt: row.createdAt,
     archivedAt: row.archivedAt ?? undefined,
+    archivedBy: row.archivedBy ?? undefined,
     restoredAt: row.restoredAt ?? undefined,
+    restoredBy: row.restoredBy ? authorOf(row.restoredBy) : undefined,
     endedAt: row.endedAt ?? undefined,
   };
 }
@@ -339,7 +380,7 @@ export function toAttachment(row: AttachmentRow): Attachment {
     id: row.id,
     owner: ownerOf(row),
     name: row.name,
-    addedBy: row.addedBy,
+    addedBy: authorOf(row.addedBy),
     addedAt: row.addedAt,
   };
   if (row.kind === "link") return { ...fields, kind: row.kind, url: present(row.url) };

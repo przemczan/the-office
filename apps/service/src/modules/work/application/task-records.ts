@@ -5,6 +5,7 @@ import { taskRecordText } from "../domain/record-words.js";
 import type { Task } from "../domain/task.js";
 import { taskBranchBase } from "../domain/task-branch-base.js";
 import { descriptionSection } from "../domain/task-description.js";
+import { taskWhoAskedSection } from "../domain/who-asked.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
 import { StageResults } from "../ports/stage-results.js";
@@ -25,6 +26,8 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
    * linked to none.
    */
   readonly linkedRecordsSection: string | undefined;
+  /** Who created it and who started it, or queued it to start, as a section of a Brief. */
+  readonly whoAskedSection: string;
   readonly project: Pick<
     KnownProject,
     | "id"
@@ -72,10 +75,11 @@ export class TaskRecords {
     const task = await this.tasks.read(taskId);
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
-    const [attachments, links, worktree] = await Promise.all([
+    const [attachments, links, worktree, stateChanges] = await Promise.all([
       this.attachments.listOf({ kind: "task", taskId }),
       this.linksOf(task),
       this.worktrees.find(task.projectId, taskId),
+      this.tasks.stateChangesOf(taskId),
     ]);
     const base = taskBranchBase(task, links.initiative, project.id, project.name);
     return {
@@ -85,6 +89,7 @@ export class TaskRecords {
       definitionOfDone: task.definitionOfDone,
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
       linkedRecordsSection: linkedRecordsSection(links),
+      whoAskedSection: taskWhoAskedSection(task, stateChanges, "start"),
       project: {
         id: project.id,
         name: project.name,

@@ -28,8 +28,8 @@ import { UserActivityRepository } from "../ports/user-activity-repository.js";
 
 /**
  * When each Notification reaches its channels (spec §2.7): it goes to the browser as raised, held
- * from the desktop inside quiet hours; to the phone once the user has been away long enough, or in
- * the one summary when quiet hours end. Waits run on The Office's clock and are kept in memory,
+ * from the desktop inside quiet hours; to the phone once every user has been away long enough (The
+ * Office is away only when nobody is at the desk), or in the one summary when quiet hours end. Waits run on The Office's clock and are kept in memory,
  * so they are set again at boot from the open Notifications.
  */
 @Injectable()
@@ -69,7 +69,7 @@ export class NotificationDelivery implements OnApplicationBootstrap {
   async send(notification: Notification, replaces: readonly string[] = []): Promise<void> {
     for (const id of replaces) this.stopPhoneWait(id);
     await this.events.publish(new NotificationRaised(notification, replaces));
-    const [timing, activity] = await Promise.all([this.timing.read(), this.activity.find()]);
+    const [timing, activity] = await Promise.all([this.timing.read(), this.activity.findLatest()]);
     await this.toPhone(notification, timing, activity);
     if (notification.held.length > 0) await this.waitForQuietHoursEnd(timing);
   }
@@ -82,7 +82,7 @@ export class NotificationDelivery implements OnApplicationBootstrap {
     this.quietHoursWait = undefined;
     const [timing, activity, shown] = await Promise.all([
       this.timing.read(),
-      this.activity.find(),
+      this.activity.findLatest(),
       this.shown(),
     ]);
     for (const notification of shown) await this.toPhone(notification, timing, activity);
@@ -125,7 +125,7 @@ export class NotificationDelivery implements OnApplicationBootstrap {
     this.phoneWaits.delete(id);
     const notification = (await this.shown()).find((shown) => shown.id === id);
     if (!notification) return;
-    const [timing, activity] = await Promise.all([this.timing.read(), this.activity.find()]);
+    const [timing, activity] = await Promise.all([this.timing.read(), this.activity.findLatest()]);
     await this.toPhone(notification, timing, activity);
   }
 

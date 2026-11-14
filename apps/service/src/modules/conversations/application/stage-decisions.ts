@@ -77,7 +77,12 @@ export class StageDecisions {
   ): Promise<(DecisionAnswer & Pick<GivenAnswer, "answeredBy">) | undefined> {
     const answer = (await this.repository.decision(id))?.answer;
     if (!answer) return undefined;
-    const { answeredAt: _answeredAt, atUsersRequest: _atUsersRequest, ...given } = answer;
+    const {
+      answeredAt: _answeredAt,
+      atUsersRequest: _atUsersRequest,
+      user: _user,
+      ...given
+    } = answer;
     return given;
   }
 

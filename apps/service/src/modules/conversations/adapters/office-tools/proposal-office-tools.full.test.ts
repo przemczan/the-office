@@ -226,6 +226,76 @@ describe("the propose_office_setting tool", () => {
     expect(drafted).toEqual([]);
   });
 
+  it("drafts new holders for the duties named, a holder of none as null", async () => {
+    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
+
+    const result = await tool.run(
+      {
+        setting: "duties",
+        duties: [
+          { duty: "implements", holder: " developer-2 " },
+          { duty: "plans", holder: null },
+        ],
+      },
+      session,
+    );
+
+    expect(result.isError).toBe(false);
+    expect(drafted).toEqual([
+      { setting: "duties", value: { implements: "developer-2", plans: null } },
+    ]);
+  });
+
+  it("refuses duties given wrong", async () => {
+    const { tool, drafted } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
+    const giveTheDuties =
+      "Give the duties that change as duties, each with its new holder, and no value or text.";
+
+    await expect(tool.run({ setting: "duties", duties: [] }, session)).resolves.toEqual({
+      text: giveTheDuties,
+      isError: true,
+    });
+    await expect(tool.run({ setting: "duties" }, session)).resolves.toEqual({
+      text: giveTheDuties,
+      isError: true,
+    });
+    const named = [{ duty: "plans", holder: "planner" }];
+    await expect(
+      tool.run({ setting: "duties", duties: named, value: 3 }, session),
+    ).resolves.toEqual({ text: giveTheDuties, isError: true });
+    await expect(
+      tool.run({ setting: "duties", duties: named, text: "planner" }, session),
+    ).resolves.toEqual({ text: giveTheDuties, isError: true });
+    await expect(
+      tool.run(
+        {
+          setting: "duties",
+          duties: [...named, { duty: "plans", holder: null }],
+        },
+        session,
+      ),
+    ).resolves.toEqual({ text: "Name each duty once; plans is named twice.", isError: true });
+    await expect(
+      tool.run({ setting: "duties", duties: [{ duty: "sweeps", holder: null }] }, session),
+    ).resolves.toMatchObject({ text: expect.stringContaining('no duty "sweeps"'), isError: true });
+    await expect(
+      tool.run({ setting: "size-threshold", value: 60_000, duties: named }, session),
+    ).resolves.toEqual({
+      text: "Give duties only for the setting duties, not size-threshold.",
+      isError: true,
+    });
+    expect(drafted).toEqual([]);
+  });
+
+  it("names each duty with its label", () => {
+    const { tool } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
+
+    const schema = JSON.stringify(z.toJSONSchema(tool.input));
+
+    expect(schema).toContain("implements (Implements)");
+    expect(schema).toContain("mcp-tool-consultant (Default Consultant for MCP tool hard switches)");
+  });
+
   it("tells the Agent to give the text whole, from the text now", () => {
     const { tool } = toolDrafting(undefined, PROPOSE_OFFICE_SETTING_TOOL);
 

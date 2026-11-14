@@ -85,6 +85,11 @@ import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processe
 import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
+import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
+import {
+  ANOTHER_SIGNED_IN_FOR_TESTS,
+  signedInAs,
+} from "../../../../platform/http/signed-in-requests.fixtures.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -123,10 +128,16 @@ function webEvents(): unknown[] {
   });
 }
 
-function send(method: "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<Response> {
+/** A request signed in by Ann Lee, or by the user `headers` name with `signedInAs`. */
+function send(
+  method: "POST" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
   return fetch(`${url}/api${path}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 }
@@ -359,7 +370,12 @@ describe("a Thread", () => {
     const taskId = randomUUID();
 
     await service.log(thread.id, [
-      { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "Read the deploy workflow.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+      },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
       { kind: "mcp-server-not-started", server: "github", reason: undefined },
@@ -370,6 +386,7 @@ describe("a Thread", () => {
         kind: "user",
         text: "Check the cache, please.",
         delivery: "delivered",
+        writtenBy: ANN_LEE,
         handoverNoteFrom: roleKey,
         openPage: { kind: "person", roleKey: devops },
       },
@@ -383,6 +400,7 @@ describe("a Thread", () => {
         kind: "user",
         text: "Read the deploy workflow.",
         delivery: "delivered",
+        writtenBy: ANN_LEE,
         handoverNoteFrom: null,
         openPage: null,
       },
@@ -408,6 +426,7 @@ describe("a Thread", () => {
         kind: "user",
         text: "Check the cache, please.",
         delivery: "delivered",
+        writtenBy: ANN_LEE,
         handoverNoteFrom: roleKey,
         openPage: { kind: "person", roleKey: devops },
       },
@@ -512,6 +531,7 @@ describe("a Decision", () => {
       passedOn: [],
       answer: null,
       answeredAt: null,
+      answeredByUser: null,
       answeredBy: null,
       atUsersRequest: null,
       answeredByTheOffice: false,
@@ -613,6 +633,81 @@ describe("a Proposal", () => {
   });
 });
 
+describe("what each signed-in user does", () => {
+  const BY_BEN = signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS);
+
+  it("lets another user answer a Decision opened while the first wrote in its Thread, naming each", async () => {
+    // In a Stage Thread the answer is only recorded, for the Pipeline: no session takes it.
+    const taskId = randomUUID();
+    const { thread, sessionId } = await withSession(() => ({ kind: "task", taskId }), {
+      stageThread: true,
+    });
+    await app
+      .get(ThreadService)
+      .log(thread.id, [
+        { kind: "user", text: "Export every column.", delivery: "delivered", writtenBy: ANN_LEE },
+      ]);
+    const { decision } = await app.get(DecisionService).open(sessionId, {
+      question: "Which columns?",
+      context: "The export is wide.",
+      options: ["All", "Visible"],
+      recommendation: { option: 1, reason: "Fewer to read." },
+    });
+
+    const answering = await send(
+      "POST",
+      `/decisions/${decision.id}/answer`,
+      { kind: "option", option: 0 },
+      BY_BEN,
+    );
+    const log = messageListSchema.parse(await (await get(`/threads/${thread.id}/messages`)).json());
+
+    expect(answering.status).toBe(202);
+    expect(log.map((message) => message.kind)).toEqual(["user", "decision", "decision-answer"]);
+    expect(log[0]).toMatchObject({ kind: "user", writtenBy: ANN_LEE });
+    expect(log[2]).toMatchObject({
+      kind: "decision-answer",
+      decision: { answer: { kind: "option", option: 0 }, answeredByUser: BEN_ITO },
+    });
+    expect((await app.get(ThreadRepository).decision(decision.id))?.answer?.user).toEqual(BEN_ITO);
+  });
+
+  it("names the user who applied a Proposal, the one who declined one, and who saved the Office instructions", async () => {
+    const toApply = await drafted();
+    const { sessionId } = await withSession((roleKey) => ({ kind: "chat", roleKey }));
+    const toDecline = await app.get(ProposalService).draft(sessionId, {
+      kind: "hire",
+      card: aProposedCard(),
+      skills: [],
+      roleKey: undefined,
+    });
+
+    const applied = await send("POST", `/proposals/${toApply.proposalId}/apply`, {}, BY_BEN);
+    const declined = await send("POST", `/proposals/${toDecline.id}/decline`);
+    const saved = await send(
+      "PUT",
+      "/settings/office-instructions",
+      { officeInstructions: "Answer in plain words." },
+      BY_BEN,
+    );
+
+    expect(proposalSchema.parse(await applied.json()).status).toEqual({
+      kind: "applied",
+      at: expect.any(String),
+      by: BEN_ITO,
+    });
+    expect(proposalSchema.parse(await declined.json()).status).toEqual({
+      kind: "declined",
+      at: expect.any(String),
+      by: ANN_LEE,
+    });
+    expect(saved.status).toBe(200);
+    const { version } = await app.get(OfficeInstructions).current();
+    const versions = app.get(OfficeInstructionsRepository) as OfficeInstructionsRepositoryForTests;
+    expect(versions.savedBy.get(version)).toEqual(BEN_ITO);
+  });
+});
+
 describe("Allow changes", () => {
   it("is switched on and off in the Caretaker's chat, with a line each time, and refused elsewhere", async () => {
     people.set(CARETAKER, {
@@ -643,9 +738,11 @@ describe("Allow changes", () => {
       false,
     ]);
     expect(elsewhere.changesAllowed).toBeNull();
-    expect(log.map((message) => message.kind === "changes-allowed" && message.allowed)).toEqual([
-      true,
-      false,
+    expect(
+      log.map((message) => message.kind === "changes-allowed" && [message.allowed, message.by]),
+    ).toEqual([
+      [true, ANN_LEE],
+      [false, ANN_LEE],
     ]);
     expect(refused.status).toBe(422);
     expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([

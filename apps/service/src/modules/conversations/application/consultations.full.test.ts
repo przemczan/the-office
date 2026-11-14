@@ -69,6 +69,7 @@ import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
+import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
 
 // What consultations.test.ts and consultations.full.test.ts share.
 
@@ -327,7 +328,7 @@ async function developerOnATask(): Promise<Thread> {
     roleKey: askerKey,
     title: "Build the export",
   });
-  return app.get(ThreadRunner).send(opened.id, "Build the export.");
+  return app.get(ThreadRunner).send(opened.id, "Build the export.", ANN_LEE);
 }
 
 /** The Consultation on the Task, once it has started. */
@@ -520,7 +521,7 @@ describe("a call from a chat during the fire alarm", () => {
       [{ step: "resume" }],
     );
     const opened = await threads.startInChat(askerKey);
-    await app.get(ThreadRunner).send(opened.id, "Ask the CTO to set that up.");
+    await app.get(ThreadRunner).send(opened.id, "Ask the CTO to set that up.", ANN_LEE);
     const consultation = await vi.waitFor(
       async () => {
         const found = (await threads.listInChat(consultantKey)).find(
@@ -572,13 +573,13 @@ describe("a consult of a hired Consultant", () => {
     const open = (await threads.read(asker.id)).openDecisions[0];
     if (!open) throw new Error("No Decision was put.");
 
-    await decisions.answer(open.id, { kind: "option", option: 0 });
+    await decisions.answer(open.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
     await settled(asker.id);
 
     const [askerSession] = engine.sessions;
     const answer = askerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `The user answered your Decision "${QUESTION}" with the option "SQLite".`,
+      `The user Ann Lee answered your Decision "${QUESTION}" with the option "SQLite".`,
     );
     const consultantSessionId = await vi.waitFor(async () => {
       const session = (await threads.read(consultation.id)).session;

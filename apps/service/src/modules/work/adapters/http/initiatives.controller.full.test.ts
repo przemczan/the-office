@@ -15,7 +15,6 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { THE_USER } from "../../domain/author.js";
 import { NOBODY_SHAPES_INITIATIVES } from "../../domain/duties.js";
 import { SHAPING_OPENING } from "../../domain/shaping.js";
 import { InitiativeStateChanged } from "../../domain/initiative-events.js";
@@ -37,6 +36,7 @@ import {
 } from "../../work-application.fixtures.js";
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -110,7 +110,7 @@ describe("the shaping Thread", () => {
     const fromAnIdea = await shape(await capture());
     const { initiative: created, shaping: opening } = await work.app
       .get(InitiativeService)
-      .create({ name: `Audit trail ${randomUUID()}`, outcome: "Every change is kept." }, THE_USER);
+      .create({ name: `Audit trail ${randomUUID()}`, outcome: "Every change is kept." }, ANN_LEE);
 
     expect(opening).toMatchObject({ shaper: { roleKey: "architect" }, opened: true });
     expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
@@ -139,7 +139,7 @@ describe("the shaping Thread", () => {
     const initiative = await shape(await capture());
     const { shaping: opening } = await work.app
       .get(InitiativeService)
-      .create({ name: `Audit trail ${randomUUID()}`, outcome: "Every change is kept." }, THE_USER);
+      .create({ name: `Audit trail ${randomUUID()}`, outcome: "Every change is kept." }, ANN_LEE);
     const refused = await sendJson(work, "POST", `/initiatives/${initiative.id}/shaping`);
 
     expect((await read(initiative)).state).toBe("shaping");
@@ -328,7 +328,7 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
     expect((await work.app.get(TaskRepository).stateChangesOf(shaping.id)).at(-1)).toMatchObject({
       from: "shaping",
       to: "dropped",
-      by: THE_USER,
+      by: ANN_LEE,
     });
   });
 
@@ -355,7 +355,7 @@ describe("POST /api/initiatives/:id/confirm and /drop", () => {
       expect((await taskOf(task)).state).toBe("dropped");
       expect((await work.app.get(TaskRepository).stateChangesOf(task.id)).at(-1)).toMatchObject({
         to: "dropped",
-        by: THE_USER,
+        by: ANN_LEE,
       });
     }
     expect((await taskOf(done)).state).toBe("done");

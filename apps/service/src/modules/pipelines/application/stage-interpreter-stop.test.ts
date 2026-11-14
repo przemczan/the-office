@@ -17,22 +17,30 @@ import { implement, review } from "../stage-interpreter-stop.fixtures.js";
 
 let pipelines: PipelinesApplication;
 
+/** The users whose Stop and Pause hold the runs, as Work's events name them. */
+const BEN_ITO = { userId: "00000000-0000-4000-8000-0000000005e2", name: "Ben Ito" };
+const ANN_LEE = { userId: "00000000-0000-4000-8000-0000000005e1", name: "Ann Lee" };
+
 afterEach(async () => {
   await pipelines.app.close();
 });
 
-/** The user's Stop, as Work announces it once the Task is Paused. */
+/** Ben Ito's Stop, as Work announces it once the Task is Paused. */
 async function stop(taskId: string): Promise<void> {
   const { state } = await pipelines.tasks.read(taskId);
   pipelines.tasks.put(taskId, { state: "paused", pipelineId: "for-tests" });
-  await pipelines.app.get(EventBus).publish(new TaskStopped(taskId, state as "in-progress"));
+  await pipelines.app
+    .get(EventBus)
+    .publish(new TaskStopped(taskId, state as "in-progress", BEN_ITO));
 }
 
-/** The user's Pause, as Work announces it once the Task is Paused. */
+/** Ann Lee's Pause, as Work announces it once the Task is Paused. */
 async function pause(taskId: string): Promise<void> {
   const { state } = await pipelines.tasks.read(taskId);
   pipelines.tasks.put(taskId, { state: "paused", pipelineId: "for-tests" });
-  await pipelines.app.get(EventBus).publish(new TaskPaused(taskId, state as "in-progress"));
+  await pipelines.app
+    .get(EventBus)
+    .publish(new TaskPaused(taskId, state as "in-progress", "user", undefined, ANN_LEE));
 }
 
 /** The user's Drop of the Task, or of its Initiative, as Work announces it once it is Dropped. */
@@ -67,7 +75,7 @@ async function statusesOf(taskId: string): Promise<[string, string | undefined][
 }
 
 describe("Stop", () => {
-  it("interrupts the running turn now, discards the Stage's uncommitted edits and holds the Task", async () => {
+  it("interrupts the running turn now, discards the Stage's uncommitted edits and holds the Task, naming who stopped it", async () => {
     pipelines = await startPipelinesApplication([AN_INTERRUPTED_SESSION]);
     const taskId = randomUUID();
     pipelines.git.uncommitted.set(taskId, ["src/dialog.ts", "src/dialog.test.ts"]);
@@ -77,8 +85,14 @@ describe("Stop", () => {
 
     const [run, ...more] = await runsOf(pipelines, taskId);
     const error =
-      "Stopped by the user. The Office discarded the Stage's uncommitted edits to 2 files.";
-    expect(run?.outcome).toEqual({ status: "failed", error, interrupted: "stop" });
+      "Stopped by the user Ben Ito. The Office discarded the Stage's uncommitted edits to 2 files.";
+    expect(run?.outcome).toEqual({
+      status: "failed",
+      error,
+      interrupted: "stop",
+      heldByUser: BEN_ITO,
+    });
+    expect(run).toMatchObject({ heldBy: "stop", heldByUser: BEN_ITO });
     expect(run?.tokens.output).toBe(40);
     expect(run?.headCommit).toBe(PLANNED_COMMIT);
     expect(more).toEqual([]);
@@ -119,7 +133,7 @@ describe("Drop", () => {
 });
 
 describe("Pause", () => {
-  it("holds the Stage once the Agent's turn ends, committing nothing, and Resume goes on with it through the Context policy", async () => {
+  it("holds the Stage once the Agent's turn ends, naming who paused it, committing nothing, and Resume goes on with it through the Context policy", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),
       anAgentSession(aDoneResult()),
@@ -133,8 +147,13 @@ describe("Pause", () => {
 
     const [paused, ...more] = await runsOf(pipelines, taskId);
     const error =
-      "Paused by the user. The Stage's uncommitted edits stay in the worktree for it to go on with.";
-    expect(paused?.outcome).toEqual({ status: "failed", error, interrupted: "pause" });
+      "Paused by the user Ann Lee. The Stage's uncommitted edits stay in the worktree for it to go on with.";
+    expect(paused?.outcome).toEqual({
+      status: "failed",
+      error,
+      interrupted: "pause",
+      heldByUser: ANN_LEE,
+    });
     expect(paused?.headCommit).toBe(PLANNED_COMMIT);
     expect(more).toEqual([]);
     expect(pipelines.stageThreads.interrupted).toEqual([]);
@@ -149,7 +168,9 @@ describe("Pause", () => {
     expect(again?.declared).toBeUndefined();
     expect(again?.previousThreadId).toBe(paused?.threadId);
     expect(again?.carryMessagesSince).toEqual(paused?.startedAt);
-    expect(again?.work).toContain("## Paused by the user\n\nThe user paused this Stage");
+    expect(again?.work).toContain(
+      "## Paused by the user Ann Lee\n\nThe user Ann Lee paused this Stage",
+    );
     expect(await statusesOf(taskId)).toEqual([
       ["implement", "failed"],
       ["implement", "done"],

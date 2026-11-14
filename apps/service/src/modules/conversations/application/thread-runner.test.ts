@@ -111,6 +111,8 @@ import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
+import type { UserRef } from "../domain/user.js";
+import { ANN_LEE, ANSWERED_BY_ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
 
 /** Who holds each duty: their default Roles, until a test moves one. */
 let duties: DutiesStandIn;
@@ -491,9 +493,9 @@ async function cooled(threadId: string, contextTokens: number): Promise<void> {
 
 /** A Thread whose session answered once under the Office instructions `text`, then cooled. */
 async function cooledAfterAnswering(text: string): Promise<Thread> {
-  await app.get(OfficeInstructions).save(text);
+  await app.get(OfficeInstructions).save(text, ANN_LEE);
   const thread = await threads.startInChat(roleKey);
-  await runner.send(thread.id, "Hello.");
+  await runner.send(thread.id, "Hello.", ANN_LEE);
   await answered(thread.id, 3);
   await runner.onModuleDestroy();
   await cooled(thread.id, 12_000);
@@ -545,14 +547,14 @@ describe("a new Thread's first message", () => {
     );
     const thread = await threads.startInChat(roleKey);
 
-    const answering = await runner.send(thread.id, "Read the deploy workflow.");
+    const answering = await runner.send(thread.id, "Read the deploy workflow.", ANN_LEE);
     const log = await answered(thread.id, 5);
 
     expect(answering.state).toBe("answering");
     const [session] = engine.sessions;
     const brief = session?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toMatch(
-      /in a new Thread[\s\S]*Admin panel: its main branch[\s\S]*## The user's message\n\nRead the deploy workflow\.$/,
+      /in a new Thread[\s\S]*Admin panel: its main branch[\s\S]*## The message from the user Ann Lee\n\nRead the deploy workflow\.$/,
     );
     expect(session?.options).toMatchObject({
       folder: join(officeData, "bases"),
@@ -572,7 +574,12 @@ describe("a new Thread's first message", () => {
     expect(session?.options.instructions).toContain("Plan in conversation: ask what is unclear.");
     expect(drafts(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
-      { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "Read the deploy workflow.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+      },
       {
         kind: "tool-activity",
         roleKey,
@@ -609,7 +616,7 @@ describe("a chat's MCP servers", () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
 
     const [session] = engine.sessions;
@@ -624,7 +631,7 @@ describe("a chat's MCP servers", () => {
     ]);
     const brief = session?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toMatch(
-      /^## MCP servers left out\n\n[^#]*\n\n- linear: it has no value for LINEAR_TOKEN\.\n\n[\s\S]*## The user's message\n\nHello\.$/,
+      /^## MCP servers left out\n\n[^#]*\n\n- linear: it has no value for LINEAR_TOKEN\.\n\n[\s\S]*## The message from the user Ann Lee\n\nHello\.$/,
     );
   });
 
@@ -640,12 +647,12 @@ describe("a chat's MCP servers", () => {
       ...aTurn("m-2", "Back again."),
     ]);
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
     await runner.onModuleDestroy();
     await cooled(thread.id, 12_000);
 
-    await runner.send(thread.id, "Still there?");
+    await runner.send(thread.id, "Still there?", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     const [first, resumed] = engine.sessions;
@@ -656,7 +663,59 @@ describe("a chat's MCP servers", () => {
       /^## MCP servers left out\n\n[^#]*- github: it was turned off\.\n\nStill there\?$/,
     );
     // The log keeps what the user said.
-    expect(drafts(log)[4]).toEqual({ kind: "user", text: "Still there?", delivery: "delivered" });
+    expect(drafts(log)[4]).toEqual({
+      kind: "user",
+      text: "Still there?",
+      delivery: "delivered",
+      writtenBy: ANN_LEE,
+    });
+  });
+});
+
+describe("a Thread more than one user writes in", () => {
+  it("keeps who wrote each message, and tells the person who writes whenever the writer changes", async () => {
+    await startWith(
+      started(
+        ...aTurn("brief", "Hello, Ann."),
+        sent("m-2"),
+        ...aTurn("m-2", "Hello, Ben."),
+        sent("m-3"),
+        ...aTurn("m-3", "On it."),
+        sent("m-4"),
+        ...aTurn("m-4", "Glad to."),
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+    await runner.send(thread.id, "Can you check the tests?", BEN_ITO);
+    await answered(thread.id, 5);
+    await runner.send(thread.id, "And the build too.", BEN_ITO);
+    await answered(thread.id, 7);
+    await runner.send(thread.id, "Thanks.", ANN_LEE);
+    const log = await answered(thread.id, 9);
+
+    const received = engine.sessions[0]?.received ?? [];
+    const brief = received[0];
+    expect(brief?.step === "start" && brief.brief.text).toMatch(
+      /\n\n## The message from the user Ann Lee\n\nHello\.$/,
+    );
+    expect(received.flatMap((step) => (step.step === "send" ? [step.message.text] : []))).toEqual([
+      "## The message from the user Ben Ito\n\nCan you check the tests?",
+      "And the build too.",
+      "## The message from the user Ann Lee\n\nThanks.",
+    ]);
+    expect(
+      log.flatMap((message) =>
+        message.kind === "user" ? [[message.text, message.writtenBy]] : [],
+      ),
+    ).toEqual([
+      ["Hello.", ANN_LEE],
+      ["Can you check the tests?", BEN_ITO],
+      ["And the build too.", BEN_ITO],
+      ["Thanks.", ANN_LEE],
+    ]);
   });
 });
 
@@ -664,15 +723,15 @@ describe("continuing a Thread", () => {
   it("sends a message within the hour to the running session, with no context line", async () => {
     await startWith(started(...aTurn("brief", "Hello."), sent("m-2"), ...aTurn("m-2", "Sure.")));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
 
-    await runner.send(thread.id, "And the tests?");
+    await runner.send(thread.id, "And the tests?", ANN_LEE);
     const log = await answered(thread.id, 5);
 
     expect(engine.sessions).toHaveLength(1);
     expect(drafts(log).slice(3)).toEqual([
-      { kind: "user", text: "And the tests?", delivery: "delivered" },
+      { kind: "user", text: "And the tests?", delivery: "delivered", writtenBy: ANN_LEE },
       { kind: "person", roleKey, text: "Sure." },
     ]);
     expect((await threads.read(thread.id)).tokens.output).toBe(2 * USAGE.output);
@@ -689,7 +748,7 @@ describe("continuing a Thread", () => {
     });
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
 
     expect(counted.map(({ tokens, runningTurnTokens }) => [tokens, runningTurnTokens])).toEqual([
@@ -708,14 +767,14 @@ describe("continuing a Thread", () => {
       ...aTurn("m-2", "Back again."),
     ]);
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
     // The service restarts, the cache cools, and the card changes meanwhile.
     await runner.onModuleDestroy();
     await cooled(thread.id, 12_000);
     versions.push({ ...PLANNER, effort: "low" });
 
-    await runner.send(thread.id, "Still there?");
+    await runner.send(thread.id, "Still there?", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     const [first, resumed] = engine.sessions;
@@ -724,7 +783,7 @@ describe("continuing a Thread", () => {
     expect(withoutHolds(resumed?.options)).toEqual(withoutHolds(first?.options));
     expect(drafts(log).slice(3)).toEqual([
       contextLine({ move: "resume", reason: "small-context", contextTokens: 12_000 }),
-      { kind: "user", text: "Still there?", delivery: "delivered" },
+      { kind: "user", text: "Still there?", delivery: "delivered", writtenBy: ANN_LEE },
       { kind: "person", roleKey, text: "Back again." },
     ]);
   });
@@ -736,13 +795,13 @@ describe("continuing a Thread", () => {
       ...aTurn("m-2", "Back again."),
     ]);
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
     await runner.onModuleDestroy();
     await cooled(thread.id, 12_000);
     cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" });
 
-    await runner.send(thread.id, "Still there?");
+    await runner.send(thread.id, "Still there?", ANN_LEE);
     await answered(thread.id, 6);
 
     const [first, resumed] = engine.sessions;
@@ -763,11 +822,11 @@ describe("continuing a Thread", () => {
 
     it("starts a session with the current text and records its version", async () => {
       await startWith(started(...aTurn("brief", "Hello.")));
-      await app.get(OfficeInstructions).save("An older text.");
-      await app.get(OfficeInstructions).save("Answer in plain words.");
+      await app.get(OfficeInstructions).save("An older text.", ANN_LEE);
+      await app.get(OfficeInstructions).save("Answer in plain words.", ANN_LEE);
 
       const thread = await threads.startInChat(roleKey);
-      await runner.send(thread.id, "Hello.");
+      await runner.send(thread.id, "Hello.", ANN_LEE);
       await answered(thread.id, 3);
 
       const instructions = engine.sessions[0]?.options.instructions;
@@ -780,7 +839,7 @@ describe("continuing a Thread", () => {
       await startWith(started(...aTurn("brief", "Hello.")));
 
       const thread = await threads.startInChat(roleKey);
-      await runner.send(thread.id, "Hello.");
+      await runner.send(thread.id, "Hello.", ANN_LEE);
       await answered(thread.id, 3);
 
       expect(engine.sessions[0]?.options.instructions).not.toContain("Office instructions");
@@ -790,9 +849,9 @@ describe("continuing a Thread", () => {
     it("resumes a session across a change with the version it recorded", async () => {
       await startWith(started(...aTurn("brief", "Hello.")), RESUMED);
       const thread = await cooledAfterAnswering("Answer in plain words.");
-      await app.get(OfficeInstructions).save("Answer in French.");
+      await app.get(OfficeInstructions).save("Answer in French.", ANN_LEE);
 
-      await runner.send(thread.id, "Still there?");
+      await runner.send(thread.id, "Still there?", ANN_LEE);
       await answered(thread.id, 6);
 
       const [first, resumed] = engine.sessions;
@@ -806,7 +865,7 @@ describe("continuing a Thread", () => {
       const thread = await cooledAfterAnswering("Answer in plain words.");
       await repository.update(thread.id, storedBeforeOfficeInstructions);
 
-      await runner.send(thread.id, "Still there?");
+      await runner.send(thread.id, "Still there?", ANN_LEE);
       await answered(thread.id, 6);
 
       const [first, resumed] = engine.sessions;
@@ -819,9 +878,9 @@ describe("continuing a Thread", () => {
       await startWith(started(...aTurn("brief", "Hello.")), started(...aTurn("brief", "Oui.")));
       const thread = await cooledAfterAnswering("Answer in plain words.");
       await cooled(thread.id, 80_000);
-      await app.get(OfficeInstructions).save("Answer in French.");
+      await app.get(OfficeInstructions).save("Answer in French.", ANN_LEE);
 
-      await runner.send(thread.id, "Still there?");
+      await runner.send(thread.id, "Still there?", ANN_LEE);
       await answered(thread.id, 6);
 
       const [first, fresh] = engine.sessions;
@@ -838,13 +897,13 @@ describe("continuing a Thread", () => {
       started(...aTurn("brief", "Yes.")),
     );
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Read the deploy workflow.");
+    await runner.send(thread.id, "Read the deploy workflow.", ANN_LEE);
     await answered(thread.id, 3);
     await cooled(thread.id, 80_000);
     versions.push({ ...PLANNER, effort: "low" });
     cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-sonnet-5-5" });
 
-    await runner.send(thread.id, "And the tests?");
+    await runner.send(thread.id, "And the tests?", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     const [first, fresh] = engine.sessions;
@@ -853,7 +912,7 @@ describe("continuing a Thread", () => {
     expect(fresh?.options).toMatchObject({ model: "claude-sonnet-5-5", effort: "low" });
     const brief = fresh?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toMatch(
-      /in a fresh session[\s\S]*## The Thread\n\nRead the deploy workflow[\s\S]*The user: Read the deploy workflow\.\n\nYou: It deploys on push\.[\s\S]*## The user's message\n\nAnd the tests\?$/,
+      /in a fresh session[\s\S]*## The Thread\n\nRead the deploy workflow[\s\S]*The user Ann Lee: Read the deploy workflow\.\n\nYou: It deploys on push\.[\s\S]*## The message from the user Ann Lee\n\nAnd the tests\?$/,
     );
     expect(drafts(log)[3]).toEqual(
       contextLine({
@@ -872,7 +931,7 @@ describe("continuing a Thread", () => {
   it("starts a cooled Thread fresh once Settings lowers the size threshold below its context", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
     // 8k more than the session's first turn took.
     await cooled(thread.id, 40_000);
@@ -889,11 +948,11 @@ describe("continuing a Thread", () => {
   it("starts fresh while the cache is warm when the user chose Start fresh, once", async () => {
     await startWith(started(...aTurn("brief", "Hello.")), started(...aTurn("brief", "Fresh.")));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
 
     await threads.chooseOverride(thread.id, "start-fresh");
-    await runner.send(thread.id, "Start over.");
+    await runner.send(thread.id, "Start over.", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     expect(engine.sessions).toHaveLength(2);
@@ -904,9 +963,9 @@ describe("continuing a Thread", () => {
   it("refuses a message while the person is still answering", async () => {
     await startWith(started(sent("never")));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
 
-    await expect(runner.send(thread.id, "Hello again.")).rejects.toThrow(
+    await expect(runner.send(thread.id, "Hello again.", ANN_LEE)).rejects.toThrow(
       new ThreadRefused(["Jan is still answering. Send it once they finish."]),
     );
   });
@@ -914,11 +973,11 @@ describe("continuing a Thread", () => {
   it("refuses to continue once the person's Chat is off, keeping the Thread readable", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
     versions.push({ ...PLANNER, capabilities: { ...PLANNER.capabilities, chat: false } });
 
-    await expect(runner.send(thread.id, "Hello again.")).rejects.toThrow(ThreadRefused);
+    await expect(runner.send(thread.id, "Hello again.", ANN_LEE)).rejects.toThrow(ThreadRefused);
     await expect(threads.messages(thread.id)).resolves.toHaveLength(3);
   });
 
@@ -927,7 +986,7 @@ describe("continuing a Thread", () => {
     const thread = await threads.startInChat(roleKey);
     cascade.removeEveryEngine();
 
-    await expect(runner.send(thread.id, "Hello.")).rejects.toThrow(
+    await expect(runner.send(thread.id, "Hello.", ANN_LEE)).rejects.toThrow(
       new ThreadRefused([
         "Settings › Engines lists no engine, so no session starts; add one there first.",
       ]),
@@ -940,7 +999,7 @@ describe("continuing a Thread", () => {
 /** The Thread's first exchange, its session then ended as when the service stops, and cooled. */
 async function cooledAfterFirstAnswer(contextTokens: number): Promise<Thread> {
   const thread = await threads.startInChat(roleKey);
-  await runner.send(thread.id, "Read the deploy workflow.");
+  await runner.send(thread.id, "Read the deploy workflow.", ANN_LEE);
   await answered(thread.id, 3);
   await runner.onModuleDestroy();
   await cooled(thread.id, contextTokens);
@@ -969,12 +1028,12 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
   it("starts a warm Thread fresh on the engine the cascade switched to", async () => {
     api.server.script(textReply(["It deploys on push."]));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Read the deploy workflow.");
+    await runner.send(thread.id, "Read the deploy workflow.", ANN_LEE);
     await answered(thread.id, 3);
     cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-sonnet-5-5" });
     engine.queue(started(...aTurn("brief", "Still here.")));
 
-    await runner.send(thread.id, "Still there?");
+    await runner.send(thread.id, "Still there?", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     expect(drafts(log)[3]).toEqual(
@@ -1001,7 +1060,7 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
       "admin-panel",
     );
     const opened = await planningThread();
-    await runner.send(opened.id, PLAN_IT);
+    await runner.send(opened.id, PLAN_IT, ANN_LEE);
     await answered(opened.id, 3);
 
     const label = await app.get(ThreadContexts).of(await threads.read(opened.id));
@@ -1017,12 +1076,12 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
     api.server.script(textReply(["It deploys ", "on push."]), textReply(["The tests run first."]));
     const thread = await cooledAfterFirstAnswer(12_000);
 
-    await runner.send(thread.id, "And the tests?");
+    await runner.send(thread.id, "And the tests?", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     expect(drafts(log).slice(3)).toEqual([
       contextLine({ move: "resume", reason: "small-context", contextTokens: 12_000 }),
-      { kind: "user", text: "And the tests?", delivery: "delivered" },
+      { kind: "user", text: "And the tests?", delivery: "delivered", writtenBy: ANN_LEE },
       { kind: "person", roleKey, text: "The tests run first." },
     ]);
     expect((await threads.read(thread.id)).session?.id).toBe(thread.session?.id);
@@ -1038,7 +1097,7 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
     api.server.script(textReply(["It deploys on push."]), textReply(["The tests run first."]));
     const thread = await cooledAfterFirstAnswer(80_000);
 
-    await runner.send(thread.id, "And the tests?");
+    await runner.send(thread.id, "And the tests?", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     expect(drafts(log)[3]).toEqual(
@@ -1055,7 +1114,7 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
     const [, freshRequest = []] = requestedMessages();
     expect(freshRequest.map(({ role }) => role)).toEqual(["system", "user"]);
     expect(freshRequest[1]?.content).toMatch(
-      /in a fresh session[\s\S]*You: It deploys on push\.[\s\S]*## The user's message\n\nAnd the tests\?$/,
+      /in a fresh session[\s\S]*You: It deploys on push\.[\s\S]*## The message from the user Ann Lee\n\nAnd the tests\?$/,
     );
   });
 });
@@ -1065,14 +1124,14 @@ describe("a Thread on a Task", () => {
     const taskId = randomUUID();
     await startWith(started(...aTurn("brief", "What must be true when it is done?")));
     const opened = await planningThread(taskId);
-    await runner.send(opened.id, PLAN_IT);
+    await runner.send(opened.id, PLAN_IT, ANN_LEE);
     await answered(opened.id, 3);
     const before = await threads.messages(opened.id);
     const stateBefore = (await threads.read(opened.id)).state;
 
     tasksWithoutSessions.add(taskId);
 
-    await expect(runner.send(opened.id, "One more thing.")).rejects.toThrow(
+    await expect(runner.send(opened.id, "One more thing.", ANN_LEE)).rejects.toThrow(
       new ThreadRefused([NO_SESSION_REASON]),
     );
     expect(await threads.messages(opened.id)).toEqual(before);
@@ -1110,13 +1169,13 @@ describe("a Thread on a Task", () => {
     expect(await threads.messages(opened.id)).toEqual([]);
     expect(engine.sessions).toHaveLength(0);
 
-    await runner.send(opened.id, PLAN_IT);
+    await runner.send(opened.id, PLAN_IT, ANN_LEE);
     const log = await answered(opened.id, 4);
 
     const [session] = engine.sessions;
     const brief = session?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toBe(
-      `You are planning the Task ${taskId}.\n\n## The user's message\n\n${PLAN_IT}`,
+      `You are planning the Task ${taskId}.\n\n## The message from the user Ann Lee\n\n${PLAN_IT}`,
     );
     expect(session?.options).toMatchObject({
       folder: worktree,
@@ -1147,7 +1206,7 @@ describe("a Thread on a Task", () => {
     ]);
     expect(drafts(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
-      { kind: "user", text: PLAN_IT, delivery: "delivered" },
+      { kind: "user", text: PLAN_IT, delivery: "delivered", writtenBy: ANN_LEE },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "README.md" },
       { kind: "person", roleKey, text: "What must be true when it is done?" },
     ]);
@@ -1188,7 +1247,7 @@ describe("a Thread on a Task", () => {
 
     try {
       const opened = await planningThread(taskId);
-      await runner.send(opened.id, PLAN_IT);
+      await runner.send(opened.id, PLAN_IT, ANN_LEE);
       const log = await answered(opened.id, 4);
 
       expect(drafts(log).slice(2)).toEqual([
@@ -1213,10 +1272,10 @@ describe("a Thread on a Task", () => {
       started(...aTurn("brief", "Which page?")),
     );
     const planning = await planningThread(taskId);
-    await runner.send(planning.id, PLAN_IT);
+    await runner.send(planning.id, PLAN_IT, ANN_LEE);
     await answered(planning.id, 3);
     const other = await planningThread();
-    await runner.send(other.id, PLAN_IT);
+    await runner.send(other.id, PLAN_IT, ANN_LEE);
     await answered(other.id, 3);
 
     await runner.endWaiting(taskId);
@@ -1232,14 +1291,19 @@ describe("a Thread on a Task", () => {
     );
     versions.push({ ...PLANNER, capabilities: { ...PLANNER.capabilities, chat: false } });
     const opened = await planningThread();
-    await runner.send(opened.id, PLAN_IT);
+    await runner.send(opened.id, PLAN_IT, ANN_LEE);
     await answered(opened.id, 3);
 
-    await runner.send(opened.id, "The page loads under a second.");
+    await runner.send(opened.id, "The page loads under a second.", ANN_LEE);
     const log = await answered(opened.id, 5);
 
     expect(drafts(log).slice(3)).toEqual([
-      { kind: "user", text: "The page loads under a second.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "The page loads under a second.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+      },
       { kind: "person", roleKey, text: "Noted." },
     ]);
   });
@@ -1398,7 +1462,7 @@ describe("a Thread on an Initiative", () => {
     await runner.onModuleDestroy();
     await cooled(opened.id, 12_000);
 
-    await runner.send(opened.id, "Still there?");
+    await runner.send(opened.id, "Still there?", ANN_LEE);
     await answered(opened.id, 5);
 
     const [, resumed] = engine.sessions;
@@ -1427,7 +1491,7 @@ describe("a Thread on an Initiative", () => {
     const reads = { shortName: "sync", branch: "initiative/sync", projectIds: ["admin-panel"] };
     initiativeBranchReads.set(initiativeId, reads);
 
-    await runner.send(opened.id, "Still there?");
+    await runner.send(opened.id, "Still there?", ANN_LEE);
     await answered(opened.id, 5);
 
     const [shaping, resumed] = engine.sessions;
@@ -1450,7 +1514,7 @@ describe("a Thread on an Initiative", () => {
     await startWith(started(...aTurn("brief", "It syncs.")));
     const chat = await threads.startInChat(roleKey);
 
-    await runner.send(chat.id, "What is [@Offline sync](/work)?", {
+    await runner.send(chat.id, "What is [@Offline sync](/work)?", ANN_LEE, {
       mentions: [{ kind: "initiative", initiativeId }],
     });
     await answered(chat.id, 3);
@@ -1475,7 +1539,7 @@ describe("a person's Thread on a Task", () => {
     await startWith(started(...aTurn("brief", "It reads the session cookie.")));
     const thread = await aPersonsThread();
 
-    await runner.send(thread.id, "Why the cookie?");
+    await runner.send(thread.id, "Why the cookie?", ANN_LEE);
     await answered(thread.id, 3);
 
     const [session] = engine.sessions;
@@ -1494,11 +1558,11 @@ describe("a person's Thread on a Task", () => {
       started(...aTurn("brief", "Still the cookie.")),
     );
     const thread = await aPersonsThread();
-    await runner.send(thread.id, "Why the cookie?");
+    await runner.send(thread.id, "Why the cookie?", ANN_LEE);
     await answered(thread.id, 3);
     await threads.chooseOverride(thread.id, "start-fresh");
 
-    await runner.send(thread.id, "And now?");
+    await runner.send(thread.id, "And now?", ANN_LEE);
     await answered(thread.id, 6);
 
     const brief = engine.sessions[1]?.received[0];
@@ -1516,7 +1580,7 @@ describe("a person's Thread on a Task", () => {
       aThread({ id: randomUUID(), home, roleKey, stageThread: true, state: "answering" }),
     );
 
-    await runner.send(thread.id, "Why the cookie?");
+    await runner.send(thread.id, "Why the cookie?", ANN_LEE);
     await answered(thread.id, 3);
 
     expect((await threads.read(thread.id)).tokens).not.toEqual(NO_TOKENS);
@@ -1531,11 +1595,11 @@ describe("a person's Thread on a Task", () => {
       ...aTurn("m-2", "It was planned so."),
     ]);
     const opened = await planningThread();
-    await runner.send(opened.id, PLAN_IT);
+    await runner.send(opened.id, PLAN_IT, ANN_LEE);
     await answered(opened.id, 3);
     tasksAsked.add(opened.home.kind === "task" ? opened.home.taskId : "");
 
-    await runner.send(opened.id, "Why so?");
+    await runner.send(opened.id, "Why so?", ANN_LEE);
     await answered(opened.id, 5);
 
     const [first, resumed] = engine.sessions;
@@ -1552,7 +1616,7 @@ async function planningThread(taskId: string = randomUUID()): Promise<Thread> {
 /** A Task's planning Thread where the Planner answers the user's first message. */
 async function plannerAnswering(): Promise<Thread> {
   const opened = await planningThread();
-  return runner.send(opened.id, PLAN_IT);
+  return runner.send(opened.id, PLAN_IT, ANN_LEE);
 }
 
 /**
@@ -1592,7 +1656,7 @@ describe("a Decision", () => {
     };
     expect(thread.openDecisions[0]).toEqual(decision);
     expect(exchanges(log)).toEqual([
-      { kind: "user", text: PLAN_IT, delivery: "delivered" },
+      { kind: "user", text: PLAN_IT, delivery: "delivered", writtenBy: ANN_LEE },
       { kind: "decision", roleKey, decisionId: thread.openDecisions[0]?.id },
       { kind: "person", roleKey, text: "I asked about archived Projects." },
     ]);
@@ -1614,14 +1678,14 @@ describe("a Decision", () => {
     const open = (await threads.read(opened.id)).openDecisions[0];
     if (!open) throw new Error("No Decision was opened.");
 
-    await decisions.answer(open.id, { kind: "option", option: 0 });
+    await decisions.answer(open.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
     const log = await answered(opened.id, 7);
 
     const [session] = engine.sessions;
     expect(engine.sessions).toHaveLength(1);
     const answer = session?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `The user answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
+      `The user Ann Lee answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
     );
     expect(drafts(log).slice(-2)).toEqual([
       { kind: "decision-answer", decisionId: open.id, answer: { kind: "option", option: 0 } },
@@ -1630,15 +1694,18 @@ describe("a Decision", () => {
     const thread = await threads.read(opened.id);
     expect(thread.openDecisions[0]).toBeUndefined();
     await expect(decisions.listInThread(opened.id)).resolves.toEqual([
-      { ...open, answer: { kind: "option", option: 0, answeredAt: expect.any(Date) } },
+      {
+        ...open,
+        answer: { kind: "option", option: 0, answeredAt: expect.any(Date), user: ANN_LEE },
+      },
     ]);
     await expect(decisions.listOpen()).resolves.not.toContainEqual(
       expect.objectContaining({ id: open.id }),
     );
     await expect(decisions.openOn(open.taskId ?? "")).resolves.toBe(0);
-    await expect(decisions.answer(open.id, { kind: "option", option: 1 })).rejects.toThrow(
-      "This Decision is answered already.",
-    );
+    await expect(
+      decisions.answer(open.id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE),
+    ).rejects.toThrow("This Decision is answered already.");
   });
 
   it("takes a free answer after a follow-up, in a fresh session briefed with the Task's answered Decisions", async () => {
@@ -1658,20 +1725,25 @@ describe("a Decision", () => {
     await answered(opened.id, 5);
     const first = (await threads.read(opened.id)).openDecisions[0];
     if (!first) throw new Error("No Decision was opened.");
-    await decisions.answer(first.id, { kind: "option", option: 0 });
+    await decisions.answer(first.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
     await answered(opened.id, 9);
 
     // A follow-up is an ordinary message: the Decision stays open.
-    await runner.send(opened.id, "What does visible mean?");
+    await runner.send(opened.id, "What does visible mean?", ANN_LEE);
     await answered(opened.id, 11);
     const second = (await threads.read(opened.id)).openDecisions[0];
     expect(second?.question).toBe(COLUMNS_QUESTION);
     await cooled(opened.id, 80_000);
 
-    await runner.answerDecision(opened.id, second?.id ?? "", {
-      kind: "free-answer",
-      text: "The visible ones, plus the id.",
-    });
+    await runner.answerDecision(
+      opened.id,
+      second?.id ?? "",
+      {
+        kind: "free-answer",
+        text: "The visible ones, plus the id.",
+      },
+      ANSWERED_BY_ANN_LEE,
+    );
     const log = await answered(opened.id, 14);
 
     const fresh = engine.sessions[1];
@@ -1680,7 +1752,7 @@ describe("a Decision", () => {
     // The Decision answered now is the message's, not the Brief's.
     expect(
       text.endsWith(
-        `## Decisions the user answered\n\n- ${EXPORT_QUESTION}\n  Answer: Only active Projects\n\n## The user's message\n\nThe user answered your Decision "${COLUMNS_QUESTION}" in their own words:\n\nThe visible ones, plus the id.`,
+        `## Decisions the user answered\n\n- ${EXPORT_QUESTION}\n  Answer: Only active Projects\n\n## The user's message\n\nThe user Ann Lee answered your Decision "${COLUMNS_QUESTION}" in their own words:\n\nThe visible ones, plus the id.`,
       ),
     ).toBe(true);
     expect(text).not.toContain("## Your open Decision");
@@ -1717,7 +1789,7 @@ describe("a Decision", () => {
     const before = (await threads.read(opened.id)).session;
     await cooled(opened.id, 80_000);
 
-    await decisions.answer(open.id, { kind: "option", option: 1 });
+    await decisions.answer(open.id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
     const failed = await waiting(opened.id);
 
     expect(failed.openDecisions[0]).toEqual(open);
@@ -1729,7 +1801,7 @@ describe("a Decision", () => {
       { kind: "failure", reason: expect.stringContaining("stray") },
     ]);
 
-    await decisions.answer(open.id, { kind: "option", option: 0 });
+    await decisions.answer(open.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
     await vi.waitFor(async () => {
       const thread = await threads.read(opened.id);
       if (thread.state !== "waiting" || thread.openDecisions[0])
@@ -1737,7 +1809,7 @@ describe("a Decision", () => {
     });
     const brief = engine.sessions.at(-1)?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toContain(
-      `The user answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
+      `The user Ann Lee answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
     );
     expect(drafts(await threads.messages(opened.id)).at(-1)).toEqual({
       kind: "person",
@@ -1749,7 +1821,7 @@ describe("a Decision", () => {
   it("is refused to a session no Thread on a Task has, with the reason the person reads", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const chat = await threads.startInChat(roleKey);
-    await runner.send(chat.id, "Hello.");
+    await runner.send(chat.id, "Hello.", ANN_LEE);
     await answered(chat.id, 3);
     const chatSession = (await threads.read(chat.id)).session?.id ?? "";
     const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL]);
@@ -1897,7 +1969,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
       { taskId: taskB, question: "Which columns?" },
     ]);
 
-    await decisions.answer(onA?.id ?? "", { kind: "option", option: 0 });
+    await decisions.answer(onA?.id ?? "", { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
 
     const working = await threads.read(opened.id);
     expect(working.state).toBe("answering");
@@ -1920,7 +1992,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     const handedOver = session?.received.find(({ step }) => step === "send");
     expect(handedOver?.step === "send" && handedOver.message.text).toBe(
-      `On the Task "Export API" (${taskA}): The user answered your Decision "Which format?" with the option "CSV".`,
+      `On the Task "Export API" (${taskA}): The user Ann Lee answered your Decision "Which format?" with the option "CSV".`,
     );
     await answered(opened.id, 1);
     const delivered = (await threads.messages(opened.id)).find(
@@ -1928,7 +2000,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     expect(delivered).toMatchObject({ decisionId: onA?.id, delivery: "delivered" });
 
-    await decisions.answer(onB?.id ?? "", { kind: "option", option: 1 });
+    await decisions.answer(onB?.id ?? "", { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
     await vi.waitFor(
       () => {
         const sends = session?.received.filter(({ step }) => step === "send") ?? [];
@@ -1938,17 +2010,22 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     const answeredAtOnce = session?.received.filter(({ step }) => step === "send")[1];
     expect(answeredAtOnce?.step === "send" && answeredAtOnce.message.text).toBe(
-      `On the Task "Export button" (${taskB}): The user answered your Decision "Which columns?" with the option "JSON".`,
+      `On the Task "Export button" (${taskB}): The user Ann Lee answered your Decision "Which columns?" with the option "JSON".`,
     );
     await answered(opened.id, 1);
     expect((await threads.read(opened.id)).openDecisions).toEqual([]);
   });
 });
 
-/** A chat with the person, its session started, where the user asks them to answer a Decision. */
-async function aChatWithASession(): Promise<{ readonly id: string; readonly sessionId: string }> {
+/**
+ * A chat with the person, its session started, where the user `asking`, Ann Lee unless named, asks
+ * them to answer a Decision.
+ */
+async function aChatWithASession(
+  asking: UserRef = ANN_LEE,
+): Promise<{ readonly id: string; readonly sessionId: string }> {
   const chat = await threads.startInChat(roleKey);
-  await runner.send(chat.id, "Answer it for me: the second option.");
+  await runner.send(chat.id, "Answer it for me: the second option.", asking);
   await answered(chat.id, 3);
   return { id: chat.id, sessionId: (await threads.read(chat.id)).session?.id ?? "" };
 }
@@ -2031,13 +2108,13 @@ describe("a Decision answered for the user, at their request", () => {
     const log = await answered(opened.id, 7);
 
     expect(result).toEqual({
-      text: `You answered the Decision "${EXPORT_QUESTION}" for the user: "Every Project". The Office passes it on to whoever waits on it.`,
+      text: `You answered the Decision "${EXPORT_QUESTION}" for the user Ann Lee: "Every Project". The Office passes it on to whoever waits on it.`,
       isError: false,
     });
-    const atUsersRequest = { roleKey, threadId: chat.id };
+    const atUsersRequest = { roleKey, threadId: chat.id, user: ANN_LEE };
     const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `Jan answered your Decision "${EXPORT_QUESTION}" for the user, at their request, with the option "Every Project".`,
+      `Jan answered your Decision "${EXPORT_QUESTION}" for the user Ann Lee, at their request, with the option "Every Project".`,
     );
     expect(drafts(log).slice(-2)).toEqual([
       {
@@ -2058,6 +2135,39 @@ describe("a Decision answered for the user, at their request", () => {
     await expect(
       answersForTheUser(chat.sessionId, { decisionId: open.id, option: 1 }),
     ).resolves.toEqual({ text: "This Decision is answered already.", isError: true });
+  });
+
+  it("records as the user who asked the one who wrote the latest message in the person's Thread", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "Every Project, then."),
+      ),
+      started(...aTurn("brief", "I'll answer it.")),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+    const chat = await aChatWithASession(BEN_ITO);
+
+    const result = await answersForTheUser(chat.sessionId, { decisionId: open.id, option: 2 });
+    await answered(opened.id, 7);
+
+    expect(result?.text).toBe(
+      `You answered the Decision "${EXPORT_QUESTION}" for the user Ben Ito: "Every Project". The Office passes it on to whoever waits on it.`,
+    );
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `Jan answered your Decision "${EXPORT_QUESTION}" for the user Ben Ito, at their request, with the option "Every Project".`,
+    );
+    expect((await repository.decision(open.id))?.answer?.atUsersRequest).toEqual({
+      roleKey,
+      threadId: chat.id,
+      user: BEN_ITO,
+    });
   });
 
   it("follows the answer rules: an option it doesn't have, a blank answer, and the asker still answering", async () => {
@@ -2153,7 +2263,7 @@ describe("a Decision answered for the user, at their request", () => {
       answer: "Retry the Stage.",
     });
 
-    const atUsersRequest = { roleKey, threadId: chat.id };
+    const atUsersRequest = { roleKey, threadId: chat.id, user: ANN_LEE };
     expect((await repository.decision(inStage.id))?.answer).toEqual({
       kind: "option",
       option: 1,
@@ -2212,7 +2322,7 @@ describe("a Decision answered for the user, at their request", () => {
 
     await answersForTheUser(chat.sessionId, { decisionId: onB?.id ?? "", option: 2 });
 
-    const atUsersRequest = { roleKey, threadId: chat.id };
+    const atUsersRequest = { roleKey, threadId: chat.id, user: ANN_LEE };
     const kept = (await threads.messages(opened.id)).find(
       (line) => line.kind === "decision-answer",
     );
@@ -2229,8 +2339,8 @@ describe("a Decision answered for the user, at their request", () => {
     const handedOver = engine.sessions[0]?.received.find(({ step }) => step === "send");
     expect(handedOver?.step === "send" && handedOver.message.text).toBe(
       [
-        `On the Task "Export button" (${taskB}): Jan answered your Decision "Which columns?" for the user, at their request, with the option "JSON".`,
-        `On the Task "Export API" (${taskA}): Jan answered your Decision "Which format?" for the user, at their request, with the option "CSV".`,
+        `On the Task "Export button" (${taskB}): Jan answered your Decision "Which columns?" for the user Ann Lee, at their request, with the option "JSON".`,
+        `On the Task "Export API" (${taskA}): Jan answered your Decision "Which format?" for the user Ann Lee, at their request, with the option "CSV".`,
       ].join("\n\n"),
     );
   });
@@ -2263,7 +2373,7 @@ describe("a message mentioning records", () => {
     const chat = await threads.startInChat(roleKey);
     const said = "Compare [@Export CSV](/tasks/x) with [@Dark mode](/work/ideas?idea=y).";
 
-    await runner.send(chat.id, said, {
+    await runner.send(chat.id, said, ANN_LEE, {
       mentions: [
         { kind: "task", taskId },
         { kind: "idea", ideaId },
@@ -2277,13 +2387,13 @@ describe("a message mentioning records", () => {
     const brief = engine.sessions[1]?.received[0];
     const text = brief?.step === "start" ? brief.brief.text : "";
     expect(text).toMatch(
-      /\n\n## Records the user mentioned\n\n[\s\S]+\n\n## The user's message\n\n/,
+      /\n\n## Records the user mentioned\n\n[\s\S]+\n\n## The message from the user Ann Lee\n\n/,
     );
-    expect(text.endsWith(`## The user's message\n\n${said}`)).toBe(true);
+    expect(text.endsWith(`## The message from the user Ann Lee\n\n${said}`)).toBe(true);
     const records = text
       .slice(
         text.indexOf("## Records the user mentioned\n\n") + 31,
-        text.indexOf("\n\n## The user's message"),
+        text.indexOf("\n\n## The message from the user Ann Lee"),
       )
       .split("\n\n---\n\n");
     expect(records).toHaveLength(5);
@@ -2297,7 +2407,12 @@ describe("a message mentioning records", () => {
     // The Thread's context line shows the Brief with the records, as the session got it.
     const [context, message] = drafts(log);
     expect(context?.kind === "context" && context.brief).toContain("## Records the user mentioned");
-    expect(message).toEqual({ kind: "user", text: said, delivery: "delivered" });
+    expect(message).toEqual({
+      kind: "user",
+      text: said,
+      delivery: "delivered",
+      writtenBy: ANN_LEE,
+    });
   });
 
   it("gives a running session the records with the next message", async () => {
@@ -2305,10 +2420,10 @@ describe("a message mentioning records", () => {
     const taskId = randomUUID();
     workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
     const chat = await threads.startInChat(roleKey);
-    await runner.send(chat.id, "Hello.");
+    await runner.send(chat.id, "Hello.", ANN_LEE);
     await answered(chat.id, 3);
 
-    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", {
+    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", ANN_LEE, {
       mentions: [{ kind: "task", taskId }],
     });
     const log = await answered(chat.id, 5);
@@ -2322,6 +2437,7 @@ describe("a message mentioning records", () => {
       kind: "user",
       text: "Look at [@Export CSV](/tasks/x).",
       delivery: "delivered",
+      writtenBy: ANN_LEE,
     });
   });
 });
@@ -2335,18 +2451,19 @@ describe("a message sent with an Open page", () => {
     const chat = await threads.startInChat(roleKey);
     const openPage = { kind: "person", roleKey: "planner" } as const;
 
-    await runner.send(chat.id, "What does this person do?", { openPage });
+    await runner.send(chat.id, "What does this person do?", ANN_LEE, { openPage });
     const log = await answered(chat.id, 3);
 
     const brief = engine.sessions[0]?.received[0];
     const text = brief?.step === "start" ? brief.brief.text : "";
     expect(text).toContain(
-      `${OPEN_PAGE_HEADING}Jan · Planner (Role planner)\n\n## The user's message`,
+      `${OPEN_PAGE_HEADING}Jan · Planner (Role planner)\n\n## The message from the user Ann Lee`,
     );
     expect(drafts(log)[1]).toEqual({
       kind: "user",
       text: "What does this person do?",
       delivery: "delivered",
+      writtenBy: ANN_LEE,
       openPage,
     });
   });
@@ -2366,12 +2483,12 @@ describe("a message sent with an Open page", () => {
     projectRecords.set("admin-panel", "Admin panel (id admin-panel)");
     const chat = await threads.startInChat(roleKey);
     const onTask = { openPage: { kind: "task", taskId } } as const;
-    await runner.send(chat.id, "Hello.", onTask);
+    await runner.send(chat.id, "Hello.", ANN_LEE, onTask);
     await answered(chat.id, 3);
 
-    await runner.send(chat.id, "And its tests?", onTask);
+    await runner.send(chat.id, "And its tests?", ANN_LEE, onTask);
     await answered(chat.id, 5);
-    await runner.send(chat.id, "Where does it publish?", {
+    await runner.send(chat.id, "Where does it publish?", ANN_LEE, {
       openPage: { kind: "project", projectId: "admin-panel" },
     });
     await answered(chat.id, 7);
@@ -2400,12 +2517,12 @@ describe("a message sent with an Open page", () => {
     workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
     const chat = await threads.startInChat(roleKey);
     const onTask = { openPage: { kind: "task", taskId } } as const;
-    await runner.send(chat.id, "Hello.", onTask);
+    await runner.send(chat.id, "Hello.", ANN_LEE, onTask);
     await answered(chat.id, 3);
 
-    await runner.send(chat.id, "Left out.");
+    await runner.send(chat.id, "Left out.", ANN_LEE);
     await answered(chat.id, 5);
-    await runner.send(chat.id, "Back on it.", onTask);
+    await runner.send(chat.id, "Back on it.", ANN_LEE, onTask);
     await answered(chat.id, 7);
 
     const messages = engine.sessions[0]?.received.flatMap((step) =>
@@ -2423,11 +2540,11 @@ describe("a message sent with an Open page", () => {
     workRecords.set(ideaId, "Dark mode (Idea) · Notes: for the night shift.");
     const chat = await threads.startInChat(roleKey);
     const onIdea = { openPage: { kind: "idea", ideaId } } as const;
-    await runner.send(chat.id, "Hello.", onIdea);
+    await runner.send(chat.id, "Hello.", ANN_LEE, onIdea);
     await answered(chat.id, 3);
 
     await threads.chooseOverride(chat.id, "start-fresh");
-    await runner.send(chat.id, "Start over.", onIdea);
+    await runner.send(chat.id, "Start over.", ANN_LEE, onIdea);
     await answered(chat.id, 6);
 
     const brief = engine.sessions[1]?.received[0];
@@ -2442,7 +2559,7 @@ describe("a message sent with an Open page", () => {
     await startWith(started(...aTurn("brief", "What must be true when it is done?")));
     const opened = await planningThread(taskId);
 
-    await runner.send(opened.id, PLAN_IT, { openPage: { kind: "task", taskId } });
+    await runner.send(opened.id, PLAN_IT, ANN_LEE, { openPage: { kind: "task", taskId } });
     const log = await answered(opened.id, 3);
 
     const brief = engine.sessions[0]?.received[0];
@@ -2458,10 +2575,12 @@ describe("a message sent with an Open page", () => {
     const taskId = randomUUID();
     workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
     const chat = await threads.startInChat(roleKey);
-    await runner.send(chat.id, "Hello.", { openPage: { kind: "person", roleKey: "gone" } });
+    await runner.send(chat.id, "Hello.", ANN_LEE, {
+      openPage: { kind: "person", roleKey: "gone" },
+    });
     await answered(chat.id, 3);
 
-    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", {
+    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", ANN_LEE, {
       mentions: [{ kind: "task", taskId }],
       openPage: { kind: "task", taskId },
     });
@@ -2501,7 +2620,7 @@ describe("when a session doesn't answer", () => {
     );
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await waiting(thread.id);
 
     const log = drafts(await threads.messages(thread.id));
@@ -2519,7 +2638,7 @@ describe("when a session doesn't answer", () => {
     await startWith();
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     const after = await waiting(thread.id);
 
     expect(after.session).toBeUndefined();
@@ -2539,7 +2658,7 @@ describe("when a session doesn't answer", () => {
     );
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await waiting(thread.id);
 
     expect(drafts(await threads.messages(thread.id)).slice(2)).toEqual([
@@ -2552,7 +2671,7 @@ describe("when a session doesn't answer", () => {
     // The session waits for a message nobody sends: it is still answering.
     await startWith(started(sent("never")));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     // Test files share one database: recovering every Thread would fail those answering in others.
     const answering = repository.answering.bind(repository);
     vi.spyOn(repository, "answering").mockImplementation(async () =>
@@ -2582,7 +2701,7 @@ describe("near the context limit", () => {
       started(...aTurn("brief", "Picking up.")),
     );
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Read everything.");
+    await runner.send(thread.id, "Read everything.", ANN_LEE);
     const log = await answered(thread.id, 4);
 
     const [full] = engine.sessions;
@@ -2595,7 +2714,7 @@ describe("near the context limit", () => {
     });
     expect((await threads.read(thread.id)).session).toMatchObject({ full: true });
 
-    await runner.send(thread.id, "Go on.");
+    await runner.send(thread.id, "Go on.", ANN_LEE);
     const after = await answered(thread.id, 7);
 
     const brief = engine.sessions[1]?.received[0];
@@ -2660,9 +2779,9 @@ describe("chats during the fire alarm", () => {
     const lifted = await threads.startInChat(roleKey);
     await app.get(FireAlarmLifts).lift(lifted.id);
 
-    await runner.send(held.id, "What changed?");
+    await runner.send(held.id, "What changed?", ANN_LEE);
     const heldLog = await answered(held.id, 5);
-    await runner.send(lifted.id, "What changed?");
+    await runner.send(lifted.id, "What changed?", ANN_LEE);
     const liftedLog = await answered(lifted.id, 4);
 
     expect(refusalsIn(heldLog)).toEqual([
@@ -2739,7 +2858,7 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     standInsFor(chatOfficeTools(["default-person-to-talk-to"]));
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Who handles deploys?");
+    await runner.send(thread.id, "Who handles deploys?", ANN_LEE);
     await answered(thread.id, 3);
 
     expect(toolsOf(0)).toEqual(chatOfficeTools(["default-person-to-talk-to"]));
@@ -2758,7 +2877,7 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     standInsFor(chatOfficeTools(["onboards-projects"]));
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Onboard this repository.");
+    await runner.send(thread.id, "Onboard this repository.", ANN_LEE);
     await answered(thread.id, 3);
 
     expect(toolsOf(0)).toEqual(chatOfficeTools(["onboards-projects"]));
@@ -2776,7 +2895,7 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     standInsFor([CREATE_INITIATIVE_TOOL]);
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Let's start an Initiative.");
+    await runner.send(thread.id, "Let's start an Initiative.", ANN_LEE);
     await answered(thread.id, 3);
 
     expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CREATE_INITIATIVE_TOOL, CONSULT_TOOL]);
@@ -2786,7 +2905,7 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
 
     expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
@@ -2801,11 +2920,11 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     ]);
     standInsFor(chatOfficeTools(["onboards-projects"]));
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
+    await runner.send(thread.id, "Hello.", ANN_LEE);
     await answered(thread.id, 3);
 
     duties.set("onboards-projects", roleKey);
-    await runner.send(thread.id, "Onboard this repository.");
+    await runner.send(thread.id, "Onboard this repository.", ANN_LEE);
     const log = await answered(thread.id, 6);
 
     expect(engine.sessions).toHaveLength(2);
@@ -2837,7 +2956,7 @@ describe("the Caretaker's chat", () => {
     await startWith(started(...aTurn("brief", "The disk is nearly full.")));
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Why is the build slow?");
+    await runner.send(thread.id, "Why is the build slow?", ANN_LEE);
     await answered(thread.id, 3);
 
     expect(engine.sessions[0]?.options).toMatchObject({
@@ -2857,7 +2976,7 @@ describe("the Caretaker's chat", () => {
     await startWith(started(...aTurn("brief", "Nobody greets the user yet.")));
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Who do I talk to?");
+    await runner.send(thread.id, "Who do I talk to?", ANN_LEE);
     await answered(thread.id, 3);
 
     expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL]);
@@ -2874,15 +2993,15 @@ describe("the Caretaker's chat", () => {
     );
     const allowChanges = app.get(AllowChanges);
     const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "What fills the disk?");
+    await runner.send(thread.id, "What fills the disk?", ANN_LEE);
     await answered(thread.id, 3);
 
-    await allowChanges.allow(thread.id);
-    await runner.send(thread.id, "Clear the cache.");
+    await allowChanges.allow(thread.id, ANN_LEE);
+    await runner.send(thread.id, "Clear the cache.", ANN_LEE);
     const allowedLog = await answered(thread.id, 7);
     const whileAllowed = await threads.read(thread.id);
-    await allowChanges.switchOff(thread.id);
-    await runner.send(thread.id, "How big is it now?");
+    await allowChanges.switchOff(thread.id, ANN_LEE);
+    await runner.send(thread.id, "How big is it now?", ANN_LEE);
     const log = await answered(thread.id, 11);
 
     const [readOnly, onTheWorkstation, readOnlyAgain] = engine.sessions;
@@ -2895,7 +3014,11 @@ describe("the Caretaker's chat", () => {
     expect(onTheWorkstation?.options.refusalAdvice).toBeUndefined();
     expect(onTheWorkstation?.options.instructions).toContain("The user allowed changes");
     expect(whileAllowed.session).toMatchObject({ id: onTheWorkstation?.id, changesAllowed: true });
-    expect(drafts(allowedLog).at(3)).toEqual({ kind: "changes-allowed", allowed: true });
+    expect(drafts(allowedLog).at(3)).toEqual({
+      kind: "changes-allowed",
+      allowed: true,
+      by: ANN_LEE,
+    });
     expect(onTheWorkstation?.received.at(-1)).toEqual({ step: "end" });
     expect(readOnlyAgain?.options).toMatchObject({
       folder: join(officeData, "bases"),
@@ -2903,14 +3026,14 @@ describe("the Caretaker's chat", () => {
     });
     expect(switchLines(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
-      { kind: "changes-allowed", allowed: true },
+      { kind: "changes-allowed", allowed: true, by: ANN_LEE },
       contextLine({
         move: "fresh",
         reason: "changes-switched",
         contextTokens: 32_000,
         briefTokens: expect.any(Number),
       }),
-      { kind: "changes-allowed", allowed: false },
+      { kind: "changes-allowed", allowed: false, by: ANN_LEE },
       contextLine({
         move: "fresh",
         reason: "changes-switched",
@@ -2923,8 +3046,8 @@ describe("the Caretaker's chat", () => {
   it("holds every call of a session with changes allowed while the fire alarm is on", async () => {
     await startWith(started(...aTurn("brief", "Done.")));
     const thread = await threads.startInChat(roleKey);
-    await app.get(AllowChanges).allow(thread.id);
-    await runner.send(thread.id, "Update the toolchain.");
+    await app.get(AllowChanges).allow(thread.id, ANN_LEE);
+    await runner.send(thread.id, "Update the toolchain.", ANN_LEE);
     await answered(thread.id, 4);
     app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(aSounding()));
 
@@ -2935,7 +3058,7 @@ describe("the Caretaker's chat", () => {
     await startWith();
     const allowChanges = app.get(AllowChanges);
     const allowed = await threads.startInChat(roleKey);
-    await allowChanges.allow(allowed.id);
+    await allowChanges.allow(allowed.id, ANN_LEE);
     const fresh = await threads.startInChat(roleKey);
     roleKey = `role-${randomUUID()}`;
     const elsewhere = await threads.startInChat(roleKey);
@@ -2943,7 +3066,7 @@ describe("the Caretaker's chat", () => {
     await expect(allowChanges.inThread(allowed)).resolves.toBe(true);
     await expect(allowChanges.inThread(fresh)).resolves.toBe(false);
     await expect(allowChanges.inThread(elsewhere)).resolves.toBeUndefined();
-    await expect(allowChanges.allow(elsewhere.id)).rejects.toThrow(
+    await expect(allowChanges.allow(elsewhere.id, ANN_LEE)).rejects.toThrow(
       "Only the Caretaker's chat has Allow changes.",
     );
     await expect(threads.messages(fresh.id)).resolves.toEqual([]);
@@ -3039,7 +3162,7 @@ describe("a Thread's Sub-agents and Processes", () => {
     const kept = app.get(SubAgentsAndProcesses);
     const thread = await aMaskedTaskThread();
 
-    await runner.send(thread.id, PLAN_IT);
+    await runner.send(thread.id, PLAN_IT, ANN_LEE);
     await answered(thread.id, 3);
     expect((await kept.output(thread.id, "bash-1", 0)).chunks).toEqual([
       { sequence: 1, text: "ready\n" },
@@ -3111,7 +3234,7 @@ describe("a Thread's Sub-agents and Processes", () => {
     app.get(EventBus).subscribe(SubAgentOrProcessChanged, (event) => void changes.push(event));
     const kept = app.get(SubAgentsAndProcesses);
     const thread = await aMaskedTaskThread();
-    await runner.send(thread.id, PLAN_IT);
+    await runner.send(thread.id, PLAN_IT, ANN_LEE);
     await answered(thread.id, 3);
 
     await runner.endWaiting(thread.home.kind === "task" ? thread.home.taskId : "");
@@ -3124,7 +3247,7 @@ describe("a Thread's Sub-agents and Processes", () => {
     expect(changes.at(-1)).toMatchObject({ change: "ended", item: { callId: "bash-1" } });
 
     await threads.chooseOverride(thread.id, "start-fresh");
-    await runner.send(thread.id, "Start over.");
+    await runner.send(thread.id, "Start over.", ANN_LEE);
     await answered(thread.id, 6);
     expect(await kept.list(thread.id)).toEqual([]);
     const [first] = engine.sessions;
@@ -3161,7 +3284,7 @@ describe("a Thread's Sub-agents and Processes", () => {
     );
     const thread = await threads.startInChat(roleKey);
 
-    await runner.send(thread.id, "Review the change.");
+    await runner.send(thread.id, "Review the change.", ANN_LEE);
     await answered(thread.id, 3);
 
     const [session] = engine.sessions;
@@ -3180,7 +3303,7 @@ describe("a Thread's Sub-agents and Processes", () => {
     );
     const kept = app.get(SubAgentsAndProcesses);
     const thread = await aMaskedTaskThread();
-    await runner.send(thread.id, PLAN_IT);
+    await runner.send(thread.id, PLAN_IT, ANN_LEE);
     await answered(thread.id, 3);
     // Test files share one database: stopping every Running one would stop those of others.
     const items = app.get(SubAgentAndProcessRepository);

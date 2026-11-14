@@ -15,7 +15,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import type { AttachmentKind } from "../../domain/attachment.js";
-import type { Author } from "../../domain/author.js";
+import type { ArchivedBy, Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
 import type { StateChangeCause } from "../../domain/state-change.js";
@@ -30,12 +30,27 @@ import { searchVectorOf } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
 
+/**
+ * An Author as jsonb keeps it: a user's from before users existed has no `user` until the first
+ * user claims it (`WorkEarlierRecords`), and reads as `user: null` (`authorOf`).
+ */
+export type AuthorRow = Author | { readonly kind: "user"; readonly user?: undefined };
+
+/**
+ * A state change's cause as jsonb keeps it: an Author's as `AuthorRow`, and a start by the queue
+ * kept before who queued it was has no `queuedBy` (`causeOf`).
+ */
+export type StateChangeCauseRow =
+  | Exclude<StateChangeCause, { readonly kind: "user" | "queue" }>
+  | AuthorRow
+  | { readonly kind: "queue"; readonly queuedBy?: AuthorRow | null };
+
 /** A Task's Move to another Project as jsonb keeps it: its time as an ISO string. */
 export interface ProjectMoveRow {
   readonly from: string;
   readonly to: string;
   readonly at: string;
-  readonly by: Author;
+  readonly by: AuthorRow;
 }
 
 export const ideas = pgTable("ideas", {
@@ -47,7 +62,7 @@ export const ideas = pgTable("ideas", {
   state: text("state").$type<IdeaState>().notNull(),
   taskId: uuid("task_id").references((): AnyPgColumn => tasks.id),
   initiativeId: uuid("initiative_id").references((): AnyPgColumn => initiatives.id),
-  capturedBy: jsonb("captured_by").$type<Author>().notNull(),
+  capturedBy: jsonb("captured_by").$type<AuthorRow>().notNull(),
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
   droppedAt: timestamp("dropped_at", { withTimezone: true }),
 });
@@ -74,14 +89,18 @@ export const initiatives = pgTable(
     state: text("state").$type<InitiativeState>().notNull(),
     /** Null for one created with create_initiative, from no Idea. */
     originIdeaId: uuid("origin_idea_id").references((): AnyPgColumn => ideas.id),
-    createdBy: jsonb("created_by").$type<Author>().notNull(),
+    createdBy: jsonb("created_by").$type<AuthorRow>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     /** Null while it is shaping or active, and for one that ended before this was kept. */
     endedAt: timestamp("ended_at", { withTimezone: true }),
     /** Null while it isn't archived. */
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** Null while it isn't archived, and for one archived before who did was kept. */
+    archivedBy: jsonb("archived_by").$type<ArchivedBy>(),
     /** Null until it is first restored from the Archive. */
     restoredAt: timestamp("restored_at", { withTimezone: true }),
+    /** Null until it is first restored; the user, unnamed, for a Restore from before users. */
+    restoredBy: jsonb("restored_by").$type<AuthorRow>(),
     /** Null while it isn't paused. */
     pausedAt: timestamp("paused_at", { withTimezone: true }),
     /** Its latest planning Thread, kept by Conversations; null until it is first planned. */
@@ -91,6 +110,8 @@ export const initiatives = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::uuid[]`),
+    /** Who asked for its latest planning Thread; null until it is first planned. */
+    planningStartedBy: jsonb("planning_started_by").$type<AuthorRow>(),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
     /**
      * The Initiative's Pipeline in each Project it was given one or None for (Initiative.pipelines);
@@ -172,12 +193,16 @@ export const tasks = pgTable(
       .$type<ProjectMoveRow[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
-    createdBy: jsonb("created_by").$type<Author>().notNull(),
+    createdBy: jsonb("created_by").$type<AuthorRow>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     /** Null while it isn't archived. */
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** Null while it isn't archived, and for one archived before who did was kept. */
+    archivedBy: jsonb("archived_by").$type<ArchivedBy>(),
     /** Null until it is first restored from the Archive. */
     restoredAt: timestamp("restored_at", { withTimezone: true }),
+    /** Null until it is first restored; the user, unnamed, for a Restore from before users. */
+    restoredBy: jsonb("restored_by").$type<AuthorRow>(),
     /** Null while it hasn't ended, and for one whose end was never recorded. */
     endedAt: timestamp("ended_at", { withTimezone: true }),
   },
@@ -216,7 +241,7 @@ export const taskStateChanges = pgTable(
     fromState: text("from_state").$type<TaskState>(),
     toState: text("to_state").$type<TaskState>().notNull(),
     changedAt: timestamp("changed_at", { withTimezone: true }).notNull(),
-    changedBy: jsonb("changed_by").$type<StateChangeCause>().notNull(),
+    changedBy: jsonb("changed_by").$type<StateChangeCauseRow>().notNull(),
   },
   (table) => [index("task_state_changes_task").on(table.taskId)],
 );
@@ -244,7 +269,7 @@ export const attachments = pgTable(
     text: boolean("text"),
     /** Relative to the Task's worktree; null for a link, the user's uploads and older files. */
     sourcePath: text("source_path"),
-    addedBy: jsonb("added_by").$type<Author>().notNull(),
+    addedBy: jsonb("added_by").$type<AuthorRow>().notNull(),
     addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
   },
   (table) => [

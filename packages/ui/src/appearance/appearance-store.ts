@@ -19,6 +19,18 @@ export interface Appearance {
   readonly density: Density;
 }
 
+/** A palette and a density as chosen: undefined follows the system, and is Comfortable. */
+export interface ChosenAppearance {
+  readonly palette: Palette | undefined;
+  readonly density: Density | undefined;
+}
+
+/**
+ * Hears a choice made on this page, to keep it elsewhere, such as with the user's account. While
+ * the promise it answers is unsettled, `adopt` leaves the choice alone.
+ */
+export type AppearanceChosenListener = (choice: ChosenAppearance) => Promise<unknown> | undefined;
+
 /** The appearance of this browser, in the shape React's `useSyncExternalStore` reads. */
 export interface AppearanceStore {
   /** The same object until the appearance changes. */
@@ -27,24 +39,44 @@ export interface AppearanceStore {
   /** Forgets the chosen palette, so the system's light or dark is shown again. */
   followSystem(): void;
   chooseDensity(density: Density): void;
+  /**
+   * Shows a choice made elsewhere, such as the signed-in user's, and keeps it as this browser's
+   * cache; skipped while a choice made here is still being kept, so it can't undo a fresh one.
+   */
+  adopt(choice: ChosenAppearance): void;
+  onChosen(listener: AppearanceChosenListener): () => void;
   subscribe(onChange: () => void): () => void;
 }
 
 const SYSTEM_DARK = "(prefers-color-scheme: dark)";
 
 /**
- * Keeps the chosen palette and density in local storage, or for this page alone where storage is
- * blocked.
+ * Keeps the chosen palette and density in local storage, this browser's cache of the last
+ * signed-in user's, which the inline script paints from before the first paint; for this page alone
+ * where storage is blocked.
  */
 export function createAppearanceStore(): AppearanceStore {
   let chosenPalette = stored(APPEARANCE_RULES.paletteKey, PALETTES);
   let chosenDensity = stored(APPEARANCE_RULES.densityKey, DENSITIES);
   let appearance = apply(chosenPalette, chosenDensity);
   const listeners = new Set<() => void>();
+  const chosenListeners = new Set<AppearanceChosenListener>();
+  let choicesBeingKept = 0;
 
   const update = (): void => {
     appearance = apply(chosenPalette, chosenDensity);
     for (const listener of listeners) listener();
+  };
+  const announceChoice = (): void => {
+    for (const listener of chosenListeners) {
+      const kept = listener({ palette: chosenPalette, density: chosenDensity });
+      if (kept === undefined) continue;
+      choicesBeingKept += 1;
+      const settled = (): void => {
+        choicesBeingKept -= 1;
+      };
+      kept.then(settled, settled);
+    }
   };
   // Another tab chose a palette or a density, or cleared what this browser keeps.
   const onStorage = (event: StorageEvent): void => {
@@ -62,16 +94,34 @@ export function createAppearanceStore(): AppearanceStore {
       chosenPalette = palette;
       keep(APPEARANCE_RULES.paletteKey, palette);
       update();
+      announceChoice();
     },
     followSystem: () => {
       chosenPalette = undefined;
       keep(APPEARANCE_RULES.paletteKey, undefined);
       update();
+      announceChoice();
     },
     chooseDensity: (density) => {
       chosenDensity = density;
       keep(APPEARANCE_RULES.densityKey, density);
       update();
+      announceChoice();
+    },
+    adopt: ({ palette, density }) => {
+      if (choicesBeingKept > 0) return;
+      if (palette === chosenPalette && density === chosenDensity) return;
+      chosenPalette = palette;
+      chosenDensity = density;
+      keep(APPEARANCE_RULES.paletteKey, palette);
+      keep(APPEARANCE_RULES.densityKey, density);
+      update();
+    },
+    onChosen: (listener) => {
+      chosenListeners.add(listener);
+      return () => {
+        chosenListeners.delete(listener);
+      };
     },
     subscribe: (onChange) => {
       if (listeners.size === 0) {

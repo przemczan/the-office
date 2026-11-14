@@ -12,7 +12,6 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import type { AttachmentOwner } from "../../domain/attachment.js";
-import { THE_USER } from "../../domain/author.js";
 import { CREATED_INITIATIVE_SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../../domain/shaping.js";
 import {
   IdeaCardsForTests,
@@ -48,6 +47,7 @@ import {
   READ_TASK,
 } from "./work-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+import { ANN_LEE, BEN_ITO } from "../../domain/work.fixtures.js";
 
 /** The Role holding Shapes Initiatives unless a test moves it. */
 const CTO = "cto";
@@ -438,18 +438,18 @@ describe("reading Tasks and Ideas", () => {
     const tasks = work.app.get(TaskService);
     const task = await tasks.create(
       { title: "Fix the login redirect", projectId, priority: "high" },
-      THE_USER,
+      ANN_LEE,
     );
     await tasks.create(
       { title: "Elsewhere", projectId: `project-${randomUUID()}`, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
     await work.app
       .get(AttachmentService)
       .addLink(
         { kind: "task", taskId: task.id },
         { name: "Spec", url: "https://example.com/spec" },
-        THE_USER,
+        ANN_LEE,
       );
 
     const list = await call(LIST_TASKS, { projectId });
@@ -468,14 +468,14 @@ describe("reading Tasks and Ideas", () => {
     const tasks = work.app.get(TaskService);
     const onBoard = await tasks.create(
       { title: "On the board", projectId, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
     const finished = await tasks.create(
       { title: "Finished", projectId, priority: "normal" },
-      THE_USER,
+      ANN_LEE,
     );
-    await tasks.drop(finished.id);
-    const archived = await tasks.archive(finished.id);
+    await tasks.drop(finished.id, ANN_LEE);
+    const archived = await tasks.archive(finished.id, BEN_ITO);
 
     const list = await call(LIST_TASKS, { projectId });
     const record = await call(READ_TASK, { taskId: finished.id });
@@ -484,21 +484,21 @@ describe("reading Tasks and Ideas", () => {
       `- On the board (Task ${onBoard.id}) · Project ${projectId} · Backlog · normal priority`,
     );
     expect(record.text).toContain(
-      `- Archived on ${archived.archivedAt?.toISOString()}: off the board, its state as it was`,
+      `- Archived by the user Ben Ito on ${archived.archivedAt?.toISOString()}: off the board, its state as it was`,
     );
   });
 
   it("lists the Ideas and reads one's record", async () => {
     const idea = await work.app
       .get(IdeaService)
-      .capture({ title: "Voice notes", notes: "From the phone.", projectId: undefined }, THE_USER);
+      .capture({ title: "Voice notes", notes: "From the phone.", projectId: undefined }, ANN_LEE);
 
     const list = await call(LIST_IDEAS, {});
     const record = await call(READ_IDEA, { ideaId: idea.id });
 
     expect(list.text).toContain(`- Voice notes (Idea ${idea.id}) · Office-wide · new`);
     expect(record.text).toContain("- Office-wide; new");
-    expect(record.text).toContain("- Captured by the user on");
+    expect(record.text).toContain("- Captured by the user Ann Lee on");
     expect(record.text).toContain("Notes:\nFrom the phone.");
   });
 
@@ -536,7 +536,7 @@ function addFile(
   const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
   return work.app
     .get(AttachmentService)
-    .addFile(owner, { name, mediaType, content: bytes }, THE_USER);
+    .addFile(owner, { name, mediaType, content: bytes }, ANN_LEE);
 }
 
 /** The fromLine an answer's last words say to read or search on with, if it goes on. */
@@ -545,7 +545,7 @@ function fromLineToGoOn(goOn: "Read on" | "Search on", answer: string): string |
 }
 
 function aTaskNamed(title: string) {
-  return work.app.get(TaskService).create({ title, projectId, priority: "normal" }, THE_USER);
+  return work.app.get(TaskService).create({ title, projectId, priority: "normal" }, ANN_LEE);
 }
 
 describe("read_attachment", () => {
@@ -565,8 +565,8 @@ describe("read_attachment", () => {
     const tasks = work.app.get(TaskService);
     const finished = await aTaskNamed("Finished");
     const notes = await addDocument({ kind: "task", taskId: finished.id }, "notes.md", "Done.");
-    await tasks.drop(finished.id);
-    await tasks.archive(finished.id);
+    await tasks.drop(finished.id, ANN_LEE);
+    await tasks.archive(finished.id, ANN_LEE);
 
     const result = await call(READ_ATTACHMENT, { attachmentId: notes.id });
 
@@ -579,14 +579,14 @@ describe("read_attachment", () => {
     const ideas = work.app.get(IdeaService);
     const idea = await ideas.capture(
       { title: "Voice notes", notes: "", projectId: undefined },
-      THE_USER,
+      ANN_LEE,
     );
     const ideaNotes = await addDocument({ kind: "idea", ideaId: idea.id }, "idea.md", "Idea.");
     const origin = await ideas.capture(
       { title: "Usage exports", notes: "", projectId: undefined },
-      THE_USER,
+      ANN_LEE,
     );
-    const initiative = await work.app.get(InitiativeService).shape(origin.id, THE_USER);
+    const initiative = await work.app.get(InitiativeService).shape(origin.id, ANN_LEE);
     const outcome = await addDocument(
       { kind: "initiative", initiativeId: initiative.id },
       "outcome.md",
@@ -863,7 +863,7 @@ describe("read_attachment", () => {
     const link = await attachments.addLink(
       { kind: "task", taskId: task.id },
       { name: "Spec", url: "https://example.com/spec" },
-      THE_USER,
+      ANN_LEE,
     );
     const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]);
     const image = await addFile({ kind: "task", taskId: task.id }, "screen.png", "image/png", png);
@@ -911,8 +911,8 @@ describe("linked records", () => {
     await tasks.addDependency(task.id, blocker.id);
     await tasks.addDependency(task.id, dropped.id);
     await tasks.addDependency(waiting.id, task.id);
-    await tasks.drop(dropped.id);
-    await tasks.archive(dropped.id);
+    await tasks.drop(dropped.id, ANN_LEE);
+    await tasks.archive(dropped.id, ANN_LEE);
 
     const record = await call(READ_TASK, { taskId: task.id });
 
@@ -929,8 +929,8 @@ describe("linked records", () => {
   it("read_task names the Idea it was shaped from, and read_idea the Task it was shaped into", async () => {
     const idea = await work.app
       .get(IdeaService)
-      .capture({ title: "Voice notes", notes: "", projectId }, THE_USER);
-    const task = await work.app.get(IdeaService).shape(idea.id, projectId, THE_USER);
+      .capture({ title: "Voice notes", notes: "", projectId }, ANN_LEE);
+    const task = await work.app.get(IdeaService).shape(idea.id, projectId, ANN_LEE);
 
     const taskRecord = await call(READ_TASK, { taskId: task.id });
     const ideaRecord = await call(READ_IDEA, { ideaId: idea.id });
@@ -946,16 +946,16 @@ describe("linked records", () => {
   it("read_task names its Initiative, read_idea the Initiative it was shaped into, and read_initiative its Idea, a dropped one marked", async () => {
     const idea = await work.app
       .get(IdeaService)
-      .capture({ title: "Usage exports", notes: "", projectId }, THE_USER);
+      .capture({ title: "Usage exports", notes: "", projectId }, ANN_LEE);
     const initiatives = work.app.get(InitiativeService);
-    const initiative = await initiatives.shape(idea.id, THE_USER);
+    const initiative = await initiatives.shape(idea.id, ANN_LEE);
     const task = await initiatives.addTask(
       initiative.id,
       { title: "Export as CSV", projectId, priority: "normal" },
       [],
-      THE_USER,
+      ANN_LEE,
     );
-    await initiatives.drop(initiative.id);
+    await initiatives.drop(initiative.id, ANN_LEE);
 
     const taskRecord = await call(READ_TASK, { taskId: task.id });
     const ideaRecord = await call(READ_IDEA, { ideaId: idea.id });

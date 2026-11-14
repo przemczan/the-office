@@ -269,46 +269,61 @@
   }
 }
 
-/* ---- Appearance: the Palette and Density cards, each a group of choices with their previews */
-.appearance-cards {
+/* ---- Duties: a row per duty, its words beside its holder's picker, stacked on a narrow page */
+.duty-list {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-card);
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.appearance-choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  align-items: start;
-  gap: 10px;
+.duty-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.appearance-choice {
+.duty-row:last-child {
+  padding-bottom: 0;
+}
+
+.duty-row-choice {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  font: var(--type-body-sm);
-  color: var(--fg-1);
-  text-align: left;
-  cursor: pointer;
+  align-items: center;
+  gap: 16px;
 }
 
-.appearance-choice:hover {
-  border-color: var(--border-strong);
+.duty-row-words {
+  flex: 1;
+  min-width: 0;
 }
 
-.appearance-choice[aria-pressed="true"] {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+.duty-row-words .settings-note {
+  margin-top: 4px;
 }
 
-.appearance-note {
-  margin-top: 12px;
+.duty-row-choice > :last-child {
+  flex: 0 0 240px;
+}
+
+.duty-row-note {
+  margin-top: 6px;
+}
+
+.duty-row .settings-banner {
+  margin-top: 8px;
+}
+
+@container page (max-width: 640px) {
+  .duty-row-choice {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .duty-row-choice > :last-child {
+    flex-basis: auto;
+  }
 }
 
 /* ---- Pipelines and Engines: the list (packages/ui's PickList) beside the picked item */
@@ -502,4 +517,35 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* ---- Users: a row's name with You, its actions, and a one-time password shown once */
+.users-name,
+.users-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.users-actions {
+  justify-content: flex-end;
+}
+
+.one-time-password {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.one-time-password code {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font: 500 var(--text-item) / var(--line) var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--fg-1);
+  user-select: all;
 }

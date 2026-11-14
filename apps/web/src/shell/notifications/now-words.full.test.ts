@@ -61,7 +61,7 @@ function finished(outcome: TaskOutcome): FinishedTask {
 describe("doneSinceYouLeft", () => {
   it("counts only the Done outcomes", () => {
     expect(
-      doneSinceYouLeft({ sinceYouLeft: [finished("done"), finished("failed"), finished("done")] }),
+      doneSinceYouLeft({ finished: [finished("done"), finished("failed"), finished("done")] }),
     ).toBe(2);
   });
 });

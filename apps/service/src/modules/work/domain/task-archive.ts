@@ -1,3 +1,4 @@
+import { BY_THE_DAILY_RUN, type ArchivedBy, type Author } from "./author.js";
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import { TaskArchived, TaskRestored } from "./task-events.js";
@@ -18,24 +19,35 @@ export function isArchived(task: Task): boolean {
  * Takes a Done or Dropped Task off the board, its state untouched; refused in any other state, and
  * undefined when it is already archived. Both states are final, so the mark never outlives them.
  */
-export function archiveTask(task: Task, at: Date): TaskChange<TaskArchived> | undefined {
+export function archiveTask(
+  task: Task,
+  at: Date,
+  by: ArchivedBy,
+): TaskChange<TaskArchived> | undefined {
   if (task.state !== "done" && task.state !== "dropped") {
     throw new TaskRefused([
       `Only a Done or Dropped Task can be archived; this one is in ${TASK_STATE_NAMES[task.state]}.`,
     ]);
   }
   if (isArchived(task)) return undefined;
-  return { task: { ...task, archivedAt: at }, event: new TaskArchived(task.id, at) };
+  return {
+    task: { ...task, archivedAt: at, archivedBy: by },
+    event: new TaskArchived(task.id, at),
+  };
 }
 
 /**
  * Returns an archived Task to the board in the state it had, keeping the moment, from which
  * archiving it automatically counts again. Undefined when it isn't archived.
  */
-export function restoreTask(task: Task, at: Date): TaskChange<TaskRestored> | undefined {
+export function restoreTask(
+  task: Task,
+  at: Date,
+  by: Author,
+): TaskChange<TaskRestored> | undefined {
   if (!isArchived(task)) return undefined;
   return {
-    task: { ...task, archivedAt: undefined, restoredAt: at },
+    task: { ...task, archivedAt: undefined, archivedBy: undefined, restoredAt: at, restoredBy: by },
     event: new TaskRestored(task.id, at),
   };
 }
@@ -57,8 +69,8 @@ export function archivePeriodStart(task: Task): Date {
 }
 
 /**
- * Archives a Done or Dropped Task on the board whose Archive period started before `cutoff`;
- * undefined for any other Task, which stays as it is.
+ * Archives a Done or Dropped Task on the board whose Archive period started before `cutoff`, as
+ * The Office's daily run; undefined for any other Task, which stays as it is.
  */
 export function archiveIfDue(
   task: Task,
@@ -67,7 +79,7 @@ export function archiveIfDue(
 ): TaskChange<TaskArchived> | undefined {
   if (!isFinishedOnTheBoard(task)) return undefined;
   if (archivePeriodStart(task) >= cutoff) return undefined;
-  return archiveTask(task, at);
+  return archiveTask(task, at, BY_THE_DAILY_RUN);
 }
 
 /** A Done or Dropped Task not archived: the ones the daily run weighs. */

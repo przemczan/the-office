@@ -28,6 +28,10 @@ import { TaskPaused } from "../../domain/task-events.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { TaskRepository } from "../../ports/task-repository.js";
+import {
+  ANOTHER_SIGNED_IN_FOR_TESTS,
+  signedInAs,
+} from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import {
@@ -41,6 +45,7 @@ import {
   UNKNOWN_PROJECT,
   WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
+import { ANN_LEE, BEN_ITO } from "../../domain/work.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import {
   sendJson,
@@ -131,7 +136,7 @@ describe("POST /api/tasks", () => {
       pipelineId: null,
       proposedPipeline: null,
       originIdeaId: null,
-      createdBy: { kind: "user" },
+      createdBy: ANN_LEE,
     });
     expect(webEventsOf(work)).toEqual([{ type: "task.created", taskId: task.id }]);
   });
@@ -456,7 +461,13 @@ describe("POST /api/tasks/:id/move", () => {
     work.published.length = 0;
 
     expect(await moveProblems(task.id)).toEqual([]);
-    const response = await move(task.id, otherProject());
+    const response = await sendJson(
+      work,
+      "POST",
+      `/tasks/${task.id}/move`,
+      { projectId: otherProject() },
+      signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS),
+    );
 
     expect(response.status).toBe(200);
     const moved = taskSchema.parse(await response.json());
@@ -470,7 +481,7 @@ describe("POST /api/tasks/:id/move", () => {
       definitionOfDoneConfirmed: false,
     });
     expect(moved.projectMoves).toEqual([
-      { from: projectId, to: otherProject(), at: expect.any(String), by: { kind: "user" } },
+      { from: projectId, to: otherProject(), at: expect.any(String), by: BEN_ITO },
     ]);
     expect(await readTask(task.id)).toEqual(moved);
     expect(webEventsOf(work)).toEqual([

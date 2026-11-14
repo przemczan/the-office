@@ -8,7 +8,6 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { PostgresInitiativeRepository } from "../adapters/postgres/postgres-initiative-repository.js";
 import { initiatives } from "../adapters/postgres/work.schema.js";
-import { THE_USER } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
@@ -22,6 +21,7 @@ import {
 import { IdeaService } from "./idea-service.js";
 import { INITIATIVE_ARCHIVING, InitiativeArchiving } from "./initiative-archiving.js";
 import { InitiativeService } from "./initiative-service.js";
+import { ANN_LEE } from "../domain/work.fixtures.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -84,10 +84,10 @@ function daysAgo(days: number): Date {
 async function ended(endedDaysAgo: number | undefined): Promise<Initiative> {
   const idea = await work.app
     .get(IdeaService)
-    .capture({ title: "Offline sync", notes: "", projectId: undefined }, THE_USER);
-  const initiative = await work.app.get(InitiativeService).shape(idea.id, THE_USER);
+    .capture({ title: "Offline sync", notes: "", projectId: undefined }, ANN_LEE);
+  const initiative = await work.app.get(InitiativeService).shape(idea.id, ANN_LEE);
   own.add(initiative.id);
-  await work.app.get(InitiativeService).drop(initiative.id);
+  await work.app.get(InitiativeService).drop(initiative.id, ANN_LEE);
   await theDatabase()
     .update(initiatives)
     .set({ endedAt: endedDaysAgo === undefined ? null : daysAgo(endedDaysAgo) })
@@ -136,8 +136,8 @@ describe("The daily archiving of ended Initiatives", () => {
   it("never archives one being shaped or active", async () => {
     const idea = await work.app
       .get(IdeaService)
-      .capture({ title: "Usage exports", notes: "", projectId: undefined }, THE_USER);
-    const shaping = await work.app.get(InitiativeService).shape(idea.id, THE_USER);
+      .capture({ title: "Usage exports", notes: "", projectId: undefined }, ANN_LEE);
+    const shaping = await work.app.get(InitiativeService).shape(idea.id, ANN_LEE);
     own.add(shaping.id);
     await theDatabase()
       .update(initiatives)
@@ -153,7 +153,7 @@ describe("The daily archiving of ended Initiatives", () => {
     const initiative = await ended(2 * DEFAULT_ARCHIVE_PERIOD);
     await runAt(now);
     expect(await isArchived(initiative)).toBe(true);
-    await work.app.get(InitiativeService).restore(initiative.id);
+    await work.app.get(InitiativeService).restore(initiative.id, ANN_LEE);
     const { restoredAt } = await work.app.get(InitiativeService).read(initiative.id);
     if (!restoredAt) throw new Error("The Restore kept no moment.");
     const daysAfterRestore = (days: number) => new Date(restoredAt.getTime() + days * DAY_MS);

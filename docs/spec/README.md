@@ -1,6 +1,6 @@
 # The Office: specification
 
-The Office is a single-user, all-day workspace run like an office. The user hires people for Roles, and their Agents turn Ideas into published changes across the user's Projects while the user plans, steers and decides. It replaces nothing: it is a fresh build, and the Software Factory repository is reference only.
+The Office is an all-day workspace run like an office, for a few users who each sign in. The user hires people for Roles, and their Agents turn Ideas into published changes across the user's Projects while the user plans, steers and decides. It replaces nothing: it is a fresh build, and the Software Factory repository is reference only.
 
 This spec is assembled from the resolved tickets in [.scratch/the-office/issues/](../../.scratch/the-office/issues/), which, with the map, research findings and the click-through, are kept locally and not committed. Each section names the tickets it comes from; when a ticket and this spec seem to disagree, the ticket's Answer (with its amendments) wins and this spec is fixed. Vocabulary is the [glossary](../../GLOSSARY.md); its terms are used exactly, in the UI and in code.
 
@@ -21,6 +21,7 @@ The spec is one file per section, so a session reads only the sections its task 
 - [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults.
 - [2.8 Fire alarm](2.8-fire-alarm.md): the alarm and the all clear (tier 2).
 - [2.9 Sub-agents and processes](2.9-sub-agents-and-processes.md): what a session runs beside its Agent, what each engine reports, how long it is kept, how it streams live, the read-only view.
+- [2.10 Users and signing in](2.10-users-and-signing-in.md): users, the ways to sign in, linking, which ways work on which address, signed-in devices, slow-down and lockout, recovery, who did what, per user and shared.
 
 ### Tiers and UX
 
@@ -32,7 +33,7 @@ The spec is one file per section, so a session reads only the sections its task 
 
 From [12](../../.scratch/the-office/issues/12-architecture.md) (amended by [13](../../.scratch/the-office/issues/13-first-slice.md)), [02](../../.scratch/the-office/issues/02-agent-engines.md), [03](../../.scratch/the-office/issues/03-factory-reference.md), [22](../../.scratch/the-office/issues/22-skills-per-session.md), [25](../../.scratch/the-office/issues/25-agent-permissions.md).
 
-- [5.1 Shape](5.1-shape.md): one Node service, Windows and Linux, fresh code.
+- [5.1 Shape](5.1-shape.md): one Node service, its addresses and the public address behind a reverse proxy, Windows and Linux, fresh code.
 - [5.2 Stack](5.2-stack.md): TypeScript on Node 22, backend, web, data, infrastructure.
 - [5.3 Modules](5.3-modules.md): the bounded contexts and how they talk.
 - [5.4 The engine](5.4-the-engine.md): the `AgentEngine` port, adapters, native features, cache breakers, pinned versions.
@@ -41,7 +42,7 @@ From [12](../../.scratch/the-office/issues/12-architecture.md) (amended by [13](
 
 ### Safety, building, open questions
 
-- [6. Permissions and safety](6-permissions-and-safety.md): threat model, the two layers, Hard switches, profiles, secrets, build rules.
+- [6. Permissions and safety](6-permissions-and-safety.md): threat model (signing in too), only hashes stored, the two layers, Hard switches, profiles, secrets, build rules.
 - [7. Building it](7-building-it.md): who builds it and where, the build order, build tasks.
 - [8. Open questions and risks](8-open-questions-and-risks.md).
 
@@ -110,5 +111,8 @@ Where each default lives (the old §9):
 - Setting up an Office with nobody hired: [2.2 People](2.2-people.md#defaults)
 - A Stage names a Role or a duty: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The holder of Asked first on failures (formerly "The CTO first on failures"): [2.3 Pipelines](2.3-pipelines.md#defaults)
+- The public address: [5.1 Shape](5.1-shape.md#defaults)
+- Users is its own module: [5.3 Modules](5.3-modules.md#defaults)
+- Password rules, the one-time password, slow-down and lockout, how long a device stays signed in, recovery codes, the authenticator, removing users, records from before users, Since you left per user: [2.10 Users and signing in](2.10-users-and-signing-in.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.

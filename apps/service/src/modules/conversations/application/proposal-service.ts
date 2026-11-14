@@ -4,6 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import {
   changeToApply,
+  holdersNamedIn,
   type EditedHire,
   type Proposal,
   type ProposedChange,
@@ -13,6 +14,7 @@ import { applyProposal, declineProposal, type ProposalChange } from "../domain/p
 import { ProposalNotFound } from "../domain/proposal-not-found.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
 import type { Thread } from "../domain/thread.js";
+import type { UserRef } from "../domain/user.js";
 import { draftProposal } from "../domain/thread-changes.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
@@ -65,6 +67,12 @@ export class ProposalService {
           from: await this.appliers.settingNow(proposed.setting),
           to: proposed.value,
         });
+      case "duties":
+        return this.draft(sessionId, {
+          kind: proposed.setting,
+          from: holdersNamedIn(await this.appliers.settingNow(proposed.setting), proposed.value),
+          to: proposed.value,
+        });
     }
   }
 
@@ -85,23 +93,27 @@ export class ProposalService {
   }
 
   /**
-   * The user applies the Proposal: a new Role as they edited it before hiring, when they did, or
-   * the change as drafted. Its owner's refusal leaves it open and is the answer; so is a
-   * Proposal applied or declined already.
+   * The user `by` applies the Proposal: a new Role as they edited it before hiring, when they did,
+   * or the change as drafted; the Proposal records who applied it. Its owner's refusal leaves it
+   * open and is the answer; so is a Proposal applied or declined already.
    */
-  async apply(id: string, edited?: EditedHire): Promise<Proposal> {
+  async apply(id: string, by: UserRef, edited?: EditedHire): Promise<Proposal> {
     const thread = await this.threadOf(id);
     return this.change(id, async (stored) => {
-      const applied = await this.appliers.apply(changeToApply(stored, edited), stored.draftedBy);
-      return applyProposal(stored, thread, applied, new Date());
+      const applied = await this.appliers.apply(
+        changeToApply(stored, edited),
+        stored.draftedBy,
+        by,
+      );
+      return applyProposal(stored, thread, applied, new Date(), by);
     });
   }
 
-  /** The user declines the Proposal ("Not now"): nothing changes. */
-  async decline(id: string): Promise<Proposal> {
+  /** The user `by` declines the Proposal ("Not now"): nothing changes but who declined it. */
+  async decline(id: string, by: UserRef): Promise<Proposal> {
     const thread = await this.threadOf(id);
     return this.change(id, (stored) =>
-      Promise.resolve(declineProposal(stored, thread, new Date())),
+      Promise.resolve(declineProposal(stored, thread, new Date(), by)),
     );
   }
 

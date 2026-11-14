@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   mcpServerReviewSchema,
+  memorySchema,
   presetListSchema,
   roleCardOptionsSchema,
   roleChangeListSchema,
@@ -27,6 +28,10 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import {
+  ANOTHER_SIGNED_IN_FOR_TESTS,
+  signedInAs,
+} from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { FAKE_STDIO_MCP_SERVER } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
@@ -39,6 +44,7 @@ import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
 import { CARD_CONTEXT } from "../../domain/role.fixtures.js";
 import { changeRoleCard } from "../../domain/role-changes.js";
+import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
 import { RoleRepository } from "../../ports/role-repository.js";
 import { PeopleModule } from "../../people.module.js";
 import { roles } from "../postgres/roles.schema.js";
@@ -66,7 +72,7 @@ beforeEach(async () => {
     ],
   }));
   await app.get<Database>(DATABASE).delete(roles).where(inArray(roles.key, PRESET_KEYS));
-  for (const roleKey of PRESET_KEYS) await app.get(RoleSkills).assignToRole(roleKey, []);
+  for (const roleKey of PRESET_KEYS) await app.get(RoleSkills).assignToRole(roleKey, [], null);
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
 });
@@ -87,10 +93,15 @@ function webEvents(): unknown[] {
   });
 }
 
-function send(method: "POST" | "PUT", path: string, body: unknown): Promise<Response> {
+function send(
+  method: "POST" | "PUT",
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
   return fetch(`${url}/api${path}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -307,7 +318,7 @@ describe("POST /api/roles", () => {
         .get<Database>(DATABASE)
         .delete(roles)
         .where(inArray(roles.key, [roleKey]));
-      await app.get(RoleSkills).assignToRole(roleKey, []);
+      await app.get(RoleSkills).assignToRole(roleKey, [], null);
     }
   });
 
@@ -550,7 +561,7 @@ describe("PUT /api/roles/:key/card", () => {
     await app
       .get(RoleRepository)
       .update("developer", (stored) =>
-        changeRoleCard(stored, { ...stored.card, roleOverride }, CARD_CONTEXT, new Date()),
+        changeRoleCard(stored, { ...stored.card, roleOverride }, CARD_CONTEXT, new Date(), ANN_LEE),
       );
     await send("POST", "/roles/developer/let-go", {});
     const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", defaultModel: "claude-haiku-5-5" };
@@ -569,6 +580,7 @@ describe("PUT /api/roles/:key/card", () => {
       cardVersion: 3,
       changes: [{ field: "roleOverride", from: roleOverride, to: moved }],
       proposedBy: null,
+      savedBy: null,
     });
     expect(roleSchema.parse(await get("/roles/reviewer")).cardVersion).toBe(1);
     expect(webEvents()).toEqual([expect.objectContaining({ type: "role.card-changed" })]);
@@ -666,32 +678,86 @@ describe("PUT /api/roles/:key/card", () => {
 });
 
 describe("GET /api/roles/:key/changes", () => {
-  it("lists the change history, newest first, down to the hire", async () => {
+  it("lists the change history, newest first, down to the hire, each naming the user who made it", async () => {
     const hired = await hire("developer", "Ada");
     const tdd = await anOnSkill();
-    await send("PUT", "/roles/developer/card", { ...editOf(hired), effort: "max", skills: [tdd] });
+    const edit = { ...editOf(hired), effort: "max", skills: [tdd] };
+    await send("PUT", "/roles/developer/card", edit, signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS));
 
     const changes = roleChangeListSchema.parse(await get("/roles/developer/changes"));
 
     expect(changes).toEqual([
-      { kind: "skills-changed", at: expect.any(String), added: [tdd], removed: [] },
+      {
+        kind: "skills-changed",
+        at: expect.any(String),
+        added: [tdd],
+        removed: [],
+        changedBy: BEN_ITO,
+      },
       {
         kind: "card-changed",
         at: expect.any(String),
         cardVersion: 2,
         changes: [{ field: "effort", from: "high", to: "max" }],
         proposedBy: null,
+        savedBy: BEN_ITO,
       },
-      { kind: "hired", at: hired.hiredAt, proposedBy: null },
+      { kind: "hired", at: hired.hiredAt, proposedBy: null, savedBy: ANN_LEE },
     ]);
   });
 
-  it("names the person who reworded the Role, as a Proposal's change does", async () => {
+  it("names the user who hired from scratch", async () => {
+    const title = `Tester ${randomUUID().slice(0, 8)}`;
+    const card = { ...editOf(await hire("developer", "Ada")), name: "Mia", title, skills: [] };
+    const response = await send(
+      "POST",
+      "/roles",
+      { card },
+      signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS),
+    );
+    expect(response.status).toBe(201);
+    const { key } = roleSchema.parse(await response.json());
+
+    try {
+      const changes = roleChangeListSchema.parse(await get(`/roles/${key}/changes`));
+      expect(changes).toEqual([
+        { kind: "hired", at: expect.any(String), proposedBy: null, savedBy: BEN_ITO },
+      ]);
+    } finally {
+      await app
+        .get<Database>(DATABASE)
+        .delete(roles)
+        .where(inArray(roles.key, [key]));
+    }
+  });
+
+  it("names the person who reworded the Role, as a Proposal's change does, and no user", async () => {
     await hire("developer", "Ada");
     await app.get(RoleService).reword("developer", { instructions: "Test first." }, "planner");
 
     const [latest] = roleChangeListSchema.parse(await get("/roles/developer/changes"));
 
-    expect(latest).toMatchObject({ kind: "card-changed", proposedBy: "planner" });
+    expect(latest).toMatchObject({ kind: "card-changed", proposedBy: "planner", savedBy: null });
+  });
+});
+
+describe("POST /api/roles/:key/memory", () => {
+  it("keeps the signed-in user who wrote each note", async () => {
+    await hire("planner", "Jan");
+
+    await send("POST", "/roles/planner/memory", { text: "Ann prefers small PRs." });
+    await send(
+      "POST",
+      "/roles/planner/memory",
+      { text: "Ben wants the changelog kept." },
+      signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS),
+    );
+
+    const { notes } = memorySchema.parse(await get("/roles/planner/memory"));
+    const sources = new Map(notes.map(({ text, source }) => [text, source]));
+    expect(Object.fromEntries(sources)).toEqual({
+      "Ann prefers small PRs.": { kind: "user", user: ANN_LEE },
+      "Ben wants the changelog kept.": { kind: "user", user: BEN_ITO },
+    });
   });
 });

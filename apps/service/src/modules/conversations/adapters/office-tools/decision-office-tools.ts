@@ -14,6 +14,7 @@ import { APPROVAL_OPTIONS, CALL_STEPS, type Consult } from "../../domain/consult
 import { answerWords, type DecisionAnswer, type DecisionDraft } from "../../domain/decision.js";
 import { DecisionNotFound } from "../../domain/decision-not-found.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
+import { userWords } from "../../domain/user.js";
 
 const END_YOUR_TURN =
   "End your turn now: their answer, or a follow-up question, comes as your next message.";
@@ -222,7 +223,7 @@ export class DecisionOfficeTools implements OnModuleInit {
         try {
           const decision = await this.decisions.answerForUser(sessionId, decisionId, given);
           return {
-            text: `You answered the Decision "${decision.question}" for the user: "${answerWords(decision, given)}". The Office passes it on to whoever waits on it.`,
+            text: `You answered the Decision "${decision.question}" for ${userWords(decision.answer?.atUsersRequest?.user ?? null)}: "${answerWords(decision, given)}". The Office passes it on to whoever waits on it.`,
             isError: false,
           };
         } catch (error) {

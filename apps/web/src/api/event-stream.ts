@@ -23,6 +23,11 @@ export interface EventStreamOptions {
    * connection, the first one included.
    */
   readonly onSubscribed: () => void;
+  /**
+   * The service closed the connection as this device was signed out (`SIGNED_OUT_CLOSE_CODE`): the
+   * stream stops, connecting again only once started again.
+   */
+  readonly onSignedOut?: () => void;
   readonly openWebSocket?: (url: string) => WebSocket;
 }
 
@@ -42,6 +47,9 @@ export interface ThreadSubscription {
    */
   readonly onSubscribed?: () => void;
 }
+
+/** The close code the service ends a signed-out device's connection with (spec §2.10). */
+export const SIGNED_OUT_CLOSE_CODE = 4401;
 
 /** The waits before each attempt to connect again, the last one repeated. */
 export const RECONNECT_DELAYS_MS = [250, 500, 1000, 2000, 4000] as const;
@@ -145,7 +153,7 @@ export class EventStream {
     socket.addEventListener("open", () => this.opened(socket));
     socket.addEventListener("message", (message) => this.received(socket, message.data));
     // Every close is a lost connection, the service's own shutdown (1001) included.
-    socket.addEventListener("close", () => this.closed(socket));
+    socket.addEventListener("close", (event) => this.closed(socket, event.code));
   }
 
   private opened(socket: WebSocket): void {
@@ -195,9 +203,14 @@ export class EventStream {
     this.options.onSubscribed();
   }
 
-  private closed(socket: WebSocket): void {
+  private closed(socket: WebSocket, code: number): void {
     if (socket !== this.socket || !this.running) return;
     this.socket = undefined;
+    if (code === SIGNED_OUT_CLOSE_CODE) {
+      this.running = false;
+      this.options.onSignedOut?.();
+      return;
+    }
     this.setStatus("reconnecting");
     const delay =
       RECONNECT_DELAYS_MS[Math.min(this.failedAttempts, RECONNECT_DELAYS_MS.length - 1)];

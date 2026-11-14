@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { tasks } from "./work.schema.js";
+import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { tasks, type AuthorRow } from "./work.schema.js";
 
 /**
  * The one Office-wide queue for Start: a row per queued Task. Every write holds Starts, so places
@@ -12,6 +12,8 @@ export const queue = pgTable("queue", {
     .references(() => tasks.id),
   place: integer("place").notNull(),
   queuedAt: timestamp("queued_at", { withTimezone: true }).notNull(),
+  /** Who asked for the Start that queued it; the user, unnamed, for one queued before users. */
+  queuedBy: jsonb("queued_by").$type<AuthorRow>().notNull(),
   reasons: text("reasons")
     .array()
     .notNull()

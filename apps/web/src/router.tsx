@@ -9,9 +9,18 @@ import {
 import {
   GITHUB_APP_REGISTRATION_FAILED_PARAMETER,
   GITHUB_SIGN_IN_FAILED_PARAMETER,
+  LINK_FAILED_PARAMETER,
+  SIGN_IN_FAILED_PARAMETER,
   type BoardFilters,
 } from "@the-office/contracts";
-import { Shell } from "./shell/shell.tsx";
+import { RootLayout } from "./shell/root-layout.tsx";
+import { AccountPage } from "./surfaces/account/account-page.tsx";
+import { AppearanceSection } from "./surfaces/account/appearance-section.tsx";
+import { AuthenticatorSection } from "./surfaces/account/authenticator-section.tsx";
+import { LinkedIdentitiesSection } from "./surfaces/account/linked-identities-section.tsx";
+import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
+import { ProfileSection } from "./surfaces/account/profile-section.tsx";
+import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
@@ -32,15 +41,19 @@ import {
   ProjectSkillsSection,
 } from "./surfaces/projects/project-sections.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
-import { AppearanceSection } from "./surfaces/settings/appearance/appearance-section.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
 import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";
 import { McpServersSection } from "./surfaces/settings/mcp-servers/mcp-servers-section.tsx";
 import { OfficeIdentitySection } from "./surfaces/settings/office-identity/office-identity-section.tsx";
 import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx";
+import { DutiesSection } from "./surfaces/settings/duties/duties-section.tsx";
+import { SigningInSection } from "./surfaces/settings/signing-in/signing-in-section.tsx";
+import { UsersSection } from "./surfaces/settings/users/users-section.tsx";
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
+import { CodePage } from "./surfaces/sign-in/code-page.tsx";
+import { SignInPage } from "./surfaces/sign-in/sign-in-page.tsx";
 import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
@@ -80,8 +93,9 @@ export interface OverPageSearch {
   readonly needsYou?: true;
 }
 
+// The sign-in page opens bare, every other page in the shell (`RootLayout`).
 const rootRoute = createRootRoute({
-  component: Shell,
+  component: RootLayout,
   validateSearch: (search: Record<string, unknown>): OverPageSearch => ({
     ...(typeof search["chat"] === "string" && { chat: search["chat"] }),
     ...(typeof search["thread"] === "string" && { thread: search["thread"] }),
@@ -89,6 +103,109 @@ const rootRoute = createRootRoute({
   }),
   // Like the click-through, an address that names no page opens Now.
   notFoundComponent: () => <Navigate to="/now" replace />,
+});
+
+/**
+ * Where the sign-in page returns to once signed in, a path of this app with its query, and why
+ * Continue with a provider didn't sign in, when it came back refused.
+ */
+export interface SignInSearch {
+  readonly returnTo?: string;
+  readonly [SIGN_IN_FAILED_PARAMETER]?: string;
+}
+
+// Outside the shell, the one page shown before signing in (spec §2.10); at first run it creates the
+// first user instead.
+const signInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "sign-in",
+  component: SignInPage,
+  validateSearch: (search: Record<string, unknown>): SignInSearch => ({
+    ...(typeof search["returnTo"] === "string" && { returnTo: search["returnTo"] }),
+    ...(typeof search[SIGN_IN_FAILED_PARAMETER] === "string" && {
+      [SIGN_IN_FAILED_PARAMETER]: search[SIGN_IN_FAILED_PARAMETER],
+    }),
+  }),
+  staticData: { title: "Sign in" },
+});
+
+// After a sign-in that needs the authenticator code, outside the shell too (spec §2.10).
+const signInCodeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "sign-in/code",
+  component: CodePage,
+  validateSearch: (search: Record<string, unknown>): SignInSearch =>
+    typeof search["returnTo"] === "string" ? { returnTo: search["returnTo"] } : {},
+  staticData: { title: "Authenticator code" },
+});
+
+// The signed-in user's own: their profile, password, authenticator, appearance and signed-in
+// devices.
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "account",
+  component: AccountPage,
+  staticData: { title: "Account" },
+});
+
+// The account opens at its first section.
+const accountHomeRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "/",
+  beforeLoad: () => {
+    throw redirect({ to: "/account/profile", replace: true });
+  },
+});
+
+const accountProfileRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "profile",
+  component: ProfileSection,
+  staticData: { title: "Account" },
+});
+
+const accountAuthenticatorRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "authenticator",
+  component: AuthenticatorSection,
+  staticData: { title: "Account" },
+});
+
+const accountAppearanceRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "appearance",
+  component: AppearanceSection,
+  staticData: { title: "Account" },
+});
+
+const accountPasskeysRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "passkeys",
+  component: PasskeysSection,
+  staticData: { title: "Account" },
+});
+
+/** Why linking an identity didn't work, when the provider's trip back came refused. */
+export interface LinkedIdentitiesSearch {
+  readonly [LINK_FAILED_PARAMETER]?: string;
+}
+
+const accountLinkedIdentitiesRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "linked-identities",
+  component: LinkedIdentitiesSection,
+  validateSearch: (search: Record<string, unknown>): LinkedIdentitiesSearch =>
+    typeof search[LINK_FAILED_PARAMETER] === "string"
+      ? { [LINK_FAILED_PARAMETER]: search[LINK_FAILED_PARAMETER] }
+      : {},
+  staticData: { title: "Account" },
+});
+
+const accountSignedInDevicesRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "signed-in-devices",
+  component: SignedInDevicesSection,
+  staticData: { title: "Account" },
 });
 
 // Now is home (spec §4).
@@ -400,6 +517,13 @@ const settingsStageTemplateRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsDutiesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "duties",
+  component: DutiesSection,
+  staticData: { title: "Settings" },
+});
+
 const settingsSkillsRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "skills",
@@ -472,15 +596,42 @@ const settingsUpdatesRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsUsersRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "users",
+  component: UsersSection,
+  staticData: { title: "Settings" },
+});
+
+const settingsSigningInRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "signing-in",
+  component: SigningInSection,
+  staticData: { title: "Settings" },
+});
+
+// Palette and density are each user's own since users came (spec §2.10): an old link lands there.
 const settingsAppearanceRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "appearance",
-  component: AppearanceSection,
-  staticData: { title: "Settings" },
+  beforeLoad: () => {
+    throw redirect({ to: "/account/appearance", replace: true });
+  },
 });
 
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
+    signInRoute,
+    signInCodeRoute,
+    accountRoute.addChildren([
+      accountHomeRoute,
+      accountProfileRoute,
+      accountAuthenticatorRoute,
+      accountAppearanceRoute,
+      accountPasskeysRoute,
+      accountLinkedIdentitiesRoute,
+      accountSignedInDevicesRoute,
+    ]),
     homeRoute,
     nowRoute,
     workRoute.addChildren([boardRoute, ideasRoute, initiativesRoute, archivedRoute]),
@@ -513,6 +664,7 @@ export const router = createRouter({
       settingsPipelinesRoute,
       settingsPipelineRoute,
       settingsStageTemplateRoute,
+      settingsDutiesRoute,
       settingsSkillsRoute,
       settingsMcpServersRoute,
       settingsEnginesRoute,
@@ -520,8 +672,13 @@ export const router = createRouter({
       settingsOfficeLimitsRoute,
       settingsOfficeInstructionsRoute,
       settingsNotificationsRoute,
+      settingsUsersRoute,
+      settingsSigningInRoute,
       settingsUpdatesRoute,
       settingsAppearanceRoute,
     ]),
   ]),
 });
+
+/** The app's router; a test makes one on the same route tree with a memory history. */
+export type OfficeRouter = typeof router;

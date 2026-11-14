@@ -1,5 +1,4 @@
-import { THE_USER } from "./author.js";
-import { BY_THE_QUEUE } from "./state-change.js";
+import type { Author } from "./author.js";
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import type { TaskStarted } from "./task-events.js";
@@ -21,6 +20,8 @@ export interface QueuedTask {
   /** Orders the queue, lowest first; Move up swaps it with the one ahead. */
   readonly place: number;
   readonly queuedAt: Date;
+  /** Who asked for the Start that queued it, whom the start its turn makes names. */
+  readonly queuedBy: Author;
   /** The waits that held it at its last turn, in full, as the Task page and Now show them. */
   readonly reasons: readonly string[];
   /** The short reason of each of `reasons`, in the same order, as the board card shows them. */
@@ -44,14 +45,18 @@ export type Starting =
  * Start (spec §2.1): starts the Task, queues it when only waits stand in its way, or refuses with
  * every reason when any refuses. An Overlap with a started Task refuses until the user chooses to
  * start anyway or to queue behind it (spec §2.1, "Overlaps at Start"). A Task already queued keeps
- * its place, and the Tasks it is behind unless queued behind others now.
+ * its place, and the Tasks it is behind unless queued behind others now. `by` asked for the Start.
  */
 export function startOrQueue(
   task: Task,
   conditions: StartConditions,
   held: HeldAtStart,
   queue: readonly QueuedTask[],
-  { now, onOverlap }: { readonly now: Date; readonly onOverlap: OverlapChoice },
+  {
+    now,
+    onOverlap,
+    by,
+  }: { readonly now: Date; readonly onOverlap: OverlapChoice; readonly by: Author },
 ): Starting {
   const { refusals, waits } = startReasons(task, conditions, held);
   if (refusals.length > 0) throw new TaskRefused([...refusals, ...reasonsOf(waits)]);
@@ -66,12 +71,13 @@ export function startOrQueue(
       : (queued?.behind ?? []);
   const allWaits = [...waits, ...behindWaits(behind, held.startedTasks)];
   if (allWaits.length === 0)
-    return { kind: "started", change: startTask(task, conditions, held, THE_USER) };
+    return { kind: "started", change: startTask(task, conditions, held, by) };
   if (queued) return { kind: "queued", queued: { ...queued, ...heldBy(allWaits), behind } };
   const joined = {
     taskId: task.id,
     place: lastPlace(queue) + 1,
     queuedAt: now,
+    queuedBy: by,
     ...heldBy(allWaits),
     behind,
   };
@@ -172,7 +178,7 @@ export function releaseQueue(
       const { resetsAt } = startWaitsForUsage(conditions.usage);
       if (resetsAt) capResets.push(resetsAt);
     } else {
-      started.push(startTask(task, conditions, held, BY_THE_QUEUE));
+      started.push(startTask(task, conditions, held, { kind: "queue", queuedBy: queued.queuedBy }));
       startedEstimates.push(conditions.usage.estimate);
     }
   }

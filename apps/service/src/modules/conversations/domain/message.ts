@@ -2,6 +2,7 @@ import { usageWindowWords } from "../../engine/index.js";
 import type { ContextMove, ContextReason } from "./context-policy.js";
 import type { AtUsersRequest, DecisionAnswer } from "./decision.js";
 import type { OpenPage } from "./open-page.js";
+import type { UserRef } from "./user.js";
 
 /**
  * What The Office's log of a Thread holds, which is what the UI shows (spec §2.4): the engine's
@@ -57,12 +58,23 @@ interface ConsultationLine {
 }
 
 /**
+ * Who wrote the log's latest user message: null for one from before users existed, undefined when
+ * the user wrote none.
+ */
+export function latestWriter(log: readonly Message[]): UserRef | null | undefined {
+  return log.findLast((message): message is Message & UserMessage => message.kind === "user")
+    ?.writtenBy;
+}
+
+/**
  * The user allowed changes in the Caretaker's Thread, or switched them off: The Office's line
  * (spec §2.4).
  */
 interface ChangesAllowedLine {
   readonly kind: "changes-allowed";
   readonly allowed: boolean;
+  /** The user who switched it; null on a line from before users existed. */
+  readonly by: UserRef | null;
 }
 
 /**
@@ -112,6 +124,8 @@ interface UserMessage {
   readonly kind: "user";
   readonly text: string;
   readonly delivery: MessageDelivery;
+  /** The user who wrote it; null on a message from before users existed, until it is claimed. */
+  readonly writtenBy: UserRef | null;
   /**
    * Who wrote the Handover note the message started from, by their Role's key, when the user sent
    * the one a Link card gave them: the message is the user's own, edited or not.

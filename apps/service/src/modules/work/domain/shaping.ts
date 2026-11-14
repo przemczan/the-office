@@ -1,6 +1,7 @@
 import { pipelineIn, type Initiative } from "./initiative.js";
 import { pipelineGroups, type PlanningPipeline } from "./planning.js";
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import { shapingWhoAskedSection } from "./who-asked.js";
 
 export const SHAPING_THREAD_TITLE = "Shaping";
 
@@ -36,8 +37,8 @@ export interface ShapingProject {
 }
 
 /**
- * The shaping Brief: the Initiative's record, the Project its Idea was captured in when it
- * was, then the Pipelines each Project it spans may follow, with what each follows now.
+ * The shaping Brief: the Initiative's record, who shaped or created it, the Project its Idea was
+ * captured in when it was, then the Pipelines each Project it spans may follow, with what each follows now.
  */
 export function shapingBrief(
   initiative: Initiative,
@@ -59,6 +60,7 @@ export function shapingBrief(
       : "Whether each Project has one was fixed at Confirm; choose_pipeline drafts a Proposal of another Pipeline for a Project that has one, or of a first one for a Project the Initiative came to span since.";
   return [
     record,
+    shapingWhoAskedSection(initiative),
     ...(ideaProjectId === undefined
       ? []
       : [

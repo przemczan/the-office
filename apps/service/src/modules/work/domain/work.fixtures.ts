@@ -1,9 +1,21 @@
 import type { Attachment } from "./attachment.js";
-import { THE_USER } from "./author.js";
+import { byTheUser, type Author } from "./author.js";
 import type { UsageAtStart } from "./cap-waits.js";
 import type { Idea } from "./idea.js";
 import type { Initiative } from "./initiative.js";
 import type { Task } from "./task.js";
+
+/** The user the test apps take every request as signed in by (`SIGNED_IN_FOR_TESTS`). */
+export const ANN_LEE: Author = byTheUser({
+  userId: "00000000-0000-4000-8000-0000000005e1",
+  name: "Ann Lee",
+});
+
+/** The second user, whom a request names with `signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS)`. */
+export const BEN_ITO: Author = byTheUser({
+  userId: "00000000-0000-4000-8000-0000000005e2",
+  name: "Ben Ito",
+});
 
 export function anIdea(fields: Partial<Idea> = {}): Idea {
   return {
@@ -14,7 +26,7 @@ export function anIdea(fields: Partial<Idea> = {}): Idea {
     state: "new",
     taskId: undefined,
     initiativeId: undefined,
-    capturedBy: THE_USER,
+    capturedBy: ANN_LEE,
     capturedAt: new Date("2026-10-25T09:00:00.000Z"),
     droppedAt: undefined,
     ...fields,
@@ -28,7 +40,7 @@ export function anInitiative(fields: Partial<Initiative> = {}): Initiative {
     outcome: "",
     state: "shaping",
     originIdeaId: "idea-1",
-    createdBy: THE_USER,
+    createdBy: ANN_LEE,
     createdAt: new Date("2026-10-25T09:10:00.000Z"),
     planningThreadIds: [],
     planningAutoMode: false,
@@ -68,10 +80,12 @@ export function aTask(fields: Partial<Task> = {}): Task {
     originIdeaId: undefined,
     initiativeId: undefined,
     projectMoves: [],
-    createdBy: THE_USER,
+    createdBy: ANN_LEE,
     createdAt: new Date("2026-10-25T09:30:00.000Z"),
     archivedAt: undefined,
+    archivedBy: undefined,
     restoredAt: undefined,
+    restoredBy: undefined,
     endedAt: undefined,
     ...fields,
   };
@@ -99,7 +113,7 @@ export function aLink(fields: Partial<Pick<Attachment, "id" | "owner">> = {}): A
     id: "attachment-1",
     owner: { kind: "idea", ideaId: "idea-1" },
     name: "CSV format notes",
-    addedBy: THE_USER,
+    addedBy: ANN_LEE,
     addedAt: new Date("2026-10-25T09:05:00.000Z"),
     kind: "link",
     url: "https://example.com/csv",

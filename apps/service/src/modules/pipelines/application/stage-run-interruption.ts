@@ -5,7 +5,7 @@ import {
   waitsForTheTurn,
   type CutShortBy,
 } from "../domain/stage-interruption.js";
-import type { StageInterruption } from "../domain/stage-run.js";
+import type { HoldingUser, StageInterruption } from "../domain/stage-run.js";
 
 /**
  * What was asked of a Stage run going on (spec §2.4, §2.8): Pause holds it once the Agent's current
@@ -16,6 +16,7 @@ import type { StageInterruption } from "../domain/stage-run.js";
  */
 export class StageRunInterruption {
   private asked: StageInterruption | undefined;
+  private askedBy: HoldingUser | undefined;
   private cutBy: CutShortBy | undefined;
   private readonly nowListeners = new Set<() => void>();
   private readonly commandsStop = new AbortController();
@@ -23,6 +24,11 @@ export class StageRunInterruption {
   /** Undefined while nobody has asked. */
   get requested(): StageInterruption | undefined {
     return this.asked;
+  }
+
+  /** The user whose Pause or Stop is `requested`; undefined for any other, or none named. */
+  get heldByUser(): HoldingUser | undefined {
+    return this.askedBy;
   }
 
   /** Whether the run is to stop what runs now, not wait for the turn to end. */
@@ -40,11 +46,15 @@ export class StageRunInterruption {
     return this.commandsStop.signal;
   }
 
-  request(interruption: StageInterruption): void {
+  /** `user` asked for it, for the user's Pause or Stop. */
+  request(interruption: StageInterruption, user?: HoldingUser): void {
     if (!outranks(interruption, this.asked)) return;
     const wasNow = this.now;
     if (interruption === "restart" && waitsForTheTurn(this.asked)) this.cutBy = "restart";
-    else this.asked = interruption;
+    else {
+      this.asked = interruption;
+      this.askedBy = user;
+    }
     if (stopsCommands(interruption)) this.commandsStop.abort();
     if (!wasNow && this.now) this.tellNow();
   }

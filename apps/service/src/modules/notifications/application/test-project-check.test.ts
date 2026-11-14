@@ -8,6 +8,7 @@ import {
   countedTokens,
   nowSchema,
   pipelineSchema,
+  sinceYouLeftSchema,
   type Now,
   type Stage,
 } from "@the-office/contracts";
@@ -198,7 +199,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             expect(cleared.has(notification.id)).toBe(true);
           }
           expect(now.needsYou.filter((item) => item.taskId === taskId)).toEqual([]);
-          expect(now.sinceYouLeft).toContainEqual(
+          const since = sinceYouLeftSchema.parse(await api("GET", "/now/since-you-left"));
+          expect(since.finished).toContainEqual(
             expect.objectContaining({ taskId, outcome: "done" }),
           );
           expect(await git(testProject, "rev-parse", "main")).toBe(mainBefore);
@@ -233,13 +235,14 @@ function notificationLine({ kind, channels, roleKey, line }: Notification): stri
 /** What Now and the status strip showed at a stop of the walk. */
 async function nowLines(api: Api, when: string): Promise<string[]> {
   const now: Now = nowSchema.parse(await api("GET", "/now"));
+  const since = sinceYouLeftSchema.parse(await api("GET", "/now/since-you-left"));
   return [
     `Now, ${when}: ${now.needsYou.length} need you (${now.needsYou.map(({ kind }) => kind).join(", ") || "none"})`,
     ...now.running.map(
       ({ title, state, stage }) =>
         `  running: ${title} · ${state} · ${stage ? `${stage.name} (${stage.role ?? "no Agent"}) since ${stage.since}` : "no Stage yet"}`,
     ),
-    `  since you left (from ${now.leftAt ?? "never"}): ${now.sinceYouLeft.map(({ title, outcome }) => `${outcome} ${title}`).join("; ") || "nothing"}`,
+    `  since you left (from ${since.leftAt ?? "never"}): ${since.finished.map(({ title, outcome }) => `${outcome} ${title}`).join("; ") || "nothing"}`,
     `  strip: ${countedTokens(now.tokensToday)} tokens today ${JSON.stringify(now.tokensToday)}, desks ${now.desks.inUse} of ${now.desks.limit}, ${now.tasksTouched} Tasks touched, usage windows ${now.usageWindows.length > 0 ? now.usageWindows.map(({ engineId, fiveHour, sevenDay }) => `${engineId} 5h ${fiveHour.percentUsed}% 7d ${sevenDay.percentUsed}%`).join(", ") : "not read yet"}`,
   ];
 }

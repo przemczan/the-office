@@ -20,9 +20,13 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aCommandRun } from "../ports/pipelines-ports.fixtures.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
+import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { TaskStagesService } from "./task-stages-service.js";
+
+const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
 const agentDone = anAgentSession(aDoneResult());
 const FEEDBACK = "The button is too small to tap.";
@@ -100,7 +104,7 @@ describe("A Gate", () => {
     expect(await stateOf(taskId, "look")).toBe("waiting-on-you");
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
 
-    const after = await gates().continue(taskId);
+    const after = await gates().continue(taskId, ANN);
     await walked(taskId);
 
     expect(after?.stages.find(({ stage }) => stage.key === "look")?.state).toBe("done");
@@ -126,12 +130,13 @@ describe("A Gate", () => {
       anAgentStage("polish"),
     ]);
 
-    await gates().continue(taskId, "  The design is accepted: build version B.\n");
+    await gates().continue(taskId, ANN, "  The design is accepted: build version B.\n");
     await walked(taskId);
 
     expect((await runsOf(pipelines, taskId))[1]?.gateAction).toEqual({
       kind: "continue",
       feedback: "The design is accepted: build version B.",
+      byUser: ANN,
     });
     const notesLine =
       "- Look (Gate): the user let the work continue, with notes for the Stages after it. Follow them:\n  The design is accepted: build version B.";
@@ -148,7 +153,7 @@ describe("A Gate", () => {
     const taskId = await walkStages(pipelines, [draft, measure, look]);
 
     pipelines.commands.commandRuns.push([aCommandRun("npm test", "failed", "1 test fails.")]);
-    await gates().sendBack(taskId, "draft", `  ${FEEDBACK}\n`);
+    await gates().sendBack(taskId, ANN, "draft", `  ${FEEDBACK}\n`);
     await walked(taskId);
 
     expect(await statusesOf(taskId)).toEqual([
@@ -184,7 +189,7 @@ describe("A Gate", () => {
     pipelines = await startPipelinesApplication([agentDone]);
     const taskId = await walkStages(pipelines, [draft, measure, look]);
 
-    await gates().sendBack(taskId, "measure", FEEDBACK);
+    await gates().sendBack(taskId, ANN, "measure", FEEDBACK);
     await walked(taskId);
 
     expect(await statusesOf(taskId)).toEqual([
@@ -206,7 +211,7 @@ describe("A Gate", () => {
     pipelines = await startPipelinesApplication([agentDone]);
     const taskId = await walkStages(pipelines, [draft, look, ship]);
 
-    await gates().drop(taskId);
+    await gates().drop(taskId, ANN);
     await walked(taskId);
 
     expect(await statusesOf(taskId)).toEqual([
@@ -214,6 +219,10 @@ describe("A Gate", () => {
       ["look", "done"],
     ]);
     expect(eventsOf(taskId)).toEqual([["reached", "look"], ["dropped"]]);
+    expect((await runsOf(pipelines, taskId)).at(-1)?.gateAction).toEqual({
+      kind: "drop",
+      byUser: ANN,
+    });
     expect(pipelines.tasks.changes.at(-1)).toEqual({ taskId, state: "dropped" });
   });
 
@@ -222,7 +231,7 @@ describe("A Gate", () => {
     const taskId = await walkStages(pipelines, [draft, look, ship]);
     pipelines.tasks.put(taskId, { state: "paused", pipelineId: "for-tests" });
 
-    await gates().continue(taskId);
+    await gates().continue(taskId, ANN);
     await walked(taskId);
     expect(await statusesOf(taskId)).toHaveLength(2);
 
@@ -238,28 +247,28 @@ describe("A Gate", () => {
     ]);
     const taskId = await walkStages(pipelines, [draft, look]);
 
-    await gates().continue(taskId);
+    await gates().continue(taskId, ANN);
     await walked(taskId);
 
     const gateRun = (await runsOf(pipelines, taskId)).at(-1);
     expect(gateRun?.decisions.map(({ kind }) => kind)).toEqual(["definition-of-done"]);
     expect(pipelines.tasks.changes.at(-1)).toEqual({ taskId, state: "waiting-on-you" });
-    await expect(gates().continue(taskId)).rejects.toThrow(GateRefused);
+    await expect(gates().continue(taskId, ANN)).rejects.toThrow(GateRefused);
   });
 
   it("refuses an action with every reason", async () => {
     pipelines = await startPipelinesApplication([agentDone]);
     const taskId = await walkStages(pipelines, [draft, measure, look, ship]);
 
-    await expect(gates().sendBack(taskId, "ship", " ")).rejects.toThrow(
+    await expect(gates().sendBack(taskId, ANN, "ship", " ")).rejects.toThrow(
       new GateRefused([
         "Send the work back to a Stage before the Gate, other than a Gate or a Publish.",
         "Say what should change before sending it back.",
       ]),
     );
-    await gates().continue(taskId);
+    await gates().continue(taskId, ANN);
     await walked(taskId);
-    await expect(gates().drop(taskId)).rejects.toThrow(
+    await expect(gates().drop(taskId, ANN)).rejects.toThrow(
       new GateRefused(["The Task isn't waiting at a Gate."]),
     );
   });

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Now } from "@the-office/contracts";
+import type { Now, SinceYouLeft } from "@the-office/contracts";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { officeUpdateQueries } from "../api/office-updates.ts";
@@ -38,6 +38,7 @@ export function StatusStrip(): ReactNode {
     kind.startsWith("office."),
   );
   const roles = useQuery(roleQueries.list()).data;
+  const sinceYouLeft = useQuery(nowQueries.sinceYouLeft()).data;
   return (
     <div className="shell-strip" role="status" aria-label="Status strip">
       {reconnecting && (
@@ -47,7 +48,7 @@ export function StatusStrip(): ReactNode {
         </span>
       )}
       <OfficeNotificationsFigure notifications={officeNotifications} roles={roles} />
-      {now && <Figures now={now} />}
+      {now && <Figures now={now} sinceYouLeft={sinceYouLeft} />}
       <span className="shell-grow" />
       <WorkstationFigure />
       <ScheduledUpdate />
@@ -76,7 +77,13 @@ function ScheduledUpdate(): ReactNode {
   );
 }
 
-function Figures({ now }: { readonly now: Now }): ReactNode {
+function Figures({
+  now,
+  sinceYouLeft,
+}: {
+  readonly now: Now;
+  readonly sinceYouLeft: SinceYouLeft | undefined;
+}): ReactNode {
   // While the alarm is on nothing runs at a desk, though its Tasks keep theirs.
   const inUse = now.fireAlarm ? 0 : now.desks.inUse;
   return (
@@ -97,7 +104,7 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
       </span>
       <span className="shell-strip-separator" />
       <span className="shell-strip-stat wide">
-        <b>{doneSinceYouLeft(now)}</b> done since you left
+        <b>{sinceYouLeft ? doneSinceYouLeft(sinceYouLeft) : 0}</b> done since you left
       </span>
     </>
   );

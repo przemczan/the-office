@@ -5,7 +5,6 @@ import { asc, eq, inArray, sql, TransactionRollbackError, type SQL } from "drizz
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "../../../../platform/database/database.js";
 import { moveAttachment } from "../../domain/attachment-changes.js";
-import { THE_USER } from "../../domain/author.js";
 import { dropIdea, shapeIdeaIntoTask } from "../../domain/idea-changes.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
 import { confirmInitiative, createInitiative } from "../../domain/initiative-changes.js";
@@ -21,7 +20,7 @@ import type { Task } from "../../domain/task.js";
 import { changePriority, createTask, reorderTask } from "../../domain/task-changes.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
-import { aLink, anIdea } from "../../domain/work.fixtures.js";
+import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./postgres-initiative-repository.js";
@@ -151,7 +150,7 @@ describe("PostgresIdeaRepository", () => {
       ...shapeIdeaIntoTask(
         stored,
         { id: taskId, projectId },
-        { order: orderAfter(takenOrders), createdBy: THE_USER },
+        { order: orderAfter(takenOrders), createdBy: ANN_LEE },
         new Date("2026-10-25T12:00:00.000Z"),
       ),
       moves: storedAttachments.map((attachment) =>
@@ -177,7 +176,7 @@ describe("PostgresIdeaRepository", () => {
         ...shapeIdeaIntoTask(
           stored,
           { id: taskId, projectId: "admin-panel" },
-          { order: "a0", createdBy: THE_USER },
+          { order: "a0", createdBy: ANN_LEE },
           new Date(),
         ),
         moves: [],
@@ -240,7 +239,7 @@ describe("PostgresInitiativeRepository", () => {
     const created = createInitiative(
       { name: `Usage exports ${randomUUID()}`, outcome: "Usage exports as CSV." },
       randomUUID(),
-      THE_USER,
+      ANN_LEE,
       new Date("2026-11-12T10:00:00.000Z"),
     );
     await initiatives.insert(created);
@@ -297,7 +296,7 @@ describe("PostgresInitiativeRepository.updateWithTasks", () => {
 
     const { initiative, taskChanges } = await initiatives.updateWithTasks(
       initiativeId,
-      (held, heldTasks) => confirmInitiative(held, heldTasks, undefined),
+      (held, heldTasks) => confirmInitiative(held, heldTasks, undefined, ANN_LEE),
     );
 
     expect(initiative.state).toBe("active");
@@ -307,7 +306,7 @@ describe("PostgresInitiativeRepository.updateWithTasks", () => {
     expect((await tasks.stateChangesOf(shaping.id)).at(-1)).toMatchObject({
       from: "shaping",
       to: "backlog",
-      by: THE_USER,
+      by: ANN_LEE,
     });
   });
 
@@ -321,7 +320,7 @@ describe("PostgresInitiativeRepository.updateWithTasks", () => {
 
     await expect(
       initiatives.updateWithTasks(initiativeId, (held, heldTasks) =>
-        confirmInitiative(held, heldTasks, undefined),
+        confirmInitiative(held, heldTasks, undefined, ANN_LEE),
       ),
     ).rejects.toThrow(InitiativeRefused);
     await expect(initiatives.updateWithTasks(initiativeId, () => undefined)).resolves.toMatchObject(
@@ -398,7 +397,7 @@ describe("migration 0096", () => {
 
 /** A row of a Task's move, as the user made it. */
 function move(task: Task, from: Task["state"], to: Task["state"], at: Date) {
-  return { taskId: task.id, fromState: from, toState: to, changedAt: at, changedBy: THE_USER };
+  return { taskId: task.id, fromState: from, toState: to, changedAt: at, changedBy: ANN_LEE };
 }
 
 describe("migration 0110", () => {
@@ -558,7 +557,7 @@ describe("work tables", () => {
             order: task.order,
             originIdeaId: undefined,
             initiativeId: undefined,
-            createdBy: THE_USER,
+            createdBy: ANN_LEE,
           },
           new Date(),
         ),

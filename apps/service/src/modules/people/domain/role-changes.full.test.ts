@@ -18,12 +18,13 @@ import {
   RoleLetGo,
 } from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
+import { ANN_LEE, BEN_ITO } from "./user.fixtures.js";
 
 const at = new Date("2026-10-25T10:00:00.000Z");
 
 describe("hire", () => {
   it("fills the preset's Role with the named person and the preset's card, at version 1", () => {
-    const { role, event } = hire("planner", " Jan ", undefined, at);
+    const { role, event } = hire("planner", " Jan ", undefined, at, ANN_LEE);
 
     expect(role).toEqual({
       key: "planner",
@@ -31,26 +32,28 @@ describe("hire", () => {
       cardVersion: 1,
       hiredAt: at,
       cardSavedAt: at,
+      cardSavedBy: ANN_LEE,
       avatar: null,
     });
     expect(event).toEqual(new RoleHired(role));
     expect(event.occurredAt).toEqual(at);
   });
 
-  it("keeps who proposed it, when the user hires from a Proposal", () => {
-    expect(hire("planner", "Jan", undefined, at, "office-manager").role.cardProposedBy).toBe(
-      "office-manager",
-    );
+  it("keeps who proposed it and the user who applied it, when the user hires from a Proposal", () => {
+    const { role } = hire("planner", "Jan", undefined, at, BEN_ITO, "office-manager");
+
+    expect(role.cardProposedBy).toBe("office-manager");
+    expect(role.cardSavedBy).toEqual(BEN_ITO);
   });
 
   it("refuses a Role someone already fills, with every reason", () => {
-    expect(() => hire("developer", "", aRole(), at)).toThrow(
+    expect(() => hire("developer", "", aRole(), at, ANN_LEE)).toThrow(
       new RoleRefused(["Give the person a name.", "Ada already fills the Developer Role."]),
     );
   });
 
   it("refuses a Role with no preset", () => {
-    expect(() => hire("designer", "Dana", undefined, at)).toThrow(
+    expect(() => hire("designer", "Dana", undefined, at, ANN_LEE)).toThrow(
       new RoleRefused(['There is no preset to hire a "designer" from.']),
     );
   });
@@ -60,7 +63,14 @@ describe("hireFromScratch", () => {
   const card = aRoleCard({ name: " Mia ", title: "Data Analyst" });
 
   it("fills a new Role, keyed from its title, with the whole card at version 1", () => {
-    const { role, event } = hireFromScratch("data-analyst", card, CARD_CONTEXT, undefined, at);
+    const { role, event } = hireFromScratch(
+      "data-analyst",
+      card,
+      CARD_CONTEXT,
+      undefined,
+      at,
+      ANN_LEE,
+    );
 
     expect(role).toEqual({
       key: "data-analyst",
@@ -68,6 +78,7 @@ describe("hireFromScratch", () => {
       cardVersion: 1,
       hiredAt: at,
       cardSavedAt: at,
+      cardSavedBy: ANN_LEE,
       avatar: null,
     });
     expect(event).toEqual(new RoleHired(role));
@@ -80,17 +91,23 @@ describe("hireFromScratch", () => {
       CARD_CONTEXT,
       undefined,
       at,
+      BEN_ITO,
       "office-manager",
     );
 
     expect(role.cardProposedBy).toBe("office-manager");
+    expect(role.cardSavedBy).toEqual(BEN_ITO);
+    const edit = { ...role.card, effort: "low" } as const;
+    expect(changeRoleCard(role, edit, CARD_CONTEXT, at, ANN_LEE)?.role).toMatchObject({
+      cardProposedBy: undefined,
+      cardSavedBy: ANN_LEE,
+    });
     expect(
-      changeRoleCard(role, { ...role.card, effort: "low" }, CARD_CONTEXT, at)?.role.cardProposedBy,
-    ).toBe(undefined);
+      changeRoleCard(role, edit, CARD_CONTEXT, at, BEN_ITO, "office-manager")?.role,
+    ).toMatchObject({ cardProposedBy: "office-manager", cardSavedBy: BEN_ITO });
     expect(
-      changeRoleCard(role, { ...role.card, effort: "low" }, CARD_CONTEXT, at, "office-manager")
-        ?.role.cardProposedBy,
-    ).toBe("office-manager");
+      changeRoleCard(role, edit, CARD_CONTEXT, at, null, "office-manager")?.role.cardSavedBy,
+    ).toBeNull();
   });
 
   it("refuses a card that breaks a rule, with every reason", () => {
@@ -101,6 +118,7 @@ describe("hireFromScratch", () => {
         CARD_CONTEXT,
         undefined,
         at,
+        ANN_LEE,
       ),
     ).toThrow(
       new RoleRefused([
@@ -112,7 +130,7 @@ describe("hireFromScratch", () => {
 
   it("refuses a title that makes no key", () => {
     expect(() =>
-      hireFromScratch("", aRoleCard({ title: "!!!" }), CARD_CONTEXT, undefined, at),
+      hireFromScratch("", aRoleCard({ title: "!!!" }), CARD_CONTEXT, undefined, at, ANN_LEE),
     ).toThrow(new RoleRefused(["Give the Role a title with letters or digits."]));
   });
 
@@ -124,6 +142,7 @@ describe("hireFromScratch", () => {
         CARD_CONTEXT,
         undefined,
         at,
+        ANN_LEE,
       ),
     ).toThrow(new RoleRefused(["Hire the Office Manager Role from its preset."]));
   });
@@ -131,9 +150,9 @@ describe("hireFromScratch", () => {
   it("refuses a Role someone already fills", () => {
     const filledBy = aRole({ key: "data-analyst", card: aRoleCard({ title: "Data Analyst" }) });
 
-    expect(() => hireFromScratch("data-analyst", card, CARD_CONTEXT, filledBy, at)).toThrow(
-      new RoleRefused(["Ada already fills the Data Analyst Role."]),
-    );
+    expect(() =>
+      hireFromScratch("data-analyst", card, CARD_CONTEXT, filledBy, at, ANN_LEE),
+    ).toThrow(new RoleRefused(["Ada already fills the Data Analyst Role."]));
   });
 });
 
@@ -145,6 +164,7 @@ describe("changeRoleCard", () => {
       aRoleCard({ name: " Adele ", taskLimit: 2 }),
       CARD_CONTEXT,
       at,
+      ANN_LEE,
     );
 
     expect(change?.role).toEqual({
@@ -152,6 +172,7 @@ describe("changeRoleCard", () => {
       card: aRoleCard({ name: "Adele", taskLimit: 2 }),
       cardVersion: 2,
       cardSavedAt: at,
+      cardSavedBy: ANN_LEE,
     });
     expect(change?.event).toEqual(
       new RoleCardChanged(change!.role, [
@@ -169,19 +190,27 @@ describe("changeRoleCard", () => {
       web: true,
       mcpTools: {},
     } as const;
-    const change = changeRoleCard(aRole(), aRoleCard({ permissionProfile }), CARD_CONTEXT, at);
+    const change = changeRoleCard(
+      aRole(),
+      aRoleCard({ permissionProfile }),
+      CARD_CONTEXT,
+      at,
+      ANN_LEE,
+    );
 
     expect(change?.role.card.permissionProfile).toEqual(permissionProfile);
     expect(change?.event.changes.map(({ field }) => field)).toEqual(["permissionProfile"]);
   });
 
   it("changes nothing when the card is the same", () => {
-    expect(changeRoleCard(aRole(), aRoleCard({ name: "Ada " }), CARD_CONTEXT, at)).toBeUndefined();
+    expect(
+      changeRoleCard(aRole(), aRoleCard({ name: "Ada " }), CARD_CONTEXT, at, ANN_LEE),
+    ).toBeUndefined();
   });
 
   it("refuses with every reason", () => {
     expect(() =>
-      changeRoleCard(aRole(), aRoleCard({ title: "", taskLimit: 0 }), CARD_CONTEXT, at),
+      changeRoleCard(aRole(), aRoleCard({ title: "", taskLimit: 0 }), CARD_CONTEXT, at, null),
     ).toThrow(
       new RoleRefused(["Give the Role a title.", "A Task limit is 1 to 6 Tasks at once, or none."]),
     );
@@ -194,10 +223,11 @@ describe("moveRoleOverride", () => {
   const toClaudeCode = (reference: typeof onStrata) =>
     reference.engineId === "strata" ? onClaudeCode : reference;
 
-  it("saves the moved override as the next version by the user, a let-go Role's too", () => {
+  it("saves the moved override as the next version naming no user, a let-go Role's too", () => {
     const role = aRole({
       card: aRoleCard({ roleOverride: onStrata }),
       cardProposedBy: "cto",
+      cardSavedBy: ANN_LEE,
       letGoAt: at,
     });
     const change = moveRoleOverride(role, toClaudeCode, at);
@@ -208,6 +238,7 @@ describe("moveRoleOverride", () => {
       cardVersion: 2,
       cardSavedAt: at,
       cardProposedBy: undefined,
+      cardSavedBy: null,
     });
     expect(change?.event).toEqual(
       new RoleCardChanged(change!.role, [
@@ -282,7 +313,9 @@ describe("a Role whose person was let go", () => {
   it("refuses another hire into it, pointing to hiring the person back", () => {
     const reason = "Ada was let go from the Developer Role; hire Ada back.";
 
-    expect(() => hire("developer", "Bob", letGoRole, at)).toThrow(new RoleRefused([reason]));
+    expect(() => hire("developer", "Bob", letGoRole, at, ANN_LEE)).toThrow(
+      new RoleRefused([reason]),
+    );
     expect(() =>
       hireFromScratch(
         "developer-2",
@@ -290,12 +323,15 @@ describe("a Role whose person was let go", () => {
         CARD_CONTEXT,
         letGoRole,
         at,
+        ANN_LEE,
       ),
     ).toThrow(new RoleRefused([reason]));
   });
 
   it("refuses a change to its card", () => {
-    expect(() => changeRoleCard(letGoRole, aRoleCard({ name: "Adele" }), CARD_CONTEXT, at)).toThrow(
+    expect(() =>
+      changeRoleCard(letGoRole, aRoleCard({ name: "Adele" }), CARD_CONTEXT, at, ANN_LEE),
+    ).toThrow(
       new RoleRefused([
         "Ada was let go from the Developer Role; hire Ada back to change the Role card.",
       ]),

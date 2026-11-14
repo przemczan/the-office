@@ -1,7 +1,8 @@
 export { RoleCards, type Consultant, type SessionRole } from "./application/role-cards.js";
 export { RoleService } from "./application/role-service.js";
 export { PersonRecords } from "./application/person-records.js";
-export { Duties, type DutyWithHolder } from "./application/duties.js";
+export { Duties, type DutyChange, type DutyWithHolder } from "./application/duties.js";
+export { DutyRefused } from "./domain/duty-refused.js";
 export {
   DutyChangeChecks,
   type DutyChangeCheck,

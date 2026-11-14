@@ -4,6 +4,9 @@ import type { EngineInCascade } from "./domain/engine-cascade.js";
 import { consult, type HardSwitchValue } from "./domain/hard-switches.js";
 import { DEVOPS } from "./domain/known-roles.js";
 
+export { DutyRepository } from "./ports/duty-repository.js";
+export { DutyRepositoryForTests } from "./ports/duty-repository.fixtures.js";
+
 /**
  * Where an MCP tool the card leaves unset stands, for tests that stand in for People's `SessionRole`:
  * as with no duty set and Devops hired.

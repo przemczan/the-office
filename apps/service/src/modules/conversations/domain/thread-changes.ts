@@ -39,6 +39,7 @@ import {
 } from "./thread.js";
 import { ThreadRefused } from "./thread-refused.js";
 import { titleFrom, titleProblems } from "./thread-title.js";
+import type { UserRef } from "./user.js";
 
 /** A Thread after a change, with the messages it logged and the event that announces it. */
 export interface ThreadChange<Event extends DomainEvent> {
@@ -329,13 +330,26 @@ export function beginAnswer(thread: Thread, answering: Answering): ThreadChange<
  */
 export function bargeIn(
   thread: Thread,
-  { id, text, at }: Pick<Message, "id" | "at"> & { readonly text: string },
+  {
+    id,
+    text,
+    at,
+    writtenBy,
+  }: Pick<Message, "id" | "at"> & { readonly text: string; readonly writtenBy: UserRef },
 ): ThreadChange<MessagesLogged> {
   if (!thread.stageThread) throw new Error(`Thread ${thread.id} is not a Stage Thread.`);
   if (thread.state !== "answering") {
     throw new ThreadRefused(["The Stage ended before your message went. Send it again."]);
   }
-  const said: Message = { kind: "user", id, threadId: thread.id, text, delivery: "waiting", at };
+  const said: Message = {
+    kind: "user",
+    id,
+    threadId: thread.id,
+    text,
+    delivery: "waiting",
+    at,
+    writtenBy,
+  };
   const logged = logMessages(thread, [said], at);
   if (!logged) throw new Error("A barge-in always logs its message.");
   return logged;
@@ -678,13 +692,14 @@ function answerLine(
 /** The open Decision with the answer recorded on it, with who gave it. */
 function answered(
   open: Decision,
-  { answer, answeredAt, answeredBy, atUsersRequest, byTheOffice }: DecisionRecording,
+  { answer, answeredAt, user, answeredBy, atUsersRequest, byTheOffice }: DecisionRecording,
 ): Decision {
   return {
     ...open,
     answer: {
       ...answer,
       answeredAt,
+      ...(user === undefined ? {} : { user }),
       ...(answeredBy === undefined ? {} : { answeredBy }),
       ...(atUsersRequest === undefined ? {} : { atUsersRequest }),
       ...(byTheOffice ? { byTheOffice } : {}),

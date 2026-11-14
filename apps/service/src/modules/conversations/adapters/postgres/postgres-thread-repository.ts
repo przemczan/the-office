@@ -25,6 +25,7 @@ import { ProposalNotFound } from "../../domain/proposal-not-found.js";
 import type { Home, Thread, ThreadSession } from "../../domain/thread.js";
 import type { ThreadChange } from "../../domain/thread-changes.js";
 import { ThreadNotFound } from "../../domain/thread-not-found.js";
+import type { UserRef } from "../../domain/user.js";
 import {
   ThreadRepository,
   type LoggedMessage,
@@ -291,10 +292,10 @@ export class PostgresThreadRepository extends ThreadRepository {
         .for("update");
       if (!row) throw new ProposalNotFound(id);
       const changed = await change(toProposal(row));
-      const { change: proposed, status, statusAt } = toProposalRow(changed.proposal);
+      const { change: proposed, status, statusAt, statusBy } = toProposalRow(changed.proposal);
       await transaction
         .update(proposals)
-        .set({ change: proposed, status, statusAt })
+        .set({ change: proposed, status, statusAt, statusBy })
         .where(eq(proposals.id, id));
       return changed;
     });
@@ -488,20 +489,25 @@ function toProposalRow({ status, ...proposal }: Proposal): ProposalRow {
     ...proposal,
     status: status.kind,
     statusAt: status.kind === "open" ? null : status.at,
+    statusBy: status.kind === "open" ? null : status.by,
   };
 }
 
-function toProposal({ status, statusAt, change, ...row }: ProposalRow): Proposal {
+function toProposal({ status, statusAt, statusBy, change, ...row }: ProposalRow): Proposal {
   return {
     ...row,
     // A hire not applied yet has no Role key, which its JSON leaves out.
     change: change.kind === "hire" ? { ...change, roleKey: change.roleKey ?? undefined } : change,
-    status: toProposalStatus(status, statusAt),
+    status: toProposalStatus(status, statusAt, statusBy),
   };
 }
 
-function toProposalStatus(kind: ProposalStatus["kind"], at: Date | null): ProposalStatus {
+function toProposalStatus(
+  kind: ProposalStatus["kind"],
+  at: Date | null,
+  by: UserRef | null,
+): ProposalStatus {
   if (kind === "open") return { kind };
   if (!at) throw new Error(`A ${kind} Proposal has no time it was ${kind}.`);
-  return { kind, at };
+  return { kind, at, by };
 }

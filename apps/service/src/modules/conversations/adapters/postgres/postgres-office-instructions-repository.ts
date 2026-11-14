@@ -5,6 +5,7 @@ import {
   NO_OFFICE_INSTRUCTIONS,
   type OfficeInstructionsVersion,
 } from "../../domain/office-instructions.js";
+import type { UserRef } from "../../domain/user.js";
 import { OfficeInstructionsRepository } from "../../ports/office-instructions-repository.js";
 import { officeInstructionsVersions } from "./office-instructions.schema.js";
 
@@ -34,6 +35,7 @@ export class PostgresOfficeInstructionsRepository extends OfficeInstructionsRepo
   update(
     change: (current: OfficeInstructionsVersion) => OfficeInstructionsVersion | undefined,
     savedAt: Date,
+    savedBy: UserRef,
   ): Promise<OfficeInstructionsVersion> {
     return this.database.transaction(async (transaction) => {
       // There is no row to lock before the first version. Reads, which session starts make, pass.
@@ -43,7 +45,7 @@ export class PostgresOfficeInstructionsRepository extends OfficeInstructionsRepo
       const current = await newestVersion(transaction);
       const changed = change(current);
       if (!changed) return current;
-      await transaction.insert(officeInstructionsVersions).values({ ...changed, savedAt });
+      await transaction.insert(officeInstructionsVersions).values({ ...changed, savedAt, savedBy });
       return changed;
     });
   }

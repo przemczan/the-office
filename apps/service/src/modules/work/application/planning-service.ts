@@ -99,16 +99,16 @@ export class PlanningService {
    * mode off. A Task in Planning already stays as it is, with its Thread; refused with the reason
    * from any other state, or while nobody holds Plans.
    */
-  async plan(taskId: string): Promise<Task> {
-    return this.startPlanning(taskId, "on-first-message", false);
+  async plan(taskId: string, by: Author): Promise<Task> {
+    return this.startPlanning(taskId, "on-first-message", false, by);
   }
 
   /**
    * Make a plan: as Plan with…, but the Planner starts at once from the title and Description, in
    * auto mode or not as the user chose, which becomes the remembered default.
    */
-  async makeAPlan(taskId: string, autoMode: boolean): Promise<Task> {
-    const task = await this.startPlanning(taskId, "at-once", autoMode);
+  async makeAPlan(taskId: string, autoMode: boolean, by: Author): Promise<Task> {
+    const task = await this.startPlanning(taskId, "at-once", autoMode, by);
     await this.settings.changeAutoMode(autoMode);
     return task;
   }
@@ -176,6 +176,7 @@ export class PlanningService {
     taskId: string,
     plannerJoins: PlannerJoins,
     autoMode: boolean,
+    by: Author,
   ): Promise<Task> {
     const task = await this.tasks.find(taskId);
     if (!task) throw new TaskNotFound(taskId);
@@ -192,7 +193,7 @@ export class PlanningService {
     const { task: planning, event } = await this.tasks.update(taskId, (latest) => {
       // A Move landed as the worktree was made: it is in the old Project, not the Task's.
       if (latest.projectId !== task.projectId) throw new TaskRefused([MOVED_AS_IT_OPENED]);
-      return startPlanningTask(latest, autoMode);
+      return startPlanningTask(latest, autoMode, { kind: "own", by });
     });
     // Another call moved it first, and opened its Thread.
     if (!event) return planning;
@@ -229,7 +230,7 @@ export class PlanningService {
   async shapeAndPlan(ideaId: string, projectId: string, shapedBy: Author): Promise<Task> {
     await this.planner();
     const task = await this.ideas.shape(ideaId, projectId, shapedBy);
-    return this.plan(task.id);
+    return this.plan(task.id, shapedBy);
   }
 
   /**
@@ -249,8 +250,8 @@ export class PlanningService {
    * The user's Plan: unconfirmed once changed, and a Ready Task goes back to Planning, or to
    * Backlog when it has no planning Thread.
    */
-  async savePlan(taskId: string, writing: PlanWriting): Promise<Task> {
-    return this.save(taskId, (task) => savePlan(task, writing));
+  async savePlan(taskId: string, writing: PlanWriting, by: Author): Promise<Task> {
+    return this.save(taskId, (task) => savePlan(task, writing, by));
   }
 
   /** The Plan, confirmed as it reads. */
@@ -270,8 +271,12 @@ export class PlanningService {
   }
 
   /** The user's Definition of Done, under the Plan's rules. */
-  async saveDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {
-    return this.save(taskId, (task) => saveDefinitionOfDone(task, statements));
+  async saveDefinitionOfDone(
+    taskId: string,
+    statements: readonly string[],
+    by: Author,
+  ): Promise<Task> {
+    return this.save(taskId, (task) => saveDefinitionOfDone(task, statements, by));
   }
 
   /** The Definition of Done, confirmed as it reads. */
@@ -308,9 +313,9 @@ export class PlanningService {
    * Mark Ready, from Backlog or Planning: refused with the reasons until the Plan and Definition of
    * Done are confirmed, the Pipeline proposal is answered and no Decision on the Task is open.
    */
-  async markReady(taskId: string): Promise<Task> {
+  async markReady(taskId: string, by: Author): Promise<Task> {
     const openDecisions = await this.decisions.openOn(taskId);
-    return this.update(taskId, (task) => markTaskReady(task, openDecisions));
+    return this.update(taskId, (task) => markTaskReady(task, openDecisions, by));
   }
 
   /** The conditions of Mark Ready and which are met, for the checklist beside the button. */

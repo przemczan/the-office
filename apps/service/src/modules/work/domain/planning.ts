@@ -4,8 +4,10 @@ import type { Idea } from "./idea.js";
 import { initiativeSection } from "./initiative-section.js";
 import { linkedRecordsSection, type TaskLinks } from "./linked-records.js";
 import type { InitiativeRecord } from "./record-words.js";
+import type { StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
 import { descriptionSection } from "./task-description.js";
+import { taskWhoAskedSection } from "./who-asked.js";
 import { confirmationWords, planWithFilesToChange } from "./written-parts.js";
 
 export const PLANNING_THREAD_TITLE = "Planning";
@@ -66,6 +68,8 @@ export interface PlanningPipeline {
 /** What a planning Brief is assembled from: the Task's record, with no model call. */
 export interface PlanningRecord {
   readonly task: Task;
+  /** The Task's kept state changes, oldest first, which say who moved it to Planning. */
+  readonly stateChanges: readonly StateChange[];
   readonly project: PlanningProject;
   readonly worktree: { readonly path: string; readonly branch: string };
   /** The records the Task is linked to: the Idea it was shaped from among them. */
@@ -90,13 +94,14 @@ export interface InitiativeBranchStart {
 }
 
 /**
- * A planning Thread's Brief (spec §2.5): the Task's title and Description, where it came from, its
- * linked records, the Initiative it is part of, its Attachments, the Project's commands, the
+ * A planning Thread's Brief (spec §2.5): the Task's title, who created it and who moved it to
+ * Planning, its Description, where it came from, its linked records, the Initiative it is part of, its Attachments, the Project's commands, the
  * Pipelines to propose from, and the Plan and Definition of Done once written, each marked
  * confirmed or not.
  */
 export function planningBrief({
   task,
+  stateChanges,
   project,
   worktree,
   links,
@@ -108,6 +113,7 @@ export function planningBrief({
   return [
     "You are planning a Task with the user, in the Task's planning Thread.",
     `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${project.name}.`,
+    taskWhoAskedSection(task, stateChanges, "planning"),
     readySection(task),
     descriptionSection(task.description),
     `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${startsFrom?.branch ?? project.baseBranch}.`,

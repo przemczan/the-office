@@ -41,7 +41,7 @@ const FALLBACK_WORDS: Readonly<Record<DutyFallback, string>> = {
   unstaffed: "the Pipelines whose Stages name it can't start",
 };
 
-/** "Nobody holds Plans, so it is yours meanwhile. Choose who in Settings › Duties." */
+/** "Nobody holds Plans, so it is yours meanwhile."; the note adds where to choose who. */
 export function dutyUnheldWords(label: string, fallback: DutyFallback): string {
-  return `Nobody holds ${label}, so ${FALLBACK_WORDS[fallback]}. Choose who in Settings › Duties.`;
+  return `Nobody holds ${label}, so ${FALLBACK_WORDS[fallback]}.`;
 }

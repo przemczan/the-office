@@ -22,6 +22,7 @@ import {
 import { aThread, aUserMessage } from "./thread.fixtures.js";
 import { ThreadRefused } from "./thread-refused.js";
 import { titleFrom } from "./thread-title.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const AT = new Date("2026-10-25T10:00:00.000Z");
 
@@ -169,7 +170,12 @@ describe("barge-in", () => {
   });
 
   it("logs the user's message into a running Stage Thread waiting for the next safe point", () => {
-    const change = bargeIn(running, { id: "said", text: "Rename it on the list too.", at: AT });
+    const change = bargeIn(running, {
+      id: "said",
+      text: "Rename it on the list too.",
+      at: AT,
+      writtenBy: ANN_LEE,
+    });
 
     expect(change.thread.state).toBe("answering");
     expect(change.logged).toEqual([
@@ -180,6 +186,7 @@ describe("barge-in", () => {
         text: "Rename it on the list too.",
         delivery: "waiting",
         at: AT,
+        writtenBy: ANN_LEE,
       },
     ]);
   });

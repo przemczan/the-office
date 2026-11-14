@@ -52,6 +52,8 @@ export type StageOutcome = (
       readonly budgetReached?: BudgetReached;
       /** Set when The Office interrupted the run: its Stage runs again, never counted as a failure. */
       readonly interrupted?: StageInterruption;
+      /** The user whose Pause or Stop interrupted it, when one did since users exist. */
+      readonly heldByUser?: HoldingUser;
       /**
        * Set on a run The Office recorded without starting it, as it found it had restarted
        * between Stages: the Stage starts only once the user says so.
@@ -184,6 +186,15 @@ export function addTokens(total: StageTokens, more: StageTokens): StageTokens {
 export type StageOutcomeStatus = StageOutcome["status"];
 
 /**
+ * The user who held a run with Pause or Stop, or acted at its Gate, as the run keeps them: their id
+ * and their name as it was then.
+ */
+export interface HoldingUser {
+  readonly userId: string;
+  readonly name: string;
+}
+
+/**
  * The failure an on-failure loop went back with, which the next run of the Stage it went back to
  * carries into its Brief.
  */
@@ -204,11 +215,13 @@ export interface CarriedFailure {
 /**
  * What the user did at a Gate (spec §2.3): let the work continue, with notes every later Agent Stage
  * is briefed with or none, send it back with feedback to an earlier Agent Stage, or drop the Task.
+ * `byUser` is who acted, undefined for an action kept before users existed.
  */
-export type GateAction =
+export type GateAction = (
   | { readonly kind: "continue"; readonly feedback?: string }
   | { readonly kind: "send-back"; readonly stageKey: string; readonly feedback: string }
-  | { readonly kind: "drop" };
+  | { readonly kind: "drop" }
+) & { readonly byUser?: HoldingUser };
 
 /**
  * The feedback a Gate sent the work back with, which the run of the Stage it went back to carries
@@ -336,6 +349,11 @@ export interface StageRun {
    * Undefined while nobody asked.
    */
   readonly heldBy: AskedInterruption | undefined;
+  /**
+   * The user who asked for `heldBy`'s Pause or Stop; undefined for the fire alarm and the usage
+   * window, and for a run held before users existed.
+   */
+  readonly heldByUser: HoldingUser | undefined;
   /**
    * What the user did at a Gate's run, which ends as the Task reaches the Gate and waits for it.
    * Undefined while the Gate waits, and for every other kind's run.

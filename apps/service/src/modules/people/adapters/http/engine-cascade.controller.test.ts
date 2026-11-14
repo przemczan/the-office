@@ -13,6 +13,7 @@ import { EventStreamModule } from "../../../../platform/websocket/event-stream.m
 import { RoleService } from "../../application/role-service.js";
 import type { ProjectWithCascadeLevels } from "../../domain/engine-cascade.js";
 import { aRoleCard } from "../../domain/role.fixtures.js";
+import { ANN_LEE } from "../../domain/user.fixtures.js";
 import { EngineCascadeModule } from "../../engine-cascade.module.js";
 import { KnownProjectLevels } from "../../ports/known-project-levels.js";
 import { ProjectLevelsSaves } from "../../ports/project-levels-saves.js";
@@ -89,7 +90,7 @@ describe("GET /api/roles/:key/engine-cascade", () => {
   it("says what applies outside any Project and lists the Projects where something else does", async () => {
     const opus = { engineId: "claude-code", model: "claude-opus-5-5" };
     const card = aRoleCard({ title: `Cascade ${randomUUID().slice(0, 8)}`, roleOverride: opus });
-    const { role } = await app.get(RoleService).hireFromScratch(card, []);
+    const { role } = await app.get(RoleService).hireFromScratch(card, [], ANN_LEE);
 
     const response = await fetch(`${url}/api/roles/${role.key}/engine-cascade`);
 

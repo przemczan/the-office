@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { UserRef } from "./author.js";
 import type { Priority, Task, TaskHolder, TaskState } from "./task.js";
 
 export class TaskCreated extends DomainEvent {
@@ -240,6 +241,7 @@ export interface UsageWindowRefusal {
  * ended held by the Stage runner, with the refusal it resumes after. `from` is Paused when the
  * alarm took over a Resume the user asked for while it was on, the Initiative's Pause took over the
  * alarm's or the usage window's hold, or a refusal again moved the usage window's resume on.
+ * `user` is the user who asked for the Pause or the Initiative's Pause; undefined for any other.
  */
 export class TaskPaused extends DomainEvent {
   constructor(
@@ -247,6 +249,7 @@ export class TaskPaused extends DomainEvent {
     readonly from: TaskState,
     readonly by: PausedBy = "user",
     readonly usageWindow?: UsageWindowRefusal,
+    readonly user?: UserRef,
   ) {
     super();
   }
@@ -254,12 +257,13 @@ export class TaskPaused extends DomainEvent {
 
 /**
  * The user stopped the Task: the Stage running now is interrupted, and the Task held (spec §2.4).
- * `from` is Paused when the user paused it first.
+ * `from` is Paused when the user paused it first; `user` is the user who stopped it.
  */
 export class TaskStopped extends DomainEvent {
   constructor(
     readonly taskId: string,
     readonly from: TaskState,
+    readonly user?: UserRef,
   ) {
     super();
   }

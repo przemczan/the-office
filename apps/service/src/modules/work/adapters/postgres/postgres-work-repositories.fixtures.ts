@@ -2,12 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { THE_USER } from "../../domain/author.js";
 import { shapeIdeaIntoInitiative } from "../../domain/idea-changes.js";
 import { boardOrder, orderAfter } from "../../domain/manual-order.js";
 import type { Task } from "../../domain/task.js";
 import { createTask } from "../../domain/task-changes.js";
-import { anIdea } from "../../domain/work.fixtures.js";
+import { ANN_LEE, anIdea } from "../../domain/work.fixtures.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./postgres-initiative-repository.js";
@@ -65,7 +64,7 @@ export function workRecords(current: () => Pick<WorkRepositories, "ideas" | "tas
           order: orderAfter(takenOrders),
           originIdeaId: undefined,
           initiativeId: undefined,
-          createdBy: THE_USER,
+          createdBy: ANN_LEE,
         },
         new Date("2026-10-25T10:00:00.000Z"),
       ),
@@ -79,7 +78,7 @@ export function workRecords(current: () => Pick<WorkRepositories, "ideas" | "tas
     const idea = anIdea({ id: randomUUID() });
     await current().ideas.add(idea);
     await current().ideas.shapeIntoInitiative(idea.id, (stored) => ({
-      ...shapeIdeaIntoInitiative(stored, initiativeId, THE_USER, new Date()),
+      ...shapeIdeaIntoInitiative(stored, initiativeId, ANN_LEE, new Date()),
       moves: [],
     }));
     return initiativeId;

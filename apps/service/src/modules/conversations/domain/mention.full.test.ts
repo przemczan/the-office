@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aDecision } from "./decision.fixtures.js";
 import { decisionRecordText, withMentionedRecords } from "./mention.js";
+import { ANN_LEE } from "./user.fixtures.js";
 
 const TASK_RECORD = "Export CSV (Task 3b1f6f0e)\n\nPlan:\nNo Plan yet.";
 
@@ -64,12 +65,12 @@ describe("a mentioned Decision's record", () => {
         kind: "option",
         option: 1,
         answeredAt: new Date("2026-10-26T10:00:00.000Z"),
-        atUsersRequest: { roleKey: "cto", threadId: "thread-of-the-cto" },
+        atUsersRequest: { roleKey: "cto", threadId: "thread-of-the-cto", user: ANN_LEE },
       },
     });
 
     expect(decisionRecordText(answered, TASK_RECORD)).toContain(
-      "Answered by the person in the Role cto, for the user at their request in the Thread thread-of-the-cto, on 2026-10-26T10:00:00.000Z: Every Project",
+      "Answered by the person in the Role cto, for the user Ann Lee at their request in the Thread thread-of-the-cto, on 2026-10-26T10:00:00.000Z: Every Project",
     );
   });
 });

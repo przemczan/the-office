@@ -45,6 +45,7 @@ import { roleKeyFor } from "../domain/role-key.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRefused } from "../domain/role-refused.js";
 import { HIGHEST_TASK_LIMIT, LOWEST_TASK_LIMIT } from "../domain/task-limit.js";
+import type { UserRef } from "../domain/user.js";
 import { RoleRepository, type RoleUpdate } from "../ports/role-repository.js";
 import { Duties } from "./duties.js";
 import { roleHistory, type RoleHistoryEntry } from "./role-history.js";
@@ -126,16 +127,27 @@ export class RoleService {
   ) {}
 
   /**
-   * Hires `name` into the preset's Role, as the user chose it or applied a Proposal of it by the
-   * person `proposedBy`. Refuses with every reason, before saving, also when someone already fills
-   * the Role.
+   * Hires `name` into the preset's Role, as the user `savedBy` chose it or applied a Proposal of it
+   * by the person `proposedBy`. Refuses with every reason, before saving, also when someone already
+   * fills the Role.
    */
-  async hire(roleKey: string, name: string, proposedBy?: string): Promise<RoleWithAssignments> {
+  async hire(
+    roleKey: string,
+    name: string,
+    savedBy: UserRef,
+    proposedBy?: string,
+  ): Promise<RoleWithAssignments> {
     const hiredAt = new Date();
-    const { role, event } = await this.hiringFromPreset(roleKey, name, hiredAt, proposedBy);
+    const { role, event } = await this.hiringFromPreset(
+      roleKey,
+      name,
+      hiredAt,
+      savedBy,
+      proposedBy,
+    );
     if (!(await this.repository.add(role))) {
       // Someone was hired into the Role meanwhile: refuse as if they had been there before.
-      hire(roleKey, name, await this.repository.find(roleKey), hiredAt);
+      hire(roleKey, name, await this.repository.find(roleKey), hiredAt, savedBy);
       throw new Error(`The Role "${roleKey}" was filled and emptied again while hiring.`);
     }
     await this.events.publish(event);
@@ -144,7 +156,7 @@ export class RoleService {
 
   /** Every reason hiring `name` from the preset would be refused now, saving nothing. */
   async presetHiringProblems(roleKey: string, name: string): Promise<readonly string[]> {
-    return refusalReasons(() => this.hiringFromPreset(roleKey, name, new Date()));
+    return refusalReasons(() => this.hiringFromPreset(roleKey, name, new Date(), null));
   }
 
   /** Presets carry no Role override today; the check still weighs the card the hire brings. */
@@ -152,34 +164,38 @@ export class RoleService {
     roleKey: string,
     name: string,
     hiredAt: Date,
+    savedBy: UserRef | null,
     proposedBy?: string,
   ): Promise<RoleChange<RoleHired>> {
     const filledBy = await this.repository.find(roleKey);
     const preset = presetFor(roleKey);
     const problems = preset ? await this.roleOverrideProblems(roleKey, filledBy, preset.card) : [];
-    return refusingAlso(problems, () => hire(roleKey, name, filledBy, hiredAt, proposedBy));
+    return refusingAlso(problems, () =>
+      hire(roleKey, name, filledBy, hiredAt, savedBy, proposedBy),
+    );
   }
 
   /**
    * Hires the person on `card` into a new Role keyed from its title, with exactly `skills`, as the
-   * user wrote the card or applied a Proposal of it by the person `proposedBy`. Refuses with every
-   * reason before saving either, also when someone already fills that Role. Held under Engine's
+   * user `savedBy` wrote the card or applied a Proposal of it by the person `proposedBy`. Refuses
+   * with every reason before saving either, also when someone already fills that Role. Held under Engine's
    * `EngineReferenceLock` from reading the engines through the hire, as the card's Role override
    * names one.
    */
   async hireFromScratch(
     card: RoleCard,
     skills: readonly string[],
+    savedBy: UserRef,
     proposedBy?: string,
   ): Promise<RoleWithAssignments> {
     const hiredAt = new Date();
     const { role, event } = await this.engineReferences.holding(async () => {
-      const hiring = await this.hiringFromScratch(card, skills, hiredAt, proposedBy);
+      const hiring = await this.hiringFromScratch(card, skills, hiredAt, savedBy, proposedBy);
       const { key } = hiring.role;
       if (!(await this.repository.add(hiring.role))) {
         // Someone was hired into the Role meanwhile: refuse as if they had been there before.
         const context = await this.cardContext();
-        hireFromScratch(key, card, context, await this.repository.find(key), hiredAt);
+        hireFromScratch(key, card, context, await this.repository.find(key), hiredAt, savedBy);
         throw new Error(`The Role "${key}" was filled and emptied again while hiring.`);
       }
       return hiring;
@@ -187,20 +203,21 @@ export class RoleService {
     await this.events.publish(event);
     return {
       role,
-      skills: await this.roleSkills.assignToRole(role.key, skills),
+      skills: await this.roleSkills.assignToRole(role.key, skills, savedBy),
       mcpServers: await this.roleMcpServers.serversOf(role.key),
     };
   }
 
   /** Every reason hiring from scratch would be refused now, saving nothing; empty when it wouldn't. */
   async hiringProblems(card: RoleCard, skills: readonly string[]): Promise<readonly string[]> {
-    return refusalReasons(() => this.hiringFromScratch(card, skills, new Date()));
+    return refusalReasons(() => this.hiringFromScratch(card, skills, new Date(), null));
   }
 
   private async hiringFromScratch(
     card: RoleCard,
     skills: readonly string[],
     hiredAt: Date,
+    savedBy: UserRef | null,
     proposedBy?: string,
   ): Promise<RoleChange<RoleHired>> {
     const roleKey = roleKeyFor(card.title);
@@ -211,7 +228,7 @@ export class RoleService {
       ...(await this.roleOverrideProblems(roleKey, filledBy, card)),
     ];
     return refusingAlso(problems, () =>
-      hireFromScratch(roleKey, card, context, filledBy, hiredAt, proposedBy),
+      hireFromScratch(roleKey, card, context, filledBy, hiredAt, savedBy, proposedBy),
     );
   }
 
@@ -266,8 +283,8 @@ export class RoleService {
 
   /**
    * Saves the card as its next version and gives the Role exactly `skills`, refusing with every
-   * reason before saving either. The user wrote the card, or applied a Proposal of it by the person
-   * `proposedBy`. Sessions started from now on get both; running ones keep theirs. Held under
+   * reason before saving either. The user `savedBy` wrote the card, or applied a Proposal of it by
+   * the person `proposedBy`. Sessions started from now on get both; running ones keep theirs. Held under
    * Engine's `EngineReferenceLock` from reading the engines through the save, as the card's Role
    * override names one.
    */
@@ -275,12 +292,13 @@ export class RoleService {
     key: string,
     edit: RoleCard,
     skills: readonly string[],
+    savedBy: UserRef,
     proposedBy?: string,
   ): Promise<RoleWithAssignments> {
     const saved = await this.engineReferences.holding(() =>
-      this.savedCard(key, edit, skills, proposedBy),
+      this.savedCard(key, edit, skills, savedBy, proposedBy),
     );
-    return this.announcedWithSkills(saved, skills);
+    return this.announcedWithSkills(saved, skills, savedBy);
   }
 
   /** Saves the card as `changeCard` describes; the caller holds the `EngineReferenceLock`. */
@@ -288,6 +306,7 @@ export class RoleService {
     key: string,
     edit: RoleCard,
     skills: readonly string[],
+    savedBy: UserRef | null,
     proposedBy?: string,
   ): Promise<RoleUpdate> {
     const context = await this.cardContext();
@@ -300,19 +319,23 @@ export class RoleService {
     ];
     if (problems.length > 0) throw new RoleRefused(problems);
     return this.repository.update(key, (stored) =>
-      changeRoleCard(stored, edit, context, new Date(), proposedBy),
+      changeRoleCard(stored, edit, context, new Date(), savedBy, proposedBy),
     );
   }
 
-  /** Announces the saved card, outside the lock, and gives the Role exactly `skills`. */
+  /**
+   * Announces the saved card, outside the lock, and gives the Role exactly `skills`, as the user
+   * `changedBy` changed them, or nobody named.
+   */
   private async announcedWithSkills(
     { role, event }: RoleUpdate,
     skills: readonly string[],
+    changedBy: UserRef | null,
   ): Promise<RoleWithAssignments> {
     if (event) await this.events.publish(event);
     return {
       role,
-      skills: await this.roleSkills.assignToRole(role.key, skills),
+      skills: await this.roleSkills.assignToRole(role.key, skills, changedBy),
       mcpServers: await this.roleMcpServers.serversOf(role.key),
     };
   }
@@ -325,7 +348,7 @@ export class RoleService {
     const { role } = await this.read(key);
     const context = await this.cardContext();
     const reasons = await refusalReasons(() =>
-      Promise.resolve(changeRoleCard(role, edit, context, new Date())),
+      Promise.resolve(changeRoleCard(role, edit, context, new Date(), null)),
     );
     return [...new Set([...reasons, ...(await this.roleOverrideProblems(key, role, edit))])];
   }
@@ -364,8 +387,8 @@ export class RoleService {
   }
 
   /**
-   * Saves the card with these words changed and nothing else, as `changeCard` does, as proposed by
-   * the person filling `proposedBy`. The card is read under the same hold as the save, so a
+   * Saves the card with these words changed and nothing else, as `changeCard` does, as the person
+   * filling `proposedBy` changed it on their own: no user saved it. The card is read under the same hold as the save, so a
    * removal can't move its Role override in between.
    */
   async reword(
@@ -377,11 +400,11 @@ export class RoleService {
       const current = await this.read(key);
       const edit = { ...current.role.card, ...words };
       return {
-        saved: await this.savedCard(key, edit, current.skills, proposedBy),
+        saved: await this.savedCard(key, edit, current.skills, null, proposedBy),
         skills: current.skills,
       };
     });
-    return this.announcedWithSkills(saved, skills);
+    return this.announcedWithSkills(saved, skills, null);
   }
 
   /**

@@ -94,6 +94,7 @@ import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processe
 import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
+import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../../domain/user.fixtures.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -685,7 +686,9 @@ describe("a Decision", () => {
     expect(open.map(({ id }) => id)).not.toContain(withConsultant.id);
     expect(unanswered.map(({ id }) => id)).not.toContain(onAnotherTask.id);
 
-    await app.get(DecisionService).answer(withConsultant.id, { kind: "option", option: 0 });
+    await app
+      .get(DecisionService)
+      .answer(withConsultant.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
 
     const left = decisionListSchema.parse(
       await (await get(`/tasks/${taskId}/decisions/unanswered`)).json(),
@@ -943,8 +946,8 @@ describe("what the user has seen in a chat", () => {
     const thread = await aChatThread(aPerson("Jan", true));
 
     await app.get(ThreadService).log(thread.id, [
-      { kind: "user", text: "Are you there?", delivery: "delivered" },
-      { kind: "changes-allowed", allowed: true },
+      { kind: "user", text: "Are you there?", delivery: "delivered", writtenBy: ANN_LEE },
+      { kind: "changes-allowed", allowed: true, by: ANN_LEE },
     ]);
 
     expect(await reading(thread.id)).toBe(false);

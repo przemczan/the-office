@@ -18,13 +18,14 @@ import {
   type GitHubState,
 } from "@the-office/contracts";
 import type { Request } from "express";
+import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
 import { GitHubAccess } from "../../application/github-access.js";
 import { GitHubSignIn, type SignInState } from "../../application/github-sign-in.js";
 import { appInstallUrl, GitHubUrls } from "../../application/github-urls.js";
 import { GitHubAccessFailed, NotSignedInWithGitHub } from "../../domain/github-repository.js";
 import { GitHubSignInFailed } from "../../domain/sign-in.js";
 import { officeOriginOf, returnUrlsOf } from "./github-return-urls.js";
-import { textOrUndefined } from "./query-text.js";
+import { textOrUndefined } from "../../../../platform/http/query-text.js";
 
 /** Sign in with GitHub, from Settings › Office identity. No answer holds a token. */
 @Controller("github")
@@ -33,6 +34,7 @@ export class GitHubController {
     private readonly signIn: GitHubSignIn,
     private readonly access: GitHubAccess,
     private readonly urls: GitHubUrls,
+    private readonly addresses: OfficeAddresses,
   ) {}
 
   @Get()
@@ -45,7 +47,7 @@ export class GitHubController {
   @HttpCode(200)
   async startSignIn(@Req() request: Request): Promise<GitHubSignInAnswer> {
     try {
-      const { signedIn } = returnUrlsOf(officeOriginOf(request));
+      const { signedIn } = returnUrlsOf(officeOriginOf(request, this.addresses));
       return { authorizeUrl: await this.signIn.authorizeUrl(signedIn) };
     } catch (error) {
       if (error instanceof GitHubSignInFailed) throw new ConflictException(error.reason);

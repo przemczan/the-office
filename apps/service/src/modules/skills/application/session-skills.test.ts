@@ -23,6 +23,7 @@ import { FilesystemLibraryFolder } from "../adapters/filesystem/filesystem-libra
 import { everyoneHere } from "../adapters/postgres/everyone-here.fixtures.js";
 import type { SkillFile } from "../domain/skill-files.js";
 import { SkillVersionMissing, SkillVersionNotKept } from "../domain/skill-version-missing.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
 import { LibraryFolder } from "../ports/library-folder.js";
 import { SkillsModule } from "../skills.module.js";
 import { RoleSkills } from "./role-skills.js";
@@ -74,7 +75,7 @@ function aName(prefix: string): string {
 /** A Role of the test's own, given the skills. */
 async function aRoleWith(...skillNames: string[]): Promise<string> {
   const roleKey = aName("role");
-  await app.get(RoleSkills).assignToRole(roleKey, skillNames);
+  await app.get(RoleSkills).assignToRole(roleKey, skillNames, null);
   return roleKey;
 }
 
@@ -175,8 +176,8 @@ describe("SessionSkills", () => {
     await anOnSkill(taken);
     const roleKey = await aRoleWith(taken);
     const roleSkills = app.get(RoleSkills);
-    await roleSkills.assignSkill(kept, [roleKey]);
-    await roleSkills.assignSkill(taken, []);
+    await roleSkills.assignSkill(kept, [roleKey], ANN_LEE);
+    await roleSkills.assignSkill(taken, [], ANN_LEE);
 
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),

@@ -6,7 +6,7 @@ const note = (id: string, projectId?: string): MemoryNote => ({
   id,
   projectId,
   text: id,
-  source: { kind: "user" },
+  source: { kind: "user", user: null },
   writtenAt: "2026-10-27T09:00:00.000Z",
 });
 

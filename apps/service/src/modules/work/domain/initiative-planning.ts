@@ -18,6 +18,7 @@ import { startPlanningTask, withStateChange, type TaskChange } from "./task-chan
 import { TaskRewrittenInInitiative, TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
+import { initiativePlanningWhoAskedSection } from "./who-asked.js";
 
 /*
  * Plan the Initiative (spec §2.1): one planning Thread with the Planner on an active Initiative,
@@ -58,8 +59,8 @@ const PLANNED_STATES: readonly TaskState[] = [
 
 /**
  * Why Plan the Initiative can't open a planning Thread: the Initiative isn't active, none of its
- * Tasks is in Backlog, or one is still being planned in an earlier planning Thread. That a Planner
- * is hired is checked by the caller.
+ * Tasks is in Backlog, or one is still being planned in an earlier planning Thread. That someone
+ * holds Plans is checked by the caller.
  */
 export function initiativePlanningProblems(
   initiative: Initiative,
@@ -84,14 +85,17 @@ export function initiativePlanningProblems(
 
 /**
  * Plan the Initiative: its new planning Thread `threadId` becomes the one that plans its Tasks, in
- * auto mode or not, kept before the Thread opens so its first session's Brief and tools find it.
- * Refused with the reasons of `initiativePlanningProblems`.
+ * auto mode or not, kept before the Thread opens so its first session's Brief and tools find it,
+ * with `by`, who asked for it. Refused with the reasons of `initiativePlanningProblems`.
  */
 export function startInitiativePlanning(
   initiative: Initiative,
   tasks: readonly Task[],
-  threadId: string,
-  autoMode: boolean,
+  {
+    threadId,
+    autoMode,
+    by,
+  }: { readonly threadId: string; readonly autoMode: boolean; readonly by: Author },
 ): InitiativeChange<InitiativePlanningStarted> {
   const problems = initiativePlanningProblems(initiative, tasks);
   if (problems.length > 0) throw new InitiativeRefused(problems);
@@ -101,6 +105,7 @@ export function startInitiativePlanning(
       planningThreadId: threadId,
       planningThreadIds: [...initiative.planningThreadIds, threadId],
       planningAutoMode: autoMode,
+      planningStartedBy: by,
     },
     event: new InitiativePlanningStarted(initiative.id, threadId, autoMode),
   };
@@ -291,7 +296,7 @@ export interface InitiativePlanningRecord {
 }
 
 /**
- * An Initiative's planning Thread's Brief (spec §2.5): its record, the Backlog Tasks to plan with
+ * An Initiative's planning Thread's Brief (spec §2.5): its record, who opened the Thread, the Backlog Tasks to plan with
  * their blockers inside it, the Tasks being planned and those waiting for an answer, the Projects
  * it spans with their base branches and commands, the Pipeline library and whether it is planned in
  * auto mode.
@@ -307,6 +312,7 @@ export function initiativePlanningBrief({
   return [
     "You are planning an Initiative's Tasks, in its planning Thread.",
     record,
+    initiativePlanningWhoAskedSection(initiative),
     toPlanSection(tasks, projects),
     unfinishedSection(initiative, tasks),
     waitingSection(waiting, tasks),

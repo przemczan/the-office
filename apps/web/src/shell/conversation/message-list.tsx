@@ -15,10 +15,11 @@ import { PersonAvatar } from "../person-avatar.tsx";
 import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
 import { usageWindowUsedUpWords } from "../usage-window-words.ts";
+import { userName, useSignedInUserId, useUserName, type UserNamer } from "../use-user-name.ts";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionInThread } from "./decision-card.tsx";
-import { answerWords } from "./decision-words.ts";
+import { answerWords, atUsersRequestWords } from "./decision-words.ts";
 import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
 import {
@@ -276,16 +277,18 @@ function Turn({
   readonly stageThread: boolean;
 }): ReactNode {
   const [opening] = messages;
+  const nameOfUser = useUserName();
+  const writer = opening.kind === "user" ? nameOfUser(opening.writtenBy) : "";
   return (
     <TurnFrame
       avatar={
         opening.kind === "user" ? (
-          <YourAvatar />
+          <UserAvatar name={writer} />
         ) : (
           <PersonAvatar roleKey={roleKey} name={personName} size="xs" />
         )
       }
-      by={<TurnAuthor opening={opening} personName={personName} />}
+      by={<TurnAuthor opening={opening} personName={personName} writer={writer} />}
       at={opening.at}
       labelled={opening.kind === "user" && opening.handoverNoteFrom !== null}
     >
@@ -309,17 +312,21 @@ function Turn({
 function TurnAuthor({
   opening,
   personName,
+  writer,
 }: {
   readonly opening: TurnMessage;
   readonly personName: string;
+  /** "You", or the name of the user who wrote it. */
+  readonly writer: string;
 }): ReactNode {
   if (opening.kind === "person") return personName;
-  if (opening.handoverNoteFrom === null) return "You";
+  if (opening.handoverNoteFrom === null) return writer;
   return <HandoverNoteFrom roleKey={opening.handoverNoteFrom} />;
 }
 
-function YourAvatar(): ReactNode {
-  return <Avatar name="You" size="xs" style={YOUR_AVATAR_COLOURS} />;
+/** A user's avatar, "You" for the signed-in user's own: gray, as a user isn't a person. */
+function UserAvatar({ name }: { readonly name: string }): ReactNode {
+  return <Avatar name={name} size="xs" style={YOUR_AVATAR_COLOURS} />;
 }
 
 /** A row of the log: the avatar on the left, the name and the time over what was said. */
@@ -435,6 +442,7 @@ function MessageItem({
   readonly personName: string;
   readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
+  const nameOfUser = useUserName();
   switch (message.kind) {
     case "handover-note":
       return (
@@ -475,11 +483,7 @@ function MessageItem({
     case "context":
       return <ContextLine line={message} personName={personName} />;
     case "changes-allowed":
-      return (
-        <div className="message-office">
-          {message.allowed ? "Changes allowed" : "Changes switched off"}
-        </div>
-      );
+      return <div className="message-office">{changesAllowedWords(message, nameOfUser)}</div>;
     case "failure":
       return (
         <div className="message-notice failed">
@@ -519,6 +523,15 @@ function MessageItem({
   }
 }
 
+/** The Office's line on a user allowing changes or switching them off, "by you" or by their name. */
+function changesAllowedWords(
+  { allowed, by }: Extract<Message, { kind: "changes-allowed" }>,
+  nameOfUser: UserNamer,
+): string {
+  const words = allowed ? "Changes allowed" : "Changes switched off";
+  return by === null ? words : `${words} by ${nameOfUser(by, "you")}`;
+}
+
 /**
  * The answer to a Decision, as it went to the person who asked: the user's, the Consultant's it was
  * put to, or the one a person gave for the user at their request, under that person's name. The
@@ -530,6 +543,7 @@ function DecisionAnswerItem({
   readonly message: Extract<Message, { kind: "decision-answer" }>;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
+  const signedInUserId = useSignedInUserId();
   const words = answerWords(message.answer, message.decision);
   if (message.decision.answeredByTheOffice) {
     return (
@@ -538,17 +552,22 @@ function DecisionAnswerItem({
       </div>
     );
   }
-  const answerer = answererOf(message, roles);
+  const answerer = answererOf(message, roles, signedInUserId);
+  const user = userName(message.decision.answeredByUser, signedInUserId);
   return (
     <TurnFrame
       avatar={
         answerer === null ? (
-          <YourAvatar />
+          <UserAvatar name={user} />
         ) : (
           <PersonAvatar roleKey={answerer.roleKey} name={answerer.name} size="xs" />
         )
       }
-      by={answerer === null ? "You · answering the Decision" : `${answerer.name} · ${answerer.how}`}
+      by={
+        answerer === null
+          ? `${user} · answering the Decision`
+          : `${answerer.name} · ${answerer.how}`
+      }
       at={message.at}
       labelled
     >
@@ -563,12 +582,13 @@ function DecisionAnswerItem({
 function answererOf(
   { atUsersRequest, decision }: Extract<Message, { kind: "decision-answer" }>,
   roles: Parameters<typeof roleFirstName>[1],
+  signedInUserId: string | undefined,
 ): { readonly roleKey: string; readonly name: string; readonly how: string } | null {
   if (atUsersRequest) {
     return {
       roleKey: atUsersRequest.roleKey,
       name: roleFirstName(atUsersRequest.roleKey, roles),
-      how: "answering the Decision at your request",
+      how: `answering the Decision ${atUsersRequestWords(atUsersRequest.user, signedInUserId)}`,
     };
   }
   if (decision.answeredBy) {

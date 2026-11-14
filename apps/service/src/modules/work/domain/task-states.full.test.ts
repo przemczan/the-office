@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { THE_USER } from "./author.js";
 import { TASK_STATES, type TaskState } from "./task.js";
 import { changeTaskState, markTaskReady } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
 import { readinessLines } from "./task-states.js";
-import { aPlannedTask, aTask } from "./work.fixtures.js";
+import { ANN_LEE, aPlannedTask, aTask } from "./work.fixtures.js";
 
 function aTaskIn(state: TaskState) {
   return aPlannedTask({ state });
@@ -12,25 +11,25 @@ function aTaskIn(state: TaskState) {
 
 describe("changeTaskState", () => {
   it("names both states in the UI's words when it refuses", () => {
-    expect(() => changeTaskState(aTask({ state: "backlog" }), "in-progress", THE_USER)).toThrow(
+    expect(() => changeTaskState(aTask({ state: "backlog" }), "in-progress", ANN_LEE)).toThrow(
       new TaskRefused(["A Task in Backlog can't move to In progress."]),
     );
   });
 
   it("says what a Task in Shaping waits for when it refuses", () => {
-    expect(() => changeTaskState(aTask({ state: "shaping" }), "planning", THE_USER)).toThrow(
+    expect(() => changeTaskState(aTask({ state: "shaping" }), "planning", ANN_LEE)).toThrow(
       new TaskRefused(["A Task in Shaping can't move to Planning: confirm its Initiative first."]),
     );
   });
 
   it.each(TASK_STATES)("changes nothing for a Task already in %s", (state) => {
-    expect(changeTaskState(aTaskIn(state), state, THE_USER)).toBeUndefined();
+    expect(changeTaskState(aTaskIn(state), state, ANN_LEE)).toBeUndefined();
   });
 
   it("refuses Ready while the Plan and the Definition of Done are only proposed", () => {
     const proposed = aPlannedTask({ planConfirmed: false, definitionOfDoneConfirmed: false });
 
-    expect(() => changeTaskState(proposed, "ready", THE_USER)).toThrow(
+    expect(() => changeTaskState(proposed, "ready", ANN_LEE)).toThrow(
       new TaskRefused([
         "Confirm the Plan before the Task can be Ready.",
         "Confirm the Definition of Done before the Task can be Ready.",
@@ -43,35 +42,39 @@ describe("changeTaskState", () => {
       proposedPipeline: { pipelineId: "quick-fix", reason: "One small change, tested." },
     });
 
-    expect(() => changeTaskState(proposing, "ready", THE_USER)).toThrow(
+    expect(() => changeTaskState(proposing, "ready", ANN_LEE)).toThrow(
       new TaskRefused(["Take or decline the proposed Pipeline before the Task can be Ready."]),
     );
-    expect(changeTaskState(aPlannedTask(), "ready", THE_USER)?.task.state).toBe("ready");
+    expect(changeTaskState(aPlannedTask(), "ready", ANN_LEE)?.task.state).toBe("ready");
   });
 
   it("refuses Mark Ready while a Decision on the Task waits on the user", () => {
-    expect(() => markTaskReady(aPlannedTask(), 1)).toThrow(
+    expect(() => markTaskReady(aPlannedTask(), 1, ANN_LEE)).toThrow(
       new TaskRefused(["Answer the open Decision before the Task can be Ready."]),
     );
-    expect(() => markTaskReady(aPlannedTask({ planConfirmed: false }), 2)).toThrow(
+    expect(() => markTaskReady(aPlannedTask({ planConfirmed: false }), 2, ANN_LEE)).toThrow(
       new TaskRefused([
         "Confirm the Plan before the Task can be Ready.",
         "Answer the 2 open Decisions before the Task can be Ready.",
       ]),
     );
-    expect(markTaskReady(aPlannedTask(), 0)?.task.state).toBe("ready");
-    expect(markTaskReady(aPlannedTask({ state: "ready" }), 1)).toBeUndefined();
+    expect(markTaskReady(aPlannedTask(), 0, ANN_LEE)?.task.state).toBe("ready");
+    expect(markTaskReady(aPlannedTask({ state: "ready" }), 1, ANN_LEE)).toBeUndefined();
   });
 
   it("refuses Mark Ready from Backlog with every reason, as from Planning", () => {
-    expect(() => markTaskReady(aTask({ state: "backlog" }), 0)).toThrow(
+    expect(() => markTaskReady(aTask({ state: "backlog" }), 0, ANN_LEE)).toThrow(
       new TaskRefused([
         "A Task needs a Plan before it can be Ready.",
         "A Task needs a Definition of Done before it can be Ready.",
       ]),
     );
     expect(() =>
-      markTaskReady(aPlannedTask({ state: "backlog", definitionOfDoneConfirmed: false }), 1),
+      markTaskReady(
+        aPlannedTask({ state: "backlog", definitionOfDoneConfirmed: false }),
+        1,
+        ANN_LEE,
+      ),
     ).toThrow(
       new TaskRefused([
         "Confirm the Definition of Done before the Task can be Ready.",
@@ -81,7 +84,7 @@ describe("changeTaskState", () => {
   });
 
   it("refuses Ready with a Plan of spaces only", () => {
-    expect(() => changeTaskState(aPlannedTask({ plan: "  " }), "ready", THE_USER)).toThrow(
+    expect(() => changeTaskState(aPlannedTask({ plan: "  " }), "ready", ANN_LEE)).toThrow(
       new TaskRefused(["A Task needs a Plan before it can be Ready."]),
     );
   });
@@ -119,6 +122,6 @@ describe("the Before Ready checklist", () => {
     const reasons = lines.flatMap(({ problems }) => problems);
 
     expect(lines.filter(({ problems }) => problems.length > 0)).toHaveLength(unmetLines);
-    expect(() => markTaskReady(task, openDecisions)).toThrow(new TaskRefused(reasons));
+    expect(() => markTaskReady(task, openDecisions, ANN_LEE)).toThrow(new TaskRefused(reasons));
   });
 });

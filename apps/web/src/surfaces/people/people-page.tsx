@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { Preset, Role } from "@the-office/contracts";
-import { Alert, Button, Icon, IconButton } from "@the-office/ui";
+import type { Duty, Preset, Role } from "@the-office/contracts";
+import { Alert, Button, Icon, IconButton, PlainMark } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { roleCardQueries, roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { useChat } from "../../shell/chat/use-chat.tsx";
+import { dutiesHeldBy, dutyCountWords } from "../../shell/duty-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
 import { inGridOrder } from "./people-order.ts";
@@ -16,6 +17,7 @@ import "./people.css";
 export function PeoplePage(): ReactNode {
   const roles = useQuery(roleQueries.list());
   const presets = useQuery(roleCardQueries.presets());
+  const duties = useQuery(dutyQueries.list());
   const [hiring, setHiring] = useState(false);
   const navigate = useNavigate();
   usePageHeading({ title: "People", crumb: roles.data && countOf(roles.data) });
@@ -25,7 +27,13 @@ export function PeoplePage(): ReactNode {
       {roles.error && <Alert tone="danger" title={roles.error.message} />}
       <div className="people-grid">
         {roles.data &&
-          inGridOrder(roles.data).map((role) => <PersonCard key={role.key} role={role} />)}
+          inGridOrder(roles.data).map((role) => (
+            <PersonCard
+              key={role.key}
+              role={role}
+              duties={dutiesHeldBy(duties.data ?? [], role.key)}
+            />
+          ))}
         <article className="person-tile hire-tile">
           <div className="person-tile-head">
             <span className="hire-icon">
@@ -59,7 +67,13 @@ export function PeoplePage(): ReactNode {
   );
 }
 
-function PersonCard({ role }: { readonly role: Role }): ReactNode {
+function PersonCard({
+  role,
+  duties,
+}: {
+  readonly role: Role;
+  readonly duties: readonly Duty[];
+}): ReactNode {
   const { card } = role;
   const chat = useChat();
   return (
@@ -92,6 +106,7 @@ function PersonCard({ role }: { readonly role: Role }): ReactNode {
             <span className="visually-hidden">{label}</span>
           </span>
         ))}
+        {duties.length > 0 && <DutiesMark duties={duties} />}
         {role.builtIn && (
           <span className="person-tile-built-in">
             <Icon name="lock" size={12} />
@@ -102,6 +117,20 @@ function PersonCard({ role }: { readonly role: Role }): ReactNode {
         <span className="person-tile-limit">{taskLimitShort(card.taskLimit)}</span>
       </div>
     </article>
+  );
+}
+
+/** How many duties the person holds; there is no room on a same-size tile for their labels. */
+function DutiesMark({ duties }: { readonly duties: readonly Duty[] }): ReactNode {
+  const count = dutyCountWords(duties.length);
+  return (
+    <PlainMark
+      words={`${count}: ${duties.map(({ label }) => label).join(", ")}`}
+      className="person-tile-duties"
+    >
+      <Icon name="briefcase" size={14} />
+      {count}
+    </PlainMark>
   );
 }
 

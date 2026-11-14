@@ -1,6 +1,6 @@
 import { initiativeBranchOf } from "./short-name.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
-import { authorWords } from "./author.js";
+import { archivedByWords, authorWords, type ArchivedBy, type Author } from "./author.js";
 import type { Idea } from "./idea.js";
 import { initiativeProjectIds, pipelineIn, type Initiative } from "./initiative.js";
 import {
@@ -74,9 +74,7 @@ export function taskRecordText(
     ...publishingTaskLines(task, links),
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
-    ...(task.archivedAt
-      ? [`- Archived on ${task.archivedAt.toISOString()}: off the board, its state as it was`]
-      : []),
+    ...archiveLines(task),
     ...task.projectMoves.map(
       ({ from, to, at, by }) =>
         `- Moved from Project ${from} to Project ${to} by ${authorWords(by)} on ${at.toISOString()}`,
@@ -118,6 +116,33 @@ export function taskRecordText(
     "",
     ...stateChangeLines(stateChanges),
   ].join("\n");
+}
+
+/**
+ * Its last Restore, and its Archive while it is in it: by whom when that was kept (an Archive from
+ * before it was names nobody).
+ */
+function archiveLines({
+  archivedAt,
+  archivedBy,
+  restoredAt,
+  restoredBy,
+}: {
+  readonly archivedAt?: Date | undefined;
+  readonly archivedBy?: ArchivedBy | undefined;
+  readonly restoredAt?: Date | undefined;
+  readonly restoredBy?: Author | undefined;
+}): string[] {
+  const restored = restoredBy ? ` by ${authorWords(restoredBy)}` : "";
+  const archived = archivedBy ? ` by ${archivedByWords(archivedBy)}` : "";
+  return [
+    ...(restoredAt
+      ? [`- Restored from the Archive${restored} on ${restoredAt.toISOString()}`]
+      : []),
+    ...(archivedAt
+      ? [`- Archived${archived} on ${archivedAt.toISOString()}: off the board, its state as it was`]
+      : []),
+  ];
 }
 
 /** What a Publishing Task does, on its record: it publishes its Initiative's whole change. */
@@ -190,9 +215,7 @@ export function initiativeRecordText({
           `- ${initiative.state === "done" ? "Done" : "Dropped"} on ${initiative.endedAt.toISOString()}`,
         ]
       : []),
-    ...(initiative.archivedAt
-      ? [`- Archived on ${initiative.archivedAt.toISOString()}: off the board, its state as it was`]
-      : []),
+    ...archiveLines(initiative),
     ...initiativePipelineLines(initiative, initiativeProjectIds(tasks), pipelineNames),
     "",
     "Outcome:",

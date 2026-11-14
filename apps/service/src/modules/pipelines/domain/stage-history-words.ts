@@ -1,9 +1,11 @@
 import { STAGE_KIND_NAMES, type Stage } from "./stage.js";
+import { holdingUserWords } from "./stage-interruption.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import type {
   GateAction,
   PublishedWork,
   RefusedTurn,
+  HoldingUser,
   StageInterruption,
   StageOutcome,
   StageRun,
@@ -240,9 +242,17 @@ function pullRequestWords(url: string | undefined): string {
   return url === undefined ? "" : `\nPull request: ${url}`;
 }
 
-const INTERRUPTION_WORDS: Readonly<Record<StageInterruption, string>> = {
-  stop: "stopped by the user",
-  pause: "paused by the user",
+/** How the run was interrupted, naming the user who paused or stopped it. */
+function interruptionWords(
+  interrupted: StageInterruption,
+  heldByUser: HoldingUser | undefined,
+): string {
+  if (interrupted === "stop") return `stopped by ${holdingUserWords(heldByUser)}`;
+  if (interrupted === "pause") return `paused by ${holdingUserWords(heldByUser)}`;
+  return INTERRUPTION_WORDS[interrupted];
+}
+
+const INTERRUPTION_WORDS: Readonly<Record<Exclude<StageInterruption, "stop" | "pause">, string>> = {
   alarm: "held by the fire alarm",
   "usage-window": "paused as the engine's usage window was used up",
   restart: "ended as The Office restarted",
@@ -250,7 +260,7 @@ const INTERRUPTION_WORDS: Readonly<Record<StageInterruption, string>> = {
 
 function failedWhy(outcome: Extract<StageOutcome, { status: "failed" }>): string {
   const reasons = [
-    outcome.interrupted && INTERRUPTION_WORDS[outcome.interrupted],
+    outcome.interrupted && interruptionWords(outcome.interrupted, outcome.heldByUser),
     outcome.notStarted && "recorded without starting, as The Office had restarted",
     outcome.cutShort && "its Agent's turn cut short",
     outcome.refused && refusedWords(outcome.refused),
@@ -287,17 +297,18 @@ function handoverNoteLines(outcome: StageOutcome | undefined): string[] {
 
 function gateActionLines(stages: readonly Stage[], action: GateAction | undefined): string[] {
   if (!action) return [];
+  const user = holdingUserWords(action.byUser);
   switch (action.kind) {
     case "continue":
       return action.feedback === undefined
-        ? ["At the Gate the user let the work continue."]
-        : [`At the Gate the user let the work continue: ${action.feedback}`];
+        ? [`At the Gate ${user} let the work continue.`]
+        : [`At the Gate ${user} let the work continue: ${action.feedback}`];
     case "send-back":
       return [
-        `At the Gate the user sent the work back to "${nameOf(stages, action.stageKey)}": ${action.feedback}`,
+        `At the Gate ${user} sent the work back to "${nameOf(stages, action.stageKey)}": ${action.feedback}`,
       ];
     case "drop":
-      return ["At the Gate the user dropped the Task."];
+      return [`At the Gate ${user} dropped the Task.`];
   }
 }
 

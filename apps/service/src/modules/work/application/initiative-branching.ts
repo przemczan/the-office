@@ -1,3 +1,4 @@
+import type { Author } from "../domain/author.js";
 import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
@@ -53,7 +54,7 @@ export class InitiativeBranching {
    * Shaping too, that has a Pipeline. Refused, naming the Project and why, when a branch can't
    * be made, with the branches made so far removed and the Initiative still shaping.
    */
-  async confirm(id: string): Promise<Initiative> {
+  async confirm(id: string, by: Author): Promise<Initiative> {
     return this.locks.run(id, async () => {
       const initiative = await this.read(id);
       const projectIds = initiativeProjectIds(await this.tasksOf(id)).filter(
@@ -66,7 +67,7 @@ export class InitiativeBranching {
           : { shortName: initiative.shortName, projectIds, madeAt: new Date() };
       try {
         const confirmed = await this.repository.updateWithTasks(id, (held, tasks) =>
-          confirmInitiative(held, tasks, branched),
+          confirmInitiative(held, tasks, branched, by),
         );
         if (confirmed.event) await this.events.publish(confirmed.event);
         for (const taskChange of confirmed.taskChanges) {

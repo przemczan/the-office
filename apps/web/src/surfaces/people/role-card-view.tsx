@@ -3,8 +3,9 @@ import { Link } from "@tanstack/react-router";
 import type { Role, RoleCardOptions, RoleMcpServer, Skill } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { dutiesHeldBy } from "../../shell/duty-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { FixedForTheCaretaker, RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
@@ -50,6 +51,9 @@ export function RoleCardView({
           {card.name} · {card.title}
         </RoleCardValue>
         <RoleCardValue label="Responsibilities">{card.responsibilities}</RoleCardValue>
+        <RoleCardValue label="Duties">
+          <HeldDuties role={role} />
+        </RoleCardValue>
       </RoleCardGroup>
       <RoleCardGroup group="work">
         <RoleCardValue label="Instructions">
@@ -139,6 +143,28 @@ export function RoleCardView({
         )}
       </RoleCardGroup>
     </div>
+  );
+}
+
+/** The duties the person holds, set in Settings › Duties rather than on the card. */
+function HeldDuties({ role }: { readonly role: Role }): ReactNode {
+  const duties = useQuery(dutyQueries.list());
+  if (role.builtIn) {
+    return "Holds no duty; it is the one to talk to while nobody holds Default person to talk to.";
+  }
+  if (!duties.data) return null;
+  const held = dutiesHeldBy(duties.data, role.key);
+  if (held.length === 0) {
+    return (
+      <>None. {!role.letGoAt && <Link to="/settings/duties">Change in Settings › Duties</Link>}</>
+    );
+  }
+  return (
+    <ul className="role-card-duties">
+      {held.map(({ key, label }) => (
+        <li key={key}>{label}</li>
+      ))}
+    </ul>
   );
 }
 

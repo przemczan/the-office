@@ -1,6 +1,6 @@
 # Notifications: module map
 
-**Owns:** Notifications (`notifications`): the kinds tree and routing resolved from the nearest level (`domain/notification-kinds.ts`), the routing the user sets in Settings › Notifications, by level and channel (`NotificationRouting`, `notification_routing`, seeded with ticket 20's defaults), each Notification raised from another module's event with its content and the channels the stored routing gives it, Outcomes landing close together collapsed into one, and cleared once the user handles what it points to (`NotificationService`); the delivery rules, pure in `domain/delivery.ts`, and their timing (`notification_timing`, one row: the at-desk hold, the away delay, batching, quiet hours), applied by `NotificationDelivery`: the desktop and phone held inside quiet hours with one summary at their end, the phone waiting while the user is at the desk, sent through the `PhonePush` port (`RecordingPhonePush` until task 28's Web Push); and Now and the status strip as one read model (`NowService`, pushed whole as `now.changed`), and what only events tell, kept in its own tables: each started Task's outcomes (`task_outcomes`), the user's activity, which says where Since you left begins (`user_activity`), tokens by day (`day_tokens`, measured from `thread_token_counts`) and the Tasks touched each day (`tasks_touched`).
+**Owns:** Notifications (`notifications`): the kinds tree and routing resolved from the nearest level (`domain/notification-kinds.ts`), the routing the user sets in Settings › Notifications, by level and channel (`NotificationRouting`, `notification_routing`, seeded with ticket 20's defaults), each Notification raised from another module's event with its content and the channels the stored routing gives it, Outcomes landing close together collapsed into one, and cleared once the user handles what it points to (`NotificationService`); the delivery rules, pure in `domain/delivery.ts`, and their timing (`notification_timing`, one row: the at-desk hold, the away delay, batching, quiet hours), applied by `NotificationDelivery`: the desktop and phone held inside quiet hours with one summary at their end, the phone waiting while any user is at the desk (The Office is away only when every user is: the latest activity of any user decides), sent through the `PhonePush` port (`RecordingPhonePush` until task 28's Web Push); and Now and the status strip as one read model shared by every user (`NowService`, pushed whole as `now.changed`), with each user's own Since you left beside it (`GET /now/since-you-left` for the requester: where their last absence began and the outcomes since), and what only events tell, kept in its own tables: each started Task's outcomes (`task_outcomes`), each user's activity by their id, which says where their Since you left begins (`user_activity`), tokens by day (`day_tokens`, measured from `thread_token_counts`) and the Tasks touched each day (`tasks_touched`).
 
 **Talks to:** nothing calls it. It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `StartQueue` to Work's `QueueService` (Now's queue, first place first), `KnownPeople` to People's `RoleCards` (`holderOf(duty)` alone: whoever holds Default person to talk to speaks the Office kinds, the Caretaker while nobody does; whoever shapes Initiatives tells an Initiative done, the UI's voice while nobody does), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`, `OfficeFireAlarm` to Work's `FireAlarmService` and `ResumePlans` to Pipelines' `AlarmResumes`: while the alarm is on, Now carries it (`Now.fireAlarm`: stopping until each Task it paused has a plan, then each plan and the total), read afresh on every read, since a cache cools with no event. The `show_office_status` of whoever holds Default person to talk to (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own. Office-updates' `OfficeUpdated` and `OfficeUpdateFailed` raise `office.update.done` and `office.update.failed`, pointing at Settings › Updates (`office-update`), whose page activity handles them, as does the next result.
 
@@ -10,7 +10,8 @@
 - A Notification that gathers others (`collapsed-outcomes`, `quiet-hours-summary`) is not a kind of the tree, so not a row of the grid; it clears once none it gathers is open. The Outcomes a collapse gathers stay open, out of the list (`shownOf`), until each is handled.
 - Delivery acts only on Notifications the clock has reached (`raisedBy`), and batching only on Outcomes raised within the window before now: tests that raise on a clock of their own (2001 in `notification-service.full.test.ts`, 2100 in `notification-delivery.full.test.ts`) stay apart from the other files. The delivery test keeps the timing and the activity in fixtures (`ports/delivery.fixtures.ts`): both are one row for every file.
 - The routing is one table for every test file, which run at once: a test that changes it changes only levels no other file raises, and gives them back.
-- Opening a page handles what points to it: the web reports the page with each activity (`POST /activity`), and opening a Task handles its outcomes, opening Now the 5-hour window's.
+- Opening a page handles what points to it: the web reports the page with each activity (`POST /activity`, for the signed-in user), and opening a Task handles its outcomes, opening Now the 5-hour window's.
+- Since you left is not in `Now`: the web reads it again on each `now.changed`, so a new outcome or a user's Since you left moving announces `now.changed` even when Now itself is as announced (`announceInBackground(true)`). Tests that report activity name a user of their own (`signedInAs` with a random id), since the rows are by user for every test file.
 - `EventBus.publish` waits for its handlers, so Now is read and announced in the background (`announceInBackground`), one read after a burst of events.
 - Tokens today count how much each Thread's tokens so far grew since its last count; a turn's own count replacing its running one makes the growth negative, which is right.
 - "Today" is the service's local day (`officeDayOf`).
@@ -37,6 +38,7 @@ NotificationsModule
 - `PUT /notifications/routing/:level`: NotificationsController.setChannel
 - `DELETE /notifications/routing/:level`: NotificationsController.reset
 - `GET /now`: NowController.read
+- `GET /now/since-you-left`: NowController.readSinceYouLeft
 - `POST /activity`: NowController.recordActivity
 
 ## Tables
@@ -53,7 +55,7 @@ NotificationsModule
 
 - `notification-responses.ts`: toNotificationResponse, toTimingResponse, toRoutingResponse
 - `notifications.controller.ts`: NotificationsController
-- `now-responses.ts`: toNowResponse
+- `now-responses.ts`: toNowResponse, toSinceYouLeftResponse
 - `now.controller.ts`: NowController
 
 ### adapters/office-tools/
@@ -85,7 +87,7 @@ NotificationsModule
 - `notification-routing.ts`: NotificationRouting
 - `notification-service.ts`: Page, NotificationService
 - `now-service.ts`: NowService
-- Tests: notification-delivery.full.test.ts, notification-service.full.test.ts, now-service.full.test.ts, now-service.test.ts, test-project-check.test.ts
+- Tests: notification-delivery.full.test.ts, notification-service.full.test.ts, now-service.full.test.ts, now-service.test.ts, since-you-left.test.ts, test-project-check.test.ts
 
 ### domain/
 
@@ -95,7 +97,7 @@ NotificationsModule
 - `notification-timing.ts`: TimeOfDay, QuietHours, NotificationTiming, DEFAULT_TIMING, minutesMs, inQuietHours, quietHoursEnd
 - `notification.ts`: Pointer, GatheringKind, Notification, NotificationDraft, notificationOf, decisionWaiting, gateWaiting, taskDone, Failure, taskFailed, taskPaused, taskPausedByUsageWindow, UsedUpWindowWords, initiativeDone, windowNearlyUsed, windowReset, windowUsedUp, engineDown, officeUpdated, officeUpdateFailed, windowMove, Handling, handles, samePointer
 - `now-events.ts`: NowChanged
-- `now.ts`: OfficeTask, NowFireAlarm, TaskResume, OpenDecision, StageOfTask, UsageWindow, EngineUsageWindows, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, QueuedOnNow, QueuedTask, AlarmPausedTask, FireAlarmOnNow, Desks, Now, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
+- `now.ts`: OfficeTask, NowFireAlarm, TaskResume, OpenDecision, StageOfTask, UsageWindow, EngineUsageWindows, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, QueuedOnNow, QueuedTask, AlarmPausedTask, FireAlarmOnNow, Desks, Now, SinceYouLeft, sinceYouLeftOf, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
 - `office-day.ts`: officeDayOf, TokenKinds, NO_TOKENS, addTokenKinds, tokensGrown
 - `office-status.ts`: officeStatusText
 - `task-outcome.ts`: TaskOutcomeKind, TaskOutcome, latestPerTask

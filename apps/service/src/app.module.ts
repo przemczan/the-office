@@ -57,6 +57,12 @@ import {
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import {
+  CookieSignedInRequests,
+  GitHubIdentityProvider,
+  GoogleIdentityProvider,
+  UsersModule,
+} from "./modules/users/index.js";
+import {
   FireAlarmService,
   InitiativeService,
   OfficeLimits,
@@ -68,10 +74,12 @@ import {
 } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
+import { EarlierRecordsModule } from "./platform/earlier-records/earlier-records.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
+import { RequestAccessModule } from "./platform/http/request-access.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
@@ -90,6 +98,11 @@ export class AppModule {
   ): DynamicModule {
     // One instance, so every token read goes through the same sign-in changes and refreshes once.
     const github = GitHubModule.register({ web: config.gitHub.webUrl, api: config.gitHub.apiUrl });
+    // One instance, so the guard and the sign-in pages share the same signed-in devices and trips.
+    const users = UsersModule.register({
+      imports: [github],
+      identityProviders: [GitHubIdentityProvider, GoogleIdentityProvider],
+    });
     // One instance, so every git change on a repository goes through the same locks.
     const projects = ProjectsModule.register({
       imports: [PipelineLibraryModule, github],
@@ -170,6 +183,7 @@ export class AppModule {
       imports: [
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
+        EarlierRecordsModule,
         EngineAccountsModule,
         engineCascade,
         EngineModule,
@@ -201,9 +215,15 @@ export class AppModule {
         PeopleModule,
         pipelines,
         projects,
+        RequestAccessModule.register({
+          publicAddress: config.publicAddress,
+          imports: [users],
+          signedInRequests: CookieSignedInRequests,
+        }),
         runEnvironments,
         SkillsModule,
         TelemetryModule,
+        users,
         WebAppModule.register(webApp),
         work,
         WorkstationModule,

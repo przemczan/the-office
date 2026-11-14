@@ -5,7 +5,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { gateActionProblems, waitingGateRun } from "../domain/gate.js";
 import { GateRefused } from "../domain/gate-refused.js";
 import type { TaskProgress } from "../domain/stage-progress.js";
-import type { GateAction } from "../domain/stage-run.js";
+import type { GateAction, HoldingUser } from "../domain/stage-run.js";
 import { GateContinued, GateDropped, SentBackFromGate } from "../domain/stage-run-events.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
@@ -26,17 +26,29 @@ export class GateService {
   ) {}
 
   /** Blank notes are plain Continue. */
-  continue(taskId: string, feedback?: string): Promise<TaskProgress | undefined> {
+  continue(
+    taskId: string,
+    byUser: HoldingUser,
+    feedback?: string,
+  ): Promise<TaskProgress | undefined> {
     const notes = feedback?.trim();
-    return this.act(taskId, notes ? { kind: "continue", feedback: notes } : { kind: "continue" });
+    return this.act(
+      taskId,
+      notes ? { kind: "continue", feedback: notes, byUser } : { kind: "continue", byUser },
+    );
   }
 
-  sendBack(taskId: string, stageKey: string, feedback: string): Promise<TaskProgress | undefined> {
-    return this.act(taskId, { kind: "send-back", stageKey, feedback: feedback.trim() });
+  sendBack(
+    taskId: string,
+    byUser: HoldingUser,
+    stageKey: string,
+    feedback: string,
+  ): Promise<TaskProgress | undefined> {
+    return this.act(taskId, { kind: "send-back", stageKey, feedback: feedback.trim(), byUser });
   }
 
-  drop(taskId: string): Promise<TaskProgress | undefined> {
-    return this.act(taskId, { kind: "drop" });
+  drop(taskId: string, byUser: HoldingUser): Promise<TaskProgress | undefined> {
+    return this.act(taskId, { kind: "drop", byUser });
   }
 
   /** The Task's Stages after the action; refused with the reasons when the Gate doesn't allow it. */

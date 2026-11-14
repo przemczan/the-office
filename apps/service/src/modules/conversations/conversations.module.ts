@@ -17,9 +17,11 @@ import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { ThreadHistoryOfficeTool } from "./adapters/office-tools/thread-history-office-tool.js";
+import { ConversationsEarlierRecords } from "./adapters/postgres/conversations-earlier-records.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresOfficeInstructionsRepository } from "./adapters/postgres/postgres-office-instructions-repository.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
+import { DutyProposals } from "./adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "./adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "./adapters/proposals/size-threshold-proposals.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
@@ -155,6 +157,7 @@ export class ConversationsModule {
         SkillProposals,
         SizeThresholdProposals,
         OfficeInstructionsProposals,
+        DutyProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
         ProposalOfficeTools,
@@ -167,6 +170,7 @@ export class ConversationsModule {
         MemoryOfficeTools,
         ThreadHistory,
         ThreadHistoryOfficeTool,
+        ConversationsEarlierRecords,
         ThreadWebEvents,
       ],
       exports: [

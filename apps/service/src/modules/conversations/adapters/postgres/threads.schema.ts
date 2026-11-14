@@ -27,6 +27,7 @@ import type {
   ThreadState,
   TokenTotals,
 } from "../../domain/thread.js";
+import type { UserRef } from "../../domain/user.js";
 
 /** A Consultant's passing a Decision on, as kept. */
 export type SavedPassedOn = Omit<PassedOn, "passedOnAt"> & { readonly passedOnAt: string };
@@ -160,6 +161,11 @@ export const proposals = pgTable(
     status: text("status").$type<ProposalStatus["kind"]>().notNull(),
     /** When the user applied or declined it; null while it is open. */
     statusAt: timestamp("status_at", { withTimezone: true }),
+    /**
+     * The user who applied or declined it; null while it is open, and on one from before users
+     * existed until the first user claims it.
+     */
+    statusBy: jsonb("status_by").$type<UserRef>(),
   },
   (table) => [index("proposals_thread").on(table.threadId, table.draftedAt)],
 );

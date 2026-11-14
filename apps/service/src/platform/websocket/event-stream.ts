@@ -18,13 +18,23 @@ import {
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 import type { DomainEvent } from "../events/domain-event.js";
 import { EventBus, type Unsubscribe } from "../events/event-bus.js";
-import { addressingOf, localRequestRefusal } from "../http/local-requests.js";
+import { OfficeAddresses } from "../http/office-addresses.js";
+import { SignedInRequests } from "../http/signed-in-requests.js";
+import { Schedule, type Wait } from "../schedule/schedule.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 
 const GOING_AWAY = 1001;
+/** Closes a client whose signed-in device was signed out (an application's own code, 4000–4999). */
+export const SIGNED_OUT = 4401;
+/** How often the open clients' devices are checked, as their last use is written (spec §2.10). */
+export const SIGNED_IN_CHECK_EVERY_MS = 60 * 1000;
 
-/** A client's subscriptions: the event types without a scope, and those scoped to each Thread. */
+/**
+ * A client's subscriptions: the event types without a scope, and those scoped to each Thread; and
+ * the signed-in device it connected from.
+ */
 interface Subscriptions {
+  readonly signedInDeviceId: string;
   readonly unscoped: Set<string>;
   readonly byThread: Map<string, Set<string>>;
 }
@@ -35,7 +45,8 @@ interface Subscriptions {
  * scoped to a Thread: it then receives the events of its type whose `threadId` is that Thread's.
  * A thread-scoped type (THREAD_SCOPED_EVENT_TYPES) goes only to subscriptions scoped to its
  * event's Thread, never to one without a scope; every other type goes to the subscriptions of its
- * type without a scope, and to those scoped to its `threadId` when it has one.
+ * type without a scope, and to those scoped to its `threadId` when it has one. Only a signed-in
+ * device connects (spec §2.10), and its clients close once it is signed out.
  */
 @Injectable()
 export class EventStream implements OnApplicationBootstrap, BeforeApplicationShutdown {
@@ -43,21 +54,33 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
   private readonly webSocketServer = new WebSocketServer({ noServer: true });
   private readonly subscriptions = new Map<WebSocket, Subscriptions>();
   private stopForwarding: Unsubscribe | undefined;
+  private stopClosingSignedOut: Unsubscribe | undefined;
+  private nextSignedInCheck: Wait | undefined;
 
   constructor(
     private readonly httpAdapterHost: HttpAdapterHost,
     private readonly eventBus: EventBus,
     private readonly webEventForwarding: WebEventForwarding,
+    private readonly officeAddresses: OfficeAddresses,
+    private readonly signedInRequests: SignedInRequests,
+    private readonly schedule: Schedule,
   ) {}
 
   onApplicationBootstrap(): void {
     this.httpServer().on("upgrade", this.upgrade);
     this.stopForwarding = this.eventBus.subscribeToEveryEvent((event) => this.send(event));
+    this.stopClosingSignedOut = this.signedInRequests.onSignedOut((signedInDeviceIds) =>
+      this.closeSignedOut(signedInDeviceIds),
+    );
+    this.checkSignedInLater();
   }
 
   // Before the HTTP server closes, which waits for every open connection to end.
   beforeApplicationShutdown(): void {
     this.stopForwarding?.();
+    this.stopClosingSignedOut?.();
+    this.nextSignedInCheck?.cancel();
+    this.nextSignedInCheck = undefined;
     this.httpServer().off("upgrade", this.upgrade);
     for (const client of this.subscriptions.keys()) client.close(GOING_AWAY);
     this.webSocketServer.close();
@@ -72,17 +95,43 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
       refuseUpgrade(socket, "404 Not Found");
       return;
     }
-    const refusal = localRequestRefusal(addressingOf(request));
+    const refusal = this.officeAddresses.refusal(request);
     if (refusal !== undefined) {
       this.logger.warn(`Refused a WebSocket: ${refusal}`);
       refuseUpgrade(socket, "403 Forbidden");
       return;
     }
-    this.webSocketServer.handleUpgrade(request, socket, head, (client) => this.connect(client));
+    void this.upgradeSignedIn(request, socket, head);
   };
 
-  private connect(client: WebSocket): void {
-    this.subscriptions.set(client, { unscoped: new Set(), byThread: new Map() });
+  private async upgradeSignedIn(
+    request: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+  ): Promise<void> {
+    let signedInDeviceId: string | undefined;
+    try {
+      signedInDeviceId = (await this.signedInRequests.signedInOf(request))?.signedInDeviceId;
+    } catch (error) {
+      this.logger.warn(`Refused a WebSocket: who is signed in was not found: ${String(error)}`);
+      refuseUpgrade(socket, "503 Service Unavailable");
+      return;
+    }
+    if (signedInDeviceId === undefined) {
+      refuseUpgrade(socket, "401 Unauthorized");
+      return;
+    }
+    this.webSocketServer.handleUpgrade(request, socket, head, (client) =>
+      this.connect(client, signedInDeviceId),
+    );
+  }
+
+  private connect(client: WebSocket, signedInDeviceId: string): void {
+    this.subscriptions.set(client, {
+      signedInDeviceId,
+      unscoped: new Set(),
+      byThread: new Map(),
+    });
     client.on("message", (data, isBinary) => this.receive(client, data, isBinary));
     client.on("close", () => this.subscriptions.delete(client));
     client.on("error", (error) => this.logger.warn(`A WebSocket failed: ${error.message}`));
@@ -112,6 +161,36 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     if (subscribed.size > 0) subscriptions.byThread.set(threadId, subscribed);
     else subscriptions.byThread.delete(threadId);
     sendTo(client, { type: "subscriptions", events: [...subscribed].toSorted(), threadId });
+  }
+
+  /**
+   * `onSignedOut` tells only of sign-outs in this process; the recovery command signs devices out
+   * from its own, and a device expires without an event. So each minute the stream asks which of
+   * its clients' devices are still signed in.
+   */
+  private checkSignedInLater(): void {
+    const at = new Date(this.schedule.now().getTime() + SIGNED_IN_CHECK_EVERY_MS);
+    this.nextSignedInCheck = this.schedule.once("closing signed-out WebSockets", at, async () => {
+      try {
+        await this.closeSignedOutClients();
+      } finally {
+        if (this.nextSignedInCheck !== undefined) this.checkSignedInLater();
+      }
+    });
+  }
+
+  private async closeSignedOutClients(): Promise<void> {
+    const signedInDeviceIds = new Set(
+      [...this.subscriptions.values()].map(({ signedInDeviceId }) => signedInDeviceId),
+    );
+    if (signedInDeviceIds.size === 0) return;
+    this.closeSignedOut(await this.signedInRequests.signedOutAmong([...signedInDeviceIds]));
+  }
+
+  private closeSignedOut(signedInDeviceIds: readonly string[]): void {
+    for (const [client, { signedInDeviceId }] of this.subscriptions) {
+      if (signedInDeviceIds.includes(signedInDeviceId)) client.close(SIGNED_OUT, "Signed out");
+    }
   }
 
   private send(event: DomainEvent): void {

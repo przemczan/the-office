@@ -1,7 +1,9 @@
 import type { INestApplication, NestApplicationOptions } from "@nestjs/common";
 import { API_PATH } from "@the-office/contracts";
 import express from "express";
-import { refuseNonLocalRequests } from "./local-requests.js";
+import { OfficeAddresses } from "./office-addresses.js";
+import { refuseNonLocalRequests, refuseSignedOutRequests } from "./request-access.js";
+import { SignedInRequests } from "./signed-in-requests.js";
 
 /**
  * How the service's Nest application is created, by the running service and the tests that serve
@@ -20,11 +22,13 @@ export const HTTP_APPLICATION_OPTIONS = {
 const JSON_BODY_LIMIT = "16mb";
 
 /**
- * HTTP settings shared by the running service and the tests that serve it. Nest adds no JSON
- * parser of its own once one is in place.
+ * HTTP settings shared by the running service and the tests that serve it, on the addresses and
+ * signed-in devices `RequestAccessModule` binds: the Host and Origin checks, then the sign-in
+ * guard, both before a body is read. Nest adds no JSON parser of its own once one is in place.
  */
 export function configureHttp(app: INestApplication): void {
-  app.use(refuseNonLocalRequests);
+  app.use(refuseNonLocalRequests(app.get(OfficeAddresses)));
+  app.use(refuseSignedOutRequests(app.get(SignedInRequests)));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.setGlobalPrefix(API_PATH);
 }

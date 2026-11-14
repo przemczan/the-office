@@ -96,6 +96,10 @@ export class FakeGitHub {
   readonly postedManifests: unknown[] = [];
   /** Every token handed out, so tests can check none reaches the web. */
   readonly issuedTokens: string[] = [];
+  /** The user tokens revoked by `DELETE /applications/{client_id}/token`, in order. */
+  readonly revokedTokens: string[] = [];
+  /** The `scope` each visit to the authorize page asked for, null when it named none. */
+  readonly authorizeScopes: (string | null)[] = [];
   /** Who authorizes on GitHub's authorize page; GitHub's own page would ask them. */
   signedInUser = "office-user";
   /** Whether the user cancels on the authorize page instead of authorizing. */
@@ -111,6 +115,7 @@ export class FakeGitHub {
   private readonly signInCodes = new Map<string, SignInCode>();
   private readonly loginsByAccessToken = new Map<string, string>();
   private readonly refreshTokens = new Map<string, IssuedRefreshToken>();
+  private readonly userIds = new Map<string, number>();
 
   private constructor(
     private readonly server: Server,
@@ -144,6 +149,31 @@ export class FakeGitHub {
     return fake;
   }
 
+  /** An App registered with these callback URLs, as GitHub keeps it, without the manifest flow. */
+  registerApp(callbackUrls: readonly string[]): FakeGitHubApp & { readonly clientSecret: string } {
+    const number = this.registeredApps.size + 1;
+    const app: RegisteredApp = {
+      clientId: `Iv23liFake${number}`,
+      clientSecret: FAKE_GITHUB_SECRETS.clientSecret,
+      slug: `the-office-fake-${number}`,
+      owner: "office-user",
+      callbackUrls,
+    };
+    this.registeredApps.set(app.clientId, app);
+    return app;
+  }
+
+  /** The App's owner adding a callback URL in its settings on GitHub, after the first ones. */
+  addCallbackUrl(clientId: string, callbackUrl: string): void {
+    const app = this.registeredApps.get(clientId);
+    if (app) {
+      this.registeredApps.set(clientId, {
+        ...app,
+        callbackUrls: [...app.callbackUrls, callbackUrl],
+      });
+    }
+  }
+
   /** A code GitHub would send the browser back with, for `app`; each code converts once. */
   issueCode(app: FakeGitHubApp): string {
     const code = randomBytes(10).toString("hex");
@@ -157,6 +187,15 @@ export class FakeGitHub {
     this.loginsByAccessToken.set(token, login);
     this.issuedTokens.push(token);
     return token;
+  }
+
+  /** GitHub's numeric id of the user with `login`: one of its own per login, as on GitHub. */
+  userIdOf(login: string): number {
+    const known = this.userIds.get(login);
+    if (known !== undefined) return known;
+    const id = 1000 + this.userIds.size + 1;
+    this.userIds.set(login, id);
+    return id;
   }
 
   /** The requests whose path starts with `path`, under the API's base when it starts there. */
@@ -196,6 +235,7 @@ export class FakeGitHub {
       url.pathname,
     );
     const pulls = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/pulls$`).exec(url.pathname);
+    const appToken = new RegExp(`^${API_PATH}/applications/([^/]+)/token$`).exec(url.pathname);
     if (request.method === "POST" && url.pathname === "/settings/apps/new") {
       this.registerFromManifest(url, body, response);
     } else if (request.method === "POST" && conversion) {
@@ -207,6 +247,13 @@ export class FakeGitHub {
       const parameters = new URLSearchParams(url.searchParams);
       for (const [key, value] of new URLSearchParams(body)) parameters.append(key, value);
       this.exchange(parameters, request.headers.accept, response);
+    } else if (request.method === "DELETE" && appToken) {
+      this.revoke(
+        decodeURIComponent(appToken[1] ?? ""),
+        request.headers.authorization,
+        body,
+        response,
+      );
     } else if (request.method === "GET" && url.pathname === `${API_PATH}/meta`) {
       sendJson(response, 200, { ssh_keys: [GITHUB_ED25519] });
     } else if (request.method === "GET" && url.pathname === `${API_PATH}/user`) {
@@ -246,15 +293,7 @@ export class FakeGitHub {
       sendJson(response, 422, { message: "The manifest has no redirect_url." });
       return;
     }
-    const number = this.registeredApps.size + 1;
-    const app: RegisteredApp = {
-      clientId: `Iv23liFake${number}`,
-      clientSecret: FAKE_GITHUB_SECRETS.clientSecret,
-      slug: `the-office-fake-${number}`,
-      owner: "office-user",
-      callbackUrls: Array.isArray(callbackUrls) ? callbackUrls.map(String) : [],
-    };
-    this.registeredApps.set(app.clientId, app);
+    const app = this.registerApp(Array.isArray(callbackUrls) ? callbackUrls.map(String) : []);
     const back = new URL(redirectUrl);
     back.searchParams.set("code", this.issueCode(app));
     const state = url.searchParams.get("state");
@@ -295,6 +334,7 @@ export class FakeGitHub {
       sendJson(response, 404, { message: "Not Found" });
       return;
     }
+    this.authorizeScopes.push(query.get("scope"));
     const redirectUri = query.get("redirect_uri") ?? firstCallback;
     const state = query.get("state");
     const challengeMethod = query.get("code_challenge_method");
@@ -409,7 +449,38 @@ export class FakeGitHub {
       sendBadCredentials(response);
       return;
     }
-    sendJson(response, 200, { login, id: 1, type: "User" });
+    sendJson(response, 200, { login, id: this.userIdOf(login), type: "User" });
+  }
+
+  /**
+   * Revokes one user token of the App, with its client ID and secret by Basic auth: 204, or 404
+   * for a token GitHub doesn't know (docs.github.com/rest/apps/oauth-applications#delete-an-app-token).
+   */
+  private revoke(
+    clientId: string,
+    authorization: string | undefined,
+    body: string,
+    response: ServerResponse,
+  ): void {
+    const app = this.registeredApps.get(clientId);
+    const credentials = Buffer.from(
+      authorization?.replace(/^Basic /, "") ?? "",
+      "base64",
+    ).toString();
+    if (app === undefined || credentials !== `${app.clientId}:${app.clientSecret}`) {
+      sendJson(response, 404, { message: "Not Found" });
+      return;
+    }
+    const { access_token: accessToken } = z
+      .object({ access_token: z.string() })
+      .catch({ access_token: "" })
+      .parse(JSON.parse(body || "null"));
+    if (!this.loginsByAccessToken.delete(accessToken)) {
+      sendJson(response, 404, { message: "Not Found" });
+      return;
+    }
+    this.revokedTokens.push(accessToken);
+    response.writeHead(204).end();
   }
 
   private installationsApi(

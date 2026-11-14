@@ -29,6 +29,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { aPersonsThread, taskThreads } from "../../task-thread-records.fixtures.js";
+import { ANN_LEE } from "../../domain/work.fixtures.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -119,7 +120,7 @@ describe("a person's Thread on a Task's session", () => {
     const task = await aTaskIn("ready");
     const worktrees = work.app.get(ProjectWorktrees) as ProjectWorktreesForTests;
     const opening = vi.spyOn(worktrees, "open").mockImplementationOnce(async (from, taskId) => {
-      await work.app.get(TaskService).move(taskId, `${from}-other`);
+      await work.app.get(TaskService).move(taskId, `${from}-other`, ANN_LEE);
       return worktrees.find(from, taskId);
     });
 

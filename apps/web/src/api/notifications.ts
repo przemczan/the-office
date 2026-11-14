@@ -5,6 +5,7 @@ import {
   notificationTimingSchema,
   notificationsWebEventSchema,
   nowSchema,
+  sinceYouLeftSchema,
   type Activity,
   type ChannelSetting,
   type Notification,
@@ -25,6 +26,12 @@ export const nowQueries = {
     queryOptions({
       queryKey: ["now"],
       queryFn: ({ signal }) => getFromApi("/now", nowSchema, signal),
+    }),
+  /** The signed-in user's own Since you left, read again on each `now.changed`. */
+  sinceYouLeft: () =>
+    queryOptions({
+      queryKey: ["since-you-left"],
+      queryFn: ({ signal }) => getFromApi("/now/since-you-left", sinceYouLeftSchema, signal),
     }),
 };
 
@@ -79,13 +86,15 @@ export function reportActivity(activity: Activity): Promise<void> {
 
 /**
  * Now comes whole with each change, and each Notification as raised and as cleared, so the page,
- * the strip and the channels refetch nothing.
+ * the strip and the channels refetch nothing of them. Since you left is each user's own, so each
+ * `now.changed` has it read again.
  */
 export const notificationEventCacheUpdates: EventCacheUpdates = {
   "now.changed": (event, queryClient) => {
     const changed = notificationsWebEventSchema.parse(event);
     if (changed.type !== "now.changed") return;
     queryClient.setQueryData(nowQueries.now().queryKey, changed.now);
+    void queryClient.invalidateQueries({ queryKey: nowQueries.sinceYouLeft().queryKey });
   },
   "notification.raised": (event, queryClient) => {
     const raised = notificationsWebEventSchema.parse(event);

@@ -33,7 +33,6 @@ import {
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
 import { ProjectService, TaskBases } from "../../projects/index.js";
-import { THE_USER } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
   KnownProjectsForTests,
@@ -57,6 +56,8 @@ import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository
 import { IdeaService } from "./idea-service.js";
 import { InitiativeService } from "./initiative-service.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
+import { ANN_LEE } from "../domain/work.fixtures.js";
+import { ANN_LEE as ANN_LEE_USER } from "../../conversations/index.fixtures.js";
 
 /** The Role holding Shapes Initiatives by default. */
 const CTO = "cto";
@@ -325,8 +326,8 @@ function turn(consumed: string, calls: readonly [string, Record<string, unknown>
 async function shapeAnIdea(): Promise<Initiative> {
   const idea = await app
     .get(IdeaService)
-    .capture({ title: "Offline sync", notes: "", projectId: undefined }, THE_USER);
-  return app.get(InitiativeService).shape(idea.id, THE_USER);
+    .capture({ title: "Offline sync", notes: "", projectId: undefined }, ANN_LEE);
+  return app.get(InitiativeService).shape(idea.id, ANN_LEE);
 }
 
 /** The Initiative's one shaping Thread, once the CTO has ended `turns` turns in it. */
@@ -380,8 +381,8 @@ describe("shaping an Initiative with the CTO", () => {
       createdBy: { kind: "person", roleKey: CTO },
     });
 
-    await initiatives.confirm(shaped.id);
-    await app.get(ThreadRunner).send(threadId, "Make the outcome shorter.");
+    await initiatives.confirm(shaped.id, ANN_LEE);
+    await app.get(ThreadRunner).send(threadId, "Make the outcome shorter.", ANN_LEE_USER);
     await shapingThreadOnceAnswered(shaped.id, 2);
     const proposals = app.get(ProposalService);
     const [proposal] = await proposals.listInThread(threadId);
@@ -400,7 +401,7 @@ describe("shaping an Initiative with the CTO", () => {
       status: { kind: "open" },
     });
 
-    await proposals.apply(proposal?.id ?? "");
+    await proposals.apply(proposal?.id ?? "", ANN_LEE_USER);
 
     expect((await initiatives.read(shaped.id)).outcome).toBe("Writes made offline sync.");
   });

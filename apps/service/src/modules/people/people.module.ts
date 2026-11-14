@@ -12,6 +12,7 @@ import { MemoryController } from "./adapters/http/memory.controller.js";
 import { RolesController } from "./adapters/http/roles.controller.js";
 import { PeopleOfficeTools } from "./adapters/office-tools/people-office-tools.js";
 import { PostgresDutyRepository } from "./adapters/postgres/postgres-duty-repository.js";
+import { PeopleEarlierRecords } from "./adapters/postgres/people-earlier-records.js";
 import { PostgresMemoryRepository } from "./adapters/postgres/postgres-memory-repository.js";
 import { PostgresRoleRepository } from "./adapters/postgres/postgres-role-repository.js";
 import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
@@ -55,6 +56,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleWebEvents,
     PeopleOfficeTools,
     PersonRecords,
+    PeopleEarlierRecords,
   ],
   exports: [
     RoleCards,

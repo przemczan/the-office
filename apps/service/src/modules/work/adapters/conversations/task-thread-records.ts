@@ -188,12 +188,13 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   }
 
   private async planning(task: Task, project: KnownProject): Promise<TaskThreadSetup> {
-    const [worktree, links, attachments, pipelines, initiative] = await Promise.all([
+    const [worktree, links, attachments, pipelines, initiative, stateChanges] = await Promise.all([
       this.worktrees.find(task.projectId, task.id),
       this.taskRecords.linksOf(task),
       this.attachments.listOf({ kind: "task", taskId: task.id }),
       this.pipelines.listFor(task.projectId),
       task.initiativeId === undefined ? undefined : this.initiatives.record(task.initiativeId),
+      this.tasks.stateChangesOf(task.id),
     ]);
     return {
       projectId: task.projectId,
@@ -205,6 +206,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       officeTools: PLANNING_OFFICE_TOOLS,
       brief: planningBrief({
         task,
+        stateChanges,
         project,
         worktree,
         links,

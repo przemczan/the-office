@@ -10,6 +10,7 @@ import { useChat } from "../../shell/chat/use-chat.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { useUserName } from "../../shell/use-user-name.ts";
 import { ALL_PROJECTS, memoryGroups } from "./memory-groups.ts";
 import { PersonBlock } from "./role-card-layout.tsx";
 
@@ -109,8 +110,9 @@ function NoteSource({
   readonly tasks: readonly Task[] | undefined;
 }): ReactNode {
   const chat = useChat();
+  const nameOfUser = useUserName();
   const { source } = note;
-  if (source.kind === "user") return <span>Added by you</span>;
+  if (source.kind === "user") return <span>Added by {nameOfUser(source.user, "you")}</span>;
   if (source.taskId === undefined) {
     return (
       <button

@@ -16,6 +16,10 @@ import {
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NOBODY_PLANS } from "../../domain/duties.js";
+import {
+  ANOTHER_SIGNED_IN_FOR_TESTS,
+  signedInAs,
+} from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { makeAPlanOpening } from "../../domain/planning.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
@@ -886,7 +890,14 @@ describe("Start", () => {
 
   it("keeps each state change on the Task's record, with who or what made it", async () => {
     const task = await readyTask();
-    await start(task.id);
+    const started = await sendJson(
+      work,
+      "POST",
+      `/tasks/${task.id}/start`,
+      undefined,
+      signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS),
+    );
+    if (started.ok) startedIds.push(task.id);
     const tasks = work.app.get(TaskService);
     await tasks.changeState(task.id, "waiting-on-you");
     await tasks.hold(
@@ -899,15 +910,15 @@ describe("Start", () => {
 
     expect(record.slice(record.indexOf("State changes:")).split("\n")).toEqual([
       "State changes:",
-      expect.stringMatching(/: created in Backlog, by the user$/),
-      expect.stringMatching(/: Backlog → Planning, by the user$/),
-      expect.stringMatching(/: Planning → Ready, by the user$/),
-      expect.stringMatching(/: Ready → In progress, by the user$/),
+      expect.stringMatching(/: created in Backlog, by the user Ann Lee$/),
+      expect.stringMatching(/: Backlog → Planning, by the user Ann Lee$/),
+      expect.stringMatching(/: Planning → Ready, by the user Ann Lee$/),
+      expect.stringMatching(/: Ready → In progress, by the user Ben Ito$/),
       expect.stringMatching(/: In progress → Waiting on you, by its Pipeline$/),
       expect.stringMatching(
         /: Waiting on you → Paused, by The Office: nobody can work its next Stages\. Stage 2 · Implement: Adam was let go\.$/,
       ),
-      expect.stringMatching(/: Paused → In progress, by the user$/),
+      expect.stringMatching(/: Paused → In progress, by the user Ann Lee$/),
     ]);
   });
 

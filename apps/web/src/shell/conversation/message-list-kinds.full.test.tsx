@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import { roleQueries } from "../../api/people.ts";
 import { clockOf } from "../time.ts";
+import { BY_ANN, BY_YOU, signIn } from "../user.fixtures.ts";
 import { contextLabel } from "./context-words.ts";
 import { MessageList } from "./message-list.tsx";
 
@@ -23,7 +24,7 @@ vi.mock("./office-status-card.tsx", () => ({
 }));
 
 const at = "2026-11-04T10:00:00.000Z";
-const decision = { options: ["This", "That"] } as Decision;
+const decision = { options: ["This", "That"], answeredByUser: null } as Decision;
 const proposal = {} as Proposal;
 const contextLine: Extract<Message, { kind: "context" }> = {
   at,
@@ -47,6 +48,7 @@ const EVERY_KIND: {
       kind: "user",
       text: "Mine",
       delivery: "delivered",
+      writtenBy: null,
       handoverNoteFrom: null,
       openPage: null,
     },
@@ -72,7 +74,10 @@ const EVERY_KIND: {
     "a.ts",
   ],
   context: [contextLine, contextLabel(contextLine, "Jan")],
-  "changes-allowed": [{ at, id: "6", kind: "changes-allowed", allowed: true }, "Changes allowed"],
+  "changes-allowed": [
+    { at, id: "6", kind: "changes-allowed", allowed: true, by: null },
+    "Changes allowed",
+  ],
   failure: [{ at, id: "7", kind: "failure", reason: "It broke" }, "It broke"],
   "usage-window-used-up": [
     {
@@ -137,6 +142,7 @@ function shownLog(
   const page = document.createElement("div");
   const queryClient = new QueryClient();
   if (roles) queryClient.setQueryData(roleQueries.list().queryKey, roles);
+  signIn(queryClient);
   act(() =>
     createRoot(page).render(
       <QueryClientProvider client={queryClient}>
@@ -159,7 +165,16 @@ function fromPerson(id: string, text: string): Message {
 }
 
 function written(id: string, text: string, delivery: MessageDelivery): Message {
-  return { at, id, kind: "user", text, delivery, handoverNoteFrom: null, openPage: null };
+  return {
+    at,
+    id,
+    kind: "user",
+    text,
+    delivery,
+    writtenBy: null,
+    handoverNoteFrom: null,
+    openPage: null,
+  };
 }
 
 const LONG_COMMAND = `npm run build &&\n  ${"node scripts/deploy.ts --verbose ".repeat(8)}`;
@@ -220,7 +235,7 @@ describe("MessageList's kinds", () => {
     if (answer?.kind !== "decision-answer") throw new Error("No decision-answer line.");
     const reviewer = { key: "reviewer", letGoAt: null, card: { name: "Michael" } };
     const log = shownLog(
-      [{ ...answer, atUsersRequest: { roleKey: "reviewer", threadId: "chat-thread" } }],
+      [{ ...answer, atUsersRequest: { roleKey: "reviewer", threadId: "chat-thread", user: null } }],
       { roles: [reviewer as unknown as Role] },
     );
     expect(log.querySelector(".turn-avatar")?.textContent).toBe("M");
@@ -228,6 +243,65 @@ describe("MessageList's kinds", () => {
       "Michael · answering the Decision at your request",
     );
     expect(log.querySelector(".turn-by")?.textContent).not.toContain("You");
+  });
+
+  it("names another user's turn by their name, and starts a new turn when the writer changes", () => {
+    const log = shownLog([
+      { ...written("a", "Mine", "delivered"), writtenBy: BY_YOU } as Message,
+      { ...written("b", "Also mine", "delivered"), writtenBy: BY_YOU } as Message,
+      { ...written("c", "Ann's", "delivered"), writtenBy: BY_ANN } as Message,
+      { ...written("d", "Mine again", "delivered"), writtenBy: BY_YOU } as Message,
+    ]);
+    const rows = [...log.querySelectorAll(".turn")].map((turn) => [
+      turn.querySelector(".turn-avatar")?.textContent,
+      turn.querySelector(".turn-author")?.textContent,
+      turn.querySelectorAll(".message-text").length,
+    ]);
+    expect(rows).toEqual([
+      ["Y", "You", 2],
+      ["AL", "Ann Lee", 1],
+      ["Y", "You", 1],
+    ]);
+  });
+
+  it("names the user who answered a Decision: You, or another user by name", () => {
+    const [answer] = EVERY_KIND["decision-answer"];
+    const byUser = (user: typeof BY_YOU): Message => ({
+      ...answer,
+      decision: { ...decision, answeredByUser: user },
+    });
+    const log = shownLog([byUser(BY_YOU), byUser(BY_ANN)]);
+    expect([...log.querySelectorAll(".turn-author")].map(({ textContent }) => textContent)).toEqual(
+      ["You · answering the Decision", "Ann Lee · answering the Decision"],
+    );
+  });
+
+  it("names the user at whose request a person answered a Decision", () => {
+    const [answer] = EVERY_KIND["decision-answer"];
+    const reviewer = { key: "reviewer", letGoAt: null, card: { name: "Michael" } };
+    const log = shownLog(
+      [
+        {
+          ...answer,
+          atUsersRequest: { roleKey: "reviewer", threadId: "chat-thread", user: BY_ANN },
+        },
+      ],
+      { roles: [reviewer as unknown as Role] },
+    );
+    expect(log.querySelector(".turn-by")?.textContent).toContain(
+      "Michael · answering the Decision at Ann Lee's request",
+    );
+  });
+
+  it("names the user who allowed changes", () => {
+    const [allowed] = EVERY_KIND["changes-allowed"];
+    const log = shownLog([
+      { ...allowed, by: BY_YOU },
+      { ...allowed, id: "6b", allowed: false, by: BY_ANN },
+    ]);
+    expect(
+      [...log.querySelectorAll(".message-office")].map(({ textContent }) => textContent),
+    ).toEqual(["Changes allowed by you", "Changes switched off by Ann Lee"]);
   });
 
   it("joins neighbouring messages into one turn under one avatar", () => {

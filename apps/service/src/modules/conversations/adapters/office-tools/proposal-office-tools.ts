@@ -9,12 +9,13 @@ import {
 } from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { RoleNotFound, RoleService } from "../../../people/index.js";
+import { DUTIES, RoleNotFound, RoleService, type DutyKey } from "../../../people/index.js";
 import { OfficeInstructions } from "../../application/office-instructions.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import {
   OFFICE_SETTINGS,
   proposedRoleChange,
+  type DutyHolders,
   type OfficeSetting,
   type ProposedChange,
   type ProposedSettingValue,
@@ -119,7 +120,7 @@ export class ProposalOfficeTools implements OnModuleInit {
         setting: z
           .enum(OFFICE_SETTINGS)
           .describe(
-            `office-wide-limit: how many Tasks may run at once across The Office, from 1 to ${OFFICE_WIDE_LIMIT_MAX}. size-threshold: once a Thread's cache has cooled, how many tokens the conversation may have added since its session began before its next message starts a fresh session with a Brief, from ${SIZE_THRESHOLD_TOKENS.min} to ${SIZE_THRESHOLD_TOKENS.max} in steps of ${SIZE_THRESHOLD_TOKENS.step}. office-instructions: the one text of general guidelines every person's session gets with their Role's instructions, from the next session on, at most ${OFFICE_INSTRUCTIONS_MAX_CHARACTERS} characters.`,
+            `office-wide-limit: how many Tasks may run at once across The Office, from 1 to ${OFFICE_WIDE_LIMIT_MAX}. size-threshold: once a Thread's cache has cooled, how many tokens the conversation may have added since its session began before its next message starts a fresh session with a Brief, from ${SIZE_THRESHOLD_TOKENS.min} to ${SIZE_THRESHOLD_TOKENS.max} in steps of ${SIZE_THRESHOLD_TOKENS.step}. office-instructions: the one text of general guidelines every person's session gets with their Role's instructions, from the next session on, at most ${OFFICE_INSTRUCTIONS_MAX_CHARACTERS} characters. duties: who holds each duty, the built-in jobs The Office gives to a hired Role: ${DUTY_LIST}.`,
           ),
         value: z
           .number()
@@ -131,9 +132,23 @@ export class ProposalOfficeTools implements OnModuleInit {
           .describe(
             `The new text of office-instructions, given whole: it replaces all of them, not only the lines that change. Start from what ${READ_OFFICE_INSTRUCTIONS_TOOL} answers, since your session's copy may be old.`,
           ),
+        duties: z
+          .array(
+            z.object({
+              duty: z.string().describe("The duty's key."),
+              holder: z
+                .string()
+                .nullable()
+                .describe("The key of the hired Role to hold it, or null for nobody."),
+            }),
+          )
+          .optional()
+          .describe(
+            "The duties whose holder changes, each named once, for duties: applied all together or not at all.",
+          ),
       }),
-      run: ({ setting, value, text }, { sessionId }) => {
-        const proposed = proposedSettingValue(setting, value, text);
+      run: ({ setting, value, text, duties }, { sessionId }) => {
+        const proposed = proposedSettingValue(setting, value, text, duties);
         if (typeof proposed === "string") return Promise.resolve({ text: proposed, isError: true });
         return refusedToTheAgent(async () => {
           await this.proposals.draftSetting(sessionId, proposed);
@@ -198,12 +213,28 @@ export class ProposalOfficeTools implements OnModuleInit {
   }
 }
 
+const DUTY_LIST = DUTIES.map(({ key, label }) => `${key} (${label})`).join(", ");
+
+/** A duty's new holder, as the call gives it. */
+interface DutyHolderInput {
+  readonly duty: string;
+  readonly holder: string | null;
+}
+
 /** The value the call gives the setting, or what is wrong with it, in words the Agent acts on. */
 function proposedSettingValue(
   setting: OfficeSetting,
   value: number | undefined,
   text: string | undefined,
+  duties: readonly DutyHolderInput[] | undefined,
 ): ProposedSettingValue | string {
+  if (setting === "duties") {
+    if (duties === undefined || duties.length === 0 || value !== undefined || text !== undefined) {
+      return "Give the duties that change as duties, each with its new holder, and no value or text.";
+    }
+    return proposedHolders(duties);
+  }
+  if (duties !== undefined) return `Give duties only for the setting duties, not ${setting}.`;
   if (setting === "office-instructions") {
     if (text === undefined || value !== undefined) {
       return "Give the whole new Office instructions as text, and no value.";
@@ -214,6 +245,22 @@ function proposedSettingValue(
     return `Give the new ${setting} as value, and no text.`;
   }
   return { setting, value };
+}
+
+/** The duties' new holders, or what is wrong with them, in words the Agent acts on. */
+function proposedHolders(duties: readonly DutyHolderInput[]): ProposedSettingValue | string {
+  const holders: Partial<Record<DutyKey, string | null>> = {};
+  for (const { duty, holder } of duties) {
+    const key = duty.trim();
+    if (!isDutyKey(key)) return `The Office has no duty "${key}"; the duties are ${DUTY_LIST}.`;
+    if (Object.hasOwn(holders, key)) return `Name each duty once; ${key} is named twice.`;
+    holders[key] = holder === null ? null : holder.trim();
+  }
+  return { setting: "duties", value: holders satisfies DutyHolders };
+}
+
+function isDutyKey(key: string): key is DutyKey {
+  return DUTIES.some((duty) => duty.key === key);
 }
 
 /** A new Role on the card given, or what is missing from it, in words the Agent acts on. */
