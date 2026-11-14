@@ -7,7 +7,7 @@ export interface Workspace {
   readonly name: string;
   /** Relative to the repository root, with forward slashes, e.g. `apps/service`. */
   readonly directory: string;
-  /** Only packages are libraries; apps and tools are run, never imported (Build defaults). */
+  /** Only packages are libraries; apps and tools are run, never imported (AGENTS.md, Project layout and defaults). */
   readonly kind: WorkspaceKind;
 }
 

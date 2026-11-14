@@ -1,0 +1,2079 @@
+<!doctype html>
+<html lang="en" data-palette="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The status strip · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, as task-card-icons.html copies them) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-600: #d4320a;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --radius-full: 999px;
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --pad-page: 24px;
+        --gap-card: 12px;
+      }
+      /* packages/ui/src/appearance/palettes/light.css over the design system's light aliases */
+      [data-palette="light"] {
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --sidebar-bg: var(--gray-50);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --fg-on-accent: var(--white);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css over the design system's dark aliases */
+      [data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --sidebar-bg: #161615;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-on-accent: var(--white);
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success: var(--green-500);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --warning: var(--amber-500);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger: var(--red-500);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info: var(--blue-500);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+      }
+      :is(button, a, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      svg.i {
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- The proposal's own frame (not part of the design) ---------- */
+      .proposal-bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 18px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .proposal-bar h1 {
+        margin: 0 8px 0 0;
+        font: 600 15px/1.3 var(--font-sans);
+      }
+      .control {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .control-label {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .switch {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .switch button {
+        padding: 4px 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .switch button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: 0 0 0 1px var(--border-strong);
+      }
+      .scenario-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 14px;
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .scenario-note {
+        flex: 1 1 320px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .stage {
+        padding: 22px 18px 8px;
+        overflow-x: auto;
+      }
+      .frame-caption {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin: 0 auto 8px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .frame-caption b {
+        font: 600 var(--text-xs) / 1 var(--font-mono);
+        color: var(--fg-2);
+      }
+      .frame-wrap {
+        margin: 0 auto 26px;
+      }
+      .frame {
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .doc {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 6px 18px 64px;
+      }
+      .doc h2 {
+        margin: 34px 0 8px;
+        font: 600 18px/1.3 var(--font-sans);
+      }
+      .doc h3 {
+        margin: 22px 0 6px;
+        font: 600 15px/1.35 var(--font-sans);
+      }
+      .doc p,
+      .doc li {
+        max-width: 80ch;
+        color: var(--fg-2);
+      }
+      .doc li {
+        margin: 5px 0;
+      }
+      .doc strong {
+        color: var(--fg-1);
+      }
+      .doc code {
+        padding: 1px 4px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-sunken);
+        font: 400 12.5px/1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .doc table {
+        width: 100%;
+        margin: 10px 0;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      .doc th,
+      .doc td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+        color: var(--fg-2);
+      }
+      .doc th {
+        font: 600 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--fg-1);
+        background: var(--surface);
+      }
+      .doc td:first-child {
+        color: var(--fg-1);
+        white-space: nowrap;
+      }
+      .anatomy {
+        position: relative;
+        margin: 12px 0 8px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .anatomy .strip-host {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+      .callouts {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 10px 18px;
+        margin: 14px 0 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: callout;
+      }
+      .callouts li {
+        position: relative;
+        margin: 0;
+        padding-left: 28px;
+        font: var(--type-body-sm);
+        counter-increment: callout;
+      }
+      .callouts li::before {
+        content: counter(callout);
+        position: absolute;
+        top: 1px;
+        left: 0;
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        font: 600 11px/1 var(--font-sans);
+      }
+      .pin {
+        position: absolute;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--surface);
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        font: 600 10px/1 var(--font-sans);
+        pointer-events: none;
+      }
+
+      /* ---------- The mocked shell (apps/web/src/shell, as built) ---------- */
+      .app {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr);
+        color: var(--fg-1);
+        background: var(--bg);
+      }
+      .rail {
+        grid-row: 1 / 4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 0;
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+      }
+      .rail-logo {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        margin-bottom: 8px;
+        border-radius: var(--radius-md);
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        font: 700 13px/1 var(--font-sans);
+      }
+      .rail-item {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-md);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: 0 0 0 1px var(--border);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+        height: 56px;
+        padding: 0 var(--pad-page);
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+      }
+      .top h1 {
+        margin: 0;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-label);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: transparent;
+      }
+      .btn.danger-ghost {
+        border-color: transparent;
+        background: transparent;
+        color: var(--danger-fg);
+      }
+      .btn.danger {
+        border-color: var(--danger);
+        background: var(--danger);
+        color: var(--fg-on-accent);
+      }
+      .search {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: 220px;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+      }
+      .search kbd {
+        margin-left: auto;
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--gray-700);
+        color: var(--white);
+        font: 600 11px/1 var(--font-sans);
+      }
+      .avatar.sm {
+        width: 16px;
+        height: 16px;
+        font-size: 8px;
+      }
+      .avatar.pam {
+        background: #b4568f;
+      }
+      .w-phone .top-words {
+        display: none;
+      }
+      .w-phone .search,
+      .w-tablet .search {
+        width: 32px;
+        padding: 0;
+        justify-content: center;
+      }
+      .w-phone .search span,
+      .w-phone .search kbd,
+      .w-tablet .search span,
+      .w-tablet .search kbd {
+        display: none;
+      }
+      .w-phone .top,
+      .w-phone .ts,
+      .w-phone .ps-row,
+      .w-phone .as {
+        --pad-page: 14px;
+      }
+      .w-phone .top {
+        gap: 8px;
+      }
+      .w-phone .top .btn {
+        padding: 0 8px;
+      }
+      .page {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+        gap: 20px;
+        min-height: 250px;
+        padding: 20px var(--pad-page);
+      }
+      .w-phone .page,
+      .w-tablet .page {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .w-phone .page .card:nth-child(2) {
+        display: none;
+      }
+      .card {
+        align-self: start;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-card-title);
+      }
+      .card-head .count {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        box-shadow: inset 3px 0 0 var(--edge, transparent);
+        font: var(--type-body-sm);
+      }
+      .row:last-child {
+        border-bottom: 0;
+      }
+      .row .meta {
+        margin-left: auto;
+        color: var(--fg-3);
+        font: var(--type-caption);
+        white-space: nowrap;
+      }
+      .row .t {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ---------- Shared bits the strips use ---------- */
+      .dot {
+        display: inline-block;
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .dot.running {
+        background: var(--success);
+      }
+      .dot.warning {
+        background: var(--warning);
+      }
+      .dot.danger {
+        background: var(--danger);
+      }
+      .live-dot {
+        position: relative;
+        display: inline-block;
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .live-dot::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: currentColor;
+        animation: live 1.6s var(--ease-out) infinite;
+      }
+      @keyframes live {
+        from {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+        to {
+          transform: scale(2.6);
+          opacity: 0;
+        }
+      }
+      .faint {
+        color: var(--fg-3);
+      }
+      .meter {
+        display: inline-block;
+        flex: none;
+        width: 56px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--border);
+      }
+      .meter i {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--fg-3);
+      }
+      .meter.warning i {
+        background: var(--warning);
+      }
+      .meter.danger i {
+        background: var(--danger);
+      }
+      .info-icon {
+        display: inline-grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--fg-3);
+        cursor: help;
+      }
+
+      /* ---------- Today's strip (status-strip.tsx and shell.css as built) ---------- */
+      .ts {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        height: 48px;
+        padding: 0 var(--pad-page);
+        overflow: hidden;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .ts-stat {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+      .ts-stat b {
+        font: 600 15px/1 var(--font-sans);
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: var(--tracking-tight);
+      }
+      .ts-button {
+        padding: 4px 8px;
+        margin: 0 -8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        cursor: pointer;
+      }
+      .ts-needs {
+        color: var(--fg-3);
+      }
+      .ts-needs b {
+        color: inherit;
+      }
+      .ts-needs.elsewhere {
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .ts-needs.alert {
+        margin: 0;
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        font-weight: 600;
+      }
+      .ts-needs.alert .faint {
+        color: inherit;
+      }
+      .ts-office {
+        color: var(--fg-1);
+      }
+      .ts-office-line {
+        max-width: 420px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ts-sep {
+        flex: none;
+        width: 1px;
+        height: 20px;
+        background: var(--border);
+      }
+      .ts .meter {
+        width: 120px;
+      }
+      .ts-alarm.on {
+        color: var(--danger-fg);
+      }
+      .w-narrow .ts {
+        --pad-page: 14px;
+      }
+      .w-narrow .ts .meter,
+      .w-narrow .ts-sep,
+      .w-narrow .ts .wide,
+      .w-narrow .ts-ws-detail {
+        display: none;
+      }
+
+      /* ---------- Proposed: two-line figures ---------- */
+      /* The strip is the container, so its own width decides, whatever the rail and the chat drawer take. */
+      .ps {
+        container: strip / inline-size;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .ps-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 52px;
+        padding: 0 var(--pad-page);
+      }
+      .ps-row.second {
+        display: none;
+      }
+      .figs {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 16px;
+      }
+      .figs.right {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      .fig {
+        position: relative;
+        display: inline-flex;
+        flex: none;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        padding: 5px 8px;
+        margin: 0 -8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--fg-2);
+        text-align: left;
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .fig:hover {
+        background: var(--surface-sunken);
+      }
+      /* Desks and tokens open nothing, so they don't light up as if they would. */
+      .fig.static {
+        cursor: default;
+      }
+      .fig.static:hover {
+        background: transparent;
+      }
+      .fig-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font: 500 var(--text-2xs) / 14px var(--font-sans);
+        letter-spacing: 0.01em;
+        color: var(--fg-3);
+      }
+      .fig-value {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 18px;
+        font: var(--type-body-sm);
+      }
+      .fig-value b {
+        font: 600 15px/1 var(--font-sans);
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: var(--tracking-tight);
+      }
+      .fig-value b.warning {
+        color: var(--warning-fg);
+      }
+      .fig-value b.danger {
+        color: var(--danger-fg);
+      }
+      .fig-sep {
+        flex: none;
+        width: 1px;
+        height: 28px;
+        background: var(--border);
+      }
+      .short {
+        display: none;
+      }
+      /* Needs you: quiet while nothing waits, tinted while only other Projects have something,
+         filled with a live dot while something waits in the Projects shown, as today. */
+      .fig.needs b {
+        color: inherit;
+      }
+      .fig.needs {
+        color: var(--fg-3);
+      }
+      .fig.needs.elsewhere,
+      .fig.needs.elsewhere:hover {
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .fig.needs.elsewhere .fig-label {
+        color: inherit;
+      }
+      .fig.needs.alert {
+        margin: 0;
+        padding: 5px 12px;
+        background: var(--accent);
+        color: var(--fg-on-accent);
+      }
+      .fig.needs.alert:hover {
+        background: var(--accent-hover);
+      }
+      .fig.needs.alert .fig-label {
+        color: color-mix(in oklab, var(--fg-on-accent) 82%, transparent);
+      }
+      .fig.needs.alert .fig-value {
+        font-weight: 600;
+      }
+      .fig.needs.alert .faint {
+        color: color-mix(in oklab, var(--fg-on-accent) 82%, transparent);
+      }
+      .fig.needs.alert b {
+        font-weight: 700;
+      }
+      .engines {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .engine {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .engine .meter {
+        width: 18px;
+      }
+      .fig.alarm {
+        margin: 0;
+        padding: 5px 10px;
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .fig.alarm .fig-label {
+        color: inherit;
+      }
+      .fig.alarm b {
+        color: inherit;
+      }
+      .fig.alarm:hover {
+        background: var(--danger-subtle);
+        box-shadow: inset 0 0 0 1px var(--danger-border);
+      }
+
+      /* The Office's own messages: one slot of a fixed width, always at the strip's right end. */
+      /* Fixed at --slot-width; it gives way (to 168px) only where the figures and an alarm
+         would otherwise not fit, so a figure is never pushed out. */
+      .slot {
+        display: grid;
+        flex: 0 1 auto;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        column-gap: 9px;
+        width: var(--slot-width, 300px);
+        min-width: 168px;
+        height: 40px;
+        padding: 0 8px 0 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: inset 3px 0 0 var(--tone);
+        color: var(--fg-1);
+        text-align: left;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .slot:hover {
+        background: var(--surface-sunken);
+      }
+      .slot[aria-expanded="true"] {
+        border-color: var(--border-strong);
+      }
+      .slot-icon {
+        display: grid;
+        color: var(--tone);
+      }
+      .slot-text {
+        display: grid;
+        gap: 1px;
+        min-width: 0;
+      }
+      .slot-short {
+        overflow: hidden;
+        font: 500 var(--text-sm) / 17px var(--font-sans);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .slot-meta {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        overflow: hidden;
+        font: var(--type-caption);
+        line-height: 15px;
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .slot-end {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--fg-3);
+      }
+      .count-badge {
+        display: inline-grid;
+        place-items: center;
+        min-width: 22px;
+        height: 18px;
+        padding: 0 5px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-full);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+        font-variant-numeric: tabular-nums;
+      }
+      .tone-warning {
+        --tone: var(--warning);
+      }
+      .tone-danger {
+        --tone: var(--danger);
+      }
+      .tone-success {
+        --tone: var(--success);
+      }
+      .tone-info {
+        --tone: var(--info);
+      }
+      .tone-neutral {
+        --tone: var(--fg-3);
+      }
+      .slot.pulse .slot-icon {
+        animation: blink 1.4s ease-in-out infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      /* The strip's widths, by its own width. */
+      @container strip (max-width: 1179px) {
+        .ps-row {
+          --slot-width: 260px;
+        }
+        .ws-cores {
+          display: none;
+        }
+      }
+      @container strip (max-width: 899px) {
+        .ps-row {
+          --slot-width: 216px;
+        }
+        .ps-row,
+        .figs {
+          gap: 12px;
+        }
+        .resets-label,
+        .seven-day,
+        .ws-label-long,
+        .alarm-long,
+        .elsewhere-long {
+          display: none;
+        }
+        .short {
+          display: inline;
+        }
+      }
+      @container strip (max-width: 599px) {
+        .ps-row {
+          height: 50px;
+          gap: 14px;
+        }
+        .ps-row.second {
+          display: flex;
+          height: 44px;
+          padding-top: 0;
+          padding-bottom: 6px;
+        }
+        /* The first row keeps the four figures alone; the alarm moves to the second. */
+        .ps-row.first .right,
+        .ps-row.first .alarm {
+          display: none;
+        }
+        .ps-row.first .grow {
+          display: none;
+        }
+        .figs {
+          flex: 1;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .fig-sep,
+        .label-long,
+        .fig .meter {
+          display: none;
+        }
+        .engines {
+          gap: 6px;
+        }
+        .ps-row.second .slot {
+          flex: 1;
+          width: auto;
+          min-width: 0;
+          height: 36px;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+        }
+        .ps-row.second .slot-meta {
+          display: none;
+        }
+      }
+      .label-short {
+        display: none;
+      }
+      @container strip (max-width: 599px) {
+        .label-short {
+          display: inline;
+        }
+      }
+
+      /* ---------- Alternative: one line ---------- */
+      .as-wrap {
+        container: alt / inline-size;
+      }
+      .as {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        height: 48px;
+        padding: 0 var(--pad-page);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .as .ts-stat {
+        gap: 6px;
+      }
+      .as-needs {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 30px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .as-needs b {
+        color: inherit;
+      }
+      .as-needs.alert {
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        font-weight: 600;
+      }
+      .as-needs.elsewhere {
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .as .slot {
+        height: 32px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+      }
+      .as .slot-meta {
+        display: none;
+      }
+      .as-slot-icon-only {
+        display: none;
+      }
+      @container alt (max-width: 1179px) {
+        .as {
+          --slot-width: 260px;
+        }
+        .as .seven-day,
+        .as .ws-cores {
+          display: none;
+        }
+      }
+      @container alt (max-width: 899px) {
+        .as {
+          --slot-width: 200px;
+          gap: 14px;
+        }
+        .as .meter,
+        .as .ws,
+        .as .ts-sep,
+        .as .as-words {
+          display: none;
+        }
+      }
+      @container alt (max-width: 599px) {
+        .as {
+          gap: 10px;
+        }
+        .as .slot,
+        .as .elsewhere-count {
+          display: none;
+        }
+        .as-slot-icon-only {
+          display: inline-flex;
+        }
+        .as .alarm-words {
+          display: none;
+        }
+      }
+
+      /* ---------- Popovers and toasts (packages/ui's Popover and the shell's toasts) ---------- */
+      .popover {
+        position: fixed;
+        z-index: 40;
+        width: 360px;
+        max-width: calc(100vw - 16px);
+        padding: 6px 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+        animation: pop-in var(--duration-fast) var(--ease-out);
+      }
+      @keyframes pop-in {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+      }
+      .popover-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 6px 14px 8px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+      }
+      .popover-head .faint {
+        font-weight: 400;
+      }
+      .popover ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .popover li {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        column-gap: 10px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        box-shadow: inset 3px 0 0 var(--tone, transparent);
+      }
+      .popover li:last-child {
+        border-bottom: 0;
+      }
+      .popover li .slot-icon {
+        padding-top: 1px;
+      }
+      .popover li p {
+        margin: 0;
+        line-height: 1.45;
+      }
+      .popover li .slot-meta {
+        margin-top: 4px;
+      }
+      .popover li .act {
+        margin-top: 8px;
+      }
+      .popover .btn {
+        height: 28px;
+        padding: 0 10px;
+      }
+      .popover .link {
+        color: var(--accent);
+        font: var(--type-label);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        cursor: pointer;
+      }
+      .usage-list li {
+        display: block;
+        box-shadow: none;
+      }
+      .usage-engine {
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      .usage-window {
+        display: grid;
+        grid-template-columns: 24px 120px 44px minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        margin-top: 4px;
+        color: var(--fg-2);
+      }
+      .usage-window .meter {
+        width: 120px;
+      }
+      .usage-window b {
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+      }
+      .toast {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        z-index: 50;
+        max-width: min(560px, calc(100vw - 32px));
+        padding: 10px 14px;
+        border-radius: var(--radius-md);
+        background: var(--fg-1);
+        color: var(--surface);
+        font: var(--type-body-sm);
+        box-shadow: var(--shadow-3);
+        transform: translateX(-50%);
+        animation: pop-in var(--duration-fast) var(--ease-out);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proposal-bar">
+      <h1>The status strip</h1>
+      <span class="control"
+        ><span class="control-label">Design</span><span class="switch" data-key="design"></span
+      ></span>
+      <span class="control"
+        ><span class="control-label">Width</span><span class="switch" data-key="width"></span
+      ></span>
+      <span class="control"
+        ><span class="control-label">Palette</span><span class="switch" data-key="palette"></span
+      ></span>
+    </div>
+    <div class="scenario-line">
+      <span class="control"
+        ><span class="control-label">Scenario</span><span class="switch" data-key="scenario"></span
+      ></span>
+      <span class="scenario-note" id="scenario-note"></span>
+    </div>
+    <div class="stage" id="stage"></div>
+
+    <div class="doc">
+      <h2>What it proposes</h2>
+      <p>
+        From the user's note on the status strip under the top bar: shorten or squeeze what it shows,
+        two lines rather than one if that helps, a slightly taller strip being fine if it shows more or
+        nothing is cut off on a narrower screen. First <strong>Needs you, the engines' usage, desks and
+        tokens</strong>; <strong>Tasks touched and done since you left go</strong>; the Office
+        Manager's Notifications <strong>shorter, of a fixed width and always on the right</strong>.
+      </p>
+
+      <div class="anatomy">
+        <div class="strip-host" id="anatomy"></div>
+        <ol class="callouts">
+          <li><strong>Needs you</strong>, first and the only filled figure, as today: quiet at 0, tinted while only other Projects have something, accent with a live dot while something waits in the Projects shown. Opens the Needs you panel.</li>
+          <li><strong>5-hour window</strong>, the engines' usage: the %, a meter that turns amber from 90% and red when used up, the 7-day window and the reset time. Opens Usage by engine.</li>
+          <li><strong>Desks in use</strong> against the Office-wide limit, its dot green while a Task runs.</li>
+          <li><strong>Tokens today</strong>, with the info icon giving each kind, as every token count has.</li>
+          <li><strong>Workstation</strong>: CPU now, and the logical cores where the strip has room (here it hasn't); opens its panel.</li>
+          <li><strong>The Office's messages</strong>: one slot of a fixed width (300px on a wide strip, 260px here) at the right end: the newest with who says it and when, "+3" for the rest, a press listing them all.</li>
+        </ol>
+      </div>
+
+      <h3>1. Two lines: a label over each figure, in a 52px strip</h3>
+      <ul>
+        <li><strong>Each figure is a label over its value</strong>, "Desks in use" over "2 / 3": the words move off the line the number is on, so a figure is as wide as its longer line rather than both together, and four figures take about 430px where today's took about 700px. The label is 11px in <code>--fg-3</code>, the value today's 15px bold number with its small words beside it.</li>
+        <li><strong>The strip grows from 48px to 52px</strong>, the 4px the second line needs. Under 600px it takes a second row (section 4).</li>
+        <li><strong>Why labels over values, not one shorter line</strong> (the Alternative on the page): one line has to drop words to fit ("2/3 desks" loses "in use", the 7-day window and the meter go first) and still hides parts under 900px; two lines keep every word a figure has at 1,440px down to 900px, and the four figures whole at a phone's width.</li>
+      </ul>
+
+      <h3>2. The four figures first, never hidden</h3>
+      <ul>
+        <li><strong>On the left, in this order:</strong> Needs you, 5-hour window, Desks in use, Tokens today, a hairline between each. At any width they stay; only their extra words go as the strip narrows (section 4).</li>
+        <li><strong>Tasks touched and done since you left go.</strong> Since you left keeps its block on Now, where its Outcomes can be read; Tasks touched shows nowhere else, so <code>Now.tasksTouched</code> goes from the read model too.</li>
+        <li><strong>The fire alarm's quiet state goes</strong> ("Alarm off · all clear"): the top bar's alarm button already shows it, and in red as "All clear…" while it is on. While the alarm is on, the strip shows it after Tokens today, as a red figure, "Fire alarm" over "On since 14:02" (or "Stopping at safe points"), opening the all clear's review as the top bar's button does: then Desks in use reads 0 and this says why.</li>
+      </ul>
+
+      <h3>3. The 5-hour window, at a glance</h3>
+      <ul>
+        <li><strong>One engine:</strong> "5-hour window · resets 16:40" over "<b>91%</b>, the meter, 7d 41%".</li>
+        <li><strong>Two or three engines:</strong> "5-hour window · 3 engines" over each engine's % with a small meter of its own, the engine's name on hover and in the list.</li>
+        <li><strong>Four or more:</strong> "5-hour window · 5 engines" over the highest % and "highest".</li>
+        <li><strong>Its colour says how close it is:</strong> the % and the meter turn amber from 90% (where "Window nearly used" is raised, <code>WINDOW_NEARLY_USED_PERCENT</code>) and red when the window is used up, the label then saying "used up until 14:20". Today the meter is always grey.</li>
+        <li><strong>A press opens Usage by engine</strong> for one engine too, not only for several: each engine's 5-hour and 7-day windows with their meters and reset times. One figure, one behaviour.</li>
+      </ul>
+
+      <h3>4. Narrower strips: the extra words go, never a figure</h3>
+      <p>The strip decides by its own width (a container query), so the rail expanded or the chat drawer beside the page counts as a narrower window would.</p>
+      <table>
+        <thead>
+          <tr><th>The strip's width</th><th>What changes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1,180px and more</td><td>Everything; the slot 300px.</td></tr>
+          <tr><td>900 – 1,179px</td><td>The slot 260px; the Workstation figure leaves its cores to its panel.</td></tr>
+          <tr><td>600 – 899px</td><td>The slot 216px. "· resets 16:40" and "7d 41%" go to Usage by engine; "+2 in other Projects" becomes "+2" (its words on hover); the Workstation's label becomes "CPU"; the alarm says "On".</td></tr>
+          <tr><td>Under 600px</td><td>Two rows, 94px in all. The first holds the four figures alone, spread across, with short labels ("5h window", "Desks", "Tokens") and no meter or hairlines; the second the Workstation, the alarm while on, and the slot filling the rest of the row on one line.</td></tr>
+        </tbody>
+      </table>
+      <p>At 390px today's strip shows Needs you, desks and tokens, and loses the usage figure altogether (its <code>.wide</code> class), while a long Office Notification at its start pushes the rest out of sight.</p>
+
+      <h3>5. The Office's messages: one slot, a fixed width, at the right end</h3>
+      <ul>
+        <li><strong>One slot for everything The Office tells the user</strong> in the strip: its Office Notifications (the Office Manager's, or in the UI's own voice while nobody fills the Role), "Reconnecting to The Office…", "Update scheduled" and the ask to turn on desktop notifications. Today these are four things in four places, the Notification first on the left, where its length moves every figure after it.</li>
+        <li><strong>A short line</strong> on top, at most about 34 characters: "Claude Max: 91% of 5-hour window", "Work account is down", "Updated to 1.8.0". Under it, who says it and when, "Pam · 13:05" with Pam's avatar, or only the time while nobody is the Office Manager (spec 2.7: never "System"). The full line, in Pam's words, is in the list.</li>
+        <li><strong>Its left edge and icon take the message's tone</strong>, as every block's left edge does in the app: amber for nearly used and reconnecting, red for used up, an engine down and a failed update, green for a reset, a lifted alarm and an update done, blue for an update scheduled, grey for the desktop ask.</li>
+        <li><strong>Which shows:</strong> Reconnecting first, then the newest Office Notification, then Update scheduled, then the desktop ask. "+3" counts the rest.</li>
+        <li><strong>A press opens a popover</strong> anchored to the slot's right edge, "Office Notifications · 4": every message newest first, its full line, who and when, and its action where it has one (Open Settings › Updates; Turn on desktop notifications). It closes as a popover does: a press elsewhere, Esc or a second press.</li>
+        <li><strong>Fixed width, 300px</strong> (260px and 216px on a narrower strip, section 4), so a long message never moves a figure: it is cut with an ellipsis on the slot and whole in the list. With nothing to say the slot is gone, and nothing on the left moves. Only where the figures would otherwise not fit (three engines and the alarm on a strip just over 600px) does the slot give way, down to 168px, so a figure is never pushed out.</li>
+      </ul>
+
+      <h3>The Alternative: one line, 48px</h3>
+      <p>
+        The same order and slot on today's single 48px line, with shorter words ("2/3 desks", "5h 91%"). It is weighed and not recommended: under 1,180px the 7-day window goes, under 900px the meter, the Workstation figure and the words after Needs you go, and under 600px the slot shrinks to an icon with a count, so the narrow strip shows less than the two-line one, and the figures' numbers and words read as one run of text.
+      </p>
+
+      <p><strong>This design's names</strong>, not glossary terms: a figure, its label and its value, the slot, a short line, the Alternative, and the scenarios. Needs you, Usage window, desk, Workstation figure, Notification, Office Manager and Since you left are used as the glossary and the app have them.</p>
+
+      <h2>What the build needs</h2>
+      <ul>
+        <li><strong>A short line for each Office Notification.</strong> <code>Notification</code> gains <code>shortLine</code> (<code>packages/contracts/src/notifications.ts</code>), made by the same functions as <code>line</code> in <code>notification.ts</code> (<code>windowNearlyUsed</code>, <code>windowReset</code>, <code>windowUsedUp</code>, <code>engineDown</code>, <code>officeUpdated</code>, <code>officeUpdateFailed</code> and the alarm's), never in a person's voice, as a person shows under it. Other kinds may leave it out until something shows them this short. A migration fills it for open ones from their kind, or the strip falls back to <code>line</code> when it is missing.</li>
+        <li><strong><code>status-strip.tsx</code></strong>: the figures become one part, <code>StripFigure</code> (a label and a value, as a button or a link), used by Needs you, <code>UsageFigure</code>, desks, tokens, <code>WorkstationFigure</code> and the alarm while on; <code>Figures</code> drops Tasks touched and done since you left; the right end holds the Workstation figure, then the slot. <code>OfficeNotificationsFigure</code> becomes the slot, <code>OfficeMessages</code>, gathering the reconnecting state, the open Office Notifications, <code>ScheduledUpdate</code> and <code>DesktopPermission</code> in the order above, its list a <code>Popover</code> from <code>packages/ui</code> rather than its own portal.</li>
+        <li><strong><code>usage-figure.tsx</code></strong>: <code>OneEngine</code> opens the list too; the meter's tone from a pure function beside <code>usageFigureWords</code> (<code>usageTone(window)</code>: calm, nearly used from 90%, used up), with unit tests.</li>
+        <li><strong><code>shell.css</code></strong>: the strip's row 52px (<code>grid-template-rows: 56px auto</code>, the strip 52px, or 94px under 600px), <code>container-type: inline-size</code> on the strip and the widths of section 4 as container queries in place of the 720px media query; <code>chat.css</code>'s drawer <code>top: 104px</code> becomes the top bar and the strip's heights (a custom property the shell sets, so the two can't drift).</li>
+        <li><strong>The read model:</strong> <code>Now.tasksTouched</code> and its counting go from the Notifications module and the contract; <code>doneSinceYouLeft</code> goes from <code>now-words.ts</code>; the Since you left read stays for Now.</li>
+        <li><strong><a href="../spec/4-ux-direction.md">Spec 4</a>, with the user's agreement:</strong> the Shell's status strip becomes "a fixed <strong>status strip</strong>, each figure a label over its value: needs you, the 5-hour window (…as now…), desks in use and tokens today on the left, never hidden, the fire alarm after them while it is on; on the right the Workstation figure and one slot of a fixed width for what The Office tells the user (its Notifications, reconnecting, a scheduled update, the desktop notifications ask), its newest by a short line, the rest in a list". Tasks touched and done since you left go. <a href="../spec/2.7-notifications.md">Spec 2.7</a>'s Today's figures loses "Tasks touched are the Tasks with a Stage run today"; <a href="../spec/3-capabilities-by-tier.md">spec 3</a>'s Shell line stays. <a href="../spec/4.1-ui-rules.md">Spec 4.1</a>'s chat drawer "sits below the top bar and the status strip" stays true.</li>
+        <li><strong>Tests that move</strong> (<code>apps/web/e2e/</code>, each finds the strip as <code>getByRole("status", { name: "Status strip" })</code>, which stays): <code>people.e2e.ts:2921</code> reads "done since you left", which goes; <code>shell.e2e.ts</code> 468–600 read the meter (<code>.shell-strip-meter</code>) and the Workstation's detail at a narrow width, whose classes and widths change; <code>shell.e2e.ts:721</code> reads "tokens today", which becomes the label "Tokens today"; <code>updates.e2e.ts:50</code> reads "Update scheduled", now in the slot. Unit tests: <code>now-words.full.test.ts</code> (<code>doneSinceYouLeft</code>), <code>now-page.test.tsx</code>'s <code>tasksTouched</code>. New: the slot's order and count, <code>usageTone</code>, and an e2e test that the four figures stay whole at 390px.</li>
+      </ul>
+
+      <h2>About the mock</h2>
+      <ul>
+        <li>Its data follows <code>Now</code>, <code>Notification</code> and the usage windows in <code>packages/contracts</code>; the full lines are the service's (<code>notification.ts</code>), in Pam's voice, or the UI's while nobody is the Office Manager. The short lines are this proposal's.</li>
+        <li>Today is drawn from <code>status-strip.tsx</code> and <code>shell.css</code> as built, its 720px rule included. The top bar, rail and Now page around it are as built, in brief.</li>
+        <li>Needs you, the 5-hour window and the slot open what they open (a toast for the Needs you panel and the Workstation panel); hovering a figure gives its words. Like the other pages, it uses the Geist fonts only where they are installed, and makes no network requests.</li>
+      </ul>
+    </div>
+
+    <script>
+      /* ---------- Icons (Lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        home: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+        kanban: '<path d="M6 5v11"/><path d="M12 5v6"/><path d="M18 5v14"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        sliders: '<path d="M21 4h-7"/><path d="M10 4H3"/><path d="M21 12h-9"/><path d="M8 12H3"/><path d="M21 20h-5"/><path d="M12 20H3"/><path d="M14 2v4"/><path d="M8 10v4"/><path d="M16 18v4"/>',
+        layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+        chevron: '<path d="m6 9 6 6 6-6"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        siren: '<path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/>',
+        chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+        info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+        cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+        gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+        reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+        alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+        check: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+        wifiOff: '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
+        update: '<circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4"/><path d="M12 16V8"/>',
+        bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/>',
+        hand: '<path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+        play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name]}</svg>`;
+      const esc = (text) =>
+        String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+      /* ---------- Data, after Now, Notification and the usage windows in packages/contracts ---------- */
+      const PAM = "Pam";
+      const engine = (name, five, sevenDay, resets = "16:40", sevenResets = "Thu 09:00", usedUpUntil) => ({
+        name, five, sevenDay, resets, sevenResets, usedUpUntil,
+      });
+      /* An Office Notification: its kind's tone and icon, the service's line in Pam's voice and the
+         UI's, and the short line this design adds. */
+      const NOTICE = {
+        nearlyUsed: (name, percent, at) => ({
+          tone: "warning", icon: "gauge", at,
+          short: `${name}: ${percent}% of 5-hour window`,
+          pam: `We've used ${percent}% of ${name}'s 5-hour window.`,
+          ui: `${percent}% of ${name}'s 5-hour window is used.`,
+        }),
+        usedUp: (name, until, at) => ({
+          tone: "danger", icon: "gauge", at,
+          short: `${name} used up until ${until}`,
+          pam: `${name}'s 5-hour window is used up until ${until}. I've paused the Tasks on it, and the rest wait.`,
+          ui: `${name}'s 5-hour window is used up until ${until}. Tasks on it are paused and wait.`,
+        }),
+        reset: (name, at) => ({
+          tone: "success", icon: "reset", at,
+          short: `${name}'s window reset`,
+          pam: `${name}'s 5-hour window reset, so we have all of it again.`,
+          ui: `${name}'s 5-hour window reset.`,
+        }),
+        engineDown: (name, reason, at) => ({
+          tone: "danger", icon: "alert", at,
+          short: `${name} is down`,
+          pam: `I can't reach ${name}: ${reason}`,
+          ui: `${name} is down: ${reason}`,
+        }),
+        updated: (to, at) => ({
+          tone: "success", icon: "check", at,
+          short: `Updated to ${to}`,
+          pam: `I updated The Office to ${to}.`,
+          ui: `The Office updated to ${to}.`,
+        }),
+      };
+
+      const TOKENS = (counted, input, output, writes, reads) => ({
+        counted,
+        words: `${counted} tokens today: input ${input}, output ${output}, cache writes ${writes}; cache reads ${reads}, not counted`,
+      });
+
+      const BASE = {
+        needsYou: 0, elsewhere: 0,
+        engines: [engine("Claude Max", 23, 12)],
+        desks: { inUse: 0, limit: 3 },
+        tokens: TOKENS("84k", "31k", "12k", "41k", "1.2M"),
+        tasksTouched: 1, doneSinceYouLeft: 0,
+        cpu: 4, cores: 16,
+        alarm: null, update: null, permission: false, reconnecting: false,
+        officeManager: PAM, notices: [],
+      };
+
+      const SCENARIOS = [
+        {
+          key: "busy", label: "Busy day",
+          note: "Three things need you here and two in other Projects; every desk busy; one engine at 91%, which Pam has said.",
+          data: {
+            needsYou: 3, elsewhere: 2,
+            engines: [engine("Claude Max", 91, 41)],
+            desks: { inUse: 3, limit: 3 },
+            tokens: TOKENS("2.4M", "1.1M", "380k", "920k", "14M"),
+            tasksTouched: 9, doneSinceYouLeft: 4, cpu: 37,
+            notices: [NOTICE.nearlyUsed("Claude Max", 91, "13:05")],
+          },
+        },
+        {
+          key: "calm", label: "Calm",
+          note: "Nothing waits, nothing runs, and The Office has nothing to say: the slot is gone and the strip holds the figures alone.",
+          data: {},
+        },
+        {
+          key: "elsewhere", label: "Only elsewhere",
+          note: "The Project filter shows the-office, and only other Projects have something waiting: Needs you is tinted, not filled.",
+          data: {
+            needsYou: 0, elsewhere: 2,
+            engines: [engine("Claude Max", 54, 28)],
+            desks: { inUse: 1, limit: 3 },
+            tokens: TOKENS("610k", "250k", "90k", "270k", "4.1M"),
+            cpu: 12,
+          },
+        },
+        {
+          key: "two", label: "Two engines",
+          note: "Two Claude Code accounts: each one's 5-hour window with a meter of its own; the Work account is nearly used.",
+          data: {
+            needsYou: 1,
+            engines: [engine("Home account", 42, 19, "15:10"), engine("Work account", 91, 63, "16:40")],
+            desks: { inUse: 2, limit: 4 },
+            tokens: TOKENS("1.7M", "720k", "260k", "690k", "9.8M"),
+            cpu: 21,
+            notices: [NOTICE.nearlyUsed("Work account", 91, "12:48")],
+          },
+        },
+        {
+          key: "five", label: "Five engines",
+          note: "Past three engines the figure gives the highest 5-hour window and the count; the list has each.",
+          data: {
+            needsYou: 2,
+            engines: [
+              engine("Home account", 42, 19, "15:10"), engine("Work account", 64, 33, "16:40"),
+              engine("Team account", 18, 9, "17:25"), engine("Ops account", 96, 70, "14:05"),
+              engine("OpenRouter API", 3, 1, "18:00"),
+            ],
+            desks: { inUse: 4, limit: 6 },
+            tokens: TOKENS("5.9M", "2.4M", "910k", "2.6M", "31M"),
+            cpu: 48,
+            notices: [NOTICE.nearlyUsed("Ops account", 96, "13:40")],
+          },
+        },
+        {
+          key: "usedUp", label: "Window used up",
+          note: "The only engine's 5-hour window is used up: Tasks on it are paused, the figure is red and says until when.",
+          data: {
+            needsYou: 1,
+            engines: [engine("Claude Max", 100, 58, "14:20", "Thu 09:00", "14:20")],
+            desks: { inUse: 0, limit: 3 },
+            tokens: TOKENS("3.1M", "1.4M", "520k", "1.2M", "18M"),
+            cpu: 6,
+            notices: [NOTICE.usedUp("Claude Max", "14:20", "12:31")],
+          },
+        },
+        {
+          key: "several", label: "Several messages",
+          note: "Four Office Notifications, an update scheduled and the desktop ask: the slot shows the newest, +5 the rest, and a press lists them all.",
+          data: {
+            needsYou: 4,
+            engines: [engine("Home account", 12, 30, "17:58"), engine("Work account", 37, 22, "15:30")],
+            desks: { inUse: 2, limit: 3 },
+            tokens: TOKENS("1.2M", "530k", "170k", "500k", "7.3M"),
+            cpu: 64,
+            update: { waiting: 2 },
+            permission: true,
+            notices: [
+              NOTICE.engineDown("Work account", "connection refused (ECONNREFUSED 127.0.0.1:8443)", "13:12"),
+              NOTICE.reset("Home account", "12:58"),
+              NOTICE.nearlyUsed("Home account", 92, "11:40"),
+              NOTICE.updated("1.8.0", "09:02"),
+            ],
+          },
+        },
+        {
+          key: "reconnecting", label: "Reconnecting",
+          note: "The web has lost the service: the slot says so first, ahead of any Notification, and the figures are the last ones read.",
+          data: {
+            needsYou: 1,
+            engines: [engine("Claude Max", 67, 41)],
+            desks: { inUse: 1, limit: 3 },
+            tokens: TOKENS("1.4M", "600k", "210k", "590k", "8.8M"),
+            cpu: 9,
+            reconnecting: true,
+            notices: [NOTICE.reset("Claude Max", "11:20")],
+          },
+        },
+        {
+          key: "alarm", label: "Alarm on",
+          note: "The fire alarm is on: nothing runs at a desk, so Desks in use reads 0, and a red figure after Tokens today says why.",
+          data: {
+            needsYou: 2,
+            engines: [engine("Claude Max", 58, 36)],
+            desks: { inUse: 0, limit: 3 },
+            tokens: TOKENS("1.9M", "800k", "300k", "800k", "11M"),
+            cpu: 3,
+            alarm: { since: "14:02" },
+          },
+        },
+        {
+          key: "noManager", label: "No Office Manager",
+          note: "Nobody fills the Office Manager's Role: the messages are in the UI's own voice, and the slot shows the time alone, never \"System\".",
+          data: {
+            needsYou: 0,
+            engines: [engine("Claude Max", 91, 44)],
+            desks: { inUse: 1, limit: 3 },
+            tokens: TOKENS("880k", "350k", "130k", "400k", "5.0M"),
+            cpu: 15,
+            officeManager: null,
+            notices: [NOTICE.nearlyUsed("Claude Max", 91, "10:14"), NOTICE.updated("1.8.0", "09:02")],
+          },
+        },
+        {
+          key: "firstVisit", label: "First visit",
+          note: "The browser hasn't been asked for desktop notifications yet: the ask sits in the slot until the user answers.",
+          data: { permission: true, engines: [engine("Claude Max", 5, 2)] },
+        },
+      ];
+
+      const WIDTHS = [
+        { key: "1440", label: "1440", px: 1440 },
+        { key: "1100", label: "1100", px: 1100 },
+        { key: "900", label: "900", px: 900 },
+        { key: "390", label: "390", px: 390 },
+        { key: "all", label: "All widths, strip only" },
+      ];
+      const DESIGNS = [
+        { key: "today", label: "Today" },
+        { key: "proposed", label: "Proposed: two lines" },
+        { key: "alternative", label: "Alternative: one line" },
+      ];
+      const PALETTES = [
+        { key: "light", label: "Light" },
+        { key: "dark", label: "Dark" },
+      ];
+
+      const state = { design: "proposed", scenario: "busy", width: "1440", palette: "light" };
+      const scenarioData = () => ({ ...BASE, ...SCENARIOS.find(({ key }) => key === state.scenario).data });
+
+      /* ---------- Words, after now-words.ts and the proposal ---------- */
+      const needsYouWords = (count) => (count === 1 ? "needs you" : "need you");
+      const toneOf = (five) => (five >= 100 ? "danger" : five >= 90 ? "warning" : "");
+      const highest = (engines) => engines.reduce((top, e) => (e.five > top.five ? e : top), engines[0]);
+
+      /* What the slot holds, in the order it shows them. */
+      function officeMessages(d) {
+        const messages = [];
+        if (d.reconnecting) {
+          messages.push({
+            tone: "warning", icon: "wifiOff", pulse: true,
+            short: "Reconnecting to The Office…",
+            meta: "Figures may be out of date",
+            full: "The web has lost the service and is reconnecting. The figures are the last ones read.",
+          });
+        }
+        for (const n of d.notices) {
+          messages.push({
+            tone: n.tone, icon: n.icon, short: n.short, at: n.at, person: d.officeManager,
+            full: d.officeManager ? n.pam : n.ui,
+          });
+        }
+        if (d.update) {
+          messages.push({
+            tone: "info", icon: "update",
+            short: "Update scheduled",
+            meta: `Waiting for ${d.update.waiting === 1 ? "1 thing" : `${d.update.waiting} things`}`,
+            full: `An Office update is scheduled, waiting for ${d.update.waiting} things to finish.`,
+            action: '<a class="link" data-toast="Opens Settings › Updates.">Open Settings › Updates</a>',
+          });
+        }
+        if (d.permission) {
+          messages.push({
+            tone: "neutral", icon: "bell",
+            short: "Turn on desktop notifications",
+            meta: "The browser asks once",
+            full: "Desktop notifications need the browser's permission, asked once.",
+            action: '<button class="btn" data-toast="The browser asks for permission.">Turn on desktop notifications</button>',
+          });
+        }
+        return messages;
+      }
+
+      const metaOf = (m) =>
+        m.meta
+          ? esc(m.meta)
+          : m.person
+            ? `<span class="avatar sm pam" aria-hidden="true">P</span>${esc(m.person)} · ${m.at}`
+            : m.at;
+
+      /* ---------- The shell around the strip ---------- */
+      function rail() {
+        return `<nav class="rail" aria-label="Surfaces">
+          <span class="rail-logo">O</span>
+          <span class="rail-item on" title="Now">${icon("home", 18)}</span>
+          <span class="rail-item" title="Work">${icon("kanban", 18)}</span>
+          <span class="rail-item" title="People">${icon("users", 18)}</span>
+          <span class="rail-item" title="Projects">${icon("folder", 18)}</span>
+          <span class="rail-item" title="Settings">${icon("sliders", 18)}</span>
+        </nav>`;
+      }
+      function topBar(d) {
+        const alarm = d.alarm
+          ? `<button class="btn danger" title="See what will resume, then give the all clear">${icon("siren")}<span class="top-words">All clear…</span></button>`
+          : `<button class="btn danger-ghost" title="Fire alarm: pause all automated work">${icon("siren")}<span class="top-words">Sound the alarm</span></button>`;
+        return `<header class="top">
+          <h1>Now</h1><span class="grow"></span>
+          <button class="btn">${icon("layers")}<span class="top-words">All Projects</span>${icon("chevron", 12)}</button>
+          <span class="search">${icon("search")}<span>Search</span><kbd>/</kbd></span>
+          <button class="btn">${icon("plus")}<span class="top-words">Create</span></button>
+          ${alarm}
+          <span class="avatar" title="Przemysław">PT</span>
+          <button class="btn">${icon("chat")}<span class="top-words">Chat</span></button>
+        </header>`;
+      }
+      function nowPage(d) {
+        const waiting = [
+          ["Review the strip design", "the-office", "Gate · 12 min"],
+          ["Pick a Pipeline for Offline sync", "not-astray", "Decision · 40 min"],
+          ["Tests failed with no retries left", "notnullsoft", "Decision · 1 h"],
+          ["Confirm the plan for Search", "the-office", "Plan · 2 h"],
+        ].slice(0, Math.max(1, d.needsYou));
+        const running = [
+          ["Build the redesigned Add a Project window", "Implement · Jim"],
+          ["Loaders", "Review & fix · Oscar"],
+          ["Group tasks by initiative", "Verify"],
+        ].slice(0, Math.max(1, d.desks.inUse));
+        return `<main class="page">
+          <section class="card"><div class="card-head">${icon("hand")} Needs you <span class="count">${d.needsYou}</span></div>
+            ${d.needsYou === 0 ? '<div class="row"><span class="t faint">Nothing waits on you in the Projects shown.</span></div>' : waiting.map(([t, p, m]) => `<div class="row" style="--edge:var(--warning)"><span class="t">${t}</span><span class="meta">${p} · ${m}</span></div>`).join("")}
+          </section>
+          <section class="card"><div class="card-head">${icon("play")} Running <span class="count">${d.desks.inUse}</span></div>
+            ${d.desks.inUse === 0 ? `<div class="row"><span class="t faint">${d.alarm ? "Nothing runs while the alarm is on." : "Nothing is running."}</span></div>` : running.map(([t, m]) => `<div class="row" style="--edge:var(--info)"><span class="t">${t}</span><span class="meta">${m}</span></div>`).join("")}
+          </section>
+        </main>`;
+      }
+
+      /* ---------- Today's strip, as status-strip.tsx draws it ---------- */
+      function todayStrip(d) {
+        const notices = d.notices;
+        const newest = notices[0];
+        const office = newest
+          ? `<span class="ts-stat ts-office"><span class="dot warning"></span><span class="ts-office-line" title="${esc(d.officeManager ? `${PAM}: ${newest.pam}` : newest.ui)}">${esc(d.officeManager ? `${PAM}: ${newest.pam}` : newest.ui)}</span>${notices.length > 1 ? `<span class="faint">+${notices.length - 1} more</span>` : ""}</span>`
+          : "";
+        const tone = d.needsYou > 0 ? " alert" : d.elsewhere > 0 ? " elsewhere" : "";
+        const one = d.engines.length === 1;
+        const e0 = d.engines[0];
+        let usage;
+        if (one) {
+          usage = `<span class="ts-stat wide"><span>5h <b>${e0.five}%</b> · 7d <b>${e0.sevenDay}%</b></span><span class="meter"><i style="width:${e0.five}%"></i></span><span class="faint">resets ${e0.resets}</span></span>`;
+        } else if (d.engines.length > 3) {
+          usage = `<span class="ts-stat wide">5h <b>${highest(d.engines).five}%</b> max · <b>${d.engines.length}</b> engines</span>`;
+        } else {
+          usage = `<span class="ts-stat wide">5h ${d.engines.map((e) => `<b title="${esc(e.name)}">${e.five}%</b>`).join(" · ")}</span>`;
+        }
+        const inUse = d.alarm ? 0 : d.desks.inUse;
+        return `<div class="ts" role="status" aria-label="Status strip">
+          ${d.reconnecting ? '<span class="ts-stat"><span class="dot warning"></span>Reconnecting to The Office…</span>' : ""}
+          ${office}
+          <button class="ts-stat ts-button ts-needs${tone}" data-toast="Opens the Needs you panel.">${d.needsYou > 0 ? '<span class="live-dot"></span>' : ""}<b>${d.needsYou}</b> ${needsYouWords(d.needsYou)}${d.elsewhere > 0 ? `<span class="faint">+${d.elsewhere} in other Projects</span>` : ""}</button>
+          <span class="ts-stat"><span class="dot ${inUse > 0 ? "running" : ""}"></span><b>${inUse}</b><span class="faint">/ ${d.desks.limit}</span> desks in use</span>
+          <span class="ts-sep"></span>
+          <span class="ts-stat"><b>${d.tokens.counted}</b> tokens today <span class="info-icon" title="${esc(d.tokens.words)}">${icon("info", 12)}</span></span>
+          ${usage}
+          <span class="ts-stat wide"><b>${d.tasksTouched}</b> Tasks touched</span>
+          <span class="ts-sep"></span>
+          <span class="ts-stat wide"><b>${d.doneSinceYouLeft}</b> done since you left</span>
+          <span class="grow"></span>
+          <span class="ts-stat">${icon("cpu")}<b>${d.cpu}%</b><span class="ts-ws-detail">CPU <span class="faint">· ${d.cores} cores</span></span></span>
+          ${d.update ? `<span class="ts-stat ts-office"><span class="dot running"></span>Update scheduled, waiting for ${d.update.waiting} things</span>` : ""}
+          ${d.permission ? '<span class="ts-stat faint">Turn on desktop notifications</span>' : ""}
+          <span class="ts-stat ts-alarm${d.alarm ? " on" : ""}"><span class="dot${d.alarm ? " danger" : ""}"></span>${d.alarm ? `Alarm on since ${d.alarm.since}` : "Alarm off · all clear"}</span>
+        </div>`;
+      }
+
+      /* ---------- Proposed: two-line figures ---------- */
+      function needsFigure(d) {
+        const tone = d.needsYou > 0 ? " alert" : d.elsewhere > 0 ? " elsewhere" : "";
+        const elsewhereWords = `${d.elsewhere} more in other Projects`;
+        const name = `${d.needsYou} ${needsYouWords(d.needsYou)}${d.elsewhere > 0 ? `, ${elsewhereWords}` : ""}`;
+        return `<button class="fig needs${tone}" aria-haspopup="dialog" aria-label="${name}" title="${name}" data-toast="Opens the Needs you panel.">
+          <span class="fig-label">${d.needsYou > 0 ? '<span class="live-dot"></span>' : ""}Needs you</span>
+          <span class="fig-value"><b>${d.needsYou}</b>${d.elsewhere > 0 ? `<span class="faint"><span class="elsewhere-long">+${d.elsewhere} in other Projects</span><span class="short">+${d.elsewhere}</span></span>` : ""}</span>
+        </button>`;
+      }
+      function usageFigure(d) {
+        const engines = d.engines;
+        const e0 = engines[0];
+        let label;
+        let value;
+        let cls = "";
+        if (engines.length === 1) {
+          cls = " one-engine";
+          const t = toneOf(e0.five);
+          label = e0.usedUpUntil
+            ? `<span class="label-long">5-hour window</span><span class="label-short">5h window</span><span class="resets-label">· used up until ${e0.usedUpUntil}</span>`
+            : `<span class="label-long">5-hour window</span><span class="label-short">5h window</span><span class="resets-label">· resets ${e0.resets}</span>`;
+          value = `<b class="${t}">${e0.five}%</b><span class="meter ${t}"><i style="width:${Math.min(100, e0.five)}%"></i></span><span class="seven-day faint">7d ${e0.sevenDay}%</span>`;
+        } else if (engines.length <= 3) {
+          label = `<span class="label-long">5-hour window</span><span class="label-short">5h window</span><span class="resets-label">· ${engines.length} engines</span>`;
+          value = `<span class="engines">${engines
+            .map((e) => {
+              const t = toneOf(e.five);
+              return `<span class="engine" title="${esc(e.name)}: ${e.five}%"><span class="meter ${t}"><i style="width:${e.five}%"></i></span><b class="${t}">${e.five}%</b></span>`;
+            })
+            .join("")}</span>`;
+        } else {
+          const top = highest(engines);
+          const t = toneOf(top.five);
+          label = `<span class="label-long">5-hour window</span><span class="label-short">5h window</span><span class="resets-label">· ${engines.length} engines</span>`;
+          value = `<b class="${t}" title="${esc(top.name)}">${top.five}%</b><span class="meter ${t}"><i style="width:${top.five}%"></i></span><span class="faint">highest</span>`;
+        }
+        const name = `5-hour window: ${engines.map((e) => `${e.name} ${e.five}%`).join(", ")}`;
+        return `<button class="fig${cls}" aria-haspopup="dialog" aria-label="${esc(name)}" title="${esc(name)}" data-popover="usage">
+          <span class="fig-label">${label}</span><span class="fig-value">${value}</span>
+        </button>`;
+      }
+      function desksFigure(d) {
+        const inUse = d.alarm ? 0 : d.desks.inUse;
+        return `<span class="fig static" title="${inUse} of ${d.desks.limit} desks in use">
+          <span class="fig-label"><span class="label-long">Desks in use</span><span class="label-short">Desks</span></span>
+          <span class="fig-value"><span class="dot ${inUse > 0 ? "running" : ""}"></span><b>${inUse}</b><span class="faint">/ ${d.desks.limit}</span></span>
+        </span>`;
+      }
+      function tokensFigure(d) {
+        return `<span class="fig static">
+          <span class="fig-label"><span class="label-long">Tokens today</span><span class="label-short">Tokens</span></span>
+          <span class="fig-value"><b>${d.tokens.counted}</b><span class="info-icon" title="${esc(d.tokens.words)}" tabindex="0" aria-label="${esc(d.tokens.words)}">${icon("info", 12)}</span></span>
+        </span>`;
+      }
+      function alarmFigure(d) {
+        if (!d.alarm) return "";
+        return `<button class="fig alarm" title="See what will resume, then give the all clear" data-toast="Opens the all clear's review on Now.">
+          <span class="fig-label">${icon("siren", 11)}Fire alarm</span>
+          <span class="fig-value"><b><span class="alarm-long">On since ${d.alarm.since}</span><span class="short">On</span></b></span>
+        </button>`;
+      }
+      function workstationFigure(d) {
+        const level = d.cpu >= 85 ? "danger" : d.cpu >= 60 ? "warning" : "";
+        return `<button class="fig ws" aria-haspopup="dialog" aria-label="Workstation: ${d.cpu}% CPU, ${d.cores} logical cores" data-toast="Opens the Workstation panel: CPU, memory, The Office's own memory and uptime.">
+          <span class="fig-label"><span class="ws-label-long">Workstation</span><span class="short">CPU</span></span>
+          <span class="fig-value">${icon("cpu", 13)}<b class="${level}">${d.cpu}%</b><span class="ws-cores faint">· ${d.cores} cores</span></span>
+        </button>`;
+      }
+      function slot(d, id) {
+        const messages = officeMessages(d);
+        const [first] = messages;
+        if (!first) return "";
+        const more = messages.length - 1;
+        const name = `Office Notifications: ${first.short}${more > 0 ? `, ${more} more` : ""}`;
+        return `<button class="slot tone-${first.tone}${first.pulse ? " pulse" : ""}" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(name)}" title="${esc(first.full)}" data-popover="office" data-slot="${id}">
+          <span class="slot-icon">${icon(first.icon, 16)}</span>
+          <span class="slot-text"><span class="slot-short">${esc(first.short)}</span><span class="slot-meta">${metaOf(first)}</span></span>
+          <span class="slot-end">${more > 0 ? `<span class="count-badge">+${more}</span>` : ""}${icon("chevron", 12)}</span>
+        </button>`;
+      }
+      function proposedStrip(d) {
+        const figs = `<span class="figs">${needsFigure(d)}<span class="fig-sep"></span>${usageFigure(d)}<span class="fig-sep"></span>${desksFigure(d)}<span class="fig-sep"></span>${tokensFigure(d)}${d.alarm ? `<span class="fig-sep"></span>${alarmFigure(d)}` : ""}</span>`;
+        const right = `${workstationFigure(d)}${slot(d, "a")}`;
+        const rightPhone = `${workstationFigure(d)}${alarmFigure(d)}${slot(d, "b")}`;
+        return `<div class="ps" role="status" aria-label="Status strip">
+          <div class="ps-row first">${figs}<span class="grow"></span><span class="figs right">${right}</span></div>
+          <div class="ps-row second">${rightPhone}</div>
+        </div>`;
+      }
+
+      /* ---------- Alternative: one line ---------- */
+      function alternativeStrip(d) {
+        const tone = d.needsYou > 0 ? " alert" : d.elsewhere > 0 ? " elsewhere" : "";
+        const e0 = d.engines[0];
+        let usage;
+        if (d.engines.length === 1) {
+          const t = toneOf(e0.five);
+          usage = `5h <b class="${t}">${e0.five}%</b><span class="meter ${t}"><i style="width:${Math.min(100, e0.five)}%"></i></span><span class="seven-day faint">7d ${e0.sevenDay}%</span>`;
+        } else if (d.engines.length <= 3) {
+          usage = `5h ${d.engines.map((e) => `<b class="${toneOf(e.five)}" title="${esc(e.name)}">${e.five}%</b>`).join('<span class="faint">·</span>')}`;
+        } else {
+          const top = highest(d.engines);
+          usage = `5h <b class="${toneOf(top.five)}">${top.five}%</b> <span class="faint">max · ${d.engines.length}</span>`;
+        }
+        const messages = officeMessages(d);
+        const inUse = d.alarm ? 0 : d.desks.inUse;
+        return `<div class="as-wrap"><div class="as" role="status" aria-label="Status strip">
+          <button class="as-needs${tone}" data-toast="Opens the Needs you panel.">${d.needsYou > 0 ? '<span class="live-dot"></span>' : ""}<b>${d.needsYou}</b><span class="as-words">${needsYouWords(d.needsYou)}</span>${d.elsewhere > 0 ? `<span class="faint elsewhere-count">+${d.elsewhere}</span>` : ""}</button>
+          <span class="ts-sep"></span>
+          <button class="ts-stat ts-button fig-value" data-popover="usage" style="height:auto">${usage}</button>
+          <span class="ts-sep"></span>
+          <span class="ts-stat fig-value"><span class="dot ${inUse > 0 ? "running" : ""}"></span><b>${inUse}/${d.desks.limit}</b><span class="as-words">desks</span></span>
+          <span class="ts-sep"></span>
+          <span class="ts-stat fig-value"><b>${d.tokens.counted}</b><span class="as-words">tokens</span><span class="info-icon" title="${esc(d.tokens.words)}">${icon("info", 12)}</span></span>
+          ${d.alarm ? `<span class="ts-stat ts-alarm on"><span class="dot danger"></span><span class="alarm-words">Alarm on since ${d.alarm.since}</span></span>` : ""}
+          <span class="grow"></span>
+          <span class="ts-stat fig-value ws">${icon("cpu", 13)}<b>${d.cpu}%</b><span class="ws-cores faint">· ${d.cores} cores</span></span>
+          ${slot(d, "c")}
+          ${messages.length ? `<button class="as-slot-icon-only btn ghost tone-${messages[0].tone}" data-popover="office" aria-label="Office Notifications, ${messages.length}"><span class="slot-icon">${icon(messages[0].icon, 16)}</span><span class="count-badge">${messages.length}</span></button>` : ""}
+        </div></div>`;
+      }
+
+      /* ---------- Frames ---------- */
+      function frame(width) {
+        const d = scenarioData();
+        const bucket = width <= 600 ? "w-phone w-narrow" : width <= 720 ? "w-narrow" : width <= 900 ? "w-tablet" : "";
+        const strip =
+          state.design === "today" ? todayStrip(d) : state.design === "proposed" ? proposedStrip(d) : alternativeStrip(d);
+        return { d, bucket, strip };
+      }
+      function render() {
+        document.documentElement.dataset.palette = state.palette;
+        const stage = document.getElementById("stage");
+        const widths = state.width === "all" ? WIDTHS.filter(({ px }) => px) : [WIDTHS.find(({ key }) => key === state.width)];
+        stage.innerHTML = widths
+          .map(({ px }) => {
+            const { d, bucket, strip } = frame(px);
+            const whole = state.width !== "all";
+            return `<div class="frame-wrap" style="width:${px}px">
+              <div class="frame-caption"><b>${px}px</b><span>${DESIGNS.find(({ key }) => key === state.design).label} · the strip ${px - 56}px wide</span></div>
+              <div class="frame"><div class="app ${bucket}">${rail()}<div style="grid-column:2;min-width:0">${topBar(d)}</div><div style="grid-column:2;min-width:0">${strip}</div>${whole ? `<div style="grid-column:2;min-width:0">${nowPage(d)}</div>` : ""}</div></div>
+            </div>`;
+          })
+          .join("");
+        document.getElementById("scenario-note").textContent = SCENARIOS.find(({ key }) => key === state.scenario).note;
+        renderAnatomy();
+        closePopover();
+      }
+      function renderAnatomy() {
+        const saved = state.scenario;
+        state.scenario = "several";
+        const d = scenarioData();
+        state.scenario = saved;
+        const host = document.getElementById("anatomy");
+        const notices = [NOTICE.nearlyUsed("Claude Max", 91, "13:05"), NOTICE.updated("1.8.0", "09:02")];
+        host.innerHTML = `<div class="app" style="display:block">${proposedStrip({ ...d, needsYou: 3, elsewhere: 2, engines: [engine("Claude Max", 91, 41)], notices })}</div>`;
+        // A picture of the parts: its presses point to the frame above, whose scenario they would read.
+        host.querySelectorAll("[data-popover], [data-toast]").forEach((el) => {
+          el.removeAttribute("data-popover");
+          el.dataset.toast = "Try it in the frame above.";
+        });
+        requestAnimationFrame(() => placePins(host));
+      }
+      /* The pins sit on the anatomy box, not the strip, whose rounded frame would clip them. */
+      function placePins(host) {
+        const layer = host.closest(".anatomy");
+        layer.querySelectorAll(".pin").forEach((pin) => pin.remove());
+        const row = host.querySelector(".ps-row.first");
+        const targets = [...row.querySelectorAll(".fig, .slot")].filter((el) => el.offsetParent);
+        const base = layer.getBoundingClientRect();
+        targets.forEach((el, index) => {
+          const box = el.getBoundingClientRect();
+          const pin = document.createElement("span");
+          pin.className = "pin";
+          pin.textContent = index + 1;
+          pin.style.left = `${box.left - base.left - 6}px`;
+          pin.style.top = `${box.top - base.top - 6}px`;
+          layer.append(pin);
+        });
+      }
+
+      /* ---------- Popovers and toasts ---------- */
+      let openPopover = null;
+      function closePopover() {
+        if (!openPopover) return;
+        openPopover.el.remove();
+        openPopover.trigger.setAttribute("aria-expanded", "false");
+        openPopover = null;
+      }
+      function popoverFor(kind, d) {
+        if (kind === "usage") {
+          return `<div class="popover-head">Usage by engine</div><ul class="usage-list">${d.engines
+            .map(
+              (e) => `<li><div class="usage-engine">${esc(e.name)}</div>
+                <div class="usage-window"><span class="faint">5h</span><span class="meter ${toneOf(e.five)}"><i style="width:${Math.min(100, e.five)}%"></i></span><b>${e.five}%</b><span class="faint">${e.usedUpUntil ? `used up until ${e.usedUpUntil}` : `resets ${e.resets}`}</span></div>
+                <div class="usage-window"><span class="faint">7d</span><span class="meter"><i style="width:${e.sevenDay}%"></i></span><b>${e.sevenDay}%</b><span class="faint">resets ${e.sevenResets}</span></div></li>`,
+            )
+            .join("")}</ul>`;
+        }
+        const messages = officeMessages(d);
+        return `<div class="popover-head">Office Notifications <span class="faint">${messages.length}</span></div><ul>${messages
+          .map(
+            (m) => `<li class="tone-${m.tone}"><span class="slot-icon">${icon(m.icon, 16)}</span><div><p>${esc(m.full)}</p><div class="slot-meta">${metaOf(m)}</div>${m.action ? `<div class="act">${m.action}</div>` : ""}</div></li>`,
+          )
+          .join("")}</ul>`;
+      }
+      function showPopover(trigger) {
+        const kind = trigger.dataset.popover;
+        if (openPopover && openPopover.trigger === trigger) return closePopover();
+        closePopover();
+        const el = document.createElement("div");
+        el.className = "popover";
+        el.setAttribute("role", "dialog");
+        el.setAttribute("aria-label", kind === "usage" ? "Usage by engine" : "Office Notifications");
+        el.innerHTML = popoverFor(kind, scenarioData());
+        document.body.append(el);
+        const box = trigger.getBoundingClientRect();
+        const width = el.offsetWidth;
+        const left = kind === "office" ? box.right - width : box.left;
+        el.style.left = `${Math.max(8, Math.min(left, window.innerWidth - width - 8))}px`;
+        el.style.top = `${box.bottom + 6}px`;
+        trigger.setAttribute("aria-expanded", "true");
+        openPopover = { el, trigger };
+      }
+      let toastTimer;
+      function toast(words) {
+        document.querySelector(".toast")?.remove();
+        const el = document.createElement("div");
+        el.className = "toast";
+        el.setAttribute("role", "status");
+        el.textContent = words;
+        document.body.append(el);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.remove(), 2600);
+      }
+      document.addEventListener("click", (event) => {
+        const popoverTrigger = event.target.closest("[data-popover]");
+        const toastTrigger = event.target.closest("[data-toast]");
+        if (popoverTrigger) {
+          showPopover(popoverTrigger);
+          return;
+        }
+        if (openPopover && !openPopover.el.contains(event.target)) closePopover();
+        if (toastTrigger) toast(toastTrigger.dataset.toast);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !openPopover) return;
+        const { trigger } = openPopover;
+        closePopover();
+        trigger.focus();
+      });
+      window.addEventListener("scroll", closePopover, { passive: true });
+      window.addEventListener("resize", () => {
+        closePopover();
+        placePins(document.getElementById("anatomy"));
+      });
+
+      /* ---------- The proposal's switches ---------- */
+      const OPTIONS = { design: DESIGNS, scenario: SCENARIOS, width: WIDTHS, palette: PALETTES };
+      for (const host of document.querySelectorAll(".switch")) {
+        const key = host.dataset.key;
+        host.innerHTML = OPTIONS[key]
+          .map((option) => `<button type="button" data-value="${option.key}">${esc(option.label)}</button>`)
+          .join("");
+        host.addEventListener("click", (event) => {
+          const button = event.target.closest("button");
+          if (!button) return;
+          state[key] = button.dataset.value;
+          syncSwitches();
+          render();
+        });
+      }
+      function syncSwitches() {
+        for (const host of document.querySelectorAll(".switch")) {
+          for (const button of host.querySelectorAll("button")) {
+            button.setAttribute("aria-pressed", String(state[host.dataset.key] === button.dataset.value));
+          }
+        }
+      }
+      syncSwitches();
+      render();
+    </script>
+  </body>
+</html>

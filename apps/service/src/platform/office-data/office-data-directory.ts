@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-/** The folders of the Office data directory (docs/tasks/build-defaults.md). */
+/** The folders of the Office data directory (AGENTS.md, Project layout and defaults). */
 export type OfficeDataFolder =
   | "worktrees"
   | "bases"

@@ -38,15 +38,15 @@ import { NowChanged } from "../domain/now-events.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 16's check on the Test Project (docs/tasks/16-now-notifications.md, step 6): a day's loop
- * seen from Now and as Notifications. The Planner plans a Task (answering its Decisions), the Task
- * runs Quick fix edited for it, with Implement's budget at what planning used, so The Office asks
- * to raise it, and a Gate in place of Publish; the user answers and continues from what waits,
- * the Task ends Done, and the user opens it. Every Notification raised and cleared, and Now at
- * each stop, go into the report. Nothing is published, and the base is a local branch that
- * tracks no remote. Live, so it runs only with OFFICE_ENGINE_TESTS=live and
- * OFFICE_TEST_PROJECT=<the Test Project's folder>, with OFFICE_CHECK_REPORT=<a file> to keep what
- * it saw. It hires the Planner and the Developer from their presets, so it runs alone.
+ * Task 16's check on the Test Project: a day's loop seen from Now and as Notifications. The Planner
+ * plans a Task (answering its Decisions), the Task runs Quick fix edited for it, with Implement's
+ * budget at what planning used, so The Office asks to raise it, and a Gate in place of Publish; the
+ * user answers and continues from what waits, the Task ends Done, and the user opens it. Every
+ * Notification raised and cleared, and Now at each stop, go into the report. Nothing is published,
+ * and the base is a local branch that tracks no remote. Live, so it runs only with
+ * OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>, with
+ * OFFICE_CHECK_REPORT=<a file> to keep what it saw. It hires the Planner and the Developer from
+ * their presets, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];

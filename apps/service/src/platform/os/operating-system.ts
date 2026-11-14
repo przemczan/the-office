@@ -10,7 +10,7 @@ import type { AgentShellProgram, Shell } from "./shell.js";
 export interface OperatingSystem {
   /** For messages and telemetry only; a plain string, so nothing outside os/ can branch on it. */
   readonly name: string;
-  /** Where the Office data directory lives when OFFICE_DATA_DIR is not set (docs/tasks/build-defaults.md). */
+  /** Where the Office data directory lives when OFFICE_DATA_DIR is not set (AGENTS.md, Project layout and defaults). */
   readonly defaultOfficeDataDirectory: string;
   /**
    * Why The Office can't update itself here, in the UI's words; absent where its launcher updates

@@ -34,15 +34,15 @@ import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 35's check on the Test Project (docs/tasks/35-api-based-engine.md, step 9): an API endpoint
- * set in Settings › Engines and the Developer's Role card on one of its models. In the Developer's
- * chat, a question only reading the Test Project answers, replied to in one message; then a Task
- * the user plans (the Planner never runs) runs Implement on that model, as Quick fix edited with a Gate before
- * Publish, and is dropped at the Gate. Its base is a local branch that tracks no remote, so nothing
- * leaves the workstation. Live and slow, so it runs only with OFFICE_ENGINE_TESTS=live,
+ * Task 35's check on the Test Project: an API endpoint set in Settings › Engines and the
+ * Developer's Role card on one of its models. In the Developer's chat, a question only reading the
+ * Test Project answers, replied to in one message; then a Task the user plans (the Planner never
+ * runs) runs Implement on that model, as Quick fix edited with a Gate before Publish, and is
+ * dropped at the Gate. Its base is a local branch that tracks no remote, so nothing leaves the
+ * workstation. Live and slow, so it runs only with OFFICE_ENGINE_TESTS=live,
  * OFFICE_TEST_PROJECT=<the Test Project's folder>, OFFICE_API_BASE_URL and OFFICE_API_MODEL (with
- * OFFICE_API_CONTEXT_WINDOW when not 100000), and OFFICE_CHECK_REPORT=<a file> to keep what it
- * saw; `-t` picks one test. It hires the Developer from its preset, so it runs alone.
+ * OFFICE_API_CONTEXT_WINDOW when not 100000), and OFFICE_CHECK_REPORT=<a file> to keep what it saw;
+ * `-t` picks one test. It hires the Developer from its preset, so it runs alone.
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"] ?? "";

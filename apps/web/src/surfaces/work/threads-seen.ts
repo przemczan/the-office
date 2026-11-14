@@ -11,8 +11,8 @@ export interface ThreadsSeen {
 /**
  * What the page has seen of the record's Threads as they are now, the newest first. At first it
  * shows `asked` or the newest. A Thread added later, such as a Stage's session starting, is marked
- * new and the user stays where they are (problem 7, docs/tasks/archive/17-settings-acceptance.md).
- * A link on the page changing `asked` shows that Thread. With nothing changed it comes back as it was.
+ * new and the user stays where they are. A link on the page changing `asked` shows that Thread.
+ * With nothing changed it comes back as it was.
  */
 export function threadsSeen(
   seen: ThreadsSeen | undefined,
