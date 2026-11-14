@@ -28,7 +28,7 @@ import {
   sendToApi,
 } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
-import { staleStaffing } from "./pipelines.ts";
+import { staleStaffing } from "./pipeline-keys.ts";
 
 const ROLES = ["roles"] as const;
 /** Apart from ROLES, since Projects and the Office default change it too. */

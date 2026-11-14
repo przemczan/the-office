@@ -141,13 +141,13 @@ describe("migration 0138", () => {
       const mine = await aUserPipeline(transaction);
       const task = await aTaskOnFull(transaction);
       await applyMigration(transaction);
-      const full = await stagesOf(
+      const fullStages = await stagesOf(
         transaction,
         sql`SELECT "stages" FROM "pipelines" WHERE "id" = 'full'`,
       );
       return {
-        reviewAndFix: full?.find(({ key }) => key === "review-and-fix"),
-        implement: full?.find(({ key }) => key === "implement"),
+        reviewAndFix: fullStages?.find(({ key }) => key === "review-and-fix"),
+        implement: fullStages?.find(({ key }) => key === "implement"),
         mine: await stagesOf(
           transaction,
           sql`SELECT "stages" FROM "pipelines" WHERE "id" = ${mine}`,

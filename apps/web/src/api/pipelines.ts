@@ -31,16 +31,7 @@ import {
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
-
-/**
- * The office-wide Pipelines and the Project Pipelines alike: a save of an office-wide one changes
- * the Project Pipelines built from it, and both publish the same events.
- */
-const PIPELINES_KEY: readonly unknown[] = ["pipelines"];
-
-const PROJECT_PIPELINES_KEY: readonly unknown[] = [...PIPELINES_KEY, "project-pipelines"];
-
-const STAGE_TEMPLATES_KEY: readonly unknown[] = ["stage-templates"];
+import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pipeline-keys.ts";
 
 /** Apart from the Task's key, or the walk's and Work's events would read a run's whole output again. */
 const COMMAND_OUTPUTS_KEY: readonly unknown[] = ["stage-run-command-outputs"];
@@ -252,20 +243,6 @@ function commandOutputsKey(taskId: string): readonly unknown[] {
 /** A change to the library, or to a Project Pipeline, makes every list of both stale. */
 function staleLibrary(): readonly (readonly unknown[])[] {
   return [PIPELINES_KEY];
-}
-
-/**
- * What changes with who fills a Role or holds a duty: the Stage editor's checks and flags, and each
- * Task's Stages, whose Stages naming a duty say who works them. ["tasks"] covers each Task's Stages
- * and their check, kept under the Task's key.
- */
-export function staleStaffing(): readonly (readonly unknown[])[] {
-  return [
-    [...PIPELINES_KEY, "check"],
-    [...PROJECT_PIPELINES_KEY, "check"],
-    [...STAGE_TEMPLATES_KEY, "check"],
-    ["tasks"],
-  ];
 }
 
 /** A change to a Stage template makes every list of them stale. */
