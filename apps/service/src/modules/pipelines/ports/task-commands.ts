@@ -1,9 +1,5 @@
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
-import type {
-  CommandRun,
-  Installation,
-  ScriptCommandRun,
-} from "../domain/stage-command-run.js";
+import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 
 /** What a Project command does: a test command's run leaves the worktree as it was. */
 export type ScriptCommandKind = "build" | "lint" | "test";

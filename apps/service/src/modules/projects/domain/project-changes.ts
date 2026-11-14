@@ -206,7 +206,9 @@ export function changePublishingLine(
   project: Project,
   line: PublishingLine,
   commandLine: string,
-): ProjectChange<ProjectBeforePublishingCommandChanged | ProjectAfterPublishingCommandChanged> | undefined {
+):
+  | ProjectChange<ProjectBeforePublishingCommandChanged | ProjectAfterPublishingCommandChanged>
+  | undefined {
   const problem = publishingLineProblem(line, commandLine);
   if (problem) throw new ProjectRefused([problem]);
   const trimmed = commandLine.trim();

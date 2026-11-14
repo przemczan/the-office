@@ -317,7 +317,10 @@ export function commandLineProblem(key: string, commandLine: string): string | u
 }
 
 /** Why a before or after publishing line can't be saved; a blank one is saved, and runs nothing. */
-export function publishingLineProblem(line: PublishingLine, commandLine: string): string | undefined {
+export function publishingLineProblem(
+  line: PublishingLine,
+  commandLine: string,
+): string | undefined {
   return commandLineProblem(PUBLISHING_LINE_NAMES[line], commandLine);
 }
 

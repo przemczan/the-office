@@ -245,8 +245,7 @@ export class TaskWorktrees {
 
   /** The Project's before and after publishing lines, each blank when not set. */
   async publishingLines(projectId: string): Promise<Pick<Project, PublishingLine>> {
-    const { beforePublishingCommand, afterPublishingCommand } =
-      await this.projects.read(projectId);
+    const { beforePublishingCommand, afterPublishingCommand } = await this.projects.read(projectId);
     return { beforePublishingCommand, afterPublishingCommand };
   }
 

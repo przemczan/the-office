@@ -34,11 +34,7 @@ export interface ScriptCommandRun extends CommandRun {
  * line.
  */
 export type StageCommandPurpose =
-  | "install"
-  | "command"
-  | "re-run"
-  | "before-publishing"
-  | "after-publishing";
+  "install" | "command" | "re-run" | "before-publishing" | "after-publishing";
 
 /** A command a Stage run ran, as the run records it; its whole output is read apart from it. */
 export interface StageCommandRun extends Omit<CommandRun, "wholeOutput"> {

@@ -134,7 +134,9 @@ describe("PUT /api/projects/:id/before-publishing-command and after-publishing-c
     });
 
     expect(cleared.status).toBe(200);
-    const read = projectSchema.parse(await (await fetch(`${url}/api/projects/${project.id}`)).json());
+    const read = projectSchema.parse(
+      await (await fetch(`${url}/api/projects/${project.id}`)).json(),
+    );
     expect(read).toMatchObject({
       beforePublishingCommand: "",
       afterPublishingCommand: "gh workflow run release.yml",
