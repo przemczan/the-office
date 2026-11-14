@@ -6,6 +6,7 @@ import "./settings.css";
 /** Settings' sections, each a page of its own; later tasks add theirs here. */
 const SECTIONS: readonly MenuSection[] = [
   { to: "/settings/pipelines", icon: "route", label: "Pipelines" },
+  { to: "/settings/duties", icon: "briefcase", label: "Duties" },
   { to: "/settings/skills", icon: "sparkles", label: "Skills" },
   { to: "/settings/mcp-servers", icon: "plug", label: "MCP servers" },
   { to: "/settings/engines", icon: "cpu", label: "Engines" },

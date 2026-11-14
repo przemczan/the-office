@@ -33,7 +33,9 @@ import {
   taskStagesSchema,
   threadListSchema,
   decisionListSchema,
+  dutyListSchema,
   threadSchema,
+  type Duty,
   type Thread,
   type ClaudeCodeEngineEdit,
   type EngineSettings,
@@ -3945,6 +3947,106 @@ test(
       await page.request.put("/api/settings/size-threshold", {
         data: { sizeThreshold: threshold },
       });
+    }
+  },
+);
+
+/**
+ * Puts each duty back as `before` had it, in the records: a duty never set is unset again, which no
+ * screen or API can do, and a holder since let go can't be set again through the API.
+ */
+async function restoreDuties(page: Page, before: readonly Duty[]): Promise<void> {
+  const now = new Map((await dutiesNow(page)).map((duty) => [duty.key, duty]));
+  for (const { key, set, roleKey } of before) {
+    const changed = now.get(key);
+    if (changed?.set === set && changed.roleKey === roleKey) continue;
+    await queryOfficeDatabase("delete from duty_assignments where duty = $1", [key]);
+    if (set) {
+      await queryOfficeDatabase(
+        "insert into duty_assignments (duty, role_key, changed_at) values ($1, $2, now())",
+        [key, roleKey],
+      );
+    }
+  }
+}
+
+async function dutiesNow(page: Page): Promise<Duty[]> {
+  return dutyListSchema.parse(await (await page.request.get("/api/settings/duties")).json());
+}
+
+test(
+  "the user sets a duty's holder in Settings › Duties, sees it on the Role card and in People, and applies Marta's Proposal of duties",
+  { tag: "@full" },
+  async ({ page }) => {
+    const MCP_DUTY = "Default Consultant for MCP tool hard switches";
+    const before = await dutiesNow(page);
+    const { card } = roleSchema.parse(await (await page.request.get("/api/roles/planner")).json());
+    const planner = `${card.name} · ${card.title}`;
+    try {
+      await page.goto("/settings/duties");
+      await expect(page.getByRole("link", { name: "Duties" })).toBeVisible();
+      const picker = page.getByLabel(MCP_DUTY, { exact: true });
+      await picker.selectOption({ label: planner });
+      await expect(page.getByText(`${MCP_DUTY}: ${planner} holds it now.`)).toBeVisible();
+      await page.reload();
+      await expect(page.getByLabel(MCP_DUTY, { exact: true })).toHaveValue("planner");
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-duties.png") });
+
+      await page.goto("/people/planner/role");
+      await expect(roleCardGroup(page, "Identity")).toContainText(MCP_DUTY);
+      await page.goto("/people");
+      const tile = page.locator(".person-card").filter({ hasText: card.name });
+      const mark = tile.getByRole("img", { name: new RegExp(`duties?: .*${MCP_DUTY}`) });
+      await expect(mark).toBeVisible();
+      await mark.hover();
+      await expect(page.getByRole("tooltip")).toContainText(MCP_DUTY);
+      await page.mouse.move(0, 0);
+      // The mark's Tooltip trigger is the focus stop around it.
+      await mark.locator("xpath=..").focus();
+      await expect(page.getByRole("tooltip")).toContainText(MCP_DUTY);
+
+      await page.goto("/settings/duties");
+      await page.getByLabel(MCP_DUTY, { exact: true }).selectOption({ label: "Nobody" });
+      await expect(page.getByText(`${MCP_DUTY}: nobody holds it now.`)).toBeVisible();
+      const row = page.locator(".duty-row").filter({ hasText: MCP_DUTY });
+      await expect(row).toContainText("You do it yourself.");
+
+      const started = await page.request.post("/api/chats/office-manager/threads");
+      const { id: threadId } = threadSchema.parse(await started.json());
+      const askedFirst = before.find(({ key }) => key === "asked-first-when-out-of-tries");
+      await seedProposal(threadId, {
+        kind: "duties",
+        from: { "mcp-tool-consultant": null, "asked-first-when-out-of-tries": askedFirst?.roleKey },
+        to: { "mcp-tool-consultant": "planner", "asked-first-when-out-of-tries": "planner" },
+      });
+      // Drafted from a holder Plans no longer has, as if it changed after the draft.
+      await seedProposal(threadId, {
+        kind: "duties",
+        from: { plans: "a-role-gone-since" },
+        to: { plans: null },
+      });
+
+      await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+      const proposals = chatWith(page, "Marta").getByRole("region", {
+        name: "Proposal: Change duties",
+      });
+      const applied = proposals.filter({ hasText: MCP_DUTY });
+      await expect(applied.getByRole("listitem").first()).toContainText(`${planner}`);
+      await applied.getByRole("button", { name: "Apply change" }).click();
+      await expect(applied).toContainText("Applied");
+      const holders = new Map((await dutiesNow(page)).map(({ key, roleKey }) => [key, roleKey]));
+      expect(holders.get("mcp-tool-consultant")).toBe("planner");
+      expect(holders.get("asked-first-when-out-of-tries")).toBe("planner");
+
+      const stale = proposals.filter({ hasText: "Plans" }).filter({ hasNotText: MCP_DUTY });
+      await stale.getByRole("button", { name: "Apply change" }).click();
+      await expect(stale).toContainText("Plans was changed meanwhile");
+      const plansHolder = ({ key }: Duty): boolean => key === "plans";
+      expect((await dutiesNow(page)).find(plansHolder)?.roleKey).toBe(
+        before.find(plansHolder)?.roleKey,
+      );
+    } finally {
+      await restoreDuties(page, before);
     }
   },
 );

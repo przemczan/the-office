@@ -4,6 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import {
   changeToApply,
+  holdersNamedIn,
   type EditedHire,
   type Proposal,
   type ProposedChange,
@@ -63,6 +64,12 @@ export class ProposalService {
         return this.draft(sessionId, {
           kind: proposed.setting,
           from: await this.appliers.settingNow(proposed.setting),
+          to: proposed.value,
+        });
+      case "duties":
+        return this.draft(sessionId, {
+          kind: proposed.setting,
+          from: holdersNamedIn(await this.appliers.settingNow(proposed.setting), proposed.value),
           to: proposed.value,
         });
     }

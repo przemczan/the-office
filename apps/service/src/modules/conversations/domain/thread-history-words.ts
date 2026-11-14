@@ -165,6 +165,8 @@ function proposedWords(change: ProposedChange): string {
       return `set the size threshold to ${change.to}`;
     case "office-instructions":
       return "change the Office instructions";
+    case "duties":
+      return `change who holds ${Object.keys(change.to).join(", ")}`;
     case "initiative":
       return `change Initiative ${change.initiativeId}`;
     case "project-commands":

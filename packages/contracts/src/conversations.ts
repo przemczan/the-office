@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { openPageSchema } from "./open-page.js";
-import { roleCardSchema } from "./people.js";
+import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { stageChangeSchema, stageSchema } from "./stages.js";
@@ -394,6 +394,10 @@ export const projectPipelineFieldsSchema = z.object({
 });
 export type ProjectPipelineFields = z.infer<typeof projectPipelineFieldsSchema>;
 
+/** Duties by key, each to the key of the Role holding it, or null for none; only those named. */
+export const dutyHoldersSchema = z.partialRecord(dutyKeySchema, z.string().nullable());
+export type DutyHolders = z.infer<typeof dutyHoldersSchema>;
+
 /** What a Proposal changes, by kind; the module that owns each kind applies it. */
 export const proposedChangeSchema = z.discriminatedUnion("kind", [
   /** A new Role, hired from scratch on this card (with its skills) when the user applies it. */
@@ -421,6 +425,11 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("size-threshold"), from: z.number(), to: z.number() }),
   /** New Office instructions, whole, and the text when drafted; `to` empty would empty them. */
   z.object({ kind: z.literal("office-instructions"), from: z.string(), to: z.string() }),
+  /**
+   * New holders for some duties, each a hired Role's key or null for none, and their holders when
+   * drafted; both name only the duties that change. Applying changes them all or none.
+   */
+  z.object({ kind: z.literal("duties"), from: dutyHoldersSchema, to: dutyHoldersSchema }),
   /** A change the CTO wants to an active Initiative; Work applies it. */
   z.object({
     kind: z.literal("initiative"),

@@ -4,7 +4,9 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { officeInstructionsQuery } from "../../api/conversations.ts";
+import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { DEVOPS, dutyOf, PLANNER } from "../duty-words.fixtures.ts";
 import { ToastProvider } from "../toasts.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
 
@@ -321,5 +323,77 @@ describe("ProposalCard on the CTO's change of an Initiative's Pipeline", () => {
       expect(card.textContent).toContain("Initiative's PipelineFull with Linux check"),
     );
     expect(card.textContent).toContain("Projectthe-office");
+  });
+});
+
+describe("ProposalCard on a change of duties", () => {
+  const change: Proposal["change"] = {
+    kind: "duties",
+    from: { reviews: "planner", plans: "planner" },
+    to: { plans: "devops", reviews: null },
+  };
+
+  function readingQueries(): QueryClient {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+    queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER, DEVOPS]);
+    queryClient.setQueryData(dutyQueries.list().queryKey, [
+      dutyOf("plans", "Plans", "planner", PLANNER),
+      dutyOf("reviews", "Reviews", "planner", PLANNER),
+    ]);
+    return queryClient;
+  }
+
+  it("shows each duty's holder as it was and as proposed, in the duties' order", () => {
+    serviceAnswering(proposalOf(change));
+    const card = cardOf({ ...proposalOf(change), draftedBy: "office-manager" }, readingQueries());
+
+    expect(card.textContent).toContain("Change duties");
+    const rows = [...card.querySelectorAll(".proposal-changes li")].map(
+      ({ textContent }) => textContent,
+    );
+    expect(rows).toEqual([
+      "PlansAngela · PlannerDwight · Devops",
+      "ReviewsAngela · PlannerNobodyPipelines whose Stages name it are flagged, and Start is refused.",
+    ]);
+    expect(card.textContent).toContain("Refused if it changes before you apply this");
+  });
+
+  it("applies, refreshing the duties", async () => {
+    const fetched = serviceAnswering(proposalOf(change, { kind: "applied", at: AT }));
+    const queryClient = readingQueries();
+    const refreshed = vi.spyOn(queryClient, "invalidateQueries");
+    const card = cardOf(proposalOf(change), queryClient);
+
+    await act(async () => {
+      button(card, "Apply change").click();
+      await vi.waitFor(() => expect(refreshed).toHaveBeenCalledTimes(2));
+    });
+
+    expect(fetched).toHaveBeenCalledWith(
+      `/api/proposals/${PROPOSAL_ID}/apply`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: dutyQueries.list().queryKey });
+    expect(document.body.textContent).toContain("Duties changed.");
+  });
+
+  it("shows a refusal and stays open", async () => {
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve(
+        Response.json(
+          { message: "Plans was changed meanwhile, so this change no longer applies." },
+          { status: 409 },
+        ),
+      ),
+    );
+    const card = cardOf(proposalOf(change), readingQueries());
+
+    await act(async () => {
+      button(card, "Apply change").click();
+      await vi.waitFor(() => expect(card.textContent).toContain("can't be applied yet"));
+    });
+
+    expect(card.textContent).toContain("Plans was changed meanwhile");
+    expect(button(card, "Not now").disabled).toBe(false);
   });
 });

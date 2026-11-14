@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, Consultant, SessionRole, RoleService, PersonRecords, Duties, DutyWithHolder, DutyChangeChecks, DutyChangeCheck, DutyHolderSave, DUTIES, DutyHolding, DutyKey, DutyHolderChanged, EngineCascade, PipelineRoleCapabilityChecks, NewlyNamedRoles, PipelineRoleSources, PipelineRoleSource, PipelineRolesNamed, EngineCascadeLevel, EngineInCascade, ProjectCascadeLevels, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CARETAKER, CTO, DEVOPS, OFFICE_MANAGER, mcpToolSettingsFor, narrowedMcpToolSetting, McpToolSettings, narrowedPermissionProfile, permissionNarrowingProblems, PermissionNarrowing, RoleCard, RoleNotFound, RoleRefused, PeopleModule, EngineCascadeModule
+RoleCards, Consultant, SessionRole, RoleService, PersonRecords, Duties, DutyChange, DutyWithHolder, DutyRefused, DutyChangeChecks, DutyChangeCheck, DutyHolderSave, DUTIES, DutyHolding, DutyKey, DutyHolderChanged, EngineCascade, PipelineRoleCapabilityChecks, NewlyNamedRoles, PipelineRoleSources, PipelineRoleSource, PipelineRolesNamed, EngineCascadeLevel, EngineInCascade, ProjectCascadeLevels, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CARETAKER, CTO, DEVOPS, OFFICE_MANAGER, mcpToolSettingsFor, narrowedMcpToolSetting, McpToolSettings, narrowedPermissionProfile, permissionNarrowingProblems, PermissionNarrowing, RoleCard, RoleNotFound, RoleRefused, PeopleModule, EngineCascadeModule
 
 ## Domain events
 
@@ -50,7 +50,7 @@ RoleCards, Consultant, SessionRole, RoleService, PersonRecords, Duties, DutyWith
 ### ./
 
 - `engine-cascade.module.ts`: EngineCascadeModuleOptions, EngineCascadeModule
-- `index.fixtures.ts`: MCP_TOOL_DEFAULT_STAND_IN, EngineCascadeStandIn
+- `index.fixtures.ts`: MCP_TOOL_DEFAULT_STAND_IN, EngineCascadeStandIn, DutyRepository, DutyRepositoryForTests
 - `people.module.ts`: PeopleModule
 
 ### adapters/http/

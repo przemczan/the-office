@@ -79,6 +79,8 @@ export class ProposalAppliers {
         return this.applierOf("size-threshold").problemsWith(change);
       case "office-instructions":
         return this.applierOf("office-instructions").problemsWith(change);
+      case "duties":
+        return this.applierOf("duties").problemsWith(change);
       case "initiative":
         return this.applierOf("initiative").problemsWith(change);
       case "project-commands":
@@ -114,6 +116,8 @@ export class ProposalAppliers {
         return this.applierOf("size-threshold").apply(change, proposedBy);
       case "office-instructions":
         return this.applierOf("office-instructions").apply(change, proposedBy);
+      case "duties":
+        return this.applierOf("duties").apply(change, proposedBy);
       case "initiative":
         return this.applierOf("initiative").apply(change, proposedBy);
       case "project-commands":

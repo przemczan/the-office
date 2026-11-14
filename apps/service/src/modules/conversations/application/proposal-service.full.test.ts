@@ -2,7 +2,9 @@ import { OFFICE_INSTRUCTIONS_MAX_CHARACTERS } from "@the-office/contracts";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
+  CARETAKER,
   OFFICE_MANAGER,
+  Duties,
   EngineCascade,
   PeopleModule,
   RoleCards,
@@ -37,11 +39,16 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
+import {
+  DutyRepository,
+  DutyRepositoryForTests,
+  EngineCascadeStandIn,
+} from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
+import { DutyProposals } from "../adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "../adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-proposals.js";
 import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
@@ -124,6 +131,8 @@ let settings: ContextPolicySettingsService;
 
 let officeInstructions: OfficeInstructions;
 
+let duties: Duties;
+
 let officeWideLimit: OfficeWideLimitStandIn;
 
 /** A Role title of each test's own, so its Role key, which People makes from it, is too. */
@@ -200,6 +209,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       RoleProposals,
       SizeThresholdProposals,
       OfficeInstructionsProposals,
+      DutyProposals,
       ProposalOfficeTools,
       chatToolStandIns(),
       {
@@ -211,7 +221,11 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         },
       },
     ],
-    overrides: [{ provide: RoleCards, useValue: roleCards }],
+    // Every test file shares the stored duties, which decide who other files' sessions consult.
+    overrides: [
+      { provide: RoleCards, useValue: roleCards },
+      { provide: DutyRepository, useValue: new DutyRepositoryForTests() },
+    ],
     moduleOverrides: [{ module: EngineModule, useModule: scriptedEngine }],
   }));
   threads = app.get(ThreadService);
@@ -220,6 +234,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   roles = app.get(RoleService);
   settings = app.get(ContextPolicySettingsService);
   officeInstructions = app.get(OfficeInstructions);
+  duties = app.get(Duties);
 }
 
 /** Work's applier of the Office-wide limit, which Work registers as it starts (a module apart). */
@@ -725,5 +740,94 @@ describe("a Proposal of a change to a Role", () => {
     expect(declined.status).toMatchObject({ kind: "declined" });
     expect((await roles.read(roleKey)).role.cardVersion).toBe(1);
     await expect(proposals.apply(proposal.id)).rejects.toThrow("This Proposal was declined.");
+  });
+});
+
+/** The Office Manager proposes the duties' new holders, each `[duty, holder]`. */
+function proposesHolders(...holders: [string, string | null][]): SessionScript {
+  return calls(PROPOSE_OFFICE_SETTING_TOOL, {
+    setting: "duties",
+    duties: holders.map(([duty, holder]) => ({ duty, holder })),
+  });
+}
+
+async function holdersOf(...named: string[]): Promise<Record<string, string | null>> {
+  const now = await duties.list();
+  return Object.fromEntries(
+    now
+      .filter(({ duty }) => named.includes(duty))
+      .map((holding) => [holding.duty, holding.roleKey]),
+  );
+}
+
+describe("a Proposal of who holds the duties", () => {
+  it("is drafted from the holders now of the duties it names, changing nothing", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["reviews", null]));
+    await roles.hireFromScratch(aProposedCard({ title }), []);
+
+    const proposal = await theOnlyProposal("Let the tester plan.");
+
+    expect(toolResultRead().isError).toBe(false);
+    expect(proposal.change).toEqual({
+      kind: "duties",
+      from: { plans: "planner", reviews: "reviewer" },
+      to: { plans: roleKey, reviews: null },
+    });
+    expect(await holdersOf("plans", "reviews")).toEqual({ plans: "planner", reviews: "reviewer" });
+  });
+
+  it("sets every duty it names when the user applies it", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await roles.hireFromScratch(aProposedCard({ title }), []);
+    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+
+    const applied = await proposals.apply(proposal.id);
+
+    expect(applied.status).toMatchObject({ kind: "applied" });
+    expect(await holdersOf("plans", "shapes-initiatives")).toEqual({
+      plans: roleKey,
+      "shapes-initiatives": roleKey,
+    });
+  });
+
+  it("is refused once a duty it names changed since, and changes none of them", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await roles.hireFromScratch(aProposedCard({ title }), []);
+    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+    await duties.change("shapes-initiatives", null);
+
+    await expect(proposals.apply(proposal.id)).rejects.toThrow(
+      "Shapes Initiatives was changed meanwhile, so this change no longer applies.",
+    );
+
+    expect(await holdersOf("plans", "shapes-initiatives")).toEqual({
+      plans: "planner",
+      "shapes-initiatives": null,
+    });
+    expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
+  });
+
+  it("is not drafted for a Role nobody is hired as, and the Agent reads why", async () => {
+    await startWith(proposesHolders(["plans", roleKey]));
+
+    const { drafted } = await askOfficeManager("Let the tester plan.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: `Plans goes to a hired Role, and nobody is hired as "${roleKey}".`,
+      isError: true,
+    });
+  });
+
+  it("is not drafted for the Caretaker, and the Agent reads why", async () => {
+    await startWith(proposesHolders(["plans", CARETAKER]));
+
+    const { drafted } = await askOfficeManager("Let the Caretaker plan.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: "The Caretaker is built in and holds no duty, so not Plans.",
+      isError: true,
+    });
   });
 });

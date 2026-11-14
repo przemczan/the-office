@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { RoleCard } from "../../people/index.js";
+import type { DutyKey, RoleCard } from "../../people/index.js";
 import type { NewProject, ProposedCommands } from "../../projects/index.js";
 import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
@@ -15,6 +15,7 @@ export interface ProposedChanges {
   readonly "office-wide-limit": ProposedSettingChange<"office-wide-limit">;
   readonly "size-threshold": ProposedSettingChange<"size-threshold">;
   readonly "office-instructions": ProposedSettingChange<"office-instructions">;
+  readonly duties: ProposedSettingChange<"duties">;
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
   readonly pipeline: ProposedPipelineChange;
@@ -69,6 +70,21 @@ export interface OfficeSettingValues {
   readonly "office-wide-limit": number;
   readonly "size-threshold": number;
   readonly "office-instructions": string;
+  /**
+   * Duties by key, each to the key of the Role it names or null for none. A Proposal's `from` and
+   * `to` name only the duties that change; the value now names every duty.
+   */
+  readonly duties: DutyHolders;
+}
+
+/** Duties by key, each to the key of a Role or null for none; a duty left out is not named. */
+export type DutyHolders = Readonly<Partial<Record<DutyKey, string | null>>>;
+
+/** `holders` cut to the duties `named` names, as a Proposal of them starts from. */
+export function holdersNamedIn(holders: DutyHolders, named: DutyHolders): DutyHolders {
+  return Object.fromEntries(
+    Object.entries(holders).filter(([duty]) => Object.hasOwn(named, duty)),
+  ) as DutyHolders;
 }
 
 export type OfficeSetting = keyof OfficeSettingValues;
@@ -78,6 +94,7 @@ export const OFFICE_SETTINGS = [
   "office-wide-limit",
   "size-threshold",
   "office-instructions",
+  "duties",
 ] as const satisfies readonly OfficeSetting[];
 
 /** A new value for an Office setting (`to`), and its value when the Proposal was drafted (`from`). */
