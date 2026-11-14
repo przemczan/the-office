@@ -25,6 +25,9 @@ export interface Idea {
 /** What capturing an Idea takes; the rest is set by The Office. */
 export type NewIdea = Pick<Idea, "title" | "notes" | "projectId">;
 
+/** What editing an Idea changes: the same as capturing one takes. */
+export type IdeaEdit = NewIdea;
+
 export function trimmedNewIdea(idea: NewIdea): NewIdea {
   return { title: idea.title.trim(), notes: idea.notes.trim(), projectId: idea.projectId };
 }

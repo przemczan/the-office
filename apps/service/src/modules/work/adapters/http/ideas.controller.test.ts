@@ -88,3 +88,84 @@ describe("POST /api/ideas", () => {
     expect(work.published).toEqual([]);
   });
 });
+
+describe("PUT /api/ideas/:id", () => {
+  it("changes a new Idea's title, notes and Project, trimmed, and announces it", async () => {
+    const idea = await capture();
+    const projectId = aProjectId();
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/ideas/${idea.id}`, {
+      title: " Export usage as JSON ",
+      notes: " For the dashboard. ",
+      projectId,
+    });
+
+    expect(response.status).toBe(200);
+    const edited = ideaSchema.parse(await response.json());
+    expect(edited).toEqual({
+      ...idea,
+      title: "Export usage as JSON",
+      notes: "For the dashboard.",
+      projectId,
+    });
+    const read = ideaSchema.parse(await (await sendJson(work, "GET", `/ideas/${idea.id}`)).json());
+    expect(read).toEqual(edited);
+    expect(webEventsOf(work)).toEqual([{ type: "idea.edited", ideaId: idea.id }]);
+  });
+
+  it("announces nothing when nothing changes", async () => {
+    const idea = await capture({ projectId: null });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/ideas/${idea.id}`, {
+      title: idea.title,
+      notes: idea.notes,
+      projectId: null,
+    });
+
+    expect(response.status).toBe(200);
+    expect(work.published).toEqual([]);
+  });
+
+  it("refuses a shaped Idea, a blank title or a Project that isn't there, saving nothing", async () => {
+    const shaped = await capture();
+    await sendJson(work, "POST", `/ideas/${shaped.id}/shape`, { projectId: aProjectId() });
+    const idea = await capture();
+    work.published.length = 0;
+
+    const shapedEdit = await sendJson(work, "PUT", `/ideas/${shaped.id}`, {
+      title: "Export usage as JSON",
+      notes: "",
+      projectId: null,
+    });
+    const blank = await sendJson(work, "PUT", `/ideas/${idea.id}`, {
+      title: " ",
+      notes: "",
+      projectId: UNKNOWN_PROJECT,
+    });
+
+    expect(shapedEdit.status).toBe(422);
+    expect(workRefusalSchema.parse(await shapedEdit.json()).reasons).toEqual([
+      "A shaped Idea can't be edited; edit what it was shaped into.",
+    ]);
+    expect(blank.status).toBe(422);
+    expect(workRefusalSchema.parse(await blank.json()).reasons).toEqual([
+      "Give the Idea a title.",
+      `There is no Project "${UNKNOWN_PROJECT}".`,
+    ]);
+    const read = ideaSchema.parse(await (await sendJson(work, "GET", `/ideas/${idea.id}`)).json());
+    expect(read).toEqual(idea);
+    expect(work.published).toEqual([]);
+  });
+
+  it("answers 404 for an Idea that isn't there", async () => {
+    const response = await sendJson(work, "PUT", `/ideas/${randomUUID()}`, {
+      title: "Export usage as JSON",
+      notes: "",
+      projectId: null,
+    });
+
+    expect(response.status).toBe(404);
+  });
+});

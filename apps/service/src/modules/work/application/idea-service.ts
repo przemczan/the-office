@@ -4,10 +4,11 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
 import type { Author } from "../domain/author.js";
-import { newIdeaProblems, type Idea, type NewIdea } from "../domain/idea.js";
+import { newIdeaProblems, type Idea, type IdeaEdit, type NewIdea } from "../domain/idea.js";
 import {
   captureIdea,
   dropIdea,
+  editIdea,
   restoreIdea,
   shapeIdeaIntoTask,
   type IdeaChange,
@@ -40,6 +41,14 @@ export class IdeaService {
     await this.repository.add(idea);
     await this.events.publish(event);
     return idea;
+  }
+
+  /** Refuses with every reason, before saving, when the edit breaks a rule or the Idea is shaped. */
+  async edit(id: string, given: IdeaEdit): Promise<Idea> {
+    if (given.projectId !== undefined && !(await this.projects.find(given.projectId))) {
+      throw new IdeaRefused([...newIdeaProblems(given), unknownProject(given.projectId)]);
+    }
+    return this.update(id, (idea) => editIdea(idea, given, new Date()));
   }
 
   async list(): Promise<readonly Idea[]> {

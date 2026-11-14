@@ -16,7 +16,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 
 - `domain/attachment-events.ts`: AttachmentAdded, AttachmentReplaced, AttachmentMoved, AttachmentRemoved
 - `domain/fire-alarm-events.ts`: AlarmSounded, AllClearGiven
-- `domain/idea-events.ts`: IdeaCaptured, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
+- `domain/idea-events.ts`: IdeaCaptured, IdeaEdited, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
 - `domain/initiative-events.ts`: InitiativeCreated, InitiativeStateChanged, InitiativeArchived, InitiativeRestored, InitiativeOutcomeWritten, InitiativePipelineChosen, InitiativeShortNameWritten, InitiativeBranchMade, InitiativePaused, InitiativeResumed, InitiativePlanningStarted
 - `domain/office-limit-events.ts`: OfficeWideLimitChanged, ArchivePeriodChanged, UsageSettingsChanged
 - `domain/queue-events.ts`: TaskQueued, TaskLeftQueue, TaskQueueReasonsChanged, TaskMovedUpInQueue
@@ -42,6 +42,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `POST /ideas`: IdeasController.capture
 - `GET /ideas`: IdeasController.list
 - `GET /ideas/:id`: IdeasController.read
+- `PUT /ideas/:id`: IdeasController.edit
 - `POST /ideas/:id/shape`: IdeasController.shape
 - `POST /ideas/:id/initiative`: IdeasController.shapeIntoInitiative
 - `POST /ideas/:id/plan`: IdeasController.shapeAndPlan
@@ -261,11 +262,11 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `files-to-change.ts`: normalizedFilesToChange, filesToChangeProblems, covers
 - `fire-alarm-events.ts`: AlarmSounded, AllClearGiven
 - `fire-alarm.ts`: FireAlarm, FIRE_ALARM_OFF, FIRE_ALARM_ON, hardStopAt
-- `idea-changes.ts`: IdeaChange, captureIdea, Shaping, shapeIdeaIntoTask, ShapingIntoInitiative, shapeIdeaIntoInitiative, dropIdea, restoreIdea, attachingToIdeaProblems
-- `idea-events.ts`: IdeaCaptured, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
+- `idea-changes.ts`: IdeaChange, captureIdea, editIdea, Shaping, shapeIdeaIntoTask, ShapingIntoInitiative, shapeIdeaIntoInitiative, dropIdea, restoreIdea, attachingToIdeaProblems
+- `idea-events.ts`: IdeaCaptured, IdeaEdited, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
 - `idea-not-found.ts`: IdeaNotFound
 - `idea-refused.ts`: IdeaRefused
-- `idea.ts`: IdeaState, Idea, NewIdea, trimmedNewIdea, newIdeaProblems
+- `idea.ts`: IdeaState, Idea, NewIdea, IdeaEdit, trimmedNewIdea, newIdeaProblems
 - `initiative-archive.ts`: ARCHIVE_PAGE_SIZE, ArchiveStateFilter, ArchiveSearch, ArchivedInitiative, ArchivePage, isInitiativeArchived, isEndedOnTheBoard, archiveInitiative, restoreInitiative, initiativeArchivePeriodStart, archiveInitiativeIfDue
 - `initiative-changes.ts`: InitiativeChange, InitiativeTasksChange, ConfirmBranching, NewInitiative, createInitiative, confirmInitiative, projectsWithPipeline, chooseInitiativePipeline, writeShortName, addBranch, dropInitiative, dropLeftOpenTasks, finishInitiative, InitiativeSettling, settleInitiative, InitiativeTaskAdded, blockingItsPublishingTask, addTaskToInitiative, InitiativeChangeRoute, writeOutcome, addCtoTask, requireCtoTaskAllowed, addDependencyOfItsTask, removeDependencyOfItsTask, changeTitleOfItsTask, changeDescriptionOfItsTask, tasksByInitiative
 - `initiative-edit.ts`: InitiativeEdit, newTaskOf, sameTitleWords, sameDescriptionWords, initiativeEditProblems, PipelineEditNames

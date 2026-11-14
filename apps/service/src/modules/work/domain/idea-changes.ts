@@ -1,9 +1,10 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Author } from "./author.js";
-import { newIdeaProblems, trimmedNewIdea, type Idea, type NewIdea } from "./idea.js";
+import { newIdeaProblems, trimmedNewIdea, type Idea, type IdeaEdit, type NewIdea } from "./idea.js";
 import {
   IdeaCaptured,
   IdeaDropped,
+  IdeaEdited,
   IdeaRestored,
   IdeaShaped,
   IdeaShapedIntoInitiative,
@@ -43,6 +44,29 @@ export function captureIdea(
   };
   return { idea, event: new IdeaCaptured(idea) };
 }
+
+/**
+ * Changes the Idea's title, notes and Project until it is shaped: its Task or Initiative took them
+ * then. Undefined when nothing changes; refuses with every reason.
+ */
+export function editIdea(
+  idea: Idea,
+  given: IdeaEdit,
+  at: Date,
+): IdeaChange<IdeaEdited> | undefined {
+  const edit = trimmedNewIdea(given);
+  const problems = [
+    ...(idea.state === "shaped" ? [SHAPED_IDEA_NOT_EDITABLE] : []),
+    ...newIdeaProblems(edit),
+  ];
+  if (problems.length > 0) throw new IdeaRefused(problems);
+  if (edit.title === idea.title && edit.notes === idea.notes && edit.projectId === idea.projectId) {
+    return undefined;
+  }
+  return { idea: { ...idea, ...edit }, event: new IdeaEdited(idea.id, at) };
+}
+
+const SHAPED_IDEA_NOT_EDITABLE = "A shaped Idea can't be edited; edit what it was shaped into.";
 
 /** A shaped Idea and the Task it became, each with its event. */
 export interface Shaping {
