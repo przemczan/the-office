@@ -398,6 +398,13 @@
       .look-box .session-row {
         border-top: 0;
       }
+      /* Under 520px, as a chat drawer's or a page conversation's row is, so the narrow words show. */
+      .look:not(.look-wide) .look-box {
+        max-width: 500px;
+      }
+      .look.look-phone .look-box {
+        max-width: 390px;
+      }
       .look-wide {
         grid-column: 1 / -1;
         max-width: 760px;
@@ -1610,8 +1617,8 @@
       <h2 class="section-title">The reading, in each of its looks</h2>
       <p class="section-lede">
         Proposed, at the right end of the row above the message input, as a row under 520px draws it (a chat drawer's,
-        a page's conversation); under 400px, on a phone, the extra words after "·" go. The last one is at a wide row's
-        width (520px and up), where the words grow.
+        a page's conversation); under 400px, on a phone, the extra words after "·" go and "Writing a Handover note" becomes
+        "Handing over". The last one is at a wide row's width (520px and up), where the words grow.
         Hover or focus a reading for its Tooltip.
       </p>
       <div class="looks" id="looks"></div>
@@ -1756,7 +1763,8 @@
         const { window, stageThread } = thread();
         const s = state.state;
         if (state.place === "stage" && state.run === "ended") return { kind: "hidden" };
-        if (s === "none") return { kind: "none" };
+        // A Stage's run starts its session at once: nothing is read until the model's first answer.
+        if (s === "none") return { kind: "none", stageThread };
         if (s === "unreported") return { kind: "unreported" };
         if (s === "small") return { kind: "tokens", tokens: at(SHARES.small) + 1234, window, stageThread };
         if (s === "large") return { kind: "tokens", tokens: at(SHARES.large), window, stageThread };
@@ -1773,13 +1781,19 @@
       function isNear({ tokens, window, stageThread }) {
         return tokens / window >= (stageThread ? HAND_OVER_AT_SHARE : NEAR_SHARE);
       }
+      /* Only a live reading is past the mark: at the turn's end it becomes "Writing a Handover note". */
+      function isPastMark({ tokens, window, stageThread }) {
+        return !stageThread && tokens / window >= HAND_OVER_AT_SHARE;
+      }
 
       function readingTip(r) {
         const { person, engine } = thread();
         const markAt = tokensShort(Math.round(r.window * HAND_OVER_AT_SHARE));
         switch (r.kind) {
           case "none":
-            return `No session yet: it starts with your first message, with a Brief of about 3k tokens. The size shows once ${person.name} has answered.`;
+            return r.stageThread
+              ? `${person.name}'s session started with the run, from its Brief of about 6k tokens. Its size shows after the model's first answer.`
+              : `No session yet: it starts with your first message, with a Brief of about 3k tokens. The size shows as soon as ${person.name} starts answering.`;
           case "unreported":
             return `${engine} doesn't report how full ${person.name}'s session is, so the size can't show here, and The Office can't start a fresh session before the context fills.`;
           case "handover":
@@ -1795,7 +1809,9 @@
               : "";
             const mark = r.stageThread
               ? " A Stage's session isn't started fresh mid-run, so there is no mark: the engine handles a full context its own way."
-              : ` At ${markAt} (80%), The Office asks ${person.name} for a Handover note and the next message starts a fresh session.`;
+              : isPastMark(r)
+                ? ` Past ${markAt} (80%): when this turn ends, The Office asks ${person.name} for a Handover note and the next message starts a fresh session.`
+                : ` At ${markAt} (80%), The Office asks ${person.name} for a Handover note and the next message starts a fresh session.`;
             return first + fresh + mark;
           }
         }
@@ -1814,18 +1830,21 @@
         const open = (css, label) =>
           `<span class="reading ${css}" tabindex="0" role="img" aria-label="${esc(label)}" data-tip="${tip}">`;
         switch (r.kind) {
-          case "none":
-            return `${open("quiet", "Context: no session yet")}<span>No session yet</span>${meter({ window: 1 }, { empty: true })}</span>`;
+          case "none": {
+            const words = r.stageThread ? "Not read yet" : "No session yet";
+            return `${open("quiet", `Context: ${words.toLowerCase()}`)}<span>${words}</span>${meter({ window: 1, stageThread: r.stageThread }, { empty: true })}</span>`;
+          }
           case "unreported":
             return `${open("quiet", "Context size not reported")}${icon("help", 13)}<span><span class="narrow-hide">Context size not reported</span><span class="narrow-only">Size not reported</span></span></span>`;
           case "handover":
-            return `${open("near", `Writing a Handover note at ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`)}<span>Writing a Handover note<span class="narrow-hide"> · <strong>${tokensShort(r.tokens)}</strong></span></span>${meter(r)}</span>`;
+            return `${open("near", `Writing a Handover note at ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`)}<span><span class="narrow-hide">Writing a Handover note · <strong>${tokensShort(r.tokens)}</strong></span><span class="narrow-only">Handing over</span></span>${meter(r)}</span>`;
           case "fresh-next":
             return `${open("quiet", `Fresh session next, the last one was ${tokensShort(r.was)}`)}${icon("fresh", 12)}<span>Fresh session next<span class="narrow-hide"> · was ${tokensShort(r.was)}</span></span>${meter({ window: r.window, stageThread: r.stageThread }, { empty: true })}</span>`;
           default: {
             const near = isNear(r);
             const markAt = tokensShort(Math.round(r.window * HAND_OVER_AT_SHARE));
-            const extra = near && !r.stageThread ? `<span class="wide-words"> · starts fresh at ${markAt}</span>` : "";
+            const extraWords = isPastMark(r) ? "Handover note at this turn's end" : `starts fresh at ${markAt}`;
+            const extra = near && !r.stageThread ? `<span class="wide-words"> · ${extraWords}</span>` : "";
             const label = `Context: ${tokensShort(r.tokens)} of ${tokensShort(r.window)}`;
             return `${open(near ? "near" : "", label)}<span><strong class="figure ${figureClass}">${tokensShort(r.tokens)}</strong> of ${tokensShort(r.window)}<span class="wide-words"> context</span>${extra}</span>${meter(r)}</span>`;
           }
@@ -1910,10 +1929,31 @@
         `<div class="msg"><span class="avatar ${who.css}">${who.initials}</span><div><div class="msg-head"><strong>${esc(who.name)}</strong><span>${time}</span></div><p class="msg-text">${text}</p>${extra}</div></div>`;
       const officeLine = (iconName, text) => `<div class="office-line">${icon(iconName, 13)}<span>${text}</span></div>`;
       const typing = '<span class="typing" aria-label="Answering"><i></i><i></i><i></i></span>';
+      /* Each place's hand-off: its Handover note, and the first exchange in the fresh session. */
+      const HAND_OVER_STORIES = {
+        drawer: {
+          note: "Where I am: the release notes are an Idea, grouped by surface. What is left: Stanley words them. What to watch: the Task card icons changed the board's tests.",
+          ask: "Add the board's Saved views fix too.",
+          answer: "Added to the Idea, under the Work board.",
+        },
+        task: {
+          note: "Where I am: a hit shows its Stage's name under its title, in the caption type. What is left: the controller's tests. What to watch: a Stage Thread's messages are indexed masked, as stored.",
+          ask: "Show how many hits there are, beside the query.",
+          answer: "Added: “12 hits” beside the query, in the caption type.",
+        },
+        initiative: {
+          note: "Where I am: Conflict resolution screen waits for Sync queue; the sync settings stay with the Project. What is left: Angela plans both Tasks. What to watch: Offline badge is already done.",
+          ask: "Add a Task for the offline banner's wording.",
+          answer: "Added <b>Offline banner wording</b> to Backlog, for Stanley.",
+        },
+      };
 
       function log() {
         const { person } = thread();
         const you = PEOPLE.you;
+        if (state.state === "none" && thread().stageThread) {
+          return `<div class="log">${officeLine("layers", "Implement started · Fresh · as the Stage declares · brief ~6k")}${msg(person, "14:21", "Reading the Plan.", typing)}</div>`;
+        }
         if (state.state === "none") {
           return `<div class="log"><div class="empty-thread">${
             state.place === "drawer" ? "A new Thread with Pam. Write to start it." : `No Thread with ${person.name} yet. Your first message opens it.`
@@ -1946,7 +1986,7 @@
         const answer = {
           drawer: "Captured: <b>Release notes for 0.9</b>, Office-wide, for Stanley.",
           task: "Moved it under the title, in the caption type. The hit's Thread and time stay on the right.",
-          initiative: "Left out: the sync settings stay with the Project for now. The graph has five Tasks.",
+          initiative: "Left out: the sync settings stay with the Project for now. The graph has three Tasks.",
           stage: "The controller answers GET /threads/search with the hits and their Stage names.",
         }[state.place];
 
@@ -1959,15 +1999,16 @@
           } else {
             lines.push(msg(person, "14:06", answer));
             lines.push(officeLine("note", `Context at ${tokensShort(at(SHARES.handover))} of ${tokensShort(thread().window)}: The Office asked ${person.name} for a Handover note.`));
+            const story = HAND_OVER_STORIES[state.place];
             if (state.step === 1) {
               lines.push(msg(person, "14:07", "Writing the Handover note.", typing));
             } else {
-              lines.push(`<div class="handover-card"><strong>${icon("note", 13)}${person.name}'s Handover note</strong>Where I am: the release notes are an Idea, grouped by surface. What is left: Stanley words them. What to watch: the Task card icons changed the board's tests.</div>`);
+              lines.push(`<div class="handover-card"><strong>${icon("note", 13)}${person.name}'s Handover note</strong>${story.note}</div>`);
             }
             if (state.step === 3) {
               lines.push(officeLine("fresh", "Fresh · context full, Handover note written · brief ~3k"));
-              lines.push(msg(you, "14:12", "Add the board's Saved views fix too."));
-              lines.push(msg(person, "14:12", "Added to the Idea, under the Work board."));
+              lines.push(msg(you, "14:12", story.ask));
+              lines.push(msg(person, "14:12", story.answer));
             }
           }
         } else {
@@ -2181,10 +2222,13 @@
           ${segments("Mark what changes", "marks", MARKS, state.marks)}`;
       }
 
+      /* "13k of 200k (6%)", in the place's own window. */
+      const figures = (tokens) =>
+        `${tokensShort(tokens)} of ${tokensShort(thread().window)} (${Math.round((tokens / thread().window) * 100)}%)`;
       const STATE_NOTES = {
         none: "A Thread with no session yet: nothing has been read. The Context bar already says what the first message starts (\"Starts a session with a Brief ~3k tokens\"), so the reading says only \"No session yet\", over an empty meter, and keeps its place.",
-        small: "A small context: 13k of a 200k window (6%). Grey, as nothing is near.",
-        large: "A large one: 118k of 200k (59%). Still grey: the hand-off is a while off.",
+        small: () => `A small context: ${figures(at(SHARES.small) + 1234)}. Grey, as nothing is near.`,
+        large: () => `A large one: ${figures(at(SHARES.large))}. Still grey: the hand-off is a while off.`,
         near: "Near the fresh start: from 70% the reading turns amber, and on a wide row says where it starts fresh. The mark on the meter is the 80% where The Office asks for a Handover note.",
         fresh: "Past 80% at a turn's end, The Office asks for a Handover note, the session ends, and the next message starts fresh with a Brief: the size drops. Step through it, or replay it.",
         running: "While a turn runs, the reading moves as the person works (read after each of the model's answers in the turn), not only at the turn's end. Today the size in the Context bar waits for the turn to end.",
@@ -2212,34 +2256,39 @@
             .join("")}<button type="button" class="pill" data-action="replay">Replay</button></span>`;
         }
         if (state.state === "running") actions = '<span class="note-actions"><button type="button" class="pill" data-action="replay">Replay the turn</button></span>';
-        const stageNote =
-          state.place === "stage" && state.state === "fresh"
-            ? " A Stage Thread is never handed over mid-run (stage-threads.ts sets handingOver false), so here it reads past 80% in amber, with no mark."
-            : "";
-        document.getElementById("note").innerHTML = `<span>${VIEW_NOTES[state.view]} <strong>${label}.</strong> ${STATE_NOTES[state.state]}${stageNote} ${PLACE_NOTES[state.place]}</span>${actions}`;
+        const STAGE_NOTES = {
+          none: " A Stage's run starts its session at once, from its Brief, so here the reading says \"Not read yet\" until the model's first answer.",
+          fresh: " A Stage Thread is never handed over mid-run (stage-threads.ts sets handingOver false), so here it reads past 80% in amber, with no mark.",
+        };
+        const stageNote = state.place === "stage" ? (STAGE_NOTES[state.state] ?? "") : "";
+        const note = STATE_NOTES[state.state];
+        document.getElementById("note").innerHTML = `<span>${VIEW_NOTES[state.view]} <strong>${label}.</strong> ${typeof note === "function" ? note() : note}${stageNote} ${PLACE_NOTES[state.place]}</span>${actions}`;
       }
 
       /* ---------- The looks under the frame ---------- */
       function renderLooks() {
         const keep = state.place;
         const looks = [];
-        const add = (label, r, wide = false) => looks.push({ label, r, wide });
+        const add = (label, r, size = "") => looks.push({ label, r, size });
         state.place = "drawer";
         add("<b>No session yet</b>: nothing read; the Context bar says the Brief", { kind: "none" });
         add("<b>Small</b>: grey", { kind: "tokens", tokens: 13234, window: 200000 });
         add("<b>Large</b>: still grey under 70%", { kind: "tokens", tokens: 118000, window: 200000 });
         add("<b>Near the fresh start</b>: amber from 70%", { kind: "tokens", tokens: 152000, window: 200000 });
+        add("<b>Past 80%, live</b>: the note waits for the turn's end", { kind: "tokens", tokens: 163000, window: 200000, live: true });
         add("<b>Writing a Handover note</b>: past 80% at the turn's end", { kind: "handover", tokens: 171000, window: 200000 });
         add("<b>Fresh session next</b>: the session ended with its note", { kind: "fresh-next", was: 171000, window: 200000 });
         add("<b>After a fresh start</b>: the size dropped", { kind: "tokens", tokens: 9312, window: 200000, afterFresh: 171000 });
         add("<b>A 1M window</b>: the same rule, in hundreds of k", { kind: "tokens", tokens: 312000, window: 1000000 });
         add("<b>A Stage's Thread</b>: no 80% mark, amber from 80%", { kind: "tokens", tokens: 172000, window: 200000, stageThread: true });
+        add("<b>A Stage's run, just started</b>: its session not read yet", { kind: "none", stageThread: true });
         add("<b>Engine can't report</b>: no meter, the reason in the Tooltip", { kind: "unreported" });
-        add("<b>Near, on a wide row</b> (520px and up): the words grow", { kind: "tokens", tokens: 152000, window: 200000 }, true);
+        add("<b>Writing a Handover note, on a phone</b> (under 400px): shorter words", { kind: "handover", tokens: 171000, window: 200000 }, "phone");
+        add("<b>Near, on a wide row</b> (520px and up): the words grow", { kind: "tokens", tokens: 152000, window: 200000 }, "wide");
         document.getElementById("looks").innerHTML = looks
           .map(
-            ({ label, r, wide }) =>
-              `<div class="look${wide ? " look-wide" : ""}"><span class="look-label">${label}</span><div class="look-box"><div class="session-row"><span class="reading-slot">${readingHtml(r)}</span></div></div></div>`,
+            ({ label, r, size }) =>
+              `<div class="look${size ? ` look-${size}` : ""}"><span class="look-label">${label}</span><div class="look-box"><div class="session-row"><span class="reading-slot">${readingHtml(r)}</span></div></div></div>`,
           )
           .join("");
         state.place = keep;
@@ -2251,7 +2300,7 @@
           <div>
             <h2>What it proposes</h2>
             <ol>
-              <li><b>The reading</b>: the session's current context size against its model's window, as "41k of 200k" with a small meter, in the caption type, the figure in the strong weight. On a row 520px wide or more it says "41k of 200k context"; under 400px, on a phone, a state's extra words after "·" go (the Tooltip keeps them), so the Sub-agents and processes line keeps its room. The meter is 44 × 4px, its fill grey; a 2px mark stands at 80%, where The Office asks for a Handover note (<code>handOverAtShare</code>).</li>
+              <li><b>The reading</b>: the session's current context size against its model's window, as "41k of 200k" with a small meter, in the caption type, the figure in the strong weight. On a row 520px wide or more it says "41k of 200k context"; under 400px, on a phone, a state's extra words after "·" go and "Writing a Handover note" becomes "Handing over" (the Tooltip keeps them whole), so the Sub-agents and processes line keeps its room; there the line's words may take a second line beside the reading, which never wraps. The meter is 44 × 4px, its fill grey; a 2px mark stands at 80%, where The Office asks for a Handover note (<code>handOverAtShare</code>).</li>
               <li><b>Its colour</b>: grey under 70% of the window; <b>amber from 70%</b>, adding "· starts fresh at 160k" where the row is wide. No red: a fresh start is the Context policy working, not a failure. A Stage's Thread has no mark and turns amber from 80%.</li>
               <li><b>Where: the row right above the message input</b>, in every Thread that takes a message: a chat Thread in the chat drawer, a person's tab of the Task page's conversation, an Initiative's conversation, and a running run's Thread tab in the Stage history. The reading keeps the row's <b>right end at its own width</b>; the Sub-agents and processes line (adopted) fills the rest from the left. So the line coming or going never moves the reading, and the reading's words changing never move the line; a hairline divides them. With no line, the reading sits alone at the right.</li>
               <li><b>Where not</b>: a Thread that takes no message (a Done Task's, an ended Initiative's, a run that ended): nothing more goes into its session. An <b>ended run's Thread tab</b> shows no reading: the reading belongs to the Thread's current session, which a later run may have moved on, and the run's Summary already has its tokens.</li>
@@ -2269,10 +2318,12 @@
               <thead><tr><th>State</th><th>The reading</th><th>The Context bar</th></tr></thead>
               <tbody>
                 <tr><td>No session yet</td><td>"No session yet", an empty dashed meter</td><td>"Starts a session with a Brief ~3k tokens", as today</td></tr>
+                <tr><td>A Stage's run, just started</td><td>"Not read yet", an empty dashed meter with no mark, until the model's first answer</td><td>none: the Stage history has no Context bar</td></tr>
                 <tr><td>Small</td><td>"13k of 200k", grey</td><td>"Continues · cache warm, 52 min left"</td></tr>
                 <tr><td>Large</td><td>"118k of 200k", grey</td><td>"Continues · cache warm, 38 min left"</td></tr>
                 <tr><td>Near the fresh start</td><td>"152k of 200k", amber; wide: "· starts fresh at 160k"</td><td>"Continues · cache warm, 44 min left"</td></tr>
-                <tr><td>Past 80%, at the turn's end</td><td>"Writing a Handover note · 171k", amber</td><td>no choice while the note is written</td></tr>
+                <tr><td>Past 80%, while the turn runs</td><td>"163k of 200k", amber, past the mark; wide: "· Handover note at this turn's end"</td><td>unchanged until the turn ends</td></tr>
+                <tr><td>Past 80%, at the turn's end</td><td>"Writing a Handover note · 171k", amber; on a phone "Handing over"</td><td>no choice while the note is written</td></tr>
                 <tr><td>Handed over</td><td>"Fresh session next · was 171k", an empty meter</td><td>"Fresh · context full, Handover note written · brief ~3k", as today</td></tr>
                 <tr><td>Started fresh</td><td>"9.3k of 200k", the Tooltip naming the last session's 171k</td><td>"Continues · cache warm, 59 min left"</td></tr>
                 <tr><td>A turn running</td><td>moves live: 118k, 120k … 131k</td><td>unchanged until the turn ends</td></tr>
@@ -2299,7 +2350,7 @@
             <h3>New data</h3>
             <ul>
               <li><b>The context window, kept with the session</b>: <code>ThreadSession.contextWindow</code> beside <code>contextTokens</code>, from <code>readContextUsage().window</code> at each turn's end (<code>thread-runner.ts</code> <code>turnEnded</code>, <code>stage-threads.ts</code>), a nullable column and its migration; null before the first reading.</li>
-              <li><b>Sent with the Thread</b>: <code>ThreadContext.contextWindow: number | null</code> in <code>packages/contracts/src/conversations.ts</code>. The reading's states come from what is there already: no session (<code>reason</code> new-thread or another-person), a reading (<code>contextWindow</code> set), not reported (a session, <code>contextWindow</code> null and <code>contextTokens</code> 0). A session read before this change has tokens but no window until its next turn: it shows "41k context" with no meter, never "not reported".</li>
+              <li><b>Sent with the Thread</b>: <code>ThreadContext.contextWindow: number | null</code> in <code>packages/contracts/src/conversations.ts</code>. And <code>ThreadContext.contextReported: boolean</code>, from the session's engine having the <code>contextUsage</code> capability. The reading's states come from these: no session (<code>reason</code> new-thread or another-person); a reading (<code>contextWindow</code> set); not read yet (a session whose engine reports, nothing read: a Stage's run or a first turn before the model's first answer); not reported (<code>contextReported</code> false). A session with nothing read and an engine that can't report look alike without the flag, so it can't be left out. A session read before this change has tokens but no window until its next turn: it shows "41k context" with no meter, never "not reported".</li>
               <li><b>The live reading</b>: a session event <code>context-read</code> (<code>{ tokens, window }</code>) on the Engine's port, from each of the model's answers within a turn: Claude Code's assistant message <code>usage</code> (input, cache read and cache creation tokens, as <code>readContextUsage</code> counts them), the API engine's per-request prompt tokens (its estimate when the server counts none). Conversations keeps it on the session and sends a web event <b><code>thread.context-read</code></b> with <code>{ contextTokens, contextWindow }</code>, at most one every two seconds, as <code>thread.tokens-counted</code> is. <code>readContextUsage()</code> at the turn's end stays the reading the Context policy decides on, and <code>thread.turn-ended</code> re-reads the Thread as today.</li>
               <li><b>An engine that can't report</b>: the runners read the context only with the <code>contextUsage</code> capability (today <code>readContextUsage</code> would throw <code>CapabilityMissing</code> at the turn's end) and leave <code>contextWindow</code> null.</li>
             </ul>
