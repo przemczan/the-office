@@ -3974,6 +3974,10 @@ async function dutiesNow(page: Page): Promise<Duty[]> {
   return dutyListSchema.parse(await (await page.request.get("/api/settings/duties")).json());
 }
 
+function isPlans({ key }: Duty): boolean {
+  return key === "plans";
+}
+
 test(
   "the user sets a duty's holder in Settings › Duties, sees it on the Role card and in People, and applies Marta's Proposal of duties",
   { tag: "@full" },
@@ -4041,10 +4045,7 @@ test(
       const stale = proposals.filter({ hasText: "Plans" }).filter({ hasNotText: MCP_DUTY });
       await stale.getByRole("button", { name: "Apply change" }).click();
       await expect(stale).toContainText("Plans was changed meanwhile");
-      const plansHolder = ({ key }: Duty): boolean => key === "plans";
-      expect((await dutiesNow(page)).find(plansHolder)?.roleKey).toBe(
-        before.find(plansHolder)?.roleKey,
-      );
+      expect((await dutiesNow(page)).find(isPlans)?.roleKey).toBe(before.find(isPlans)?.roleKey);
     } finally {
       await restoreDuties(page, before);
     }

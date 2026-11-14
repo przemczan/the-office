@@ -326,22 +326,22 @@ describe("ProposalCard on the CTO's change of an Initiative's Pipeline", () => {
   });
 });
 
+function readingQueries(): QueryClient {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER, DEVOPS]);
+  queryClient.setQueryData(dutyQueries.list().queryKey, [
+    dutyOf("plans", "Plans", "planner", PLANNER),
+    dutyOf("reviews", "Reviews", "planner", PLANNER),
+  ]);
+  return queryClient;
+}
+
 describe("ProposalCard on a change of duties", () => {
   const change: Proposal["change"] = {
     kind: "duties",
     from: { reviews: "planner", plans: "planner" },
     to: { plans: "devops", reviews: null },
   };
-
-  function readingQueries(): QueryClient {
-    const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
-    queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER, DEVOPS]);
-    queryClient.setQueryData(dutyQueries.list().queryKey, [
-      dutyOf("plans", "Plans", "planner", PLANNER),
-      dutyOf("reviews", "Reviews", "planner", PLANNER),
-    ]);
-    return queryClient;
-  }
 
   it("shows each duty's holder as it was and as proposed, in the duties' order", () => {
     serviceAnswering(proposalOf(change));
