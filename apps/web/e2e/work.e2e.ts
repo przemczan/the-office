@@ -1646,13 +1646,18 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   const draftStages = choosing.getByRole("list", { name: "Stages" });
   await expect(draftStages.getByRole("listitem")).toHaveCount(3);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline.png") });
-  // The edit is checked against the chosen Pipeline as it goes: nobody fills Developer here.
+  // The edit is checked against the chosen Pipeline as it goes, before the Task follows it.
+  const checked = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request.url().endsWith("/stages/check") &&
+      request.postDataJSON()?.stages?.length === 2,
+  );
   await draftStages.getByRole("button", { name: "Remove Tests" }).click();
   await expect(draftStages.getByRole("listitem")).toHaveCount(2);
-  await expect(choosing.getByText("nobody fills Developer")).toBeVisible();
-  await expect(choosing.getByRole("button", { name: "Save for this Task" })).toBeDisabled();
+  expect((await checked).postDataJSON()).toMatchObject({ pipelineId: "quick-fix" });
   await draftStages.getByRole("button", { name: "Remove Implement" }).click();
-  await expect(choosing.getByText("nobody fills Developer")).toHaveCount(0);
+  await expect(draftStages.getByRole("listitem")).toHaveCount(1);
   await choosing.getByRole("button", { name: "Save for this Task" }).click();
   await expect(page.getByText("Export keeps the filters follows Quick fix.")).toBeVisible();
   const quickFixRail = page.getByRole("region", { name: /^Pipeline · Quick fix/ });
