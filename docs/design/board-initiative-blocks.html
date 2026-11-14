@@ -1,0 +1,1878 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Initiative blocks in the columns · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, as task-card-icons.html copies them) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-inverse: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-full: 999px;
+        --radius-badge: var(--radius-sm);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+
+        /* packages/ui/src/appearance/densities/comfortable.css */
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+        color-scheme: light;
+        /* Proposed: the Initiative block's fill and edge, a step darker than the column, a step below the cards */
+        --block-fill: color-mix(in oklab, var(--gray-800) 4.5%, var(--gray-50));
+        --block-border: var(--gray-150);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+        color-scheme: dark;
+        --block-fill: #171716;
+        --block-border: #2e2e2b;
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      :is(button, a, input, select, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: badge, button, icon button, avatar, tooltip, toast ---------- */
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 4px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-badge);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.sm {
+        height: 18px;
+        padding: 0 5px;
+        font-size: var(--text-2xs);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: none;
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .icon-button.bordered {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-2);
+      }
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        color: var(--white);
+        font: 600 8px/1 var(--font-sans);
+      }
+      /* shell/project-mark.tsx: the Project's letters on its colour */
+      .project-mark {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        background: var(--mark-bg);
+        color: var(--white);
+        font: 700 8px/1 var(--font-sans);
+        letter-spacing: 0.02em;
+      }
+      .tooltip {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 70;
+        width: max-content;
+        max-width: min(300px, calc(100vw - 16px));
+        padding: 5px 8px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-inverse);
+        box-shadow: var(--shadow-2);
+        font: 500 12px/1.35 var(--font-sans);
+        color: var(--fg-inverse);
+        pointer-events: none;
+      }
+      .live-dot {
+        position: relative;
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--info);
+      }
+      .live-dot::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: inherit;
+        animation: pulse-dot 1.6s var(--ease-out) infinite;
+      }
+      @keyframes pulse-dot {
+        from {
+          opacity: 0.6;
+          transform: scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: scale(2.6);
+        }
+      }
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        z-index: 80;
+        max-width: min(560px, calc(100vw - 32px));
+        padding: 10px 14px;
+        border-radius: var(--radius-lg);
+        background: var(--surface-inverse);
+        box-shadow: var(--shadow-3);
+        font: 500 13px/1.45 var(--font-sans);
+        color: var(--fg-inverse);
+        opacity: 0;
+        transform: translate(-50%, 12px);
+        transition:
+          opacity var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+        pointer-events: none;
+      }
+      .toast.on {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: #181817;
+        color: #e6e6e2;
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: #fff;
+        font: var(--type-overline);
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: #b1b1ab;
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid #50504c;
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: #d1d1cc;
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid #50504c;
+      }
+      .segments button[aria-pressed="true"] {
+        background: #f4f4f2;
+        color: #181817;
+      }
+      .segments .star {
+        margin-left: 4px;
+        color: var(--ember-500);
+      }
+      .stage {
+        display: grid;
+        gap: 12px;
+        padding: 16px 24px 48px;
+      }
+      .scenario-note {
+        max-width: 120ch;
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .address {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .address code {
+        font: 500 var(--text-xs) / 1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(700px, calc(100vh - 230px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(700px, min(844px, calc(100vh - 230px)));
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 18px 28px;
+        max-width: 1400px;
+        margin-top: 12px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p,
+      .reference ul {
+        margin: 0 0 6px;
+      }
+      .reference ul {
+        padding-left: 18px;
+      }
+      .reference li + li {
+        margin-top: 3px;
+      }
+      .reference strong {
+        color: var(--fg-1);
+      }
+      .reference code {
+        font: 500 12px/1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+      .reference .wide {
+        grid-column: 1 / -1;
+      }
+      .recommended {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .why {
+        color: var(--fg-2);
+      }
+      .why::before {
+        content: "Why: ";
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+
+      /* ---------- The app's frame: rail, top bar ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail-item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 0 2px 2px 0;
+        background: var(--accent);
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .frame.w-390 .top {
+        padding: 0 12px;
+      }
+      .top h1 {
+        margin: 0;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      /* The shell's Project filter, drawn as a select so the mock can narrow by it */
+      .project-filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 4px 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-2);
+      }
+      .project-filter.on {
+        border-color: var(--accent);
+        color: var(--accent-subtle-fg);
+      }
+      .project-filter select {
+        height: 100%;
+        border: 0;
+        background: none;
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        color: var(--fg-1);
+        cursor: pointer;
+      }
+      .main {
+        position: relative;
+        min-width: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      /* ---------- Work (apps/web/src/surfaces/work/work.css, re-drawn) ---------- */
+      .work-page {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-panel);
+        min-width: 0;
+        padding: var(--pad-page);
+      }
+      .frame.w-390 .work-page {
+        padding: 16px 12px;
+      }
+      .tabs {
+        display: flex;
+        gap: 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        margin-bottom: -1px;
+        padding: 8px 0;
+        border-bottom: 2px solid transparent;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .tab.on {
+        border-color: var(--accent);
+        color: var(--fg-1);
+      }
+      .board-filters {
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .board-filters-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+      }
+      .search {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: 8px;
+        min-width: 180px;
+        max-width: 420px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-3);
+      }
+      .search input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: none;
+        font: var(--type-caption);
+        color: var(--fg-1);
+      }
+      .search:focus-within {
+        border-color: var(--accent);
+      }
+      .chips {
+        display: inline-flex;
+        gap: 6px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: var(--type-caption);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .chip:hover {
+        border-color: var(--border-strong);
+        color: var(--fg-1);
+      }
+      .chip[aria-pressed="true"] {
+        border-color: var(--border-strong);
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+      .select {
+        height: var(--control-sm);
+        max-width: 220px;
+        padding: 0 6px 0 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-1);
+        cursor: pointer;
+      }
+      .select.on {
+        border-color: var(--accent);
+      }
+      .board-layout {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        padding-left: 12px;
+        border-left: 1px solid var(--border);
+      }
+      .frame.w-390 .board-layout {
+        flex-basis: 100%;
+        margin-left: 0;
+        padding: 6px 0 0;
+        border-top: 1px solid var(--border);
+        border-left: 0;
+      }
+      .switch-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        color: var(--fg-1);
+        cursor: pointer;
+      }
+      .switch {
+        position: relative;
+        width: 28px;
+        height: 16px;
+        border-radius: var(--radius-full);
+        background: var(--border-strong);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+      .other-projects {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin: -8px 0 0;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .other-projects button {
+        padding: 0;
+        border: 0;
+        background: none;
+        font: 500 var(--text-xs) / 1.4 var(--font-sans);
+        color: var(--accent-subtle-fg);
+        cursor: pointer;
+      }
+      .board-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .board-note svg {
+        flex: none;
+        margin-top: 1px;
+      }
+
+      /* The board: six columns in one row, scrolling sideways when they don't fit (as adopted) */
+      .board-scroll {
+        position: relative;
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(220px, 1fr));
+        gap: var(--gap-card);
+        align-items: start;
+      }
+      .board-column {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        background: var(--surface-sunken);
+      }
+      .board-column h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 2px 2px 0;
+        font: 600 13px/1 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .board-count {
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+      .board-hint {
+        padding: 0 2px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .board-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 48px;
+      }
+      .board-empty {
+        padding: 16px 8px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        text-align: center;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* The card: the adopted Foot row (board-card.tsx, docs/design/task-card-icons.html) */
+      .board-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--edge, var(--border));
+        border-radius: 8px;
+        background: var(--surface);
+        transition: opacity var(--duration-fast) var(--ease-out);
+      }
+      .board-card.edge-running,
+      .board-card.edge-done {
+        --edge: var(--success);
+      }
+      .board-card.edge-decision,
+      .board-card.edge-paused {
+        --edge: var(--warning);
+      }
+      .board-card.edge-failed {
+        --edge: var(--danger);
+      }
+      .board-card[draggable="true"] {
+        cursor: grab;
+      }
+      .board-card.dragging {
+        opacity: 0.4;
+      }
+      .board-card.drop-before {
+        box-shadow: 0 -3px 0 0 var(--accent);
+      }
+      .board-card.drop-after {
+        box-shadow: 0 3px 0 0 var(--accent);
+      }
+      .board-card:has(.board-card-title:hover) {
+        border-color: var(--border-strong);
+      }
+      .board-card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .board-card-title {
+        flex: 1;
+        min-width: 0;
+        font: 500 13px/1.35 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .board-card-title:hover {
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+      }
+      .board-card-title::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+      }
+      .board-card :is(button, a:not(.board-card-title), .mk) {
+        position: relative;
+        z-index: 1;
+      }
+      .mk {
+        position: relative;
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: 22px;
+        min-width: 22px;
+        padding: 0 4px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        font: 600 11px/1 var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .mk svg {
+        flex: none;
+      }
+      .mk.t-quiet:hover {
+        color: var(--fg-1);
+      }
+      .mk.t-warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .mk.press {
+        padding: 0 6px 0 5px;
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-2);
+      }
+      .mk.press.t-info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .mk.prio {
+        min-width: 16px;
+        height: 18px;
+        padding: 0;
+        border: 0;
+      }
+      .mk.prio-high {
+        color: var(--danger-fg);
+      }
+      .mk.project {
+        min-width: 0;
+        margin-right: 2px;
+        padding: 0;
+        border: 0;
+      }
+      .mk.working {
+        gap: 5px;
+        padding: 0 0 0 2px;
+        border: 0;
+      }
+      .mk.working .avatars {
+        display: inline-flex;
+      }
+      .mk.working .avatars > * + * {
+        margin-left: -6px;
+        box-shadow: 0 0 0 2px var(--surface);
+      }
+      .card-marks {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+      }
+      .card-marks > :is(.mk.working, .icon-button) {
+        margin-left: auto;
+      }
+
+      /* ---------- Initiative blocks (proposed) ---------- */
+      /* One Initiative's cards in a column: a frame a step darker than the column, its head the
+         Initiative's name. Not a heading and not a region: the column stays the region and its h3
+         the only heading, so the column's role and name read as today. */
+      .ib {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+        padding: 6px;
+        border: 1px solid var(--block-border);
+        border-radius: var(--radius-card);
+        background: var(--block-fill);
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          outline-color var(--duration-fast) var(--ease-out),
+          opacity var(--duration-fast) var(--ease-out);
+        outline: 1px solid transparent;
+      }
+      .ib-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        min-width: 0;
+        padding: 1px 4px 0 5px;
+      }
+      .ib-name {
+        display: inline-flex;
+        flex: 0 1 auto;
+        align-items: flex-start;
+        gap: 5px;
+        min-width: 0;
+        border-radius: var(--radius-sm);
+        font: 600 12px/1.35 var(--font-sans);
+        color: var(--fg-2);
+        overflow-wrap: anywhere;
+      }
+      .ib-name svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--fg-3);
+      }
+      .ib-name:hover {
+        color: var(--fg-1);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+      }
+      .ib-head .badge {
+        margin-top: -1px;
+      }
+      .ib-count {
+        flex: none;
+        margin-left: auto;
+        padding-top: 2px;
+        font: var(--type-overline);
+        font-variant-numeric: tabular-nums;
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .ib-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      /* Its Initiative's blocks in every column, while one block's head is hovered or focused */
+      .ib.lit {
+        border-color: var(--fg-3);
+        outline-color: var(--fg-3);
+      }
+      .ib.lit .ib-name {
+        color: var(--fg-1);
+      }
+      /* The alternative weighed: a hue per Initiative, from the palette's tokens */
+      .ib.hued {
+        border-top: 3px solid var(--ib-hue);
+      }
+      .ib.hued .ib-name svg {
+        color: var(--ib-hue);
+      }
+      /* While a card is dragged: where it can land is outlined, the rest of its column steps back */
+      .ib.drop-ok {
+        border-color: var(--accent);
+        outline-color: var(--accent);
+      }
+      .board-column.zone-block .board-cards > :not(.drop-ok),
+      .board-column.zone-loose .board-cards > .ib {
+        opacity: 0.45;
+      }
+
+      /* At 390px the columns keep 220px and the board scrolls sideways, as adopted. */
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar"></div>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <p class="address" id="address"></p>
+      <div class="frame-row"><div class="frame" id="frame"></div></div>
+      <section class="reference" aria-label="What it proposes">
+        <div class="wide recommended">
+          <h2>Recommended: Proposed, each Initiative gathered into one block per column</h2>
+          <p>With <strong>Group by Initiative off</strong>, each column gathers its cards of one Initiative into <strong>one block</strong>, headed by the Initiative's name (a link to its page), how many of its cards the column holds and its Paused badge when it is paused. The block sits <strong>where its first card falls</strong> in the column's order; inside it, the cards keep that order. Tasks with no Initiative stay <strong>loose</strong>, each at its own place. The card is the adopted Foot row card, unchanged. The blocks are always there with the switch off, don't fold and carry no colour; they step aside while the Initiative filter is set.</p>
+          <p>Switch <strong>Layout</strong> to compare with Today and with <strong>Adjacent runs</strong>, the alternative for the order; <strong>Block mark</strong> shows the hue that was weighed, and <strong>Drop elsewhere</strong> what a drop over another block would do if it were placed rather than refused.</p>
+        </div>
+        <div>
+          <h2>1. The order</h2>
+          <p><strong>Gathered:</strong> all of an Initiative's cards in a column make one block, placed where its first card would be; inside it, the column's order (priority, then manual order). A loose card keeps its own place between the blocks.</p>
+          <p class="why">One block per Initiative per column is what “wrapped in a block” asks for: each Initiative reads once in a column, and the top of a column still holds its first card by priority. The cost: a card further down joins its block higher up, so between blocks the order holds by their first cards only, and a block moves when its first card changes (a drag to the end of its block, a new priority). <strong>Adjacent runs</strong> keeps the exact order, but one Initiative can show as two or three blocks in a column (Backlog, Planning and Queued here), and blocks split and merge as cards move. A fixed order of blocks (newest Initiative first, as the grouped view) was weighed too: steady under a drag and level across columns, but a High priority card with no Initiative would sink under every block, and lining Initiatives up across columns is what Group by Initiative is for.</p>
+        </div>
+        <div>
+          <h2>Queued and Done</h2>
+          <p><strong>Queued</strong> gathers by the same rule over the queue's order: a block sits at its first card's place, its cards by place. As the adopted card shows no place, the block's head in Queued shows its cards' places, <strong>“#1 · #3”</strong>, where other columns show a count, so the queue's order still reads across blocks.</p>
+          <p><strong>Done</strong> gathers over its own order: a block sits where its card that ended last falls, its cards the one that ended last on top.</p>
+          <p class="why">Each column keeps the one rule, applied to its own order, so there is nothing new to learn per column; Queued alone needs the places said, because gathering moves a card away from its neighbours in the queue and the card can't tell it.</p>
+        </div>
+        <div>
+          <h2>2. Tasks with no Initiative</h2>
+          <p><strong>Loose cards</strong>, outside any block, each at its own place in the column's order. No “No Initiative” block.</p>
+          <p class="why">A block says “these belong together”, and Tasks with no Initiative don't. On a board with few Initiatives, a No Initiative block would wrap most cards in every column, a frame that says nothing. The grouped view needs a No Initiative group because there every card must sit in a row; here the column already holds them.</p>
+        </div>
+        <div>
+          <h2>3. A block of one, and the Initiative filter</h2>
+          <p><strong>A block of one card is still a block</strong> (Backlog and Queued have several).</p>
+          <p class="why">The frame is how a card says it belongs to an Initiative: a lone card without one would read as a Task with no Initiative.</p>
+          <p><strong>With the Initiative filter set, no blocks:</strong> the columns are flat, as today.</p>
+          <p class="why">Every card is then that Initiative's, and the filter's select names it: six frames with the same name, one per column, would add a level and say nothing.</p>
+        </div>
+        <div>
+          <h2>4. Drag and drop</h2>
+          <ul>
+            <li><strong>A card drags within its column, inside its own block</strong>; a loose card among the loose cards, landing before the next loose card under the pointer, between blocks too. While it is dragged, its block is outlined and the rest of the column steps back.</li>
+            <li><strong>Dropped among another priority inside its block, it takes that priority</strong>, as today. If it was the block's first card, the block then moves to where its new first card falls.</li>
+            <li><strong>A drop over another Initiative's block is refused</strong>, with the grouped view's toast in this design's word: “A card moves only within its own block: the board doesn't change a Task's Initiative.” A loose card dropped on a block: “A card with no Initiative moves only among the cards outside the blocks: …”.</li>
+          </ul>
+          <p class="why">Placed instead, the card would take its place among another Initiative's cards in the order and then show back in its own block: the drop seems to do nothing, or moves the card's block, and can change its priority unseen. Try <strong>Drop elsewhere: Placed</strong>.</p>
+        </div>
+        <div>
+          <h2>5. Folding, and when blocks show</h2>
+          <p><strong>Blocks don't fold</strong>, and they are <strong>always on with the switch off</strong>: no switch of their own.</p>
+          <p class="why">A block is a part of one column: a fold per block would be up to six folds per Initiative, each hiding two or three cards. Folding a whole Initiative is the grouped view's, and showing one Initiative alone the Initiative filter's. A second switch beside Group by Initiative would be two near-identical layouts to tell apart; the user asked for the board to read this way.</p>
+        </div>
+        <div>
+          <h2>6. Telling blocks apart</h2>
+          <p><strong>No colour.</strong> The head's name, the frame and its fill tell a block from the next one and from loose cards. To follow one Initiative across columns, <strong>hovering or focusing a block's head outlines its Initiative's blocks in every column</strong> (scenario One Initiative across).</p>
+          <p class="why">Initiatives have no colour (it would be new data, or a hue picked from the id that means nothing), and the palettes' hues are taken: teal and violet are Projects' marks, amber, blue, green and red are states. A card already carries two colours, its state's edge and its Project's mark; a third on its block reads as one more of those. Switch <strong>Block mark</strong> to Hue to see the clash.</p>
+        </div>
+        <div>
+          <h2>The block's head</h2>
+          <ul>
+            <li>The <strong>flag</strong> (the icon the app uses for an Initiative, in mentions and on a Task's page) and the <strong>name</strong>, a link to the Initiative's page, wrapping however long it is.</li>
+            <li>The <strong>Paused</strong> badge (<code>InitiativePausedBadge</code>, small) while the Initiative is paused.</li>
+            <li>At the end, <strong>how many of its cards the column shows</strong>, with the filters; in Queued their places. Its tooltip says it in words.</li>
+          </ul>
+          <p>No state badge, Projects or progress: those are the grouped view's header, read once per Initiative; repeated in every column they would outweigh the cards.</p>
+        </div>
+        <div>
+          <h2>About the mock</h2>
+          <p>Its data follows <code>Task</code>, <code>QueuedTask</code> and <code>Initiative</code> in <code>packages/contracts</code>: four Initiatives across the-office, not-astray and notnullsoft, one with a long name, Tasks with no Initiative, and cards in every column. The search matches titles only, standing in for the service's. Dragging works within a column, as the board's: a card that has not started, Backlog to Ready. Opening a Task or an Initiative, a mark's popover, Plan, the Task menu and Group by Initiative show a toast. It uses the Geist fonts only where they are installed, and makes no network requests.</p>
+        </div>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script>
+      /* ---------- Icons (lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        "chevrons-up": '<path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/>',
+        minus: '<path d="M5 12h14"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        hand:
+          '<path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+        pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+        "circle-x": '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+        map:
+          '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+        layers:
+          '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+        "grip-vertical":
+          '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+        home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+        kanban: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>',
+        users:
+          '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folder:
+          '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+      const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+      const listWords = (items) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
+
+      /* ---------- Mock data: `Task`, `QueuedTask` and `Initiative` as packages/contracts/src/work.ts has them, in brief ---------- */
+      const PROJECTS = {
+        "the-office": { name: "the-office", label: "TO", colour: "var(--ember-500)" },
+        "not-astray": { name: "not-astray", label: "NA", colour: "var(--teal-500)" },
+        notnullsoft: { name: "notnullsoft", label: "NN", colour: "var(--violet-500)" },
+      };
+      /** For display only: who works on a Task now (GET /people-working). */
+      const PEOPLE = {
+        jim: { name: "Jim", initials: "Ji", colour: "var(--blue-500)" },
+        oscar: { name: "Oscar", initials: "Os", colour: "var(--teal-500)" },
+        stanley: { name: "Stanley", initials: "St", colour: "var(--violet-500)" },
+        angela: { name: "Angela", initials: "An", colour: "var(--amber-700)" },
+        kevin: { name: "Kevin", initials: "Ke", colour: "var(--gray-600)" },
+      };
+      const PLANNER = "Angela";
+      const WAITS = {
+        limit: { reason: "Jim is at the Task limit (1).", short: "Jim's Task limit reached (1)" },
+        cap: { reason: "Claude Code's Daily cap of 10,000 tokens would be passed. It resets at midnight.", short: "Daily cap (10,000 tokens) · resets at midnight" },
+      };
+      const ESTIMATES = {
+        e1: "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.",
+        e2: "Expected: 80k tokens · 4% of the 5-hour window, from the Planner's estimate.",
+        none: "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
+      };
+      /** GET /initiatives, newest first. `hue` is only for the Block mark alternative: Initiatives have no colour. */
+      const BASE_INITIATIVES = [
+        { id: "offline", name: "Offline sync for the field app", hue: "var(--teal-500)", pausedAt: null },
+        { id: "board", name: "Board by Initiative", hue: "var(--violet-500)", pausedAt: null },
+        { id: "billing", name: "Billing export", hue: "var(--amber-500)", pausedAt: null },
+        { id: "linux", name: "Run environments on Linux for every Project's checks", hue: "var(--blue-500)", pausedAt: null },
+      ];
+      const task = (id, fields) => ({
+        id,
+        project: "the-office",
+        priority: "normal",
+        blockedBy: [],
+        working: [],
+        stage: null,
+        waiting: false,
+        queued: null,
+        estimate: null,
+        initiative: null,
+        endedAt: null,
+        ...fields,
+      });
+      /** GET /tasks, each priority in its manual order. The board sorts by priority, then this order. */
+      const BASE_TASKS = [
+        task("b5", { title: "Linux runner image cache", state: "backlog", priority: "high", initiative: "linux" }),
+        task("b1", { title: "Toast covers the status strip", state: "backlog" }),
+        task("b4", { title: "Export to CSV with the filters applied", project: "notnullsoft", state: "backlog", initiative: "billing" }),
+        task("b6", { title: "Sync failure banner", project: "not-astray", state: "backlog", initiative: "offline" }),
+        task("b2", { title: "Remember folded groups in this browser", state: "backlog", priority: "low", blockedBy: ["p2"], initiative: "board" }),
+        task("b3", { title: "Offline banner copy", project: "notnullsoft", state: "backlog", priority: "low", initiative: "offline" }),
+
+        task("p2", { title: "Build group by Initiative on the Work board", state: "planning", priority: "high", waiting: true, blockedBy: ["i1"], initiative: "board" }),
+        task("p4", { title: "Invoice numbering per year", project: "notnullsoft", state: "planning", priority: "high", initiative: "billing" }),
+        task("p1", { title: "Landing page copy", project: "notnullsoft", state: "planning", working: ["angela"] }),
+        task("p5", { title: "Board columns read the blocks", state: "planning", initiative: "board" }),
+        task("p3", { title: "Release notes from Handover notes", state: "planning", autoMode: true, working: ["angela"] }),
+
+        task("r3", { title: "Keep pending changes in IndexedDB", project: "not-astray", state: "ready", priority: "high", estimate: "none", initiative: "offline" }),
+        task("r1", { title: "Upgrade TanStack Router", state: "ready", estimate: "e1" }),
+        task("r4", { title: "Tax rates per country", project: "notnullsoft", state: "ready", estimate: "e2", initiative: "billing" }),
+        task("r2", { title: "Cache map tiles", project: "not-astray", state: "ready", estimate: "e2", blockedBy: ["i4", "r3"], initiative: "offline" }),
+
+        task("q1", { title: "Retry queue with backoff", project: "not-astray", state: "ready", estimate: "e2", queued: { place: 1, waits: ["limit"], behind: [] }, initiative: "offline" }),
+        task("q3", { title: "Runner image for not-astray", project: "not-astray", state: "ready", estimate: "e1", queued: { place: 2, waits: ["cap"], behind: [] }, initiative: "linux" }),
+        task("q2", { title: "Sync status in the header", project: "not-astray", state: "ready", estimate: "e1", queued: { place: 3, waits: [], behind: ["i5"] }, initiative: "offline" }),
+        task("q4", { title: "Monthly invoice PDF", project: "notnullsoft", state: "ready", estimate: "e2", queued: { place: 4, waits: ["cap"], behind: [] }, initiative: "billing" }),
+
+        task("i1", { title: "Design the Work board's group by Initiative view", state: "in-progress", priority: "high", working: ["stanley"], stage: "Create a design", initiative: "board" }),
+        task("i4", { title: "Crash on an empty route list", project: "not-astray", state: "paused", priority: "high", pausedBy: "usage-window", resumesAt: "14:00" }),
+        task("i3", { title: "Rules for settling conflicts", project: "notnullsoft", state: "waiting-on-you", priority: "high", initiative: "offline" }),
+        task("i2", { title: "Devcontainer for not-astray", project: "not-astray", state: "in-progress", working: ["jim", "oscar"], stage: "Implement", initiative: "linux" }),
+        task("i5", { title: "Sync endpoint", project: "notnullsoft", state: "waiting-on-you", initiative: "offline" }),
+        task("i6", { title: "Move attachments to the new store", state: "paused", pausedBy: "alarm", waiting: true }),
+        task("i7", { title: "Stripe webhooks", project: "notnullsoft", state: "in-progress", working: ["kevin"], stage: "Tests", initiative: "billing" }),
+
+        task("d1", { title: "CPU limit: an Automatic option", state: "done", endedAt: 10 }),
+        task("d2", { title: "Spike: CRDT libraries", project: "notnullsoft", state: "dropped", priority: "low", endedAt: 9, initiative: "offline" }),
+        task("d4", { title: "Group head shows progress", state: "done", endedAt: 8, initiative: "board" }),
+        task("d5", { title: "Schema for pending changes", project: "not-astray", state: "done", endedAt: 7, initiative: "offline" }),
+        task("d3", { title: "Dark palette contrast", state: "done", priority: "low", endedAt: 6 }),
+      ];
+      let TASKS = [];
+      let INITIATIVES = [];
+      const findTask = (id) => TASKS.find((t) => t.id === id);
+      const initiativeOf = (id) => INITIATIVES.find((i) => i.id === id);
+
+      /* ---------- The board's rules (board-columns.ts, board-filters.ts, work-words.ts) ---------- */
+      const PRIORITY_RANK = { high: 0, normal: 1, low: 2 };
+      const PRIORITY_NAMES = { high: "High", normal: "Normal", low: "Low" };
+      const EDGES = { "in-progress": "edge-running", "waiting-on-you": "edge-decision", paused: "edge-paused", done: "edge-done", dropped: "edge-failed" };
+      const COLUMNS = [
+        { key: "backlog", label: "Backlog", holds: (t) => t.state === "backlog", hint: "Not planned yet" },
+        { key: "planning", label: "Planning", holds: (t) => t.state === "planning", hint: `Plan and Definition of Done with ${PLANNER}` },
+        { key: "ready", label: "Ready", holds: (t) => t.state === "ready" && !t.queued, hint: "Starting is your call" },
+        { key: "queued", label: "Queued", holds: (t) => !!t.queued, order: (a, b) => a.queued.place - b.queued.place, hint: "They start by themselves when their turn comes" },
+        { key: "in-progress", label: "In progress", holds: (t) => ["in-progress", "waiting-on-you", "paused"].includes(t.state), hint: "Agents work its Pipeline" },
+        { key: "done", label: "Done", holds: (t) => ["done", "dropped"].includes(t.state), order: (a, b) => b.endedAt - a.endedAt, hint: "Done and dropped" },
+      ];
+      /** The service's order: priority, then manual order. */
+      const boardOrder = (tasks) =>
+        tasks
+          .map((t, index) => ({ t, index }))
+          .sort((a, b) => PRIORITY_RANK[a.t.priority] - PRIORITY_RANK[b.t.priority] || a.index - b.index)
+          .map(({ t }) => t);
+      const cardsIn = (column, tasks) => {
+        const cards = boardOrder(tasks).filter(column.holds);
+        return column.order ? cards.toSorted(column.order) : cards;
+      };
+      const blockersOf = (t) => t.blockedBy.map(findTask).filter((b) => b && !["done", "dropped"].includes(b.state));
+      const isMovable = (t) => ["backlog", "planning", "ready"].includes(t.state) && !t.queued;
+
+      /* ---------- The proposal: a column's cards into blocks (the build's pure function, columnBlocks) ---------- */
+      /** Gathered: one block per Initiative, where its first card falls; loose cards in their place. */
+      function gathered(cards) {
+        const items = [];
+        const blocks = new Map();
+        for (const t of cards) {
+          if (!t.initiative) {
+            items.push({ kind: "loose", task: t });
+            continue;
+          }
+          let block = blocks.get(t.initiative);
+          if (!block) {
+            block = { kind: "block", initiative: t.initiative, cards: [] };
+            blocks.set(t.initiative, block);
+            items.push(block);
+          }
+          block.cards.push(t);
+        }
+        return items;
+      }
+      /** The alternative: only cards next to each other share a block, so the order stays exact. */
+      function adjacentRuns(cards) {
+        const items = [];
+        for (const t of cards) {
+          const last = items.at(-1);
+          if (!t.initiative) items.push({ kind: "loose", task: t });
+          else if (last?.kind === "block" && last.initiative === t.initiative) last.cards.push(t);
+          else items.push({ kind: "block", initiative: t.initiative, cards: [t] });
+        }
+        return items;
+      }
+      /** Blocks show with the switch off, unless the Initiative filter already shows one Initiative. */
+      const blocksShown = () => state.layout !== "today" && !filters.initiative;
+      function columnItems(cards) {
+        if (!blocksShown()) return cards.map((t) => ({ kind: "loose", task: t }));
+        return state.layout === "runs" ? adjacentRuns(cards) : gathered(cards);
+      }
+
+      /* ---------- The card: the adopted Foot row (board-card.tsx, card-marks.ts) ---------- */
+      const pausedWords = (t) =>
+        t.pausedBy === "alarm" ? "Paused by the alarm" : t.pausedBy === "usage-window" ? `Usage window used up · resumes ${t.resumesAt}` : "Paused";
+      const planningWords = (t) => `Planning with ${PLANNER}${t.autoMode ? ", in auto mode" : ""}`;
+      const workingWords = (t) => `Working now: ${t.working.map((key) => PEOPLE[key].name).join(", ")}${t.stage ? ` · ${t.stage}` : ""}`;
+      const shortReasons = (t) =>
+        [...new Set([...t.queued.waits.map((key) => WAITS[key].short), ...t.queued.behind.map((id) => `Behind "${findTask(id).title}"`)])].join(" · ");
+      function marksOf(t) {
+        const marks = [];
+        const blockers = blockersOf(t);
+        if (t.state === "waiting-on-you" || t.waiting) marks.push({ key: "waiting", icon: "hand", tone: "warning", words: "Waiting on you" });
+        if (t.state === "paused") marks.push({ key: "paused", icon: "pause", tone: "warning", words: pausedWords(t) });
+        if (t.state === "dropped") marks.push({ key: "dropped", icon: "circle-x", tone: "quiet", words: "Dropped" });
+        if (blockers.length)
+          marks.push({ key: "blocked", icon: "lock", tone: "neutral", press: true, count: String(blockers.length), words: `Blocked by ${plural(blockers.length, "Task", "Tasks")}`, hint: "press for them" });
+        if (t.queued) marks.push({ key: "queued", icon: "clock", tone: "info", press: true, words: "Queued", hint: shortReasons(t) || "press for why" });
+        if (t.state === "planning" && !t.waiting) marks.push({ key: "planning", icon: "map", tone: "quiet", words: planningWords(t) });
+        if (t.estimate) marks.push({ key: "estimate", icon: "gauge", tone: "quiet", words: ESTIMATES[t.estimate] });
+        return marks;
+      }
+      function markEl(t, m) {
+        const count = m.count ? `<span>${esc(m.count)}</span>` : "";
+        if (m.press)
+          return `<button type="button" class="mk t-${m.tone} press" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(m.words)}" data-tip="${esc(`${m.words}: ${m.hint}`)}" data-pop="${t.id}" draggable="false">${icon(m.icon, 13)}${count}</button>`;
+        return `<span class="mk t-${m.tone}" tabindex="0" role="img" aria-label="${esc(m.words)}" data-tip="${esc(m.words)}" data-open="${t.id}">${icon(m.icon, 13)}</span>`;
+      }
+      function projectEl(t) {
+        const p = PROJECTS[t.project];
+        return `<span class="mk project" tabindex="0" role="img" aria-label="Project: ${esc(p.name)}" data-tip="${esc(p.name)}" data-open="${t.id}"><span class="project-mark" style="--mark-bg:${p.colour}">${p.label}</span></span>`;
+      }
+      function priorityEl(t) {
+        if (t.priority === "normal") return "";
+        const name = `${PRIORITY_NAMES[t.priority]} priority`;
+        return `<span class="mk prio prio-${t.priority}" tabindex="0" role="img" aria-label="${name}" data-tip="${name}" data-open="${t.id}">${icon(t.priority === "high" ? "chevrons-up" : "chevron-down", 14)}</span>`;
+      }
+      function workingEl(t) {
+        const avatars = t.working.map((key) => PEOPLE[key]).map((p) => `<span class="avatar" style="background:${p.colour}">${p.initials}</span>`).join("");
+        return `<span class="mk working" tabindex="0" role="img" aria-label="${esc(workingWords(t))}" data-tip="${esc(workingWords(t))}" data-open="${t.id}"><span class="live-dot"></span><span class="avatars">${avatars}</span></span>`;
+      }
+      const planEl = (t) =>
+        `<button type="button" class="icon-button bordered" aria-label="Plan" data-tip="Plan: ${PLANNER} makes a plan for you to confirm. Auto mode is off." data-action="plan" data-task="${t.id}" draggable="false">${icon("map", 14)}</button>`;
+      const endOf = (t) => (t.state === "backlog" ? planEl(t) : t.working.length ? workingEl(t) : "");
+      function cardEl(t) {
+        const edge = t.waiting ? "edge-decision" : (EDGES[t.state] ?? "");
+        return `<article class="board-card ${edge}" aria-label="${esc(t.title)}" data-task-card="${t.id}" draggable="${isMovable(t)}">
+          <div class="board-card-head">${priorityEl(t)}<a class="board-card-title" href="#" data-open="${t.id}" draggable="false">${esc(t.title)}</a><button type="button" class="icon-button" aria-label="More for ${esc(t.title)}" data-action="menu" data-task="${t.id}" draggable="false">${icon("ellipsis", 15)}</button></div>
+          <div class="card-marks">${projectEl(t)}${marksOf(t).map((m) => markEl(t, m)).join("")}${endOf(t)}</div></article>`;
+      }
+
+      /* ---------- The block (proposed) ---------- */
+      function blockHtml(block, column) {
+        const initiative = initiativeOf(block.initiative);
+        const columnName = column.label;
+        const queued = column.key === "queued";
+        const count = queued ? block.cards.map((t) => `#${t.queued.place}`).join(" · ") : String(block.cards.length);
+        const countWords = queued
+          ? `${block.cards.length === 1 ? "Place" : "Places"} ${listWords(block.cards.map((t) => String(t.queued.place)))} in the queue`
+          : `${block.cards.length} of its Tasks in ${columnName}`;
+        const paused = initiative.pausedAt ? `<span class="badge sm warning">${icon("pause", 10)}Paused</span>` : "";
+        const classes = ["ib", state.mark === "hue" ? "hued" : "", litInitiative() === block.initiative ? "lit" : ""].filter(Boolean).join(" ");
+        return `<div class="${classes}" role="group" aria-label="${esc(initiative.name)}" data-initiative="${block.initiative}" style="--ib-hue:${initiative.hue}">
+          <div class="ib-head"><a class="ib-name" href="#" data-initiative-link="${block.initiative}" draggable="false">${icon("flag", 12)}<span>${esc(initiative.name)}</span></a>${paused}<span class="ib-count" tabindex="0" aria-label="${esc(countWords)}" data-tip="${esc(countWords)}">${count}</span></div>
+          <div class="ib-cards">${block.cards.map(cardEl).join("")}</div></div>`;
+      }
+
+      /* ---------- State and the switcher ---------- */
+      const OPTIONS = {
+        layout: [
+          ["today", "Today"],
+          ["proposed", "Proposed", true],
+          ["runs", "Adjacent runs"],
+        ],
+        scenario: [
+          ["full", "Full board"],
+          ["across", "One Initiative across"],
+          ["queued", "Queued, interleaved"],
+          ["done", "Done"],
+          ["initiative", "Initiative filter"],
+          ["project", "Project filter"],
+          ["paused", "Paused Initiative"],
+          ["drag", "Drag and drop"],
+        ],
+        mark: [
+          ["none", "None", true],
+          ["hue", "Hue"],
+        ],
+        drop: [
+          ["refused", "Refused", true],
+          ["placed", "Placed"],
+        ],
+        width: [
+          ["wide", "Wide"],
+          ["900", "900px"],
+          ["390", "390px"],
+        ],
+        palette: [
+          ["light", "Light"],
+          ["dark", "Dark"],
+        ],
+      };
+      const LABELS = { layout: "Layout", scenario: "Scenario", mark: "Block mark", drop: "Drop elsewhere", width: "Width", palette: "Palette" };
+      const state = { layout: "proposed", scenario: "full", mark: "none", drop: "refused", width: "wide", palette: "light" };
+      for (const [key, value] of new URLSearchParams(location.hash.slice(1))) {
+        if (key in state && OPTIONS[key].some(([option]) => option === value)) state[key] = value;
+      }
+      let filters = {};
+      let hovered = null;
+      const SCENARIOS = {
+        full: { filters: {} },
+        across: { filters: {}, lit: "offline" },
+        queued: { filters: {}, scrollTo: "queued" },
+        done: { filters: {}, scrollTo: "done" },
+        initiative: { filters: { initiative: "offline" } },
+        project: { filters: { project: "not-astray" } },
+        paused: { filters: {}, paused: "billing", scrollTo: "in-progress" },
+        drag: { filters: {} },
+      };
+      const litInitiative = () => hovered ?? SCENARIOS[state.scenario].lit ?? null;
+
+      function startScenario() {
+        TASKS = structuredClone(BASE_TASKS);
+        INITIATIVES = structuredClone(BASE_INITIATIVES);
+        const scenario = SCENARIOS[state.scenario];
+        filters = { query: "", priority: "", initiative: "", blocked: false, project: "", ...scenario.filters };
+        if (scenario.paused) {
+          // Pausing an Initiative pauses its Tasks in progress (spec 2.1): their cards show Paused.
+          initiativeOf(scenario.paused).pausedAt = "2026-11-14T09:30:00Z";
+          for (const t of TASKS.filter((t) => t.initiative === scenario.paused && t.state === "in-progress")) {
+            t.state = "paused";
+            t.working = [];
+          }
+        }
+      }
+
+      function barHtml() {
+        const controls = Object.entries(OPTIONS)
+          .map(
+            ([key, options]) => `<div class="control"><span class="control-label">${LABELS[key]}</span><div class="segments" role="group" aria-label="${LABELS[key]}">${options
+              .map(
+                ([value, label, recommended]) =>
+                  `<button type="button" data-set="${key}" data-value="${value}" aria-pressed="${state[key] === value}">${label}${recommended ? '<span class="star" title="Recommended">●</span>' : ""}</button>`,
+              )
+              .join("")}</div></div>`,
+          )
+          .join("");
+        return `<span class="bar-title">Initiative blocks in the columns</span><span class="bar-tag">PROPOSAL</span><span class="bar-break"></span>${controls}`;
+      }
+
+      const LAYOUT_NOTES = {
+        today: "<strong>Today</strong>: with Group by Initiative off, each column is one flat list in the board's order; nothing on a card says its Initiative.",
+        proposed: "<strong>Proposed</strong> (recommended): each column gathers an Initiative's cards into one block, headed by its name, placed where its first card falls; Tasks with no Initiative stay loose, in their place.",
+        runs: "<strong>Adjacent runs</strong> (the alternative weighed): only cards next to each other in the order share a block, so the order stays exact, but one Initiative can show as several blocks in a column.",
+      };
+      const SCENARIO_NOTES = {
+        full: "A full board: four Initiatives, one with a long name, and Tasks with no Initiative in every column. Backlog and Queued have blocks of one card.",
+        across: "<strong>Offline sync for the field app</strong> has cards in five columns. Its blocks are outlined, as when its head is hovered or focused: hover any block's head to follow its Initiative across the board.",
+        queued: "<strong>Queued</strong>: Offline sync and Run environments on Linux are interleaved in the queue (places 1, 2, 3). Gathered, Offline sync's block holds places 1 and 3 and says so in its head, “#1 · #3”, so the queue's order still reads.",
+        done: "<strong>Done</strong>: the one that ended last on top. Gathered, a block sits where its card that ended last falls, its cards in the same order.",
+        initiative: "<strong>The Initiative filter</strong> is set to Offline sync for the field app: every card is that Initiative's, so no block shows; the filter's select names it. Clear it to see the blocks come back.",
+        project: "<strong>The Project filter</strong> shows not-astray: blocks hold only the cards shown, their counts with them, and a block with none in a column leaves it. The note above the board counts the Tasks in other Projects, as today.",
+        paused: "<strong>Billing export is paused</strong>: its blocks carry the Paused badge in every column, and its Task in progress shows Paused, as the cards already do.",
+        drag: "<strong>Drag and drop</strong>: drag “Board columns read the blocks” (Planning) above “Build group by Initiative…”: it lands in its block and takes High priority. Drag it onto Invoice numbering's block: refused. Drag “Keep pending changes in IndexedDB” (Ready) to the end of its block: it takes Normal priority and its block moves to where its new first card falls. Switch <strong>Drop elsewhere</strong> to Placed to compare.",
+      };
+
+      function render() {
+        document.documentElement.dataset.palette = state.palette;
+        document.documentElement.dataset.theme = state.palette;
+        history.replaceState(null, "", `#${new URLSearchParams(state)}`);
+        hideTip();
+        document.getElementById("bar").innerHTML = barHtml();
+        const flatNote = state.layout !== "today" && filters.initiative && state.scenario !== "initiative" ? " With the Initiative filter set, the columns are flat." : "";
+        document.getElementById("note").innerHTML = `${LAYOUT_NOTES[state.layout]} ${SCENARIO_NOTES[state.scenario]}${flatNote}`;
+        const search = new URLSearchParams(
+          Object.entries({ query: filters.query, priority: filters.priority, initiative: filters.initiative, blocked: filters.blocked ? "true" : "" }).filter(([, value]) => value),
+        ).toString();
+        document.getElementById("address").innerHTML = `<span>Address</span><code>/work${search ? `?${search}` : ""}</code><span>Group by Initiative off: no <code>group</code> in the address.</span>`;
+        const frame = document.getElementById("frame");
+        const scrolled = frame.querySelector(".board-scroll")?.scrollLeft ?? null;
+        const pageScrolled = frame.querySelector(".main")?.scrollTop ?? 0;
+        const focusedSearch = document.activeElement?.id === "board-search" ? document.activeElement.selectionStart : null;
+        frame.className = `frame w-${state.width}`;
+        frame.innerHTML = appHtml();
+        const scroller = frame.querySelector(".board-scroll");
+        frame.querySelector(".main").scrollTop = pageScrolled;
+        if (scrolled !== null && !render.scrollToScenario) scroller.scrollLeft = scrolled;
+        else {
+          const to = SCENARIOS[state.scenario].scrollTo;
+          const column = to && frame.querySelector(`[data-column="${to}"]`);
+          scroller.scrollLeft = column ? column.offsetLeft - 8 : 0;
+        }
+        render.scrollToScenario = false;
+        if (focusedSearch !== null) {
+          const input = document.getElementById("board-search");
+          input.focus();
+          input.setSelectionRange(focusedSearch, focusedSearch);
+        }
+      }
+
+      const matchesFilters = (t) =>
+        (!filters.query || t.title.toLowerCase().includes(filters.query.toLowerCase())) &&
+        (!filters.priority || t.priority === filters.priority) &&
+        (!filters.initiative || t.initiative === filters.initiative) &&
+        (!filters.blocked || blockersOf(t).length > 0);
+      const inProjectFilter = (t) => !filters.project || t.project === filters.project;
+      const hasFilters = () => Boolean(filters.query || filters.priority || filters.initiative || filters.blocked);
+
+      function appHtml() {
+        const rail = [
+          ["home", "Now"],
+          ["kanban", "Work", true],
+          ["users", "People"],
+          ["folder", "Projects"],
+        ]
+          .map(([name, label, on]) => `<span class="rail-item${on ? " on" : ""}" title="${label}">${icon(name, 18)}</span>`)
+          .join("");
+        const tabs = ["Tasks", "Initiatives", "Ideas", "Archived"].map((tab, i) => `<span class="tab${i === 0 ? " on" : ""}">${tab}</span>`).join("");
+        const projectFilter = `<label class="project-filter${filters.project ? " on" : ""}">${icon("layers", 14)}<select data-filter="project" aria-label="Project filter"><option value="">All projects</option>${Object.entries(
+          PROJECTS,
+        )
+          .map(([key, p]) => `<option value="${key}"${filters.project === key ? " selected" : ""}>${p.name}</option>`)
+          .join("")}</select></label>`;
+        const matching = TASKS.filter(matchesFilters);
+        const shown = matching.filter(inProjectFilter);
+        const elsewhere = matching.length - shown.length;
+        const otherNote = filters.project && elsewhere
+          ? `<p class="other-projects">${plural(elsewhere, "Task", "Tasks")} in other Projects <button type="button" data-action="all-projects">Show all projects</button></p>`
+          : "";
+        const note = blocksShown()
+          ? "Drag a card that has not started to reorder it within its column, inside its Initiative's block; dropping it among another priority takes that priority. Queued cards keep their place in the queue."
+          : "Drag a card that has not started to reorder it within its column; dropping it among another priority takes that priority. Queued cards keep their place in the queue.";
+        return `<div class="app"><nav class="rail"><span class="rail-mark">O</span>${rail}</nav>
+          <header class="top"><h1>Work</h1><span class="grow"></span>${projectFilter}</header>
+          <div class="main"><div class="work-page"><div class="tabs">${tabs}</div>${filtersHtml()}${otherNote}
+            <div class="board-scroll"><div class="board">${COLUMNS.map((column) => columnHtml(column, shown)).join("")}</div></div>
+            <p class="board-note">${icon("grip-vertical", 13)}${note}</p></div></div></div>`;
+      }
+
+      function filtersHtml() {
+        const priorities = ["high", "normal", "low"]
+          .map(
+            (p) =>
+              `<button type="button" class="chip" aria-pressed="${filters.priority === p}" data-priority="${p}">${icon(p === "high" ? "chevrons-up" : p === "low" ? "chevron-down" : "minus", 13)}${PRIORITY_NAMES[p]}</button>`,
+          )
+          .join("");
+        const initiatives = `<select class="select${filters.initiative ? " on" : ""}" data-filter="initiative" aria-label="Initiative"><option value="">Any Initiative</option>${INITIATIVES.map(
+          (i) => `<option value="${i.id}"${filters.initiative === i.id ? " selected" : ""}>${esc(i.name)}</option>`,
+        ).join("")}</select>`;
+        return `<div class="board-filters" role="search" aria-label="Filter the board"><div class="board-filters-row">
+          <label class="search">${icon("search", 14)}<input id="board-search" type="search" placeholder="Search Tasks, Plans and Definitions of Done" aria-label="Search Tasks" value="${esc(filters.query)}" data-filter="query" /></label>
+          <div class="chips" role="group" aria-label="Priority">${priorities}</div>${initiatives}
+          <button type="button" class="chip" aria-pressed="${filters.blocked}" data-action="blocked">${icon("lock", 13)}Blocked</button>
+          ${hasFilters() ? '<button type="button" class="btn" data-action="clear">Clear</button>' : ""}
+          <div class="board-layout" role="group" aria-label="Layout"><button type="button" class="switch-row" role="switch" aria-checked="false" data-action="group"><span class="switch"></span>Group by Initiative</button></div>
+        </div></div>`;
+      }
+
+      function columnHtml(column, shown) {
+        const cards = cardsIn(column, shown);
+        const items = columnItems(cards)
+          .map((item) => (item.kind === "loose" ? cardEl(item.task) : blockHtml(item, column)))
+          .join("");
+        return `<section class="board-column" data-column="${column.key}" aria-label="${column.label}"><h3>${column.label} <span class="board-count">${cards.length}</span></h3><div class="board-hint">${column.hint}</div>
+          <div class="board-cards">${items || '<div class="board-empty">Nothing here</div>'}</div></section>`;
+      }
+
+      /* ---------- Tooltip (packages/ui Tooltip's behaviour: hover or focus, placed above, flipped when there is no room) ---------- */
+      let tip = null;
+      function showTip(trigger) {
+        hideTip();
+        tip = document.createElement("span");
+        tip.className = "tooltip";
+        tip.setAttribute("role", "tooltip");
+        tip.textContent = trigger.dataset.tip;
+        tip.style.visibility = "hidden";
+        document.body.append(tip);
+        const from = trigger.getBoundingClientRect();
+        const size = tip.getBoundingClientRect();
+        const margin = 8;
+        let top = from.top - size.height - 6;
+        if (top < margin) top = from.bottom + 6;
+        const left = Math.min(Math.max(margin, from.left + from.width / 2 - size.width / 2), innerWidth - size.width - margin);
+        Object.assign(tip.style, { top: `${top}px`, left: `${left}px`, visibility: "visible" });
+        tip.trigger = trigger;
+      }
+      function hideTip() {
+        tip?.remove();
+        tip = null;
+      }
+
+      /* ---------- Toast ---------- */
+      function toast(text) {
+        const el = document.getElementById("toast");
+        el.textContent = text;
+        el.classList.add("on");
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => el.classList.remove("on"), 3600);
+      }
+
+      /* ---------- Following one Initiative across columns ---------- */
+      function lightUp(initiative) {
+        hovered = initiative;
+        const lit = litInitiative();
+        document.querySelectorAll("#frame .ib").forEach((block) => block.classList.toggle("lit", block.dataset.initiative === lit));
+      }
+
+      /* ---------- Events ---------- */
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        const set = target.closest("[data-set]");
+        if (set) {
+          const key = set.dataset.set;
+          state[key] = set.dataset.value;
+          if (key === "scenario") {
+            startScenario();
+            render.scrollToScenario = true;
+          }
+          return render();
+        }
+        const initiativeLink = target.closest("[data-initiative-link]");
+        if (initiativeLink) {
+          event.preventDefault();
+          return toast(`Opens the Initiative's page: ${initiativeOf(initiativeLink.dataset.initiativeLink).name}`);
+        }
+        const priority = target.closest("[data-priority]");
+        if (priority) {
+          filters.priority = filters.priority === priority.dataset.priority ? "" : priority.dataset.priority;
+          return render();
+        }
+        const pop = target.closest("[data-pop]");
+        if (pop) return toast(`Opens its popover, as adopted on the card (task-card-icons.html): ${findTask(pop.dataset.pop).title}`);
+        const action = target.closest("[data-action]");
+        if (action) {
+          const t = action.dataset.task && findTask(action.dataset.task);
+          switch (action.dataset.action) {
+            case "blocked":
+              filters.blocked = !filters.blocked;
+              return render();
+            case "clear":
+              Object.assign(filters, { query: "", priority: "", initiative: "", blocked: false });
+              return render();
+            case "all-projects":
+              filters.project = "";
+              return render();
+            case "group":
+              return toast("Group by Initiative stays as adopted (board-by-initiative.html): this page is the board with it off.");
+            case "plan":
+              return toast(`${PLANNER} starts a plan for “${t.title}”.`);
+            default:
+              return toast(`The Task menu of “${t.title}”, as today.`);
+          }
+        }
+        const open = target.closest("[data-open]");
+        if (open) {
+          event.preventDefault();
+          return toast(`Opens the Task page: ${findTask(open.dataset.open).title}`);
+        }
+      });
+      document.addEventListener("change", (event) => {
+        const field = event.target.closest("select[data-filter]");
+        if (!field) return;
+        filters[field.dataset.filter] = field.value;
+        render();
+      });
+      document.addEventListener("input", (event) => {
+        const field = event.target.closest("input[data-filter]");
+        if (!field) return;
+        filters[field.dataset.filter] = field.value;
+        render();
+      });
+
+      document.addEventListener("mouseover", (event) => {
+        const trigger = event.target.closest("[data-tip]");
+        if (trigger && tip?.trigger !== trigger) showTip(trigger);
+        if (!trigger && tip) hideTip();
+        if (dragging) return;
+        const head = event.target.closest(".ib-head");
+        const initiative = head?.closest(".ib").dataset.initiative ?? null;
+        if (initiative !== hovered) lightUp(initiative);
+      });
+      document.addEventListener("focusin", (event) => {
+        const trigger = event.target.closest?.("[data-tip]");
+        if (trigger && event.target.matches(":focus-visible")) showTip(trigger);
+        else if (tip && tip.trigger !== trigger) hideTip();
+        const head = event.target.closest?.(".ib-head");
+        if (head) lightUp(head.closest(".ib").dataset.initiative);
+      });
+      document.addEventListener("focusout", (event) => {
+        if (tip && tip.trigger === event.target && !tip.trigger.matches(":hover")) hideTip();
+        if (event.target.closest?.(".ib-head")) lightUp(null);
+      });
+      window.addEventListener("scroll", hideTip, { capture: true, passive: true });
+
+      /* ---------- Drag and drop: within its column, inside its own block (board.tsx's drop, proposed) ---------- */
+      const STATE_REFUSAL = "A Task changes state through its actions: Plan, Mark Ready, Start.";
+      const BLOCK_REFUSAL = "A card moves only within its own block: the board doesn't change a Task's Initiative.";
+      const LOOSE_REFUSAL = "A card with no Initiative moves only among the cards outside the blocks: the board doesn't change a Task's Initiative.";
+      let dragging = null;
+
+      /** Where a pointer over the column lands: the block under it, or the loose cards around it. */
+      function zoneAt(target) {
+        const column = target.closest?.(".board-column");
+        if (!column) return null;
+        const block = target.closest(".ib");
+        const cards = block ? [...block.querySelectorAll(".board-card")] : [...column.querySelectorAll(".board-cards > .board-card")];
+        return { column, key: block ? block.dataset.initiative : "loose", cards };
+      }
+      /** The card the dragged one lands before (by the pointer's height), or the last it lands after. */
+      function landing(zone, y) {
+        const others = zone.cards.filter((card) => card.dataset.taskCard !== dragging.id);
+        const before = others.find((card) => {
+          const box = card.getBoundingClientRect();
+          return box.top + box.height / 2 > y;
+        });
+        return { others, before, after: before ? null : others.at(-1) };
+      }
+      const allowed = (zone) => zone.key === dragging.zone || state.drop === "placed";
+      function clearMarks() {
+        document.querySelectorAll(".drop-before, .drop-after").forEach((card) => card.classList.remove("drop-before", "drop-after"));
+      }
+
+      document.addEventListener("dragstart", (event) => {
+        const card = event.target.closest?.(".board-card");
+        if (!card) return;
+        hideTip();
+        const t = findTask(card.dataset.taskCard);
+        const column = card.closest(".board-column");
+        dragging = { id: t.id, column: column.dataset.column, zone: blocksShown() && t.initiative ? t.initiative : "loose" };
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", t.id);
+        requestAnimationFrame(() => {
+          if (!dragging) return;
+          card.classList.add("dragging");
+          if (!blocksShown() || state.drop === "placed") return;
+          column.classList.add(dragging.zone === "loose" ? "zone-loose" : "zone-block");
+          column.querySelectorAll(`.ib[data-initiative="${dragging.zone}"]`).forEach((block) => block.classList.add("drop-ok"));
+        });
+      });
+      document.addEventListener("dragover", (event) => {
+        if (!dragging) return;
+        clearMarks();
+        const zone = zoneAt(event.target);
+        if (!zone) return;
+        // As the board does: the drop is always taken, so a refused one can say why.
+        event.preventDefault();
+        if (zone.column.dataset.column !== dragging.column || !allowed(zone)) return;
+        const { before, after } = landing(zone, event.clientY);
+        before?.classList.add("drop-before");
+        after?.classList.add("drop-after");
+      });
+      document.addEventListener("drop", (event) => {
+        if (!dragging) return;
+        const zone = zoneAt(event.target);
+        if (!zone) return;
+        event.preventDefault();
+        if (zone.column.dataset.column !== dragging.column) return toast(STATE_REFUSAL);
+        if (!allowed(zone)) return toast(dragging.zone === "loose" ? LOOSE_REFUSAL : BLOCK_REFUSAL);
+        const { others, before, after } = landing(zone, event.clientY);
+        if (!before && !after) return;
+        const moved = findTask(dragging.id);
+        const above = before ? others[others.indexOf(before) - 1] : after;
+        const neighbours = { above: above && findTask(above.dataset.taskCard), below: before && findTask(before.dataset.taskCard) };
+        TASKS = TASKS.filter((t) => t !== moved);
+        const at = before ? TASKS.indexOf(neighbours.below) : TASKS.indexOf(neighbours.above) + 1;
+        TASKS.splice(at, 0, moved);
+        const priority = priorityAmong(neighbours, moved.priority);
+        const tookPriority = priority !== moved.priority;
+        moved.priority = priority;
+        const own = zone.key === dragging.zone;
+        if (!own) {
+          const where = zone.key === "loose" ? "the cards with no Initiative" : `${initiativeOf(zone.key).name}'s cards`;
+          const home = moved.initiative ? `${initiativeOf(moved.initiative).name}'s block` : "its place outside the blocks";
+          toast(`Placed among ${where} in the board's order, then shown back in ${home}: the drop seems to do nothing, or moves its block.${tookPriority ? ` It took ${PRIORITY_NAMES[priority]} priority.` : ""}`);
+        } else if (tookPriority) toast(`Takes ${PRIORITY_NAMES[priority]} priority, as the cards around it.`);
+      });
+      /** Dropped among another priority, a card takes it (as today's board does). */
+      function priorityAmong({ above, below }, own) {
+        if (above && below) {
+          if (above.priority === below.priority) return above.priority;
+          return [above.priority, below.priority].includes(own) ? own : above.priority;
+        }
+        return (above ?? below)?.priority ?? own;
+      }
+      document.addEventListener("dragend", () => {
+        dragging = null;
+        hovered = null;
+        render();
+      });
+
+      startScenario();
+      render.scrollToScenario = true;
+      render();
+    </script>
+  </body>
+</html>
