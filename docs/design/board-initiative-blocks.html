@@ -1248,6 +1248,7 @@
       const WAITS = {
         limit: { reason: "Jim is at the Task limit (1).", short: "Jim's Task limit reached (1)" },
         cap: { reason: "Claude Code's Daily cap of 10,000 tokens would be passed. It resets at midnight.", short: "Daily cap (10,000 tokens) · resets at midnight" },
+        initiative: { reason: "The Initiative is paused.", short: "The Initiative is paused." },
       };
       const ESTIMATES = {
         e1: "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.",
@@ -1443,7 +1444,7 @@
         const paused = initiative.pausedAt ? `<span class="badge sm warning">${icon("pause", 10)}Paused</span>` : "";
         const classes = ["ib", state.mark === "hue" ? "hued" : "", litInitiative() === block.initiative ? "lit" : ""].filter(Boolean).join(" ");
         return `<div class="${classes}" role="group" aria-label="${esc(initiative.name)}" data-initiative="${block.initiative}" style="--ib-hue:${initiative.hue}">
-          <div class="ib-head"><a class="ib-name" href="#" data-initiative-link="${block.initiative}" draggable="false">${icon("flag", 12)}<span>${esc(initiative.name)}</span></a>${paused}<span class="ib-count" tabindex="0" aria-label="${esc(countWords)}" data-tip="${esc(countWords)}">${count}</span></div>
+          <div class="ib-head"><a class="ib-name" href="#" data-initiative-link="${block.initiative}" draggable="false">${icon("flag", 12)}<span>${esc(initiative.name)}</span></a>${paused}<span class="ib-count" tabindex="0" role="img" aria-label="${esc(countWords)}" data-tip="${esc(countWords)}">${count}</span></div>
           <div class="ib-cards">${block.cards.map(cardEl).join("")}</div></div>`;
       }
 
@@ -1513,6 +1514,8 @@
             t.state = "paused";
             t.working = [];
           }
+          // ...and its queued Tasks wait with "The Initiative is paused."
+          for (const t of TASKS.filter((t) => t.initiative === scenario.paused && t.queued)) t.queued.waits.unshift("initiative");
         }
       }
 
@@ -1542,7 +1545,7 @@
         done: "<strong>Done</strong>: the one that ended last on top. Gathered, a block sits where its card that ended last falls, its cards in the same order.",
         initiative: "<strong>The Initiative filter</strong> is set to Offline sync for the field app: every card is that Initiative's, so no block shows; the filter's select names it. Clear it to see the blocks come back.",
         project: "<strong>The Project filter</strong> shows not-astray: blocks hold only the cards shown, their counts with them, and a block with none in a column leaves it. The note above the board counts the Tasks in other Projects, as today.",
-        paused: "<strong>Billing export is paused</strong>: its blocks carry the Paused badge in every column, and its Task in progress shows Paused, as the cards already do.",
+        paused: "<strong>Billing export is paused</strong>: its blocks carry the Paused badge in every column, and its Task in progress shows Paused and its queued Task waits with “The Initiative is paused.”, as the cards already do.",
         drag: "<strong>Drag and drop</strong>: drag “Board columns read the blocks” (Planning) above “Build group by Initiative…”: it lands in its block and takes High priority. Drag it onto Invoice numbering's block: refused. Drag “Keep pending changes in IndexedDB” (Ready) to the end of its block: it takes Normal priority and its block moves to where its new first card falls. Switch <strong>Drop elsewhere</strong> to Placed to compare.",
       };
 
@@ -1854,7 +1857,7 @@
           const where = zone.key === "loose" ? "the cards with no Initiative" : `${initiativeOf(zone.key).name}'s cards`;
           const home = moved.initiative ? `${initiativeOf(moved.initiative).name}'s block` : "its place outside the blocks";
           toast(`Placed among ${where} in the board's order, then shown back in ${home}: the drop seems to do nothing, or moves its block.${tookPriority ? ` It took ${PRIORITY_NAMES[priority]} priority.` : ""}`);
-        } else if (tookPriority) toast(`Takes ${PRIORITY_NAMES[priority]} priority, as the cards around it.`);
+        } else if (tookPriority) toast(`${moved.title} is now ${PRIORITY_NAMES[priority].toLowerCase()} priority.`);
       });
       /** Dropped among another priority, a card takes it (as today's board does). */
       function priorityAmong({ above, below }, own) {
