@@ -13,13 +13,3 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
       dispatchEvent: () => false,
     }) satisfies MediaQueryList;
 }
-
-// jsdom has no ResizeObserver, which what opens from a trigger, such as a select's list, places by;
-// a test that needs sizes measured stubs its own.
-if (typeof globalThis.ResizeObserver !== "function") {
-  globalThis.ResizeObserver = class {
-    observe(): void {}
-    unobserve(): void {}
-    disconnect(): void {}
-  };
-}
