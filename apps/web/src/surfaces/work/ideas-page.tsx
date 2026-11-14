@@ -28,6 +28,7 @@ import { useProjectFilter } from "../../shell/project-filter/use-project-filter.
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { EditIdeaDialog } from "../../shell/work/edit-idea-dialog.tsx";
 import { ShapeIdeaDialog } from "../../shell/work/shape-idea-dialog.tsx";
 import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
 import { useCto } from "../../shell/work/use-cto.ts";
@@ -149,6 +150,7 @@ function IdeaCard({
   const attachments = useQuery(attachmentQueries.of(owner));
   const [menuOpen, setMenuOpen] = useState(false);
   const [attaching, setAttaching] = useState(false);
+  const [editing, setEditing] = useState(false);
   /** The button whose Project the user is choosing, for an Office-wide Idea. */
   const [choosingFor, setChoosingFor] = useState<IdeaAction>();
   const queryClient = useQueryClient();
@@ -196,6 +198,11 @@ function IdeaCard({
             />
           }
           items={[
+            {
+              icon: <Icon name="pencil" size={14} />,
+              label: "Edit…",
+              onSelect: () => setEditing(true),
+            },
             {
               icon: <Icon name="paperclip" size={14} />,
               label: "Attach…",
@@ -254,6 +261,7 @@ function IdeaCard({
           {cto ? `Shape into an Initiative with ${cto.card.name}` : "Shape into an Initiative"}
         </Button>
       </div>
+      {editing && <EditIdeaDialog idea={idea} onClose={() => setEditing(false)} />}
       {attaching && (
         <AddAttachmentDialog
           owner={owner}

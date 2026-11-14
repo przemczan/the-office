@@ -7,8 +7,9 @@ import type {
   Task,
 } from "@the-office/contracts";
 import type { NotificationPerson } from "./notification-channel.ts";
+import { needsYouWords } from "./now-words.ts";
 
-/** The product's name, the tab's title with no Notification open. */
+/** The product's name: who speaks when no person does, and the tab's title while nothing waits. */
 export const OFFICE_TITLE = "The Office";
 
 /** The Role whose person the Office kinds come from once hired (spec §2.7). */
@@ -84,9 +85,14 @@ export function serviceDown(
   };
 }
 
-/** "(3) The Office" while Notifications are open, so a tab in the background shows them. */
-export function titleWithUnread(unread: number): string {
-  return unread === 0 ? OFFICE_TITLE : `(${unread}) ${OFFICE_TITLE}`;
+/** "(3) The Office" while Needs you holds items, so a tab in the background shows them. */
+export function tabTitle(needsYou: number): string {
+  return needsYou === 0 ? OFFICE_TITLE : `(${needsYou}) ${OFFICE_TITLE}`;
+}
+
+/** "3 need you": the title a blinking tab alternates with its steady one. */
+export function blinkingTabTitle(needsYou: number): string {
+  return `${needsYou} ${needsYouWords(needsYou)}`;
 }
 
 /** The person who speaks; undefined when The Office does (spec §2.7 Defaults). */
@@ -106,9 +112,4 @@ export function aboutLine(
   if (!task) return undefined;
   const project = projects?.find(({ id }) => id === task.projectId);
   return project ? `${task.title} · ${project.name}` : task.title;
-}
-
-/** The Notifications shown in the tab's title and favicon: those routed in-app. */
-export function unreadCount(open: readonly Pick<Notification, "channels">[]): number {
-  return open.filter(({ channels }) => channels.includes("in-app")).length;
 }

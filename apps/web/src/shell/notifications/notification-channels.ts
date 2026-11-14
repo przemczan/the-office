@@ -10,14 +10,13 @@ import { useEventStreamStatus } from "../../api/event-stream-provider.tsx";
 import { DesktopChannel } from "./desktop-channel.ts";
 import { useInAppChannel } from "./in-app-channel.tsx";
 import type { NotificationChannel, ShownNotification } from "./notification-channel.ts";
-import { aboutLine, personOf, serviceDown, targetOf, unreadCount } from "./notification-words.ts";
-import { useUnreadBadge } from "./unread-badge.ts";
+import { useNeedsYouTab } from "./needs-you-tab.ts";
+import { aboutLine, personOf, serviceDown, targetOf } from "./notification-words.ts";
 
 /**
  * Brings each Notification to its channels as it is raised, and takes it off them as it clears
  * (spec §2.7): to the desktop while the tab isn't focused and the desktop is routed and allowed,
- * otherwise as an in-app toast; the open ones count in the tab's title and favicon. Those open
- * when the page loads are counted, not shown again.
+ * otherwise as an in-app toast. Those open when the page loads are not shown again.
  */
 export function useNotificationChannels(): void {
   const open = useQuery(notificationQueries.open()).data;
@@ -61,8 +60,6 @@ export function useNotificationChannels(): void {
       desktop.clear(id);
     }
   }, [all, queryClient, navigate, inApp, desktop]);
-
-  useUnreadBadge(unreadCount(all ?? []));
 }
 
 /**
@@ -103,8 +100,12 @@ async function shownNotification(
   };
 }
 
-/** Where the channels run: inside the shell's ToastProvider, rendering nothing of its own. */
+/**
+ * Where the channels run, beside the tab's count of Needs you: inside the shell's ToastProvider,
+ * rendering nothing of its own.
+ */
 export function NotificationChannels(): null {
   useNotificationChannels();
+  useNeedsYouTab();
   return null;
 }
