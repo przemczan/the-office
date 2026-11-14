@@ -280,8 +280,9 @@ describe("a Task with no Pipeline yet", () => {
       document.querySelector<HTMLButtonElement>('button[aria-label="Remove Sort check"]')?.click(),
     );
     expect(stageNames()).toEqual(["Implement"]);
+    // Save waits for the edited draft's check to answer.
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve));
+      await vi.waitFor(() => expect(buttonNamed("Save for this Task")?.disabled).toBe(false));
     });
     const lastCheck = requests.filter(({ url }) => url.endsWith("/stages/check")).at(-1);
     expect(lastCheck?.body).toMatchObject({
@@ -291,7 +292,9 @@ describe("a Task with no Pipeline yet", () => {
 
     await act(async () => {
       buttonNamed("Save for this Task")?.click();
-      await new Promise((resolve) => setTimeout(resolve));
+      await vi.waitFor(() =>
+        expect(document.body.textContent).toContain(`${TASK.title} follows Full with sort check.`),
+      );
     });
 
     expect(
@@ -300,7 +303,6 @@ describe("a Task with no Pipeline yet", () => {
       [`/api/tasks/${TASK.id}/pipeline`, { pipelineId: "sort-check" }],
       [`/api/tasks/${TASK.id}/stages`, { stages: [expect.objectContaining({ key: "implement" })] }],
     ]);
-    expect(document.body.textContent).toContain(`${TASK.title} follows Full with sort check.`);
     vi.unstubAllGlobals();
   });
 
