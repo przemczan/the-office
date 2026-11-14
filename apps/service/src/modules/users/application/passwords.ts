@@ -5,6 +5,7 @@ import { PasswordSet } from "../domain/user-events.js";
 import { UserNotFound, UserRefused } from "../domain/user-refused.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
+import { PendingSignIns } from "./pending-sign-ins.js";
 import { SignedInDevices } from "./signed-in-devices.js";
 
 /** Setting a user's password anew, as the recovery command on the host does (spec §2.10). */
@@ -14,6 +15,7 @@ export class Passwords {
     private readonly users: UserRepository,
     private readonly passwordHashing: PasswordHashing,
     private readonly signedInDevices: SignedInDevices,
+    private readonly pendingSignIns: PendingSignIns,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -25,7 +27,8 @@ export class Passwords {
   }
 
   /**
-   * Sets the user's password, lifts their lockout and signs out all their signed-in devices.
+   * Sets the user's password, lifts their lockout, signs out all their signed-in devices and ends
+   * their pending sign-ins, which the old password started.
    * Throws UserNotFound for an unknown email and UserRefused for a password the rules refuse.
    */
   async set(email: string, password: string): Promise<void> {
@@ -38,6 +41,7 @@ export class Passwords {
     );
     if (updated === undefined) throw new UserNotFound(email);
     await this.signedInDevices.signOutAll(user.id);
+    await this.pendingSignIns.endAllOf(user.id);
     await this.eventBus.publish(new PasswordSet(user.id));
   }
 }

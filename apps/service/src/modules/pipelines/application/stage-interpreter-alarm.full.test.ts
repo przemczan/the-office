@@ -12,6 +12,8 @@ import {
 } from "../pipelines-application.fixtures.js";
 import type { Stage } from "../domain/stage.js";
 import { AlarmResumes } from "./alarm-resumes.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
+import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { GateService } from "./gate-service.js";
 import {
   implement,
@@ -24,6 +26,8 @@ import {
   resume,
   statusesOf,
 } from "../stage-interpreter-alarm.fixtures.js";
+
+const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
 const tests: Stage = {
   kind: "script",
@@ -110,10 +114,13 @@ describe("Sounding the fire alarm", () => {
     const taskId = await walkStages(pipelines, [gate, review]);
     await soundTheAlarm(pipelines, taskId);
 
-    await pipelines.app.get(GateService, { strict: false }).continue(taskId);
+    await pipelines.app.get(GateService, { strict: false }).continue(taskId, ANN);
 
     expect(await statusesOf(pipelines, taskId)).toEqual([["look", "done"]]);
-    expect((await runsOf(pipelines, taskId))[0]?.gateAction).toEqual({ kind: "continue" });
+    expect((await runsOf(pipelines, taskId))[0]?.gateAction).toEqual({
+      kind: "continue",
+      byUser: ANN,
+    });
     expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
 
     await resume(pipelines, taskId);

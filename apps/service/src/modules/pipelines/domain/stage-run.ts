@@ -186,8 +186,8 @@ export function addTokens(total: StageTokens, more: StageTokens): StageTokens {
 export type StageOutcomeStatus = StageOutcome["status"];
 
 /**
- * The user who held a run with Pause or Stop, as the run keeps them: their id and their name as it
- * was then.
+ * The user who held a run with Pause or Stop, or acted at its Gate, as the run keeps them: their id
+ * and their name as it was then.
  */
 export interface HoldingUser {
   readonly userId: string;
@@ -215,11 +215,13 @@ export interface CarriedFailure {
 /**
  * What the user did at a Gate (spec §2.3): let the work continue, with notes every later Agent Stage
  * is briefed with or none, send it back with feedback to an earlier Agent Stage, or drop the Task.
+ * `byUser` is who acted, undefined for an action kept before users existed.
  */
-export type GateAction =
+export type GateAction = (
   | { readonly kind: "continue"; readonly feedback?: string }
   | { readonly kind: "send-back"; readonly stageKey: string; readonly feedback: string }
-  | { readonly kind: "drop" };
+  | { readonly kind: "drop" }
+) & { readonly byUser?: HoldingUser };
 
 /**
  * The feedback a Gate sent the work back with, which the run of the Stage it went back to carries

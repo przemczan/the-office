@@ -15,6 +15,7 @@ import { UserIdNotFound, UserRefused } from "../domain/user-refused.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { PasswordChecks } from "./password-checks.js";
+import { PendingSignIns } from "./pending-sign-ins.js";
 import { SignedInDevices } from "./signed-in-devices.js";
 
 /** What changing one's own password takes. */
@@ -31,6 +32,7 @@ export class Accounts {
     private readonly passwordChecks: PasswordChecks,
     private readonly passwordHashing: PasswordHashing,
     private readonly signedInDevices: SignedInDevices,
+    private readonly pendingSignIns: PendingSignIns,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -53,9 +55,9 @@ export class Accounts {
 
   /**
    * Changes the user's password, the current one checked as any password is, slow-down and lockout
-   * included, and signs out every other device of theirs; this one stays signed in. Throws
-   * UserRefused for a new password the rules refuse or a wrong current one, and SignInRefused for
-   * the slow-down's wait or the lockout.
+   * included, signs out every other device of theirs and ends their pending sign-ins; this one stays
+   * signed in. Throws UserRefused for a new password the rules refuse or a wrong current one, and
+   * SignInRefused for the slow-down's wait or the lockout.
    */
   async changePassword(
     userId: string,
@@ -71,6 +73,7 @@ export class Accounts {
     const set = await this.users.update(userId, (stored) => withPassword(stored, passwordHash));
     if (set === undefined) throw new UserIdNotFound();
     await this.signedInDevices.signOutOthers(userId, signedInDeviceId);
+    await this.pendingSignIns.endAllOf(userId);
     await this.eventBus.publish(new PasswordSet(userId));
   }
 

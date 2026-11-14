@@ -125,9 +125,10 @@ describe("npm run set-password", () => {
     });
   });
 
-  it("leaves the authenticator on without --clear-authenticator", async () => {
+  it("leaves the authenticator on without --clear-authenticator, ending the pending sign-ins", async () => {
     const cookie = await signedInCookie(`http://localhost:${office.port}`, user);
     await turnOnAuthenticator(office.port, cookie, office.schedule.now());
+    const pending = setCookieOf(await signIn(user.password), "office_pending_sign_in").cookie;
 
     await setPasswordCommand(
       ["--email", user.email],
@@ -139,6 +140,13 @@ describe("npm run set-password", () => {
       status: 200,
       body: { outcome: "code-needed" },
     });
+    const withOldPending = await send(office.port, {
+      method: "POST",
+      path: "/api/sign-in/code",
+      headers: { cookie: pending },
+      body: { recoveryCode: "AAAAA-AAAAA" },
+    });
+    expect(withOldPending.status).toBe(401);
   });
 
   it("reads the password from standard input when it isn't a terminal", async () => {

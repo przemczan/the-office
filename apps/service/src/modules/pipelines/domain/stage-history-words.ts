@@ -297,17 +297,18 @@ function handoverNoteLines(outcome: StageOutcome | undefined): string[] {
 
 function gateActionLines(stages: readonly Stage[], action: GateAction | undefined): string[] {
   if (!action) return [];
+  const user = holdingUserWords(action.byUser);
   switch (action.kind) {
     case "continue":
       return action.feedback === undefined
-        ? ["At the Gate the user let the work continue."]
-        : [`At the Gate the user let the work continue: ${action.feedback}`];
+        ? [`At the Gate ${user} let the work continue.`]
+        : [`At the Gate ${user} let the work continue: ${action.feedback}`];
     case "send-back":
       return [
-        `At the Gate the user sent the work back to "${nameOf(stages, action.stageKey)}": ${action.feedback}`,
+        `At the Gate ${user} sent the work back to "${nameOf(stages, action.stageKey)}": ${action.feedback}`,
       ];
     case "drop":
-      return ["At the Gate the user dropped the Task."];
+      return [`At the Gate ${user} dropped the Task.`];
   }
 }
 
