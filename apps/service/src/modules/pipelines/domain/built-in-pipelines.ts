@@ -1,9 +1,13 @@
 import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
+import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
 
-/** The Roles the Developer and Devops presets are hired into, keyed as People keys them. */
-const DEVELOPER = "developer";
-const DEVOPS = "devops";
+/**
+ * The duties built-in Agent Stages name, whose default holders are the Developer and Devops presets'
+ * Roles: an Office with today's Roles runs them as before (spec §2.3, "Built-ins").
+ */
+const IMPLEMENTS: DutyKey = "implements";
+const ONBOARDS_PROJECTS: DutyKey = "onboards-projects";
 
 /** Onboarding's Pipeline, which onboarding uses and so can't be removed (spec §2.3). */
 export const ONBOARD_PIPELINE = "onboard";
@@ -24,7 +28,7 @@ const full: Pipeline = {
       kind: "agent",
       key: "implement",
       name: "Implement",
-      role: DEVELOPER,
+      duty: IMPLEMENTS,
       brief: "Implement the Plan until the Definition of Done is met.",
       session: "fresh",
       budget: 250_000,
@@ -42,7 +46,7 @@ const full: Pipeline = {
       kind: "agent",
       key: "review-and-fix",
       name: "Review & fix",
-      role: DEVELOPER,
+      duty: IMPLEMENTS,
       brief:
         "Review the diff against the Plan and the Definition of Done as if someone else wrote it, then fix what you find.",
       session: "fresh",
@@ -70,7 +74,7 @@ const quickFix: Pipeline = {
       kind: "agent",
       key: "implement",
       name: "Implement",
-      role: DEVELOPER,
+      duty: IMPLEMENTS,
       brief: "Make the smallest change that meets the Definition of Done.",
       session: "fresh",
       budget: 200_000,
@@ -98,7 +102,7 @@ const document: Pipeline = {
       kind: "agent",
       key: "produce",
       name: "Produce",
-      role: DEVELOPER,
+      duty: IMPLEMENTS,
       brief: "Write what the Definition of Done asks for and attach it.",
       session: "fresh",
       budget: 80_000,
@@ -108,7 +112,7 @@ const document: Pipeline = {
       kind: "agent",
       key: "review-and-fix",
       name: "Review & fix",
-      role: DEVELOPER,
+      duty: IMPLEMENTS,
       brief: "Read the Attachment as its reader would and fix it.",
       session: "fresh",
       budget: 80_000 + 40_000,
@@ -127,7 +131,7 @@ const onboard: Pipeline = {
       kind: "agent",
       key: "onboard",
       name: "Onboard",
-      role: DEVOPS,
+      duty: ONBOARDS_PROJECTS,
       brief:
         "Make the Project build and test in a fresh worktree. Propose its commands when they are missing or wrong.",
       session: "fresh",
@@ -156,7 +160,7 @@ const proofOfConcept: Pipeline = {
       kind: "agent",
       key: "implement",
       name: "Implement",
-      role: DEVELOPER,
+      duty: IMPLEMENTS,
       brief: "Make the smallest change that shows the idea works and meets the Definition of Done.",
       session: "fresh",
       budget: 200_000,
@@ -195,7 +199,7 @@ const setUpRunEnvironment: Pipeline = {
       kind: "agent",
       key: "set-up",
       name: "Set up",
-      role: DEVOPS,
+      duty: ONBOARDS_PROJECTS,
       brief: `Write .devcontainer/ (devcontainer.json and a compose file for the services) for the Project's stack, from its manifests and commands, with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}: it checks the files and writes them only when they are valid. Write and Edit can't reach .devcontainer/.`,
       session: "fresh",
       budget: 150_000,

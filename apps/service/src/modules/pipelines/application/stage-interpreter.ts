@@ -39,6 +39,7 @@ import type {
   AskedInterruption,
 } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
+import { staffedRole } from "../domain/stage-staffing.js";
 import {
   BudgetReached,
   DefinitionOfDoneNotMet,
@@ -61,6 +62,7 @@ import { StageThreads } from "../ports/stage-threads.js";
 import { StartedTasks, type StartedTask } from "../ports/started-tasks.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { InitiativeBranchStages } from "./initiative-branch-stages.js";
+import { RoleFillings } from "./role-fillings.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import type { StageWork } from "./stage-runner.js";
@@ -141,6 +143,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly schedule: Schedule,
     private readonly updateHold: OfficeUpdateHold,
     private readonly branchStages: InitiativeBranchStages,
+    private readonly roleFillings: RoleFillings,
   ) {}
 
   onModuleInit(): void {
@@ -459,11 +462,13 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     record: TaskRecord,
   ): Promise<WalkStep> {
     const runs = await this.runs.list(taskId);
-    const move = nextMove(stages, runs, definitionOfDone);
+    // Read once per move, so a Stage starts with whoever holds its duty now (spec §2.3).
+    const staffed = await this.roleFillings.staffed(stages, runs);
+    const move = nextMove(staffed, runs, definitionOfDone);
     if (move.move === "skip") {
       return (await this.skip(taskId, move, runs)) ? { step: "skipped" } : { step: "over" };
     }
-    if (move.move !== "run") return { step: "halt", move, stages, runs };
+    if (move.move !== "run") return { step: "halt", move, stages: staffed, runs };
     if (this.stopping) return { step: "over" };
     // At the Stage boundary, until the update is cancelled or the service stops for it; a Gate does
     // no work, so it still asks the user.
@@ -479,8 +484,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       this.heldForBlocker.delete(taskId);
     }
     const { stage, carriedFailure, sentBack } = move;
+    const roleKey = stage.kind === "agent" ? staffedRole(stage) : undefined;
     const started = startStageRun(
-      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack },
+      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack, roleKey },
       runs.length,
       new Date(),
     );
@@ -489,7 +495,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       step: "started",
       stage,
       started,
-      stages: walkedStages(stages, runs),
+      stages: walkedStages(staffed, runs),
       earlierRuns: runs,
     };
   }

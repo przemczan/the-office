@@ -1,5 +1,11 @@
 import { stageProblems, problemOnStage, type Pipeline, type StageProblem } from "./pipeline.js";
-import { agentStageRoles, type Stage } from "./stage.js";
+import {
+  agentStageWorkers,
+  mergedWorkers,
+  NO_STAGE_WORKERS,
+  type Stage,
+  type StageWorkers,
+} from "./stage.js";
 import type { StageRun } from "./stage-run.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
 import { TaskStagesEdited, TaskStagesMade } from "./task-stages-events.js";
@@ -84,15 +90,19 @@ export interface TaskOfStages {
 export function rolesNamedByOpenTasks(
   taskStages: readonly TaskStages[],
   tasks: readonly TaskOfStages[],
-): ReadonlyMap<string, ReadonlySet<string>> {
+): ReadonlyMap<string, StageWorkers> {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
-  const byProject = new Map<string, Set<string>>();
+  const byProject = new Map<string, StageWorkers>();
   for (const own of taskStages) {
     const task = tasksById.get(own.taskId);
     if (!task || isFinished(task.state) || !followsPipeline(own, task.pipelineId)) continue;
-    const roleKeys = byProject.get(task.projectId) ?? new Set<string>();
-    for (const roleKey of agentStageRoles(own.stages)) roleKeys.add(roleKey);
-    byProject.set(task.projectId, roleKeys);
+    byProject.set(
+      task.projectId,
+      mergedWorkers(
+        byProject.get(task.projectId) ?? NO_STAGE_WORKERS,
+        agentStageWorkers(own.stages),
+      ),
+    );
   }
   return byProject;
 }

@@ -1,6 +1,6 @@
-import type { Role, Stage } from "@the-office/contracts";
+import type { Duty, Role, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { stageChanges, stageFieldChanges, stagesLine } from "./pipeline-words.ts";
+import { stageChanges, stageFieldChanges, stagesLine, whoWorks } from "./pipeline-words.ts";
 
 const LOOK: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
 const PUBLISH: Stage = {
@@ -126,5 +126,41 @@ describe("stageFieldChanges", () => {
 
   it("finds nothing changed in a Stage alike", () => {
     expect(stageFieldChanges(implement, { ...implement }, roles)).toEqual([]);
+  });
+});
+
+describe("whoWorks", () => {
+  const roles = [{ key: "developer", card: { name: "Jim" } }] as Role[];
+  const implementing: Stage = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    duty: "implements",
+    brief: "",
+    session: "fresh",
+    budget: 100_000,
+    optional: false,
+  };
+  const held = [
+    { key: "implements", holder: { roleKey: "developer", name: "Ada", title: "Developer" } },
+  ] as Duty[];
+
+  it("names a duty with its holder, or that nobody holds it yet", () => {
+    expect(whoWorks(implementing, roles, undefined, held)).toBe("Implements · Ada");
+    expect(whoWorks(implementing, roles)).toBe("Implements · nobody yet");
+    expect(
+      whoWorks(implementing, roles, undefined, [{ key: "implements", holder: null }] as Duty[]),
+    ).toBe("Implements · nobody yet");
+  });
+
+  it("names the Role's person for a Stage naming a Role", () => {
+    expect(whoWorks({ ...implementing, duty: undefined, role: "developer" }, roles)).toBe("Jim");
+  });
+
+  it("reads a move from a Role to a duty as a change of who works it", () => {
+    const byJim: Stage = { ...implementing, duty: undefined, role: "developer" };
+    expect(stageFieldChanges(byJim, implementing, roles, held)).toEqual([
+      { label: "Who works it", from: "Jim", to: "Implements · Ada" },
+    ]);
   });
 });

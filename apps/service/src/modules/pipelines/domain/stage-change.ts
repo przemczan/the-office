@@ -1,3 +1,4 @@
+import type { DutyKey } from "../../people/index.js";
 import { stageProblems } from "./pipeline.js";
 import type { StagePermissions } from "./stage-permissions.js";
 import {
@@ -19,7 +20,10 @@ import {
 export interface StageFieldChanges {
   readonly name?: string;
   readonly optional?: boolean;
+  /** Gives the Stage this Role, and clears its duty. */
   readonly role?: string;
+  /** Gives the Stage this duty, and clears its Role; a Change giving both is Broken. */
+  readonly duty?: DutyKey;
   readonly brief?: string;
   readonly session?: StageSession;
   readonly budget?: number;
@@ -38,6 +42,7 @@ export const STAGE_FIELD_NAMES: Readonly<Record<StageField, string>> = {
   name: "Name",
   optional: "Optional",
   role: "Role",
+  duty: "Duty",
   brief: "Brief",
   session: "Session",
   budget: "Budget",
@@ -55,6 +60,7 @@ const FIELDS_OF_KIND: Readonly<Record<StageKind, readonly StageField[]>> = {
     "name",
     "optional",
     "role",
+    "duty",
     "brief",
     "session",
     "budget",
@@ -237,6 +243,9 @@ function applied(
       return undefined;
     }
     case "change": {
+      if (namesRoleAndDuty(stageChange.fields)) {
+        return `${words}, giving it both a Role and a duty; name one of them.`;
+      }
       const { stage, given, lacked } = withFields(row.stage, stageChange.fields);
       rows[at] = {
         ...row,
@@ -280,10 +289,22 @@ function withFields(
     }
     if (value === null) delete changed[field];
     else changed[field] = value;
+    const named = WORKER_FIELD_CLEARED[field];
+    if (named !== undefined) delete changed[named];
     given.push(field);
   }
   // Only fields of the Stage's own kind were set, each to a value of its type, so it is that kind.
   return { stage: changed as unknown as Stage, given, lacked };
+}
+
+/** A Stage names a Role or a duty, never both: giving one clears the other (spec §2.3). */
+const WORKER_FIELD_CLEARED: Partial<Record<StageField, StageField>> = {
+  role: "duty",
+  duty: "role",
+};
+
+function namesRoleAndDuty(fields: StageFieldChanges): boolean {
+  return fields.role !== undefined && fields.duty !== undefined;
 }
 
 /** The Stage changes that give their Stage no field at all: an emptied Change is dropped. */

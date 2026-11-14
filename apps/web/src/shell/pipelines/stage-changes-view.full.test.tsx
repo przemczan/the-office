@@ -114,6 +114,7 @@ function shown({
           stageChanges={stageChanges}
           onChange={onChange}
           roles={ROLES}
+          duties={[]}
           options={{} as RoleCardOptions}
           commands={{
             kind: "project",

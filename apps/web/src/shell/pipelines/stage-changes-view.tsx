@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type {
   BuiltStage,
+  Duty,
   Role,
   RoleCardOptions,
   Stage,
@@ -84,6 +85,8 @@ export interface StageChangesViewProps {
   /** While the service's answer is for an earlier edit: the edits that name a row by place wait. */
   readonly pending?: boolean;
   readonly roles: readonly Role[];
+  /** Every duty with its holder, as an Agent Stage naming one is worked. */
+  readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   /** What a Script Stage may run: the Project's own commands. */
   readonly commands?: StageCommandSource;
@@ -204,7 +207,7 @@ interface RowProps extends StageChangesViewProps {
 }
 
 function StageChangesRowItem(props: RowProps): ReactNode {
-  const { row, at, open, onToggle, onEdit, built, baseName, roles, commands } = props;
+  const { row, at, open, onToggle, onEdit, built, baseName, roles, duties, commands } = props;
   const [folded, setFolded] = useState(true);
   const { stage, origin } = row.built;
   const stages = built.rows
@@ -233,7 +236,7 @@ function StageChangesRowItem(props: RowProps): ReactNode {
             <span className="stage-changes-name">
               {name}{" "}
               <span className="stage-changes-who">
-                · {whoWorks(stage, roles, commands && namedCommands(commands))}
+                · {whoWorks(stage, roles, commands && namedCommands(commands), duties)}
               </span>
             </span>
             {details !== "" && <span className="stage-changes-detail">{details}</span>}
@@ -399,7 +402,8 @@ function StageEditFields(
     readonly onEdit: (next: readonly StageChange[]) => void;
   },
 ): ReactNode {
-  const { row, stages, stageChanges, onEdit, built, baseName, roles, options, commands } = props;
+  const { row, stages, stageChanges, onEdit, built, baseName, roles, duties, options, commands } =
+    props;
   const index = stages.findIndex(({ key }) => key === row.built.stage.key);
   const drafted = index < 0 ? stages : stages.with(index, stageDrafted(stageChanges, row.built));
   const fromBase = row.built.origin === "base" || row.built.origin === "changed";
@@ -424,6 +428,7 @@ function StageEditFields(
           if (stage) onEdit(withStageEdited(stageChanges, row.built, stage));
         }}
         roles={roles}
+        duties={duties}
         options={options}
         commands={commands}
       />
@@ -478,12 +483,14 @@ function CompareTable({
   baseName,
   projectName,
   roles,
+  duties,
   commands,
 }: RowProps & { readonly stages: readonly Stage[] }): ReactNode {
   const { baseStage, stage, changedFields } = row.built;
   if (!baseStage) return null;
   const context: FieldWordsContext = {
     roles,
+    duties,
     stages,
     commands: commands && namedCommands(commands),
   };
@@ -539,6 +546,7 @@ function ReplacedBy({
   baseName,
   projectName,
   roles,
+  duties,
   commands,
 }: RowProps & { readonly baseStage: Stage; readonly stages: readonly Stage[] }): ReactNode {
   const named = commands && namedCommands(commands);
@@ -546,7 +554,7 @@ function ReplacedBy({
     <div>
       <span className="stage-changes-overline">{title}</span>
       <span>
-        {STAGE_KIND_NAMES[stage.kind]} · {whoWorks(stage, roles, named)}
+        {STAGE_KIND_NAMES[stage.kind]} · {whoWorks(stage, roles, named, duties)}
       </span>
       <span className="stage-changes-detail">{stageDetailsLine(stage, stages)}</span>
     </div>

@@ -8,6 +8,7 @@ import {
   WorkRecords,
 } from "../../conversations/index.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
+import { DUTIES } from "../../people/index.js";
 import { TaskBases, type NewProject, type TaskBaseLookup } from "../../projects/index.js";
 import type { AccountWindowsReading, UsedUpWindowReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
@@ -261,11 +262,17 @@ export class KnownPeopleForTests extends KnownPeople {
     };
   }
 
-  /** The holders of duties, by duty key: none until a test sets one. */
-  readonly holders = new Map<string, string>();
+  /**
+   * The Role each duty names, by duty key, `null` for none: until a test sets one, its default Role
+   * key, as People's are. It holds the duty while that Role isn't vacant.
+   */
+  readonly holders = new Map<string, string | null>();
 
   async holderOf(duty: string): Promise<string | undefined> {
-    return this.holders.get(duty);
+    const roleKey = this.holders.has(duty)
+      ? (this.holders.get(duty) ?? undefined)
+      : DUTIES.find(({ key }) => key === duty)?.defaultRoleKey;
+    return roleKey === undefined || this.vacant.has(roleKey) ? undefined : roleKey;
   }
 }
 

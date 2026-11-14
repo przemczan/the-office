@@ -54,6 +54,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     taskId: "task-1",
     number: index + 1,
     threadId: undefined,
+    roleKey: undefined,
     session: undefined,
     headCommit: undefined,
     commandRuns: [],

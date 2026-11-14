@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import type { DutyKey } from "../../people/index.js";
 import { RESOLVE_TEST_COMMAND } from "./resolve-stages.js";
 import type { StagePermissions } from "./stage-permissions.js";
 
@@ -35,7 +36,7 @@ export type PublishTarget = "publishing-mode" | "branch-only";
  */
 export type AfterConflict = "publish" | "review";
 
-/** Fresh with a Brief, or continuing the previous Stage's session when the same Role worked it. */
+/** Fresh with a Brief, or continuing the previous Stage's session when the same person worked it. */
 export type StageSession = "fresh" | "continue";
 
 /** How hard the model thinks, as the engine names it. */
@@ -61,8 +62,13 @@ interface StageFields {
 
 export interface AgentStage extends StageFields {
   readonly kind: "agent";
-  /** The key of the Role that works it. */
-  readonly role: string;
+  /**
+   * The key of the Role that works it. A Stage names a Role or a duty, never both (spec §2.3); read
+   * it through `stageWorker`, or on the Stages `staffedStages` gives a Role to.
+   */
+  readonly role?: string;
+  /** The duty whose holder works it, as held when the Stage starts. */
+  readonly duty?: DutyKey;
   /** Plain words, filled with the Task's Plan, Definition of Done and earlier results. */
   readonly brief: string;
   readonly session: StageSession;
@@ -90,9 +96,41 @@ export interface Gate extends StageFields {
   readonly kind: "gate";
 }
 
-/** The Roles the Agent Stages among `stages` name, each once. */
-export function agentStageRoles(stages: readonly Stage[]): ReadonlySet<string> {
-  return new Set(stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])));
+/** Who an Agent Stage names to work it: a Role, a duty, or nobody yet. */
+export type StageWorker = { readonly role: string } | { readonly duty: DutyKey };
+
+/**
+ * Who `stage` names to work it; undefined for a Stage of another kind, or one naming nobody yet. A
+ * Stage naming both is refused by `singleStageProblems`; read as naming its Role.
+ */
+export function stageWorker(stage: Stage): StageWorker | undefined {
+  if (stage.kind !== "agent") return undefined;
+  if (stage.role !== undefined && stage.role.trim() !== "") return { role: stage.role };
+  if (stage.duty !== undefined) return { duty: stage.duty };
+  return undefined;
+}
+
+/** The Roles and the duties the Agent Stages among `stages` name, each once. */
+export interface StageWorkers {
+  readonly roles: ReadonlySet<string>;
+  readonly duties: ReadonlySet<DutyKey>;
+}
+
+/** Who the Agent Stages among `stages` name, Roles and duties apart. */
+export function agentStageWorkers(stages: readonly Stage[]): StageWorkers {
+  const workers = stages.flatMap((stage) => {
+    const worker = stageWorker(stage);
+    return worker ? [worker] : [];
+  });
+  return {
+    roles: new Set(workers.flatMap((worker) => ("role" in worker ? [worker.role] : []))),
+    duties: new Set(workers.flatMap((worker) => ("duty" in worker ? [worker.duty] : []))),
+  };
+}
+
+/** Whether two Stages name the same Role, or the same duty: what "continue" needs. */
+export function sameWorkerNamed(one: Stage, other: Stage): boolean {
+  return isDeepStrictEqual(stageWorker(one), stageWorker(other));
 }
 
 /**
@@ -115,13 +153,29 @@ export function commandKeysNamedBy(stages: readonly Stage[]): readonly string[] 
   return [...new Set(stages.flatMap((stage) => commandKeysOfStage(stage, stages)))];
 }
 
-/** Those of `named` that `already` doesn't hold: the Roles a save of Stages newly names. */
-export function newlyNamedRoles(
-  named: ReadonlySet<string>,
-  already: ReadonlySet<string>,
-): readonly string[] {
-  return [...named].filter((roleKey) => !already.has(roleKey));
+/** The Roles and duties a save of Stages newly names. */
+export interface NewlyNamedWorkers {
+  readonly roleKeys: readonly string[];
+  readonly dutyKeys: readonly DutyKey[];
 }
+
+/** Those of `named` that `already` doesn't hold: who a save of Stages newly names. */
+export function newlyNamedWorkers(named: StageWorkers, already: StageWorkers): NewlyNamedWorkers {
+  return {
+    roleKeys: [...named.roles].filter((roleKey) => !already.roles.has(roleKey)),
+    dutyKeys: [...named.duties].filter((duty) => !already.duties.has(duty)),
+  };
+}
+
+/** Everyone `workers` name, each once. */
+export function mergedWorkers(...workers: readonly StageWorkers[]): StageWorkers {
+  return {
+    roles: new Set(workers.flatMap(({ roles }) => [...roles])),
+    duties: new Set(workers.flatMap(({ duties }) => [...duties])),
+  };
+}
+
+export const NO_STAGE_WORKERS: StageWorkers = { roles: new Set(), duties: new Set() };
 
 /**
  * Stages alike as they are kept, where a field left out and one left undefined are the same: a

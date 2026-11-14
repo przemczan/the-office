@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { agentStage, scriptStage } from "./stage.fixtures.js";
-import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
+import { aStageRun } from "./stage-run.fixtures.js";
+import { agentStage, dutyStage, scriptStage } from "./stage.fixtures.js";
+import {
+  fillingKey,
+  staffedRole,
+  staffedStages,
+  staffingProblems,
+  unstaffedWords,
+  type RoleFilling,
+} from "./stage-staffing.js";
 
 const roles = new Map<string, RoleFilling>([
   ["developer", { title: "Developer", person: { name: "Ada", taskLimit: 2 } }],
@@ -61,5 +69,86 @@ describe("staffingProblems", () => {
 
   it("leaves a Stage with nobody chosen to the Stage's own flag", () => {
     expect(staffingProblems([agentStage({ role: "" })], 0, roles)).toEqual([]);
+  });
+});
+
+describe("staffedStages", () => {
+  const review = dutyStage("implements", { key: "review", name: "Review" });
+  const stages = [dutyStage("implements"), scriptStage(), review];
+  const holders = new Map([["implements", "developer"] as const]);
+
+  it("gives a Stage naming a duty its holder's Role, keeping the duty for its words", () => {
+    const [implement] = staffedStages(stages, [], holders);
+
+    expect(implement).toMatchObject({ role: "developer", duty: "implements" });
+  });
+
+  it("keeps the Role of a started Stage's latest run after the duty changed hands", () => {
+    const runs = [
+      aStageRun({ stageKey: "implement", number: 1, roleKey: "developer" }),
+      aStageRun({ stageKey: "tests", number: 2 }),
+    ];
+    const changedHands = new Map([["implements", "architect"] as const]);
+
+    const [implement, , later] = staffedStages(stages, runs, changedHands);
+
+    expect(implement).toMatchObject({ role: "developer" });
+    expect(later).toMatchObject({ role: "architect" });
+  });
+
+  it("leaves a Stage whose duty nobody holds unstaffed, and a Stage naming a Role as it is", () => {
+    const named = agentStage({ role: "reviewer" });
+
+    const [implement, , , reviewer] = staffedStages([...stages, named], [], new Map());
+
+    expect(implement && implement.kind === "agent" && staffedRole(implement)).toBeUndefined();
+    expect(reviewer).toBe(named);
+  });
+
+  it("says which duty nobody holds when the walk reaches it", () => {
+    expect(unstaffedWords(dutyStage("implements"))).toBe(
+      "Nobody holds Implements, which this Stage needs: choose who in Settings › Duties, or choose who works it.",
+    );
+  });
+});
+
+describe("staffingProblems on a Stage naming a duty", () => {
+  const implementsKey = fillingKey({ duty: "implements" });
+
+  function problemOf(filling: RoleFilling): string | undefined {
+    const fillings = new Map([[implementsKey, filling]]);
+    return staffingProblems([dutyStage("implements")], 0, fillings)[0]?.text;
+  }
+
+  it("passes a duty held by someone with a Task limit", () => {
+    expect(
+      problemOf({ title: "Developer", person: { name: "Ada", taskLimit: 2 } }),
+    ).toBeUndefined();
+  });
+
+  it("flags a duty nobody holds, pointing to Settings › Duties", () => {
+    expect(staffingProblems([dutyStage("implements")], 0, new Map())[0]?.text).toBe(
+      "Stage 1 · Implement: nobody holds Implements; choose who in Settings › Duties, or choose who works it.",
+    );
+  });
+
+  it("names the holder let go", () => {
+    expect(problemOf({ title: "Developer", person: undefined, letGoPerson: "Ada" })).toBe(
+      "Stage 1 · Implement: Ada was let go from Developer, who holds Implements; hire Ada back, choose who holds it in Settings › Duties, or choose who works it.",
+    );
+  });
+
+  it("flags a holder whose Task limit is none", () => {
+    expect(problemOf({ title: "CTO", person: { name: "Nina", taskLimit: "none" } })).toBe(
+      "Stage 1 · Implement: Nina holds Implements, but their Task limit is none, so CTO only talks and can't work a Stage; choose who holds it in Settings › Duties, or choose who works it.",
+    );
+  });
+
+  it("weighs a staffed Stage by the Role it runs as, still naming the duty", () => {
+    const staffed = { ...dutyStage("implements"), role: "cto" };
+
+    expect(staffingProblems([staffed], 0, roles)[0]?.text).toBe(
+      "Stage 1 · Implement: Nina holds Implements, but their Task limit is none, so CTO only talks and can't work a Stage; choose who holds it in Settings › Duties, or choose who works it.",
+    );
   });
 });

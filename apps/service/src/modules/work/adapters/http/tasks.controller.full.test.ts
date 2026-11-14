@@ -1055,7 +1055,8 @@ describe("The queue", () => {
     const first = await deskTaken();
     const second = await ownReadyTask();
     await requestStart(second.id);
-    const reason = "Nobody fills the Role Implement needs: hire a person for it on People first.";
+    const reason =
+      "Nobody holds Implements, which Implement needs: choose who holds it in Settings › Duties first.";
     work.app.get(KnownPeopleForTests).vacant.add("developer");
     work.published.length = 0;
 
@@ -1197,7 +1198,7 @@ describe("The queue", () => {
       expect((await readTask(task.id)).state).toBe("in-progress");
     });
 
-    it("refuses a blocked Task with a vacant Role, every reason listed, queuing nothing", async () => {
+    it("refuses a blocked Task whose duty nobody holds, every reason listed, queuing nothing", async () => {
       const blocker = await ownBlocker("Queue schema");
       const task = await ownReadyTask();
       await addDependency(task.id, blocker.id);
@@ -1206,7 +1207,7 @@ describe("The queue", () => {
       const refused = await requestStart(task.id);
 
       expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
-        "Nobody fills the Role Implement needs: hire a person for it on People first.",
+        "Nobody holds Implements, which Implement needs: choose who holds it in Settings › Duties first.",
         blockedBy("Queue schema"),
       ]);
       expect(await ownQueue()).toEqual([]);

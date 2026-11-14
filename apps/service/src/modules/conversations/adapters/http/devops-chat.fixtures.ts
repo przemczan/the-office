@@ -15,7 +15,13 @@ import {
 } from "@the-office/contracts";
 import { vi } from "vitest";
 import type { ScriptedEngine, SessionScript } from "../../../engine/index.js";
-import { DEVOPS, type RoleCards, type SessionRole } from "../../../people/index.js";
+import {
+  DEVOPS,
+  DUTIES,
+  type DutyKey,
+  type RoleCards,
+  type SessionRole,
+} from "../../../people/index.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
@@ -45,7 +51,15 @@ export const NINA_ROLE_CARDS: Partial<RoleCards> = {
   hiredKeys: () => Promise.resolve(new Set([DEVOPS])),
   consultants: () => Promise.resolve([]),
   findLetGo: () => Promise.resolve(undefined),
+  roleTitle: (key) => (key === DEVOPS ? "Devops" : key),
+  // Nina holds the duties Devops holds by default, such as onboarding Projects.
+  holderOf: (duty) => Promise.resolve(devopsDuty(duty) ? DEVOPS : undefined),
+  dutyRoleKey: (duty) => Promise.resolve(devopsDuty(duty) ? DEVOPS : undefined),
 };
+
+function devopsDuty(duty: DutyKey): boolean {
+  return DUTIES.some(({ key, defaultRoleKey }) => key === duty && defaultRoleKey === DEVOPS);
+}
 
 /** A skill name of the test's own, since every test file shares the database. */
 export function aSkillName(): string {

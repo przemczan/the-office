@@ -136,7 +136,9 @@ function resolveStages(stages: readonly Stage[], publish: Stage): readonly Stage
     key: RESOLVE_KEY,
     name: "Resolve",
     optional: false,
-    role: person.role,
+    // Whoever works the first Agent Stage: its Role, or its duty, or both once the walk staffed it.
+    ...(person.role === undefined ? {} : { role: person.role }),
+    ...(person.duty === undefined ? {} : { duty: person.duty }),
     brief: "",
     session: "fresh",
     budget: Math.max(...agentStages.map(({ budget }) => budget)) + RESOLVE_BUDGET,

@@ -1,4 +1,6 @@
 import type { Role, Stage, TaskStage, TaskState } from "@the-office/contracts";
+import { DUTY_LABELS } from "../../shell/duty-words.ts";
+import { stageWorker } from "../../shell/pipelines/stage-edits.ts";
 import { shortDurationWords } from "../../shell/time.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
@@ -78,7 +80,10 @@ export function railCaption(stages: readonly TaskStage[], taskState: TaskState):
   return `${finished} of ${stages.length} Stages finished`;
 }
 
-/** Who works a Stage: its person, the user at a Gate, or its command once it has run it. */
+/**
+ * Who works a Stage: its person, the user at a Gate, or its command once it has run it. A Stage
+ * naming a duty shows `workedBy`'s person, or says nobody holds the duty.
+ */
 export function stageWorkerWords(
   taskStage: TaskStage,
   roles: readonly Pick<Role, "key" | "card">[] | undefined,
@@ -86,7 +91,24 @@ export function stageWorkerWords(
   const { stage } = taskStage;
   if (stage.kind === "gate") return "You";
   if (stage.kind === "script") return scriptCommandLine(taskStage) ?? "Project command";
-  return roles?.find(({ key }) => key === stage.role)?.card.name ?? "Nobody yet";
+  const worker = stageWorker(stage);
+  if (worker && "duty" in worker && !taskStage.workedBy) {
+    const label = DUTY_LABELS[worker.duty];
+    // Before the Task has its own Stages, the library's don't say who holds the duty.
+    return taskStage.workedBy === null ? `${label} · nobody holds it` : label;
+  }
+  const roleKey = workingRoleKey(taskStage);
+  return roles?.find(({ key }) => key === roleKey)?.card.name ?? "Nobody yet";
+}
+
+/**
+ * The key of the Role working an Agent Stage: the one it names, or for a duty `workedBy`; undefined
+ * while nobody does, or for a Stage of another kind.
+ */
+export function workingRoleKey(taskStage: TaskStage): string | undefined {
+  const worker = stageWorker(taskStage.stage);
+  if (worker === undefined) return undefined;
+  return "role" in worker ? worker.role : (taskStage.workedBy ?? undefined);
 }
 
 /**

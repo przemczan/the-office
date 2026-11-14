@@ -40,7 +40,7 @@
 - `office-identity.ts`: officeIdentityQueries, regenerateSshKey, scanHost, confirmFingerprint
 - `office-updates.ts`: officeUpdateQueries, checkForUpdates, scheduleOfficeUpdate, cancelOfficeUpdate, OFFICE_UPDATE_LOG_URL, officeUpdateEventInvalidations
 - `people.ts`: ENGINE_CASCADE, DUTIES, roleQueries, roleCardQueries, dutyQueries, changeDuty, hire, changeRoleCard, filledRoleKeys, letGoOfPerson, hirePersonBack, uploadAvatar, removeAvatar, avatarAddress, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
-- `pipelines.ts`: pipelineQueries, projectPipelineQueries, stageTemplateQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, addProjectPipeline, saveProjectPipeline, removeProjectPipeline, addStageTemplate, saveStageTemplate, removeStageTemplate, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
+- `pipelines.ts`: pipelineQueries, projectPipelineQueries, stageTemplateQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, addProjectPipeline, saveProjectPipeline, removeProjectPipeline, addStageTemplate, saveStageTemplate, removeStageTemplate, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, staleStaffing, pipelineEventInvalidations
 - `projects.ts`: REMOTE_NEEDS, RUN_ENVIRONMENTS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeInstallCommand, changeBeforePublishingCommand, changeAfterPublishingCommand, addCommand, changeCommand, removeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeRunEnvironment, setUpRunEnvironment, changeMark, changeProjectLimit, ProjectImageVersion, uploadProjectImage, chooseProjectImage, removeProjectImage, projectImageAddress, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
 - `run-environments.ts`: runEnvironmentOfficeLimitsQuery, changeRunEnvironmentOfficeLimits, runEnvironmentEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations, skillEventCacheUpdates
@@ -56,6 +56,7 @@
 - `copy-record-link.ts`: useCopyRecordLink
 - `copy-text.ts`: CopyWords, useCopyText
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
+- `duty-words.ts`: DUTY_LABELS, STAGE_DUTIES, dutyHolder
 - `engine-model-fields.tsx`: OfferedEngine, EngineModelFields
 - `engine-words.ts`: EFFORT_LABELS, modelLabel
 - `floating-menu.tsx`: FloatingMenu
@@ -220,13 +221,13 @@
 - `stage-check-alerts.tsx`: StageCheckAlerts
 - `stage-commands.ts`: PUBLISH_COMMAND, ANOTHER_KEY, StageCommandSource, PublishingLines, StageCommandChoice, commandChoices, commandWords, namedCommands, commandKeysOf, publishingLinesWords
 - `stage-editor.tsx`: StageEditorProps, StageEditor
-- `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_KIND_ICONS, addStage, addStageFrom, withoutFailureRule, AddedStage, keyAmong, standaloneStage, removeStage, canMove, moveStage, replaceStage, withRole, withCommand, canContinue, failureTargets
+- `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_KIND_ICONS, addStage, addStageFrom, withoutFailureRule, AddedStage, keyAmong, standaloneStage, removeStage, canMove, moveStage, replaceStage, StageWorker, stageWorker, withRole, withDuty, withCommand, canContinue, failureTargets
 - `stage-form.tsx`: StageFormProps, StageForm
 - `stage-permission-fields.tsx`: StagePermissionFields
 - `stage-permissions.ts`: narrowerRuns, narrowerSettings, withPermissions, withMcpToolSetting, withCommands
 - `stages-check.ts`: StagesCheckState, checkAwaited
 - `use-pipelines.ts`: useEveryPipeline, useProjectPipelineChoices, asPipeline
-- Tests: pipeline-choices.test.ts, pipeline-use-words.full.test.ts, pipeline-words.full.test.ts, stage-change-edits.full.test.ts, stage-change-edits.test.ts, stage-change-words.full.test.ts, stage-changes-view.full.test.tsx, stage-commands.test.ts, stage-edits.full.test.ts, stage-permission-fields.test.tsx, stage-permissions.full.test.ts, stages-check.full.test.ts
+- Tests: pipeline-choices.test.ts, pipeline-use-words.full.test.ts, pipeline-words.full.test.ts, stage-change-edits.full.test.ts, stage-change-edits.test.ts, stage-change-words.full.test.ts, stage-changes-view.full.test.tsx, stage-commands.test.ts, stage-edits.full.test.ts, stage-form.test.tsx, stage-permission-fields.test.tsx, stage-permissions.full.test.ts, stages-check.full.test.ts
 
 ### shell/project-filter/
 

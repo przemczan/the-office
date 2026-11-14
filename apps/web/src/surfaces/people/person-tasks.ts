@@ -1,4 +1,4 @@
-import type { Decision, Pipeline, Task, TaskState, Thread } from "@the-office/contracts";
+import type { Decision, DutyKey, Pipeline, Task, TaskState, Thread } from "@the-office/contracts";
 import { waitsOnYou } from "../../shell/work/waiting-on-you.ts";
 import { isArchived } from "../../shell/work/work-words.ts";
 
@@ -10,8 +10,8 @@ export interface PersonTask {
 
 /**
  * The Tasks the person has a part in: those they created, as from a chat, those with a Thread with
- * them, by its title (as "Planning"), and those whose Pipeline has a Stage their Role works, by
- * the Stages' names (task 10). Ownership and consultations add theirs in later tasks. An
+ * them, by its title (as "Planning"), and those whose Pipeline has a Stage their Role works, or
+ * that names a duty they hold, by the Stages' names (task 10). Ownership and consultations add theirs in later tasks. An
  * archived Task has left the lists.
  */
 export function personTasks(
@@ -19,6 +19,7 @@ export function personTasks(
   tasks: readonly Task[],
   pipelines: readonly Pipeline[],
   threadsOnTasks: readonly Thread[],
+  heldDuties: ReadonlySet<DutyKey>,
 ): PersonTask[] {
   return tasks.flatMap((task) => {
     if (isArchived(task)) return [];
@@ -29,7 +30,11 @@ export function personTasks(
     const stages =
       pipelines
         .find(({ id }) => id === task.pipelineId)
-        ?.stages.filter((stage) => stage.kind === "agent" && stage.role === roleKey)
+        ?.stages.filter(
+          (stage) =>
+            stage.kind === "agent" &&
+            (stage.role === roleKey || (stage.duty !== undefined && heldDuties.has(stage.duty))),
+        )
         .map(({ name }) => name) ?? [];
     const parts = new Set([...(created ? ["Created it"] : []), ...threads, ...stages]);
     return parts.size > 0 ? [{ task, part: [...parts].join(" · ") }] : [];

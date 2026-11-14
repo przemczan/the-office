@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type {
+  Duty,
   OfficeWidePipeline,
   Project,
   ProjectPipeline,
@@ -36,12 +37,14 @@ export function ProjectPipelineForm({
   projectPipeline,
   officeWide,
   roles,
+  duties,
   options,
 }: {
   readonly project: Project;
   readonly projectPipeline: ProjectPipeline;
   readonly officeWide: readonly OfficeWidePipeline[];
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
 }): ReactNode {
   const saved = editOf(projectPipeline);
@@ -137,6 +140,7 @@ export function ProjectPipelineForm({
           flags={check.data?.flags ?? []}
           pending={checkAwaited(check)}
           roles={roles}
+          duties={duties}
           options={options}
           commands={projectCommandsOf(project)}
         />

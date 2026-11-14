@@ -2,9 +2,16 @@ import { walkedStages, withoutResolveStages } from "../domain/resolve-stages.js"
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
+import type { DutyKey } from "../../people/index.js";
 import { TaskMovedToProject, TaskPipelineConfirmed, TaskStageEdits } from "../../work/index.js";
 import type { Pipeline, StageProblem } from "../domain/pipeline.js";
-import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
+import {
+  agentStageWorkers,
+  mergedWorkers,
+  newlyNamedWorkers,
+  NO_STAGE_WORKERS,
+  type Stage,
+} from "../domain/stage.js";
 import { reportedMet } from "../domain/pipeline-walk.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
@@ -94,7 +101,10 @@ export class TaskStagesService implements OnModuleInit {
   /** Where each of the Task's own Stages stands; undefined while the Task follows its Pipeline. */
   async progress(taskId: string): Promise<TaskProgress | undefined> {
     const own = await this.find(taskId);
-    return own && progressOf(own, await this.runs.list(taskId));
+    return (
+      own &&
+      progressOf(own, await this.runs.list(taskId), await this.roleFillings.holders(own.stages))
+    );
   }
 
   /** What each command of the Task's run printed, in its order; undefined for no such run. */
@@ -113,7 +123,7 @@ export class TaskStagesService implements OnModuleInit {
       const { taskStages, event } = editTaskStages(own, withoutResolveStages(edited));
       await this.repository.save(taskStages);
       await this.events.publish(event);
-      return progressOf(taskStages, runs);
+      return progressOf(taskStages, runs, await this.roleFillings.holders(taskStages.stages));
     });
   }
 
@@ -123,14 +133,15 @@ export class TaskStagesService implements OnModuleInit {
   }
 
   /**
-   * Why nobody can work the Task's Stages from where it goes on: a Role nobody fills, or whose
-   * person only talks. Empty for a Task without Stages of its own yet.
+   * Why nobody can work the Task's Stages from where it goes on: a Role nobody fills, a duty nobody
+   * holds, or a person who only talks. Each Stage naming a duty is weighed as it would start now.
+   * Empty for a Task without Stages of its own yet.
    */
   async staffingProblems(taskId: string): Promise<readonly StageProblem[]> {
     const own = await this.find(taskId);
     if (!own) return [];
     const runs = await this.runs.list(taskId);
-    const stages = walkedStages(own.stages, runs);
+    const stages = walkedStages(await this.roleFillings.staffed(own.stages, runs), runs);
     const fromIndex = firstStageToWork(stages, runs);
     return staffingProblems(stages, fromIndex, await this.roleFillings.of(stages));
   }
@@ -230,13 +241,13 @@ export class TaskStagesService implements OnModuleInit {
       this.library.rolesNamed(),
       this.library.rolesNamedByProject(),
     ]);
-    const named = new Set([
-      ...agentStageRoles(own.stages),
-      ...library,
-      ...(byProject.get(projectId) ?? []),
-    ]);
+    const named = mergedWorkers(
+      agentStageWorkers(own.stages),
+      library,
+      byProject.get(projectId) ?? NO_STAGE_WORKERS,
+    );
     const problems = await this.roleEngines.newlyNamedRolesProblems({
-      roleKeys: newlyNamedRoles(agentStageRoles(edited), named),
+      ...newlyNamedWorkers(agentStageWorkers(edited), named),
       projectId,
     });
     return problems.map((text) => ({ text }));
@@ -283,10 +294,14 @@ interface ReviewedEdit {
   readonly problems: readonly StageProblem[];
 }
 
-function progressOf(own: TaskStages, runs: readonly StageRun[]): TaskProgress {
+function progressOf(
+  own: TaskStages,
+  runs: readonly StageRun[],
+  holders: ReadonlyMap<DutyKey, string>,
+): TaskProgress {
   const stages = walkedStages(own.stages, runs);
   return {
-    stages: stagesProgress(stages, runs),
+    stages: stagesProgress(stages, runs, holders),
     editedForTask: own.editedForTask,
     lockedStages: lockedStageCount(stages, runs),
     definitionOfDoneMet: reportedMet(runs),

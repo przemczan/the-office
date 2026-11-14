@@ -45,11 +45,13 @@ export type WindowRatios = Readonly<Record<UsageWindowName, number | undefined>>
 /** Each engine id's window ratios; an engine whose account has no usage windows has none. */
 export type EngineWindowRatios = ReadonlyMap<EngineId, WindowRatios>;
 
-/** A Stage of a Pipeline in the library; an Agent Stage names its Role. */
+/** A Stage of a Pipeline in the library; an Agent Stage names its Role or a duty. */
 export interface PipelineStage {
   readonly key: string;
   readonly name: string;
   readonly role?: string;
+  /** The key of the duty whose holder works it, when it names one rather than a Role. */
+  readonly duty?: string;
 }
 
 /** An Agent Stage with the engine id its engine spends on and the model it would work with. */

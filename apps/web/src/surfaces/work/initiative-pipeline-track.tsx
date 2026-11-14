@@ -15,6 +15,7 @@ import {
   loopBacks,
   loopBackWords,
   stageWaitsForRunEnvironment,
+  stageWorkerWords,
   type LoopBack,
   type RailPlace,
 } from "./stage-rail-words.ts";
@@ -58,11 +59,16 @@ export function InitiativePipelineTrack({
 }): ReactNode {
   const [measured, layout] = useTrackLayout(stages.length);
   const names = stageNamesOf(stages.map(({ stage }) => stage));
-  const who = (taskStage: TaskStage): string =>
+  const who = (taskStage: TaskStage): string => {
+    const { stage } = taskStage;
     // Until the Roles are read, an Agent Stage's person isn't known yet.
-    taskStage.stage.kind === "agent" && roles === undefined
-      ? ""
-      : whoWorks(taskStage.stage, roles ?? [], commands);
+    if (stage.kind === "agent" && roles === undefined) return "";
+    // A duty's Stage is worked by whom the Task's Stages say: its run's Role, or the holder's.
+    if (stage.kind === "agent" && stage.duty !== undefined) {
+      return stageWorkerWords(taskStage, roles);
+    }
+    return whoWorks(stage, roles ?? [], commands);
+  };
   const shared: TrackParts = {
     stages,
     placeholder,

@@ -1,4 +1,4 @@
-import type { Stage, StageTemplate } from "@the-office/contracts";
+import type { DutyKey, Stage, StageTemplate } from "@the-office/contracts";
 import { PUBLISH_COMMAND } from "./stage-commands.ts";
 import { withPermissions } from "./stage-permissions.ts";
 
@@ -142,15 +142,44 @@ export function replaceStage(
   return stages.with(index, stage);
 }
 
+/** Who an Agent Stage names to work it: a Role, or a duty whose holder works it when it starts. */
+export type StageWorker = { readonly role: string } | { readonly duty: DutyKey };
+
 /**
- * The Agent Stage given to another Role. It can only continue the session before with the same
- * Role there, so otherwise it starts fresh.
+ * Who `stage` names; undefined for a Stage of another kind or one naming nobody yet. A Stage naming
+ * both, which the service refuses, reads as naming its Role, as the service reads it.
+ */
+export function stageWorker(stage: Stage): StageWorker | undefined {
+  if (stage.kind !== "agent") return undefined;
+  if (stage.role !== undefined && stage.role.trim() !== "") return { role: stage.role };
+  if (stage.duty !== undefined) return { duty: stage.duty };
+  return undefined;
+}
+
+/**
+ * The Agent Stage given to another Role, its duty cleared. It can only continue the session before
+ * with the same Role there, so otherwise it starts fresh.
  */
 export function withRole(stages: readonly Stage[], index: number, role: string): AgentStage {
+  const { duty: _duty, ...stage } = agentStageAt(stages, index);
+  return withWorker(stages, index, { ...stage, role });
+}
+
+/** The Agent Stage given to a duty, its Role cleared; continuing then needs the same duty before. */
+export function withDuty(stages: readonly Stage[], index: number, duty: DutyKey): AgentStage {
+  const { role: _role, ...stage } = agentStageAt(stages, index);
+  return withWorker(stages, index, { ...stage, duty });
+}
+
+function agentStageAt(stages: readonly Stage[], index: number): AgentStage {
   const stage = stages[index];
   if (stage?.kind !== "agent") throw new Error(`Stage ${index + 1} isn't an Agent Stage.`);
-  // The MCP tools set belong to the Role's servers, so another Role starts from its own card.
-  const changed = withPermissions({ ...stage, role }, { mcpTools: undefined });
+  return stage;
+}
+
+function withWorker(stages: readonly Stage[], index: number, stage: AgentStage): AgentStage {
+  // The MCP tools set belong to the Role's servers, so whoever else works it starts from their card.
+  const changed = withPermissions(stage, { mcpTools: undefined });
   return changed.session === "continue" && !canContinue(stages.with(index, changed), index)
     ? { ...changed, session: "fresh" }
     : changed;
@@ -166,11 +195,24 @@ export function withCommand(stage: ScriptStage, command: StageCommand): ScriptSt
   return { ...rest, command };
 }
 
-/** Whether the Agent Stage may continue the session of the Stage before: the same Role works it. */
+/**
+ * Whether the Agent Stage may continue the session of the Stage before: both name the same Role,
+ * or the same duty.
+ */
 export function canContinue(stages: readonly Stage[], index: number): boolean {
   const stage = stages[index];
   const previous = stages[index - 1];
-  return stage?.kind === "agent" && previous?.kind === "agent" && previous.role === stage.role;
+  return (
+    stage?.kind === "agent" &&
+    previous?.kind === "agent" &&
+    sameWorker(stageWorker(stage), stageWorker(previous))
+  );
+}
+
+function sameWorker(one: StageWorker | undefined, other: StageWorker | undefined): boolean {
+  if (one === undefined || other === undefined) return one === other;
+  if ("role" in one) return "role" in other && one.role === other.role;
+  return "duty" in other && one.duty === other.duty;
 }
 
 /** The Stages a failure may go back to: earlier ones that work, not Gates. */

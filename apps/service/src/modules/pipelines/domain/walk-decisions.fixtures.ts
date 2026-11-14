@@ -39,6 +39,7 @@ export function aRun(
     number: 1,
     carriedFailure: undefined,
     threadId: "thread-1",
+    roleKey: undefined,
     session: "fresh",
     headCommit: undefined,
     commandRuns: [],

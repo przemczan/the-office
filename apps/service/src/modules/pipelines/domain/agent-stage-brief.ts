@@ -2,6 +2,7 @@ import { baseWords, publishingModeWords } from "./base-words.js";
 import type { AllowedCommands, NamedCommand } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { correctionMessage } from "./stage-result.js";
+import { dutyLabel, staffedRole } from "./stage-staffing.js";
 import {
   PUBLISH_COMMAND,
   STAGE_KIND_NAMES,
@@ -224,7 +225,7 @@ function laterStageWords(
 ): string {
   const kind = [
     STAGE_KIND_NAMES[laterStage.kind],
-    ...(laterStage.kind === "agent" ? [roleTitle(laterStage.role)] : []),
+    ...(laterStage.kind === "agent" ? [workerWords(laterStage, roleTitle)] : []),
     ...(laterStage.optional ? ["optional"] : []),
   ].join(", ");
   const comesBack =
@@ -234,6 +235,15 @@ function laterStageWords(
   // A brief's later lines stay within its item.
   const what = laterStageDoes(laterStage, commands).replaceAll("\n", "\n  ");
   return `- ${laterStage.name} (${kind}): ${what}${comesBack}`;
+}
+
+/** Who works a later Agent Stage: its Role's title, or the duty nobody holds yet. */
+function workerWords(stage: AgentStage, roleTitle: StagePipeline["roleTitle"]): string {
+  const roleKey = staffedRole(stage);
+  if (roleKey !== undefined) return roleTitle(roleKey);
+  return stage.duty === undefined
+    ? "nobody chosen yet"
+    : `${dutyLabel(stage.duty)}, nobody holds it`;
 }
 
 function laterStageDoes(laterStage: Stage, commands: StagePipeline["commands"]): string {

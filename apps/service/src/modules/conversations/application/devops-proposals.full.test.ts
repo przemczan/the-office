@@ -572,7 +572,13 @@ describe("Devops' Proposals of a Stage template, through the scripted engine", (
     const listed = await chat.ninaCalls(LIST_STAGE_TEMPLATES_TOOL, {});
 
     expect(listed.isError).toBe(false);
-    expect(stageTemplateListSchema.parse(JSON.parse(listed.text))).toContainEqual(template);
+    const { templates, duties } = JSON.parse(listed.text) as {
+      templates: unknown;
+      duties: unknown;
+    };
+    expect(stageTemplateListSchema.parse(templates)).toContainEqual(template);
+    // The built-in templates name duties, each with its holder or nobody.
+    expect(duties).toMatchObject({ implements: expect.stringMatching(/^Implements \(/) });
   }, 30_000);
 
   it("drafts a template's new Stage from a chat, changing nothing until it is applied with a click", async () => {

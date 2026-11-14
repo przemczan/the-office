@@ -1,5 +1,6 @@
 import type {
   BuiltStage,
+  Duty,
   ProjectCommandFields,
   ProjectPipelineCheck,
   ProjectPipelineFields,
@@ -142,14 +143,17 @@ export function ProposedStageFieldChanges({
   from,
   to,
   roles,
+  duties,
 }: {
   readonly from: Stage;
   readonly to: Stage;
   readonly roles: readonly Role[];
+  /** Who holds each duty, for a Stage naming one. */
+  readonly duties?: readonly Duty[];
 }): ReactNode {
   return (
     <ul className="proposal-changes">
-      {stageFieldChanges(from, to, roles).map((change) => (
+      {stageFieldChanges(from, to, roles, duties).map((change) => (
         <ChangeRow key={change.label} {...change} />
       ))}
     </ul>
@@ -169,6 +173,7 @@ export function ProposedProjectPipelineFields({
   was,
   proposed,
   roles,
+  duties,
 }: {
   readonly change: ProposedProjectPipeline;
   readonly projectName: string;
@@ -177,6 +182,8 @@ export function ProposedProjectPipelineFields({
   readonly was: ProjectPipelineCheck | undefined;
   readonly proposed: ProjectPipelineCheck | undefined;
   readonly roles: readonly Role[];
+  /** Who holds each duty, for a Stage naming one. */
+  readonly duties?: readonly Duty[];
 }): ReactNode {
   const { from, to } = change;
   const stageChangesDiffer = !from || !sameStageChanges(from.stageChanges, to.stageChanges);
@@ -217,6 +224,7 @@ export function ProposedProjectPipelineFields({
                 )}
                 rows={proposed?.rows ?? []}
                 roles={roles}
+                duties={duties}
               />
             ))}
           </dl>
@@ -242,6 +250,7 @@ function ProposedStageChange({
   row,
   rows,
   roles,
+  duties,
 }: {
   readonly stageChange: ProjectStageChange;
   readonly kept: boolean;
@@ -249,6 +258,7 @@ function ProposedStageChange({
   readonly row: BuiltStage | undefined;
   readonly rows: readonly BuiltStage[];
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[] | undefined;
 }): ReactNode {
   const stageName =
     rows.find(({ stage }) => stage.key === stageChange.stageKey)?.stage.name ??
@@ -256,7 +266,7 @@ function ProposedStageChange({
     stageChange.stageKey;
   const fields =
     stageChange.kind === "change" && row?.baseStage
-      ? stageFieldChanges(row.baseStage, row.stage, roles)
+      ? stageFieldChanges(row.baseStage, row.stage, roles, duties)
       : [];
   return (
     <div className="proposal-field">

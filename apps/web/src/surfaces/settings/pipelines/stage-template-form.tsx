@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { Role, RoleCardOptions, Stage, StageTemplate } from "@the-office/contracts";
+import type { Duty, Role, RoleCardOptions, Stage, StageTemplate } from "@the-office/contracts";
 import { Button, Card, Dialog, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
@@ -38,11 +38,13 @@ export type StageTemplateOpened =
 export function StageTemplateForm({
   opened,
   roles,
+  duties,
   options,
   onDone,
 }: {
   readonly opened: StageTemplateOpened;
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   /** Told once a new template is added, or its making is given up. */
   readonly onDone: () => void;
@@ -124,6 +126,7 @@ export function StageTemplateForm({
             index={0}
             onChange={([changed]) => changed && setDraft(changed)}
             roles={roles}
+            duties={duties}
             options={options}
             commands={commands}
             template

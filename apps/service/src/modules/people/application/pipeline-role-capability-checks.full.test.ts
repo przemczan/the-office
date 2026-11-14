@@ -17,6 +17,9 @@ import { PipelineRoleCapabilityChecks } from "./pipeline-role-capability-checks.
 import { PipelineRoleSources } from "./pipeline-role-sources.js";
 import { RoleCards, type SessionRole } from "./role-cards.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
+import type { DutyKey } from "../domain/duties.js";
+import { Duties } from "./duties.js";
+import { DutyChangeChecks } from "./duty-change-checks.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../index.fixtures.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
@@ -60,6 +63,9 @@ let engineSettingsChecks: EngineSettingsChecks;
 let checks: PipelineRoleCapabilityChecks;
 /** The library names the Developer and the Reviewer; a test adds open Tasks' Roles by Project. */
 let rolesNamed: PipelineRolesNamed;
+/** Who holds each duty: the Developer Implements; a test sets others. */
+let dutyHolders: Map<DutyKey, string>;
+let dutyChangeChecks: DutyChangeChecks;
 
 /** The CTO named by an open Task's own Stages in the Project, as Pipelines would tell it. */
 function ctoNamedByATaskIn(projectId: string): void {
@@ -88,6 +94,7 @@ beforeEach(async () => {
       engine.id === "local" ? ["officeTools"] : [],
   };
   rolesNamed = { everywhere: new Set(["developer", "reviewer"]), byProject: new Map() };
+  dutyHolders = new Map([["implements", "developer"]]);
   moreProjects = [];
   const projects: KnownProjectLevels = {
     engineLevelsOf: async () => projectLevels[0]!,
@@ -109,6 +116,8 @@ beforeEach(async () => {
       { provide: ProjectLevelsSaves, useValue: saves },
       RoleOverrideChecks,
       EngineSettingsChecks,
+      { provide: Duties, useValue: { holders: async () => dutyHolders } },
+      DutyChangeChecks,
     ],
   }).compile();
   moduleRef.get(PipelineRoleSources).register(async () => rolesNamed);
@@ -116,7 +125,13 @@ beforeEach(async () => {
   roleOverrideChecks = moduleRef.get(RoleOverrideChecks);
   engineSettingsChecks = moduleRef.get(EngineSettingsChecks);
   checks = moduleRef.get(PipelineRoleCapabilityChecks);
+  dutyChangeChecks = moduleRef.get(DutyChangeChecks);
 });
+
+/** The library's Stages name `duty` too, outside any Project and in every one. */
+function dutyNamedByTheLibrary(duty: DutyKey): void {
+  rolesNamed = { ...rolesNamed, duties: { everywhere: new Set([duty]), byProject: new Map() } };
+}
 
 function aSave(before: Partial<ProjectCascadeLevels>, after: Partial<ProjectCascadeLevels>) {
   const levels = { projectDefault: null, useForEveryRole: false, roleOverrides: [] };
@@ -334,6 +349,61 @@ describe("PipelineRoleCapabilityChecks on Roles a save of Stages newly names", (
   it("weighs a Role's own override", async () => {
     await expect(
       checks.newlyNamedRolesProblems({ roleKeys: ["developer"], projectId: "admin-panel" }),
+    ).resolves.toEqual([]);
+  });
+});
+
+describe("PipelineRoleCapabilityChecks on Stages naming a duty", () => {
+  const CTO_ON_LOCAL =
+    "In Admin panel, the Cto would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.";
+
+  it("weighs a duty a save of Stages newly names by its holder's Role", async () => {
+    dutyHolders.set("reviews", "cto");
+
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: [], dutyKeys: ["reviews"], projectId: undefined }),
+    ).resolves.toEqual([CTO_ON_LOCAL]);
+    await expect(
+      checks.newlyNamedRolesProblems({
+        roleKeys: [],
+        dutyKeys: ["implements"],
+        projectId: "admin-panel",
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("lets through a duty nobody holds, which names no Role", async () => {
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: [], dutyKeys: ["plans"], projectId: undefined }),
+    ).resolves.toEqual([]);
+  });
+
+  it("counts a duty a Pipeline names as its holder's Role on a save of a Project's levels", async () => {
+    dutyHolders.set("reviews", "cto");
+    dutyNamedByTheLibrary("reviews");
+
+    // The Reviewer, whom the library names too, is put there with the Cto.
+    await expect(check(aSave({}, { projectDefault: local }))).resolves.toEqual([
+      expect.stringContaining("Cto"),
+    ]);
+  });
+
+  it("refuses a duty change that puts a duty a Pipeline names on an incapable engine", async () => {
+    dutyNamedByTheLibrary("implements");
+
+    await expect(
+      dutyChangeChecks.problemsOf({ duty: "implements", from: "developer", to: "cto" }),
+    ).resolves.toEqual([CTO_ON_LOCAL]);
+  });
+
+  it("lets through a duty change no Pipeline is touched by, and leaving a duty unheld", async () => {
+    dutyNamedByTheLibrary("implements");
+
+    await expect(
+      dutyChangeChecks.problemsOf({ duty: "reviews", from: "reviewer", to: "cto" }),
+    ).resolves.toEqual([]);
+    await expect(
+      dutyChangeChecks.problemsOf({ duty: "implements", from: "developer", to: null }),
     ).resolves.toEqual([]);
   });
 });

@@ -124,6 +124,7 @@ function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">):
     carriedFailure: row.carriedFailure ?? undefined,
     sentBack: row.sentBack ?? undefined,
     threadId: row.threadId ?? undefined,
+    roleKey: row.roleKey ?? undefined,
     session: row.session ?? undefined,
     engineId: row.engineId ?? undefined,
     engineName: row.engineName ?? undefined,

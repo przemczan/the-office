@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { builtInPipelines } from "./built-in-pipelines.js";
 import { builtInStageTemplates } from "./built-in-stage-templates.js";
+import { stageWorker } from "./stage.js";
 
 describe("builtInStageTemplates", () => {
   it("are the built-in Pipelines' Stages in library order, the first of each name", () => {
@@ -24,5 +25,19 @@ describe("builtInStageTemplates", () => {
     // toEqual takes a field set to undefined as left out.
     expect(builtInStageTemplates[2]?.stage).toEqual({ ...fullsReviewAndFix, onFailure: undefined });
     expect(builtInStageTemplates.some(({ stage }) => "onFailure" in stage)).toBe(false);
+  });
+
+  it("name a duty in every Agent Stage, never a Role", () => {
+    const agentStages = builtInStageTemplates.flatMap(({ id, stage }) =>
+      stage.kind === "agent" ? [[id, stageWorker(stage)]] : [],
+    );
+
+    expect(agentStages).toEqual([
+      ["implement", { duty: "implements" }],
+      ["review-and-fix", { duty: "implements" }],
+      ["produce", { duty: "implements" }],
+      ["onboard", { duty: "onboards-projects" }],
+      ["set-up", { duty: "onboards-projects" }],
+    ]);
   });
 });

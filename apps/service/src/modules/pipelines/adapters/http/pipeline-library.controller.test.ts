@@ -88,7 +88,7 @@ describe("POST /api/pipelines", () => {
       { stageIndex: null, text: 'Another Pipeline is named "Full".' },
       {
         stageIndex: 0,
-        text: "Stage 1 · Implement: continuing a session needs the same Role in the Stage before.",
+        text: "Stage 1 · Implement: continuing a session needs the same Role or the same duty in the Stage before.",
       },
     ]);
   });

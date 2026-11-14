@@ -1,4 +1,6 @@
+import type { DutyKey } from "../../people/index.js";
 import type { Stage } from "./stage.js";
+import { staffedRole, staffedStages } from "./stage-staffing.js";
 import {
   addTokens,
   NO_STAGE_TOKENS,
@@ -32,6 +34,11 @@ export interface StageProgress {
   readonly tokens: StageTokens;
   /** Set when its latest run failed and its loop went back to an earlier Stage. */
   readonly wentBack: WentBack | undefined;
+  /**
+   * For an Agent Stage naming a duty, the Role working it: its latest run's once started, the
+   * duty's holder before; undefined while nobody holds it, and for any other Stage.
+   */
+  readonly workedBy: string | undefined;
 }
 
 /** A Task's own Stages with where each stands, as the Task page shows them. */
@@ -49,16 +56,23 @@ export interface TaskProgress {
 export function stagesProgress(
   stages: readonly Stage[],
   runs: readonly StageRun[],
+  holders: ReadonlyMap<DutyKey, string> = new Map(),
 ): StageProgress[] {
-  return stages.map((stage) => {
+  const staffed = staffedStages(stages, runs, holders);
+  return stages.map((stage, index) => {
     const own = runs.filter(({ stageKey }) => stageKey === stage.key);
     const latest = own.at(-1);
+    const staffedStage = staffed[index];
     return {
       stage,
       state: latest ? stateOf(stage, latest) : "pending",
       runs: own,
       tokens: own.reduce((sum, run) => addTokens(sum, run.tokens), NO_STAGE_TOKENS),
       wentBack: latest && wentBackFrom(latest, runs),
+      workedBy:
+        staffedStage?.kind === "agent" && staffedStage.duty !== undefined
+          ? staffedRole(staffedStage)
+          : undefined,
     };
   });
 }

@@ -81,6 +81,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     number: index + 1,
     carriedFailure: undefined,
     threadId: undefined,
+    roleKey: undefined,
     session: undefined,
     headCommit: undefined,
     commandRuns: [],
@@ -455,6 +456,25 @@ describe("nextMove", () => {
       });
       const published = continuedAtTheGate(runs(...resolvedOnce, ["publish", done]), 2);
       expect(nextMove(pipeline, published, NO_DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+    });
+
+    it("gives Resolve the duty the first Agent Stage names, and no Role", () => {
+      const write: Stage = {
+        kind: "agent",
+        key: "write",
+        name: "write",
+        optional: false,
+        duty: "implements",
+        brief: "Do write.",
+        session: "fresh",
+        budget: 100_000,
+      };
+      const naming = [write, scriptStage("check"), publish];
+
+      const resolve = walkedStages(naming, runs(...before, ["publish", conflicted]))[2];
+
+      expect(resolve).toMatchObject({ key: RESOLVE_KEY, duty: "implements" });
+      expect(resolve).not.toHaveProperty("role");
     });
 
     it("goes back to Resolve when the Test fails, at most twice", () => {

@@ -1,10 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Role, Stage, Task, TaskStages } from "@the-office/contracts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Duty, Role, Stage, Task, TaskStages } from "@the-office/contracts";
 import { Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { dutyQueries } from "../../api/people.ts";
 import { continueAtGate, pipelineQueries, sendBackFromGate } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
 import { MessageField } from "../conversation/message-field.tsx";
+import { dutyHolder } from "../duty-words.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 import {
@@ -42,7 +44,8 @@ export function useSendingBack(
   const [stageKey, chooseStage] = useState(defaultSendBackTarget(targets)?.key ?? "");
   const [feedback, writeFeedback] = useState("");
   const target = targets.find(({ key }) => key === stageKey);
-  const words = sendBackWords(target, personOf(target, roles));
+  const duties = useQuery(dutyQueries.list()).data;
+  const words = sendBackWords(target, personOf(target, roles, duties));
   const sending = useGateAction(
     task,
     () => sendBackFromGate(task.id, { stageKey, feedback }),
@@ -115,6 +118,7 @@ export function useContinuingWithNotes(
   onContinued: () => void,
 ): ContinuingWithNotes {
   const [notes, writeNotes] = useState("");
+  const duties = useQuery(dutyQueries.list()).data;
   const continuing = useGateAction(
     task,
     () => continueAtGate(task.id, notes),
@@ -123,7 +127,7 @@ export function useContinuingWithNotes(
   return {
     notes,
     writeNotes,
-    placeholder: continueNotesPlaceholder(personOf(waiting.nextAgentStage, roles)),
+    placeholder: continueNotesPlaceholder(personOf(waiting.nextAgentStage, roles, duties)),
     written: notes.trim() !== "",
     isPending: continuing.isPending,
     error: continuing.error,
@@ -159,9 +163,17 @@ function continueToast({ next }: WaitingGate): string {
   return next ? `Continuing to ${next.name}.` : "Continuing.";
 }
 
-function personOf(stage: Stage | undefined, roles: readonly Role[] | undefined): string {
-  const role = stage?.kind === "agent" ? roles?.find(({ key }) => key === stage.role) : undefined;
-  return role?.card.name ?? "the Agent";
+/** Who works the Stage: the Role it names, or the holder of its duty now. */
+function personOf(
+  stage: Stage | undefined,
+  roles: readonly Role[] | undefined,
+  duties: readonly Duty[] | undefined,
+): string {
+  if (stage?.kind !== "agent") return "the Agent";
+  if (stage.duty !== undefined && !stage.role) {
+    return dutyHolder(stage.duty, duties ?? [])?.name ?? "the Agent";
+  }
+  return roles?.find(({ key }) => key === stage.role)?.card.name ?? "the Agent";
 }
 
 /** Sends a Gate action; its answer is the Task's Stages, and the Task's own event moves the Task. */

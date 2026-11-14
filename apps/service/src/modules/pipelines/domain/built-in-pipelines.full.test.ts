@@ -5,7 +5,7 @@ import {
   SET_UP_RUN_ENVIRONMENT_PIPELINE,
 } from "./built-in-pipelines.js";
 import { stageProblems } from "./pipeline.js";
-import type { Stage } from "./stage.js";
+import { stageWorker, type Stage } from "./stage.js";
 
 function stagesOf(name: string): string[] {
   const pipeline = builtInPipelines.find((builtIn) => builtIn.name === name);
@@ -45,17 +45,22 @@ describe("the built-in Pipelines", () => {
     },
   );
 
-  it("have every Agent Stage worked by the Developer in a fresh session, but Devops' Pipelines' by Devops", () => {
+  it("have every Agent Stage name Implements in a fresh session, but Devops' Pipelines' Onboards and repairs Projects", () => {
     const agentStages = builtInPipelines.flatMap((pipeline) =>
       pipeline.stages.flatMap((stage) =>
-        stage.kind === "agent" ? [[pipeline.id, stage.role, stage.session]] : [],
+        stage.kind === "agent" ? [[pipeline.id, stageWorker(stage), stage.session]] : [],
       ),
     );
 
     expect(agentStages).toEqual(
       agentStages.map(([id]) => [
         id,
-        id === ONBOARD_PIPELINE || id === SET_UP_RUN_ENVIRONMENT_PIPELINE ? "devops" : "developer",
+        {
+          duty:
+            id === ONBOARD_PIPELINE || id === SET_UP_RUN_ENVIRONMENT_PIPELINE
+              ? "onboards-projects"
+              : "implements",
+        },
         "fresh",
       ]),
     );

@@ -4,6 +4,7 @@ import { walkedStages } from "../domain/resolve-stages.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskRecords } from "../ports/task-records.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
+import { RoleFillings } from "./role-fillings.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 /**
@@ -18,6 +19,7 @@ export class AlarmResumes {
     private readonly runs: StageRunRepository,
     private readonly records: TaskRecords,
     private readonly agents: AgentStageRunner,
+    private readonly roleFillings: RoleFillings,
   ) {}
 
   /**
@@ -28,7 +30,7 @@ export class AlarmResumes {
     const own = await this.taskStages.find(taskId);
     if (!own) return taskResumeOf({ kind: "goes-on", stage: undefined }, undefined);
     const runs = await this.runs.list(taskId);
-    const stages = walkedStages(own.stages, runs);
+    const stages = walkedStages(await this.roleFillings.staffed(own.stages, runs), runs);
     const { definitionOfDone } = await this.records.read(taskId);
     const ahead = walkAhead(stages, runs, definitionOfDone);
     const session =

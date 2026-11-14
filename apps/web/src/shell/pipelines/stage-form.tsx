@@ -1,14 +1,26 @@
 import {
   afterConflictSchema,
+  dutyKeySchema,
   effortSchema,
   publishTargetSchema,
   scriptStageCommandSchema,
+  type Duty,
+  type DutyKey,
   type Role,
   type RoleCardOptions,
   type Stage,
 } from "@the-office/contracts";
-import { Checkbox, Field, Input, Select, Textarea } from "@the-office/ui";
+import {
+  Checkbox,
+  Field,
+  GroupedSelect,
+  Input,
+  Select,
+  Textarea,
+  type GroupedSelectOption,
+} from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { DUTY_LABELS, dutyHolder, STAGE_DUTIES } from "../duty-words.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
 import { AFTER_CONFLICT_NAMES, PUBLISH_TARGET_NAMES, thousands } from "./pipeline-words.ts";
 import {
@@ -22,7 +34,9 @@ import {
   canContinue,
   failureTargets,
   replaceStage,
+  stageWorker,
   withCommand,
+  withDuty,
   withRole,
   type AgentStage,
   type ScriptStage,
@@ -36,6 +50,12 @@ const MOST_ROUNDS = 9;
 /** A Select's value for "keep the Role's effort": the Stage leaves it out. */
 const ROLE_DEFAULT = "";
 
+/**
+ * What "Who works it" holds for a duty, apart from a Role's key by its prefix; only the form reads
+ * it, the Stage naming the duty by its key alone.
+ */
+const DUTY_CHOICE = "duty:";
+
 /** The library's choices while the Projects load: Publish, and another key. */
 const NO_PROJECTS: StageCommandSource = { kind: "library", projects: [] };
 
@@ -46,6 +66,8 @@ export interface StageFormProps {
   readonly onChange: (stages: readonly Stage[]) => void;
   /** Everyone hired, who may work an Agent Stage when their Task limit isn't none. */
   readonly roles: readonly Role[];
+  /** Every duty with its holder, as an Agent Stage naming one is worked. */
+  readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   /** What a Script Stage may run: the Task's Project's commands, or every Project's; none while loading. */
   readonly commands?: StageCommandSource;
@@ -113,36 +135,79 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
 }
 
 /**
- * Who may work an Agent Stage: anyone hired with a Task limit. The current choice stays listed
- * when it no longer qualifies, so the problem shows instead of the Stage silently changing.
+ * Who may work an Agent Stage: a duty, worked by whoever holds it when the Stage starts, or anyone
+ * hired with a Task limit. The current choice stays listed when it no longer qualifies, so the
+ * problem shows instead of the Stage silently changing.
  */
 function RoleSelect({
   stage,
   stages,
   index,
   roles,
+  duties,
   options,
   onChange,
 }: StageFormProps & { readonly stage: AgentStage }): ReactNode {
+  const worker = stageWorker(stage);
+  const choose = (value: string): void => {
+    const duty = value.startsWith(DUTY_CHOICE)
+      ? dutyKeySchema.safeParse(value.slice(DUTY_CHOICE.length)).data
+      : undefined;
+    const changed = duty ? withDuty(stages, index, duty) : withRole(stages, index, value);
+    onChange(replaceStage(stages, index, changed));
+  };
+  return (
+    <GroupedSelect
+      label="Who works it"
+      hint="A duty's holder when the Stage starts, as Settings › Duties sets, or a person with a Task limit"
+      placeholder="Choose…"
+      value={worker === undefined ? "" : "duty" in worker ? dutyChoice(worker.duty) : worker.role}
+      groups={[
+        { label: "Duties", options: dutyChoices(stage, duties) },
+        { label: "People", options: peopleChoices(stage, roles, options) },
+      ]}
+      onChange={choose}
+    />
+  );
+}
+
+function dutyChoice(duty: DutyKey): string {
+  return `${DUTY_CHOICE}${duty}`;
+}
+
+/** The duties a Stage may name, and the one it names when that is another, kept listed. */
+function dutyChoices(stage: AgentStage, duties: readonly Duty[]): GroupedSelectOption[] {
+  const worker = stageWorker(stage);
+  const named = worker && "duty" in worker ? worker.duty : undefined;
+  const offered =
+    named === undefined || STAGE_DUTIES.includes(named) ? STAGE_DUTIES : [...STAGE_DUTIES, named];
+  return offered.map((duty) => ({ value: dutyChoice(duty), label: dutyLabel(duty, duties) }));
+}
+
+/** "Implements · Ada · Developer", or "Implements · nobody holds it". */
+function dutyLabel(duty: DutyKey, duties: readonly Duty[]): string {
+  const holder = dutyHolder(duty, duties);
+  const holding = holder ? `${holder.name} · ${holder.title}` : "nobody holds it";
+  return `${DUTY_LABELS[duty]} · ${holding}`;
+}
+
+/** Anyone hired with a Task limit, and the Role the Stage names when nobody can work it. */
+function peopleChoices(
+  stage: AgentStage,
+  roles: readonly Role[],
+  options: RoleCardOptions,
+): GroupedSelectOption[] {
   const working = roles.filter(({ card, letGoAt }) => card.taskLimit !== "none" && !letGoAt);
-  const current = roles.find(({ key }) => key === stage.role);
   const choices = working.map(({ key, card }) => ({
     value: key,
     label: `${card.name} · ${card.title}`,
   }));
-  if (stage.role !== "" && !working.some(({ key }) => key === stage.role)) {
-    choices.push({ value: stage.role, label: unavailableLabel(stage.role, current, options) });
+  const worker = stageWorker(stage);
+  if (worker && "role" in worker && !working.some(({ key }) => key === worker.role)) {
+    const current = roles.find(({ key }) => key === worker.role);
+    choices.push({ value: worker.role, label: unavailableLabel(worker.role, current, options) });
   }
-  return (
-    <Select
-      label="Who works it"
-      hint="Only people with a Task limit"
-      placeholder="Choose…"
-      value={stage.role}
-      options={choices}
-      onChange={(role) => onChange(replaceStage(stages, index, withRole(stages, index, role)))}
-    />
-  );
+  return choices;
 }
 
 function AgentFields({
@@ -150,6 +215,7 @@ function AgentFields({
   stages,
   index,
   roles,
+  duties,
   options,
   commands = NO_PROJECTS,
   change,
@@ -158,12 +224,16 @@ function AgentFields({
   readonly change: (stage: Stage) => void;
 }): ReactNode {
   const continuing = canContinue(stages, index);
-  const role = roles.find(({ key }) => key === stage.role);
+  const role = roles.find(({ key }) => key === workingRoleKey(stage, duties));
   return (
     <>
       <Select
         label="Session"
-        hint={continuing ? undefined : "Continuing needs the same Role in the Stage before"}
+        hint={
+          continuing
+            ? undefined
+            : "Continuing needs the same Role or the same duty in the Stage before"
+        }
         value={stage.session}
         options={[
           { value: "fresh", label: "Fresh, with a brief" },
@@ -385,6 +455,13 @@ function CommandFields({
       )}
     </>
   );
+}
+
+/** The Role whose card the Stage narrows: the one it names, or its duty's holder's. */
+function workingRoleKey(stage: AgentStage, duties: readonly Duty[]): string | undefined {
+  const worker = stageWorker(stage);
+  if (worker === undefined) return undefined;
+  return "role" in worker ? worker.role : dutyHolder(worker.duty, duties)?.roleKey;
 }
 
 function roleTitle(roleKey: string, options: RoleCardOptions): string {

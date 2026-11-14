@@ -11,7 +11,7 @@ import type {
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { roleCardQueries, roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { asPipeline } from "../../shell/pipelines/use-pipelines.ts";
@@ -104,6 +104,7 @@ function rendered(content: ReactNode, { editedForTask = false } = {}): HTMLEleme
     problems: [],
   });
   queryClient.setQueryData(roleQueries.list().queryKey, [] as Role[]);
+  queryClient.setQueryData(dutyQueries.list().queryKey, []);
   queryClient.setQueryData(roleCardQueries.options().queryKey, {} as RoleCardOptions);
   queryClient.setQueryData(projectQueries.one(TASK.projectId).queryKey, {
     id: TASK.projectId,

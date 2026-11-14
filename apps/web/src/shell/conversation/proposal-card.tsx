@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type {
+  Duty,
   Preset,
   ProjectPipelineBreak,
   ProjectPipelineCheckRequest,
@@ -26,7 +27,7 @@ import {
   sizeThresholdQuery,
   threadQueries,
 } from "../../api/conversations.ts";
-import { roleCardQueries, roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import {
   pipelineQueries,
   projectPipelineQueries,
@@ -120,6 +121,7 @@ const OFFICE_LIMITS: Record<
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
+  const duties = useQuery(dutyQueries.list()).data;
   const options = useQuery(roleCardQueries.options()).data;
   const presets = useQuery(roleCardQueries.presets()).data;
   const projects = useQuery(projectQueries.list()).data;
@@ -203,13 +205,25 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     case "pipeline":
       return <PipelineProposal proposal={proposal} change={change} />;
     case "project-pipeline":
-      return <ProjectPipelineProposal proposal={proposal} change={change} roles={roles ?? []} />;
+      return (
+        <ProjectPipelineProposal
+          proposal={proposal}
+          change={change}
+          roles={roles ?? []}
+          duties={duties}
+        />
+      );
     case "stage-template": {
       const name =
         stageTemplates?.find(({ id }) => id === change.templateId)?.stage.name ?? change.from.name;
       return (
         <ProposalFrame title={`Change the ${name} Stage template`}>
-          <ProposedStageFieldChanges from={change.from} to={change.to} roles={roles ?? []} />
+          <ProposedStageFieldChanges
+            from={change.from}
+            to={change.to}
+            roles={roles ?? []}
+            duties={duties}
+          />
           <AnswerFoot
             proposal={proposal}
             changes={[stageTemplateQueries.list().queryKey]}
@@ -398,10 +412,12 @@ function ProjectPipelineProposal({
   proposal,
   change,
   roles,
+  duties,
 }: {
   readonly proposal: Proposal;
   readonly change: ProposedProjectPipeline;
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[] | undefined;
 }): ReactNode {
   const projectName =
     useQuery(projectQueries.list()).data?.find(({ id }) => id === change.projectId)?.name ??
@@ -430,6 +446,7 @@ function ProjectPipelineProposal({
         was={was}
         proposed={proposed}
         roles={roles}
+        duties={duties}
       />
       <AnswerFoot
         proposal={proposal}

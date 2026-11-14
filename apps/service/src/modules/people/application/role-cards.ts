@@ -86,6 +86,11 @@ export class RoleCards {
     return this.duties.holderOf(duty);
   }
 
+  /** The key of the Role `duty` names, hired or not; undefined while it is set to none. */
+  dutyRoleKey(duty: DutyKey): Promise<string | undefined> {
+    return this.duties.roleKeyOf(duty);
+  }
+
   /** Where an MCP tool stands until the user sets it. */
   mcpToolDefault(): Promise<HardSwitchValue> {
     return this.duties.mcpToolDefault();

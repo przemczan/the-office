@@ -24,6 +24,7 @@ export type StageField = keyof StageFieldChanges;
 export const STAGE_FIELDS: readonly StageField[] = [
   "name",
   "role",
+  "duty",
   "command",
   "publishTarget",
   "afterConflict",
@@ -35,6 +36,12 @@ export const STAGE_FIELDS: readonly StageField[] = [
   "onFailure",
   "optional",
 ];
+
+/** A Stage names a Role or a duty, never both: a Change giving one clears the other (spec §2.3). */
+const WORKER_FIELD_CLEARED: Readonly<Record<string, StageField | undefined>> = {
+  role: "duty",
+  duty: "role",
+};
 
 /** The kinds of Stage change that bring a whole Stage of their own. */
 type StageChangeWithStage = Extract<StageChange, { readonly stage: Stage }>;
@@ -239,6 +246,8 @@ export function stageDrafted(stageChanges: readonly StageChange[], row: BuiltSta
     for (const [field, value] of Object.entries(stageChange.fields)) {
       if (value === null) delete drafted[field];
       else if (value !== undefined) drafted[field] = value;
+      const cleared = value === undefined ? undefined : WORKER_FIELD_CLEARED[field];
+      if (cleared !== undefined) delete drafted[cleared];
     }
   }
   // A Change gives only fields of its Stage's kind (the service flags any other), so it stays that kind.
@@ -285,13 +294,19 @@ function withChange(
   });
 }
 
-/** The fields `edited` gives that differ from `base`; `null` clears one the base Stage has. */
+/**
+ * The fields `edited` gives that differ from `base`; `null` clears one the base Stage has. The Role
+ * and the duty are never cleared so: giving one clears the other.
+ */
 export function fieldsDiffering(base: Stage, edited: Stage): Partial<StageFieldChanges> {
   const was = base as Partial<Record<StageField, unknown>>;
   const now = edited as Partial<Record<StageField, unknown>>;
   const fields: Partial<Record<StageField, unknown>> = {};
   for (const field of STAGE_FIELDS) {
-    if (!sameValue(was[field], now[field])) fields[field] = now[field] ?? null;
+    if (sameValue(was[field], now[field])) continue;
+    const value = now[field] ?? null;
+    if (value === null && WORKER_FIELD_CLEARED[field] !== undefined) continue;
+    fields[field] = value;
   }
   return fields as Partial<StageFieldChanges>;
 }

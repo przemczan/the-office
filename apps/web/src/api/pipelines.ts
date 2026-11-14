@@ -254,6 +254,20 @@ function staleLibrary(): readonly (readonly unknown[])[] {
   return [PIPELINES_KEY];
 }
 
+/**
+ * What changes with who fills a Role or holds a duty: the Stage editor's checks and flags, and each
+ * Task's Stages, whose Stages naming a duty say who works them. ["tasks"] covers each Task's Stages
+ * and their check, kept under the Task's key.
+ */
+export function staleStaffing(): readonly (readonly unknown[])[] {
+  return [
+    [...PIPELINES_KEY, "check"],
+    [...PROJECT_PIPELINES_KEY, "check"],
+    [...STAGE_TEMPLATES_KEY, "check"],
+    ["tasks"],
+  ];
+}
+
 /** A change to a Stage template makes every list of them stale. */
 function staleStageTemplates(): readonly (readonly unknown[])[] {
   return [STAGE_TEMPLATES_KEY];

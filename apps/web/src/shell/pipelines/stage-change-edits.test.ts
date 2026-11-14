@@ -1,6 +1,6 @@
 import type { BuiltStage, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { withoutStageChangeOf, withStageEdited } from "./stage-change-edits.ts";
+import { stageDrafted, withoutStageChangeOf, withStageEdited } from "./stage-change-edits.ts";
 
 const IMPLEMENT: Stage = {
   kind: "agent",
@@ -49,5 +49,24 @@ describe("editing a Stage of the base Pipeline", () => {
       changedFields: ["brief", "effort"],
     };
     expect(withoutStageChangeOf(edited, changed)).toEqual([]);
+  });
+
+  it("gives a duty in place of the Role, the Role cleared by the duty alone", () => {
+    const edited = withStageEdited([], FROM_BASE, {
+      ...IMPLEMENT,
+      role: undefined,
+      duty: "implements",
+    });
+    expect(edited).toEqual([
+      {
+        kind: "change",
+        stageKey: "implement",
+        stageName: "Implement",
+        fields: { duty: "implements" },
+      },
+    ]);
+    const drafted = stageDrafted(edited, FROM_BASE);
+    expect(drafted).toMatchObject({ duty: "implements" });
+    expect(drafted).not.toHaveProperty("role");
   });
 });

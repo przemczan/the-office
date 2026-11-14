@@ -87,7 +87,11 @@ describe("saving a Project Pipeline, weighed against its own Project only", () =
     expect(stagesEditRefusalSchema.parse(await response.json()).reasons).toEqual([
       `The ${roleKey}'s engine can't work an Agent Stage.`,
     ]);
-    expect(pipelines.roleEngines.asked.at(-1)).toEqual({ roleKeys: [roleKey], projectId });
+    expect(pipelines.roleEngines.asked.at(-1)).toEqual({
+      roleKeys: [roleKey],
+      dutyKeys: [],
+      projectId,
+    });
   });
 
   it("lets a save keep a Role it named already, whatever its engine now", async () => {
@@ -108,7 +112,7 @@ describe("saving a Project Pipeline, weighed against its own Project only", () =
     });
 
     expect(response.status).toBe(200);
-    expect(pipelines.roleEngines.asked.at(-1)).toEqual({ roleKeys: [], projectId });
+    expect(pipelines.roleEngines.asked.at(-1)).toEqual({ roleKeys: [], dutyKeys: [], projectId });
   });
 
   it("flags a Role nobody fills and permissions wider than the card's, and saves them", async () => {

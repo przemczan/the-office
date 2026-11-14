@@ -90,6 +90,22 @@ export class Duties {
     return dutyHolding(duty, now.assignments, now.hiredKeys).holder ?? undefined;
   }
 
+  /** The key of each held duty's holder, by duty; a duty nobody holds is left out. */
+  async holders(): Promise<ReadonlyMap<DutyKey, string>> {
+    const now = await this.now();
+    return new Map(
+      dutyHoldings(now.assignments, now.hiredKeys).flatMap(({ duty, holder }) =>
+        holder === null ? [] : [[duty, holder] as const],
+      ),
+    );
+  }
+
+  /** The key of the Role `duty` names, hired or not; undefined while it is set to none. */
+  async roleKeyOf(duty: DutyKey): Promise<string | undefined> {
+    const now = await this.now();
+    return dutyHolding(duty, now.assignments, now.hiredKeys).roleKey ?? undefined;
+  }
+
   /** The duties the Role keyed `roleKey` holds, none while it isn't hired. */
   async heldBy(roleKey: string): Promise<DutyKey[]> {
     const now = await this.now();

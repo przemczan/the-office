@@ -190,6 +190,9 @@ function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
     state: progress.state,
     tokens: progress.tokens,
     wentBack: progress.wentBack ?? null,
+    ...(progress.stage.kind === "agent" && progress.stage.duty !== undefined
+      ? { workedBy: progress.workedBy ?? null }
+      : {}),
     runs: progress.runs.map(toStageRunResponse),
   };
 }
@@ -202,6 +205,7 @@ function toStageResponse(stage: Stage): StageResponse {
         kind: "agent",
         ...fields,
         role: stage.role,
+        duty: stage.duty,
         brief: stage.brief,
         session: stage.session,
         budget: stage.budget,

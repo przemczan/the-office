@@ -1,5 +1,7 @@
 import type {
   AfterConflict,
+  Duty,
+  DutyKey,
   ProjectCommand,
   PublishTarget,
   Role,
@@ -7,9 +9,11 @@ import type {
   StageChange as ProjectStageChange,
   StagePermissions,
 } from "@the-office/contracts";
+import { DUTY_LABELS, dutyHolder } from "../duty-words.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
 import { editLabel, hardSwitchValueLabel, RUN_LABELS, webLabel } from "../role-card-words.ts";
 import { commandWords, PUBLISH_COMMAND } from "./stage-commands.ts";
+import { stageWorker } from "./stage-edits.ts";
 
 export const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
   "publishing-mode": "By the Project's publishing mode",
@@ -27,12 +31,19 @@ const SESSION_NAMES: Readonly<Record<Extract<Stage, { kind: "agent" }>["session"
 };
 
 /** What a field reads in a Stage, as its editor labels it; undefined where its kind has none. */
-type StageFieldWords = (stage: Stage, roles: readonly Role[]) => string | undefined;
+type StageFieldWords = (
+  stage: Stage,
+  roles: readonly Role[],
+  duties: readonly Duty[],
+) => string | undefined;
 
 /** A Stage's fields as its editor names them, in its order. */
 const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFieldWords }[] = [
   { label: "Name", words: ({ name }) => name },
-  { label: "Who works it", words: whoWorks },
+  {
+    label: "Who works it",
+    words: (stage, roles, duties) => whoWorks(stage, roles, undefined, duties),
+  },
   { label: "Session", words: (stage) => agentOnly(stage, ({ session }) => SESSION_NAMES[session]) },
   { label: "Budget", words: (stage) => agentOnly(stage, ({ budget }) => budgetWords(budget)) },
   {
@@ -74,10 +85,11 @@ export function stageFieldChanges(
   from: Stage,
   to: Stage,
   roles: readonly Role[],
+  duties: readonly Duty[] = [],
 ): StageFieldChange[] {
   return STAGE_FIELDS.flatMap(({ label, words }) => {
-    const before = words(from, roles) ?? "None";
-    const after = words(to, roles) ?? "None";
+    const before = words(from, roles, duties) ?? "None";
+    const after = words(to, roles, duties) ?? "None";
     return before === after ? [] : [{ label, from: before, to: after }];
   });
 }
@@ -127,17 +139,26 @@ export function stagesLine({ stages }: { readonly stages: readonly Stage[] }): s
 }
 
 /**
- * Who works the Stage, as its row says: the Role's person, its command (by its name when
- * `commands` has its key, else the key), or "waits for you" for a Gate.
+ * Who works the Stage, as its row says: the Role's person, the duty with its holder ("Implements ·
+ * Ada"), its command (by its name when `commands` has its key, else the key), or "waits for you"
+ * for a Gate.
  */
 export function whoWorks(
   stage: Stage,
   roles: readonly Role[],
   commands?: readonly Pick<ProjectCommand, "key" | "name">[],
+  duties: readonly Duty[] = [],
 ): string {
   if (stage.kind === "gate") return "waits for you";
   if (stage.kind === "script") return commandWords(stage.command, commands);
+  const worker = stageWorker(stage);
+  if (worker && "duty" in worker) return dutyWorkerWords(worker.duty, duties);
   return roles.find(({ key }) => key === stage.role)?.card.name ?? "nobody yet";
+}
+
+/** "Implements · Ada", or "Implements · nobody yet" while nobody holds the duty. */
+function dutyWorkerWords(duty: DutyKey, duties: readonly Duty[]): string {
+  return `${DUTY_LABELS[duty]} · ${dutyHolder(duty, duties)?.name ?? "nobody yet"}`;
 }
 
 /**

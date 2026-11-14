@@ -42,6 +42,7 @@ function aRun(stageKey: string, gateAction?: GateAction): StageRun {
     carriedFailure: undefined,
     sentBack: undefined,
     threadId: undefined,
+    roleKey: undefined,
     session: undefined,
     headCommit: undefined,
     commandRuns: [],

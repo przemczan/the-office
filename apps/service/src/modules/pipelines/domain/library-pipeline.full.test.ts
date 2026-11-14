@@ -53,7 +53,7 @@ describe("pipelineEditProblems", () => {
     ];
 
     expect(pipelineEditProblems(anEdit({ stages }), [], []).map(({ text }) => text)).toEqual([
-      "Stage 2 · Review: continuing a session needs the same Role in the Stage before.",
+      "Stage 2 · Review: continuing a session needs the same Role or the same duty in the Stage before.",
       "Stage 3 · Tests: on failure it can only go back to an earlier Stage.",
     ]);
     expect(pipelineEditProblems(anEdit({ stages: [] }), [], [])).toEqual([
