@@ -269,6 +269,7 @@ describe("attachmentsOfGateRun", () => {
         budgetReached: null,
         interrupted: null,
         refusedTurn: null,
+        afterPublishingFailed: null,
         handoverNote: null,
       },
     ],

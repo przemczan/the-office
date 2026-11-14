@@ -4,6 +4,7 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.js";
 import type {
   GateAction,
+  PublishedWork,
   StageRun,
   StageRunDecision,
   StageTokens,
@@ -57,6 +58,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
 
   async saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void> {
     await this.database.update(stageRuns).set({ decisions }).where(eq(stageRuns.id, runId));
+  }
+
+  async savePublished(runId: string, published: PublishedWork): Promise<void> {
+    await this.database.update(stageRuns).set({ published }).where(eq(stageRuns.id, runId));
   }
 
   async saveWaitingSince(runId: string, waitingSince: Date | undefined): Promise<void> {
@@ -136,6 +141,7 @@ function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">):
     heldByUser: row.heldByUser ?? undefined,
     gateAction: row.gateAction ?? undefined,
     outcome: row.outcome ?? undefined,
+    published: row.published ?? undefined,
     waitingSince: row.waitingSince ?? undefined,
     endedAt: row.endedAt ?? undefined,
   };

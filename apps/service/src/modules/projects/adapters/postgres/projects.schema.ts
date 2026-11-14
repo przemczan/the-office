@@ -29,6 +29,8 @@ export const projects = pgTable(
       .notNull()
       .default(sql`'{}'`),
     publishingMode: text("publishing_mode").$type<PublishingMode>().notNull(),
+    beforePublishingCommand: text("before_publishing_command").notNull().default(""),
+    afterPublishingCommand: text("after_publishing_command").notNull().default(""),
     defaultPipeline: text("default_pipeline").notNull(),
     environment: jsonb("environment")
       .$type<StoredEnvironment>()

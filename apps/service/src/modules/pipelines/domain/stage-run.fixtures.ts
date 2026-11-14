@@ -20,6 +20,7 @@ export function aStageRun(fields: Partial<StageRun> = {}): StageRun {
     decisions: [],
     heldBy: undefined,
     heldByUser: undefined,
+    published: undefined,
     waitingSince: undefined,
     gateAction: undefined,
     outcome: { status: "done", summary: "Done." },

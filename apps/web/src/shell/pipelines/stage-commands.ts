@@ -1,4 +1,4 @@
-import type { ProjectCommand } from "@the-office/contracts";
+import type { Project, ProjectCommand } from "@the-office/contracts";
 
 /** The command of a Publish Stage, kept from every Project command's keys. */
 export const PUBLISH_COMMAND = "publish";
@@ -23,7 +23,11 @@ export type StageCommandSource =
       readonly commands: readonly ProjectCommand[];
       /** How Publish ships in the Project, such as "push and open a pull request". */
       readonly publishing: string;
+      /** The Project's lines Publish runs around shipping, each blank when not set. */
+      readonly publishingLines?: PublishingLines;
     };
+
+export type PublishingLines = Pick<Project, "beforePublishingCommand" | "afterPublishingCommand">;
 
 export interface StageCommandChoice {
   readonly value: string;
@@ -39,7 +43,10 @@ export function commandChoices(current: string, source: StageCommandSource): Sta
   const offered = source.kind === "library" ? libraryChoices(source) : projectChoices(source);
   const publish = {
     value: PUBLISH_COMMAND,
-    label: source.kind === "project" ? `Publish · ${source.publishing}` : "Publish",
+    label:
+      source.kind === "project"
+        ? `Publish · ${source.publishing}${publishingLinesWords(source.publishingLines)}`
+        : "Publish",
   };
   const listed = [...offered, publish];
   const kept = listed.some(({ value }) => value === current)
@@ -103,6 +110,16 @@ function projectChoices({
     value: key,
     label: `${name} · ${commandLine === "" ? "not set" : commandLine}`,
   }));
+}
+
+/** ", with before and after publishing lines", or nothing when the Project has neither set. */
+export function publishingLinesWords(lines: PublishingLines | undefined): string {
+  const before = (lines?.beforePublishingCommand ?? "") !== "";
+  const after = (lines?.afterPublishingCommand ?? "") !== "";
+  if (before && after) return ", with before and after publishing lines";
+  if (before) return ", with a before publishing line";
+  if (after) return ", with an after publishing line";
+  return "";
 }
 
 function notOfferedWords(source: StageCommandSource): string {

@@ -36,6 +36,8 @@ export {
 } from "./domain/environment-check-events.js";
 export {
   ProjectAdded,
+  ProjectAfterPublishingCommandChanged,
+  ProjectBeforePublishingCommandChanged,
   ProjectCommandAdded,
   ProjectCommandChanged,
   ProjectCommandRemoved,

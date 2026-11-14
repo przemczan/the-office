@@ -32,6 +32,7 @@ function held(interrupted: "pause" | "stop" | "restart"): StageRun {
       budgetReached: null,
       interrupted,
       refusedTurn: null,
+      afterPublishingFailed: null,
       handoverNote: null,
     },
   });
@@ -45,6 +46,7 @@ function refused(sessionLeft: boolean): StageRun {
       error: "Paused: the usage window is used up.",
       budgetReached: null,
       interrupted: "usage-window",
+      afterPublishingFailed: null,
       refusedTurn: {
         engineName: "Claude Code",
         windowWords: "5-hour window",

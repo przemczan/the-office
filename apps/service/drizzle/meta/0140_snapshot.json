@@ -1,6 +1,6 @@
 {
-  "id": "c6982a61-d950-4f13-aa9c-614cdf4355ad",
-  "prevId": "5f65bd6b-ec47-4890-9d49-7fb5e4408436",
+  "id": "5f65bd6b-ec47-4890-9d49-7fb5e4408436",
+  "prevId": "337c92b9-a754-4add-acae-dec9b5ec079f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2639,6 +2639,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "published": {
+          "name": "published",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -3006,6 +3012,20 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "before_publishing_command": {
+          "name": "before_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "after_publishing_command": {
+          "name": "after_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},
@@ -5305,37 +5325,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.earlier_records_claimed": {
-      "name": "earlier_records_claimed",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "default": 1
-        },
-        "claimed_at": {
-          "name": "claimed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "earlier_records_claimed_one_row": {
-          "name": "earlier_records_claimed_one_row",
-          "value": "\"earlier_records_claimed\".\"id\" = 1"
-        }
-      },
       "isRLSEnabled": false
     }
   },

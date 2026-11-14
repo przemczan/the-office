@@ -26,6 +26,26 @@ export class ProjectInstallCommandChanged extends DomainEvent {
   }
 }
 
+/** Blank when cleared; a Publish already running keeps the line it read. */
+export class ProjectBeforePublishingCommandChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly commandLine: string,
+  ) {
+    super();
+  }
+}
+
+/** Blank when cleared; a Publish already running keeps the line it read. */
+export class ProjectAfterPublishingCommandChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly commandLine: string,
+  ) {
+    super();
+  }
+}
+
 export class ProjectCommandAdded extends DomainEvent {
   constructor(
     readonly projectId: string,

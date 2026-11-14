@@ -40,6 +40,25 @@ describe("ProposedCommandChanges", () => {
       "Lint (lint)Lint · npm run lintLint · npm run lint:all",
     ]);
   });
+
+  it("shows the before and after publishing lines from now to as proposed, None when blank", () => {
+    const rows = rowsOf(
+      renderToStaticMarkup(
+        <ProposedCommandChanges
+          changes={{
+            beforePublishingCommand: { from: "", to: "npm run changelog" },
+            afterPublishingCommand: { from: "./notify.sh", to: "" },
+            commands: [],
+          }}
+        />,
+      ),
+    );
+
+    expect(rows).toEqual([
+      "Before publishingNonenpm run changelog",
+      "After publishing./notify.shNone",
+    ]);
+  });
 });
 
 const IMPLEMENT: Stage = {

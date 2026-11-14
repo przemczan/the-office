@@ -13,6 +13,13 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+// jsdom has no layout, so the Pipeline picker's list, placed by its size, never resizes.
+globalThis.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
+
 const FULL = {
   id: "full",
   name: "Full",
@@ -87,16 +94,19 @@ describe("the Default Pipeline block", () => {
     expect(picker?.textContent).toBe("Full with Linux check");
     act(() => picker?.click());
 
-    const groups = [...page.querySelectorAll('[role="group"]')].map((group) => [
-      group.firstElementChild?.textContent,
-      [...group.querySelectorAll('[role="option"]')].map(labelOf),
-    ]);
+    // The list opens apart from the block.
+    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map(
+      (group) => [
+        group.firstElementChild?.textContent,
+        [...group.querySelectorAll('[role="option"]')].map(labelOf),
+      ],
+    );
     expect(groups).toEqual([
       ["the-office's Pipelines", ["Full with Linux check", "Spec change"]],
       ["Office-wide Pipelines", ["Full"]],
     ]);
-    expect(page.textContent).not.toContain("Project default");
-    const broken = [...page.querySelectorAll('[role="option"]')].find(
+    expect(document.body.textContent).not.toContain("Project default");
+    const broken = [...document.querySelectorAll('[role="listbox"] [role="option"]')].find(
       (option) => labelOf(option) === "Spec change",
     );
     expect(broken?.getAttribute("aria-disabled")).toBe("true");
@@ -106,6 +116,13 @@ describe("the Default Pipeline block", () => {
     expect(block(PROJECT).textContent).toContain(
       "Implement → Verify on Linux · built from Full. A new Task has no Pipeline until Angela proposes one",
     );
+  });
+
+  it("leaves the publishing mode to the Commands block's Publish group", () => {
+    const page = block(PROJECT);
+
+    expect(page.querySelector("select")).toBeNull();
+    expect(page.textContent).not.toContain("Publishing");
   });
 
   it("flags a Broken default with why", () => {

@@ -6,7 +6,14 @@ import type {
   PullRequestText,
 } from "../domain/publication.js";
 import type { ResolveEnd, ResolveStart } from "../domain/resolve.js";
-import { commandOf, type ProjectCommandKind } from "../domain/project.js";
+import type { CommandRun } from "../domain/command-run.js";
+import {
+  commandOf,
+  isCommandSet,
+  type Project,
+  type ProjectCommandKind,
+  type PublishingLine,
+} from "../domain/project.js";
 import type { Head } from "../ports/git.js";
 import {
   AgentCommands,
@@ -234,6 +241,31 @@ export class TaskWorktrees {
     const project = await this.projects.read(projectId);
     const runs = await this.scriptCommands.run(project, taskId, key, stageRunId, options);
     return { kind: commandOf(project, key)?.kind, runs };
+  }
+
+  /** The Project's before and after publishing lines, each blank when not set. */
+  async publishingLines(projectId: string): Promise<Pick<Project, PublishingLine>> {
+    const { beforePublishingCommand, afterPublishingCommand } = await this.projects.read(projectId);
+    return { beforePublishingCommand, afterPublishingCommand };
+  }
+
+  /**
+   * Runs a Publish's before or after publishing line (spec §2.3 Defaults) in the Task's worktree,
+   * where a Script Stage's command runs, with its time limit and the Project's own variables,
+   * `variables` set over them; never The Office's credentials. What it changes stays in the
+   * worktree for the caller to commit. Undefined, with nothing run, when the line is blank.
+   */
+  async runPublishingLine(
+    projectId: string,
+    taskId: string,
+    line: PublishingLine,
+    variables: Readonly<Record<string, string>>,
+    options: ScriptCommandOptions,
+  ): Promise<CommandRun | undefined> {
+    const project = await this.projects.read(projectId);
+    const commandLine = project[line];
+    if (!isCommandSet(commandLine)) return undefined;
+    return this.scriptCommands.runLine(project, taskId, commandLine, variables, options);
   }
 
   /**

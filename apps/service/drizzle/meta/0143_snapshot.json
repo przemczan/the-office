@@ -1,6 +1,6 @@
 {
-  "id": "f3d7a4f0-54e4-4956-ae16-ecd6d0d9d0de",
-  "prevId": "e551ec6e-8fc2-42dd-b158-ba7d947bcac6",
+  "id": "e551ec6e-8fc2-42dd-b158-ba7d947bcac6",
+  "prevId": "e79db0bd-3b8b-47f7-9fee-db35390027b5",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2240,12 +2240,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "saved_by": {
-          "name": "saved_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {},
@@ -2663,6 +2657,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "published": {
+          "name": "published",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -3030,6 +3030,20 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "before_publishing_command": {
+          "name": "before_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "after_publishing_command": {
+          "name": "after_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},
@@ -3165,12 +3179,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "changed_by": {
-          "name": "changed_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {

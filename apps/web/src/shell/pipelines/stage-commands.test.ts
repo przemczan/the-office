@@ -48,6 +48,11 @@ describe("commandChoices in a Task's own editor", () => {
     commands: [test, { ...fullTests, commandLine: "" }],
     publishing: "push and open a pull request",
   };
+  const publishOf = (beforePublishingCommand: string, afterPublishingCommand: string) =>
+    commandChoices("test", {
+      ...project,
+      publishingLines: { beforePublishingCommand, afterPublishingCommand },
+    }).at(-1)?.label;
 
   it("offers the Project's commands by name and line, and Publish as it ships there", () => {
     expect(commandChoices("test", project)).toEqual([
@@ -55,6 +60,19 @@ describe("commandChoices in a Task's own editor", () => {
       { value: "test-full", label: "Full tests · not set" },
       { value: "publish", label: "Publish · push and open a pull request" },
     ]);
+  });
+
+  it("says when Publish runs the Project's before or after publishing lines", () => {
+    expect(publishOf("npm run changelog", "./notify.sh")).toBe(
+      "Publish · push and open a pull request, with before and after publishing lines",
+    );
+    expect(publishOf("npm run changelog", "")).toBe(
+      "Publish · push and open a pull request, with a before publishing line",
+    );
+    expect(publishOf("", "./notify.sh")).toBe(
+      "Publish · push and open a pull request, with an after publishing line",
+    );
+    expect(publishOf("", "")).toBe("Publish · push and open a pull request");
   });
 
   it("shows a key the Project lacks as not in this Project", () => {

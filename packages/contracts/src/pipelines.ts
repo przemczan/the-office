@@ -98,6 +98,16 @@ export type WentBack = z.infer<typeof wentBackSchema>;
 
 const handoverNoteField = { handoverNote: z.string().nullable() };
 
+/** What a Publish shipped by the publishing mode: a pull request opened, or a merge. */
+export const publishedWorkSchema = z.object({
+  kind: z.enum(["pull-request-opened", "merged"]),
+  branch: z.string(),
+  /** The commit that shipped: after a merge, the merged one. */
+  commit: z.string(),
+  pullRequestUrl: z.url().nullable(),
+});
+export type PublishedWork = z.infer<typeof publishedWorkSchema>;
+
 /** How a Stage run ended, with its Agent's Handover note when it wrote one. */
 export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
   z.object({
@@ -141,6 +151,11 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
         sessionLeft: z.boolean(),
       })
       .nullable(),
+    /**
+     * Set on a Publish run that shipped the work but whose after publishing line failed: the work
+     * did ship, so this is no plain failure.
+     */
+    afterPublishingFailed: publishedWorkSchema.nullable(),
     ...handoverNoteField,
   }),
 ]);
@@ -149,7 +164,7 @@ export type StageRunOutcome = z.infer<typeof stageRunOutcomeSchema>;
 /** A Project command The Office ran for a Stage run. */
 export const stageCommandRunSchema = z.object({
   /** The install before the Stage, the Script Stage's command, or a failing test's re-run. */
-  purpose: z.enum(["install", "command", "re-run"]),
+  purpose: z.enum(["install", "command", "re-run", "before-publishing", "after-publishing"]),
   commandLine: z.string(),
   outcome: z.enum(["passed", "failed", "could-not-run", "timed-out", "stopped"]),
   durationMs: z.int().nonnegative(),

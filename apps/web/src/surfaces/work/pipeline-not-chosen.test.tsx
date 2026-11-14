@@ -24,6 +24,13 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+// jsdom has no layout, so the Pipeline picker's list, placed by its size, never resizes.
+globalThis.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
+
 /** A Task created a moment ago: no Pipeline until one is chosen. */
 const TASK: Task = {
   id: "6f1c2b3a-9d8e-4f7a-8b6c-5d4e3f2a1b0c",

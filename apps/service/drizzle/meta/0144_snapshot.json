@@ -1,6 +1,6 @@
 {
-  "id": "7dfa5cb8-5221-4c0f-83e3-dcd43afb49f1",
-  "prevId": "f3d7a4f0-54e4-4956-ae16-ecd6d0d9d0de",
+  "id": "f3d7a4f0-54e4-4956-ae16-ecd6d0d9d0de",
+  "prevId": "e551ec6e-8fc2-42dd-b158-ba7d947bcac6",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2083,11 +2083,12 @@
       "name": "user_activity",
       "schema": "",
       "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
+        "id": {
+          "name": "id",
+          "type": "smallint",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": 1
         },
         "last_active_at": {
           "name": "last_active_at",
@@ -2107,7 +2108,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "user_activity_one_row": {
+          "name": "user_activity_one_row",
+          "value": "\"user_activity\".\"id\" = 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.memory_notes": {
@@ -2657,6 +2663,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "published": {
+          "name": "published",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -3024,6 +3036,20 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "before_publishing_command": {
+          "name": "before_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "after_publishing_command": {
+          "name": "after_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},

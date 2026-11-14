@@ -941,6 +941,23 @@ button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repos
   color: var(--fg-2);
 }
 
+/* Under the line, past the key and the row's gap, like an error. */
+.command-hint {
+  flex: 0 1 100%;
+  min-width: 0;
+  margin: 0 0 0 calc(var(--command-key-width) + 10px);
+  overflow-wrap: anywhere;
+  color: var(--fg-3);
+}
+
+.commands-group-title {
+  margin: 20px 0 8px;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
 .command-error {
   flex-basis: 100%;
   /* Under the input, past the key and the row's gap. */

@@ -1,9 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
 
-/** The grouped Pipeline picker named `picker` (its label), opened, answering its list. */
+/**
+ * The grouped Pipeline picker named `picker` (its label), opened, answering its list. The list opens
+ * apart from the field, on its window or the page, so it is looked up on the page; one is open at a time.
+ */
 export async function openPipelinePicker(scope: Locator | Page, picker: string): Promise<Locator> {
   await scope.getByRole("combobox", { name: picker, exact: true }).click();
-  return scope.getByRole("listbox", { name: picker, exact: true });
+  const page = "page" in scope ? scope.page() : scope;
+  return page.getByRole("listbox", { name: picker, exact: true });
 }
 
 /** Chooses the Pipeline named `pipelineName` in the grouped Pipeline picker named `picker`. */

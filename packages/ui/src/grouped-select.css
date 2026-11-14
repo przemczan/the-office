@@ -60,21 +60,21 @@
   color: var(--fg-3);
 }
 
-/* Opens over what follows the field, as a native select's list does, not pushing it down. */
+/* Opens over everything, as a native select's list does: portalled and fixed, so no window's body
+   or card around the field clips it or grows a scrollbar for it, and on the popover's layer, over
+   drawers and windows. Its place and its least width, the field's, come from grouped-select.tsx. */
 .grouped-select-list {
-  position: absolute;
-  top: 100%;
+  position: fixed;
+  top: 0;
   left: 0;
-  z-index: var(--z-dropdown);
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  min-width: 100%;
   width: max-content;
   max-width: min(28rem, calc(100vw - 32px));
   max-height: min(24rem, 60vh);
   overflow-y: auto;
-  margin-top: 4px;
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

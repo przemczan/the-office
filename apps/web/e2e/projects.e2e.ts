@@ -16,6 +16,7 @@ import { branchOnHost, serveRepository } from "./git-host.ts";
 import { asOwnUser } from "./own-user.ts";
 import { openPipelinePicker, optionNames } from "./pipeline-picker.ts";
 import { addedBasePipeline, addedProjectPipeline } from "./project-pipelines.ts";
+import { screenshotScenario } from "./task-screenshots.ts";
 import {
   commitFiles,
   createTemporaryRepository,
@@ -606,6 +607,54 @@ test(
 );
 
 test(
+  "the before and after publishing lines are set in Commands › Publish, kept, and cleared",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Publish lines");
+    await page.goto(`/projects/${project.id}/commands`);
+    const publish = page.getByRole("group", { name: "Publish", exact: true });
+    const before = publish.getByRole("group", { name: "Before publishing" });
+    const after = publish.getByRole("group", { name: "After publishing" });
+    await expect(publish.getByLabel("Publishing", { exact: true })).toBeVisible();
+    await expect(before).toContainText("None");
+    await expect(after).toContainText("None");
+
+    await page.getByRole("button", { name: "Change the before publishing line" }).click();
+    await page.getByLabel("Before publishing line").fill("npm run changelog");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Before publishing line saved.")).toBeVisible();
+    await page.getByRole("button", { name: "Change the after publishing line" }).click();
+    await page.getByLabel("After publishing line").fill("./scripts/notify.sh");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("After publishing line saved.")).toBeVisible();
+
+    await page.reload();
+    await expect(before).toContainText("npm run changelog");
+    await expect(after).toContainText("./scripts/notify.sh");
+    // The page scrolls inside its own frame, so the Publish group is brought to its top first.
+    await page
+      .getByRole("heading", { name: "Publish", exact: true })
+      .evaluate((title) => title.scrollIntoView({ block: "start" }));
+    await screenshotScenario(page, "project-commands-publish");
+    const kept = projectSchema.parse(
+      await (await page.request.get(`/api/projects/${project.id}`)).json(),
+    );
+    expect([kept.beforePublishingCommand, kept.afterPublishingCommand]).toEqual([
+      "npm run changelog",
+      "./scripts/notify.sh",
+    ]);
+
+    // Unlike install, a publishing line can be cleared.
+    await page.getByRole("button", { name: "Change the after publishing line" }).click();
+    await page.getByLabel("After publishing line").fill("");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("After publishing line cleared.")).toBeVisible();
+    await page.reload();
+    await expect(after).toContainText("None");
+  },
+);
+
+test(
   "the Project limit starts at 1, is changed in Overview › Work, and is kept after a reload",
   { tag: "@full" },
   async ({ page }) => {
@@ -667,16 +716,16 @@ test("the default Pipeline picker opens over the rows under it, not pushing them
 }) => {
   const project = await addedProject(page, "Picker overlay");
   await page.goto(`/projects/${project.id}/pipelines`);
-  const publishing = page.getByText("Publishing", { exact: true });
-  const before = await publishing.boundingBox();
+  const under = page.getByText(/A new Task has no Pipeline until/);
+  const before = await under.boundingBox();
 
   const picker = await openPipelinePicker(page, "Default Pipeline");
   await expect(picker).toBeVisible();
 
-  expect(await publishing.boundingBox()).toEqual(before);
-  const coveredByList = await publishing.evaluate((label) => {
-    const box = label.getBoundingClientRect();
-    const onTop = document.elementFromPoint(box.left + 4, box.top + box.height / 2);
+  expect(await under.boundingBox()).toEqual(before);
+  const coveredByList = await under.evaluate((line) => {
+    const box = line.getBoundingClientRect();
+    const onTop = document.elementFromPoint(box.left + 4, box.top + 8);
     return onTop?.closest('[role="listbox"]') !== null;
   });
   expect(coveredByList).toBe(true);

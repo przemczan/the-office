@@ -1,6 +1,6 @@
 import { unmetStatements } from "./pipeline-walk.js";
 import type { Stage } from "./stage.js";
-import type { StageOutcome, StageRun } from "./stage-run.js";
+import type { PublishedWork, StageOutcome, StageRun } from "./stage-run.js";
 import { latestTestResults, type TestResult } from "./test-results.js";
 import { acceptedIssues } from "./walk-decisions.js";
 
@@ -173,6 +173,127 @@ export function publishOutcome(publication: Publication): StageOutcome {
     case "failed":
       return { status: "failed", error: publication.error };
   }
+}
+
+/**
+ * What a Publish shipped by the publishing mode (spec §2.3 Defaults): a pull request opened, or a
+ * merge, with the commit that shipped, the merged one after a merge and `head` for a pull request.
+ * Undefined for everything else, which runs no after publishing line.
+ */
+export function shippedWork(publication: Publication, head: string): PublishedWork | undefined {
+  switch (publication.kind) {
+    case "pull-request-opened":
+      return {
+        kind: publication.kind,
+        branch: publication.branch,
+        commit: head,
+        pullRequestUrl: publication.url,
+      };
+    case "merged":
+      return { kind: publication.kind, branch: publication.branch, commit: publication.commit };
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * The variables the after publishing line runs with, beside the Project's own: what shipped, and
+ * by which publishing mode.
+ */
+export function publishedVariables(published: PublishedWork): Record<string, string> {
+  return {
+    OFFICE_PUBLISHED_BRANCH: published.branch,
+    OFFICE_PUBLISHED_COMMIT: published.commit,
+    ...(published.pullRequestUrl !== undefined && {
+      OFFICE_PULL_REQUEST_URL: published.pullRequestUrl,
+    }),
+    OFFICE_PUBLISHING_MODE: published.kind === "merged" ? "merge" : "push-and-pull-request",
+  };
+}
+
+/**
+ * A publication an earlier run of the Publish Stage shipped whose after publishing line hasn't
+ * passed yet: the run again runs only that line, or, once the user chose Continue, ends done.
+ */
+export interface UnfinishedPublication {
+  readonly published: PublishedWork;
+  /** Why the latest run failed, when it did. */
+  readonly error: string | undefined;
+  /** Whether the user, or the CTO, chose Continue on the latest run's failure. */
+  readonly continued: boolean;
+}
+
+/**
+ * The publication kept on an earlier run of the Stage `stageKey` with no done run of it since, so
+ * a retry never publishes again (the CTO's review of 2026-11-13).
+ */
+export function unfinishedPublication(
+  stageKey: string,
+  earlierRuns: readonly StageRun[],
+): UnfinishedPublication | undefined {
+  const runs = earlierRuns.filter((run) => run.stageKey === stageKey);
+  const index = runs.findLastIndex(({ published }) => published !== undefined);
+  const published = runs[index]?.published;
+  if (published === undefined) return undefined;
+  const since = runs.slice(index);
+  if (since.some(({ outcome }) => outcome?.status === "done")) return undefined;
+  const latest = since.at(-1);
+  return {
+    published,
+    error: latest?.outcome?.status === "failed" ? latest.outcome.error : undefined,
+    continued:
+      latest?.decisions.some(
+        ({ kind, answer }) =>
+          kind === "after-publishing-failed" && answer?.kind === "accept-issues",
+      ) ?? false,
+  };
+}
+
+/** What shipped, in words for the Publish Stage's outcome. */
+export function publishedSummary(published: PublishedWork): string {
+  return published.kind === "merged"
+    ? `Merged ${published.branch}, which shipped at ${published.commit.slice(0, SHORT_COMMIT_LENGTH)}.`
+    : `Pushed ${published.branch} and opened the pull request ${published.pullRequestUrl ?? ""}`;
+}
+
+/** The after publishing line failed after the work shipped: its own outcome, never looped. */
+export function afterPublishingFailedOutcome(
+  published: PublishedWork,
+  lineError: string,
+): StageOutcome {
+  return {
+    status: "failed",
+    error: `Published; after publishing failed: ${lineError}`,
+    afterPublishingFailed: published,
+  };
+}
+
+/**
+ * What shipped, as the Stage's done outcome: in the run's own words of what it published,
+ * `summary`, or for a retry in words of what shipped before, saying so when the after publishing
+ * line ran and passed.
+ */
+export function shippedOutcome(
+  published: PublishedWork,
+  {
+    summary = publishedSummary(published),
+    afterLineRan,
+  }: { readonly summary?: string | undefined; readonly afterLineRan: boolean },
+): StageOutcome {
+  return {
+    status: "done",
+    summary: afterLineRan ? `${summary}\n\nThe after publishing line passed.` : summary,
+    ...(published.pullRequestUrl !== undefined && { pullRequestUrl: published.pullRequestUrl }),
+  };
+}
+
+/** The user chose Continue after the after publishing line failed: done, with the failure noted. */
+export function continuedOutcome({ published, error }: UnfinishedPublication): StageOutcome {
+  return {
+    status: "done",
+    summary: `${error ?? `${publishedSummary(published)} The after publishing line didn't pass.`}\n\nThe Task went on with this failure noted.`,
+    ...(published.pullRequestUrl !== undefined && { pullRequestUrl: published.pullRequestUrl }),
+  };
 }
 
 /** Each Stage's latest result that tells of the work, under its name; a Stage yet to run has none. */

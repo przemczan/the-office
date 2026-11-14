@@ -38,6 +38,8 @@ const COMMAND_PURPOSE_WORDS: Readonly<Record<CommandRun["purpose"], string | und
   install: "install",
   command: undefined,
   "re-run": "re-run",
+  "before-publishing": "before publishing",
+  "after-publishing": "after publishing",
 };
 
 /** The line under a Stage's name: its kind, its rule and what its runs came to. */
@@ -110,6 +112,10 @@ export function runBadge(
         outcome.interrupted === "usage-window"
       ) {
         return { words: STAGE_STATE_WORDS.paused, tone: "warning" };
+      }
+      // The work shipped; only the Project's after publishing line failed.
+      if (outcome.afterPublishingFailed) {
+        return { words: "Published; after publishing failed", tone: "warning" };
       }
       return { words: STAGE_STATE_WORDS.failed, tone: "danger" };
   }

@@ -67,6 +67,8 @@ function aProject(id: string, name: string, defaultPipeline = "full"): Project {
     icon: { light: null, dark: null },
     logo: { light: null, dark: null },
     repositoryUrl: null,
+    beforePublishingCommand: "",
+    afterPublishingCommand: "",
     environment: { set: [], unset: [], prependPath: [] },
     useProjectSkills: false,
     projectSkillsOff: [],

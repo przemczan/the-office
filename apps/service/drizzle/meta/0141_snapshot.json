@@ -1,6 +1,6 @@
 {
-  "id": "e79db0bd-3b8b-47f7-9fee-db35390027b5",
-  "prevId": "c6982a61-d950-4f13-aa9c-614cdf4355ad",
+  "id": "c6982a61-d950-4f13-aa9c-614cdf4355ad",
+  "prevId": "5f65bd6b-ec47-4890-9d49-7fb5e4408436",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2610,12 +2610,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "held_by_user": {
-          "name": "held_by_user",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "gate_action": {
           "name": "gate_action",
           "type": "jsonb",
@@ -2643,6 +2637,12 @@
         "ended_at": {
           "name": "ended_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "published": {
+          "name": "published",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         }
@@ -3012,6 +3012,20 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "before_publishing_command": {
+          "name": "before_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "after_publishing_command": {
+          "name": "after_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},
@@ -4205,12 +4219,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "queued_by": {
-          "name": "queued_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
         "reasons": {
           "name": "reasons",
           "type": "text[]",
@@ -4810,21 +4818,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "archived_by": {
-          "name": "archived_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "restored_at": {
           "name": "restored_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restored_by": {
-          "name": "restored_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -4837,12 +4833,6 @@
         "planning_thread_id": {
           "name": "planning_thread_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "planning_started_by": {
-          "name": "planning_started_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -5204,21 +5194,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "archived_by": {
-          "name": "archived_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "restored_at": {
           "name": "restored_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "restored_by": {
-          "name": "restored_by",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

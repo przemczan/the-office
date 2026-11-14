@@ -36,6 +36,8 @@ describe("ProjectRecords.of", () => {
         "- Commands: build (Build, build) `npm run build`, lint (Lint, lint) `npm run lint`, test (Test, test) `npm test`",
         "- Install inputs: package-lock.json",
         "- Publishing: push and open a pull request",
+        "- Before publishing: `none`",
+        "- After publishing: `none`",
         "- Default Pipeline: full",
       ].join("\n"),
     );

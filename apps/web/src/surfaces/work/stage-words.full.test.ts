@@ -1,6 +1,6 @@
 import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { pipelineLabel, scriptCommandLine, taskTokens } from "./stage-words.ts";
+import { pipelineLabel, pullRequestUrlOf, scriptCommandLine, taskTokens } from "./stage-words.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 
 const tests: Stage = {
@@ -45,6 +45,52 @@ describe("scriptCommandLine", () => {
     });
 
     expect(scriptCommandLine(aTaskStage(tests, { runs: [ran] }))).toBe("npm test");
+  });
+});
+
+describe("pullRequestUrlOf", () => {
+  const publish: Stage = {
+    kind: "script",
+    key: "publish",
+    name: "Publish",
+    optional: false,
+    command: "publish",
+  };
+  const opened = "https://github.com/acme/site/pull/7";
+
+  it("takes the pull request of a Publish whose after publishing line failed once it shipped", () => {
+    const shipped = aRun({
+      number: 2,
+      outcome: {
+        status: "failed",
+        error: "Published; after publishing failed: exit code 1",
+        budgetReached: null,
+        interrupted: null,
+        refusedTurn: null,
+        afterPublishingFailed: {
+          kind: "pull-request-opened",
+          branch: "office/site-7",
+          commit: "4b1e2c3",
+          pullRequestUrl: opened,
+        },
+        handoverNote: null,
+      },
+    });
+    const plainFailure = aRun({
+      number: 3,
+      outcome: {
+        status: "failed",
+        error: "The push was refused.",
+        budgetReached: null,
+        interrupted: null,
+        refusedTurn: null,
+        afterPublishingFailed: null,
+        handoverNote: null,
+      },
+    });
+
+    expect(pullRequestUrlOf([aTaskStage(publish, { runs: [shipped, plainFailure] })])).toBe(opened);
+    expect(pullRequestUrlOf([aTaskStage(publish, { runs: [plainFailure] })])).toBeUndefined();
   });
 });
 

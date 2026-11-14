@@ -80,6 +80,7 @@ const failed = (fields: Partial<Extract<StageRun["outcome"], { status: "failed" 
     budgetReached: null,
     interrupted: null,
     refusedTurn: null,
+    afterPublishingFailed: null,
     handoverNote: null,
     ...fields,
   }) as const;
@@ -188,6 +189,22 @@ describe("runBadge", () => {
     expect(runBadge(aRun({ outcome: failed({ interrupted: "restart" }) }), "failed")).toEqual({
       words: "Failed",
       tone: "danger",
+    });
+  });
+
+  it("reads a Publish whose after publishing line failed as shipped, not a plain failure", () => {
+    const outcome = failed({
+      error: "Published; after publishing failed: exit code 1",
+      afterPublishingFailed: {
+        kind: "merged",
+        branch: "office/site-7",
+        commit: "4b1e2c3",
+        pullRequestUrl: null,
+      },
+    });
+    expect(runBadge(aRun({ outcome }), "failed")).toEqual({
+      words: "Published; after publishing failed",
+      tone: "warning",
     });
   });
 });

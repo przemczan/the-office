@@ -34,6 +34,8 @@ const PROJECT: Project = {
   icon: { light: null, dark: null },
   logo: { light: null, dark: null },
   repositoryUrl: null,
+  beforePublishingCommand: "",
+  afterPublishingCommand: "",
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],
@@ -141,6 +143,12 @@ function rowText(page: HTMLElement, name: string): string {
   return row.textContent;
 }
 
+function lineRow(page: HTMLElement, label: string): HTMLElement {
+  const row = page.querySelector<HTMLElement>(`[role="group"][aria-label="${label}"]`);
+  if (!row) throw new Error(`There is no ${label} row.`);
+  return row;
+}
+
 describe("the Project page's Commands block", () => {
   it("shows install, the install inputs, then each command with its key and kind", () => {
     const { page } = blockOf(PROJECT);
@@ -216,6 +224,97 @@ describe("the Project page's Commands block", () => {
       }),
     );
     expect(document.body.textContent).toContain("End to end added.");
+  });
+
+  it("holds the publishing mode in its Publish group, and saves a new one at once", async () => {
+    const fetched = answering(() =>
+      Response.json({ ...PROJECT, publishingMode: "push-and-pull-request" }),
+    );
+    const { page, queryClient } = blockOf(PROJECT);
+    const publish = page.querySelector<HTMLElement>('[role="group"][aria-label="Publish"]');
+    if (!publish) throw new Error("There is no Publish group.");
+
+    const mode = field(publish, "Publishing");
+    expect(mode.value).toBe("merge");
+    expect([...(mode as HTMLSelectElement).options].map((option) => option.text)).toEqual([
+      "Push and open a pull request",
+      "Merge into main",
+    ]);
+    await settled(queryClient, () => fill(mode, "push-and-pull-request"));
+
+    const [url, request] = fetched.mock.calls[0] ?? [];
+    expect(url).toBe("/api/projects/admin-panel/publishing-mode");
+    expect(request?.method).toBe("PUT");
+    expect(request?.body).toBe(JSON.stringify({ publishingMode: "push-and-pull-request" }));
+    expect(document.body.textContent).toContain(
+      "Publishing saved. Tasks in Admin panel push and open a pull request.",
+    );
+  });
+
+  it("shows None for a publishing line not set, with what each line is for", () => {
+    const { page } = blockOf(PROJECT);
+
+    const before = lineRow(page, "Before publishing");
+    const after = lineRow(page, "After publishing");
+    expect(before.querySelector(".command-empty")?.textContent).toBe("None");
+    expect(after.querySelector(".command-empty")?.textContent).toBe("None");
+    expect(before.textContent).toContain(
+      "before anything leaves; what it changes is committed and published",
+    );
+    expect(after.textContent).toContain("once the pull request opens or the merge lands");
+    expect(after.textContent).toContain("OFFICE_PUBLISHED_BRANCH");
+    expect(after.textContent).toContain("OFFICE_PULL_REQUEST_URL");
+    expect(after.textContent).toContain("OFFICE_PUBLISHING_MODE");
+    expect(page.textContent).toContain("never The Office's credentials");
+    expect(page.textContent).toContain("Secret variable");
+    expect(page.textContent).toContain("safe to run twice");
+    expect(page.textContent).toContain("Script Stage time limit of 30 minutes");
+  });
+
+  it.each([
+    ["before", "Before publishing", "/api/projects/admin-panel/before-publishing-command"],
+    ["after", "After publishing", "/api/projects/admin-panel/after-publishing-command"],
+  ] as const)("sets the %s publishing line in place", async (which, label, path) => {
+    const fetched = answering(() =>
+      Response.json({ ...PROJECT, [`${which}PublishingCommand`]: "./publish.sh" }),
+    );
+    const { page, queryClient } = blockOf(PROJECT);
+
+    act(() => button(page, `Change the ${which} publishing line`).click());
+    const input = page.querySelector<HTMLInputElement>(`input[aria-label="${label} line"]`);
+    if (!input) throw new Error(`There is no ${label} input.`);
+    fill(input, " ./publish.sh ");
+    await settled(queryClient, () => button(page, "Save").click());
+
+    const [url, request] = fetched.mock.calls[0] ?? [];
+    expect(url).toBe(path);
+    expect(request?.method).toBe("PUT");
+    expect(request?.body).toBe(JSON.stringify({ commandLine: "./publish.sh" }));
+    expect(document.body.textContent).toContain(`${label} line saved.`);
+    expect(queryClient.getQueryData(["projects", "admin-panel"])).toMatchObject({
+      [`${which}PublishingCommand`]: "./publish.sh",
+    });
+  });
+
+  it("clears a publishing line, which install's can't be", async () => {
+    const set = { ...PROJECT, afterPublishingCommand: "./notify.sh" };
+    const fetched = answering(() => Response.json({ ...set, afterPublishingCommand: "" }));
+    const { page, queryClient } = blockOf(set);
+    expect(lineRow(page, "After publishing").textContent).toContain("./notify.sh");
+
+    act(() => button(page, "Change the after publishing line").click());
+    const input = page.querySelector<HTMLInputElement>('input[aria-label="After publishing line"]');
+    if (!input) throw new Error("There is no After publishing input.");
+    fill(input, "");
+    await settled(queryClient, () => button(page, "Save").click());
+
+    const [url, request] = fetched.mock.calls[0] ?? [];
+    expect(url).toBe("/api/projects/admin-panel/after-publishing-command");
+    expect(request?.body).toBe(JSON.stringify({ commandLine: "" }));
+    expect(document.body.textContent).toContain("After publishing line cleared.");
+    expect(queryClient.getQueryData(["projects", "admin-panel"])).toMatchObject({
+      afterPublishingCommand: "",
+    });
   });
 
   it("removes a command only once confirmed in a window", async () => {

@@ -1,5 +1,5 @@
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
-import type { Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
+import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 
 /** What a Project command does: a test command's run leaves the worktree as it was. */
 export type ScriptCommandKind = "build" | "lint" | "test";
@@ -9,6 +9,9 @@ export interface ScriptCommandResult {
   readonly kind: ScriptCommandKind | undefined;
   readonly runs: readonly ScriptCommandRun[];
 }
+
+/** Publish's before and after lines (spec §2.3 Defaults), by the Project's names for them. */
+export type PublishingLine = "beforePublishingCommand" | "afterPublishingCommand";
 
 /** Told when a command waits for a free run environment, and when that wait is over. */
 export interface CommandWait {
@@ -61,6 +64,23 @@ export abstract class TaskCommands {
     stageRunId: string,
     options: TaskCommandOptions,
   ): Promise<ScriptCommandResult>;
+
+  /** The Project's before and after publishing lines, each blank when not set. */
+  abstract publishingLines(projectId: string): Promise<Readonly<Record<PublishingLine, string>>>;
+
+  /**
+   * Runs a Publish's before or after publishing line in the Task's worktree, where a Script Stage's
+   * command runs, with its time limit and the Project's own variables, `variables` set over them,
+   * never The Office's credentials. What it changes stays in the worktree. Undefined, with nothing
+   * run, when the line is blank.
+   */
+  abstract runPublishingLine(
+    projectId: string,
+    taskId: string,
+    line: PublishingLine,
+    variables: Readonly<Record<string, string>>,
+    options: TaskCommandOptions,
+  ): Promise<CommandRun | undefined>;
 
   /**
    * Runs a command for an Agent at work on the Task (spec §6): one of the Project's by its key, or

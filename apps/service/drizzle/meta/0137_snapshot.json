@@ -1,6 +1,6 @@
 {
-  "id": "4a4d1f6d-7aba-4936-a020-542f5e1387d0",
-  "prevId": "c3d381b8-0b5e-4e19-8dc0-13f52e210c4a",
+  "id": "c3d381b8-0b5e-4e19-8dc0-13f52e210c4a",
+  "prevId": "f0a6a7f0-a8c6-468c-becc-8da44b8d90fb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2639,6 +2639,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "published": {
+          "name": "published",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -3006,6 +3012,20 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "before_publishing_command": {
+          "name": "before_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "after_publishing_command": {
+          "name": "after_publishing_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         }
       },
       "indexes": {},
@@ -3714,13 +3734,7 @@
           "name": "password_hash",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
-        },
-        "one_time_password_expires_at": {
-          "name": "one_time_password_expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "wrong_tries_in_a_row": {
           "name": "wrong_tries_in_a_row",
@@ -3741,34 +3755,16 @@
           "primaryKey": false,
           "notNull": false
         },
-        "palette": {
-          "name": "palette",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "density": {
-          "name": "density",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "removed_at": {
-          "name": "removed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
-        "users_active_email_unique": {
-          "name": "users_active_email_unique",
+        "users_email_unique": {
+          "name": "users_email_unique",
           "columns": [
             {
               "expression": "lower(\"email\")",
@@ -3778,7 +3774,6 @@
             }
           ],
           "isUnique": true,
-          "where": "\"users\".\"removed_at\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}

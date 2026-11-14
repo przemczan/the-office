@@ -11,6 +11,7 @@ import {
   markProblem,
   newProjectProblems,
   projectLimitProblem,
+  publishingLineProblem,
   sameCommandFields,
   trimmedCommand,
   trimmedInstallInputs,
@@ -21,11 +22,14 @@ import {
   type ProjectCommand,
   type ProjectCommandFields,
   type ProjectMark,
+  type PublishingLine,
   type PublishingMode,
   type RunEnvironmentSetting,
 } from "./project.js";
 import {
   ProjectAdded,
+  ProjectAfterPublishingCommandChanged,
+  ProjectBeforePublishingCommandChanged,
   ProjectCommandAdded,
   ProjectCommandChanged,
   ProjectCommandRemoved,
@@ -90,10 +94,19 @@ export function changeCommandsAsProposed(
 ): ProjectChanges {
   const problems = proposedCommandsProblems(project, proposed);
   if (problems.length > 0) throw new ProjectRefused(problems);
-  const { installCommand, installInputs } = proposed;
+  const { installCommand, installInputs, beforePublishingCommand, afterPublishingCommand } =
+    proposed;
   return changesInTurn(project, [
     (current) => (installCommand ? changeInstallCommand(current, installCommand.to) : undefined),
     (current) => (installInputs ? changeInstallInputs(current, installInputs.to) : undefined),
+    (current) =>
+      beforePublishingCommand
+        ? changePublishingLine(current, "beforePublishingCommand", beforePublishingCommand.to)
+        : undefined,
+    (current) =>
+      afterPublishingCommand
+        ? changePublishingLine(current, "afterPublishingCommand", afterPublishingCommand.to)
+        : undefined,
     ...proposed.commands.map(({ key, from, to }) => (current: Project) => {
       if (to === null) return removeCommand(current, key);
       return from === null ? addCommand(current, { key, ...to }) : changeCommand(current, key, to);
@@ -154,6 +167,8 @@ export function addProject(
     repositoryUrl: newProject.repositoryUrl ?? null,
     icon: NO_PROJECT_IMAGE,
     logo: NO_PROJECT_IMAGE,
+    beforePublishingCommand: "",
+    afterPublishingCommand: "",
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],
@@ -180,6 +195,30 @@ export function changeInstallCommand(
   return {
     project: { ...project, installCommand },
     event: new ProjectInstallCommandChanged(project.id, installCommand),
+  };
+}
+
+/**
+ * Sets Publish's before or after line, blank clearing it (spec §2.3 Defaults). Undefined when it is
+ * already that line.
+ */
+export function changePublishingLine(
+  project: Project,
+  line: PublishingLine,
+  commandLine: string,
+):
+  | ProjectChange<ProjectBeforePublishingCommandChanged | ProjectAfterPublishingCommandChanged>
+  | undefined {
+  const problem = publishingLineProblem(line, commandLine);
+  if (problem) throw new ProjectRefused([problem]);
+  const trimmed = commandLine.trim();
+  if (project[line] === trimmed) return undefined;
+  return {
+    project: { ...project, [line]: trimmed },
+    event:
+      line === "beforePublishingCommand"
+        ? new ProjectBeforePublishingCommandChanged(project.id, trimmed)
+        : new ProjectAfterPublishingCommandChanged(project.id, trimmed),
   };
 }
 

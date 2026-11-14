@@ -86,6 +86,27 @@ export class ScriptCommands {
     return [first, await this.runTests(project, taskId, command, join(stageRunId, "2"), options)];
   }
 
+  /**
+   * Runs a command line that isn't a Project command, such as a Publish's before or after
+   * publishing line, as a build-kind command runs: once, with the Script Stage's time limit, the
+   * Project's variables and `variables` over them, and what it changes left in the worktree.
+   */
+  async runLine(
+    project: Project,
+    taskId: string,
+    commandLine: string,
+    variables: Readonly<Record<string, string>>,
+    { signal, wait }: ScriptCommandOptions = {},
+  ): Promise<CommandRun> {
+    return this.commands.run(project, taskId, this.worktrees.pathOf(project, taskId), {
+      commandLine,
+      timeoutMs: SCRIPT_COMMAND_TIMEOUT_MS,
+      signal,
+      wait,
+      variables,
+    });
+  }
+
   private async runTests(
     project: Project,
     taskId: string,

@@ -118,6 +118,37 @@ describe("PUT /api/projects/:id/install-command", () => {
   });
 });
 
+describe("PUT /api/projects/:id/before-publishing-command and after-publishing-command", () => {
+  it("sets each line, keeps it with the Project, clears it when blank, and announces each change", async () => {
+    const project = await addProject();
+    published = [];
+
+    await send("PUT", `/projects/${project.id}/before-publishing-command`, {
+      commandLine: "npx changeset version",
+    });
+    await send("PUT", `/projects/${project.id}/after-publishing-command`, {
+      commandLine: "gh workflow run release.yml",
+    });
+    const cleared = await send("PUT", `/projects/${project.id}/before-publishing-command`, {
+      commandLine: " ",
+    });
+
+    expect(cleared.status).toBe(200);
+    const read = projectSchema.parse(
+      await (await fetch(`${url}/api/projects/${project.id}`)).json(),
+    );
+    expect(read).toMatchObject({
+      beforePublishingCommand: "",
+      afterPublishingCommand: "gh workflow run release.yml",
+    });
+    expect(webEvents()).toEqual([
+      { type: "project.before-publishing-command-changed", projectId: project.id },
+      { type: "project.after-publishing-command-changed", projectId: project.id },
+      { type: "project.before-publishing-command-changed", projectId: project.id },
+    ]);
+  });
+});
+
 describe("the Project's commands", () => {
   const E2E = { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" };
 

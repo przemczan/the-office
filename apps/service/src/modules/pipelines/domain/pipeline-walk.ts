@@ -37,6 +37,8 @@ export type WalkQuestion =
    */
   | { readonly kind: "base-moved"; readonly stage: Stage; readonly error: string }
   | { readonly kind: "branch-moved"; readonly stage: Stage; readonly error: string }
+  /** Publish shipped the work, but its after publishing line failed: escalated, never looped. */
+  | { readonly kind: "after-publishing-failed"; readonly stage: Stage; readonly error: string }
   /**
    * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
    * `again`, the last Agent Stage (or the last Stage when there is none). `outOfReach` are those
@@ -243,6 +245,9 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       if (outcome.interrupted) return undefined;
       if (outcome.branchMoved) return afterBranchMoved(walk, run, stage, outcome.error);
       if (outcome.baseMoved) return afterBaseMoved(walk, run, stage, outcome.error);
+      if (outcome.afterPublishingFailed) {
+        return afterPublishingFailed(run, stage, outcome.error);
+      }
       if (outcome.budgetReached) return afterBudget(walk, run, stage, outcome.budgetReached);
       return stage.key === RESOLVE_KEY
         ? afterResolveGaveUp(walk, run, stage, outcome.error)
@@ -402,6 +407,32 @@ function afterBaseMoved(
       return { move: "drop" };
     default:
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after the base moved.`);
+  }
+}
+
+/**
+ * Publish shipped the work, but its after publishing line failed (spec §2.3 Loops): the user is
+ * asked straight away, through the CTO first, using no round, as going back can't unship it. Retry
+ * and Continue both stay at the Publish Stage: its next run finds the publication kept and runs
+ * only the after line, or, after Continue, ends done with the failure noted.
+ */
+function afterPublishingFailed(
+  run: StageRun,
+  stage: Stage,
+  error: string,
+): StoppingMove | undefined {
+  const question = { kind: "after-publishing-failed", stage, error } as const;
+  const waiting = waitingOn(run, "after-publishing-failed", question);
+  if (waiting) return waiting;
+  const answer = answerOf(run, "after-publishing-failed");
+  switch (answer.kind) {
+    case "one-more-round":
+    case "accept-issues":
+      return undefined;
+    default:
+      throw new Error(
+        `Stage run ${run.id} was answered "${answer.kind}" after its after publishing line failed.`,
+      );
   }
 }
 

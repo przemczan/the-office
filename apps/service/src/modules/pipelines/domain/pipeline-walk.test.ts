@@ -91,6 +91,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     decisions,
     heldBy: undefined,
     heldByUser: undefined,
+    published: undefined,
     waitingSince: undefined,
     sentBack: undefined,
     gateAction: undefined,

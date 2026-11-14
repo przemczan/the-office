@@ -26,7 +26,7 @@ export class ProjectCommandOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_PROJECT_COMMANDS_TOOL,
       description:
-        "Drafts a change to a Project's install command, install inputs and commands as a Proposal the user applies with a click, all or nothing. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. It returns at once.",
+        "Drafts a change to a Project's install command, install inputs, before and after publishing lines and commands as a Proposal the user applies with a click, all or nothing. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. It returns at once.",
       input: z.object({
         project: z.string().describe("The Project's id, as list_projects gives it."),
         change: z
@@ -40,6 +40,18 @@ export class ProjectCommandOfficeTools implements OnModuleInit {
               .optional()
               .describe(
                 "The whole list of paths inside the repository whose change makes a worktree install again.",
+              ),
+            beforePublishingCommand: z
+              .string()
+              .optional()
+              .describe(
+                "Before publishing: one command line run in the Task's worktree before Publish ships anything, with the Project's own variables and never The Office's credentials; what it changes is committed and shipped. It runs again each time Publish runs, so it must be safe to run twice. Blank clears it.",
+              ),
+            afterPublishingCommand: z
+              .string()
+              .optional()
+              .describe(
+                "After publishing: one command line run in the Task's worktree once Publish opened the pull request or merged, with OFFICE_PUBLISHED_BRANCH, OFFICE_PUBLISHED_COMMIT, OFFICE_PULL_REQUEST_URL and OFFICE_PUBLISHING_MODE besides the Project's own variables, never The Office's credentials. Safe to run twice; the Script Stage time limit applies. Blank clears it.",
               ),
             commands: z
               .array(projectCommandSchema)

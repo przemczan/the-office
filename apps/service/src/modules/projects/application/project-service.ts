@@ -13,6 +13,7 @@ import {
   type ProjectCommandFields,
   type ProjectEngineLevels,
   type ProjectMark,
+  type PublishingLine,
   type PublishingMode,
   type RunEnvironmentAnswer,
   type RunEnvironmentSetting,
@@ -30,6 +31,7 @@ import {
   changeMark,
   changeProjectDefault,
   changeProjectLimit,
+  changePublishingLine,
   changePublishingMode,
   changeRoleOverride,
   changeRunEnvironment,
@@ -225,6 +227,15 @@ export class ProjectService {
   /** For the environment check, once it passed with the environment. */
   async changeEnvironment(id: string, environment: ProjectEnvironment): Promise<Project> {
     return this.update(id, (project) => changeEnvironment(project, environment));
+  }
+
+  /** Publish's before or after line (spec §2.3 Defaults); blank clears it. */
+  async changePublishingLine(
+    id: string,
+    line: PublishingLine,
+    commandLine: string,
+  ): Promise<Project> {
+    return this.update(id, (project) => changePublishingLine(project, line, commandLine));
   }
 
   async changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

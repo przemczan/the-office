@@ -49,6 +49,8 @@ function projectRecord(project: Project, checkout: string | undefined): string {
     `- Commands: ${commands.length > 0 ? commands.join(", ") : "none"}`,
     `- Install inputs: ${project.installInputs.length > 0 ? project.installInputs.join(", ") : "none"}`,
     `- Publishing: ${project.publishingMode === "merge" ? `merge into ${project.baseBranch}` : "push and open a pull request"}`,
+    `- Before publishing: \`${project.beforePublishingCommand || "none"}\``,
+    `- After publishing: \`${project.afterPublishingCommand || "none"}\``,
     `- Default Pipeline: ${project.defaultPipeline}`,
   ].join("\n");
 }

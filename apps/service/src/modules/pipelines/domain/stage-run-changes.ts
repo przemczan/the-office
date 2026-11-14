@@ -35,6 +35,7 @@ export function startStageRun(
     decisions: [],
     heldBy: undefined,
     heldByUser: undefined,
+    published: undefined,
     waitingSince: undefined,
     gateAction: undefined,
     outcome: undefined,

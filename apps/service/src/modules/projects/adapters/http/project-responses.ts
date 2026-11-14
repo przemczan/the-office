@@ -33,6 +33,8 @@ export function toProjectResponse(project: Project): ProjectResponse {
     })),
     installInputs: [...project.installInputs],
     publishingMode: project.publishingMode,
+    beforePublishingCommand: project.beforePublishingCommand,
+    afterPublishingCommand: project.afterPublishingCommand,
     defaultPipeline: project.defaultPipeline,
     environment: toEnvironmentResponse(project.environment),
     useProjectSkills: project.useProjectSkills,

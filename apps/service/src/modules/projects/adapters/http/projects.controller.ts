@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseFilters } from "@nestjs/common";
 import {
   addProjectSchema,
+  afterPublishingCommandChangeSchema,
+  beforePublishingCommandChangeSchema,
   commandChangeSchema,
   defaultPipelineChangeSchema,
   installCommandChangeSchema,
@@ -16,6 +18,8 @@ import {
   projectSkillUseChangeSchema,
   useProjectSkillsChangeSchema,
   type AddProject,
+  type AfterPublishingCommandChange,
+  type BeforePublishingCommandChange,
   type CommandChange,
   type DefaultPipelineChange,
   type InstallCommandChange,
@@ -122,6 +126,28 @@ export class ProjectsController {
     @Body(new ContractPipe(publishingModeChangeSchema)) { publishingMode }: PublishingModeChange,
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.projects.changePublishingMode(id, publishingMode));
+  }
+
+  @Put(":id/before-publishing-command")
+  async changeBeforePublishingCommand(
+    @Param("id") id: string,
+    @Body(new ContractPipe(beforePublishingCommandChangeSchema))
+    { commandLine }: BeforePublishingCommandChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(
+      await this.projects.changePublishingLine(id, "beforePublishingCommand", commandLine),
+    );
+  }
+
+  @Put(":id/after-publishing-command")
+  async changeAfterPublishingCommand(
+    @Param("id") id: string,
+    @Body(new ContractPipe(afterPublishingCommandChangeSchema))
+    { commandLine }: AfterPublishingCommandChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(
+      await this.projects.changePublishingLine(id, "afterPublishingCommand", commandLine),
+    );
   }
 
   @Put(":id/project-limit")

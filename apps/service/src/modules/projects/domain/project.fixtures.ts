@@ -42,6 +42,8 @@ export function aProject(fields: Partial<Project> = {}): Project {
     repositoryUrl: null,
     icon: NO_PROJECT_IMAGE,
     logo: NO_PROJECT_IMAGE,
+    beforePublishingCommand: "",
+    afterPublishingCommand: "",
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],

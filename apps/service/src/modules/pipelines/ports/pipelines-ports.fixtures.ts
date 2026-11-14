@@ -52,6 +52,7 @@ import {
   type AgentCommandOptions,
   type CommandWait,
   type ScriptCommandKind,
+  type PublishingLine,
   type ScriptCommandResult,
   type TaskCommandOptions,
 } from "./task-commands.js";
@@ -869,6 +870,41 @@ export class TaskCommandsForTests extends TaskCommands {
     return end;
   }
 
+  /** The Project's before and after publishing lines: blank unless a test sets them. */
+  readonly publishingLineSet: Record<PublishingLine, string> = {
+    beforePublishingCommand: "",
+    afterPublishingCommand: "",
+  };
+  /** What the next publishing lines give, in order; each passes otherwise. */
+  readonly publishingLineRuns: CommandRun[] = [];
+  /** Every publishing line run, in order, with the variables it got. */
+  readonly publishingLinesRan: {
+    readonly taskId: string;
+    readonly line: PublishingLine;
+    readonly variables: Readonly<Record<string, string>>;
+  }[] = [];
+  /** Told as each publishing line runs, as a line's own changes to the worktree would be made. */
+  onPublishingLine: ((taskId: string, line: PublishingLine) => void) | undefined = undefined;
+
+  publishingLines(): Promise<Readonly<Record<PublishingLine, string>>> {
+    return Promise.resolve({ ...this.publishingLineSet });
+  }
+
+  runPublishingLine(
+    _projectId: string,
+    taskId: string,
+    line: PublishingLine,
+    variables: Readonly<Record<string, string>>,
+  ): Promise<CommandRun | undefined> {
+    const commandLine = this.publishingLineSet[line];
+    if (commandLine.trim() === "") return Promise.resolve(undefined);
+    this.publishingLinesRan.push({ taskId, line, variables });
+    this.onPublishingLine?.(taskId, line);
+    return Promise.resolve(
+      this.publishingLineRuns.shift() ?? aCommandRun(commandLine, "passed", "done"),
+    );
+  }
+
   /** Whether the wait ended in the command's turn, not in a stop. */
   private async waitFor(
     turn: Promise<void>,
@@ -926,10 +962,12 @@ export class TaskPublishingForTests extends TaskPublishing {
       branch: aTaskRecord().worktree.branch,
       url: "https://github.com/notnullsoft/admin/pull/7",
     };
-    // A conflict after a clean merge of the Initiative's branch: that merge moved the branch.
-    if (publication.kind === "base-moved" && publication.commit !== undefined) {
-      this.mergedAt(taskId, publication.commit);
-    }
+    // A merge, or a conflict after a clean merge of the Initiative's branch, moved the branch.
+    const movedTo =
+      publication.kind === "merged" || publication.kind === "base-moved"
+        ? publication.commit
+        : undefined;
+    if (movedTo !== undefined) this.mergedAt(taskId, movedTo);
     return Promise.resolve(publication);
   }
 
