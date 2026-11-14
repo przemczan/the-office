@@ -124,6 +124,103 @@
   box-shadow: 0 -3px 0 0 var(--accent);
 }
 
+/* ---- an Initiative's block in a column (docs/design/board-initiative-blocks.html): a step darker
+   than the column in a light palette, a step lighter in a dark one, a step below the cards */
+.initiative-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  outline: 1px solid transparent;
+  background: light-dark(
+    color-mix(in oklab, var(--fg-1) 4.5%, var(--surface-sunken)),
+    color-mix(in oklab, var(--fg-1) 2%, var(--surface-sunken))
+  );
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    outline-color var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+}
+
+.initiative-block-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: 1px 4px 0 5px;
+}
+
+.initiative-block-name {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  font: 600 12px/1.35 var(--font-sans);
+  color: var(--fg-2);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.initiative-block-name svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--fg-3);
+}
+
+.initiative-block-name:hover {
+  color: var(--fg-1);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 2px;
+}
+
+.initiative-block-head .badge {
+  margin-top: -1px;
+}
+
+.initiative-block-count {
+  flex: none;
+  margin-left: auto;
+  padding-top: 2px;
+  font: var(--type-overline);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.initiative-block-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Its Initiative's blocks in every column, while one block's head is hovered or focused */
+.initiative-block.outlined {
+  border-color: var(--fg-3);
+  outline-color: var(--fg-3);
+}
+
+.initiative-block.outlined .initiative-block-name {
+  color: var(--fg-1);
+}
+
+/* While a card is dragged: its block is where it can land, and the rest of its column steps back;
+   a loose card's column steps back around its blocks. */
+.initiative-block.drop-ok {
+  border-color: var(--accent);
+  outline-color: var(--accent);
+}
+
+.board-column.dragging-block .board-cards > :not(.drop-ok),
+.board-column.dragging-loose .board-cards > .initiative-block {
+  opacity: 0.45;
+}
+
 .board-card-head {
   display: flex;
   align-items: flex-start;

@@ -633,7 +633,8 @@ test(
     await page.getByRole("button", { name: /^Project filter:/ }).click();
     await page.getByRole("button", { name: "Show only Grouped work" }).click();
 
-    const layout = page.getByRole("group", { name: "Layout" });
+    // Exact, as an Initiative's block in a column is a group too.
+    const layout = page.getByRole("group", { name: "Layout", exact: true });
     await layout.getByRole("switch").click();
     await expect(page).toHaveURL(/group=initiative/);
     await page.reload();
@@ -707,6 +708,96 @@ test(
     await page.goto("/work");
     await expect(layout.getByRole("switch")).toHaveAttribute("aria-checked", "false");
     await expect(groups).toHaveCount(0);
+  },
+);
+
+/** A column's items, top to bottom: each block's Initiative, or a loose card's title. */
+function itemsIn(page: Page, state: string): Promise<string[]> {
+  return column(page, state)
+    .locator(".board-cards > *")
+    .evaluateAll((items) => items.map((item) => item.getAttribute("aria-label") ?? ""));
+}
+
+/** A block's cards' titles, top to bottom. */
+function titlesInBlock(block: Locator): Promise<string[]> {
+  return block
+    .getByRole("article")
+    .evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-label") ?? ""));
+}
+
+test(
+  "a column gathers an Initiative's cards into a block, a card reordering only inside its block",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Block work", "BW");
+    const radio = await seedActiveInitiative(page, "Block radio", "2026-11-09T10:00:00.000Z");
+    const display = await seedActiveInitiative(page, "Block display", "2026-11-08T10:00:00.000Z");
+    await seedTaskOf(page, project, "Block radio first", radio);
+    await seedTaskOf(page, project, "Block loose first", null);
+    await seedTaskOf(page, project, "Block display first", display);
+    await seedTaskOf(page, project, "Block radio second", radio);
+    await seedTaskOf(page, project, "Block radio third", radio);
+    await page.goto("/work");
+    // Only this Project's cards, so the blocks other tests leave stay out.
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only Block work" }).click();
+
+    // A block sits where its first card falls, gathering its later cards; a loose card keeps its place.
+    await expect
+      .poll(() => itemsIn(page, "Backlog"))
+      .toEqual(["Block radio", "Block loose first", "Block display"]);
+    const backlog = column(page, "Backlog");
+    await expect(backlog.getByRole("heading")).toHaveText("Backlog 5");
+    const radioBlock = backlog.getByRole("group", { name: "Block radio", exact: true });
+    await expect
+      .poll(() => titlesInBlock(radioBlock))
+      .toEqual(["Block radio first", "Block radio second", "Block radio third"]);
+    await expect(radioBlock.getByRole("img", { name: "3 of its Tasks in Backlog" })).toHaveText(
+      "3",
+    );
+    await expect(
+      radioBlock.getByRole("link", { name: "Block radio", exact: true }),
+    ).toHaveAttribute("href", `/work/initiatives/${radio}`);
+    await expect(
+      backlog.getByRole("group", { name: "Block display", exact: true }).getByRole("article"),
+    ).toHaveCount(1);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-blocks.png") });
+
+    await radioBlock
+      .getByRole("article", { name: "Block radio third" })
+      .dragTo(radioBlock.getByRole("article", { name: "Block radio first" }));
+    const reordered = ["Block radio third", "Block radio first", "Block radio second"];
+    await expect.poll(() => titlesInBlock(radioBlock)).toEqual(reordered);
+
+    await backlog
+      .getByRole("article", { name: "Block display first" })
+      .dragTo(radioBlock.getByRole("article", { name: "Block radio first" }));
+    await expect(
+      page.getByText(
+        "A card moves only within its own block: the board doesn't change a Task's Initiative.",
+      ),
+    ).toBeVisible();
+    await backlog
+      .getByRole("article", { name: "Block loose first" })
+      .dragTo(radioBlock.getByRole("article", { name: "Block radio second" }));
+    await expect(
+      page.getByText(
+        "A card with no Initiative moves only among the cards outside the blocks: the board doesn't change a Task's Initiative.",
+      ),
+    ).toBeVisible();
+    await page.reload();
+    await expect
+      .poll(() => itemsIn(page, "Backlog"))
+      .toEqual(["Block radio", "Block loose first", "Block display"]);
+    await expect.poll(() => titlesInBlock(radioBlock)).toEqual(reordered);
+
+    // With the Initiative filter set, the columns are flat.
+    await page
+      .getByRole("search", { name: "Filter the board" })
+      .getByRole("combobox", { name: "Initiative" })
+      .selectOption({ label: "Block display" });
+    await expect(backlog.getByRole("article", { name: "Block display first" })).toBeVisible();
+    await expect(page.locator(".board").getByRole("group")).toHaveCount(0);
   },
 );
 
