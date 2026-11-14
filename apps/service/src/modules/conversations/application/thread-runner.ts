@@ -93,7 +93,10 @@ type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
 type SessionEvent = EngineSession["events"] extends AsyncIterable<infer Event> ? Event : never;
 type TurnEndedEvent = Extract<SessionEvent, { kind: "turn-ended" }>;
 
-/** How long a session's process stays up after its last turn, waiting for the next message. */
+/**
+ * How long a session's process stays up after its last turn, waiting for the next message, and
+ * after its last background Sub-agent ended (spec 2.9).
+ */
 const IDLE_MS = 10 * 60 * 1000;
 
 /** A message the person answers, and where and with what the session that answers it runs. */
@@ -163,6 +166,8 @@ interface LiveSession {
   readonly officeTools: readonly string[];
   /** The person writes their Handover note in the turn running now; the session ends after it. */
   handingOver: boolean;
+  /** The Agent is in a turn: from a message sent until its turn ends, or a turn the engine began. */
+  turnRunning: boolean;
   idle: NodeJS.Timeout | undefined;
   /** The Office ends it: its events finishing then is no surprise. */
   ending: boolean;
@@ -661,7 +666,7 @@ export class ThreadRunner implements OnModuleDestroy {
     // Once the Task is Ready the Planner's tools change (spec §2.4): that takes a resume.
     const sameTools = live?.officeTools.join() === place.officeTools.join();
     if (decision.move === "resume" && live?.session.id === session.id && sameTools) {
-      if (live.idle) clearTimeout(live.idle);
+      this.turnBegan(live);
       live.session.send(said, "later");
       return;
     }
@@ -681,7 +686,7 @@ export class ThreadRunner implements OnModuleDestroy {
           place,
         ),
       );
-      this.watch(thread, role.roleKey, place, opened);
+      this.watch(thread, role, place, opened);
       opened.send({ ...said, text: withLeftOutServers(said.text, servers.leftOut) }, "later");
       return;
     }
@@ -713,7 +718,7 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.forget(session.id);
       throw error;
     }
-    this.watch(thread, role.roleKey, place, opened);
+    this.watch(thread, role, place, opened);
     // Only once the new session runs: until then the Thread may go back to the one it replaces.
     if (replaced) {
       await this.forget(replaced.id);
@@ -763,7 +768,7 @@ export class ThreadRunner implements OnModuleDestroy {
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
       toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
       approvalHold: this.approvalHolds.of(id),
-      turnLabel: turnLabelOf(card.name, thread),
+      turnLabel: `${card.name} in ${threadWords(thread)}`,
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },
         metric: { "office.conversation.home": thread.home.kind },
@@ -771,19 +776,24 @@ export class ThreadRunner implements OnModuleDestroy {
     };
   }
 
-  /** Reads the session's events into the log until it ends. */
+  /**
+   * Reads the session's events into the log until it ends. It is started on a message, so its
+   * first turn runs.
+   */
   private watch(
-    { id: threadId, home }: Thread,
-    roleKey: string,
+    thread: Thread,
+    { roleKey, card }: SessionRole,
     { folder, mask, officeTools }: Pick<SessionPlace, "folder" | "mask" | "officeTools">,
     session: EngineSession,
   ): void {
+    const { id: threadId, home } = thread;
     const following = this.subAgentsAndProcesses.follow({
       threadId,
       home,
       sessionId: session.id,
       folder,
       mask,
+      subAgentsLabel: `${card.name}'s Sub-agents in ${threadWords(thread)}`,
     });
     const live: LiveSession = {
       session,
@@ -792,10 +802,14 @@ export class ThreadRunner implements OnModuleDestroy {
       mask,
       officeTools,
       handingOver: false,
+      turnRunning: true,
       idle: undefined,
       ending: false,
       following,
     };
+    following.whenBackgroundSubAgentsEnd(() => {
+      if (!live.turnRunning) this.idleFrom(threadId, live);
+    });
     this.live.set(threadId, live);
     void this.read(threadId, live)
       .then(() => (live.ending ? undefined : this.endedEarly(threadId, session.id)))
@@ -828,6 +842,8 @@ export class ThreadRunner implements OnModuleDestroy {
 
   private async readEvent(threadId: string, live: LiveSession, event: SessionEvent): Promise<void> {
     await live.following.take(event);
+    // A turn the engine began itself, such as on a background Sub-agent's report.
+    if (isAgentsOwnTurnEvent(event)) this.turnBegan(live);
     if (event.kind === "turn-ended") {
       await this.turnEnded(threadId, live, event);
       return;
@@ -866,6 +882,7 @@ export class ThreadRunner implements OnModuleDestroy {
         },
       ]);
     }
+    live.turnRunning = false;
     const usage = await this.contextUsageOf(threadId, live);
     const wroteNote = live.handingOver;
     const handingOver =
@@ -884,6 +901,7 @@ export class ThreadRunner implements OnModuleDestroy {
     );
     if (handingOver) {
       live.handingOver = true;
+      this.turnBegan(live);
       live.session.send({ id: randomUUID(), text: HANDOVER_REQUEST }, "later");
       return;
     }
@@ -891,14 +909,32 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.endLive(threadId);
       return;
     }
-    live.idle = setTimeout(() => void this.endLive(threadId), IDLE_MS);
-    live.idle.unref();
+    this.idleFrom(threadId, live);
     // Not awaited: the session's events are read on while the answers go to it.
     void this.deliverWaitingAnswers(threadId).catch((error: unknown) => {
       this.logger.error(
         `Thread ${threadId}'s waiting answers weren't handed over: ${messageOf(error)}`,
       );
     });
+  }
+
+  private turnBegan(live: LiveSession): void {
+    live.turnRunning = true;
+    if (live.idle) clearTimeout(live.idle);
+    live.idle = undefined;
+  }
+
+  /**
+   * Ends the session once it has been idle for `IDLE_MS`, unless its background Sub-agents still
+   * run then: the last one's end starts the wait again (spec 2.9).
+   */
+  private idleFrom(threadId: string, live: LiveSession): void {
+    if (live.idle) clearTimeout(live.idle);
+    live.idle = setTimeout(() => {
+      live.idle = undefined;
+      if (!live.following.backgroundSubAgentsRunning) void this.endLive(threadId);
+    }, IDLE_MS);
+    live.idle.unref();
   }
 
   /** The session's context as its turn ended; undefined when its engine can't report it. */
@@ -1000,11 +1036,32 @@ function refusedWithoutEngine(error: unknown): never {
   throw error;
 }
 
-/** Who works where, as a scheduled Office update lists a turn it waits for. */
-function turnLabelOf(personName: string, thread: Thread): string {
-  if (thread.consultation) return `${personName} in a Consultation`;
-  const where = thread.home.kind === "task" ? "a Task's Thread" : "a chat";
-  return thread.title
-    ? `${personName} in ${where}, "${thread.title}"`
-    : `${personName} in ${where}`;
+/**
+ * Which Thread, as a scheduled Office update lists the work it waits for there, such as `an
+ * Initiative's Thread, "Planning"`.
+ */
+function threadWords(thread: Thread): string {
+  if (thread.consultation) return "a Consultation";
+  const where = HOME_WORDS[thread.home.kind];
+  return thread.title ? `${where}, "${thread.title}"` : where;
+}
+
+const HOME_WORDS: Readonly<Record<Thread["home"]["kind"], string>> = {
+  chat: "a chat",
+  task: "a Task's Thread",
+  initiative: "an Initiative's Thread",
+};
+
+/** An event of the Agent's own turn: never a Sub-agent's or a Process's, which run between turns too. */
+function isAgentsOwnTurnEvent(event: SessionEvent): boolean {
+  switch (event.kind) {
+    case "turn-tokens":
+    case "context-read":
+      return true;
+    case "text":
+    case "tool-call":
+      return event.withinToolCall === undefined;
+    default:
+      return false;
+  }
 }

@@ -23,6 +23,13 @@ export function makeAPlanOpening(autoMode: boolean): string {
 }
 
 /**
+ * What the Planner is woken with in a Task's planning Thread that a restart of The Office cut short
+ * (spec §2.4): mid-turn, or with background Sub-agents running, which a restart stops.
+ */
+export const PLANNING_AFTER_RESTART_OPENING =
+  "The Office restarted and cut your planning of this Task short. Any Sub-agents you had running were stopped, and their results were lost: run again the ones you still need, then carry on planning where you left off.";
+
+/**
  * What the Planner does in a Task's planning Thread, after their card's instructions. The same for
  * every planning session, so it stays in the cached prefix.
  */

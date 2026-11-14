@@ -447,6 +447,7 @@ export class StageThreads {
         mask: await this.masks.outputMaskOf(request.projectId),
         taskId: request.taskId,
         began: now,
+        subAgentsLabel: `${role.card.name}'s Sub-agents in the Stage ${request.stageName}`,
       },
       move,
       opened,
@@ -541,6 +542,7 @@ export class StageThreads {
         mask: await this.masks.outputMaskOf(request.projectId),
         taskId: request.taskId,
         began: now,
+        subAgentsLabel: `${role.card.name}'s Sub-agents in the Stage ${request.stageName}`,
       },
       move,
       opened,
@@ -637,7 +639,18 @@ export class StageThreads {
    * again, and delivered once a turn has taken the work, as a barge-in is.
    */
   private async live(
-    { threadId, roleKey, engine, canInterrupt, model, folder, mask, taskId, began }: StageWorkPlace,
+    {
+      threadId,
+      roleKey,
+      engine,
+      canInterrupt,
+      model,
+      folder,
+      mask,
+      taskId,
+      began,
+      subAgentsLabel,
+    }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
     carried: CarriedMessages | undefined,
@@ -650,6 +663,7 @@ export class StageThreads {
       sessionId: session.id,
       folder,
       mask,
+      subAgentsLabel,
     });
     const events = reading.turnEvents[Symbol.asyncIterator]();
     const logger = { roleKey, folder, handingOver: false, mask };
@@ -877,6 +891,8 @@ interface StageWorkPlace {
   readonly mask: TextMask;
   readonly taskId: string;
   readonly began: Date;
+  /** As a scheduled Office update lists the session's background Sub-agents. */
+  readonly subAgentsLabel: string;
 }
 
 /**

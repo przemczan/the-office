@@ -50,7 +50,12 @@ import { SessionInitiatives, type SessionInitiativeThread } from "./session-init
 import { SessionTasks } from "./session-tasks.js";
 import type { OpenTaskDecision } from "../domain/initiative-planning.js";
 import { TaskDecisions } from "./task-decisions.js";
-import { TaskThreads, type TaskThreadOpening, type TaskThreadStarting } from "./task-threads.js";
+import {
+  TaskThreads,
+  type PersonsTaskThread,
+  type TaskThreadOpening,
+  type TaskThreadStarting,
+} from "./task-threads.js";
 import { TaskTokens, type EngineIdTokens } from "./task-tokens.js";
 import { UsageHistory } from "./usage-history.js";
 import { ModelPrices } from "./model-prices.js";
@@ -435,15 +440,35 @@ export class SessionInitiativesForTests extends SessionInitiatives {
   }
 }
 
+/** A Thread The Office asked the person to start again in, and on what. */
+export interface AskedAgain {
+  readonly threadId: string;
+  readonly opening: string;
+}
+
 /**
  * Keeps each Thread opened on a Task, waiting for the user, and each started with an opening,
- * without a session; or fails, once `failure` is set.
+ * without a session; or fails, once `failure` is set. The persons' Threads a test sets in
+ * `personsThreads` are known by id, and each asked again is kept, but those in `failingAskAgain`.
  */
 @Injectable()
 export class TaskThreadsForTests extends TaskThreads {
   readonly opened: TaskThreadOpening[] = [];
   readonly started: TaskThreadStarting[] = [];
+  readonly personsThreads = new Map<string, PersonsTaskThread>();
+  readonly askedAgain: AskedAgain[] = [];
+  readonly failingAskAgain = new Set<string>();
   failure: Error | undefined;
+
+  async personsThreadOnTask(threadId: string): Promise<PersonsTaskThread | undefined> {
+    return this.personsThreads.get(threadId);
+  }
+
+  async askAgain(threadId: string, opening: string): Promise<{ readonly id: string }> {
+    if (this.failingAskAgain.has(threadId)) throw new Error(`Thread ${threadId} can't answer.`);
+    this.askedAgain.push({ threadId, opening });
+    return { id: threadId };
+  }
 
   async openOnTask(opening: TaskThreadOpening): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;
@@ -458,11 +483,21 @@ export class TaskThreadsForTests extends TaskThreads {
   }
 }
 
-/** Keeps each Thread opened on an Initiative, without a session; or fails, once `failure` is set. */
+/**
+ * Keeps each Thread opened on an Initiative, without a session, and each asked again; or fails,
+ * once `failure` is set.
+ */
 @Injectable()
 export class InitiativeThreadsForTests extends InitiativeThreads {
   readonly opened: InitiativeThreadOpening[] = [];
+  readonly askedAgain: AskedAgain[] = [];
   failure: Error | undefined;
+
+  async askAgain(threadId: string, opening: string): Promise<{ readonly id: string }> {
+    if (this.failure) throw this.failure;
+    this.askedAgain.push({ threadId, opening });
+    return { id: threadId };
+  }
 
   async startOnInitiative(opening: InitiativeThreadOpening): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;

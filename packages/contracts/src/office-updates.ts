@@ -19,6 +19,7 @@ export const busyItemSchema = z.object({
     "clone",
     "environment-check",
     "run-environment",
+    "sub-agents",
   ]),
   label: z.string().min(1),
 });

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { BusyWork, type EndBusyWork } from "../../office-updates/index.js";
 import {
   ProcessOutputKept,
   SubAgentMessagesKept,
@@ -34,6 +35,11 @@ const HELD_LINE_MS = 1_000;
 export interface FollowedSession extends SessionWhere {
   readonly folder: string;
   readonly mask: TextMask;
+  /**
+   * Whose Sub-agents run where, as a scheduled Office update lists them while any runs in the
+   * background, such as `Angela's Sub-agents in an Initiative's Thread, "Planning the Initiative"`.
+   */
+  readonly subAgentsLabel: string;
 }
 
 /** A Sub-agent's messages read back, after a sequence. */
@@ -64,11 +70,12 @@ export class SubAgentsAndProcesses {
     private readonly repository: SubAgentAndProcessRepository,
     private readonly threads: ThreadRepository,
     private readonly events: EventBus,
+    private readonly busyWork: BusyWork,
   ) {}
 
   /** Keeps what one session reports, from its start or resume until `end`. */
   follow(session: FollowedSession): SessionFollowing {
-    return new SessionFollowing(session, this.repository, this.events, this.logger);
+    return new SessionFollowing(session, this.repository, this.events, this.busyWork, this.logger);
   }
 
   /** The Thread's current session's Sub-agents and Processes, in the order they started. */
@@ -101,14 +108,18 @@ export class SubAgentsAndProcesses {
   /**
    * After The Office restarted, no session reports on what was Running, and a command may still
    * run on the machine: each is Stopped, "Ended when The Office restarted". Run as the service
-   * starts, before it serves, so no page is told.
+   * starts, before it serves, so no page is told. Returns the Threads whose background Sub-agents
+   * were lost, which planning may wake again (spec 2.4).
    */
-  async recover(): Promise<void> {
+  async recover(): Promise<readonly string[]> {
     const now = new Date();
+    const cutShort = new Set<string>();
     for (const item of await this.repository.running()) {
+      if (item.kind === "sub-agent" && item.background) cutShort.add(item.threadId);
       const ended = endItem(item, RESTART_ENDING, now);
       if (ended) await this.repository.save(ended);
     }
+    return [...cutShort];
   }
 
   /** A fresh session replaced the Thread's: the old one's go with it. */
@@ -136,7 +147,10 @@ export class SubAgentsAndProcesses {
 
 /**
  * One session's events, kept in the order they came: each is handled after the one before, and a
- * held line's flush takes its turn among them.
+ * held line's flush takes its turn among them. While any of its Sub-agents runs in the background
+ * the session counts as busy work a scheduled Office update waits for (spec 2.9): its turn no
+ * longer does. A foreground Sub-agent runs within its turn, and a Process may never end, so
+ * neither counts.
  */
 export class SessionFollowing {
   private queue: Promise<void> = Promise.resolve();
@@ -147,21 +161,38 @@ export class SessionFollowing {
   private readonly subAgents = new Set<string>();
   /** Each tool call a Sub-agent made, to the Sub-agent: a refusal names only the call. */
   private readonly subAgentCalls = new Map<string, string>();
+  /** The Sub-agents running in the background now, by `callId`. */
+  private readonly inBackground = new Set<string>();
+  private endBusyWork: EndBusyWork | undefined;
+  private backgroundSubAgentsEnded: (() => void) | undefined;
   private ended = false;
 
   constructor(
     private readonly session: FollowedSession,
     private readonly repository: SubAgentAndProcessRepository,
     private readonly events: EventBus,
+    private readonly busyWork: BusyWork,
     private readonly logger: Logger,
   ) {
     // A resumed session goes on with what it started before.
     void this.inTurn(async () => {
       for (const item of await this.repository.ofSession(session.sessionId)) {
-        if (item.kind === "sub-agent") this.subAgents.add(item.callId);
-        else if (stateOf(item) === "running") this.lines.set(item.callId, new WholeLines());
+        if (item.kind === "sub-agent") {
+          this.subAgents.add(item.callId);
+          this.count(item);
+        } else if (stateOf(item) === "running") this.lines.set(item.callId, new WholeLines());
       }
     });
+  }
+
+  /** Whether any of the session's Sub-agents runs in the background now. */
+  get backgroundSubAgentsRunning(): boolean {
+    return this.inBackground.size > 0;
+  }
+
+  /** Calls `listener` each time the last background Sub-agent running ends, until the session's end. */
+  whenBackgroundSubAgentsEnd(listener: () => void): void {
+    this.backgroundSubAgentsEnded = listener;
   }
 
   /** Keeps what the event says of a Sub-agent or a Process; any other event changes nothing. */
@@ -182,8 +213,15 @@ export class SessionFollowing {
       this.heldLineTimers.clear();
       for (const callId of this.lines.keys()) await this.keepHeldLine(callId);
       const now = new Date();
-      for (const item of await this.repository.ofSession(this.session.sessionId)) {
-        if (stateOf(item) === "running") await this.endAs(item, SESSION_END_ENDING, now);
+      try {
+        for (const item of await this.repository.ofSession(this.session.sessionId)) {
+          if (stateOf(item) === "running") await this.endAs(item, SESSION_END_ENDING, now);
+        }
+      } finally {
+        // Ended with the session, kept or not: the update waits for them no longer.
+        this.inBackground.clear();
+        this.endBusyWork?.();
+        this.endBusyWork = undefined;
       }
     });
   }
@@ -292,6 +330,7 @@ export class SessionFollowing {
   private async started(item: SubAgentOrProcess): Promise<void> {
     // A resumed session may report one again: the first kept stays.
     if (!(await this.repository.add(item))) return;
+    this.count(item);
     await this.events.publish(
       new SubAgentOrProcessChanged(this.whereOf(), item, "started", item.startedAt),
     );
@@ -303,6 +342,7 @@ export class SessionFollowing {
     at: Date,
   ): Promise<void> {
     await this.repository.save(item);
+    this.count(item);
     await this.events.publish(new SubAgentOrProcessChanged(this.whereOf(), item, change, at));
   }
 
@@ -314,6 +354,23 @@ export class SessionFollowing {
   ): Promise<void> {
     const ended = endItem(item, ending, at, added);
     if (ended) await this.saved(ended, "ended", at);
+  }
+
+  /** Counts a Sub-agent among those running in the background, or no longer, as it is now. */
+  private count(item: SubAgentOrProcess): void {
+    if (item.kind !== "sub-agent" || this.ended) return;
+    if (item.background && stateOf(item) === "running") {
+      this.inBackground.add(item.callId);
+      this.endBusyWork ??= this.busyWork.begin({
+        kind: "sub-agents",
+        label: this.session.subAgentsLabel,
+      });
+      return;
+    }
+    if (!this.inBackground.delete(item.callId) || this.inBackground.size > 0) return;
+    this.endBusyWork?.();
+    this.endBusyWork = undefined;
+    this.backgroundSubAgentsEnded?.();
   }
 
   private find(callId: string): Promise<SubAgentOrProcess | undefined> {

@@ -10,6 +10,7 @@ import {
 } from "@the-office/contracts";
 import { describe, expect, it, afterEach, beforeEach } from "vitest";
 import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
+import { BusyWorkModule } from "../../../office-updates/index.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadService } from "../../application/thread-service.js";
@@ -213,6 +214,7 @@ function setUpEachTest(): void {
       database: true,
       imports: [
         EventsModule,
+        BusyWorkModule,
         EventStreamModule,
         TelemetryModule,
         OfficeDataModule.forRoot(officeData),

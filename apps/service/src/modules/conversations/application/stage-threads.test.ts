@@ -25,6 +25,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { BusyWorkModule } from "../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
@@ -156,6 +157,7 @@ async function startOn(
     database: true,
     imports: [
       EventsModule,
+      BusyWorkModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       ScriptedEngineModule.register(engine),

@@ -13,6 +13,7 @@ import {
   ScriptedEngineModule,
 } from "../../engine/index.js";
 import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { BusyWorkModule } from "../../office-updates/index.js";
 import { type PreparedMcpServers, SessionMcpServers } from "../../mcp-servers/index.js";
 import { TokensCounted, DecisionAnswered } from "../domain/conversation-events.js";
 import { roleOfficeTools } from "../domain/session-instructions.js";
@@ -168,6 +169,7 @@ async function startOn(
     database: true,
     imports: [
       EventsModule,
+      BusyWorkModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       ScriptedEngineModule.register(engine),

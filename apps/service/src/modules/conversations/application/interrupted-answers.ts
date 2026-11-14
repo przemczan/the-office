@@ -14,14 +14,19 @@ export class InterruptedAnswers {
     private readonly events: EventBus,
   ) {}
 
-  async recover(): Promise<void> {
+  /** Returns the Threads it put right, whose turn the restart cut short. */
+  async recover(): Promise<readonly string[]> {
+    const cutShort: string[] = [];
     for (const thread of await this.repository.answering()) {
       const { event } = await this.repository.update(thread.id, (latest) =>
         latest.state === "answering"
           ? failAnswer(latest, "The Office stopped while this was being answered.", new Date())
           : undefined,
       );
-      if (event) await this.events.publish(event);
+      if (!event) continue;
+      cutShort.push(thread.id);
+      await this.events.publish(event);
     }
+    return cutShort;
   }
 }

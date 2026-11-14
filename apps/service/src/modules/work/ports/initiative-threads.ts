@@ -16,4 +16,10 @@ export interface InitiativeThreadOpening {
 export abstract class InitiativeThreads {
   /** Opens the Thread; the person starts on `opening` at once, with the Initiative's Brief. */
   abstract startOnInitiative(opening: InitiativeThreadOpening): Promise<{ readonly id: string }>;
+
+  /**
+   * Has the person start again on `opening` in the Thread, its session continued or replaced under
+   * the Context policy.
+   */
+  abstract askAgain(threadId: string, opening: string): Promise<{ readonly id: string }>;
 }

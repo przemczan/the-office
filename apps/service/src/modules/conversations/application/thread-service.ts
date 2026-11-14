@@ -4,7 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
 import type { Message, MessageDraft } from "../domain/message.js";
-import type { ContextOverride, Thread } from "../domain/thread.js";
+import { isPersonsThread, type ContextOverride, type Thread } from "../domain/thread.js";
 import {
   chooseOverride,
   logMessages,
@@ -90,6 +90,23 @@ export class ThreadService {
   }: InitiativeThreadOpening): Promise<Thread> {
     await this.refuseUnlessFilled(start.roleKey);
     return this.openWith(startInitiativeThread(threadId, start, new Date()), opening);
+  }
+
+  /** The person's own Thread on a Task, by its id; undefined for any other Thread. */
+  async personsThreadOnTask(
+    threadId: string,
+  ): Promise<{ readonly taskId: string; readonly roleKey: string } | undefined> {
+    const thread = await this.repository.find(threadId);
+    if (thread?.home.kind !== "task" || !isPersonsThread(thread)) return undefined;
+    return { taskId: thread.home.taskId, roleKey: thread.roleKey };
+  }
+
+  /**
+   * Has the person start again on `opening` in a Thread The Office stopped them in, such as a
+   * planning Thread a restart cut short: its session continued or replaced under the Context policy.
+   */
+  askAgain(threadId: string, opening: string): Promise<Thread> {
+    return this.runner.askAgain(threadId, opening);
   }
 
   private async refuseUnlessFilled(roleKey: string): Promise<void> {

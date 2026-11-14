@@ -1,6 +1,12 @@
 /** The kinds of work a scheduled Office update waits for (spec §5.1 Defaults, "Updating The Office"). */
 export type BusyKind =
-  "turn" | "script-stage" | "publish" | "clone" | "environment-check" | "run-environment";
+  | "turn"
+  | "sub-agents"
+  | "script-stage"
+  | "publish"
+  | "clone"
+  | "environment-check"
+  | "run-environment";
 
 /** One piece of work going on now, which a scheduled Office update waits for. */
 export interface BusyItem {

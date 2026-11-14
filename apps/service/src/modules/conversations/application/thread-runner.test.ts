@@ -26,6 +26,7 @@ import {
   type ApiEngineOnFakeServer,
   anOfficeToolCall,
 } from "../../engine/index.fixtures.js";
+import { BusyWork, BusyWorkModule } from "../../office-updates/index.js";
 import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
@@ -280,6 +281,7 @@ async function startOn(
       }),
       // Signed in with GitHub, as the app may be, so a session holding the token would show.
       GitHubModule.register(),
+      BusyWorkModule,
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -2683,8 +2685,9 @@ describe("when a session doesn't answer", () => {
       (await answering()).filter(({ id }) => id === thread.id),
     );
 
-    await app.get(InterruptedAnswers).recover();
+    const cutShort = await app.get(InterruptedAnswers).recover();
 
+    expect(cutShort).toEqual([thread.id]);
     const after = await threads.read(thread.id);
     expect(after.state).toBe("waiting");
     expect(drafts(await threads.messages(thread.id)).at(-1)).toEqual({
@@ -3148,8 +3151,78 @@ describe("a Thread's Sub-agents and Processes", () => {
   }
 
   afterEach(() => {
+    vi.restoreAllMocks();
     outputMasks.masks.clear();
     for (const session of engine.sessions) session.reach(SESSION_ENDS);
+  });
+
+  const REPORTED = "the Sub-agent reports back";
+
+  /** A Sub-agent the Agent leaves running in the background as its turn ends. */
+  const aBackgroundSubAgent: Step[] = [
+    background({
+      kind: "sub-agent-started",
+      callId: "agent-1",
+      engineTaskId: "a1",
+      withinToolCall: undefined,
+      description: "Research the launcher",
+      agentKind: "general-purpose",
+      prompt: "Find how the launcher restarts the service.",
+      background: true,
+    }),
+    ...aTurn("brief", "The research runs; I'll carry on once it reports."),
+    { step: "wait", mark: REPORTED },
+    background({
+      kind: "sub-agent-ended",
+      callId: "agent-1",
+      ending: { state: "finished" },
+      reportedBack: "It restarts it with code 75.",
+      toolCallCount: 3,
+      totalTokens: 1_200,
+    }),
+  ];
+
+  it("running in the background count as busy work, by their Thread, and keep its session from its idle end until they have ended", async () => {
+    await startWith(started(...aBackgroundSubAgent, { step: "end" }));
+    const idleEnds = heldIdleEnds();
+    const thread = await planningThread();
+    await runner.send(thread.id, PLAN_IT, ANN_LEE);
+    await answered(thread.id, 3);
+    await vi.waitFor(() => expect(idleEnds).toHaveLength(1));
+    const [session] = engine.sessions;
+
+    expect(subAgentsBusy()).toEqual([
+      `${PLANNER.name}'s Sub-agents in a Task's Thread, "Planning"`,
+    ]);
+    idleEnds[0]?.();
+    expect(session?.received.some((request) => request.step === "end")).toBe(false);
+    expect(subAgentsBusy()).toHaveLength(1);
+
+    session?.reach(REPORTED);
+    await vi.waitFor(() => expect(idleEnds).toHaveLength(2));
+    expect(subAgentsBusy()).toEqual([]);
+    idleEnds[1]?.();
+    await vi.waitFor(() =>
+      expect(session?.received.some((request) => request.step === "end")).toBe(true),
+    );
+    expect(await app.get(SubAgentsAndProcesses).list(thread.id)).toMatchObject([
+      { callId: "agent-1", ending: { state: "finished" } },
+    ]);
+  });
+
+  it("running in the background stop counting as busy work once the session ends", async () => {
+    await startWith(started(...aBackgroundSubAgent.slice(0, -2), { step: "end" }));
+    const thread = await planningThread();
+    await runner.send(thread.id, PLAN_IT, ANN_LEE);
+    await answered(thread.id, 3);
+    await vi.waitFor(() => expect(subAgentsBusy()).toHaveLength(1));
+
+    await runner.endWaiting(thread.home.kind === "task" ? thread.home.taskId : "");
+
+    await vi.waitFor(() => expect(subAgentsBusy()).toEqual([]));
+    expect(await app.get(SubAgentsAndProcesses).list(thread.id)).toMatchObject([
+      { callId: "agent-1", ending: { state: "stopped", by: "session-end" } },
+    ]);
   });
 
   it("are read back with their states, messages and output, masked, and output between turns is kept and sent live", async () => {
@@ -3317,7 +3390,8 @@ describe("a Thread's Sub-agents and Processes", () => {
       (await running()).filter(({ threadId }) => threadId === thread.id),
     );
 
-    await kept.recover();
+    // Only a background Sub-agent lost makes a Thread cut short: these ran in the foreground.
+    expect(await kept.recover()).toEqual([]);
 
     expect(await kept.list(thread.id)).toMatchObject([
       { callId: "agent-1", ending: { state: "finished" } },
@@ -3325,6 +3399,34 @@ describe("a Thread's Sub-agents and Processes", () => {
     ]);
   });
 });
+
+/** How long a session waits for the next message before it ends (`IDLE_MS`). */
+const IDLE_MS = 10 * 60 * 1000;
+
+/** Each idle end the runner arms, held for the test to run instead of the clock. */
+function heldIdleEnds(): (() => void)[] {
+  const held: (() => void)[] = [];
+  const real = globalThis.setTimeout;
+  vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+    callback: (...args: unknown[]) => void,
+    ms?: number,
+    ...args: unknown[]
+  ) => {
+    if (ms !== IDLE_MS) return real(callback, ms, ...args);
+    held.push(() => callback());
+    return real(() => undefined, 2_147_483_647);
+  }) as typeof setTimeout);
+  return held;
+}
+
+/** The labels of the background Sub-agents a scheduled update would wait for. */
+function subAgentsBusy(): readonly string[] {
+  return app
+    .get(BusyWork)
+    .list()
+    .filter(({ kind }) => kind === "sub-agents")
+    .map(({ label }) => label);
+}
 
 function background(event: SessionEvent): Step {
   return { step: "event", event };

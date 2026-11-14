@@ -23,6 +23,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { BusyWorkModule } from "../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
@@ -168,6 +169,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     database: true,
     imports: [
       EventsModule,
+      BusyWorkModule,
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),

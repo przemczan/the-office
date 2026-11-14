@@ -42,6 +42,7 @@ import { EventStreamModule } from "../../../../platform/websocket/event-stream.m
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
+import { BusyWorkModule } from "../../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../../people/index.fixtures.js";
 import { McpServersModule } from "../../../mcp-servers/index.js";
 import { SkillsModule } from "../../../skills/index.js";
@@ -214,6 +215,7 @@ function setUpEachTest(): void {
       database: true,
       imports: [
         EventsModule,
+        BusyWorkModule,
         EventStreamModule,
         TelemetryModule,
         OfficeDataModule.forRoot(officeData),

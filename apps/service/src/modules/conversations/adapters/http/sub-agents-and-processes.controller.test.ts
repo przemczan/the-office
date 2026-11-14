@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
+import { BusyWorkModule } from "../../../office-updates/index.js";
 import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processes.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
@@ -26,7 +27,7 @@ let thread: Thread;
 beforeAll(async () => {
   ({ app, url } = await startTestApplication({
     database: true,
-    imports: [EventsModule],
+    imports: [EventsModule, BusyWorkModule],
     controllers: [SubAgentsAndProcessesController],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -59,6 +60,7 @@ beforeAll(async () => {
     sessionId,
     folder: "/work",
     mask: NO_MASK,
+    subAgentsLabel: "Jim's Sub-agents in a Task's Thread",
   });
   await following.take({
     kind: "sub-agent-started",

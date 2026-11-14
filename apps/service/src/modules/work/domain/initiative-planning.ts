@@ -28,6 +28,13 @@ import { initiativePlanningWhoAskedSection } from "./who-asked.js";
 
 export const INITIATIVE_PLANNING_THREAD_TITLE = "Planning the Initiative";
 
+/**
+ * What the planner is woken with in an Initiative's planning Thread that a restart of The Office
+ * cut short (spec §2.4), as `PLANNING_AFTER_RESTART_OPENING` is in a Task's.
+ */
+export const INITIATIVE_PLANNING_AFTER_RESTART_OPENING =
+  "The Office restarted and cut your planning of this Initiative's Tasks short. Any Sub-agents you had running were stopped, and their results were lost: run again the ones you still need, then carry on planning the Tasks still in Planning where you left off.";
+
 export const INITIATIVE_PLANNING_OPENING =
   "Plan this Initiative's Tasks in Backlog, as your Brief lists them, in the order their blockers set. The user has nothing more to add yet.";
 
