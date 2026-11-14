@@ -7,6 +7,16 @@ export class IdeaCaptured extends DomainEvent {
   }
 }
 
+/** Its title, notes or Project changed. */
+export class IdeaEdited extends DomainEvent {
+  constructor(
+    readonly ideaId: string,
+    at: Date,
+  ) {
+    super(at);
+  }
+}
+
 /** The Task it was shaped into names it as its origin and takes its Attachments. */
 export class IdeaShaped extends DomainEvent {
   constructor(

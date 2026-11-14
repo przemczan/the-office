@@ -10,6 +10,7 @@ import {
 import {
   IdeaCaptured,
   IdeaDropped,
+  IdeaEdited,
   IdeaRestored,
   IdeaShaped,
   IdeaShapedIntoInitiative,
@@ -110,6 +111,10 @@ export class WorkWebEvents implements OnModuleInit {
     this.forwarding.forward(IdeaCaptured, (event): WebEventOf<"idea.captured"> => ({
       type: "idea.captured",
       ideaId: event.idea.id,
+    }));
+    this.forwarding.forward(IdeaEdited, (event): WebEventOf<"idea.edited"> => ({
+      type: "idea.edited",
+      ideaId: event.ideaId,
     }));
     this.forwarding.forward(IdeaShaped, (event): WebEventOf<"idea.shaped"> => ({
       type: "idea.shaped",

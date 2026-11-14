@@ -33,6 +33,7 @@ import {
   type Initiative,
   type InitiativePauseAnswer,
   type InitiativePipelineChoice,
+  type IdeaEdit,
   type NewIdea,
   type NewInitiativeTask,
   type NewLink,
@@ -336,6 +337,11 @@ export interface ShownText {
 
 export function captureIdea(newIdea: NewIdea): Promise<Idea> {
   return sendToApi("POST", "/ideas", newIdea, ideaSchema);
+}
+
+/** Its title, notes and Project, until it is shaped. */
+export function editIdea(id: string, edit: IdeaEdit): Promise<Idea> {
+  return sendToApi("PUT", ideaPath(id), edit, ideaSchema);
 }
 
 /** The Task the Idea became, in Backlog in the Project. */
@@ -668,6 +674,7 @@ export const workEventInvalidations: Readonly<
   Record<Exclude<WorkWebEvent["type"], ReplacingEventType>, EventInvalidations[string]>
 > = {
   "idea.captured": () => [IDEAS],
+  "idea.edited": () => [IDEAS],
   "idea.shaped": () => [IDEAS, TASKS],
   "idea.shaped-into-initiative": () => [IDEAS, INITIATIVES],
   "idea.dropped": () => [IDEAS],

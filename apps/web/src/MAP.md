@@ -44,7 +44,7 @@
 - `projects.ts`: REMOTE_NEEDS, RUN_ENVIRONMENTS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeInstallCommand, addCommand, changeCommand, removeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeRunEnvironment, setUpRunEnvironment, changeMark, changeProjectLimit, ProjectImageVersion, uploadProjectImage, chooseProjectImage, removeProjectImage, projectImageAddress, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
 - `run-environments.ts`: runEnvironmentOfficeLimitsQuery, changeRunEnvironmentOfficeLimits, runEnvironmentEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations, skillEventCacheUpdates
-- `work.ts`: TASKS, FIRE_ALARM, ideaQueries, ArchivedInitiativesAsked, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, archivePeriodQuery, changeArchivePeriod, autoModeQuery, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, SHOWN_TEXT_LIMIT, ShownText, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, planInitiative, startReadyTasks, confirmInitiative, pauseInitiative, resumeInitiative, dropInitiative, archiveInitiative, restoreInitiative, writeInitiativeOutcome, chooseInitiativePipeline, writeShortName, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, changeDescription, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, takeOutOfQueue, moveUpInQueue, moveToTopOfQueue, pauseTask, stopTask, resumeTask, moveTask, dropTask, archiveTask, restoreTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations, workEventCacheUpdates
+- `work.ts`: TASKS, FIRE_ALARM, ideaQueries, ArchivedInitiativesAsked, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, archivePeriodQuery, changeArchivePeriod, autoModeQuery, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, SHOWN_TEXT_LIMIT, ShownText, captureIdea, editIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, planInitiative, startReadyTasks, confirmInitiative, pauseInitiative, resumeInitiative, dropInitiative, archiveInitiative, restoreInitiative, writeInitiativeOutcome, chooseInitiativePipeline, writeShortName, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, changeDescription, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, takeOutOfQueue, moveUpInQueue, moveToTopOfQueue, pauseTask, stopTask, resumeTask, moveTask, dropTask, archiveTask, restoreTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations, workEventCacheUpdates
 - `workstation.ts`: WORKSTATION_REFRESH_MS, workstationQueries
 - Tests: api-client.test.ts, conversations.full.test.ts, event-stream.full.test.ts, skills.full.test.ts
 
@@ -265,11 +265,13 @@
 
 - `capture-idea-dialog.tsx`: CaptureIdeaDialog
 - `drop-task-dialog.tsx`: DropTaskDialog, useDroppingTask, WhatDroppingDoes
+- `edit-idea-dialog.tsx`: EditIdeaDialog
 - `gate-actions.tsx`: ContinueRefused, SendingBack, useSendingBack, SendBackFields, useContinuingAtGate
 - `gate-card-words.ts`: gateQuestion, gateHeading, linesChanged, testsBeforeGate, testsFact, definitionOfDoneFact, gateFactsLine, attachmentsOfThisRound
 - `gate-card.tsx`: GateCard
 - `gate-window.tsx`: GateWindow
 - `gate-words.ts`: WaitingGate, waitingGateOf, defaultSendBackTarget, SEND_BACK_WITH_NOTES, sendBackWords, continueLabel
+- `idea-fields.tsx`: IdeaFields
 - `needs-you-list.tsx`: NeedsYouList
 - `new-task-dialog.tsx`: NewTaskDialog
 - `record-tab.ts`: RecordTab, RECORD_ELEMENT_ID, recordTabOf

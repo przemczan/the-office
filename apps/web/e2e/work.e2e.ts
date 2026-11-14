@@ -421,6 +421,30 @@ test("the user captures an Idea from Now in a few keystrokes", async ({ page }) 
   await expect(card.getByText(/You captured it/)).toBeVisible();
 });
 
+test("the user edits an Idea not yet shaped from its card", { tag: "@full" }, async ({ page }) => {
+  const captured = await page.request.post("/api/ideas", {
+    data: { title: "Weekly usage digest", notes: "", projectId: null },
+  });
+  expect(captured.status()).toBe(201);
+  await page.goto("/work/ideas");
+
+  await page
+    .getByRole("article", { name: "Weekly usage digest" })
+    .getByRole("button", { name: "More for Weekly usage digest" })
+    .click();
+  await page.getByRole("menu").getByRole("button", { name: "Edit…" }).click();
+  const edit = page.getByRole("dialog").filter({ hasText: "Edit the Idea" });
+  await expect(edit.getByLabel("Idea")).toHaveValue("Weekly usage digest");
+  await edit.getByLabel("Idea").fill("Monthly usage digest");
+  await edit.getByLabel("Notes").fill("Sent on the first of each month.");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-idea-edit.png") });
+  await edit.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByText("Idea saved: Monthly usage digest.")).toBeVisible();
+  const card = page.getByRole("article", { name: "Monthly usage digest" });
+  await expect(card.getByText("Sent on the first of each month.")).toBeVisible();
+});
+
 test("an Idea's link opens Ideas at its card, marked", { tag: "@full" }, async ({ page }) => {
   const captured = await page.request.post("/api/ideas", {
     data: { title: "Linked Idea for the night shift", notes: "", projectId: null },

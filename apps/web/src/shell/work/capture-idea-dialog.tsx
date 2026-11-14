@@ -1,26 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Idea, NewIdea } from "@the-office/contracts";
-import {
-  Button,
-  Dialog,
-  Field,
-  IconButton,
-  Icon,
-  Input,
-  RadioGroup,
-  Textarea,
-} from "@the-office/ui";
+import { Button, Dialog, Field, IconButton, Icon } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
-import { projectQueries } from "../../api/projects.ts";
 import { captureIdea, ideaQueries } from "../../api/work.ts";
 import { AttachmentPicker } from "../attachments/attachment-picker.tsx";
 import { attach, pendingName, type PendingAttachment } from "../attachments/pending-attachment.ts";
-import { ProjectChip } from "../project-chip.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
-
-/** The radio value for an Idea with no Project. */
-const OFFICE_WIDE = "";
+import { IdeaFields } from "./idea-fields.tsx";
 
 /**
  * "Idea" in the top bar: a title, optional notes and Attachments, in a Project or Office-wide.
@@ -38,7 +25,6 @@ export function CaptureIdeaDialog({
   const [draft, setDraft] = useState<NewIdea>({ title: "", notes: "", projectId });
   const [pending, setPending] = useState<readonly PendingAttachment[]>([]);
   const [picking, setPicking] = useState(false);
-  const projects = useQuery(projectQueries.list());
   const queryClient = useQueryClient();
   const showToast = useToast();
   // Once captured, a failed Attachment is tried again without capturing the Idea twice.
@@ -92,38 +78,7 @@ export function CaptureIdeaDialog({
             error={capturing.error}
           />
         )}
-        <Input
-          label="Idea"
-          placeholder="Show battery level on the device list"
-          value={draft.title}
-          onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-          autoFocus
-        />
-        <Textarea
-          label="Notes"
-          hint="Optional."
-          rows={3}
-          value={draft.notes}
-          onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
-        />
-        <Field label="Where">
-          <RadioGroup
-            options={[
-              {
-                value: OFFICE_WIDE,
-                label: <ProjectChip projectId={null} projects={projects.data} />,
-              },
-              ...(projects.data ?? []).map((project) => ({
-                value: project.id,
-                label: <ProjectChip projectId={project.id} projects={projects.data} />,
-              })),
-            ]}
-            value={draft.projectId ?? OFFICE_WIDE}
-            onChange={(value) =>
-              setDraft({ ...draft, projectId: value === OFFICE_WIDE ? null : value })
-            }
-          />
-        </Field>
+        <IdeaFields draft={draft} onChange={setDraft} />
         <Field label="Attachments" hint="Optional.">
           <div className="capture-idea-attachments">
             {pending.map((attachment, index) => (

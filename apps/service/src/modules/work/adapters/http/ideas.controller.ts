@@ -7,12 +7,15 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   UseFilters,
 } from "@nestjs/common";
 import {
+  ideaEditSchema,
   ideaShapingSchema,
   newIdeaSchema,
   type Idea as IdeaResponse,
+  type IdeaEdit,
   type IdeaShaping,
   type Initiative as InitiativeResponse,
   type NewIdea,
@@ -53,6 +56,20 @@ export class IdeasController {
   @Get(":id")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<IdeaResponse> {
     return toIdeaResponse(await this.ideas.read(id));
+  }
+
+  /** Its title, notes and Project, until it is shaped. */
+  @Put(":id")
+  async edit(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(ideaEditSchema)) given: IdeaEdit,
+  ): Promise<IdeaResponse> {
+    const idea = await this.ideas.edit(id, {
+      title: given.title,
+      notes: given.notes,
+      projectId: given.projectId ?? undefined,
+    });
+    return toIdeaResponse(idea);
   }
 
   /** The Task the Idea became. */

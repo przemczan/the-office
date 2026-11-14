@@ -21,6 +21,10 @@ export const newIdeaSchema = z.object({
 });
 export type NewIdea = z.infer<typeof newIdeaSchema>;
 
+/** PUT /ideas/:id: the Idea's title, notes and Project, editable until it is shaped. */
+export const ideaEditSchema = newIdeaSchema;
+export type IdeaEdit = z.infer<typeof ideaEditSchema>;
+
 export const ideaSchema = newIdeaSchema.extend({
   id: z.uuid(),
   state: ideaStateSchema,
@@ -844,6 +848,7 @@ export type WorkRefusal = z.infer<typeof workRefusalSchema>;
 /** Work's events the web receives; each names what changed, so its queries refresh. */
 export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("idea.captured"), ideaId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("idea.edited"), ideaId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("idea.shaped"), ideaId: z.uuid(), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("idea.shaped-into-initiative"),
