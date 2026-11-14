@@ -354,7 +354,7 @@ How many run environments may be running together across The Office, 2 by defaul
 _Avoid_: run environment slots, concurrency limit
 
 **Stage**:
-One step of a Pipeline: work by an Agent in a Role, or in the Role holding a Duty, a Project command run without an Agent, or a Gate.
+One step of a Pipeline: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)
 
 **Stage template**:
@@ -516,7 +516,7 @@ A new or changed Role card or Office setting drafted by the holder of Default pe
 _Avoid_: Suggestion, draft, request
 
 **Caretaker**:
-The built-in person who looks after the workstation and The Office: always present, never hired or let go, with a chat only. It never holds a Duty, and is the default person to talk to while nobody holds that duty.
+The built-in person who looks after the workstation and The Office: always present, never hired or let go, with a chat only. It never holds a duty, and is the default person to talk to while nobody holds that duty.
 _Avoid_: Admin, sysadmin, system agent
 
 **Allow changes**:
