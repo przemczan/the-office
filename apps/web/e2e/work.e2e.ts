@@ -766,7 +766,14 @@ test(
     await radioBlock
       .getByRole("article", { name: "Block radio third" })
       .dragTo(radioBlock.getByRole("article", { name: "Block radio first" }));
-    const reordered = ["Block radio third", "Block radio first", "Block radio second"];
+    await expect
+      .poll(() => titlesInBlock(radioBlock))
+      .toEqual(["Block radio third", "Block radio first", "Block radio second"]);
+    // Dropped on the head, which holds no card, it lands before the block's first card.
+    await radioBlock
+      .getByRole("article", { name: "Block radio second" })
+      .dragTo(radioBlock.getByRole("link", { name: "Block radio", exact: true }));
+    const reordered = ["Block radio second", "Block radio third", "Block radio first"];
     await expect.poll(() => titlesInBlock(radioBlock)).toEqual(reordered);
 
     await backlog

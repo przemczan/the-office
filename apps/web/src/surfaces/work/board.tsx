@@ -400,20 +400,20 @@ function blockUnder(event: DragEvent): string {
   return block?.dataset["initiativeBlock"] ?? NO_INITIATIVE;
 }
 
-/** The card a drop lands before in the block `over`: for the loose cards, the next one down. */
-function landingBefore(event: DragEvent, over: string): string | undefined {
-  return over === NO_INITIATIVE ? looseCardBefore(event) : cardUnder(event);
-}
-
 /**
- * The loose card under the pointer, or the first one below it, as a gap between blocks holds no
- * card. The loose cards are the column's own, its `.board-cards`' children.
+ * The card a drop lands before in the block `over`: the card under the pointer, or the first of the
+ * block's cards below it, as a block's head and the gaps between its cards and between blocks hold
+ * no card. The loose cards are the column's own, its `.board-cards`' children.
  */
-function looseCardBefore(event: DragEvent): string | undefined {
+function landingBefore(event: DragEvent, over: string): string | undefined {
   const under = cardUnder(event);
   if (under !== undefined) return under;
-  const looseCards = event.currentTarget.querySelectorAll<HTMLElement>(":scope > [data-task-id]");
-  return [...looseCards].find((card) => card.getBoundingClientRect().top > event.clientY)?.dataset[
+  const cards = event.currentTarget.querySelectorAll<HTMLElement>(
+    over === NO_INITIATIVE
+      ? ":scope > [data-task-id]"
+      : `[data-initiative-block="${CSS.escape(over)}"] [data-task-id]`,
+  );
+  return [...cards].find((card) => card.getBoundingClientRect().top > event.clientY)?.dataset[
     "taskId"
   ];
 }
