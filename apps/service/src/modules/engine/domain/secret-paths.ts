@@ -17,7 +17,8 @@ const HOME_VARIABLES: ReadonlySet<string> = new Set(["HOME", "USERPROFILE"]);
  * Finds the secrets of spec §6 in what a tool call names: the user's and The Office's (SSH keys,
  * credentials, browser profiles), and The Office's own files. The session's own folders are never
  * secret, so its worktree inside the Office data directory stays its own; a session reaching the
- * workstation is refused the secrets alone, wherever it works.
+ * workstation is refused the secrets alone, wherever it works, and one reading the engines'
+ * transcripts reads them from anywhere.
  */
 export class SecretPaths {
   /** Each secret inside the home folder by its names from there, as `cd ~ && cat .ssh/id` names it. */
@@ -72,7 +73,21 @@ export class SecretPaths {
     if (this.rules.workstation) return secret;
     if ([workingFolder, ...readableFolders].some(within)) return undefined;
     if (secret !== undefined || cloneFolders.some(within)) return secret;
+    if (this.rules.readsEngineTranscripts && this.isOpenInAnySecret(path)) return undefined;
     return officeFiles.find(within);
+  }
+
+  /**
+   * Whether a path or a file tool's path names an engine's session transcripts, a folder open in a
+   * secret: read with the session's variables expanded and relative to the working folder.
+   */
+  isEngineTranscript(word: string): boolean {
+    const { paths, workingFolder } = this.rules;
+    return this.isOpenInAnySecret(paths.resolve(workingFolder, this.expand(word)));
+  }
+
+  private isOpenInAnySecret(path: string): boolean {
+    return this.rules.secrets.some((secret) => this.isOpenInSecret(path, secret));
   }
 
   /** Whether the absolute `path`, inside `secret`, is in a folder open in one of its children. */

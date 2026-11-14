@@ -120,6 +120,12 @@ export interface SessionOptions {
    */
   readonly workstation?: boolean;
   /**
+   * Whether the engines' session transcripts, the folders open in a secret, are readable even when
+   * the session doesn't reach the workstation: the Caretaker's Threads (spec §6). Undefined for
+   * every other.
+   */
+  readonly readsEngineTranscripts?: boolean;
+  /**
    * What the Agent can do about a call its folders or profile refuse, which the refusal adds,
    * such as asking the user to Allow changes; undefined when there is nothing to add.
    */

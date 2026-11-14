@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
@@ -106,6 +107,8 @@ export class ConversationsModule {
         SkillsModule,
         McpServersModule,
         BusyWorkModule,
+        // Times how long a session takes to start (SessionStartWatch).
+        ScheduleModule,
       ],
       controllers: [
         ThreadsController,

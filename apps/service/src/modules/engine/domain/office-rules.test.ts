@@ -66,6 +66,7 @@ const DEVELOPER: PermissionProfile = {
 interface SessionReach {
   readonly profile?: PermissionProfile;
   readonly workstation?: boolean;
+  readonly readsEngineTranscripts?: boolean;
   readonly refusalAdvice?: string;
 }
 
@@ -79,7 +80,12 @@ const READ_ONLY: PermissionProfile = {
 
 function rulesOn(
   platform: Platform,
-  { profile = DEVELOPER, workstation = false, refusalAdvice }: SessionReach = {},
+  {
+    profile = DEVELOPER,
+    workstation = false,
+    readsEngineTranscripts = false,
+    refusalAdvice,
+  }: SessionReach = {},
 ): OfficeRules {
   const { paths } = platform.system;
   return new OfficeRules({
@@ -97,6 +103,7 @@ function rulesOn(
     readableInSecrets: [
       { secret: paths.join(platform.dataDirectory, "engines"), folder: "projects" },
     ],
+    readsEngineTranscripts,
     officeFiles: [platform.dataDirectory],
     cloneFolders: [paths.join(platform.dataDirectory, "repositories")],
     homeFolder: platform.home,
@@ -562,6 +569,13 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
     ...platform.system.secretPaths.map((secret) => join(secret, "file")),
   ];
 
+  /** The data directory as a Bash command names it from the home folder. */
+  const dataFromHome = platform.dataDirectory
+    .slice(platform.home.length + 1)
+    .replaceAll("\\", "/");
+  const engine = `${dataFromHome}/engines/claude-code`;
+  const transcript = "projects/-work-shop/0b1c.jsonl";
+
   describe("while changes aren't allowed", () => {
     it.each([
       ["an edit", { kind: "edit", paths: ["src/app.ts"] }],
@@ -586,6 +600,77 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
       expect(readOnly.decide({ kind: "read", paths: ["~/.ssh/id_ed25519"] })).toEqual({
         allowed: false,
         reason: expect.not.stringContaining("Allow changes"),
+      });
+    });
+
+    describe("an engine's transcripts, which the Caretaker's Threads read", () => {
+      const reader = rulesOn(platform, {
+        profile: READ_ONLY,
+        readsEngineTranscripts: true,
+        refusalAdvice: ALLOW_CHANGES,
+      });
+      const engineFolder = join(platform.home, ...engine.split("/"));
+
+      /** Each way a file tool names `tail`, a path inside the engine's folder. */
+      const fileToolNamings = (tail: string): [string, AgentAction][] => [
+        ["Read, by its path", { kind: "read", paths: [join(engineFolder, ...tail.split("/"))] }],
+        ["Read, through ~", { kind: "read", paths: [`~/${engine}/${tail}`] }],
+        ["Read, through a variable", { kind: "read", paths: [`$HOME/${engine}/${tail}`] }],
+      ];
+
+      it.each(fileToolNamings(transcript))("reads one with %s", (_, action) => {
+        expect(reader.decide(action)).toEqual({ allowed: true });
+      });
+
+      it("searches and lists the transcripts' folder with Grep and Glob", () => {
+        const transcripts = join(engineFolder, "projects");
+        expect(reader.decide({ kind: "read", paths: [transcripts] })).toEqual({ allowed: true });
+        expect(
+          reader.decide({ kind: "read", paths: [transcripts, join(transcripts, "-work-shop")] }),
+        ).toEqual({ allowed: true });
+      });
+
+      it.each([
+        ".credentials.json",
+        ".claude.json",
+        "settings.json",
+        "projects/../.credentials.json",
+        "projects/-work-shop/../../.claude.json",
+      ])("refuses %s, however a file tool names it", (tail) => {
+        const decisions = fileToolNamings(tail).map(([naming, action]) => [
+          naming,
+          reader.decide(action),
+        ]);
+        expect(decisions).toEqual(
+          fileToolNamings(tail).map(([naming]) => [
+            naming,
+            { allowed: false, reason: expect.stringContaining("holds the user's secrets") },
+          ]),
+        );
+      });
+
+      it.each([
+        ["the engine's folder as a whole", engineFolder],
+        ["the engines folder as a whole", join(platform.dataDirectory, "engines")],
+        ["the Office identity", join(platform.dataDirectory, "identity", "office_ssh_key")],
+        ["the .env", platform.officeEnvFile],
+        ["the rest of the data directory", join(platform.dataDirectory, "sessions", "s-2")],
+        ["another Task's worktree", platform.otherWorktree],
+      ])("refuses %s", (_, path) => {
+        expect(reader.decide({ kind: "read", paths: [path] })).toMatchObject({ allowed: false });
+      });
+
+      it("edits nothing there", () => {
+        expect(
+          reader.decide({ kind: "edit", paths: [join(engineFolder, ...transcript.split("/"))] }),
+        ).toEqual({ allowed: false, reason: expect.stringContaining("editing files") });
+      });
+
+      it("stays refused to a session that doesn't read them", () => {
+        expect(readOnly.decide({ kind: "read", paths: [`~/${engine}/${transcript}`] })).toEqual({
+          allowed: false,
+          reason: expect.stringContaining("holds the user's secrets or The Office's own files"),
+        });
       });
     });
   });
@@ -645,13 +730,6 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
     });
 
     describe("an engine's transcripts", () => {
-      /** The data directory as a Bash command names it from the home folder. */
-      const dataFromHome = platform.dataDirectory
-        .slice(platform.home.length + 1)
-        .replaceAll("\\", "/");
-      const engine = `${dataFromHome}/engines/claude-code`;
-      const transcript = "projects/-work-shop/0b1c.jsonl";
-
       /** Each way a command or a file tool names `tail`, a path inside the engine's folder. */
       const namings = (tail: string): [string, AgentAction][] => [
         [

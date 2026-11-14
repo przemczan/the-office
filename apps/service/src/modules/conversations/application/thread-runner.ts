@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import { EngineSessions, NoEngineListed } from "../../engine/index.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import {
@@ -82,6 +83,7 @@ import { OfficeInstructions } from "./office-instructions.js";
 import { sessionLogLines } from "./session-log.js";
 import { SubAgentsAndProcesses, type SessionFollowing } from "./sub-agents-and-processes.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
+import { SessionStartWatch } from "./session-start-watch.js";
 import { StageThreads } from "./stage-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { WorkRecords } from "./work-records.js";
@@ -206,6 +208,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly officeInstructions: OfficeInstructions,
     private readonly work: WorkRecords,
     private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
+    private readonly schedule: Schedule,
   ) {}
 
   /**
@@ -651,15 +654,22 @@ export class ThreadRunner implements OnModuleDestroy {
   private answerInBackground(thread: Thread, answer: Answer): void {
     const opening = answer.decision.move === "resume" ? undefined : thread.session;
     const unopened = opening && { sessionId: opening.id, previous: answer.replaced };
-    void this.answer(thread, answer).catch((error: unknown) =>
-      this.fail(thread.id, error, { unopened, answers: answer.answers }),
+    const failure = { logged: false };
+    void this.answer(thread, answer, failure).catch((error: unknown) =>
+      this.fail(thread.id, error, { unopened, answers: answer.answers, logged: failure.logged }),
     );
   }
 
+  /**
+   * The person answers in the session running, or in one it opens, which a `SessionStartWatch`
+   * writes into the service log; `failure.logged` says that opening it failed and was logged.
+   */
   private async answer(
     thread: Thread,
-    { said, briefed, decision, role, officeInstructions, model, replaced, place }: Answer,
+    answer: Answer,
+    failure: { logged: boolean },
   ): Promise<void> {
+    const { said, decision, role, place } = answer;
     const session = thread.session;
     if (!session) throw new Error(`Thread ${thread.id} answers with no session.`);
     const live = this.live.get(thread.id);
@@ -670,12 +680,42 @@ export class ThreadRunner implements OnModuleDestroy {
       live.session.send(said, "later");
       return;
     }
+    const start = new SessionStartWatch(
+      {
+        threadId: thread.id,
+        sessionId: session.id,
+        engineId: session.engineId,
+        personName: role.card.name,
+        move: decision.move === "resume" ? "resume" : "start",
+      },
+      this.schedule,
+      this.logger,
+    );
+    try {
+      await this.openSession(thread, session, answer, start);
+    } catch (error) {
+      failure.logged = start.failed(error);
+      throw error;
+    }
+  }
+
+  /** Opens the Thread's session on `said`, once the one running before it has ended. */
+  private async openSession(
+    thread: Thread,
+    session: ThreadSession,
+    { said, briefed, decision, role, officeInstructions, model, replaced, place }: Answer,
+    start: SessionStartWatch,
+  ): Promise<void> {
     await this.endLive(thread.id);
     await this.endings.get(thread.id);
+    start.at("refreshing the Thread's folders");
     await place.ready();
     if (decision.move === "resume") {
+      start.at("preparing skills");
       const skills = await this.sessionSkills.rebuild(session.id);
+      start.at("preparing MCP servers");
       const servers = await this.sessionMcpServers.rebuild(session.id, place.folder);
+      start.at("starting on the engine");
       const opened = await this.engine.resume(
         session.id,
         this.settingsOf(
@@ -686,23 +726,27 @@ export class ThreadRunner implements OnModuleDestroy {
           place,
         ),
       );
-      this.watch(thread, role, place, opened);
+      start.at("waiting for the engine's first event");
+      this.watch(thread, role, place, opened, start);
       opened.send({ ...said, text: withLeftOutServers(said.text, servers.leftOut) }, "later");
       return;
     }
     let opened: EngineSession;
     try {
+      start.at("preparing skills");
       const skills = await this.sessionSkills.prepare({
         sessionId: session.id,
         roleKey: role.roleKey,
         project: place.project,
       });
+      start.at("preparing MCP servers");
       const servers = await this.sessionMcpServers.prepare({
         sessionId: session.id,
         roleKey: role.roleKey,
         projectId: place.project?.id,
         workingFolder: place.folder,
       });
+      start.at("starting on the engine");
       opened = await this.engine.start({
         id: session.id,
         settings: this.settingsOf(
@@ -718,7 +762,8 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.forget(session.id);
       throw error;
     }
-    this.watch(thread, role, place, opened);
+    start.at("waiting for the engine's first event");
+    this.watch(thread, role, place, opened, start);
     // Only once the new session runs: until then the Thread may go back to the one it replaces.
     if (replaced) {
       await this.forget(replaced.id);
@@ -761,6 +806,7 @@ export class ThreadRunner implements OnModuleDestroy {
         mcpTools: mcpToolSettingsFor(card.permissionProfile.mcpTools, mcpServers, mcpToolDefault),
       },
       workstation: place.workstation,
+      readsEngineTranscripts: place.readsEngineTranscripts,
       refusalAdvice: place.refusalAdvice,
       officeTools: sessionOfficeTools(place.officeTools, card, place.callsCanWait),
       mcpServers,
@@ -778,13 +824,14 @@ export class ThreadRunner implements OnModuleDestroy {
 
   /**
    * Reads the session's events into the log until it ends. It is started on a message, so its
-   * first turn runs.
+   * first turn runs; `start` hears of its first event.
    */
   private watch(
     thread: Thread,
     { roleKey, card }: SessionRole,
     { folder, mask, officeTools }: Pick<SessionPlace, "folder" | "mask" | "officeTools">,
     session: EngineSession,
+    start: SessionStartWatch,
   ): void {
     const { id: threadId, home } = thread;
     const following = this.subAgentsAndProcesses.follow({
@@ -811,7 +858,7 @@ export class ThreadRunner implements OnModuleDestroy {
       if (!live.turnRunning) this.idleFrom(threadId, live);
     });
     this.live.set(threadId, live);
-    void this.read(threadId, live)
+    void this.read(threadId, live, start)
       .then(() => (live.ending ? undefined : this.endedEarly(threadId, session.id)))
       .catch((error: unknown) => this.fail(threadId, error))
       .finally(() => {
@@ -830,12 +877,17 @@ export class ThreadRunner implements OnModuleDestroy {
     }
   }
 
-  private async read(threadId: string, live: LiveSession): Promise<void> {
+  private async read(threadId: string, live: LiveSession, start: SessionStartWatch): Promise<void> {
     try {
       for await (const event of live.session.events) {
+        start.spoke();
         await this.readEvent(threadId, live, event);
       }
+    } catch (error) {
+      start.failed(error);
+      throw error;
     } finally {
+      start.ended();
       await live.following.end();
     }
   }
@@ -984,9 +1036,15 @@ export class ThreadRunner implements OnModuleDestroy {
     {
       unopened,
       answers,
-    }: { readonly unopened?: UnopenedSession; readonly answers?: readonly Decision[] } = {},
+      logged = false,
+    }: {
+      readonly unopened?: UnopenedSession;
+      readonly answers?: readonly Decision[];
+      /** The service log has the failure already, as a session's opening logs its own. */
+      readonly logged?: boolean;
+    } = {},
   ): Promise<void> {
-    this.logger.error(`Thread ${threadId} stopped answering: ${messageOf(error)}`);
+    if (!logged) this.logger.error(`Thread ${threadId} stopped answering: ${messageOf(error)}`);
     await this.endLive(threadId);
     const reason = messageOf(error);
     const [first, ...others] = answers ?? [];

@@ -39,6 +39,7 @@ export function sessionOfficeRules(
     workstation: options.workstation === true,
     secrets: [...operatingSystem.secretPaths, ...officeSecrets(officeData)],
     readableInSecrets: [{ secret: officeData.folder("engines"), folder: ENGINE_TRANSCRIPTS }],
+    readsEngineTranscripts: options.readsEngineTranscripts === true,
     officeFiles: [officeData.path],
     cloneFolders: [officeData.folder("repositories")],
     homeFolder: homedir(),
@@ -50,7 +51,7 @@ export function sessionOfficeRules(
 
 /**
  * The folder of a Claude Code engine's account folder that holds its session transcripts: the one
- * part of it open to a session reaching the workstation (spec §6).
+ * part of it open, to a session reaching the workstation or reading the transcripts (spec §6).
  */
 const ENGINE_TRANSCRIPTS = "projects";
 

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { EngineSessions, type EngineId, type EngineModel } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
@@ -70,6 +71,7 @@ import {
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
+import { SessionStartWatch } from "./session-start-watch.js";
 import { SubAgentsAndProcesses, type FollowedSession } from "./sub-agents-and-processes.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { OfficeInstructions } from "./office-instructions.js";
@@ -229,6 +231,7 @@ export class StageThreads {
     private readonly masks: ProjectOutputMasks,
     private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
     private readonly duties: Duties,
+    private readonly schedule: Schedule,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -415,11 +418,15 @@ export class StageThreads {
     );
     let leftOut: readonly LeftOutMcpServer[] = [];
     let canInterrupt = false;
-    const opened = await this.opening(previous.id, undefined, async () => {
+    const start = this.startWatch(previous.id, session, role.card.name, "resume");
+    const opened = await this.opening(start, previous.id, undefined, async () => {
       canInterrupt = (await this.engine.capabilitiesOf(session.engineId)).interrupt;
+      start.at("preparing skills");
       const skills = await this.sessionSkills.rebuild(session.id);
+      start.at("preparing MCP servers");
       const servers = await this.sessionMcpServers.rebuild(session.id, request.folder);
       leftOut = servers.leftOut;
+      start.at("starting on the engine");
       return this.engine.resume(
         session.id,
         this.settingsOf(
@@ -451,6 +458,7 @@ export class StageThreads {
       },
       move,
       opened,
+      start,
       carried(work.id),
     );
   }
@@ -495,8 +503,10 @@ export class StageThreads {
     );
     const briefId = randomUUID();
     let canInterrupt = false;
-    const opened = await this.opening(thread.id, session.id, async () => {
+    const start = this.startWatch(thread.id, session, role.card.name, "start");
+    const opened = await this.opening(start, thread.id, session.id, async () => {
       canInterrupt = (await this.engine.capabilitiesOf(applying.engineId)).interrupt;
+      start.at("preparing skills");
       const skills = await this.sessionSkills.prepare({
         sessionId: session.id,
         roleKey: role.roleKey,
@@ -507,12 +517,14 @@ export class StageThreads {
           projectSkillsOff: request.projectSkillsOff,
         },
       });
+      start.at("preparing MCP servers");
       const servers = await this.sessionMcpServers.prepare({
         sessionId: session.id,
         roleKey: role.roleKey,
         projectId: request.projectId,
         workingFolder: request.folder,
       });
+      start.at("starting on the engine");
       return this.engine.start({
         id: session.id,
         settings: this.settingsOf(
@@ -546,8 +558,26 @@ export class StageThreads {
       },
       move,
       opened,
+      start,
       carried(briefId),
     );
+  }
+
+  /** Writes the opening of the Stage Thread's session into the service log. */
+  private startWatch(
+    threadId: string,
+    { id, engineId }: ThreadSession,
+    personName: string,
+    move: "start" | "resume",
+  ): SessionStartWatch {
+    const start = new SessionStartWatch(
+      { threadId, sessionId: id, engineId, personName, move },
+      this.schedule,
+      this.logger,
+    );
+    // A Stage's session waits for no other, and the Task's worktree needs no refresh.
+    start.at("preparing skills");
+    return start;
   }
 
   /**
@@ -555,13 +585,17 @@ export class StageThreads {
    * ran gives way to none, and its skills go.
    */
   private async opening(
+    start: SessionStartWatch,
     threadId: string,
     newSessionId: string | undefined,
     open: () => Promise<EngineSession>,
   ): Promise<EngineSession> {
     try {
-      return await open();
+      const opened = await open();
+      start.at("waiting for the engine's first event");
+      return opened;
     } catch (error) {
+      start.failed(error);
       const unopened =
         newSessionId === undefined ? undefined : { sessionId: newSessionId, previous: undefined };
       await this.change(threadId, (latest) =>
@@ -653,18 +687,23 @@ export class StageThreads {
     }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
+    start: SessionStartWatch,
     carried: CarriedMessages | undefined,
   ): Promise<StageThread> {
     let carrying = carried;
     if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "waiting");
-    const reading = this.read(session, {
-      threadId,
-      home: { kind: "task", taskId },
-      sessionId: session.id,
-      folder,
-      mask,
-      subAgentsLabel,
-    });
+    const reading = this.read(
+      session,
+      {
+        threadId,
+        home: { kind: "task", taskId },
+        sessionId: session.id,
+        folder,
+        mask,
+        subAgentsLabel,
+      },
+      start,
+    );
     const events = reading.turnEvents[Symbol.asyncIterator]();
     const logger = { roleKey, folder, handingOver: false, mask };
     const bargeIns = new BargeIns((message) => session.send(message, "next"));
@@ -759,24 +798,28 @@ export class StageThreads {
   /**
    * One reader for the session's whole life: what it reports of its Sub-agents and Processes is kept
    * as it comes, between turns and after the run's last turn too, and every other event waits for
-   * the Stage's turn that reads it.
+   * the Stage's turn that reads it. `start` hears of its first event.
    */
   private read(
     session: EngineSession,
     followed: FollowedSession,
+    start: SessionStartWatch,
   ): { readonly turnEvents: AsyncChannel<SessionEvent>; readonly finished: Promise<void> } {
     const turnEvents = new AsyncChannel<SessionEvent>();
     const following = this.subAgentsAndProcesses.follow(followed);
     const finished = (async () => {
       try {
         for await (const event of session.events) {
+          start.spoke();
           await following.take(event);
           if (!BACKGROUND_EVENT_KINDS.has(event.kind)) turnEvents.push(event);
         }
         turnEvents.close();
       } catch (error) {
+        start.failed(error);
         turnEvents.fail(error);
       } finally {
+        start.ended();
         await following.end();
       }
     })();

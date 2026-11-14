@@ -2,12 +2,15 @@ import { randomInt, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import type { INestApplication } from "@nestjs/common";
+import { Logger, type INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANSWER_DECISION_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
+import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
+import { ScheduleModule } from "../../../platform/schedule/schedule.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
@@ -77,6 +80,7 @@ import { InterruptedAnswers } from "./interrupted-answers.js";
 import type { SessionEvent } from "./session-log.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { SESSION_START_SILENCE_MS } from "./session-start-watch.js";
 import { CallChains } from "./call-chains.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 import { TaskTokens } from "./task-tokens.js";
@@ -271,6 +275,7 @@ async function startOn(
     database: true,
     imports: [
       EventsModule,
+      ScheduleModule,
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
@@ -569,6 +574,7 @@ describe("a new Thread's first message", () => {
       model: "claude-opus-5-5",
       effort: "high",
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
+      readsEngineTranscripts: false,
     });
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
       ...CHAT_OFFICE_TOOLS,
@@ -1188,6 +1194,7 @@ describe("a Thread on a Task", () => {
       folder: worktree,
       environment: { PROJECT_VARIABLE: "set" },
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
+      readsEngineTranscripts: false,
     });
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
       "read_task",
@@ -1423,6 +1430,7 @@ describe("a Thread on an Initiative", () => {
       folder: join(officeData, "bases"),
       readableFolders: [],
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
+      readsEngineTranscripts: false,
     });
     expect(refreshedOnInitiative).toEqual([]);
     const tools = session?.options.officeTools.map(({ name }) => name);
@@ -1554,6 +1562,7 @@ describe("a person's Thread on a Task", () => {
     expect(brief?.step === "start" && brief.brief.text).toContain("The record of the Task");
     expect(session?.options).toMatchObject({
       profile: { edit: false, run: { kind: "read-only-git" } },
+      readsEngineTranscripts: false,
     });
     expect(session?.options.instructions).toMatch(/On this Task you are asked\.$/);
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual(["read_task"]);
@@ -2605,6 +2614,10 @@ describe("a message sent with an Open page", () => {
 });
 
 describe("when a session doesn't answer", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("logs a turn refused for a used-up usage window as its own notice, not a failure, and waits for the user", async () => {
     const resetsAt = new Date("2026-11-13T14:00:00.000Z");
     await startWith(
@@ -2654,6 +2667,37 @@ describe("when a session doesn't answer", () => {
       move: "fresh",
       reason: "new-thread",
     });
+  });
+
+  it("warns in the service log of a session silent after its start, naming its Thread and step, and says when it speaks", async () => {
+    const FIRST_EVENT = "the engine gives its first event";
+    await startWith(started({ step: "wait", mark: FIRST_EVENT }, ...aTurn("brief", "Here.")));
+    const warnings = vi.spyOn(Logger.prototype, "warn").mockImplementation(() => undefined);
+    const lines = vi.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await vi.waitFor(() => expect(engine.sessions).toHaveLength(1));
+    const [session] = engine.sessions;
+    await (app.get(Schedule, { strict: false }) as ManualSchedule).advanceBy(
+      SESSION_START_SILENCE_MS,
+    );
+
+    expect(lines).toHaveBeenCalledWith(
+      `Thread ${thread.id} starts session ${session?.id} on the engine ${FIRST_CLAUDE_CODE_ENGINE.id} for ${PLANNER.name}.`,
+    );
+    expect(warnings.mock.calls).toEqual([
+      [
+        `Thread ${thread.id}'s session ${session?.id} (${PLANNER.name}) has given no event 180 s after it was started; it is waiting for the engine's first event.`,
+      ],
+    ]);
+    session?.reach(FIRST_EVENT);
+    await answered(thread.id, 3);
+    expect(lines).toHaveBeenCalledWith(
+      expect.stringMatching(
+        new RegExp(`^Thread ${thread.id}'s session ${session?.id} spoke after \\d+ s\\.$`),
+      ),
+    );
   });
 
   it("waits for the user again when the session ends before the answer is finished", async () => {
@@ -2971,6 +3015,7 @@ describe("the Caretaker's chat", () => {
       folder: join(officeData, "bases"),
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
       workstation: false,
+      readsEngineTranscripts: true,
       refusalAdvice: ALLOW_CHANGES_ADVICE,
     });
     expect(engine.sessions[0]?.options.instructions).toContain(
@@ -3018,6 +3063,7 @@ describe("the Caretaker's chat", () => {
       folder: homedir(),
       profile: { edit: true, run: { kind: "anything" }, web: true },
       workstation: true,
+      readsEngineTranscripts: true,
     });
     expect(onTheWorkstation?.options.refusalAdvice).toBeUndefined();
     expect(onTheWorkstation?.options.instructions).toContain("The user allowed changes");
@@ -3031,6 +3077,7 @@ describe("the Caretaker's chat", () => {
     expect(readOnlyAgain?.options).toMatchObject({
       folder: join(officeData, "bases"),
       workstation: false,
+      readsEngineTranscripts: true,
     });
     expect(switchLines(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),

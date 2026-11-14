@@ -53,6 +53,11 @@ export interface SessionPlace {
    * Thread with changes allowed (spec §2.4). Every other session only reads.
    */
   readonly workstation: boolean;
+  /**
+   * The session reads the engines' session transcripts, changes allowed or not: the Caretaker's
+   * Threads, to find out what a session did (spec §6). Every other session is refused them.
+   */
+  readonly readsEngineTranscripts: boolean;
   /** What a refusal tells the Agent to do about it, such as asking to Allow changes. */
   readonly refusalAdvice: string | undefined;
   readonly brief: Brief;
@@ -131,6 +136,7 @@ export class SessionPlaces {
       },
       mask: await this.masks.outputMaskOf(setup.projectId),
       workstation: false,
+      readsEngineTranscripts: false,
       refusalAdvice: undefined,
       brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },
@@ -172,6 +178,7 @@ export class SessionPlaces {
         brief,
         span: {},
         workstation: false,
+        readsEngineTranscripts: false,
         refusalAdvice: undefined,
       };
     }
@@ -187,6 +194,7 @@ export class SessionPlaces {
       ...this.basesPlace(thread),
       ...chat,
       workstation: false,
+      readsEngineTranscripts: false,
       refusalAdvice: undefined,
       instructions: (person) => chatInstructions(person, held),
     };
@@ -200,6 +208,7 @@ export class SessionPlaces {
       return {
         ...this.basesPlace(thread),
         workstation: false,
+        readsEngineTranscripts: true,
         refusalAdvice: ALLOW_CHANGES_ADVICE,
         instructions: (person) => caretakerChatInstructions(person, false),
       };
@@ -211,6 +220,7 @@ export class SessionPlaces {
       project: undefined,
       mask: NO_MASK,
       workstation: true,
+      readsEngineTranscripts: true,
       refusalAdvice: undefined,
       instructions: (person) => caretakerChatInstructions(person, true),
       ready: () => Promise.resolve(),
@@ -236,6 +246,7 @@ export class SessionPlaces {
       officeTools: setup.officeTools,
       callsCanWait: false,
       workstation: false,
+      readsEngineTranscripts: false,
       refusalAdvice: undefined,
       brief: await this.briefs.forInitiativeThread(thread, setup),
       span: { "office.initiative": initiativeId },

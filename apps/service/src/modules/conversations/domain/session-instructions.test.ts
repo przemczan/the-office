@@ -18,6 +18,7 @@ import {
   consultationInstructions,
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
+  ENGINE_TRANSCRIPTS_RULE,
   PERSON_READING_OFFICE_TOOLS,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
@@ -132,6 +133,22 @@ describe("the Caretaker's chat instructions", () => {
     expect(setUp).toContain("assign a duty only to give it to a Role other than its preset's");
     expect(changing).toContain(setUp);
   });
+
+  it.each([false, true])(
+    "say where the engines' transcripts are and how to find one, with changes allowed %s",
+    (changesAllowed) => {
+      const text = caretakerChatInstructions(person, changesAllowed);
+
+      expect(text).toContain(ENGINE_TRANSCRIPTS_RULE);
+      expect(ENGINE_TRANSCRIPTS_RULE).toContain(
+        "engines/<engine id>/projects/<session folder>/<session id>.jsonl",
+      );
+      expect(ENGINE_TRANSCRIPTS_RULE).toContain("Search inside an engine's projects/ folder");
+      expect(ENGINE_TRANSCRIPTS_RULE).toContain(
+        "The OpenAI-compatible API engine's conversations aren't readable.",
+      );
+    },
+  );
 });
 
 describe("chatOfficeTools", () => {

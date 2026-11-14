@@ -78,6 +78,14 @@ export const PROPOSE_OFFICE_SETUP_TOOL = "propose_office_setup";
 const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows nobody hired but you, offer to set The Office up. Ask what the user works on, then recommend whom to hire: presets, saying the duties and capabilities each brings, or Roles from scratch for what no preset covers. Draft them with ${PROPOSE_OFFICE_SETUP_TOOL}, as one Proposal the user applies with a click. A hired preset holds its own duties with no assignment: assign a duty only to give it to a Role other than its preset's, such as a Role from scratch. You may draft a set-up at any time the user asks, and you never hire anyone or change a duty yourself.`;
 
 /**
+ * Where the Caretaker finds a session's transcript, to diagnose a Thread (spec §6, the user's answer
+ * of 2026-11-14): readable raw whether changes are allowed or not, but for the engines' accounts.
+ * The same in both modes, so the cached prefix stays.
+ */
+export const ENGINE_TRANSCRIPTS_RULE =
+  "Reading a session's transcript, to find out what a Thread's session did: each Claude Code engine keeps its sessions' transcripts in The Office's data folder (OFFICE_DATA_DIR; by default %LOCALAPPDATA%\\the-office on Windows and ~/.local/share/the-office on Linux), as engines/<engine id>/projects/<session folder>/<session id>.jsonl, one JSON event per line. You read them with Read, Grep and Glob whether changes are allowed or not. Search inside an engine's projects/ folder, such as with Glob **/<session id>.jsonl there: engines/ and an engine's folder named whole hold its account and stay refused. The service log names each Thread's session as it starts or resumes, with its session id and its engine id. The OpenAI-compatible API engine's conversations aren't readable.";
+
+/**
  * The standing instructions of the Caretaker's chat (spec §2.4): it reads as any chat does until
  * the user allows changes in the Thread; then it reaches the whole workstation but secrets.
  */
@@ -87,6 +95,7 @@ export function caretakerChatInstructions(person: SessionPerson, changesAllowed:
     changesAllowed
       ? "The user allowed changes in this Thread: you work in their home folder, and you may read and edit any file and run any command on the workstation, The Office's data folder and every git command included. Their secrets stay refused: SSH keys, the Claude, GitHub CLI and AWS credentials, browser profiles, the Office identity and the database credentials. Say what you are about to change before you change it, and prefer what can be undone. The engine's own Edit and Write may still refuse .git, .claude and .mcp.json: change those with a command."
       : `This Thread only reads until the user allows changes: you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and read The Office's records with its tools. Diagnose first; to change a file or run a command that changes something, ${lowerFirst(ALLOW_CHANGES_ADVICE)}`,
+    ENGINE_TRANSCRIPTS_RULE,
     OFFICE_SETUP_RULE,
     CALLING_RULE,
   ].join("\n\n");

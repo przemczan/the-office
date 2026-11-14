@@ -45,6 +45,12 @@ export interface SessionRules {
    */
   readonly readableInSecrets: readonly ReadableInSecret[];
   /**
+   * Whether the folders open in a secret, the engines' session transcripts, are readable even when
+   * the session doesn't reach the workstation: the Caretaker's Threads (spec §6). A session
+   * reaching the workstation reads them anyway.
+   */
+  readonly readsEngineTranscripts: boolean;
+  /**
    * The Office's own files and folders, such as its data directory, outside the session's folders:
    * refused to every session but one that reaches the workstation.
    */

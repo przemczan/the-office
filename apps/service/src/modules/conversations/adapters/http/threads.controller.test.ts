@@ -28,6 +28,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { ScheduleModule } from "../../../../platform/schedule/schedule.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
@@ -214,6 +215,7 @@ function setUpEachTest(): void {
       database: true,
       imports: [
         EventsModule,
+        ScheduleModule,
         BusyWorkModule,
         EventStreamModule,
         TelemetryModule,

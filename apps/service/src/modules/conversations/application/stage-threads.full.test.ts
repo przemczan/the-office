@@ -42,6 +42,7 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
+import { ScheduleModule } from "../../../platform/schedule/schedule.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
@@ -169,6 +170,7 @@ async function startOn(
     database: true,
     imports: [
       EventsModule,
+      ScheduleModule,
       BusyWorkModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
