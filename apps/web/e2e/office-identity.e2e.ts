@@ -116,9 +116,9 @@ test.describe.serial("Sign in with GitHub", () => {
     await page.goto("/account/linked-identities");
     await page.getByRole("button", { name: "Link GitHub" }).click();
     await expect(page).toHaveURL("/account/linked-identities");
-    await expect(
-      page.locator(".account-identity").filter({ hasText: "GitHub" }),
-    ).toContainText("office-user");
+    await expect(page.locator(".account-identity").filter({ hasText: "GitHub" })).toContainText(
+      "office-user",
+    );
     await screenshotScenario(page, "account-linked-identities");
 
     // A browser not signed in continues with it from the sign-in page.
