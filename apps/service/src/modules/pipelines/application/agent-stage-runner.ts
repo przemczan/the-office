@@ -335,6 +335,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         answered,
         installProblem,
         held: held && heldRunOf(held),
+        pipeline: {
+          stages,
+          commands: task.project.commands,
+          roleTitle: (roleKey) => this.people.roleTitle(roleKey),
+        },
       }),
       folder: task.worktree.path,
       environment: task.worktree.environment,

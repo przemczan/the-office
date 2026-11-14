@@ -2,11 +2,11 @@ import type { Project, Role } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   aboutLine,
+  blinkingTabTitle,
   personOf,
   serviceDown,
+  tabTitle,
   targetOf,
-  titleWithUnread,
-  unreadCount,
 } from "./notification-words.ts";
 
 const TASK_ID = "6820f3e0-132c-414a-9d26-ed497c7ea9bf";
@@ -60,10 +60,17 @@ describe("serviceDown", () => {
   });
 });
 
-describe("titleWithUnread", () => {
-  it("counts the open Notifications in the tab's title", () => {
-    expect(titleWithUnread(0)).toBe("The Office");
-    expect(titleWithUnread(3)).toBe("(3) The Office");
+describe("tabTitle", () => {
+  it("counts Needs you in the tab's title", () => {
+    expect(tabTitle(0)).toBe("The Office");
+    expect(tabTitle(3)).toBe("(3) The Office");
+  });
+});
+
+describe("blinkingTabTitle", () => {
+  it("says how many need the user", () => {
+    expect(blinkingTabTitle(1)).toBe("1 needs you");
+    expect(blinkingTabTitle(3)).toBe("3 need you");
   });
 });
 
@@ -87,17 +94,5 @@ describe("aboutLine", () => {
       "Add a filter · Billing",
     );
     expect(aboutLine(undefined, projects)).toBeUndefined();
-  });
-});
-
-describe("unreadCount", () => {
-  it("counts what goes in-app", () => {
-    expect(
-      unreadCount([
-        { channels: ["in-app", "desktop"] },
-        { channels: ["desktop"] },
-        { channels: [] },
-      ]),
-    ).toBe(1);
   });
 });

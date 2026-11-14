@@ -25,7 +25,7 @@ vi.mock("./in-app-channel.tsx", () => ({ useInAppChannel: () => inApp }));
 vi.mock("../../api/event-stream-provider.tsx", () => ({ useEventStreamStatus: () => "connected" }));
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => () => undefined }));
 // jsdom draws no favicon; the badge is not what these tests are about.
-vi.mock("./unread-badge.ts", () => ({ useUnreadBadge: () => undefined }));
+vi.mock("./needs-you-tab.ts", () => ({ useNeedsYouTab: () => undefined }));
 
 const TASK_ID = "6820f3e0-132c-414a-9d26-ed497c7ea9bf";
 const NOTIFICATION: Notification = {

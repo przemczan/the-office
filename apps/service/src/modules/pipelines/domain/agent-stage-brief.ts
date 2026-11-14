@@ -1,8 +1,14 @@
 import { baseWords, publishingModeWords } from "./base-words.js";
-import type { AllowedCommands } from "./allowed-commands.js";
+import type { AllowedCommands, NamedCommand } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { correctionMessage } from "./stage-result.js";
-import { STAGE_KIND_NAMES, type AgentStage, type Stage, type StageKind } from "./stage.js";
+import {
+  PUBLISH_COMMAND,
+  STAGE_KIND_NAMES,
+  type AgentStage,
+  type Stage,
+  type StageKind,
+} from "./stage.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
   CarriedFailure,
@@ -134,6 +140,18 @@ export interface StageWorkReasons {
   readonly installProblem?: string;
   /** How the Stage's last run was interrupted, when it runs again after it. */
   readonly held?: HeldRun;
+  /** The Pipeline the Stage runs in, whose Stages after it the message lists. */
+  readonly pipeline?: StagePipeline;
+}
+
+/** The Task's Pipeline as an Agent Stage's message words the Stages after its own. */
+export interface StagePipeline {
+  /** The Stages as the walk goes over them, the Stage itself among them. */
+  readonly stages: readonly Stage[];
+  /** The Project's commands, whose command lines a Script Stage runs. */
+  readonly commands: readonly Pick<NamedCommand, "key" | "commandLine">[];
+  /** The Role's title, such as Developer, by its key. */
+  readonly roleTitle: (roleKey: string) => string;
 }
 
 /**
@@ -162,17 +180,18 @@ export interface HeldRun {
 
 /**
  * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again
- * after its Agent's question; when an on-failure loop went back to it, the failure it went back
+ * after its Agent's question; the Stages after it in the Pipeline; when an on-failure loop went back to it, the failure it went back
  * with; when the user sent the work back to it from a Gate, their feedback; when the user held its last run, how, and so where its edits stand; and when the install
  * before it failed, why, as the Agent's commands may fail for it. A new session gets it after the
  * Brief, a continued one alone.
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "key" | "name" | "brief">,
-  { carried, sentBack, answered, installProblem, held }: StageWorkReasons = {},
+  { carried, sentBack, answered, installProblem, held, pipeline }: StageWorkReasons = {},
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
+    pipeline && laterStagesSection(stage, pipeline),
     held && heldSection(held),
     answered &&
       `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
@@ -186,6 +205,56 @@ ${installProblem}
 
 Commands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.`,
   ]);
+}
+
+/**
+ * The Stages after `stage` in Pipeline order, as plain facts: what each runs, or who works it, so
+ * the Agent can leave their work to them (spec §2.3).
+ */
+function laterStagesSection(stage: Pick<Stage, "key">, pipeline: StagePipeline): string {
+  const later = pipeline.stages.slice(
+    pipeline.stages.findIndex(({ key }) => key === stage.key) + 1,
+  );
+  if (later.length === 0) {
+    return "## Later Stages\n\nNo Stage comes after this one in the Task's Pipeline.";
+  }
+  const lines = later.map((laterStage) => laterStageWords(laterStage, stage, pipeline));
+  return `## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n${lines.join("\n")}`;
+}
+
+function laterStageWords(
+  laterStage: Stage,
+  stage: Pick<Stage, "key">,
+  { commands, roleTitle }: StagePipeline,
+): string {
+  const kind = [
+    STAGE_KIND_NAMES[laterStage.kind],
+    ...(laterStage.kind === "agent" ? [roleTitle(laterStage.role)] : []),
+    ...(laterStage.optional ? ["optional"] : []),
+  ].join(", ");
+  const comesBack =
+    laterStage.kind !== "gate" && laterStage.onFailure?.goBackTo === stage.key
+      ? " If it fails, the work comes back here."
+      : "";
+  // A brief's later lines stay within its item.
+  const what = laterStageDoes(laterStage, commands).replaceAll("\n", "\n  ");
+  return `- ${laterStage.name} (${kind}): ${what}${comesBack}`;
+}
+
+function laterStageDoes(laterStage: Stage, commands: StagePipeline["commands"]): string {
+  switch (laterStage.kind) {
+    case "agent":
+      return laterStage.brief;
+    case "gate":
+      return "the user looks at the work there and lets it continue or sends it back.";
+    case "script": {
+      if (laterStage.command === PUBLISH_COMMAND) return "The Office publishes the Task's work.";
+      const commandLine = commands.find(({ key }) => key === laterStage.command)?.commandLine;
+      return commandLine
+        ? `runs \`${commandLine}\`.`
+        : `runs the Project's command ${laterStage.command}, which isn't set.`;
+    }
+  }
 }
 
 /** The section for a run the user held, "the user Ann Lee" as `who` names them. */

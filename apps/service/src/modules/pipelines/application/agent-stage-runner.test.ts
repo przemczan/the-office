@@ -22,6 +22,7 @@ import { aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import { implement, corrected } from "../agent-stage-runner.fixtures.js";
+import { aScriptStage, failing, passing } from "./script-stage-runner.fixtures.js";
 
 let pipelines: PipelinesApplication;
 
@@ -48,7 +49,7 @@ describe("AgentStageRunner", () => {
       stageName: "Implement",
       declared: "fresh",
       previousThreadId: undefined,
-      work: "## The Stage: Implement\n\nImplement the Plan until the Definition of Done is met.",
+      work: "## The Stage: Implement\n\nImplement the Plan until the Definition of Done is met.\n\n## Later Stages\n\nNo Stage comes after this one in the Task's Pipeline.",
       folder: "/office/worktrees/admin-panel/task",
       environment: { PROJECT_VARIABLE: "set" },
       session: {
@@ -102,6 +103,32 @@ describe("AgentStageRunner", () => {
     expect(pipelines.stageThreads.ended).toEqual([
       { threadId: run?.threadId, handoverNote: "Left: the list's refresh.", closing: undefined },
     ]);
+  });
+
+  it("lists the Stages after this one in its message, also when a loop sends the work back to it", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+    ]);
+    pipelines.people.titles.set("developer", "Developer");
+    pipelines.commands.commandRuns.push([failing, failing], [passing]);
+
+    await walkStages(pipelines, [
+      implement,
+      aScriptStage("test", { onFailure: { goBackTo: "implement", rounds: 1 } }),
+      anAgentStage("review", { name: "Review" }),
+    ]);
+
+    const [first, again, review] = pipelines.stageThreads.requests.map(({ work }) => work);
+    const later =
+      "## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`. If it fails, the work comes back here.\n- Review (Agent Stage, Developer): Do review.";
+    expect(first).toContain(`met.\n\n${later}`);
+    expect(again).toContain("## Why this Stage runs again");
+    expect(again).toContain(later);
+    expect(review).toContain(
+      "## Later Stages\n\nNo Stage comes after this one in the Task's Pipeline.",
+    );
   });
 
   it("keeps only the Stage's Project commands, in the Brief and the allowed lines, now and ahead", async () => {

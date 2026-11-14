@@ -649,9 +649,7 @@ test.describe("losing the service", { tag: "@full" }, () => {
     await openRead;
     const strip = page.getByRole("status", { name: "Status strip" });
     await expect(strip).toContainText("tokens today");
-    const unread = async (): Promise<number> =>
-      Number(/^\((\d+)\)/.exec(await page.title())?.[1] ?? 0);
-    const before = await unread();
+    const titleBefore = await page.title();
 
     reachable = false;
     for (const stream of streams) await stream.close();
@@ -661,8 +659,8 @@ test.describe("losing the service", { tag: "@full" }, () => {
       .getByRole("button", { name: "The Office lost its service and is reconnecting." });
     await expect(strip).toContainText("Reconnecting to The Office…");
     await expect(notice).toBeVisible();
-    // No event arrives while the service is lost, so only "service down" was added.
-    await expect.poll(unread).toBe(before + 1);
+    // An Office kind doesn't count in the tab, which counts Needs you alone.
+    await expect(page).toHaveTitle(titleBefore);
 
     reachable = true;
     await expect(strip).not.toContainText("Reconnecting");

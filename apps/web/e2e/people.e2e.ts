@@ -13,6 +13,8 @@ import {
   ideaSchema,
   initiativeSchema,
   IMAGE_UPLOAD_BYTES,
+  notificationListSchema,
+  nowSchema,
   OPEN_DECISION_TOOL,
   pipelineListSchema,
   pipelineSchema,
@@ -2573,7 +2575,10 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     // The tab is focused, so the Gate's Notification comes as a toast, in Adam's words.
     const READY = "My work is ready for your look at UI acceptance.";
     await expect(page.locator(".toasts").getByText(READY)).toBeVisible();
-    await expect(page).toHaveTitle(/^\(\d+\) The Office$/);
+    // The tab counts Needs you across every Project, the Gate among them.
+    const now = nowSchema.parse(await (await page.request.get("/api/now")).json());
+    expect(now.needsYou).toContainEqual(expect.objectContaining({ kind: "gate", taskId }));
+    await expect(page).toHaveTitle(`(${now.needsYou.length}) The Office`);
     await expect(page.locator("link[rel='icon']")).toHaveAttribute("href", /^data:image\/png/);
     expect(await desktopShown(page)).toEqual([]);
 
@@ -2875,12 +2880,24 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     // Done comes as a toast over the Projects page, and opens the Task, which handles it.
     const done = page.locator(".toasts").getByRole("button", { name: /I finished the Task\./ });
     await expect(done).toContainText("Settings keep their changes · Settings");
-    const unreadBefore = Number(/^\((\d+)\)/.exec(await page.title())?.[1] ?? 0);
+    // An Outcome doesn't count in the tab, which counts Needs you alone.
+    const waitingNow = nowSchema.parse(await (await page.request.get("/api/now")).json()).needsYou;
+    await expect(page).toHaveTitle(
+      waitingNow.length === 0 ? "The Office" : `(${waitingNow.length}) The Office`,
+    );
     await done.click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
     await expect
-      .poll(async () => Number(/^\((\d+)\)/.exec(await page.title())?.[1] ?? 0))
-      .toBeLessThan(unreadBefore);
+      .poll(async () => {
+        const open = notificationListSchema.parse(
+          await (await page.request.get("/api/notifications")).json(),
+        );
+        return open.some(
+          ({ kind, pointsTo }) =>
+            kind === "outcomes.task-done" && "taskId" in pointsTo && pointsTo.taskId === taskId,
+        );
+      })
+      .toBe(false);
     await expect(gate).toHaveCount(0);
     await rail.getByRole("button", { name: "UI acceptance", exact: true }).click();
     const gateHistory = page.getByRole("dialog", { name: /^Stage history: UI acceptance/ });
