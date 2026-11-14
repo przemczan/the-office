@@ -88,10 +88,12 @@ describe("the Default Pipeline block", () => {
     act(() => picker?.click());
 
     // The list opens apart from the block.
-    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map((group) => [
-      group.firstElementChild?.textContent,
-      [...group.querySelectorAll('[role="option"]')].map(labelOf),
-    ]);
+    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map(
+      (group) => [
+        group.firstElementChild?.textContent,
+        [...group.querySelectorAll('[role="option"]')].map(labelOf),
+      ],
+    );
     expect(groups).toEqual([
       ["the-office's Pipelines", ["Full with Linux check", "Spec change"]],
       ["Office-wide Pipelines", ["Full"]],
