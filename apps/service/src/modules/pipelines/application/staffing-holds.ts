@@ -17,7 +17,8 @@ const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "pau
 
 /**
  * Holds a Task whose next Stages nobody can work (spec §2.2), such as after the person who filled
- * their Role was let go, or the duty they name was left unheld: the Task is paused behind a Decision, and resumes or drops by the answer.
+ * their Role was let go, or the duty they name was left unheld: the Task is paused behind a
+ * Decision, and resumes or drops by the answer.
  * The Pipeline keeps the Stage as it was, so a Role filled again gets the Task back where it stopped.
  */
 @Injectable()

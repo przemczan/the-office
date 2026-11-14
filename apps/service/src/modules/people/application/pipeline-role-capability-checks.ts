@@ -112,11 +112,9 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     const named = await this.pipelineRoleSources.rolesNamed();
     if (to === null || !dutyNamedAnywhere(named, duty)) return [];
     const holders = await this.duties.holders();
-    const after = withDutiesResolved(named, new Map([...holders, [duty, to]]));
-    const office = await this.officeCascade(after);
     return this.newlyIncapableProblems(
-      { ...office, rolesNamed: withDutiesResolved(named, holders) },
-      office,
+      await this.officeCascade(withDutiesResolved(named, holders)),
+      await this.officeCascade(withDutiesResolved(named, new Map([...holders, [duty, to]]))),
       await this.everyPlace(),
     );
   }

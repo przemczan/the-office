@@ -288,9 +288,11 @@ function withFields(
       continue;
     }
     if (value === null) delete changed[field];
-    else changed[field] = value;
-    const named = WORKER_FIELD_CLEARED[field];
-    if (named !== undefined) delete changed[named];
+    else {
+      changed[field] = value;
+      const named = WORKER_FIELD_CLEARED[field];
+      if (named !== undefined) delete changed[named];
+    }
     given.push(field);
   }
   // Only fields of the Stage's own kind were set, each to a value of its type, so it is that kind.
