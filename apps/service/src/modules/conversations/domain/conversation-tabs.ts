@@ -13,7 +13,7 @@ export interface TabConsultation {
 
 /**
  * The Initiative's planning Thread a Task is planned in (Plan the Initiative), which counts as its
- * planning Thread: no Planner's Thread opens on the Task meanwhile.
+ * planning Thread: no Thread of whoever holds Plans opens on the Task meanwhile.
  */
 export interface PlanningThreadElsewhere {
   readonly initiativeId: string;
@@ -25,7 +25,10 @@ export interface ConversationTab {
   readonly roleKey: string;
   /** Their one Thread on the Task; undefined until it is opened. */
   readonly threadId: string | undefined;
-  /** On the Planner's tab, while the Task is planned in its Initiative's planning Thread. */
+  /**
+   * On the tab of whoever holds Plans, while the Task is planned in its Initiative's planning
+   * Thread.
+   */
   readonly planningThreadElsewhere: PlanningThreadElsewhere | undefined;
   readonly stageRunning: boolean;
   /** In the order answered, then those still waiting on the Consultant. */
@@ -33,13 +36,14 @@ export interface ConversationTab {
 }
 
 /**
- * The Task's tabs, from its Threads and the Decisions its Consultations were opened for: the
- * Planner, then each person who ran an Agent Stage in the order they first worked, then each
- * Consultant of a Decision on the Task, from the moment the Consultation starts. The Planner's tab
- * points to the Initiative's planning Thread while the Task is planned there.
+ * The Task's tabs, from its Threads and the Decisions its Consultations were opened for: whoever
+ * holds Plans (`planner`, none while nobody does), then each person who ran an Agent Stage in the
+ * order they first worked, then each Consultant of a Decision on the Task, from the moment the
+ * Consultation starts. The planner's tab points to the Initiative's planning Thread while the Task
+ * is planned there.
  */
 export function conversationTabs(
-  planner: string,
+  planner: string | undefined,
   threads: readonly Thread[],
   decisions: readonly Decision[],
   planningThreadElsewhere?: PlanningThreadElsewhere,
@@ -49,7 +53,7 @@ export function conversationTabs(
   );
   const consultations = consultationsOfConsultants(oldestFirst, decisions);
   const people = new Set([
-    planner,
+    ...(planner === undefined ? [] : [planner]),
     ...oldestFirst.filter(({ stageThread }) => stageThread).map(({ roleKey }) => roleKey),
     ...consultations.map(({ roleKey }) => roleKey),
   ]);

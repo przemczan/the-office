@@ -61,10 +61,12 @@ export class StageResultWords {
 }
 
 function handoverNotesOf(stages: readonly Stage[], runs: readonly StageRun[]): HandoverNoteWords[] {
-  return runs.flatMap(({ stageKey, outcome }) => {
+  return runs.flatMap(({ stageKey, outcome, roleKey }) => {
     const note = outcome?.handoverNote;
     const stage = stages.find(({ key }) => key === stageKey);
     if (note === undefined || stage?.kind !== "agent") return [];
-    return [{ stageName: stage.name, roleKey: stage.role, note }];
+    // A run kept before its Role was recorded named its Stage's Role.
+    const wroteIt = roleKey ?? stage.role;
+    return wroteIt === undefined ? [] : [{ stageName: stage.name, roleKey: wroteIt, note }];
   });
 }

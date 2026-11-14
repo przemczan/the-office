@@ -606,6 +606,7 @@ export class ThreadRunner implements OnModuleDestroy {
         override: thread.override,
         briefTokens: place.brief.tokens,
         changesAllowed: place.workstation,
+        heldDuties: place.heldDuties,
       },
       await this.settings.current(),
     );
@@ -625,6 +626,7 @@ export class ThreadRunner implements OnModuleDestroy {
             officeInstructionsVersion: office.version,
             engineId: applying.engineId,
             changesAllowed: place.workstation,
+            heldDuties: place.heldDuties,
           },
           now,
         );
@@ -723,7 +725,7 @@ export class ThreadRunner implements OnModuleDestroy {
     thread: Thread,
     { id, engineId }: ThreadSession,
     {
-      role: { roleKey, card },
+      role: { roleKey, card, mcpToolDefault },
       officeInstructions,
       model,
     }: Pick<Answer, "role" | "officeInstructions" | "model">,
@@ -751,7 +753,7 @@ export class ThreadRunner implements OnModuleDestroy {
         edit: place.workstation,
         run: { kind: place.workstation ? "anything" : "read-only-git" },
         web: place.workstation || card.permissionProfile.web,
-        mcpTools: mcpToolSettingsFor(card.permissionProfile.mcpTools, mcpServers),
+        mcpTools: mcpToolSettingsFor(card.permissionProfile.mcpTools, mcpServers, mcpToolDefault),
       },
       workstation: place.workstation,
       refusalAdvice: place.refusalAdvice,

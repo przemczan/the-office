@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  Duty,
   Role,
   RoleCardOptions,
   Stage,
@@ -44,6 +45,8 @@ export interface StageEditorProps {
   readonly problemsTitle?: string;
   /** Everyone hired, who may work an Agent Stage when their Task limit isn't none. */
   readonly roles: readonly Role[];
+  /** Every duty with its holder, as an Agent Stage naming one is worked. */
+  readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   /** What a Script Stage may run: the Task's Project's commands, or every Project's. */
   readonly commands?: StageCommandSource;
@@ -284,6 +287,7 @@ function StageSummary({
   stages,
   name,
   roles,
+  duties,
   commands,
 }: StageEditorProps & { readonly stage: Stage; readonly name: string }): ReactNode {
   const details = stageDetailsLine(stage, stages);
@@ -292,7 +296,7 @@ function StageSummary({
       <div className="stage-editor-name">
         {name}{" "}
         <span className="stage-editor-who">
-          · {whoWorks(stage, roles, commands && namedCommands(commands))}
+          · {whoWorks(stage, roles, commands && namedCommands(commands), duties)}
         </span>
       </div>
       {details !== "" && <div className="stage-editor-detail">{details}</div>}

@@ -9,6 +9,7 @@ import {
   moveStage,
   removeStage,
   withCommand,
+  withDuty,
   withRole,
   type ScriptStage,
 } from "./stage-edits.ts";
@@ -112,6 +113,34 @@ describe("the Stage editor's changes", () => {
     expect(canContinue([tests, review], 1)).toBe(false);
     expect(withRole(stages, 1, "reviewer")).toMatchObject({ role: "reviewer", session: "fresh" });
     expect(withRole(stages, 1, "developer")).toMatchObject({ session: "continue" });
+  });
+
+  it("gives a Stage a Role or a duty, each clearing the other", () => {
+    const toDuty = withDuty([implement], 0, "implements");
+    expect(toDuty).toMatchObject({ duty: "implements" });
+    expect(toDuty).not.toHaveProperty("role");
+    const backToRole = withRole([toDuty], 0, "developer");
+    expect(backToRole).toMatchObject({ role: "developer" });
+    expect(backToRole).not.toHaveProperty("duty");
+  });
+
+  it("continues a session only after the same duty, a Role working it being another", () => {
+    const planning: Stage = {
+      ...implement,
+      key: "plan",
+      name: "Plan",
+      role: undefined,
+      duty: "plans",
+    };
+    const review: Stage = { ...planning, key: "review", name: "Review", session: "continue" };
+    expect(canContinue([planning, review], 1)).toBe(true);
+    expect(canContinue([implement, review], 1)).toBe(false);
+    expect(withDuty([planning, review], 1, "reviews")).toMatchObject({
+      duty: "reviews",
+      session: "fresh",
+    });
+    expect(withDuty([planning, review], 1, "plans")).toMatchObject({ session: "continue" });
+    expect(withRole([planning, review], 1, "developer")).toMatchObject({ session: "fresh" });
   });
 
   it("goes back on failure only to earlier Stages that aren't Gates", () => {

@@ -68,11 +68,14 @@ describe("Edit for this Task", () => {
     expect((await pipelines.app.get(PipelineLibrary).find("quick-fix"))?.stages).toEqual(quickFix);
   });
 
-  it("refuses a Role whose person only talks, with the reason", async () => {
-    pipelines.people.people.set("developer", { card: { ...aPerson().card, taskLimit: "none" } });
+  it("refuses a duty whose holder only talks, with the reason", async () => {
+    pipelines.people.people.set("developer", {
+      ...aPerson(),
+      card: { ...aPerson().card, taskLimit: "none" },
+    });
 
     expect(await refusalOf(service.edit(aTask(), quickFix))).toEqual([
-      "Stage 1 · Implement: Ada's Task limit is none, so developer only talks and can't work a Stage.",
+      "Stage 1 · Implement: Ada holds Implements, but their Task limit is none, so developer only talks and can't work a Stage; choose who holds it in Settings › Duties, or choose who works it.",
     ]);
   });
 
@@ -83,7 +86,8 @@ describe("Edit for this Task", () => {
     pipelines.roleEngines.incapableRoles.add("translator");
     const taskId = randomUUID();
     pipelines.tasks.put(taskId, { state: "ready", pipelineId: "quick-fix", projectId: "billing" });
-    const edited: Stage[] = [{ ...implement, role: "translator" }, ...rest];
+    const { duty: _implements, ...namingNobody } = implement;
+    const edited: Stage[] = [{ ...namingNobody, role: "translator" }, ...rest];
 
     expect(await service.check(taskId, edited)).toEqual([
       { text: "The translator's engine can't work an Agent Stage." },
@@ -93,6 +97,7 @@ describe("Edit for this Task", () => {
     ]);
     expect(pipelines.roleEngines.asked.at(-1)).toEqual({
       roleKeys: ["translator"],
+      dutyKeys: [],
       projectId: "billing",
     });
   });

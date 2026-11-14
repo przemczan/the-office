@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import type { OfficeWidePipeline, Role, StageTemplate } from "@the-office/contracts";
+import type { Duty, OfficeWidePipeline, Role, StageTemplate } from "@the-office/contracts";
 import { Badge, Button, Card, Icon, Menu, PickList, PickListItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { roleCardQueries, roleQueries } from "../../../api/people.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../../api/people.ts";
 import {
   duplicatePipeline,
   pipelineQueries,
@@ -42,13 +42,16 @@ export function PipelinesSection(): ReactNode {
   const library = useQuery(pipelineQueries.list());
   const templates = useQuery(stageTemplateQueries.list());
   const roles = useQuery(roleQueries.list());
+  const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
   const [making, setMaking] = useState<Making | undefined>();
   if (library.error)
     return <RefusalAlert title="The library can't be read" error={library.error} />;
   if (templates.error)
     return <RefusalAlert title="The Stage templates can't be read" error={templates.error} />;
-  if (!library.data || !templates.data || !roles.data || !options.data) return null;
+  if (!library.data || !templates.data || !roles.data || !duties.data || !options.data) {
+    return null;
+  }
   const openTemplate = making ? undefined : templates.data.find(({ id }) => id === stageTemplateId);
   const open =
     making || openTemplate
@@ -72,6 +75,7 @@ export function PipelinesSection(): ReactNode {
           templates={templates.data}
           open={openTemplate}
           roles={roles.data}
+          duties={duties.data}
           onMake={(kind) => setMaking({ what: "stage-template", kind })}
           onOpen={stopMaking}
         />
@@ -89,6 +93,7 @@ export function PipelinesSection(): ReactNode {
             }
             opened={openedTemplate}
             roles={roles.data}
+            duties={duties.data}
             options={options.data}
             onDone={stopMaking}
           />
@@ -101,6 +106,7 @@ export function PipelinesSection(): ReactNode {
               key={open?.id ?? "new"}
               pipeline={open}
               roles={roles.data}
+              duties={duties.data}
               options={options.data}
               onDone={stopMaking}
             />
@@ -247,12 +253,14 @@ function StageTemplateList({
   templates,
   open,
   roles,
+  duties,
   onMake,
   onOpen,
 }: {
   readonly templates: readonly StageTemplate[];
   readonly open: StageTemplate | undefined;
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[];
   readonly onMake: (kind: StageKind) => void;
   readonly onOpen: () => void;
 }): ReactNode {
@@ -268,6 +276,7 @@ function StageTemplateList({
           key={template.id}
           template={template}
           roles={roles}
+          duties={duties}
           picked={template.id === open?.id}
           onOpen={onOpen}
         />
@@ -313,11 +322,13 @@ function NewStageTemplateMenu({
 function StageTemplateItem({
   template,
   roles,
+  duties,
   picked,
   onOpen,
 }: {
   readonly template: StageTemplate;
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[];
   readonly picked: boolean;
   readonly onOpen: () => void;
 }): ReactNode {
@@ -332,7 +343,7 @@ function StageTemplateItem({
         label: STAGE_KIND_NAMES[stage.kind],
       }}
       name={stage.name}
-      line={whoWorks(stage, roles)}
+      line={whoWorks(stage, roles, undefined, duties)}
       warning={needsFixing ? "Needs fixing" : undefined}
       renderLink={(parts) => (
         <Link

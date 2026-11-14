@@ -80,11 +80,22 @@ export function trimmedRoleCard<Card extends RoleCard>(card: Card): Card {
 /** The models the engine listed as `engineId` offers now, none when it isn't listed; Engine answers. */
 export type ModelsOffered = (engineId: EngineId) => readonly string[];
 
+/**
+ * What a card is checked against beyond itself: the models each engine offers, the Roles a Hard
+ * switch or an MCP tool may consult (`consultableRoleKeys`), and who holds Default Consultant for
+ * MCP tool hard switches, if anyone.
+ */
+export interface RoleCardContext {
+  readonly modelsOffered: ModelsOffered;
+  readonly consultable: ReadonlySet<string>;
+  readonly mcpConsultant: string | undefined;
+}
+
 /** Why the card of the Role `roleKey` can't be saved, in the UI's words; empty when it can. */
 export function roleCardProblems(
   roleKey: string,
   card: RoleCard,
-  modelsOffered: ModelsOffered,
+  { modelsOffered, consultable, mcpConsultant }: RoleCardContext,
 ): string[] {
   const problems = [
     ...personNameProblems(card.name),
@@ -110,8 +121,15 @@ export function roleCardProblems(
   }
   const limitProblem = taskLimitProblem(card.taskLimit);
   if (limitProblem) problems.push(limitProblem);
-  problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches));
-  problems.push(...mcpToolSettingsProblems(roleKey, card.permissionProfile.mcpTools));
+  problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches, consultable));
+  problems.push(
+    ...mcpToolSettingsProblems(
+      roleKey,
+      card.permissionProfile.mcpTools,
+      consultable,
+      mcpConsultant,
+    ),
+  );
   problems.push(...builtInCardProblems(roleKey, card));
   return problems;
 }

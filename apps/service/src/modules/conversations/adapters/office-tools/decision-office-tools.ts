@@ -92,13 +92,13 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
-      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask a question; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask Devops to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, ask the user in your answer instead. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
+      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask a question; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, ask the user in your answer instead. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
           .string()
           .optional()
           .describe(
-            "Whom you consult or call, as your brief, your authority or the user names them, such as Devops; none when your brief says to ask the user.",
+            "Whom you consult or call, as your brief, your authority or the user names them, by their Role; none when your brief says to ask the user.",
           ),
         kind: z
           .enum(["question", "approval", "request"])
@@ -170,7 +170,7 @@ export class DecisionOfficeTools implements OnModuleInit {
             person: z
               .string()
               .optional()
-              .describe("Whom you pass it on to, such as CTO; none to pass it on to the user."),
+              .describe("Whom you pass it on to, by their Role; none to pass it on to the user."),
             why: z.string().describe("Why the call isn't yours to decide, in a sentence."),
           })
           .optional()

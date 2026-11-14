@@ -46,6 +46,7 @@ import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx"
 import { McpServersSection } from "./surfaces/settings/mcp-servers/mcp-servers-section.tsx";
 import { OfficeIdentitySection } from "./surfaces/settings/office-identity/office-identity-section.tsx";
 import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx";
+import { DutiesSection } from "./surfaces/settings/duties/duties-section.tsx";
 import { SigningInSection } from "./surfaces/settings/signing-in/signing-in-section.tsx";
 import { UsersSection } from "./surfaces/settings/users/users-section.tsx";
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
@@ -516,6 +517,13 @@ const settingsStageTemplateRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsDutiesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "duties",
+  component: DutiesSection,
+  staticData: { title: "Settings" },
+});
+
 const settingsSkillsRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "skills",
@@ -656,6 +664,7 @@ export const router = createRouter({
       settingsPipelinesRoute,
       settingsPipelineRoute,
       settingsStageTemplateRoute,
+      settingsDutiesRoute,
       settingsSkillsRoute,
       settingsMcpServersRoute,
       settingsEnginesRoute,

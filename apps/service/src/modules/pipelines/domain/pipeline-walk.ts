@@ -68,7 +68,9 @@ export type NextMove =
    * (spec §2.3).
    */
   | { readonly move: "skip"; readonly stage: Stage }
-  /** The last run is still running, the Decision opened on it waits on the user, or its Gate does. */
+  /**
+   * The last run is still running, the Decision opened on it waits on the user, or its Gate does.
+   */
   | { readonly move: "wait"; readonly run: StageRun }
   /** Ask the user, with a Decision opened on the last run. */
   | { readonly move: "ask"; readonly run: StageRun; readonly question: WalkQuestion }
@@ -112,9 +114,9 @@ const DEFINITION_OF_DONE_ROUNDS = "definition of done";
  * failure go back to Stage X, at most N times", with the user asked when a Stage fails with no
  * retries left and when the Definition of Done isn't reported met at the end, and waiting at each
  * Gate for the user, who may send the work back to an earlier Stage without using a round. The
- * position, each loop's rounds, the user's answers and Gate actions are replayed from the Task's Stage runs, oldest first, so
- * they are kept nowhere else. A loop's rounds belong to the Stage that owns it and count over the
- * whole Task: going back again never resets them.
+ * position, each loop's rounds, the user's answers and Gate actions are replayed from the Task's
+ * Stage runs, oldest first, so they are kept nowhere else. A loop's rounds belong to the Stage that
+ * owns it and count over the whole Task: going back again never resets them.
  */
 export function nextMove(
   stages: readonly Stage[],
@@ -326,7 +328,8 @@ function afterFailure(
 
 /**
  * The Task's tokens reached the Stage's budget, which always asks the user (spec §2.3), never a
- * loop: a raise runs the Stage again as it was briefed; the raise itself is replayed by `stageBudget`.
+ * loop: a raise runs the Stage again as it was briefed; the raise itself is replayed by
+ * `stageBudget`.
  */
 function afterBudget(
   walk: Walk,
@@ -412,9 +415,9 @@ function afterBaseMoved(
 
 /**
  * Publish shipped the work, but its after publishing line failed (spec §2.3 Loops): the user is
- * asked straight away, through the CTO first, using no round, as going back can't unship it. Retry
- * and Continue both stay at the Publish Stage: its next run finds the publication kept and runs
- * only the after line, or, after Continue, ends done with the failure noted.
+ * asked straight away, through a Consultant first, using no round, as going back can't unship it.
+ * Retry and Continue both stay at the Publish Stage: its next run finds the publication kept and
+ * runs only the after line, or, after Continue, ends done with the failure noted.
  */
 function afterPublishingFailed(
   run: StageRun,
@@ -471,8 +474,8 @@ function afterBranchMoved(
 }
 
 /**
- * Resolve gave up, or left a conflict that came back too often to the user, who is asked
- * directly, not the CTO (spec §2.3): once they resolved it in the worktree Resolve runs again to
+ * Resolve gave up, or left a conflict that came back too often to the user, who is asked directly,
+ * not a Consultant first (spec §2.3): once they resolved it in the worktree Resolve runs again to
  * commit it, words of their own guide one more round of Resolve, or they drop the Task.
  */
 function afterResolveGaveUp(
@@ -631,7 +634,9 @@ function goBack(
   };
 }
 
-/** What to do differently in a round, and whose words they are, as its carried failure keeps them. */
+/**
+ * What to do differently in a round, and whose words they are, as its carried failure keeps them.
+ */
 type Guided = Pick<CarriedFailure, "guidance" | "guidedBy">;
 
 type OneMoreRound = Extract<WalkAnswer, { readonly kind: "one-more-round" }>;

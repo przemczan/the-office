@@ -17,6 +17,10 @@ import { aRole, aRoleCard } from "../domain/role.fixtures.js";
 import { RoleCardVersionNotFound } from "../domain/role-card-version-not-found.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRepository } from "../ports/role-repository.js";
+import { Duties } from "./duties.js";
+import { DutyChangeChecks } from "./duty-change-checks.js";
+import { DutyRepository } from "../ports/duty-repository.js";
+import { DutyRepositoryForTests } from "../ports/duty-repository.fixtures.js";
 import { ANN_LEE } from "../domain/user.fixtures.js";
 import { RoleCards } from "./role-cards.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
@@ -43,9 +47,12 @@ beforeAll(async () => {
     ],
     providers: [
       { provide: RoleRepository, useClass: PostgresRoleRepository },
+      { provide: DutyRepository, useClass: DutyRepositoryForTests },
       RoleService,
       RoleOverrideChecks,
       RoleCards,
+      Duties,
+      DutyChangeChecks,
     ],
   }));
   roleCards = app.get(RoleCards);
@@ -67,8 +74,9 @@ describe("RoleCards", () => {
     await roles.changeCard(role.key, aRoleCard({ effort: "medium", taskLimit: 2 }), [], ANN_LEE);
     const after = await roleCards.forNewSession(role.key);
 
-    expect(before).toEqual({ roleKey: role.key, cardVersion: 1, card: role.card });
-    expect(after).toEqual({
+    // Where an MCP tool starts follows Devops, whom roles.controller.test hires and lets go.
+    expect(before).toMatchObject({ roleKey: role.key, cardVersion: 1, card: role.card });
+    expect(after).toMatchObject({
       roleKey: role.key,
       cardVersion: 2,
       card: aRoleCard({ effort: "medium", taskLimit: 2 }),
@@ -86,12 +94,30 @@ describe("RoleCards", () => {
     const role = aRole({ key: `role-${randomUUID()}` });
     await repository.add(role);
 
-    await expect(roleCards.find(role.key)).resolves.toEqual({
+    await expect(roleCards.find(role.key)).resolves.toMatchObject({
       roleKey: role.key,
       cardVersion: 1,
       card: role.card,
     });
     await expect(roleCards.find(`role-${randomUUID()}`)).resolves.toBeUndefined();
+  });
+
+  it("gives a session the MCP tool default of whoever holds the MCP duty as it starts", async () => {
+    const card = aRoleCard();
+    const ops = aRole({
+      key: `ops-${randomUUID()}`,
+      card: { ...card, capabilities: { ...card.capabilities, consultant: true } },
+    });
+    await repository.add(ops);
+
+    await app.get(Duties).change("mcp-tool-consultant", ops.key);
+    const consulting = await roleCards.forNewSession(ops.key);
+    await app.get(Duties).change("mcp-tool-consultant", null);
+    const resumed = await roleCards.forResumedSession(ops.key, 1);
+
+    expect(consulting.mcpToolDefault).toEqual({ kind: "consult", role: ops.key });
+    expect(resumed.mcpToolDefault).toEqual({ kind: "ask-me" });
+    expect(await roleCards.holderOf("mcp-tool-consultant")).toBeUndefined();
   });
 
   it("gives no session to a person let go, new or resumed, until they are hired back", async () => {

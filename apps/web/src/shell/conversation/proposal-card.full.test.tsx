@@ -1,10 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Proposal, ProposalStatus, Stage } from "@the-office/contracts";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
+import type { Preset, Proposal, ProposalStatus, Stage } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { officeInstructionsQuery } from "../../api/conversations.ts";
+import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { DEVOPS, dutyOf, PLANNER } from "../duty-words.fixtures.ts";
 import { ToastProvider } from "../toasts.tsx";
 import { BY_ANN, BY_YOU, signIn } from "../user.fixtures.ts";
 import { ProposalCard } from "./proposal-card.tsx";
@@ -341,5 +349,228 @@ describe("ProposalCard on the CTO's change of an Initiative's Pipeline", () => {
       expect(card.textContent).toContain("Initiative's PipelineFull with Linux check"),
     );
     expect(card.textContent).toContain("Projectthe-office");
+  });
+});
+
+function readingQueries(): QueryClient {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER, DEVOPS]);
+  queryClient.setQueryData(dutyQueries.list().queryKey, [
+    dutyOf("plans", "Plans", "planner", PLANNER),
+    dutyOf("reviews", "Reviews", "planner", PLANNER),
+  ]);
+  return queryClient;
+}
+
+describe("ProposalCard on a change of duties", () => {
+  const change: Proposal["change"] = {
+    kind: "duties",
+    from: { reviews: "planner", plans: "planner" },
+    to: { plans: "devops", reviews: null },
+  };
+
+  it("shows each duty's holder as it was and as proposed, in the duties' order", () => {
+    serviceAnswering(proposalOf(change));
+    const card = cardOf({ ...proposalOf(change), draftedBy: "office-manager" }, readingQueries());
+
+    expect(card.textContent).toContain("Change duties");
+    const rows = [...card.querySelectorAll(".proposal-changes li")].map(
+      ({ textContent }) => textContent,
+    );
+    expect(rows).toEqual([
+      "PlansAngela · PlannerDwight · Devops",
+      "ReviewsAngela · PlannerNobodyPipelines whose Stages name it are flagged, and Start is refused.",
+    ]);
+    expect(card.textContent).toContain("Refused if it changes before you apply this");
+  });
+
+  it("applies, refreshing the duties", async () => {
+    const fetched = serviceAnswering(proposalOf(change, { kind: "applied", at: AT, by: null }));
+    const queryClient = readingQueries();
+    const refreshed = vi.spyOn(queryClient, "invalidateQueries");
+    const card = cardOf(proposalOf(change), queryClient);
+
+    await act(async () => {
+      button(card, "Apply change").click();
+      await vi.waitFor(() => expect(refreshed).toHaveBeenCalledTimes(2));
+    });
+
+    expect(fetched).toHaveBeenCalledWith(
+      `/api/proposals/${PROPOSAL_ID}/apply`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: dutyQueries.list().queryKey });
+    expect(document.body.textContent).toContain("Duties changed.");
+  });
+
+  it("shows a refusal and stays open", async () => {
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve(
+        Response.json(
+          { message: "Plans was changed meanwhile, so this change no longer applies." },
+          { status: 409 },
+        ),
+      ),
+    );
+    const card = cardOf(proposalOf(change), readingQueries());
+
+    await act(async () => {
+      button(card, "Apply change").click();
+      await vi.waitFor(() => expect(card.textContent).toContain("can't be applied yet"));
+    });
+
+    expect(card.textContent).toContain("Plans was changed meanwhile");
+    expect(button(card, "Not now").disabled).toBe(false);
+  });
+});
+
+/** The set-up card's duties table, a row's words each. */
+function rowsOf(card: HTMLElement): string[] {
+  return [...card.querySelectorAll(".proposal-setup-duties tbody tr")].map(
+    ({ textContent }) => textContent,
+  );
+}
+
+describe("ProposalCard on the set-up of The Office", () => {
+  const planner = {
+    roleKey: "planner",
+    suggestedName: "Jan",
+    card: {
+      title: "Planner",
+      responsibilities: "Writes each Task's Plan.",
+      capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
+    },
+    duties: ["plans"],
+  } as unknown as Preset;
+  const change: Extract<Proposal["change"], { kind: "office-setup" }> = {
+    kind: "office-setup",
+    hires: [
+      { kind: "hire-from-preset", roleKey: "planner", name: "Jan" },
+      {
+        kind: "hire",
+        roleKey: "data-analyst",
+        card: {
+          name: "Max",
+          title: "Data Analyst",
+          responsibilities: "Reads the numbers.",
+          instructions: "Say where each number comes from.",
+          roleOverride: null,
+          effort: "medium",
+          capabilities: {
+            sharedMemory: false,
+            chat: true,
+            consultant: false,
+            runEnvironment: false,
+          },
+          permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
+          hardSwitches: {
+            runInstalls: { kind: "never" },
+            publishOutsideThePipeline: { kind: "never" },
+            changeRoles: { kind: "never" },
+          },
+          taskLimit: "none",
+          sessionDefault: "context-policy",
+          skills: [],
+        },
+      },
+    ],
+    duties: [{ duty: "reviews", from: "reviewer", to: "data-analyst" }],
+    hiredKeys: null,
+  };
+
+  /** A fresh Office: only the Caretaker, every duty at its default Role key. */
+  function freshOffice(): QueryClient {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+    queryClient.setQueryData(roleQueries.list().queryKey, []);
+    queryClient.setQueryData(roleCardQueries.presets().queryKey, [planner]);
+    queryClient.setQueryData(dutyQueries.list().queryKey, [
+      dutyOf("plans", "Plans", "planner", null),
+      dutyOf("implements", "Implements", "developer", null),
+      dutyOf("reviews", "Reviews", "reviewer", null),
+    ]);
+    return queryClient;
+  }
+
+  it("lists each hire, from the preset or from scratch, and every duty's holder after it", () => {
+    serviceAnswering(proposalOf(change));
+    const card = cardOf({ ...proposalOf(change), draftedBy: "caretaker" }, freshOffice());
+
+    expect(card.textContent).toContain("Set up The Office");
+    const hires = [...card.querySelectorAll(".proposal-setup-hire")].map(
+      ({ textContent }) => textContent,
+    );
+    expect(hires).toEqual([
+      "Jan · Plannerfrom the presetShared memoryChatConsultantWrites each Task's Plan.",
+      "Max · Data Analystfrom scratchChatReads the numbers.",
+    ]);
+    expect(rowsOf(card)).toEqual([
+      "PlansJan · Planner",
+      "ImplementsNobodyPipelines whose Stages name it are flagged, and Start is refused.",
+      "ReviewsMax · Data AnalystAssigned",
+    ]);
+    expect(button(card, "Hire 2 and assign duties")).toBeDefined();
+    expect(button(card, "Not now")).toBeDefined();
+  });
+
+  it("applies, refreshing the people and the duties", async () => {
+    const fetched = serviceAnswering(proposalOf(change, { kind: "applied", at: AT, by: null }));
+    const queryClient = freshOffice();
+    const refreshed = vi.spyOn(queryClient, "invalidateQueries");
+    const card = cardOf(proposalOf(change), queryClient);
+
+    await act(async () => {
+      button(card, "Hire 2 and assign duties").click();
+      await vi.waitFor(() => expect(refreshed).toHaveBeenCalledTimes(3));
+    });
+
+    expect(fetched).toHaveBeenCalledWith(
+      `/api/proposals/${PROPOSAL_ID}/apply`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: roleQueries.list().queryKey });
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: dutyQueries.list().queryKey });
+    expect(document.body.textContent).toContain("The Office is set up.");
+  });
+
+  it("links each person hired once applied", async () => {
+    const applied = proposalOf(
+      { ...change, hiredKeys: ["planner", "data-analyst"] },
+      { kind: "applied", at: AT, by: BY_YOU },
+    );
+    const queryClient = freshOffice();
+    signIn(queryClient);
+    const rootRoute = createRootRoute({
+      component: () => (
+        <ToastProvider>
+          <ProposalCard proposal={applied} />
+        </ToastProvider>
+      ),
+    });
+    const router = createRouter({
+      routeTree: rootRoute,
+      history: createMemoryHistory({ initialEntries: ["/"] }),
+    });
+    const page = document.createElement("div");
+    document.body.append(page);
+    await act(async () => {
+      const root = createRoot(page);
+      mounted.push({ root, page });
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>,
+      );
+      await router.load();
+    });
+
+    const links = [...page.querySelectorAll(".proposal-setup-hire a")].map((link) => [
+      link.textContent,
+      link.getAttribute("href"),
+    ]);
+    expect(links).toEqual([
+      ["Jan · Planner", "/people/planner"],
+      ["Max · Data Analyst", "/people/data-analyst"],
+    ]);
+    expect(page.textContent).toContain("Applied");
   });
 });

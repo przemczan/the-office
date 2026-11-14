@@ -8,6 +8,7 @@ import {
   WorkRecords,
 } from "../../conversations/index.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
+import { DUTIES } from "../../people/index.js";
 import { TaskBases, type NewProject, type TaskBaseLookup } from "../../projects/index.js";
 import type { AccountWindowsReading, UsedUpWindowReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
@@ -260,6 +261,25 @@ export class KnownPeopleForTests extends KnownPeople {
       },
     };
   }
+
+  /**
+   * The Role holding each duty, by duty key: its default Role (the CTO shapes Initiatives, the
+   * Planner plans) until a test moves it with `hold`, to another Role or to nobody.
+   */
+  private readonly holders = new Map<string, string | undefined>(
+    DUTIES.map((duty) => [duty.key, duty.defaultRoleKey]),
+  );
+
+  /** `duty` goes to the Role keyed `roleKey`, or to nobody. */
+  hold(duty: string, roleKey: string | undefined): void {
+    this.holders.set(duty, roleKey);
+  }
+
+  /** As People answers: the holder only while their Role is filled. */
+  async holderOf(duty: string): Promise<string | undefined> {
+    const holder = this.holders.get(duty);
+    return holder === undefined || this.vacant.has(holder) ? undefined : holder;
+  }
 }
 
 /**
@@ -365,8 +385,11 @@ export class FireAlarmRepositoryForTests extends FireAlarmRepository {
 /** Each session is the Planner's, but UNKNOWN_SESSION. */
 @Injectable()
 export class SessionPeopleForTests extends SessionPeople {
+  /** The Role key of the person in each session a test names; the Planner in any other. */
+  readonly people = new Map<string, string>();
+
   async personInSession(sessionId: string): Promise<string | undefined> {
-    return sessionId === UNKNOWN_SESSION ? undefined : "planner";
+    return sessionId === UNKNOWN_SESSION ? undefined : (this.people.get(sessionId) ?? "planner");
   }
 }
 

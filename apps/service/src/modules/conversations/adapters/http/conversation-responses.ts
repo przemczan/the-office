@@ -18,6 +18,7 @@ import type { ThreadReading } from "../../application/thread-contexts.js";
 import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
+import { hiredKeyOf } from "../../../people/index.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
@@ -191,6 +192,23 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
       return { kind: change.kind, from: change.from, to: change.to };
     case "office-instructions":
       return { kind: change.kind, from: change.from, to: change.to };
+    case "duties":
+      return { kind: change.kind, from: change.from, to: change.to };
+    case "office-setup":
+      return {
+        kind: "office-setup",
+        hires: change.hires.map((hire) =>
+          hire.kind === "hire"
+            ? {
+                kind: "hire",
+                card: { ...hire.card, skills: [...hire.skills] },
+                roleKey: hiredKeyOf(hire),
+              }
+            : { kind: "hire-from-preset", roleKey: hire.roleKey, name: hire.name },
+        ),
+        duties: change.duties.map(({ duty, from, to }) => ({ duty, from, to })),
+        hiredKeys: change.hiredKeys ? [...change.hiredKeys] : null,
+      };
     case "initiative":
       return {
         kind: "initiative",

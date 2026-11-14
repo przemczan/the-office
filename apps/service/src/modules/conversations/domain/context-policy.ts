@@ -1,4 +1,5 @@
 import type { EngineId } from "../../engine/index.js";
+import { SESSION_SHAPING_DUTIES } from "./session-instructions.js";
 import type { ContextOverride, ThreadSession } from "./thread.js";
 
 /** A person's default for a Thread whose cache has cooled, from their Role card (spec §9). */
@@ -33,7 +34,9 @@ export type ContextReason =
   /** The person's Role card picks another engine than the session runs on, which can't resume it. */
   | "engine-changed"
   /** The user allowed changes in the Caretaker's Thread or switched them off: other rules apply. */
-  | "changes-switched";
+  | "changes-switched"
+  /** The person holds other duties than as the session started, so other tools (spec §2.2). */
+  | "duties-changed";
 
 export interface ContextPolicySettings {
   /** How long the prompt cache stays warm after a call. */
@@ -72,6 +75,7 @@ export interface Continuation {
         | "startContextTokens"
         | "full"
         | "changesAllowed"
+        | "heldDuties"
       >
     | undefined;
   /** Who answers next, by the key of the Role they fill. */
@@ -90,6 +94,8 @@ export interface Continuation {
   readonly briefTokens: number;
   /** Whether changes are allowed in the Thread now (a Caretaker's, spec §2.4); undefined is no. */
   readonly changesAllowed?: boolean;
+  /** The duties the person holds now, which decide their built-in tools; undefined when unknown. */
+  readonly heldDuties?: readonly string[];
 }
 
 /** What the user may choose instead, with its estimated cost in tokens. */
@@ -111,8 +117,8 @@ export interface ContextDecision {
   readonly briefTokens: number | undefined;
   /**
    * "Start fresh" with what a Brief takes, or "Continue anyway" with the context to read back or
-   * re-cache; none for a new Thread, a hand-off, a full context, a changed engine or a switch of
-   * Allow changes, which have no session to choose between.
+   * re-cache; none for a new Thread, a hand-off, a full context, a changed engine, a switch of
+   * Allow changes or duties moved, which have no session to choose between.
    */
   readonly alternatives: readonly ContextAlternative[];
 }
@@ -154,6 +160,14 @@ export function decideContext(
       contextTokens: session.contextTokens,
       move: "fresh",
       reason: "changes-switched",
+    };
+  }
+  if (dutiesChanged(session.heldDuties, continuation.heldDuties)) {
+    return {
+      ...withoutSession(briefTokens),
+      contextTokens: session.contextTokens,
+      move: "fresh",
+      reason: "duties-changed",
     };
   }
   const cacheWarmUntil = warmUntil(session.lastCallAt, continuation.now, settings);
@@ -215,6 +229,18 @@ function warmUntil(
   if (lastCallAt === undefined) return undefined;
   const until = lastCallAt.getTime() + cacheLifetimeMs;
   return now.getTime() < until ? new Date(until) : undefined;
+}
+
+/**
+ * Whether the person holds other duties than as the session started, among those its tools and
+ * instructions depend on; unknown is not.
+ */
+function dutiesChanged(
+  started: readonly string[] | undefined,
+  now: readonly string[] | undefined,
+): boolean {
+  if (started === undefined || now === undefined) return false;
+  return SESSION_SHAPING_DUTIES.some((duty) => started.includes(duty) !== now.includes(duty));
 }
 
 function withoutSession(briefTokens: number): Omit<ContextDecision, "move" | "reason"> {

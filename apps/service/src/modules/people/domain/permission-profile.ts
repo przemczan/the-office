@@ -1,11 +1,12 @@
+import { mcpToolDefault } from "./duties.js";
 import type { HardSwitchValue } from "./hard-switches.js";
 import {
-  MCP_TOOL_DEFAULT,
   mcpToolSettingsProblems,
   narrowedMcpToolSetting,
   noWiderThan,
   type McpToolSettings,
 } from "./mcp-tool-settings.js";
+import type { RoleCardContext } from "./role-card.js";
 
 /**
  * Which commands an Agent may run. Read-only git is allowed under each, and none allows a git command
@@ -43,19 +44,26 @@ export interface PermissionNarrowing {
   readonly mcpTools?: McpToolSettings;
 }
 
-/** The card's profile under a Stage's narrowing: each part the narrower of the two. */
+/**
+ * The card's profile under a Stage's narrowing: each part the narrower of the two, an MCP tool the
+ * card leaves unset standing at `toolDefault`.
+ */
 export function narrowedPermissionProfile(
   profile: PermissionProfile,
   narrowing: PermissionNarrowing | undefined,
+  toolDefault: HardSwitchValue,
 ): PermissionProfile {
   if (!narrowing) return profile;
   return {
     edit: profile.edit && narrowing.edit === undefined,
     run: narrowing.run && runNoWiderThan(narrowing.run, profile.run) ? narrowing.run : profile.run,
     web: profile.web && narrowing.web === undefined,
-    mcpTools: narrowedMcpTools(profile.mcpTools, narrowing.mcpTools ?? {}),
+    mcpTools: narrowedMcpTools(profile.mcpTools, narrowing.mcpTools ?? {}, toolDefault),
   };
 }
+
+/** What a Stage's narrowing is checked against, as a card is. */
+export type PermissionNarrowingContext = Pick<RoleCardContext, "consultable" | "mcpConsultant">;
 
 /**
  * Why a Stage's narrowing of `roleKey`'s profile can't stand, in the UI's words; empty when it can.
@@ -65,15 +73,16 @@ export function permissionNarrowingProblems(
   roleKey: string,
   profile: PermissionProfile,
   narrowing: PermissionNarrowing,
+  { consultable, mcpConsultant }: PermissionNarrowingContext,
 ): string[] {
   const problems: string[] = [];
   if (narrowing.run && !runNoWiderThan(narrowing.run, profile.run)) {
     problems.push("the run permission can only be narrowed from the Role card's.");
   }
   const mcpTools = narrowing.mcpTools ?? {};
-  for (const problem of mcpToolSettingsProblems(roleKey, mcpTools)) problems.push(problem);
+  problems.push(...mcpToolSettingsProblems(roleKey, mcpTools, consultable, mcpConsultant));
   for (const [key, setting] of Object.entries(mcpTools)) {
-    if (!noWiderThan(setting, cardMcpToolSetting(profile.mcpTools, key))) {
+    if (!noWiderThan(setting, profile.mcpTools[key] ?? mcpToolDefault(mcpConsultant))) {
       problems.push(`the MCP tool ${key} can only be narrowed from the Role card's setting.`);
     }
   }
@@ -85,16 +94,13 @@ function runNoWiderThan(run: RunPermission, than: RunPermission): boolean {
 }
 
 /** The card's settings with the Stage's applied: the tools either sets, each the narrower one. */
-function narrowedMcpTools(card: McpToolSettings, stage: McpToolSettings): McpToolSettings {
+function narrowedMcpTools(
+  card: McpToolSettings,
+  stage: McpToolSettings,
+  toolDefault: HardSwitchValue,
+): McpToolSettings {
   const keys = new Set([...Object.keys(card), ...Object.keys(stage)]);
   return Object.fromEntries(
-    [...keys].map((key) => [
-      key,
-      narrowedMcpToolSetting(cardMcpToolSetting(card, key), stage[key]),
-    ]),
+    [...keys].map((key) => [key, narrowedMcpToolSetting(card[key] ?? toolDefault, stage[key])]),
   );
-}
-
-function cardMcpToolSetting(card: McpToolSettings, key: string): HardSwitchValue {
-  return card[key] ?? MCP_TOOL_DEFAULT;
 }

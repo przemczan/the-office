@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Stage } from "./stage.js";
 import { type StageRunDecision } from "./stage-run.js";
-import { asksTheCtoFirst, walkAnswerOf, walkDecision } from "./walk-decisions.js";
+import { asksAConsultantFirst, walkAnswerOf, walkDecision } from "./walk-decisions.js";
 import { implement, tests, aRun, failed } from "./walk-decisions.fixtures.js";
 
 describe("walkDecision", () => {
@@ -115,10 +115,10 @@ describe("the base-moved Decision", () => {
   });
 });
 
-describe("asksTheCtoFirst", () => {
+describe("asksAConsultantFirst", () => {
   const noRetriesLeft = { kind: "no-retries-left", stage: tests, error: "2 tests fail." } as const;
 
-  it("puts a Stage failing with no retries left to the CTO", () => {
-    expect(asksTheCtoFirst(noRetriesLeft, [aRun("tests", failed)])).toBe(true);
+  it("puts a Stage failing with no retries left to a Consultant first", () => {
+    expect(asksAConsultantFirst(noRetriesLeft, [aRun("tests", failed)])).toBe(true);
   });
 });

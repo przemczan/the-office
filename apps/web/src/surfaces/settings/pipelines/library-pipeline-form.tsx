@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { Pipeline, PipelineEdit, Role, RoleCardOptions } from "@the-office/contracts";
+import type { Duty, Pipeline, PipelineEdit, Role, RoleCardOptions } from "@the-office/contracts";
 import { Alert, Button, Card, Input, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
@@ -31,12 +31,14 @@ const NEW_PIPELINE: PipelineEdit = { name: "", description: "", stages: [] };
 export function LibraryPipelineForm({
   pipeline,
   roles,
+  duties,
   options,
   onDone,
 }: {
   /** Undefined while the user makes a new Pipeline. */
   readonly pipeline: Pipeline | undefined;
   readonly roles: readonly Role[];
+  readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   /** Told once a new Pipeline is added, or its making is given up. */
   readonly onDone: () => void;
@@ -97,6 +99,7 @@ export function LibraryPipelineForm({
             flags={check.data?.flags ?? []}
             problemsTitle="The Pipeline can't be saved yet"
             roles={roles}
+            duties={duties}
             options={options}
             commands={commands}
           />

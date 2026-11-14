@@ -21,6 +21,7 @@ import { ConversationsEarlierRecords } from "./adapters/postgres/conversations-e
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresOfficeInstructionsRepository } from "./adapters/postgres/postgres-office-instructions-repository.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
+import { DutyProposals } from "./adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "./adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "./adapters/proposals/size-threshold-proposals.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
@@ -156,6 +157,7 @@ export class ConversationsModule {
         SkillProposals,
         SizeThresholdProposals,
         OfficeInstructionsProposals,
+        DutyProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
         ProposalOfficeTools,

@@ -9,6 +9,10 @@ import {
   switchesAskingYouUntilHired,
   type HardSwitches,
 } from "./hard-switches.js";
+import { consultableRoleKeys } from "./presets.js";
+
+/** The presets' Roles, and a Role hired from scratch under `data-analyst`. */
+const CONSULTABLE = consultableRoleKeys(["data-analyst", "caretaker"]);
 
 const switches = (fields: Partial<HardSwitches> = {}): HardSwitches => ({
   runInstalls: consult("devops"),
@@ -21,14 +25,18 @@ describe("hardSwitchesProblems", () => {
   it.each([ALLOWED, ASK_ME, NEVER, consult("planner")])(
     "accepts %o for a followed switch",
     (value) => {
-      expect(hardSwitchesProblems("developer", switches({ runInstalls: value }))).toEqual([]);
+      expect(
+        hardSwitchesProblems("developer", switches({ runInstalls: value }), CONSULTABLE),
+      ).toEqual([]);
     },
   );
 
   it.each([ALLOWED, ASK_ME, NEVER, consult("cto")])(
     "accepts %o for Change Roles, an enforced switch",
     (value) => {
-      expect(hardSwitchesProblems("developer", switches({ changeRoles: value }))).toEqual([]);
+      expect(
+        hardSwitchesProblems("developer", switches({ changeRoles: value }), CONSULTABLE),
+      ).toEqual([]);
     },
   );
 
@@ -39,12 +47,23 @@ describe("hardSwitchesProblems", () => {
         runInstalls: consult("janitor"),
         publishOutsideThePipeline: consult("developer"),
       }),
+      CONSULTABLE,
     );
 
     expect(problems).toEqual([
       "Run installs consults a Role The Office doesn't know.",
       "Publish outside the Pipeline can't consult the Role itself.",
     ]);
+  });
+
+  it("lets a switch consult a Role hired from scratch, but never the Caretaker", () => {
+    expect(
+      hardSwitchesProblems(
+        "developer",
+        switches({ runInstalls: consult("data-analyst"), changeRoles: consult("caretaker") }),
+        CONSULTABLE,
+      ),
+    ).toEqual(["Change Roles consults a Role The Office doesn't know."]);
   });
 });
 

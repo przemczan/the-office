@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { openPageSchema } from "./open-page.js";
-import { roleCardSchema } from "./people.js";
+import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { stageChangeSchema, stageSchema } from "./stages.js";
@@ -55,6 +55,7 @@ export const contextReasonSchema = z.enum([
   "context-full",
   "engine-changed",
   "changes-switched",
+  "duties-changed",
 ]);
 export type ContextReason = z.infer<typeof contextReasonSchema>;
 
@@ -364,6 +365,9 @@ export const PROPOSE_ROLE_TOOL = "propose_role";
 /** The Office tool the Office Manager drafts a Proposal of an Office setting with, hidden alike. */
 export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 
+/** The Office tool the Caretaker drafts the set-up of The Office with, hidden alike. */
+export const PROPOSE_OFFICE_SETUP_TOOL = "propose_office_setup";
+
 /** The Office tool the Office Manager posts a Link card with, hidden alike behind the card. */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
@@ -412,6 +416,10 @@ export const projectPipelineFieldsSchema = z.object({
 });
 export type ProjectPipelineFields = z.infer<typeof projectPipelineFieldsSchema>;
 
+/** Duties by key, each to the key of the Role holding it, or null for none; only those named. */
+export const dutyHoldersSchema = z.partialRecord(dutyKeySchema, z.string().nullable());
+export type DutyHolders = z.infer<typeof dutyHoldersSchema>;
+
 /** What a Proposal changes, by kind; the module that owns each kind applies it. */
 export const proposedChangeSchema = z.discriminatedUnion("kind", [
   /** A new Role, hired from scratch on this card (with its skills) when the user applies it. */
@@ -439,7 +447,31 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("size-threshold"), from: z.number(), to: z.number() }),
   /** New Office instructions, whole, and the text when drafted; `to` empty would empty them. */
   z.object({ kind: z.literal("office-instructions"), from: z.string(), to: z.string() }),
-  /** A change the CTO wants to an active Initiative; Work applies it. */
+  /**
+   * New holders for some duties, each a hired Role's key or null for none, and their holders when
+   * drafted; both name only the duties that change. Applying changes them all or none.
+   */
+  z.object({ kind: z.literal("duties"), from: dutyHoldersSchema, to: dutyHoldersSchema }),
+  /**
+   * The Caretaker's set-up of The Office: people to hire, from presets or from scratch, and the
+   * duties that go to another Role, each with the Role key it named when drafted (`from`); `to` may
+   * name a Role one of the hires fills. Applied all or none; `hiredKeys` is null until then.
+   */
+  z.object({
+    kind: z.literal("office-setup"),
+    hires: z.array(
+      z.discriminatedUnion("kind", [
+        z.object({ kind: z.literal("hire-from-preset"), roleKey: z.string(), name: z.string() }),
+        /** `roleKey` is the key the card's title makes, which a duty of the same set-up names. */
+        z.object({ kind: z.literal("hire"), card: roleCardSchema, roleKey: z.string() }),
+      ]),
+    ),
+    duties: z.array(
+      z.object({ duty: dutyKeySchema, from: z.string().nullable(), to: z.string().nullable() }),
+    ),
+    hiredKeys: z.array(z.string()).nullable(),
+  }),
+  /** A change whoever shapes Initiatives wants to an active Initiative; Work applies it. */
   z.object({
     kind: z.literal("initiative"),
     initiativeId: z.uuid(),

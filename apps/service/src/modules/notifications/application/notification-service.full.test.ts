@@ -23,7 +23,7 @@ import {
   UsageWindowUsedUp,
 } from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
-import { CTO } from "../../people/index.js";
+import { CARETAKER } from "../../people/index.js";
 import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
 import {
   InitiativeStateChanged,
@@ -224,9 +224,9 @@ describe("NotificationService", () => {
     expect(cleared).toEqual([raised[0]?.notification.id]);
   });
 
-  it("tells a Stage failing with no retries left, unless it was put to the CTO first", async () => {
-    const [toTheCto, toTheUser] = [randomUUID(), randomUUID()];
-    for (const taskId of [toTheCto, toTheUser]) {
+  it("tells a Stage failing with no retries left, unless it was put to a Consultant first", async () => {
+    const [toAConsultant, toTheUser] = [randomUUID(), randomUUID()];
+    for (const taskId of [toAConsultant, toTheUser]) {
       app.get(OfficeTasksForTests).people.set(taskId, "developer");
       app.get(TaskStageProgressForTests).stages.set(taskId, [
         {
@@ -237,7 +237,7 @@ describe("NotificationService", () => {
       ]);
     }
 
-    await events.publish(new NoRetriesLeft(toTheCto, "measure", "2 tests fail.", CTO));
+    await events.publish(new NoRetriesLeft(toAConsultant, "measure", "2 tests fail.", "architect"));
     await events.publish(new NoRetriesLeft(toTheUser, "measure", "2 tests fail.", undefined));
 
     expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
@@ -306,12 +306,12 @@ describe("NotificationService", () => {
     expect(cleared).toEqual([raised[0]?.notification.id]);
   });
 
-  it("tells an Initiative done, from the CTO once hired, and clears it when the user opens it", async () => {
+  it("tells an Initiative done, from whoever holds Shapes Initiatives, and clears it when the user opens it", async () => {
     const [first, second] = [randomUUID(), randomUUID()];
 
     await events.publish(new InitiativeStateChanged(first, "shaping", "active"));
     await events.publish(new InitiativeStateChanged(first, "active", "done"));
-    app.get(KnownPeopleForTests).hired.add("cto");
+    app.get(KnownPeopleForTests).holders.set("shapes-initiatives", "architect");
     // Past the batching window, so the second isn't collapsed with the first.
     await schedule.advanceBy(3 * 60_000);
     await events.publish(new InitiativeStateChanged(second, "active", "done"));
@@ -325,7 +325,7 @@ describe("NotificationService", () => {
         channels: ["in-app", "desktop"],
       }),
       expect.objectContaining({
-        roleKey: "cto",
+        roleKey: "architect",
         line: "Our Initiative is done: every one of its Tasks is Done.",
         pointsTo: { kind: "initiative", initiativeId: second },
       }),
@@ -362,12 +362,13 @@ describe("NotificationService", () => {
     expect(raised.map(({ notification }) => notification)).toEqual([
       expect.objectContaining({
         kind: "office.window.used-up",
-        line: "Claude Code's 5-hour window is used up until 14:00. Tasks on it are paused and wait.",
+        roleKey: CARETAKER,
+        line: "Claude Code's 5-hour window is used up until 14:00. I've paused the Tasks on it, and the rest wait.",
         pointsTo: { kind: "office", engineId: "claude-code" },
         channels: ["in-app"],
       }),
       expect.objectContaining({
-        line: "Lab account's Opus weekly window is used up until 14:00. Tasks on it are paused and wait.",
+        line: "Lab account's Opus weekly window is used up until 14:00. I've paused the Tasks on it, and the rest wait.",
       }),
     ]);
 
@@ -391,40 +392,38 @@ describe("NotificationService", () => {
     await events.publish(reading(4, workAccount));
 
     expect(raised.map(({ notification }) => notification.line)).toEqual([
-      "90% of Work account's 5-hour window is used.",
-      "95% of Lab account's 5-hour window is used.",
-      "Work account's 5-hour window reset.",
+      "We've used 90% of Work account's 5-hour window.",
+      "We've used 95% of Lab account's 5-hour window.",
+      "Work account's 5-hour window reset, so we have all of it again.",
     ]);
     expect(cleared).toEqual([raised[0]?.notification.id]);
     // Opening Now handles both engines' windows.
     await reportActivity({ kind: "now" });
   });
 
-  it("keeps the Office kinds in the UI's voice until an Office Manager is hired, then has them speak", async () => {
+  it("has the Office kinds come from the Caretaker while nobody holds Default person to talk to, then from its holder", async () => {
     const people = app.get(KnownPeopleForTests);
-    people.hired.add("developer");
+    people.holders.set("shapes-initiatives", "architect");
     await events.publish(reading(91));
     await events.publish(claudeCodeDown());
     // The engine answers again and the user opens Now, which handles both.
     await events.publish(turnEndedOn("claude-code"));
     await reportActivity({ kind: "now" });
 
-    people.hired.add("office-manager");
+    people.holders.set("default-person-to-talk-to", "receptionist");
     await events.publish(reading(4));
     await events.publish(reading(93));
     await events.publish(claudeCodeDown());
 
     expect(raised.map(({ notification }) => [notification.roleKey, notification.line])).toEqual([
-      [undefined, "91% of Claude Code's 5-hour window is used."],
-      [undefined, "Claude Code is down: Claude Code didn't start."],
-      ["office-manager", "Claude Code's 5-hour window reset, so we have all of it again."],
-      ["office-manager", "We've used 93% of Claude Code's 5-hour window."],
-      ["office-manager", "I can't reach Claude Code: Claude Code didn't start."],
+      [CARETAKER, "We've used 91% of Claude Code's 5-hour window."],
+      [CARETAKER, "I can't reach Claude Code: Claude Code didn't start."],
+      ["receptionist", "Claude Code's 5-hour window reset, so we have all of it again."],
+      ["receptionist", "We've used 93% of Claude Code's 5-hour window."],
+      ["receptionist", "I can't reach Claude Code: Claude Code didn't start."],
     ]);
     const open = await openNotifications();
-    expect(open.find(({ id }) => id === raised[4]?.notification.id)?.roleKey).toBe(
-      "office-manager",
-    );
+    expect(open.find(({ id }) => id === raised[4]?.notification.id)?.roleKey).toBe("receptionist");
     // One engine down is open at a time on the shared database: the engine answers again.
     await events.publish(turnEndedOn("claude-code"));
   });
@@ -436,10 +435,10 @@ describe("NotificationService", () => {
     await events.publish(new OfficeUpdateFailed(to, from, "the build", new Date()));
 
     expect(raised.map(({ notification }) => [notification.kind, notification.line])).toEqual([
-      ["office.update.done", "The Office updated to 89abcde."],
+      ["office.update.done", "I updated The Office to 89abcde."],
       [
         "office.update.failed",
-        "The Office's update failed at the build; it is back on 89abcde. The log is in Settings › Updates.",
+        "The Office's update failed at the build, so I took it back to 89abcde. The log is in Settings › Updates.",
       ],
     ]);
     const open = (await openNotifications()).filter(({ kind }) => kind.startsWith("office.update"));
@@ -459,8 +458,8 @@ describe("NotificationService", () => {
     await events.publish(down("work-account", "Work account"));
 
     expect(raised.map(({ notification }) => notification.line)).toEqual([
-      "Work account is down: Signed out.",
-      "Home account is down: Signed out.",
+      "I can't reach Work account: Signed out.",
+      "I can't reach Home account: Signed out.",
     ]);
     const [work, home] = raised.map(({ notification }) => notification.id);
     await events.publish(turnEndedOn("work-account"));

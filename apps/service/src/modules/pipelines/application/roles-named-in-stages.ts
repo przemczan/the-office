@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { PipelineRoleSources, type PipelineRolesNamed } from "../../people/index.js";
+import { NO_STAGE_WORKERS, type StageWorkers } from "../domain/stage.js";
 import { rolesNamedByOpenTasks } from "../domain/task-stages.js";
 import { StartedTasks } from "../ports/started-tasks.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
@@ -30,10 +31,26 @@ export class RolesNamedInStages implements OnModuleInit {
       this.taskStages.list(),
       this.tasks.list(),
     ]);
-    return { everywhere, byProject: rolesNamedByOpenTasks(taskStages, tasks) };
+    return rolesNamedOf(everywhere, rolesNamedByOpenTasks(taskStages, tasks));
   }
 
   async rolesNamedByProjectPipelines(): Promise<PipelineRolesNamed> {
-    return { everywhere: new Set(), byProject: await this.library.rolesNamedByProject() };
+    return rolesNamedOf(NO_STAGE_WORKERS, await this.library.rolesNamedByProject());
   }
+}
+
+/** People's shape of who Stages name: Roles and duties apart, each where their sessions run. */
+function rolesNamedOf(
+  everywhere: StageWorkers,
+  byProject: ReadonlyMap<string, StageWorkers>,
+): PipelineRolesNamed {
+  const projects = [...byProject];
+  return {
+    everywhere: everywhere.roles,
+    byProject: new Map(projects.map(([projectId, { roles }]) => [projectId, roles])),
+    duties: {
+      everywhere: everywhere.duties,
+      byProject: new Map(projects.map(([projectId, { duties }]) => [projectId, duties])),
+    },
+  };
 }

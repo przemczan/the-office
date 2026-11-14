@@ -10,6 +10,7 @@ export function aStageRun(fields: Partial<StageRun> = {}): StageRun {
     carriedFailure: undefined,
     sentBack: undefined,
     threadId: undefined,
+    roleKey: undefined,
     session: undefined,
     engineId: undefined,
     engineName: undefined,

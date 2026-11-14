@@ -3,8 +3,9 @@ import type { Role, Task } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { roleQueries } from "../../api/people.ts";
+import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { autoModeQuery } from "../../api/work.ts";
+import { aDuty } from "../../shell/duties.fixtures.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { MakeAPlan, PlanOnCardButton, planningNoteWords } from "./planning-actions.tsx";
 
@@ -54,6 +55,7 @@ function rendered(actions: ReactNode, rememberedAutoMode: boolean): HTMLElement 
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
+  queryClient.setQueryData(dutyQueries.list().queryKey, [aDuty("plans", "planner")]);
   queryClient.setQueryData(autoModeQuery().queryKey, { autoMode: rememberedAutoMode });
   const page = document.createElement("div");
   document.body.append(page);

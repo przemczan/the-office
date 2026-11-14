@@ -1,5 +1,5 @@
 import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
-import { CTO, DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
+import type { DutyKey } from "../../people/index.js";
 import { answerWords, type Answerer, type Decision, type DecisionAnswer } from "./decision.js";
 import { sameUser, userWords, userWordsOpening, type UserRef } from "./user.js";
 
@@ -18,18 +18,29 @@ export interface SessionPerson {
   readonly officeInstructions: string;
 }
 
+/** The duties a Role's person holds as their session starts, which decide its built-in tools. */
+export type HeldDuties = readonly DutyKey[];
+
+/** The only duties a session's built-in tools and instructions depend on. */
+export const SESSION_SHAPING_DUTIES: readonly DutyKey[] = [
+  "default-person-to-talk-to",
+  "shapes-initiatives",
+  "onboards-projects",
+];
+
 /**
  * A chat session's standing instructions: who the person is, the Office instructions, their card's
  * instructions, and that a chat only reads (spec §2.4, §6). The same for every session of a card
- * version and an Office instructions version, so they stay in the cached prefix.
+ * version, an Office instructions version and the duties held, so they stay in the cached prefix.
  */
-export function chatInstructions(person: SessionPerson, roleKey: string): string {
+export function chatInstructions(person: SessionPerson, held: HeldDuties): string {
   return [
     ...personInstructions(person),
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title. When you and the user already know how it will be done and what must be true when it is, give it a Plan and a Definition of Done too, both or neither, for the user to confirm on the Task page.`,
-    ...(roleKey === OFFICE_MANAGER ? [] : [CALLING_RULE]),
-    // Devops reached for Grep on the repository it onboarded, refused outside its folders (task 33's run).
-    ...(roleKey === DEVOPS ? [READ_REPOSITORY_RULE] : []),
+    ...(held.includes("default-person-to-talk-to") ? [] : [CALLING_RULE]),
+    // Devops reached for Grep on the repository it onboarded, refused outside its folders (task
+    // 33's run).
+    ...(held.includes("onboards-projects") ? [READ_REPOSITORY_RULE] : []),
   ].join("\n\n");
 }
 
@@ -44,7 +55,7 @@ export const CONSULT_TOOL = "consult";
  * their authority says to consult that person first. Work's Thread on a Task and Planning Thread
  * say the same.
  */
-export const CALLING_RULE = `Call another person of The Office with the ${CONSULT_TOOL} tool only when the user asks you to, such as "ask Devops to set that up", or your authority says to consult them first. A request asks them to do what you can't; they work with their own tools and permissions, never yours, and answer in their own words. End your turn once you called: their answer comes as your next message, and you tell the user.`;
+export const CALLING_RULE = `Call another person of The Office with the ${CONSULT_TOOL} tool only when the user asks you to, such as "ask a colleague to set that up", or your authority says to consult them first. A request asks them to do what you can't; they work with their own tools and permissions, never yours, and answer in their own words. End your turn once you called: their answer comes as your next message, and you tell the user.`;
 
 /**
  * What a refusal tells the Caretaker while their Thread only reads (spec §2.4): allowing changes
@@ -52,6 +63,19 @@ export const CALLING_RULE = `Call another person of The Office with the ${CONSUL
  */
 export const ALLOW_CHANGES_ADVICE =
   "Say what you would change and why, and ask the user to Allow changes in this Thread.";
+
+/**
+ * The Office tool the Caretaker drafts the set-up of The Office with: its hires and duties as one
+ * Proposal (spec §2.2); the contracts name it too, for the web to hide its activity line, and a
+ * test keeps the two the same.
+ */
+export const PROPOSE_OFFICE_SETUP_TOOL = "propose_office_setup";
+
+/**
+ * How the Caretaker sets up The Office (spec §2.2, "Setting up an Office with nobody hired"). The
+ * same whether changes are allowed or not, so the cached prefix stays.
+ */
+const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows nobody hired but you, offer to set The Office up. Ask what the user works on, then recommend whom to hire: presets, saying the duties and capabilities each brings, or Roles from scratch for what no preset covers. Draft them with ${PROPOSE_OFFICE_SETUP_TOOL}, as one Proposal the user applies with a click. A hired preset holds its own duties with no assignment: assign a duty only to give it to a Role other than its preset's, such as a Role from scratch. You may draft a set-up at any time the user asks, and you never hire anyone or change a duty yourself.`;
 
 /**
  * The standing instructions of the Caretaker's chat (spec §2.4): it reads as any chat does until
@@ -63,6 +87,7 @@ export function caretakerChatInstructions(person: SessionPerson, changesAllowed:
     changesAllowed
       ? "The user allowed changes in this Thread: you work in their home folder, and you may read and edit any file and run any command on the workstation, The Office's data folder and every git command included. Their secrets stay refused: SSH keys, the Claude, GitHub CLI and AWS credentials, browser profiles, the Office identity and the database credentials. Say what you are about to change before you change it, and prefer what can be undone. The engine's own Edit and Write may still refuse .git, .claude and .mcp.json: change those with a command."
       : `This Thread only reads until the user allows changes: you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and read The Office's records with its tools. Diagnose first; to change a file or run a command that changes something, ${lowerFirst(ALLOW_CHANGES_ADVICE)}`,
+    OFFICE_SETUP_RULE,
     CALLING_RULE,
   ].join("\n\n");
 }
@@ -142,8 +167,8 @@ export const READING_OFFICE_TOOLS = [
 
 /**
  * The Office tool a person reads a Task's Stage history with, each run and its Project commands'
- * output and an Agent Stage run's Stage Thread messages, which Pipelines registers. Agent Stages get
- * it too, beside `READING_OFFICE_TOOLS` (Pipelines' `AGENT_STAGE_OFFICE_TOOLS`), but planning
+ * output and an Agent Stage run's Stage Thread messages, which Pipelines registers. Agent Stages
+ * get it too, beside `READING_OFFICE_TOOLS` (Pipelines' `AGENT_STAGE_OFFICE_TOOLS`), but planning
  * sessions and Initiative Threads don't.
  */
 export const READ_STAGE_HISTORY_TOOL = "read_stage_history";
@@ -187,122 +212,176 @@ export const CHAT_OFFICE_TOOLS = [
 ] as const;
 
 /**
- * The Office tool the Office Manager drafts a Proposal of a Role with; the contracts name it too,
- * for the web to hide its activity line, and a test keeps the two the same.
+ * The Office tool the Default person to talk to drafts a Proposal of a Role with; the contracts
+ * name it too, for the web to hide its activity line, and a test keeps the two the same.
  */
 export const PROPOSE_ROLE_TOOL = "propose_role";
 
-/** The Office tool the Office Manager drafts a Proposal of an Office setting with, named as above. */
+/**
+ * The Office tool the Default person to talk to drafts a Proposal of an Office setting with, named
+ * as above.
+ */
 export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 
 /**
- * The Office tool the Office Manager reads the Office instructions with before drafting a change:
- * their session holds the version it started with, and a draft of an old copy would undo an edit.
+ * The Office tool the Default person to talk to reads the Office instructions with before drafting
+ * a change: their session holds the version it started with, and a draft of an old copy would undo
+ * an edit.
  */
 export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
 
-/** The Office tool the Office Manager points the user to someone with, a Link card; named as above. */
+/**
+ * The Office tool the Default person to talk to points the user to someone with, a Link card; named
+ * as above.
+ */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
-/** The Office tool the Office Manager shows the Office status with, which Notifications registers. */
+/**
+ * The Office tool the Default person to talk to shows the Office status with, which Notifications
+ * registers.
+ */
 export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 
-/** The Office tool Devops drafts a Proposal of a Project's commands with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Project's commands with; named
+ * as above.
+ */
 export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 
-/** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, which Pipelines registers. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a library Pipeline's Stages with,
+ * which Pipelines registers.
+ */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
-/** The Office tool Devops drafts a Proposal of a Project Pipeline with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Project Pipeline with; named as
+ * above.
+ */
 export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
 
-/** The Office tool Devops drafts a Project to onboard with, which Work registers; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Project to onboard with, which Work registers;
+ * named as above.
+ */
 export const PROPOSE_PROJECT_TOOL = "propose_project";
 
 /**
- * The Office tool Devops reads the Pipelines with, the office-wide ones and the Project Pipelines,
- * which Pipelines registers.
+ * The Office tool whoever onboards Projects reads the Pipelines with, the office-wide ones and the
+ * Project Pipelines, which Pipelines registers.
  */
 export const LIST_PIPELINES_TOOL = "list_pipelines";
 
-/** The Office tool Devops reads the Stage templates with, which Pipelines registers. */
+/**
+ * The Office tool whoever onboards Projects reads the Stage templates with, which Pipelines
+ * registers.
+ */
 export const LIST_STAGE_TEMPLATES_TOOL = "list_stage_templates";
 
-/** The Office tool Devops drafts a Proposal of a Stage template's Stage with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Stage template's Stage with;
+ * named as above.
+ */
 export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
 
-/** The Office tool Devops reads the skills a Source holds with. */
+/** The Office tool whoever onboards Projects reads the skills a Source holds with. */
 export const LIST_SOURCE_SKILLS_TOOL = "list_source_skills";
 
-/** The Office tool Devops drafts installing a skill from a Source with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts installing a skill from a Source with; named as
+ * above.
+ */
 export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
 
-/** The Office tool Devops reads an installed skill's update with: its versions and its diff. */
+/**
+ * The Office tool whoever onboards Projects reads an installed skill's update with: its versions
+ * and its diff.
+ */
 export const READ_SKILL_UPDATE_TOOL = "read_skill_update";
 
-/** The Office tool Devops drafts an installed skill's update with; named as above. */
+/**
+ * The Office tool whoever onboards Projects drafts an installed skill's update with; named as
+ * above.
+ */
 export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
 /**
- * The Office tool Devops reads a repository with before it is a Project, on the workstation by its
- * path or on a host by its Repository URL, which Projects registers: its branches, and the names and
- * manifest files of one folder at a time.
+ * The Office tool whoever onboards Projects reads a repository with before it is a Project, on the
+ * workstation by its path or on a host by its Repository URL, which Projects registers: its
+ * branches, and the names and manifest files of one folder at a time.
  */
 export const READ_REPOSITORY_TOOL = "read_repository";
 
 const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument. A repository on a host, such as GitHub, is read by its Repository URL in place of a path, without cloning it, and onboarded by that URL: The Office clones it when the user applies the Proposal.`;
 
 /**
- * The Office tool the CTO and the Office Manager create an Initiative with in their chat, when the
- * user asks (spec §2.1), which Work registers; no other Role and no other session has it.
+ * The Office tool whoever shapes Initiatives and the Default person to talk to create an Initiative
+ * with in their chat, when the user asks (spec §2.1), which Work registers; no other person and no
+ * other session has it.
  */
 export const CREATE_INITIATIVE_TOOL = "create_initiative";
 
+/** The Office tools the Default person to talk to has in their chat besides. */
+const DEFAULT_PERSON_OFFICE_TOOLS = [
+  PROPOSE_ROLE_TOOL,
+  PROPOSE_OFFICE_SETTING_TOOL,
+  READ_OFFICE_INSTRUCTIONS_TOOL,
+  POST_LINK_CARD_TOOL,
+  SHOW_OFFICE_STATUS_TOOL,
+] as const;
+
 /**
- * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
- * points to the Planner, so it never creates one, though it may create an Initiative, which the CTO
- * shapes into Tasks; it drafts Roles and Office settings as Proposals the user applies, points the
- * user to whoever is responsible with a Link card, and shows the Office status (ticket 06); they
- * redirect with a Link card and never relay, so they call no one. Anyone else calls a person when
- * the user asks (spec §2.2) and has their Role's own tools besides: the CTO creates an Initiative
- * too, in their chat only.
+ * A chat's Office tools for a person, by the duties they hold (spec §2.2): the Default person to
+ * talk to doesn't turn work into Tasks but points to whoever plans, so never creates one, though
+ * they may create an Initiative, for whoever shapes Initiatives to shape into Tasks; they draft
+ * Roles and Office settings as Proposals the user applies, point the user to whoever is
+ * responsible with a Link card, and show the Office status (ticket 06); they redirect with a Link
+ * card and never relay, so they call no one. Anyone else calls a person when the user asks
+ * (spec §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
+ * Initiative too, in their chat only. The Caretaker holds no duty, so has only the chat's own and
+ * `caretakerChatOfficeTools`' set-up.
  */
-export function chatOfficeTools(roleKey: string): readonly string[] {
-  return roleKey === OFFICE_MANAGER
-    ? [
-        ...CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task"),
-        CREATE_INITIATIVE_TOOL,
-        PROPOSE_ROLE_TOOL,
-        PROPOSE_OFFICE_SETTING_TOOL,
-        READ_OFFICE_INSTRUCTIONS_TOOL,
-        POST_LINK_CARD_TOOL,
-        SHOW_OFFICE_STATUS_TOOL,
-      ]
-    : [
-        ...CHAT_OFFICE_TOOLS,
-        ...draftingOfficeTools(roleKey),
-        ...(roleKey === CTO ? [CREATE_INITIATIVE_TOOL] : []),
-        CONSULT_TOOL,
-      ];
+export function chatOfficeTools(held: HeldDuties): readonly string[] {
+  const defaultPerson = held.includes("default-person-to-talk-to");
+  return [
+    ...(defaultPerson
+      ? CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task")
+      : CHAT_OFFICE_TOOLS),
+    ...draftingOfficeTools(held),
+    ...(defaultPerson || held.includes("shapes-initiatives") ? [CREATE_INITIATIVE_TOOL] : []),
+    ...(defaultPerson ? DEFAULT_PERSON_OFFICE_TOOLS : [CONSULT_TOOL]),
+  ];
+}
+
+/**
+ * The Caretaker's chat's Office tools: the chat's own for the duties they hold, and drafting the
+ * set-up of The Office, its hires and duties as one Proposal (spec §2.2), but no other Proposal of
+ * a Role.
+ */
+export function caretakerChatOfficeTools(held: HeldDuties): readonly string[] {
+  return [...chatOfficeTools(held), PROPOSE_OFFICE_SETUP_TOOL];
 }
 
 /**
  * The tools a person drafts records and Proposals with beyond the chat's own, which they bring to a
- * Consultation too: their Role's, and Devops' reading of a repository before it has a base branch
- * to read, as they onboard a Project.
+ * Consultation too: their duties', and the reading of a repository before it has a base branch to
+ * read, for whoever onboards a Project.
  */
-function draftingOfficeTools(roleKey: string): readonly string[] {
-  return [...roleOfficeTools(roleKey), ...(roleKey === DEVOPS ? [READ_REPOSITORY_TOOL] : [])];
+function draftingOfficeTools(held: HeldDuties): readonly string[] {
+  return [
+    ...roleOfficeTools(held),
+    ...(held.includes("onboards-projects") ? [READ_REPOSITORY_TOOL] : []),
+  ];
 }
 
 /**
- * The Office tools a Role's person has in their chat and their Stage Threads alike, for what the
- * Role looks after: Devops reads the Pipelines, proposes Project commands, library Pipelines,
- * Project Pipelines and Stage templates, drafts a Project to onboard, and installs and updates skills from
- * a Source (spec §2.1, §2.2, §2.3, §2.6).
+ * The Office tools a person has in their chat and their Stage Threads alike, for the duties they
+ * hold: whoever onboards and repairs Projects reads the Pipelines, proposes Project commands,
+ * library Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, and
+ * installs and updates skills from a Source (spec §2.1, §2.2, §2.3, §2.6).
  */
-export function roleOfficeTools(roleKey: string): readonly string[] {
-  return roleKey === DEVOPS
+export function roleOfficeTools(held: HeldDuties): readonly string[] {
+  return held.includes("onboards-projects")
     ? [
         LIST_PIPELINES_TOOL,
         PROPOSE_PROJECT_COMMANDS_TOOL,
@@ -339,18 +418,18 @@ export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
 /**
  * The Office tools a Consultant works a Consultation with: their own, never the asker's (spec §6).
  * They read every record and the Stage history, give their answer, and draft what their chat
- * drafts (an Idea, a Task in Backlog, a skill and their Role's Proposals), which the user applies.
+ * drafts (an Idea, a Task in Backlog, a skill and their duties' Proposals), which the user applies.
  * They call someone themselves while the chain of calls allows one more (`canCall`); they open no
  * Decision of their own and change no file.
  */
-export function consultationOfficeTools(roleKey: string, canCall: boolean): readonly string[] {
+export function consultationOfficeTools(held: HeldDuties, canCall: boolean): readonly string[] {
   return [
     ...PERSON_READING_OFFICE_TOOLS,
     ANSWER_CONSULTATION_TOOL,
     "capture_idea",
     "create_task",
     PROPOSE_SKILL_TOOL,
-    ...draftingOfficeTools(roleKey),
+    ...draftingOfficeTools(held),
     ...(canCall ? [CONSULT_TOOL] : []),
   ];
 }
@@ -370,7 +449,9 @@ export function consultationInstructions(person: SessionPerson, canCall: boolean
   ].join("\n\n");
 }
 
-/** The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on. */
+/**
+ * The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on.
+ */
 export const REMEMBER_TOOL = "remember";
 
 /** The Office tool an Agent rewords a Role with; it sits behind the Change Roles Hard switch. */

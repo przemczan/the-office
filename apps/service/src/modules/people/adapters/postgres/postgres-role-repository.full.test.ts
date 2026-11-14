@@ -5,7 +5,7 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { CARETAKER_FIXED_PARTS } from "../../domain/caretaker.js";
 import { CARETAKER } from "../../domain/known-roles.js";
 import { roleCardProblems } from "../../domain/role-card.js";
-import { aRole, aRoleCard, OFFERED_MODELS } from "../../domain/role.fixtures.js";
+import { aRole, aRoleCard, CARD_CONTEXT } from "../../domain/role.fixtures.js";
 import type { Role } from "../../domain/role.js";
 import { changeAvatar, changeRoleCard } from "../../domain/role-changes.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
@@ -47,7 +47,7 @@ describe("PostgresRoleRepository", () => {
         taskLimit: "none",
       },
     });
-    expect(caretaker && roleCardProblems(CARETAKER, caretaker.card, OFFERED_MODELS)).toEqual([]);
+    expect(caretaker && roleCardProblems(CARETAKER, caretaker.card, CARD_CONTEXT)).toEqual([]);
   });
 
   it("keeps the Role as it was when someone already fills it", async () => {
@@ -93,10 +93,10 @@ describe("PostgresRoleRepository", () => {
 
     await Promise.all([
       repository.update(role.key, (stored) =>
-        changeRoleCard(stored, { ...stored.card, taskLimit: 1 }, OFFERED_MODELS, savedAt, null),
+        changeRoleCard(stored, { ...stored.card, taskLimit: 1 }, CARD_CONTEXT, savedAt, null),
       ),
       repository.update(role.key, (stored) =>
-        changeRoleCard(stored, { ...stored.card, effort: "max" }, OFFERED_MODELS, savedAt, null),
+        changeRoleCard(stored, { ...stored.card, effort: "max" }, CARD_CONTEXT, savedAt, null),
       ),
     ]);
 
@@ -120,7 +120,7 @@ describe("PostgresRoleRepository", () => {
       changeAvatar(stored, avatar, new Date()),
     );
     await repository.update(role.key, (stored) =>
-      changeRoleCard(stored, { ...stored.card, title: "Tester" }, OFFERED_MODELS, new Date(), null),
+      changeRoleCard(stored, { ...stored.card, title: "Tester" }, CARD_CONTEXT, new Date(), null),
     );
 
     expect(event?.role.cardVersion).toBe(1);

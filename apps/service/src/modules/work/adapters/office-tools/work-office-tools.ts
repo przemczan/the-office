@@ -5,7 +5,10 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaRecords } from "../../application/idea-records.js";
 import { IdeaService } from "../../application/idea-service.js";
-import { InitiativeService } from "../../application/initiative-service.js";
+import {
+  InitiativeService,
+  type ShapingThreadOpening,
+} from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import {
@@ -69,8 +72,8 @@ const LINES_HEADING_ROOM = ", its text in 99,999,999 lines, a marker line before
 /**
  * The Office tools sessions work with Work's records by (spec §6): every session reads every Task,
  * Idea and Attachment, whatever it is on; a chat also captures an Idea and creates a Task in
- * Backlog, and the CTO's and the Office Manager's an Initiative being shaped, each in the name of
- * the person in the session.
+ * Backlog, and whoever shapes Initiatives or is the Default person to talk to also creates an
+ * Initiative being shaped, each in the name of the person in the session.
  */
 @Injectable()
 export class WorkOfficeTools implements OnModuleInit {
@@ -359,7 +362,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: CREATE_INITIATIVE,
       description:
-        "Creates an Initiative in your name, only when the user asks for one or agrees to it: one outcome reached by Tasks across Projects. It lands being shaped and waits for the user's Confirm on its page, as one shaped from an Idea does. Name in its outcome the Projects it is meant to touch; its Tasks are added while it is shaped with the CTO, in its shaping Thread.",
+        "Creates an Initiative in your name, only when the user asks for one or agrees to it: one outcome reached by Tasks across Projects. It lands being shaped and waits for the user's Confirm on its page, as one shaped from an Idea does. Name in its outcome the Projects it is meant to touch; its Tasks are added in its shaping Thread, with whoever holds Shapes Initiatives.",
       input: z.object({
         title: z.string().describe("One line naming the Initiative."),
         outcome: z
@@ -370,14 +373,11 @@ export class WorkOfficeTools implements OnModuleInit {
       }),
       run: ({ title, outcome }, { sessionId }) =>
         answered(async () => {
-          const { initiative, shapingThreadOpened } = await this.initiatives.create(
+          const { initiative, shaping } = await this.initiatives.create(
             { name: title, outcome },
             await personInSession(this.sessionPeople, sessionId),
           );
-          const thread = shapingThreadOpened
-            ? "Its shaping Thread with the CTO is open, where its Tasks are agreed."
-            : "Its shaping Thread with the CTO didn't open: the user starts it on its page once a CTO is hired.";
-          return `Created the Initiative "${initiative.name}" (Initiative ${initiative.id}), being shaped: it waits for the user's Confirm on its page. ${thread}`;
+          return `Created the Initiative "${initiative.name}" (Initiative ${initiative.id}), being shaped: it waits for the user's Confirm on its page. ${shapingThreadWords(shaping)}`;
         }),
     });
   }
@@ -472,4 +472,14 @@ function writtenPartsGiven({
   if (problems.length > 0) throw new WorkToolRefused(problems.join(" "));
   if (plan === undefined || definitionOfDone === undefined) return undefined;
   return { plan: { plan, filesToChange, estimatedTokens }, definitionOfDone };
+}
+
+/** Where the new Initiative is shaped: with whoever holds Shapes Initiatives, or nobody yet. */
+function shapingThreadWords({ shaper, opened }: ShapingThreadOpening): string {
+  if (!shaper) {
+    return "Nobody holds Shapes Initiatives, so its shaping Thread waits: the user chooses who in Settings › Duties, then starts it on its page.";
+  }
+  return opened
+    ? `Its shaping Thread with ${shaper.card.name} is open, where its Tasks are agreed.`
+    : `Its shaping Thread with ${shaper.card.name} didn't open: the user starts it on its page.`;
 }

@@ -1,5 +1,5 @@
 {
-  "id": "79d06d07-bfb0-47c4-b69c-ba26d1dbc033",
+  "id": "73aaa42f-ba55-44cc-91f7-2ceaeb236c3d",
   "prevId": "5a4ae1d0-f478-485a-8b2f-fa802e8bcc7f",
   "version": "7",
   "dialect": "postgresql",
@@ -1880,12 +1880,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "short_line": {
-          "name": "short_line",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "points_to": {
           "name": "points_to",
           "type": "jsonb",
@@ -1927,6 +1921,12 @@
         "phone_pushed_at": {
           "name": "phone_pushed_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "short_line": {
+          "name": "short_line",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
@@ -2070,6 +2070,37 @@
         },
         "left_at": {
           "name": "left_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.duty_assignments": {
+      "name": "duty_assignments",
+      "schema": "",
+      "columns": {
+        "duty": {
+          "name": "duty",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "role_key": {
+          "name": "role_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_at": {
+          "name": "changed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
@@ -2581,12 +2612,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheCreation\":0}'::jsonb"
-        },
-        "context": {
-          "name": "context",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         },
         "decisions": {
           "name": "decisions",

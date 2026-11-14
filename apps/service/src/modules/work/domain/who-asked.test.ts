@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { byTheUser } from "./author.js";
+import { byTheUser, type Author } from "./author.js";
 import { initiativePlanningBrief } from "./initiative-planning.js";
-import { THE_PLANNER, planningBrief } from "./planning.js";
+import { planningBrief } from "./planning.js";
 import { shapingBrief } from "./shaping.js";
 import type { StateChange } from "./state-change.js";
 import { taskWhoAskedSection } from "./who-asked.js";
 import { ANN_LEE, anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
 
+const A_PLANNER: Author = { kind: "person", roleKey: "lead" };
 const at = new Date("2026-11-12T10:00:00.000Z");
 const NO_LINKS = { waitsFor: [], waitingForIt: [], idea: undefined, initiative: undefined };
 const PROJECT = {
@@ -56,13 +57,13 @@ describe("Briefs say which user asked", () => {
     expect(brief.indexOf("## Who asked")).toBeLessThan(brief.indexOf("## What the user wants"));
   });
 
-  it("names the Planner when they moved it, and only the creator when no move was kept", () => {
+  it("names whoever planned it when they moved it, and only the creator when no move was kept", () => {
     expect(
       aPlanningBrief([
         ...CREATED_THEN_PLANNED,
-        { from: "ready", to: "planning", at, by: THE_PLANNER },
+        { from: "ready", to: "planning", at, by: A_PLANNER },
       ]),
-    ).toContain("moved to Planning by the person in the Role planner.");
+    ).toContain("moved to Planning by the person in the Role lead.");
     expect(aPlanningBrief([])).toContain(
       "## Who asked\n\nThe Task was created by the user Ann Lee.",
     );

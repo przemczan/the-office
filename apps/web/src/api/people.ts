@@ -1,6 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   API_PATH,
+  dutyListSchema,
+  dutySchema,
   memoryNoteSchema,
   memorySchema,
   presetListSchema,
@@ -9,6 +11,8 @@ import {
   roleEngineCascadeSchema,
   roleListSchema,
   roleSchema,
+  type Duty,
+  type DutyKey,
   type Hire,
   type MemoryNote,
   type MemoryNoteDraft,
@@ -24,10 +28,15 @@ import {
   sendToApi,
 } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { staleStaffing } from "./pipeline-keys.ts";
 
 const ROLES = ["roles"] as const;
 /** Apart from ROLES, since Projects and the Office default change it too. */
 export const ENGINE_CASCADE = ["engine-cascade"] as const;
+/** Apart from ROLES: hiring and letting go change who holds each duty too. */
+export const DUTIES = ["duties"] as const;
+/** The Roles a Consult value may name and where MCP tools start change with hires and duties. */
+const ROLE_CARD_OPTIONS = ["role-card-options"] as const;
 
 export const roleQueries = {
   /** Every Role someone fills, in hiring order. */
@@ -75,11 +84,25 @@ export const roleCardQueries = {
     }),
   options: () =>
     queryOptions({
-      queryKey: ["role-card-options"],
+      queryKey: ROLE_CARD_OPTIONS,
       queryFn: ({ signal }) => getFromApi("/role-card-options", roleCardOptionsSchema, signal),
       staleTime: Infinity,
     }),
 };
+
+export const dutyQueries = {
+  /** Every duty, in spec order, with its holder or what applies while nobody holds it. */
+  list: () =>
+    queryOptions({
+      queryKey: DUTIES,
+      queryFn: ({ signal }) => getFromApi("/settings/duties", dutyListSchema, signal),
+    }),
+};
+
+/** Sets the duty to the hired Role keyed `roleKey`, or to none. */
+export function changeDuty(duty: DutyKey, roleKey: string | null): Promise<Duty> {
+  return sendToApi("PUT", `/settings/duties/${encodeURIComponent(duty)}`, { roleKey }, dutySchema);
+}
 
 export function hire(hiring: Hire): Promise<Role> {
   return sendToApi("POST", "/roles", hiring, roleSchema);
@@ -134,17 +157,20 @@ export function clearMemory(key: string): Promise<void> {
 
 /**
  * Every People event makes the Roles stale; ["roles"] also covers each Role's own queries. A hire
- * also changes who the other Roles' Consult values reach.
+ * also changes who the other Roles' Consult values reach and who holds each duty; that and a duty
+ * change also change who works the Stages naming it, and what the Stage editor flags. A card change
+ * renames a holder or changes their Task limit, which the duties and the Stage editor show too.
  */
 export const roleEventInvalidations: Readonly<
   Record<RoleWebEvent["type"], EventInvalidations[string]>
 > = {
-  "role.hired": () => [ROLES],
-  "role.let-go": () => [ROLES],
-  "role.hired-back": () => [ROLES],
-  "role.card-changed": () => [ROLES, ENGINE_CASCADE],
+  "role.hired": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
+  "role.let-go": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
+  "role.hired-back": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
+  "role.card-changed": () => [ROLES, ENGINE_CASCADE, DUTIES, ...staleStaffing()],
   "role.avatar-changed": () => [ROLES],
   "role.memory-changed": () => [ROLES],
+  "duty.changed": () => [DUTIES, ROLES, ROLE_CARD_OPTIONS, ...staleStaffing()],
 };
 
 function rolePath(key: string): `/${string}` {

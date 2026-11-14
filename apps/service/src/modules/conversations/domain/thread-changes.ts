@@ -167,7 +167,8 @@ export interface InitiativeThreadStart {
 }
 
 /**
- * A Thread on an Initiative, where the CTO shapes it with the user or the Planner plans its Tasks,
+ * A Thread on an Initiative, where whoever shapes Initiatives shapes it with the user or whoever
+ * plans plans its Tasks,
  * titled by The Office: its first message is The Office's opening, not the user's.
  */
 export function startInitiativeThread(
@@ -269,9 +270,15 @@ export function freshSession(
     officeInstructionsVersion,
     engineId,
     changesAllowed,
+    heldDuties,
   }: Pick<
     ThreadSession,
-    "roleKey" | "cardVersion" | "officeInstructionsVersion" | "engineId" | "changesAllowed"
+    | "roleKey"
+    | "cardVersion"
+    | "officeInstructionsVersion"
+    | "engineId"
+    | "changesAllowed"
+    | "heldDuties"
   >,
   startedAt: Date,
 ): ThreadSession {
@@ -287,6 +294,7 @@ export function freshSession(
     startContextTokens: undefined,
     full: false,
     changesAllowed,
+    heldDuties,
   };
 }
 
@@ -1058,7 +1066,8 @@ export function passDecisionOn(
       "This Decision no longer waits on you: it was answered or passed on. There is nothing left to answer.",
     ]);
   }
-  // The Office's own Decision is put to the CTO first and passed on to the user (spec §2.3).
+  // The Office's own Decision is put to whoever is asked first when a Stage runs out of tries, and
+  // passed on to the user (spec §2.3).
   if (!isApproval(open) && open.roleKey !== undefined) {
     throw new ThreadRefused([
       "Only an approval is passed on. Answer the question with one of its options or in your own words.",

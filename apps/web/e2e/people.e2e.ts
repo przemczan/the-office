@@ -33,7 +33,9 @@ import {
   taskStagesSchema,
   threadListSchema,
   decisionListSchema,
+  dutyListSchema,
   threadSchema,
+  type Duty,
   type Thread,
   type ClaudeCodeEngineEdit,
   type EngineSettings,
@@ -195,13 +197,89 @@ function imageIdOf(address: string): string {
   return address.split("/").at(-2) ?? "";
 }
 
-test("the user hires the Planner, a Developer, a Reviewer, the CTO and the Office Manager from the presets", async ({
+test("on a fresh Office, People shows what to hire and the Caretaker's set-up hires the Planner and a Developer", async ({
   page,
 }) => {
-  await hireFromPreset(page, "Planner", "Jan");
-  await expect(page).toHaveURL(/\/people\/planner$/);
-  await hireFromPreset(page, "Developer", "Ada");
+  // Only the Caretaker is there: People says which preset brings which duties and how to fill them.
+  await page.goto("/people");
+  await expect(page.getByText("1 person")).toBeVisible();
+  const hint = page.getByRole("region", { name: "Nobody is hired yet" });
+  const lines = hint.getByRole("listitem");
+  await expect(lines).toHaveCount(6);
+  await expect(lines.nth(0)).toContainText("Planner");
+  await expect(lines.nth(0)).toContainText("Plans");
+  await expect(lines.nth(0)).toContainText("Up to 2 Tasks");
+  await expect(lines.nth(3)).toContainText(
+    "Shapes Initiatives, Asked first when a Stage runs out of tries",
+  );
+  await expect(lines.nth(5)).toContainText("Default person to talk to");
+  await expect(lines.nth(5)).toContainText("Talks only");
+  await expect(hint).toContainText(
+    "While nobody holds a duty, you do it yourself, except Default person to talk to, which goes to Sam",
+  );
+  await screenshotScenario(page, "people-office-setup", { fullPage: true });
+
+  // The Hire dialog says the duties each preset suits.
+  await hint.getByRole("button", { name: "Hire a Role" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Suits: Plans.");
+  await expect(dialog).toContainText(
+    "Suits: Onboards and repairs Projects, Default Consultant for MCP tool hard switches.",
+  );
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+
+  // Setting up with Sam opens a new Thread in their chat with a draft; nothing is sent, so no session opens.
+  await hint.getByRole("button", { name: "Set up The Office with Sam" }).click();
+  const sam = chatWith(page, "Sam");
+  await expect(sam.getByRole("textbox", { name: "Message" })).toHaveValue(
+    "Help me set up The Office. I work on ",
+  );
+  const threadId = await chatThreadShown(page);
+  expect(threadId).not.toBe("");
+
+  // Sam's set-up, as their session would draft it, hires Jan and Ada, who hold their presets' duties.
+  await seedProposal(
+    threadId,
+    {
+      kind: "office-setup",
+      hires: [
+        { kind: "hire-from-preset", roleKey: "planner", name: "Jan" },
+        { kind: "hire-from-preset", roleKey: "developer", name: "Ada" },
+      ],
+      duties: [],
+    },
+    "caretaker",
+  );
+  await page.goto(`/people?chat=caretaker&thread=${threadId}`);
+  const setUp = sam.getByRole("region", { name: "Proposal: Set up The Office" });
+  await expect(setUp).toContainText("Jan · Planner");
+  await expect(setUp).toContainText("Ada · Developer");
+  await expect(setUp).toContainText("from the preset");
+  await expect(setUp.getByRole("row", { name: /^Plans/ })).toContainText("Jan · Planner");
+  await expect(setUp.getByRole("row", { name: /^Implements/ })).toContainText("Ada · Developer");
+  await screenshotScenario(page, "office-setup-proposal-card");
+  await setUp.getByRole("button", { name: "Hire 2 and assign duties" }).click();
+  await expect(setUp).toContainText("Applied");
+  await expect(setUp.getByRole("link", { name: "Jan · Planner" })).toBeVisible();
+
+  await page.goto("/people");
+  await expect(page.getByText("3 people")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Nobody is hired yet" })).toHaveCount(0);
+  for (const [name, duty] of [
+    ["Jan", "Plans"],
+    ["Ada", "Implements"],
+  ] as const) {
+    const tile = page.locator(".person-card").filter({ has: page.getByRole("heading", { name }) });
+    await expect(tile.getByLabel(`1 duty: ${duty}`)).toBeVisible();
+  }
+});
+
+test("the user hires a Reviewer, the CTO and the Office Manager from the presets", async ({
+  page,
+}) => {
   await hireFromPreset(page, "Reviewer", "Ola");
+  await expect(page).toHaveURL(/\/people\/reviewer$/);
   await hireFromPreset(page, "CTO", "Bob");
   await hireFromPreset(page, "Office Manager", "Marta");
 
@@ -1031,8 +1109,12 @@ test(
     await page.getByRole("button", { name: "Add a skill" }).click();
     const dialog = page.getByRole("dialog");
 
-    await expect(dialog).toContainText("Installing needs someone with the Devops Role");
-    await expect(dialog.getByRole("link", { name: "Hire one on the People page." })).toBeVisible();
+    await expect(dialog).toContainText(
+      "Installing needs whoever holds Onboards and repairs Projects",
+    );
+    await expect(
+      dialog.getByRole("link", { name: "hire someone on the People page." }),
+    ).toBeVisible();
     await expect(dialog.getByRole("button", { name: /to install it$/ })).toHaveCount(0);
   },
 );
@@ -1517,6 +1599,15 @@ function editorRow(page: Page, name: string) {
   });
 }
 
+/** Chooses the person whose Role title is `title` among the people in the Stage's "Who works it". */
+async function chooseWhoWorks(row: Locator, title: string): Promise<void> {
+  const list = await openPipelinePicker(row, "Who works it");
+  await list
+    .getByRole("group", { name: "People", exact: true })
+    .getByRole("option", { name: new RegExp(` · ${title}$`) })
+    .click();
+}
+
 test(
   "Edit for this Task swaps the Pipeline and sets every field of its Stages, which hold after a reload",
   { tag: "@full" },
@@ -1571,7 +1662,7 @@ test(
 
       const implement = editorRow(page, "Implement");
       await implement.getByRole("button", { name: "Edit Implement" }).click();
-      await implement.getByLabel("Who works it").selectOption("reviewer");
+      await chooseWhoWorks(implement, "Reviewer");
       // A Stage has no model of its own: the engine cascade gives it.
       await expect(implement.getByLabel("Model")).toHaveCount(0);
       await implement.getByLabel("Effort").selectOption("high");
@@ -1613,7 +1704,7 @@ test(
       for (let move = 0; move < 3; move += 1) {
         await added.getByRole("button", { name: "Move New Stage up" }).click();
       }
-      await added.getByLabel("Who works it").selectOption("reviewer");
+      await chooseWhoWorks(added, "Reviewer");
       await added.getByLabel("Session").selectOption("continue");
       await added.getByText("Optional: skipped when the Definition of Done is already met").click();
       await added.getByLabel("Name", { exact: true }).fill("Review");
@@ -1659,6 +1750,8 @@ test(
       expect(own.stages?.map(({ stage }) => stage)).toEqual([
         {
           ...libraryImplement,
+          // Choosing the Reviewer clears the Implements duty the library's Stage names.
+          duty: undefined,
           role: "reviewer",
           effort: "high",
           budget: 120_000,
@@ -1780,7 +1873,7 @@ test(
       await pickPipeline(page.getByRole("dialog"), "Pipeline", "Quick fix");
       const implement = editorRow(page, "Implement");
       await implement.getByRole("button", { name: "Edit Implement" }).click();
-      await implement.getByLabel("Who works it").selectOption("reviewer");
+      await chooseWhoWorks(implement, "Reviewer");
       await expect(
         implement.getByLabel(`MCP tool ${server}/environment-variable`).locator("option"),
       ).toHaveText(["Role default: Consult Devops", "Ask me", "Never"]);
@@ -3947,6 +4040,107 @@ test(
       await page.request.put("/api/settings/size-threshold", {
         data: { sizeThreshold: threshold },
       });
+    }
+  },
+);
+
+/**
+ * Puts each duty back as `before` had it, in the records: a duty never set is unset again, which no
+ * screen or API can do, and a holder since let go can't be set again through the API.
+ */
+async function restoreDuties(page: Page, before: readonly Duty[]): Promise<void> {
+  const now = new Map((await dutiesNow(page)).map((duty) => [duty.key, duty]));
+  for (const { key, set, roleKey } of before) {
+    const changed = now.get(key);
+    if (changed?.set === set && changed.roleKey === roleKey) continue;
+    await queryOfficeDatabase("delete from duty_assignments where duty = $1", [key]);
+    if (set) {
+      await queryOfficeDatabase(
+        "insert into duty_assignments (duty, role_key, changed_at) values ($1, $2, now())",
+        [key, roleKey],
+      );
+    }
+  }
+}
+
+async function dutiesNow(page: Page): Promise<Duty[]> {
+  return dutyListSchema.parse(await (await page.request.get("/api/settings/duties")).json());
+}
+
+function isPlans({ key }: Duty): boolean {
+  return key === "plans";
+}
+
+test(
+  "the user sets a duty's holder in Settings › Duties, sees it on the Role card and in People, and applies Marta's Proposal of duties",
+  { tag: "@full" },
+  async ({ page }) => {
+    const MCP_DUTY = "Default Consultant for MCP tool hard switches";
+    const before = await dutiesNow(page);
+    const { card } = roleSchema.parse(await (await page.request.get("/api/roles/planner")).json());
+    const planner = `${card.name} · ${card.title}`;
+    try {
+      await page.goto("/settings/duties");
+      await expect(page.getByRole("link", { name: "Duties" })).toBeVisible();
+      const picker = page.getByLabel(MCP_DUTY, { exact: true });
+      await picker.selectOption({ label: planner });
+      await expect(page.getByText(`${MCP_DUTY}: ${planner} holds it now.`)).toBeVisible();
+      await page.reload();
+      await expect(page.getByLabel(MCP_DUTY, { exact: true })).toHaveValue("planner");
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-duties.png") });
+
+      await page.goto("/people/planner/role");
+      await expect(roleCardGroup(page, "Identity")).toContainText(MCP_DUTY);
+      await page.goto("/people");
+      const tile = page.locator(".person-card").filter({ hasText: card.name });
+      const mark = tile.getByRole("img", { name: new RegExp(`duties?: .*${MCP_DUTY}`) });
+      await expect(mark).toBeVisible();
+      await mark.hover();
+      await expect(page.getByRole("tooltip")).toContainText(MCP_DUTY);
+      await page.mouse.move(0, 0);
+      // The mark's Tooltip trigger is the focus stop around it.
+      await mark.locator("xpath=..").focus();
+      await expect(page.getByRole("tooltip")).toContainText(MCP_DUTY);
+
+      await page.goto("/settings/duties");
+      await page.getByLabel(MCP_DUTY, { exact: true }).selectOption({ label: "Nobody" });
+      await expect(page.getByText(`${MCP_DUTY}: nobody holds it now.`)).toBeVisible();
+      const row = page.locator(".duty-row").filter({ hasText: MCP_DUTY });
+      await expect(row).toContainText("You do it yourself.");
+
+      const started = await page.request.post("/api/chats/office-manager/threads");
+      const { id: threadId } = threadSchema.parse(await started.json());
+      const askedFirst = before.find(({ key }) => key === "asked-first-when-out-of-tries");
+      await seedProposal(threadId, {
+        kind: "duties",
+        from: { "mcp-tool-consultant": null, "asked-first-when-out-of-tries": askedFirst?.roleKey },
+        to: { "mcp-tool-consultant": "planner", "asked-first-when-out-of-tries": "planner" },
+      });
+      // Drafted from a holder Plans no longer has, as if it changed after the draft.
+      await seedProposal(threadId, {
+        kind: "duties",
+        from: { plans: "a-role-gone-since" },
+        to: { plans: null },
+      });
+
+      await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+      const proposals = chatWith(page, "Marta").getByRole("region", {
+        name: "Proposal: Change duties",
+      });
+      const applied = proposals.filter({ hasText: MCP_DUTY });
+      await expect(applied.getByRole("listitem").first()).toContainText(`${planner}`);
+      await applied.getByRole("button", { name: "Apply change" }).click();
+      await expect(applied).toContainText("Applied");
+      const holders = new Map((await dutiesNow(page)).map(({ key, roleKey }) => [key, roleKey]));
+      expect(holders.get("mcp-tool-consultant")).toBe("planner");
+      expect(holders.get("asked-first-when-out-of-tries")).toBe("planner");
+
+      const stale = proposals.filter({ hasText: "Plans" }).filter({ hasNotText: MCP_DUTY });
+      await stale.getByRole("button", { name: "Apply change" }).click();
+      await expect(stale).toContainText("Plans was changed meanwhile");
+      expect((await dutiesNow(page)).find(isPlans)?.roleKey).toBe(before.find(isPlans)?.roleKey);
+    } finally {
+      await restoreDuties(page, before);
     }
   },
 );

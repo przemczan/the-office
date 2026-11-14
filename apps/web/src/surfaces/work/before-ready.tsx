@@ -93,7 +93,7 @@ function OnBlock({
 }
 
 function OnRail({ task }: { readonly task: Task }): ReactNode {
-  const planner = usePlanner()?.card.name ?? "The Planner";
+  const planner = usePlanner()?.card.name ?? "Whoever holds Plans";
   const pipelines = useEveryPipeline();
   const projectPipelines = useProjectPipelineChoices(task.projectId)?.projectPipelines;
   const brokenOne = (pipelineId: string | null | undefined) =>
@@ -128,7 +128,7 @@ function OnRail({ task }: { readonly task: Task }): ReactNode {
 
 /** No Pipeline and none proposed: the user chooses one in Backlog, the Planner proposes one in Planning. */
 function ChooseAPipeline({ task }: { readonly task: Task }): ReactNode {
-  const planner = usePlanner()?.card.name ?? "The Planner";
+  const planner = usePlanner()?.card.name ?? "Whoever holds Plans";
   if (task.state !== "backlog") return `${planner} proposes one while planning`;
   return (
     <>

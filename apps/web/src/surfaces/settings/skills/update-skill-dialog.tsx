@@ -136,9 +136,10 @@ function NoProposalYet({
 }): ReactNode {
   if (!devopsName) {
     return (
-      <Alert tone="info" title="Updating needs someone with the Devops Role">
-        They propose the update with notes on what changes, and you apply it.{" "}
-        <Link to="/people">Hire one on the People page.</Link>
+      <Alert tone="info" title="Updating needs whoever holds Onboards and repairs Projects">
+        They propose the update with notes on what changes, and you apply it. Choose who in{" "}
+        <Link to="/settings/duties">Settings › Duties</Link>, or{" "}
+        <Link to="/people">hire someone on the People page.</Link>
       </Alert>
     );
   }

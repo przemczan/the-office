@@ -1,16 +1,18 @@
 import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
-import { CARETAKER } from "../../people/index.js";
+import { CARETAKER, Duties } from "../../people/index.js";
 import type { Brief } from "../domain/brief.js";
 import { canCall } from "../domain/consult.js";
 import {
   ALLOW_CHANGES_ADVICE,
   caretakerChatInstructions,
+  caretakerChatOfficeTools,
   chatOfficeTools,
   chatInstructions,
   consultationInstructions,
   consultationOfficeTools,
   workThreadInstructions,
+  type HeldDuties,
   type SessionPerson,
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
@@ -56,10 +58,18 @@ export interface SessionPlace {
   readonly brief: Brief;
   /** What its engine calls are tagged with, beside the Thread and the person. */
   readonly span: Readonly<Record<string, string>>;
+  /**
+   * The duties the Thread's person holds now, which decide their built-in tools and instructions;
+   * a session started with others is never resumed (spec §2.2).
+   */
+  readonly heldDuties: HeldDuties;
   instructions(person: SessionPerson): string;
   /** Readies the folder as a session opens on it. */
   ready(): Promise<void>;
 }
+
+/** A session's place as its home sets it up, before the duties its person holds. */
+type HomePlace = Omit<SessionPlace, "heldDuties">;
 
 /** Where a session that only reads Projects' checkouts works. */
 type ReadingPlace = Pick<
@@ -86,21 +96,27 @@ export class SessionPlaces {
     private readonly changesAllowed: ChangesAllowedRepository,
     private readonly masks: ProjectOutputMasks,
     private readonly chains: CallChains,
+    private readonly duties: Duties,
   ) {}
 
   async of(thread: Thread): Promise<SessionPlace> {
+    const held = await this.duties.heldBy(thread.roleKey);
+    return { ...(await this.homePlace(thread, held)), heldDuties: held };
+  }
+
+  private async homePlace(thread: Thread, held: HeldDuties): Promise<HomePlace> {
     const { home } = thread;
     switch (home.kind) {
       case "chat":
-        return this.chat(thread);
+        return this.chat(thread, held);
       case "task":
-        return this.task(thread, home.taskId);
+        return this.task(thread, home.taskId, held);
       case "initiative":
         return this.initiative(thread, home.initiativeId);
     }
   }
 
-  private async task(thread: Thread, taskId: string): Promise<SessionPlace> {
+  private async task(thread: Thread, taskId: string, held: HeldDuties): Promise<HomePlace> {
     const setup = await this.taskThreads.of(taskThreadRequest(thread, taskId));
     if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
@@ -121,7 +137,7 @@ export class SessionPlaces {
       // The module keeping Tasks made the worktree before it opened the Thread.
       ready: () => Promise.resolve(),
       ...(thread.consultation
-        ? await this.consultationTools(thread)
+        ? await this.consultationTools(thread, held)
         : {
             officeTools: setup.officeTools,
             callsCanWait: !setup.asking,
@@ -137,47 +153,49 @@ export class SessionPlaces {
    */
   private async consultationTools(
     thread: Thread,
+    held: HeldDuties,
   ): Promise<Pick<SessionPlace, "officeTools" | "callsCanWait" | "instructions">> {
     const canCallMore = canCall(await this.chains.ofCaller(thread));
     return {
-      officeTools: consultationOfficeTools(thread.roleKey, canCallMore),
+      officeTools: consultationOfficeTools(held, canCallMore),
       callsCanWait: false,
       instructions: (person) => consultationInstructions(person, canCallMore),
     };
   }
 
-  private async chat(thread: Thread): Promise<SessionPlace> {
+  private async chat(thread: Thread, held: HeldDuties): Promise<HomePlace> {
     const brief = await this.briefs.forThread(thread);
     if (thread.consultation) {
       return {
         ...this.basesPlace(thread),
-        ...(await this.consultationTools(thread)),
+        ...(await this.consultationTools(thread, held)),
         brief,
         span: {},
         workstation: false,
         refusalAdvice: undefined,
       };
     }
+    const caretaker = thread.roleKey === CARETAKER;
     const chat = {
-      officeTools: chatOfficeTools(thread.roleKey),
+      officeTools: caretaker ? caretakerChatOfficeTools(held) : chatOfficeTools(held),
       callsCanWait: false,
       brief,
       span: {},
     };
-    if (thread.roleKey === CARETAKER) return { ...chat, ...(await this.caretakerPlace(thread)) };
+    if (caretaker) return { ...chat, ...(await this.caretakerPlace(thread)) };
     return {
       ...this.basesPlace(thread),
       ...chat,
       workstation: false,
       refusalAdvice: undefined,
-      instructions: (person) => chatInstructions(person, thread.roleKey),
+      instructions: (person) => chatInstructions(person, held),
     };
   }
 
   /** The Caretaker reads as any chat does until the user allows changes in the Thread. */
   private async caretakerPlace(
     thread: Thread,
-  ): Promise<Omit<SessionPlace, "officeTools" | "callsCanWait" | "brief" | "span">> {
+  ): Promise<Omit<HomePlace, "officeTools" | "callsCanWait" | "brief" | "span">> {
     if (!(await this.changesAllowed.isAllowed(thread.id))) {
       return {
         ...this.basesPlace(thread),
@@ -204,7 +222,7 @@ export class SessionPlaces {
    * branches, at the Initiative's branch in the Projects `branchReads` names. Its folder stays the
    * base checkouts', even then, so a session started while shaping resumes after Confirm.
    */
-  private async initiative(thread: Thread, initiativeId: string): Promise<SessionPlace> {
+  private async initiative(thread: Thread, initiativeId: string): Promise<HomePlace> {
     const setup = await this.initiativeThreads.of({
       threadId: thread.id,
       initiativeId,

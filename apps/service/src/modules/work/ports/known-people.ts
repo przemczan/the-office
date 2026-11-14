@@ -4,6 +4,9 @@ import type { TaskLimit } from "../domain/task-start.js";
 export abstract class KnownPeople {
   /** Who fills the Role, or undefined when nobody does. */
   abstract find(roleKey: string): Promise<KnownPerson | undefined>;
+
+  /** The key of the hired Role holding the duty keyed `duty`; undefined while nobody does. */
+  abstract holderOf(duty: string): Promise<string | undefined>;
 }
 
 export interface KnownPerson {

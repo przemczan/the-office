@@ -21,8 +21,8 @@ import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { ASKING_INSTRUCTIONS, askingBrief } from "../../domain/asking.js";
 import { pipelineIn, type Initiative } from "../../domain/initiative.js";
+import { PLANS } from "../../domain/duties.js";
 import {
-  PLANNER,
   PLANNING_INSTRUCTIONS,
   planningBrief,
   type InitiativeBranchStart,
@@ -31,6 +31,7 @@ import {
 import type { Task } from "../../domain/task.js";
 import { taskBranchBase } from "../../domain/task-branch-base.js";
 import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
+import { KnownPeople } from "../../ports/known-people.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../../ports/project-worktrees.js";
@@ -53,7 +54,9 @@ export const PLANNING_OFFICE_TOOLS = [
   CONSULT_TOOL,
 ] as const;
 
-/** What the Planner does in the Planning Thread, calling a person only when the user asks. */
+/**
+ * What whoever holds Plans does in the Planning Thread, calling a person only when the user asks.
+ */
 export const PLANNING_THREAD_INSTRUCTIONS = `${PLANNING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
 
 /** What a person does in their Thread on a Task, calling someone only when the user asks. */
@@ -71,13 +74,13 @@ export const ASKING_OFFICE_TOOLS = [
 ] as const;
 
 /**
- * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Planner's
- * until the Task starts plans it; every other person's Thread only reads. A Stage's session is
- * set up by its Stage, and a Consultation's gets its own tools and instructions from Conversations.
+ * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record: the Thread of
+ * whoever holds Plans plans it until the Task starts; every other person's Thread only reads. A
+ * Stage's session is set up by its Stage, and a Consultation's gets its own tools and instructions
+ * from Conversations.
  */
 @Injectable()
 export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
-  readonly planner = PLANNER;
   private readonly logger = new Logger(TaskThreadRecords.name);
 
   constructor(
@@ -90,6 +93,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     private readonly pipelines: KnownPipelines,
     private readonly worktrees: ProjectWorktrees,
     private readonly stageResults: StageResults,
+    private readonly people: KnownPeople,
   ) {}
 
   onModuleInit(): void {
@@ -100,9 +104,13 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     const task = await this.tasks.read(request.taskId);
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
-    return request.personsThread && !plansIt(task, request.roleKey)
+    return request.personsThread && !plansIt(task, request.roleKey, await this.planner())
       ? this.asking(request, task, project)
       : this.planning(task, project);
+  }
+
+  planner(): Promise<string | undefined> {
+    return this.people.holderOf(PLANS);
   }
 
   async readyForPersonsThread(taskId: string): Promise<string | undefined> {
@@ -251,9 +259,10 @@ function plannedInItsInitiative(
 }
 
 /**
- * The Planner plans until the Task starts: in Ready too, where writing a part takes it back to
- * Planning (the user's words of 2026-11-11), and again if a Save moves it to Backlog.
+ * Whoever holds Plans (`planner`) plans until the Task starts: in Ready too, where writing a part
+ * takes it back to Planning (the user's words of 2026-11-11), and again if a Save moves it to
+ * Backlog.
  */
-function plansIt({ state }: Task, roleKey: string): boolean {
-  return roleKey === PLANNER && ["shaping", "backlog", "planning", "ready"].includes(state);
+function plansIt({ state }: Task, roleKey: string, planner: string | undefined): boolean {
+  return roleKey === planner && ["shaping", "backlog", "planning", "ready"].includes(state);
 }

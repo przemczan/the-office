@@ -17,6 +17,36 @@ describe("a Script Stage's command", () => {
   });
 });
 
+describe("who works an Agent Stage", () => {
+  const stage = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    optional: false,
+    brief: "Build it.",
+    session: "fresh",
+    budget: 1000,
+  };
+
+  it("names a duty instead of a Role", () => {
+    expect(stageSchema.parse({ ...stage, duty: "implements" })).toEqual({
+      ...stage,
+      duty: "implements",
+    });
+  });
+
+  it("refuses a duty there isn't", () => {
+    expect(stageSchema.safeParse({ ...stage, duty: "makes-coffee" }).success).toBe(false);
+  });
+
+  it("is left to the service's rules when it names neither or both", () => {
+    expect(stageSchema.safeParse(stage).success).toBe(true);
+    expect(stageSchema.safeParse({ ...stage, role: "developer", duty: "implements" }).success).toBe(
+      true,
+    );
+  });
+});
+
 describe("an Agent Stage", () => {
   it("has no model of its own: one sent or kept from before is dropped", () => {
     const stage = stageSchema.parse({

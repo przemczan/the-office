@@ -327,6 +327,11 @@ export interface StageRun {
   readonly sentBack: SentBack | undefined;
   /** The Stage Thread an Agent Stage's run works in, once it has one. */
   readonly threadId: string | undefined;
+  /**
+   * The Role that worked an Agent Stage's run, as its Stage named it or held its duty when the run
+   * started; undefined for another kind's run, and for runs kept before it was recorded.
+   */
+  readonly roleKey: string | undefined;
   /** How the run's session began; undefined for a run that opened none. */
   readonly session: StageSessionMove | undefined;
   /**

@@ -12,7 +12,7 @@ import {
   type SessionScript,
   ScriptedEngineModule,
 } from "../../engine/index.js";
-import { DEVOPS, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { type PreparedMcpServers, SessionMcpServers } from "../../mcp-servers/index.js";
 import { TokensCounted, DecisionAnswered } from "../domain/conversation-events.js";
 import { roleOfficeTools } from "../domain/session-instructions.js";
@@ -55,6 +55,7 @@ import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { dutiesProvider } from "./duties.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
@@ -81,7 +82,11 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
+
+/** The Role holding Onboards and repairs Projects by default. */
+const DEVOPS = "devops";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -181,6 +186,7 @@ async function startOn(
       ContextPolicySettingsService,
       Briefs,
       sessionMemoryProvider(),
+      dutiesProvider(),
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
@@ -217,6 +223,7 @@ function aPerson(name: string): string {
   people.set(roleKey, {
     roleKey,
     cardVersion: 1,
+    mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
     card: aPlannerCard({ name, title: "Developer", sessionDefault: "always-start-fresh" }),
   });
   return roleKey;
@@ -564,11 +571,12 @@ describe("StageThreads", () => {
     people.set(DEVOPS, {
       roleKey: DEVOPS,
       cardVersion: 1,
+      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
       card: aPlannerCard({ name: "Nina", title: "Devops", sessionDefault: "always-start-fresh" }),
     });
     // Pipelines and Projects register these in the service.
     const registry = app.get(OfficeToolRegistry);
-    for (const name of roleOfficeTools(DEVOPS)) {
+    for (const name of roleOfficeTools(["onboards-projects"])) {
       registry.register({
         name,
         description: name,
@@ -580,7 +588,7 @@ describe("StageThreads", () => {
     await aStageRun(aStage({ roleKey: DEVOPS }));
 
     expect(engine.sessions[0]?.options.officeTools.map(({ name }) => name)).toEqual(
-      expect.arrayContaining([...roleOfficeTools(DEVOPS)]),
+      expect.arrayContaining([...roleOfficeTools(["onboards-projects"])]),
     );
   });
 

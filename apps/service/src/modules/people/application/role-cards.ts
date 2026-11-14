@@ -1,15 +1,26 @@
 import { Injectable } from "@nestjs/common";
-import { KNOWN_ROLES } from "../domain/known-roles.js";
+import type { DutyKey } from "../domain/duties.js";
+import type { HardSwitchValue } from "../domain/hard-switches.js";
+import {
+  permissionNarrowingProblems,
+  type PermissionNarrowing,
+} from "../domain/permission-profile.js";
+import { consultableRoleKeys, presetTitle } from "../domain/presets.js";
 import type { RoleCard } from "../domain/role-card.js";
 import { RoleCardVersionNotFound } from "../domain/role-card-version-not-found.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRepository } from "../ports/role-repository.js";
+import { Duties } from "./duties.js";
 
-/** The card a session of the Role runs with, at the version it records. */
+/**
+ * The card a session of the Role runs with, at the version it records, with where its MCP tools the
+ * card leaves unset stand, as read now.
+ */
 export interface SessionRole {
   readonly roleKey: string;
   readonly cardVersion: number;
   readonly card: RoleCard;
+  readonly mcpToolDefault: HardSwitchValue;
 }
 
 /** A hired person other people may consult (spec §2.2): their Consultant capability is on. */
@@ -26,7 +37,10 @@ export interface Consultant {
  */
 @Injectable()
 export class RoleCards {
-  constructor(private readonly repository: RoleRepository) {}
+  constructor(
+    private readonly repository: RoleRepository,
+    private readonly duties: Duties,
+  ) {}
 
   /** Throws RoleNotFound when nobody fills the Role. */
   async forNewSession(roleKey: string): Promise<SessionRole> {
@@ -38,9 +52,13 @@ export class RoleCards {
   /** The card a new session would start with, or undefined when nobody fills the Role. */
   async find(roleKey: string): Promise<SessionRole | undefined> {
     const role = await this.repository.find(roleKey);
-    return role && !role.letGoAt
-      ? { roleKey, cardVersion: role.cardVersion, card: role.card }
-      : undefined;
+    if (!role || role.letGoAt) return undefined;
+    return {
+      roleKey,
+      cardVersion: role.cardVersion,
+      card: role.card,
+      mcpToolDefault: await this.duties.mcpToolDefault(),
+    };
   }
 
   /** The keys of the Roles someone fills now. */
@@ -63,12 +81,44 @@ export class RoleCards {
     return role?.letGoAt ? { name: role.card.name } : undefined;
   }
 
+  /** The key of the hired Role holding `duty`; undefined while nobody does. */
+  holderOf(duty: DutyKey): Promise<string | undefined> {
+    return this.duties.holderOf(duty);
+  }
+
+  /** The key of the Role `duty` names, hired or not; undefined while it is set to none. */
+  dutyRoleKey(duty: DutyKey): Promise<string | undefined> {
+    return this.duties.roleKeyOf(duty);
+  }
+
+  /** Where an MCP tool stands until the user sets it. */
+  mcpToolDefault(): Promise<HardSwitchValue> {
+    return this.duties.mcpToolDefault();
+  }
+
   /**
-   * The Role's preset title, as the Role card names a Role to consult; the key itself for a Role
-   * The Office doesn't know, which no saved card names.
+   * Why a Stage's narrowing of the Role's profile can't stand, in the UI's words; empty when it
+   * can, or when nobody fills the Role.
+   */
+  async permissionNarrowingProblems(
+    roleKey: string,
+    narrowing: PermissionNarrowing,
+  ): Promise<string[]> {
+    const person = await this.find(roleKey);
+    if (!person) return [];
+    const roles = await this.repository.list();
+    return permissionNarrowingProblems(roleKey, person.card.permissionProfile, narrowing, {
+      consultable: consultableRoleKeys(roles.map((role) => role.key)),
+      mcpConsultant: await this.duties.mcpConsultant(),
+    });
+  }
+
+  /**
+   * The Role's preset title, as the Role card names a Role to consult; the key itself for a Role no
+   * preset has.
    */
   roleTitle(roleKey: string): string {
-    return KNOWN_ROLES.get(roleKey) ?? roleKey;
+    return presetTitle(roleKey) ?? roleKey;
   }
 
   /**
@@ -79,6 +129,11 @@ export class RoleCards {
     if (!(await this.find(roleKey))) throw new RoleNotFound(roleKey);
     const version = await this.repository.version(roleKey, cardVersion);
     if (!version) throw new RoleCardVersionNotFound(roleKey, cardVersion);
-    return { roleKey, cardVersion, card: version.card };
+    return {
+      roleKey,
+      cardVersion,
+      card: version.card,
+      mcpToolDefault: await this.duties.mcpToolDefault(),
+    };
   }
 }

@@ -35,6 +35,7 @@ import { failedInstall, installRuns } from "../domain/stage-command-run.js";
 import { closingOf, interruptedOutcome } from "../domain/stage-interruption.js";
 import type { AgentStage, Stage } from "../domain/stage.js";
 import { budgetOutcome, budgetReached } from "../domain/stage-budget.js";
+import { staffedRole, unstaffedWords } from "../domain/stage-staffing.js";
 import {
   addTokens,
   NO_STAGE_TOKENS,
@@ -153,11 +154,13 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
 
   async run(work: StageWork<"agent">): Promise<StageOutcome> {
     const { stage } = work;
-    const person = await this.people.find(stage.role);
+    const roleKey = staffedRole(stage);
+    if (roleKey === undefined) return { status: "failed", error: unstaffedWords(stage) };
+    const person = await this.people.find(roleKey);
     if (!person) {
       return {
         status: "failed",
-        error: `Nobody fills the Role "${stage.role}" this Stage needs: hire them on People.`,
+        error: `Nobody fills the Role "${roleKey}" this Stage needs: hire them on People.`,
       };
     }
     if (await this.noEngineListed()) {
@@ -303,11 +306,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
 
   private async open(
     { stage, run, stages, earlierRuns }: StageWork<"agent">,
-    { card }: KnownPerson,
+    { card, mcpToolDefault }: KnownPerson,
     task: TaskRecord,
     installProblem: string | undefined,
   ): Promise<StageThread> {
-    const profile = narrowedPermissionProfile(card.permissionProfile, stage.permissions);
+    const profile = narrowedPermissionProfile(
+      card.permissionProfile,
+      stage.permissions,
+      mcpToolDefault,
+    );
     const commands = allowedCommands(
       profile.run,
       task.project.commands,
@@ -319,7 +326,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     return this.threads.open({
       taskId: run.taskId,
       projectId: task.project.id,
-      roleKey: stage.role,
+      roleKey: workingRole(stage),
       stageName: stage.name,
       effort: stage.effort,
       ...stageSessionOf(stage, stages, earlierRuns),
@@ -363,10 +370,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     taskId: string,
     { stage, stages, earlierRuns }: Pick<StageWork<"agent">, "stage" | "stages" | "earlierRuns">,
   ): Promise<StageSessionAhead | undefined> {
-    const person = await this.people.find(stage.role);
-    if (!person || (await this.noEngineListed())) return undefined;
+    const roleKey = staffedRole(stage);
+    const person = roleKey === undefined ? undefined : await this.people.find(roleKey);
+    if (roleKey === undefined || !person || (await this.noEngineListed())) return undefined;
     const task = await this.records.read(taskId);
-    const { run } = narrowedPermissionProfile(person.card.permissionProfile, stage.permissions);
+    const { run } = narrowedPermissionProfile(
+      person.card.permissionProfile,
+      stage.permissions,
+      person.mcpToolDefault,
+    );
     const commands = allowedCommands(
       run,
       task.project.commands,
@@ -376,7 +388,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     return this.threads.sessionAhead({
       taskId,
       projectId: task.project.id,
-      roleKey: stage.role,
+      roleKey,
       ...stageSessionOf(stage, stages, earlierRuns),
       record: await this.recordOf(taskId, person.card, commands, task, stages, earlierRuns),
     });
@@ -594,7 +606,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     reading: StageResultReading,
   ): Promise<StageResultReading> {
     if (!reading.valid || reading.screenshots.length === 0) return reading;
-    const attaching = await this.screenshots.attach(run.taskId, stage.role, reading.screenshots);
+    const attaching = await this.screenshots.attach(
+      run.taskId,
+      workingRole(stage),
+      reading.screenshots,
+    );
     if (attaching.kind === "attached") return reading;
     return { valid: false, problems: screenshotsRefused(attaching.problems) };
   }
@@ -629,6 +645,13 @@ function changedGitItself(problem: string, handoverNote: string | undefined): St
 
 function endingOf(outcome: StageOutcome): Ending {
   return { handoverNote: outcome.handoverNote, closing: closingOf(outcome) };
+}
+
+/** The Role the walk staffed the Stage with: `run` ends an unstaffed one before any of its work. */
+function workingRole(stage: AgentStage): string {
+  const roleKey = staffedRole(stage);
+  if (roleKey === undefined) throw new Error(`Nobody was staffed to work the Stage ${stage.name}.`);
+  return roleKey;
 }
 
 function stageOf(stages: readonly Stage[], key: string): Stage | undefined {

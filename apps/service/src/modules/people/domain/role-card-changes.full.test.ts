@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED, consult } from "./hard-switches.js";
+import { ALLOWED, ASK_ME, consult } from "./hard-switches.js";
 import { aRoleCard } from "./role.fixtures.js";
-import { roleCardChanges } from "./role-card-changes.js";
+import {
+  roleCardChanges as changesWithDefault,
+  type RoleCardFieldChange,
+} from "./role-card-changes.js";
+import type { RoleCard } from "./role-card.js";
+
+/** As with no duty set: an unset MCP tool consults Devops. */
+function roleCardChanges(before: RoleCard, after: RoleCard): RoleCardFieldChange[] {
+  return changesWithDefault(before, after, consult("devops"));
+}
 
 describe("roleCardChanges", () => {
   it("finds nothing in the same card", () => {
@@ -59,5 +68,15 @@ describe("roleCardChanges", () => {
     expect(
       roleCardChanges(aRoleCard({ roleOverride: { ...opus } }), aRoleCard({ roleOverride: opus })),
     ).toEqual([]);
+  });
+
+  it("reads an unset MCP tool as the default it is given", () => {
+    const unset = aRoleCard();
+    const atAskMe = aRoleCard({
+      permissionProfile: { ...unset.permissionProfile, mcpTools: { "github/merge": ASK_ME } },
+    });
+
+    expect(changesWithDefault(unset, atAskMe, ASK_ME)).toEqual([]);
+    expect(changesWithDefault(unset, atAskMe, consult("devops"))).toHaveLength(1);
   });
 });

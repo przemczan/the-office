@@ -27,7 +27,7 @@ export interface GroupedBoardProps {
   readonly tasks: readonly Task[];
   readonly queue: readonly QueuedTask[];
   readonly projects: readonly Project[] | undefined;
-  readonly cto: Role | undefined;
+  readonly shaper: Role | undefined;
   readonly planner: string;
   readonly folds: BoardGroupFolds;
   /** The column's cards in a group, where a card is dropped. */
@@ -99,7 +99,7 @@ function GroupSection({
   tasks,
   queue,
   projects,
-  cto,
+  shaper,
   folds,
   cardsArea,
   canLandIn,
@@ -134,7 +134,7 @@ function GroupSection({
         )}
         {group.initiative ? (
           <span className="group-sub">
-            <InitiativeStateBadge initiative={group.initiative} cto={cto} />
+            <InitiativeStateBadge initiative={group.initiative} shaper={shaper} />
             <InitiativePausedBadge initiative={group.initiative} />
             <span className="group-projects">
               <InitiativeProjects initiative={group.initiative} projects={projects} />

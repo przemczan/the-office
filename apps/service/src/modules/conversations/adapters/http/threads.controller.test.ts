@@ -37,6 +37,7 @@ import { McpServersModule } from "../../../mcp-servers/index.js";
 import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
 import { sessionMemoryProvider } from "../../application/session-memory.fixtures.js";
+import { dutiesProvider } from "../../application/duties.fixtures.js";
 import { ProposalAppliers } from "../../application/proposal-appliers.js";
 import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
@@ -83,6 +84,7 @@ import { ProjectOutputMasksForTests } from "../../ports/project-output-masks.fix
 import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
 import {
   ANOTHER_SIGNED_IN_FOR_TESTS,
@@ -111,7 +113,7 @@ function aPerson(name: string, chat: boolean): string {
     name,
     capabilities: { sharedMemory: false, chat, consultant: true, runEnvironment: false },
   });
-  people.set(roleKey, { roleKey, cardVersion: 1, card });
+  people.set(roleKey, { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN });
   return roleKey;
 }
 
@@ -240,6 +242,7 @@ function setUpEachTest(): void {
         ThreadService,
         Briefs,
         sessionMemoryProvider(),
+        dutiesProvider(),
         TaskThreadSetups,
         InitiativeThreadSetups,
         SessionPlaces,
@@ -272,7 +275,7 @@ function setUpEachTest(): void {
       ],
     }));
     app.get(TaskThreadSetups).provide({
-      planner: "planner",
+      planner: () => Promise.resolve("planner"),
       readyForPersonsThread: () => Promise.resolve(undefined),
       planningThreadElsewhere: () => Promise.resolve(undefined),
       setUp: ({ taskId }) =>
@@ -447,6 +450,7 @@ describe("a Thread", () => {
     people.set(roleKey, {
       roleKey,
       cardVersion: 2,
+      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
       card: aPlannerCard({
         capabilities: { sharedMemory: false, chat: false, consultant: true, runEnvironment: false },
       }),
@@ -709,6 +713,7 @@ describe("Allow changes", () => {
     people.set(CARETAKER, {
       roleKey: CARETAKER,
       cardVersion: 1,
+      mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
       card: aPlannerCard({ name: "Sam", title: "Caretaker" }),
     });
     const thread = threadSchema.parse(

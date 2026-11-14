@@ -1,7 +1,6 @@
 import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
-  OFFICE_MANAGER,
   RoleNotFound,
   EngineCascade,
   PeopleModule,
@@ -62,6 +61,7 @@ import { ProposalService } from "./proposal-service.js";
 import { RoleProposals } from "./role-proposals.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { dutiesProvider } from "./duties.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
 import { StageThreads } from "./stage-threads.js";
@@ -85,7 +85,11 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE } from "../domain/user.fixtures.js";
+
+/** The Role holding Default person to talk to by default. */
+const OFFICE_MANAGER = "office-manager";
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -101,6 +105,7 @@ const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 const OFFICE_MANAGER_ROLE: SessionRole = {
   roleKey: OFFICE_MANAGER,
   cardVersion: 1,
+  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
   card: aPlannerCard({ name: "Marta", title: "Office Manager" }),
 };
 
@@ -170,6 +175,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ThreadService,
       Briefs,
       sessionMemoryProvider(),
+      // People's own reads the Roles hired here, none under the Office Manager's fixed key.
+      dutiesProvider(),
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
@@ -255,7 +262,7 @@ function chatToolStandIns(): FactoryProvider {
     provide: "chat tool stand-ins",
     inject: [OfficeToolRegistry],
     useFactory: (registry: OfficeToolRegistry) => {
-      for (const name of chatOfficeTools(OFFICE_MANAGER)) {
+      for (const name of chatOfficeTools(["default-person-to-talk-to"])) {
         if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) || TOOLS_OF_PEOPLE.includes(name)) {
           continue;
         }
@@ -438,7 +445,7 @@ describe("a Proposal of the Office instructions", () => {
     });
 
     await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toMatchObject({
-      reasons: [expect.stringContaining("Ask the Office Manager for a new draft.")],
+      reasons: [expect.stringContaining("Ask for a new draft.")],
     });
 
     expect(await officeInstructions.current()).toEqual({

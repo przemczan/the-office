@@ -190,5 +190,7 @@ function reasonWords(
       return "engine changed";
     case "changes-switched":
       return "Allow changes switched";
+    case "duties-changed":
+      return "duties changed";
   }
 }

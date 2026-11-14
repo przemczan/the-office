@@ -5,7 +5,7 @@ import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@ne
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
 import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
-import { PipelineRoleSources } from "../../people/index.js";
+import { DUTIES, permissionNarrowingProblems, PipelineRoleSources } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStageEdits, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { PipelineInitiatives, type PipelineInitiative } from "./pipeline-initiatives.js";
@@ -42,6 +42,7 @@ import type {
   StageCommandPurpose,
   StageCommandRun,
 } from "../domain/stage-command-run.js";
+import type { StagePermissions } from "../domain/stage-permissions.js";
 import type { PublishTarget } from "../domain/stage.js";
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
@@ -310,6 +311,7 @@ export function aPerson(name = "Ada"): KnownPerson {
         publishOutsideThePipeline: { kind: "never" },
       },
     },
+    mcpToolDefault: { kind: "consult", role: "devops" },
   };
 }
 
@@ -335,6 +337,38 @@ export class KnownPeopleForTests extends KnownPeople {
 
   roleTitle(roleKey: string): string {
     return this.titles.get(roleKey) ?? roleKey;
+  }
+
+  /**
+   * The Role each duty names, by duty key, `null` for none: until a test sets one, its default
+   * Role key, as People's are.
+   */
+  readonly holders = new Map<string, string | null>();
+
+  holderOf(duty: string): Promise<string | undefined> {
+    const roleKey = this.namedFor(duty);
+    return Promise.resolve(roleKey !== undefined && this.people.has(roleKey) ? roleKey : undefined);
+  }
+
+  dutyRoleKey(duty: string): Promise<string | undefined> {
+    return Promise.resolve(this.namedFor(duty));
+  }
+
+  private namedFor(duty: string): string | undefined {
+    if (this.holders.has(duty)) return this.holders.get(duty) ?? undefined;
+    return DUTIES.find(({ key }) => key === duty)?.defaultRoleKey;
+  }
+
+  /** People's own check, consulting the Roles of `titles` and the people here. */
+  permissionNarrowingProblems(roleKey: string, narrowing: StagePermissions): Promise<string[]> {
+    const person = this.people.get(roleKey);
+    if (!person) return Promise.resolve([]);
+    return Promise.resolve(
+      permissionNarrowingProblems(roleKey, person.card.permissionProfile, narrowing, {
+        consultable: new Set([...this.titles.keys(), ...this.people.keys()]),
+        mcpConsultant: this.holders.get("mcp-tool-consultant") ?? undefined,
+      }),
+    );
   }
 }
 

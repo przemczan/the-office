@@ -75,10 +75,11 @@ export class StartQueueForTests extends StartQueue {
 }
 
 export class KnownPeopleForTests extends KnownPeople {
-  readonly hired = new Set<string>();
+  /** The holders of duties, by duty key: none until a test sets one. */
+  readonly holders = new Map<string, string>();
 
-  async hiredKeys(): Promise<ReadonlySet<string>> {
-    return this.hired;
+  async holderOf(duty: string): Promise<string | undefined> {
+    return this.holders.get(duty);
   }
 }
 

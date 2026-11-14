@@ -1,14 +1,11 @@
-import { consult, type HardSwitchValue } from "./hard-switches.js";
-import { DEVOPS, KNOWN_ROLES } from "./known-roles.js";
+import type { HardSwitchValue } from "./hard-switches.js";
 
 /**
  * The settings of the tools of a Role's MCP servers, each set like a Hard switch (spec §6), keyed
- * by `mcpToolKey`. Only the tools the user set are kept; any other is at `MCP_TOOL_DEFAULT`.
+ * by `mcpToolKey`. Only the tools the user set are kept; any other is at the default, which follows
+ * the holder of Default Consultant for MCP tool hard switches (`mcpToolDefault` in `duties.ts`).
  */
 export type McpToolSettings = Readonly<Record<string, HardSwitchValue>>;
-
-/** Where a tool starts, until the user sets it. */
-export const MCP_TOOL_DEFAULT: HardSwitchValue = consult(DEVOPS);
 
 /** An MCP server's name: no `/`, so the first one in a key ends it. */
 const KEY_PATTERN = /^[a-z0-9-]+\/.+$/;
@@ -22,8 +19,9 @@ export function mcpToolSetting(
   settings: McpToolSettings,
   serverName: string,
   toolName: string,
+  toolDefault: HardSwitchValue,
 ): HardSwitchValue {
-  return settings[mcpToolKey(serverName, toolName)] ?? MCP_TOOL_DEFAULT;
+  return settings[mcpToolKey(serverName, toolName)] ?? toolDefault;
 }
 
 /**
@@ -36,29 +34,37 @@ export function mcpToolSettingsFor(
     readonly name: string;
     readonly tools: readonly { readonly name: string }[];
   }[],
+  toolDefault: HardSwitchValue,
 ): Record<string, HardSwitchValue> {
   return Object.fromEntries(
     servers.flatMap((server) =>
       server.tools.map((tool) => [
         mcpToolKey(server.name, tool.name),
-        mcpToolSetting(settings, server.name, tool.name),
+        mcpToolSetting(settings, server.name, tool.name, toolDefault),
       ]),
     ),
   );
 }
 
 /**
- * Why a Role's MCP tool settings can't be saved, in the UI's words; empty when they can. Devops's
- * own card may keep the default: a consult its own person makes goes to the user.
+ * Why a Role's MCP tool settings can't be saved, in the UI's words; empty when they can. A tool may
+ * consult only the Roles `consultable` names. The card of `mcpConsultant`, who holds Default
+ * Consultant for MCP tool hard switches, may keep the default: a consult its own person makes goes
+ * to the user.
  */
-export function mcpToolSettingsProblems(roleKey: string, settings: McpToolSettings): string[] {
+export function mcpToolSettingsProblems(
+  roleKey: string,
+  settings: McpToolSettings,
+  consultable: ReadonlySet<string>,
+  mcpConsultant: string | undefined,
+): string[] {
   const problems: string[] = [];
   for (const [key, value] of Object.entries(settings)) {
     if (!KEY_PATTERN.test(key)) {
       problems.push(`"${key}" doesn't name an MCP tool as server/tool.`);
-    } else if (value.kind === "consult" && !KNOWN_ROLES.has(value.role)) {
+    } else if (value.kind === "consult" && !consultable.has(value.role)) {
       problems.push(`The MCP tool ${key} consults a Role The Office doesn't know.`);
-    } else if (value.kind === "consult" && value.role === roleKey && roleKey !== DEVOPS) {
+    } else if (value.kind === "consult" && value.role === roleKey && roleKey !== mcpConsultant) {
       problems.push(`The MCP tool ${key} can't consult the Role itself.`);
     }
   }

@@ -37,17 +37,20 @@ import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../engine/index.js";
-import { DEVOPS, EngineCascade, RoleCards } from "../../people/index.js";
+import { EngineCascade, RoleCards } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { ownProjectsStartedTasks } from "../../pipelines/index.fixtures.js";
 import { TaskWorktrees } from "../../projects/index.js";
 import { SkillLibrary } from "../../skills/index.js";
 import { ownProjectsQueue } from "../../work/index.fixtures.js";
-import { DevopsChat, NINA_ROLE_CARDS } from "../adapters/http/devops-chat.fixtures.js";
+import { DevopsChat, NINA_DUTIES, NINA_ROLE_CARDS } from "../adapters/http/devops-chat.fixtures.js";
 import { LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL } from "../domain/session-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+
+/** The Role holding Onboards and repairs Projects by default. */
+const DEVOPS = "devops";
 
 // Devops installing and updating skills from a Source is devops-skill-sources.test.ts.
 
@@ -80,6 +83,7 @@ beforeEach(async () => {
     ],
     overrides: [
       { provide: RoleCards, useValue: NINA_ROLE_CARDS },
+      NINA_DUTIES,
       { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       // Nina's Memory is People's, kept by her Role, which the stand-in above has no row for.
       sessionMemoryProvider(),
@@ -572,7 +576,13 @@ describe("Devops' Proposals of a Stage template, through the scripted engine", (
     const listed = await chat.ninaCalls(LIST_STAGE_TEMPLATES_TOOL, {});
 
     expect(listed.isError).toBe(false);
-    expect(stageTemplateListSchema.parse(JSON.parse(listed.text))).toContainEqual(template);
+    const { templates, duties } = JSON.parse(listed.text) as {
+      templates: unknown;
+      duties: unknown;
+    };
+    expect(stageTemplateListSchema.parse(templates)).toContainEqual(template);
+    // The built-in templates name duties, each with its holder or nobody.
+    expect(duties).toMatchObject({ implements: expect.stringMatching(/^Implements \(/) });
   }, 30_000);
 
   it("drafts a template's new Stage from a chat, changing nothing until it is applied with a click", async () => {

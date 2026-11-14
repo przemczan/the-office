@@ -33,7 +33,12 @@ import {
   type ProposedProjectPipeline,
 } from "../domain/project-pipeline.js";
 import { buildStages, type BrokenReason, type BuiltStages } from "../domain/stage-change.js";
-import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
+import {
+  agentStageWorkers,
+  newlyNamedWorkers,
+  type Stage,
+  type StageWorkers,
+} from "../domain/stage.js";
 import { PipelineRemoved } from "../domain/pipeline-library-events.js";
 import {
   PipelineRemovalRefused,
@@ -537,7 +542,7 @@ export class PipelineLibraryEditor {
     stages: readonly Stage[],
     library: readonly Pipeline[],
   ): Promise<StageProblem[]> {
-    const named = agentStageRoles(library.flatMap((pipeline) => pipeline.stages));
+    const named = agentStageWorkers(library.flatMap((pipeline) => pipeline.stages));
     return this.engineProblems(stages, named, undefined);
   }
 
@@ -554,7 +559,7 @@ export class PipelineLibraryEditor {
     const projectStages = (await this.projectPipelines.listOf(projectId)).flatMap(
       (saved) => builtFromAround(saved, around).stages,
     );
-    const named = agentStageRoles([
+    const named = agentStageWorkers([
       ...around.officeWide.flatMap((pipeline) => pipeline.stages),
       ...projectStages,
     ]);
@@ -563,11 +568,11 @@ export class PipelineLibraryEditor {
 
   private async engineProblems(
     stages: readonly Stage[],
-    named: ReadonlySet<string>,
+    named: StageWorkers,
     projectId: string | undefined,
   ): Promise<StageProblem[]> {
     const problems = await this.roleEngines.newlyNamedRolesProblems({
-      roleKeys: newlyNamedRoles(agentStageRoles(stages), named),
+      ...newlyNamedWorkers(agentStageWorkers(stages), named),
       projectId,
     });
     return problems.map((text) => ({ text }));

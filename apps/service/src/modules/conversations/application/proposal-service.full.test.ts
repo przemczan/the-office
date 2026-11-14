@@ -2,10 +2,12 @@ import { OFFICE_INSTRUCTIONS_MAX_CHARACTERS } from "@the-office/contracts";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
-  OFFICE_MANAGER,
+  CARETAKER,
+  Duties,
   EngineCascade,
   PeopleModule,
   RoleCards,
+  RoleNotFound,
   RoleService,
   type SessionRole,
 } from "../../people/index.js";
@@ -14,9 +16,11 @@ import { OfficeInstructionsChanged } from "../domain/conversation-events.js";
 import { aProposedCard } from "../domain/proposal.fixtures.js";
 import {
   PROPOSE_OFFICE_SETTING_TOOL,
+  PROPOSE_OFFICE_SETUP_TOOL,
   PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_ROLE_TOOL,
+  caretakerChatOfficeTools,
   chatOfficeTools,
 } from "../domain/session-instructions.js";
 import { randomUUID } from "node:crypto";
@@ -37,11 +41,19 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
+import {
+  DutyRepository,
+  DutyRepositoryForTests,
+  EngineCascadeStandIn,
+  OfficeSetupRepository,
+  OfficeSetupRepositoryForTests,
+  RoleRepository,
+} from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
+import { DutyProposals } from "../adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "../adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-proposals.js";
 import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
@@ -86,7 +98,11 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
+
+/** The Role holding Default person to talk to by default. */
+const OFFICE_MANAGER = "office-manager";
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -102,7 +118,16 @@ const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 const OFFICE_MANAGER_ROLE: SessionRole = {
   roleKey: OFFICE_MANAGER,
   cardVersion: 1,
+  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
   card: aPlannerCard({ name: "Marta", title: "Office Manager" }),
+};
+
+// The Caretaker's card, as People's RoleCards stand in for it too.
+const CARETAKER_ROLE: SessionRole = {
+  roleKey: CARETAKER,
+  cardVersion: 1,
+  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
+  card: aPlannerCard({ name: "Sam", title: "Caretaker" }),
 };
 
 let app: INestApplication;
@@ -122,6 +147,8 @@ let roles: RoleService;
 let settings: ContextPolicySettingsService;
 
 let officeInstructions: OfficeInstructions;
+
+let duties: Duties;
 
 let officeWideLimit: OfficeWideLimitStandIn;
 
@@ -144,7 +171,14 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     forget: () => Promise.resolve(),
   };
   const roleCards: Pick<RoleCards, "find" | "forResumedSession" | "hiredKeys"> = {
-    find: (key) => Promise.resolve(key === OFFICE_MANAGER ? OFFICE_MANAGER_ROLE : undefined),
+    find: (key) =>
+      Promise.resolve(
+        key === OFFICE_MANAGER
+          ? OFFICE_MANAGER_ROLE
+          : key === CARETAKER
+            ? CARETAKER_ROLE
+            : undefined,
+      ),
     forResumedSession: () => Promise.resolve(OFFICE_MANAGER_ROLE),
     hiredKeys: () => Promise.resolve(new Set([OFFICE_MANAGER])),
   };
@@ -199,6 +233,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       RoleProposals,
       SizeThresholdProposals,
       OfficeInstructionsProposals,
+      DutyProposals,
       ProposalOfficeTools,
       chatToolStandIns(),
       {
@@ -210,7 +245,18 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         },
       },
     ],
-    overrides: [{ provide: RoleCards, useValue: roleCards }],
+    // Every test file shares the stored duties, which decide who other files' sessions consult.
+    overrides: [
+      { provide: RoleCards, useValue: roleCards },
+      { provide: DutyRepository, useValue: new DutyRepositoryForTests() },
+      // A set-up's duties are kept on the duties above, never on the shared database.
+      {
+        provide: OfficeSetupRepository,
+        inject: [RoleRepository, DutyRepository],
+        useFactory: (roleRepository: RoleRepository, dutyRepository: DutyRepository) =>
+          new OfficeSetupRepositoryForTests(roleRepository, dutyRepository),
+      },
+    ],
     moduleOverrides: [{ module: EngineModule, useModule: scriptedEngine }],
   }));
   threads = app.get(ThreadService);
@@ -219,6 +265,13 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   roles = app.get(RoleService);
   settings = app.get(ContextPolicySettingsService);
   officeInstructions = app.get(OfficeInstructions);
+  duties = app.get(Duties);
+  // The Office Manager stands in through RoleCards, hired nowhere People's own Duties reads, so
+  // they hold Default person to talk to as the preset does by default.
+  const heldBy = duties.heldBy.bind(duties);
+  vi.spyOn(duties, "heldBy").mockImplementation((key) =>
+    key === OFFICE_MANAGER ? Promise.resolve(["default-person-to-talk-to"]) : heldBy(key),
+  );
 }
 
 /** Work's applier of the Office-wide limit, which Work registers as it starts (a module apart). */
@@ -247,6 +300,7 @@ class OfficeWideLimitStandIn {
 const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
   PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
+  PROPOSE_OFFICE_SETUP_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
 ];
 
@@ -259,7 +313,11 @@ function chatToolStandIns(): FactoryProvider {
     provide: "chat tool stand-ins",
     inject: [OfficeToolRegistry],
     useFactory: (registry: OfficeToolRegistry) => {
-      for (const name of chatOfficeTools(OFFICE_MANAGER)) {
+      const names = new Set([
+        ...chatOfficeTools(["default-person-to-talk-to"]),
+        ...caretakerChatOfficeTools([]),
+      ]);
+      for (const name of names) {
         if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) || TOOLS_OF_PEOPLE.includes(name)) {
           continue;
         }
@@ -344,7 +402,15 @@ async function askOfficeManager(text: string): Promise<{
   readonly thread: Thread;
   readonly drafted: readonly Proposal[];
 }> {
-  const started = await threads.startInChat(OFFICE_MANAGER);
+  return ask(OFFICE_MANAGER, text);
+}
+
+/** The chat Thread of the person keyed `asked` once their turn ended, with its Proposals. */
+async function ask(
+  asked: string,
+  text: string,
+): Promise<{ readonly thread: Thread; readonly drafted: readonly Proposal[] }> {
+  const started = await threads.startInChat(asked);
   await runner.send(started.id, text, ANN_LEE);
   const thread = await vi.waitFor(
     async () => {
@@ -734,6 +800,195 @@ describe("a Proposal of a change to a Role", () => {
     expect((await roles.read(roleKey)).role.cardVersion).toBe(1);
     await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
       "This Proposal was declined.",
+    );
+  });
+});
+
+/** The Office Manager proposes the duties' new holders, each `[duty, holder]`. */
+function proposesHolders(...holders: [string, string | null][]): SessionScript {
+  return calls(PROPOSE_OFFICE_SETTING_TOOL, {
+    setting: "duties",
+    duties: holders.map(([duty, holder]) => ({ duty, holder })),
+  });
+}
+
+async function holdersOf(...named: string[]): Promise<Record<string, string | null>> {
+  const now = await duties.list();
+  return Object.fromEntries(
+    now
+      .filter(({ duty }) => named.includes(duty))
+      .map((holding) => [holding.duty, holding.roleKey]),
+  );
+}
+
+describe("a Proposal of who holds the duties", () => {
+  it("is drafted from the holders now of the duties it names, changing nothing", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["reviews", null]));
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
+
+    const proposal = await theOnlyProposal("Let the tester plan.");
+
+    expect(toolResultRead().isError).toBe(false);
+    expect(proposal.change).toEqual({
+      kind: "duties",
+      from: { plans: "planner", reviews: "reviewer" },
+      to: { plans: roleKey, reviews: null },
+    });
+    expect(await holdersOf("plans", "reviews")).toEqual({ plans: "planner", reviews: "reviewer" });
+  });
+
+  it("sets every duty it names when the user applies it", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
+    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+
+    const applied = await proposals.apply(proposal.id, ANN_LEE);
+
+    expect(applied.status).toMatchObject({ kind: "applied" });
+    expect(await holdersOf("plans", "shapes-initiatives")).toEqual({
+      plans: roleKey,
+      "shapes-initiatives": roleKey,
+    });
+  });
+
+  it("is refused once a duty it names changed since, and changes none of them", async () => {
+    await startWith(proposesHolders(["plans", roleKey], ["shapes-initiatives", roleKey]));
+    await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
+    const proposal = await theOnlyProposal("Let the tester plan and shape.");
+    await duties.change("shapes-initiatives", null);
+
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
+      "Shapes Initiatives was changed meanwhile, so this change no longer applies.",
+    );
+
+    expect(await holdersOf("plans", "shapes-initiatives")).toEqual({
+      plans: "planner",
+      "shapes-initiatives": null,
+    });
+    expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
+  });
+
+  it("is not drafted for a Role nobody is hired as, and the Agent reads why", async () => {
+    await startWith(proposesHolders(["plans", roleKey]));
+
+    const { drafted } = await askOfficeManager("Let the tester plan.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: `Plans goes to a hired Role, and nobody is hired as "${roleKey}".`,
+      isError: true,
+    });
+  });
+
+  it("is not drafted for the Caretaker, and the Agent reads why", async () => {
+    await startWith(proposesHolders(["plans", CARETAKER]));
+
+    const { drafted } = await askOfficeManager("Let the Caretaker plan.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: "The Caretaker is built in and holds no duty, so not Plans.",
+      isError: true,
+    });
+  });
+});
+
+/** The Caretaker drafts the set-up of The Office with `input`, then ends their turn. */
+function setsUp(input: Record<string, unknown>): SessionScript {
+  return calls(PROPOSE_OFFICE_SETUP_TOOL, input);
+}
+
+// A preset's Role has the preset's fixed key, which only roles.controller.test may hire into
+// (apps/service/docs/testing.md): here the set-up hires a Role of each test's own from scratch, and
+// People's office-setup tests hire the presets on Roles kept in memory.
+describe("a Proposal of the set-up of The Office", () => {
+  it("is drafted by the Caretaker, each duty from its holder now, changing nothing", async () => {
+    const card = aProposedCard({ name: "Tess", title });
+    await startWith(setsUp({ hires: [{ card }], duties: [{ duty: "reviews", holder: roleKey }] }));
+
+    const { drafted } = await ask(CARETAKER, "Set The Office up for testing.");
+
+    expect(toolResultRead().isError).toBe(false);
+    expect(drafted).toEqual([
+      expect.objectContaining({
+        draftedBy: CARETAKER,
+        change: {
+          kind: "office-setup",
+          hires: [{ kind: "hire", card, skills: [] }],
+          duties: [{ duty: "reviews", from: "reviewer", to: roleKey }],
+          hiredKeys: undefined,
+        },
+      }),
+    ]);
+    await expect(roles.read(roleKey)).rejects.toBeInstanceOf(RoleNotFound);
+    expect(await holdersOf("reviews")).toEqual({ reviews: "reviewer" });
+  });
+
+  it("hires everyone and assigns the duties when the user applies it, as proposed by the Caretaker", async () => {
+    await startWith(
+      setsUp({
+        hires: [{ card: aProposedCard({ name: "Tess", title }) }],
+        duties: [{ duty: "reviews", holder: roleKey }],
+      }),
+    );
+    const { drafted } = await ask(CARETAKER, "Set The Office up for testing.");
+    const [proposal] = drafted;
+    if (!proposal) throw new Error("No Proposal was drafted.");
+
+    const applied = await proposals.apply(proposal.id, ANN_LEE);
+
+    expect(applied).toMatchObject({
+      change: { kind: "office-setup", hiredKeys: [roleKey] },
+      status: { kind: "applied" },
+    });
+    const history = await roles.history(roleKey);
+    expect(history.find((entry) => entry.kind === "hired")).toMatchObject({
+      proposedBy: CARETAKER,
+      savedBy: ANN_LEE,
+    });
+    expect(await holdersOf("reviews")).toEqual({ reviews: roleKey });
+  });
+
+  it("is refused once a duty it names changed since, hiring nobody and staying open", async () => {
+    await startWith(
+      setsUp({
+        hires: [{ card: aProposedCard({ name: "Tess", title }) }],
+        duties: [{ duty: "reviews", holder: roleKey }],
+      }),
+    );
+    const { drafted } = await ask(CARETAKER, "Set The Office up for testing.");
+    const [proposal] = drafted;
+    if (!proposal) throw new Error("No Proposal was drafted.");
+    await duties.change("reviews", null);
+
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
+      "Reviews was changed meanwhile, so this change no longer applies.",
+    );
+
+    await expect(roles.read(roleKey)).rejects.toBeInstanceOf(RoleNotFound);
+    expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
+  });
+
+  it("is not drafted for a duty naming the Caretaker or a Role nobody hires, and the Agent reads why", async () => {
+    await startWith(
+      setsUp({
+        hires: [],
+        duties: [
+          { duty: "plans", holder: CARETAKER },
+          { duty: "reviews", holder: roleKey },
+        ],
+      }),
+    );
+
+    const { drafted } = await ask(CARETAKER, "Let the Caretaker plan.");
+
+    expect(drafted).toEqual([]);
+    expect(toolResultRead()).toEqual({
+      text: expect.stringContaining("The Caretaker is built in and holds no duty, so not Plans."),
+      isError: true,
+    });
+    expect(toolResultRead().text).toContain(
+      `Reviews goes to a hired Role, and nobody is hired as "${roleKey}".`,
     );
   });
 });

@@ -130,6 +130,7 @@ async function rendered(): Promise<HTMLElement> {
                 projectPipeline={SPEC_CHANGE}
                 officeWide={[DOCUMENT]}
                 roles={[]}
+                duties={[]}
                 options={{} as RoleCardOptions}
               />
             </ToastProvider>

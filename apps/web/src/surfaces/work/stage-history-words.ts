@@ -8,6 +8,7 @@ import {
 import type { BadgeProps } from "@the-office/ui";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { momentWords, shortDurationWords } from "../../shell/time.ts";
+import { workingRoleKey } from "./stage-rail-words.ts";
 import {
   budgetWords,
   gateActionWords,
@@ -62,12 +63,14 @@ export function stageHistoryLine(
 }
 
 function stageKindWords(
-  { stage }: TaskStage,
+  taskStage: TaskStage,
   roles: readonly Pick<Role, "key" | "card">[] | undefined,
 ): string {
+  const { stage } = taskStage;
   if (stage.kind === "gate") return "Gate · waits for you";
   if (stage.kind === "script") return `Project command · ${stage.command}`;
-  const role = roles?.find(({ key }) => key === stage.role);
+  const roleKey = workingRoleKey(taskStage);
+  const role = roles?.find(({ key }) => key === roleKey);
   const who = role ? `${role.card.name} · ${role.card.title}` : "Nobody yet";
   return `Agent Stage · ${who} · budget ${tokensShort(stage.budget)} tokens`;
 }

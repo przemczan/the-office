@@ -13,7 +13,7 @@ import { RoleNotFound } from "../../domain/role-not-found.js";
 import { RoleRepository, type RoleUpdate } from "../../ports/role-repository.js";
 import { roleCardVersions, roles } from "./roles.schema.js";
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type RoleRow = typeof roles.$inferSelect;
 type RoleCardVersionRow = typeof roleCardVersions.$inferSelect;
 
@@ -30,18 +30,7 @@ export class PostgresRoleRepository extends RoleRepository {
   }
 
   async add(role: Role): Promise<boolean> {
-    return this.database.transaction(async (transaction) => {
-      const added = await transaction
-        .insert(roles)
-        .values(toRow(role))
-        .onConflictDoNothing()
-        .returning({ key: roles.key });
-      if (added.length === 0) return false;
-      await transaction
-        .insert(roleCardVersions)
-        .values({ ...currentVersionRow(role), changes: [] });
-      return true;
-    });
+    return this.database.transaction((transaction) => addRole(transaction, role));
   }
 
   async find(key: string): Promise<Role | undefined> {
@@ -124,6 +113,21 @@ export class PostgresRoleRepository extends RoleRepository {
       .orderBy(desc(roleCardVersions.version));
     return rows.map(toVersion);
   }
+}
+
+/**
+ * Keeps a newly hired Role with its card as version 1 inside `transaction`; false, adding nothing,
+ * when someone already fills the Role.
+ */
+export async function addRole(transaction: Transaction, role: Role): Promise<boolean> {
+  const added = await transaction
+    .insert(roles)
+    .values(toRow(role))
+    .onConflictDoNothing()
+    .returning({ key: roles.key });
+  if (added.length === 0) return false;
+  await transaction.insert(roleCardVersions).values({ ...currentVersionRow(role), changes: [] });
+  return true;
 }
 
 /** The Role as stored, locked until `transaction` ends. */

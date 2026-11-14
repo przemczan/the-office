@@ -5,7 +5,7 @@ import {
   type HardSwitchKey,
   type HardSwitchValue,
 } from "./hard-switches.js";
-import { MCP_TOOL_DEFAULT, type McpToolSettings } from "./mcp-tool-settings.js";
+import type { McpToolSettings } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import type { Capabilities, RoleCard } from "./role-card.js";
 import type { TaskLimit } from "./task-limit.js";
@@ -50,8 +50,15 @@ export interface RoleCardFieldChange {
   readonly to: RoleCardValue;
 }
 
-/** What differs from `before` to `after`, in the card's order. */
-export function roleCardChanges(before: RoleCard, after: RoleCard): RoleCardFieldChange[] {
+/**
+ * What differs from `before` to `after`, in the card's order; an MCP tool left unset stands at
+ * `mcpToolDefault`.
+ */
+export function roleCardChanges(
+  before: RoleCard,
+  after: RoleCard,
+  mcpToolDefault: HardSwitchValue,
+): RoleCardFieldChange[] {
   const changes: RoleCardFieldChange[] = [];
   for (const field of PLAIN_FIELDS) {
     if (before[field] !== after[field]) {
@@ -66,7 +73,7 @@ export function roleCardChanges(before: RoleCard, after: RoleCard): RoleCardFiel
     const to = after.capabilities[key];
     if (from !== to) changes.push({ field: `capabilities.${key}`, from, to });
   }
-  if (!samePermissionProfile(before.permissionProfile, after.permissionProfile)) {
+  if (!samePermissionProfile(before.permissionProfile, after.permissionProfile, mcpToolDefault)) {
     changes.push({
       field: "permissionProfile",
       from: before.permissionProfile,
@@ -85,19 +92,27 @@ function sameRoleOverride(first: EngineModel | null, second: EngineModel | null)
   return first?.engineId === second?.engineId && first?.model === second?.model;
 }
 
-function samePermissionProfile(first: PermissionProfile, second: PermissionProfile): boolean {
+function samePermissionProfile(
+  first: PermissionProfile,
+  second: PermissionProfile,
+  mcpToolDefault: HardSwitchValue,
+): boolean {
   return (
     first.edit === second.edit &&
     first.run === second.run &&
     first.web === second.web &&
-    sameMcpToolSettings(first.mcpTools, second.mcpTools)
+    sameMcpToolSettings(first.mcpTools, second.mcpTools, mcpToolDefault)
   );
 }
 
 /** A tool left unset and one set at the default are the same setting. */
-function sameMcpToolSettings(first: McpToolSettings, second: McpToolSettings): boolean {
+function sameMcpToolSettings(
+  first: McpToolSettings,
+  second: McpToolSettings,
+  mcpToolDefault: HardSwitchValue,
+): boolean {
   const keys = new Set([...Object.keys(first), ...Object.keys(second)]);
   return [...keys].every((key) =>
-    sameHardSwitchValue(first[key] ?? MCP_TOOL_DEFAULT, second[key] ?? MCP_TOOL_DEFAULT),
+    sameHardSwitchValue(first[key] ?? mcpToolDefault, second[key] ?? mcpToolDefault),
   );
 }

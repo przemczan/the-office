@@ -24,7 +24,6 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import {
-  CTO,
   EngineCascade,
   MemoryService,
   PeopleModule,
@@ -56,8 +55,12 @@ import { WorkModule } from "../work.module.js";
 import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import { IdeaService } from "./idea-service.js";
 import { InitiativeService } from "./initiative-service.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE } from "../domain/work.fixtures.js";
 import { ANN_LEE as ANN_LEE_USER } from "../../conversations/index.fixtures.js";
+
+/** The Role holding Shapes Initiatives by default. */
+const CTO = "cto";
 
 type Step = SessionScript[number];
 
@@ -69,6 +72,7 @@ const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
 const CTO_ROLE: SessionRole = {
   roleKey: CTO,
   cardVersion: 1,
+  mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN,
   card: {
     name: "Bob",
     title: "CTO",
@@ -104,6 +108,11 @@ class CtoOnly {
 
   async hiredKeys(): Promise<ReadonlySet<string>> {
     return new Set([CTO]);
+  }
+
+  /** The CTO holds Shapes Initiatives, and nobody any other duty. */
+  async holderOf(duty: string): Promise<string | undefined> {
+    return duty === "shapes-initiatives" ? CTO : undefined;
   }
 
   async consultants(): Promise<readonly never[]> {

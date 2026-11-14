@@ -86,7 +86,7 @@ function NewIdeaActions({ idea }: { readonly idea: Idea }): ReactNode {
   const planner = usePlanner();
   const planning = useIdeaPlanning(idea);
   const [choosingProject, setChoosingProject] = useState(false);
-  const label = `Plan as a Task with ${planner?.card.name ?? "the Planner"}`;
+  const label = `Plan as a Task with ${planner?.card.name ?? "whoever holds Plans"}`;
   return (
     <>
       {planner && (

@@ -16,7 +16,8 @@ export function approvalQuestion(call: string): string {
 
 /**
  * How many people may be asked down one chain of calls, counting nested calls and passes-on
- * together (spec §2.2): such as Planner → Devops → CTO, or Devops → CTO → the user.
+ * together (spec §2.2): such as Planner → Devops → Architect, or Devops → Architect → the user,
+ * by whatever Roles call.
  */
 export const CALL_STEPS = 2;
 
@@ -154,7 +155,8 @@ export function passedOnTo(
   consultants: readonly ConsultantPerson[],
   chain: CallChain,
 ): PassingOnTo {
-  // The Office puts its own Decision to the CTO, the top of the steps, before the user (spec §2.3).
+  // The Office puts its own Decision to whoever holds Asked first when a Stage runs out of tries,
+  // the top of the steps, before the user (spec §2.3).
   if (decision.roleKey === undefined) return { kind: "user" };
   const named = consultantNamed(person, consultants, decision.putTo ?? "");
   if (!named || !canCall(chain)) return { kind: "user" };
@@ -204,7 +206,8 @@ export function consultDecision(consult: Consult, party: ConsultedParty): Decisi
 }
 
 /**
- * Every problem with a Consultant's answer. The Office's Decision, put to the CTO first, they
+ * Every problem with a Consultant's answer. The Office's Decision, put to whoever is asked
+ * first when a Stage runs out of tries, they
  * answer only in their own words, which send the Task back for one more round: its options stay
  * the user's (spec §2.3).
  */

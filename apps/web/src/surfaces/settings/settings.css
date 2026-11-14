@@ -269,6 +269,63 @@
   }
 }
 
+/* ---- Duties: a row per duty, its words beside its holder's picker, stacked on a narrow page */
+.duty-list {
+  display: flex;
+  flex-direction: column;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.duty-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.duty-row:last-child {
+  padding-bottom: 0;
+}
+
+.duty-row-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.duty-row-words {
+  flex: 1;
+  min-width: 0;
+}
+
+.duty-row-words .settings-note {
+  margin-top: 4px;
+}
+
+.duty-row-choice > :last-child {
+  flex: 0 0 240px;
+}
+
+.duty-row-note {
+  margin-top: 6px;
+}
+
+.duty-row .settings-banner {
+  margin-top: 8px;
+}
+
+@container page (max-width: 640px) {
+  .duty-row-choice {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .duty-row-choice > :last-child {
+    flex-basis: auto;
+  }
+}
+
 /* ---- Pipelines and Engines: the list (packages/ui's PickList) beside the picked item */
 .settings-split {
   display: grid;

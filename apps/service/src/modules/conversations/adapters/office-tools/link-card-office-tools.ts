@@ -9,9 +9,9 @@ const POSTED =
   "The Link card is in this chat. The user opens the Thread and sends the note themselves, edited or not; don't relay it or answer for them. Tell the user in a line why that person.";
 
 /**
- * The Office tool the Office Manager points the user to whoever is responsible with (spec §2.2): a
- * Link card with a Handover note. It changes nothing and reaches nobody, so it sits behind no Hard
- * switch; it returns at once, with the reason when there is nobody to point to.
+ * The Office tool the Default person to talk to points the user to whoever is responsible with
+ * (spec §2.2): a Link card with a Handover note. It changes nothing and reaches nobody, so it sits
+ * behind no Hard switch; it returns at once, with the reason when there is nobody to point to.
  */
 @Injectable()
 export class LinkCardOfficeTools implements OnModuleInit {

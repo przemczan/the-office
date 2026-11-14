@@ -2,6 +2,10 @@
 
 **Owns:** the People grid (the built-in Caretaker pinned first with a "Built in" mark, `people-order.ts`) and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), with its Avatar block (`avatar-block.tsx`, the shell's `ImageRow`, without its buttons for someone let go), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too.
 
+Duties (`shell/duty-words.ts`, from `dutyQueries.list()`): the Role card view's Identity group shows the duties the person holds, or None with a link to Settings › Duties (none for someone let go; the Caretaker holds none and is the one to talk to while Default person to talk to is unheld); they are set in Settings, not on the card or in its form. People reads the list once and gives each tile a `PlainMark` "N duties" naming each on hover and focus.
+
+While nobody is hired (`isNobodyHired`, `people-order.ts`: no Role but the Caretaker filled by someone not let go), the Hire tile gives way to the set-up hint (`office-setup-hint.tsx`), a whole row under the Caretaker's card: each preset with the duties it suits (`GET /presets`' `duties`, by their labels from the duties list), its capabilities and its Task limit, how an unheld duty falls back, and Hire a Role, Start from scratch and "Set up The Office with <Caretaker>" (`useAskInChat`: a new Caretaker Thread with a draft in its composer, nothing sent). The Hire dialog's presets say "Suits: …" (`suitsWords`, `shell/duty-words.ts`) before the Task limit. The Caretaker's `office-setup` Proposal is a chat card (`shell/conversation/office-setup-changes.tsx`): each hire, linked once applied, and every duty's holder after it.
+
 The Role card's Engine and Model (`EngineFields` in `role-card-form.tsx`, its pair `EngineModelFields` in `shell/engine-model-fields.tsx`, shared with the Project page's Engine block) set the Role override, "Office default" being none, picking an engine filling in its default model (`/role-card-options`' `defaultModel`); the view, the Overview and a Proposal's card say it through `worksWithText`. The view's "Runs on" (`EngineThatApplies`, for a Role someone fills) says what the cascade gives outside any Project and where it comes from, and lists the Projects where another engine or model applies (`roleQueries.engineCascade`, under its own `ENGINE_CASCADE` key, invalidated by `role.card-changed`, the Projects' engine events and a Settings › Engines save).
 
 The Role card's MCP servers (`role-card-mcp-server-fields.tsx`, `role-mcp-servers.ts`): the form ticks the library's servers and sets each tool of a ticked server that is on, its names too long for sessions left out (the library's `toolsTooLong`); the view shows the Role's `mcpServers`, on with each tool's setting, or off.
@@ -23,8 +27,9 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `let-go-dialog.tsx`: LetGoDialog
 - `memory-groups.ts`: MemoryGroup, ALL_PROJECTS, memoryGroups
 - `memory-tab.tsx`: MemoryTab
+- `office-setup-hint.tsx`: OfficeSetupHint
 - `overview-tab.tsx`: OverviewTab
-- `people-order.ts`: inGridOrder
+- `people-order.ts`: inGridOrder, isNobodyHired
 - `people-page.tsx`: PeoplePage
 - `person-page.tsx`: PersonPage
 - `person-tasks.ts`: PersonTask, personTasks, WorkFilter, WORK_FILTERS, inFilter

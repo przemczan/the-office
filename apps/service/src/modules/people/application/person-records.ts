@@ -1,7 +1,15 @@
 import { Injectable } from "@nestjs/common";
-import { KNOWN_ROLES } from "../domain/known-roles.js";
+import type { DutyFallback } from "../domain/duties.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
+import { Duties, type DutyWithHolder } from "./duties.js";
 import { RoleService, type RoleWithAssignments } from "./role-service.js";
+
+/** What happens while nobody holds a duty, as a record says it. */
+const FALLBACK_WORDS: Readonly<Record<DutyFallback, string>> = {
+  user: "it falls to the user",
+  caretaker: "the Caretaker stands in",
+  unstaffed: "the Pipelines naming it can't start",
+};
 
 /**
  * The people's short records as an Agent reads them: `list_people` gives them all, and a chat
@@ -9,20 +17,21 @@ import { RoleService, type RoleWithAssignments } from "./role-service.js";
  */
 @Injectable()
 export class PersonRecords {
-  constructor(private readonly roles: RoleService) {}
+  constructor(
+    private readonly roles: RoleService,
+    private readonly duties: Duties,
+  ) {}
 
-  /** Everyone hired, then the Roles nobody fills yet. */
+  /** Everyone hired, each with the duties they hold, then the duties nobody holds. */
   async everyone(): Promise<string> {
     const roles = await this.roles.list();
-    const hired = new Set(roles.map(({ role }) => role.key));
-    const unfilled = [...KNOWN_ROLES].filter(([key]) => !hired.has(key)).map(([, title]) => title);
+    const duties = await this.duties.list();
+    const unheld = duties.filter((duty): duty is UnheldDuty => duty.fallback !== null);
     return [
-      ...(roles.length > 0 ? roles.map(personRecord) : ["Nobody is hired yet."]),
-      ...(unfilled.length > 0
-        ? [
-            `Nobody fills ${unfilled.join(", ")} yet: whoever would consult one of them asks the user.`,
-          ]
-        : []),
+      ...(roles.length > 0
+        ? roles.map((role) => personRecord(role, duties))
+        : ["Nobody is hired yet."]),
+      ...(unheld.length > 0 ? [unheld.map(unheldDutyLine).join("\n")] : []),
     ].join("\n\n");
   }
 
@@ -30,7 +39,7 @@ export class PersonRecords {
   async of(roleKey: string): Promise<string | undefined> {
     try {
       const role = await this.roles.read(roleKey);
-      const record = personRecord(role);
+      const record = personRecord(role, await this.duties.list());
       const { letGoAt } = role.role;
       return letGoAt ? `${record}\nLet go on ${letGoAt.toISOString()}.` : record;
     } catch (error) {
@@ -40,7 +49,18 @@ export class PersonRecords {
   }
 }
 
-function personRecord({ role, skills }: RoleWithAssignments): string {
+/** A duty nobody holds, so its fallback applies. */
+type UnheldDuty = DutyWithHolder & { readonly fallback: DutyFallback };
+
+function unheldDutyLine({ label, fallback }: UnheldDuty): string {
+  return `Nobody holds ${label}: ${FALLBACK_WORDS[fallback]}.`;
+}
+
+function personRecord(
+  { role, skills }: RoleWithAssignments,
+  duties: readonly DutyWithHolder[],
+): string {
+  const held = duties.filter((duty) => duty.holder?.roleKey === role.key);
   const { card } = role;
   const capabilities = [
     card.capabilities.chat ? "Chat on" : "Chat off",
@@ -54,5 +74,6 @@ function personRecord({ role, skills }: RoleWithAssignments): string {
     `${card.name} · ${card.title} (Role ${role.key})`,
     card.responsibilities,
     `${capabilities}; ${limit}.${skills.length > 0 ? ` Skills: ${skills.join(", ")}.` : ""}`,
+    ...(held.length > 0 ? [`Holds: ${held.map((duty) => duty.label).join(", ")}.`] : []),
   ].join("\n");
 }

@@ -137,14 +137,14 @@ describe("the Notifications' content", () => {
 
   it("gives the Office kinds a short line in nobody's voice, whoever speaks, and others none", () => {
     const usedUp = { window: "5-hour window", resetsAt: new Date(2026, 9, 27, 14, 20) };
-    const shortLines = (officeManager: string | undefined) =>
+    const shortLines = (defaultPerson: string | undefined) =>
       [
-        windowNearlyUsed(CLAUDE_CODE, 91.4, officeManager),
-        windowReset(CLAUDE_CODE, officeManager),
-        windowUsedUp(CLAUDE_CODE, usedUp, officeManager, new Date(2026, 9, 27, 12, 0)),
-        engineDown(WORK_ACCOUNT, "connection refused", officeManager),
-        officeUpdated("1.8.0", officeManager),
-        officeUpdateFailed("install", "1.7.2", officeManager),
+        windowNearlyUsed(CLAUDE_CODE, 91.4, defaultPerson),
+        windowReset(CLAUDE_CODE, defaultPerson),
+        windowUsedUp(CLAUDE_CODE, usedUp, defaultPerson, new Date(2026, 9, 27, 12, 0)),
+        engineDown(WORK_ACCOUNT, "connection refused", defaultPerson),
+        officeUpdated("1.8.0", defaultPerson),
+        officeUpdateFailed("install", "1.7.2", defaultPerson),
       ].map(({ shortLine }) => shortLine);
 
     const expected = [

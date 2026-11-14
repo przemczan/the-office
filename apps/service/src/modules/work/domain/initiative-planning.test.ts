@@ -13,7 +13,11 @@ import { InitiativeRefused } from "./initiative-refused.js";
 import { startPlanningTask } from "./task-changes.js";
 import { TaskRefused } from "./task-refused.js";
 import type { Task } from "./task.js";
+import type { Author } from "./author.js";
 import { anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
+
+/** Whoever holds Plans in these tests; the moves are theirs, whatever their Role key. */
+const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
 
 const THREAD = "thread-1";
 const planning = anInitiative({
@@ -79,11 +83,25 @@ describe("initiativePlanningProblems", () => {
       InitiativeRefused,
     );
   });
+
+  it("adds the new Thread to the planning Threads it opened, keeping the earlier ones", () => {
+    const { initiative } = startInitiativePlanning(
+      anInitiative({
+        state: "active",
+        planningThreadId: "thread-1",
+        planningThreadIds: ["thread-1"],
+      }),
+      [first],
+      { threadId: "thread-2", autoMode: false, by: BEN_ITO },
+    );
+
+    expect(initiative.planningThreadIds).toEqual(["thread-1", "thread-2"]);
+  });
 });
 
 describe("startPlanningInInitiative", () => {
   it("moves a Backlog Task to Planning in the Initiative's Thread and auto mode, by the Planner", () => {
-    const change = startPlanningInInitiative(planning, first, [first, second], THREAD);
+    const change = startPlanningInInitiative(planning, first, [first, second], THREAD, THE_PLANNER);
     expect(change?.task).toMatchObject({
       state: "planning",
       autoMode: true,
@@ -93,8 +111,18 @@ describe("startPlanningInInitiative", () => {
     expect(change?.stateChange?.by).toEqual({ kind: "person", roleKey: "planner" });
   });
 
+  it("records the move as whoever holds Plans, whatever their Role key", () => {
+    const byTheLead: Author = { kind: "person", roleKey: "lead" };
+
+    const change = startPlanningInInitiative(planning, first, [first, second], THREAD, byTheLead);
+
+    expect(change?.stateChange?.by).toEqual(byTheLead);
+  });
+
   it("refuses while a blocker inside the Initiative isn't planned yet", () => {
-    expect(() => startPlanningInInitiative(planning, second, [first, second], THREAD)).toThrow(
+    expect(() =>
+      startPlanningInInitiative(planning, second, [first, second], THREAD, THE_PLANNER),
+    ).toThrow(
       new TaskRefused([
         '"Export button" waits for "Export API" (Task task-a), which isn\'t planned yet: plan it first.',
       ]),
@@ -109,40 +137,43 @@ describe("startPlanningInInitiative", () => {
       { ...first, state: "dropped" as const },
     ]) {
       expect(
-        startPlanningInInitiative(planning, second, [blocker, second], THREAD)?.task.state,
+        startPlanningInInitiative(planning, second, [blocker, second], THREAD, THE_PLANNER)?.task
+          .state,
       ).toBe("planning");
     }
     const inPlanning = { ...first, state: "planning" as const };
-    expect(() => startPlanningInInitiative(planning, second, [inPlanning, second], THREAD)).toThrow(
-      TaskRefused,
-    );
+    expect(() =>
+      startPlanningInInitiative(planning, second, [inPlanning, second], THREAD, THE_PLANNER),
+    ).toThrow(TaskRefused);
   });
 
   it("leaves a blocker outside the Initiative out of the order", () => {
     const outside = aTask({ id: "task-x", initiativeId: undefined });
     const waiting = { ...first, blockedBy: [outside.id] };
-    expect(startPlanningInInitiative(planning, waiting, [waiting], THREAD)?.task.state).toBe(
-      "planning",
-    );
+    expect(
+      startPlanningInInitiative(planning, waiting, [waiting], THREAD, THE_PLANNER)?.task.state,
+    ).toBe("planning");
   });
 
   it("refuses a Task outside the Initiative, one not in Backlog, and an earlier Thread", () => {
     const elsewhere = aTask({ initiativeId: "initiative-2" });
-    expect(() => startPlanningInInitiative(planning, elsewhere, [first], THREAD)).toThrow(
-      new TaskRefused([`"${elsewhere.title}" isn't one of this Initiative's Tasks.`]),
-    );
+    expect(() =>
+      startPlanningInInitiative(planning, elsewhere, [first], THREAD, THE_PLANNER),
+    ).toThrow(new TaskRefused([`"${elsewhere.title}" isn't one of this Initiative's Tasks.`]));
     const ready = { ...first, state: "ready" as const };
-    expect(() => startPlanningInInitiative(planning, ready, [ready], THREAD)).toThrow(
+    expect(() => startPlanningInInitiative(planning, ready, [ready], THREAD, THE_PLANNER)).toThrow(
       new TaskRefused(['"Export API" is in Ready; only a Task in Backlog is moved to Planning.']),
     );
-    expect(() => startPlanningInInitiative(planning, first, [first], "thread-0")).toThrow(
-      InitiativeRefused,
-    );
+    expect(() =>
+      startPlanningInInitiative(planning, first, [first], "thread-0", THE_PLANNER),
+    ).toThrow(InitiativeRefused);
   });
 
   it("changes nothing for a Task already in Planning in this Thread", () => {
     const started = { ...first, state: "planning" as const, initiativePlanningThreadId: THREAD };
-    expect(startPlanningInInitiative(planning, started, [started], THREAD)).toBeUndefined();
+    expect(
+      startPlanningInInitiative(planning, started, [started], THREAD, THE_PLANNER),
+    ).toBeUndefined();
   });
 });
 
@@ -319,7 +350,7 @@ function planningProject(
 
 /** The Planner's write of a Plan an answer changed. */
 function rewritten(task: Task) {
-  return proposePlan(task, { plan: "A Plan the answer changed." });
+  return proposePlan(task, { plan: "A Plan the answer changed." }, THE_PLANNER);
 }
 
 describe("rewriteInInitiative", () => {
@@ -336,7 +367,7 @@ describe("rewriteInInitiative", () => {
       autoMode: false,
     });
 
-    const change = rewriteInInitiative(planning, ready, THREAD, rewritten);
+    const change = rewriteInInitiative(planning, ready, THREAD, THE_PLANNER, rewritten);
 
     expect(change?.task).toMatchObject({
       state: "planning",
@@ -357,6 +388,17 @@ describe("rewriteInInitiative", () => {
     expect(change?.event.moves.map(({ from, to }) => [from, to])).toEqual([["ready", "planning"]]);
   });
 
+  it("records the move back to Planning as whoever holds Plans, whatever their Role key", () => {
+    const byTheLead: Author = { kind: "person", roleKey: "lead" };
+    const ready = aTask({ ...first, state: "ready", markedPlanned: true });
+
+    const change = rewriteInInitiative(planning, ready, THREAD, byTheLead, (task) =>
+      proposePlan(task, { plan: "A Plan the lead rewrote." }, byTheLead),
+    );
+
+    expect(change?.stateChange).toMatchObject({ from: "ready", to: "planning", by: byTheLead });
+  });
+
   it("plans a Task marked planned in an earlier planning Thread in this one, moving nothing", () => {
     const earlier = aTask({
       ...first,
@@ -365,7 +407,7 @@ describe("rewriteInInitiative", () => {
       markedPlanned: true,
     });
 
-    const change = rewriteInInitiative(planning, earlier, THREAD, rewritten);
+    const change = rewriteInInitiative(planning, earlier, THREAD, THE_PLANNER, rewritten);
 
     expect(change?.task).toMatchObject({
       initiativePlanningThreadId: THREAD,
@@ -377,7 +419,7 @@ describe("rewriteInInitiative", () => {
 
   it("moves nothing when the write changes nothing", () => {
     const ready = aTask({ ...first, state: "ready", plan: "A Plan the answer changed." });
-    expect(rewriteInInitiative(planning, ready, THREAD, rewritten)).toBeUndefined();
+    expect(rewriteInInitiative(planning, ready, THREAD, THE_PLANNER, rewritten)).toBeUndefined();
   });
 
   it("never rewrites a started, Dropped or own-Thread Task, nor from an earlier Thread", () => {
@@ -385,16 +427,16 @@ describe("rewriteInInitiative", () => {
       "it has started and is never rewritten: open a Decision on it saying what changed and what you recommend.";
     for (const state of ["in-progress", "waiting-on-you", "paused", "done", "dropped"] as const) {
       const refused = () =>
-        rewriteInInitiative(planning, aTask({ ...first, state }), THREAD, rewritten);
+        rewriteInInitiative(planning, aTask({ ...first, state }), THREAD, THE_PLANNER, rewritten);
       expect(refused).toThrow(TaskRefused);
       expect(refused).toThrow(decisionInstead);
     }
     const ownThread = aTask({ ...first, state: "planning", initiativePlanningThreadId: undefined });
-    expect(() => rewriteInInitiative(planning, ownThread, THREAD, rewritten)).toThrow(
+    expect(() => rewriteInInitiative(planning, ownThread, THREAD, THE_PLANNER, rewritten)).toThrow(
       `"Export API" is being planned in its own planning Thread and is never rewritten from here: open a Decision on it saying what changed and what you recommend.`,
     );
     const ready = aTask({ ...first, state: "ready" });
-    expect(() => rewriteInInitiative(planning, ready, "thread-0", rewritten)).toThrow(
+    expect(() => rewriteInInitiative(planning, ready, "thread-0", THE_PLANNER, rewritten)).toThrow(
       InitiativeRefused,
     );
   });
@@ -431,11 +473,15 @@ describe("writing a part of a Task marked planned", () => {
   const marked = aTask({ ...first, state: "planning", markedPlanned: true });
 
   it("takes the mark back in every Thread, so mark_planned accepts it again", () => {
-    expect(proposePlan(marked, { plan: "Rewritten." })?.task.markedPlanned).toBe(false);
-    expect(proposeDefinitionOfDone(marked, ["It exports."])?.task.markedPlanned).toBe(false);
+    expect(proposePlan(marked, { plan: "Rewritten." }, THE_PLANNER)?.task.markedPlanned).toBe(
+      false,
+    );
+    expect(proposeDefinitionOfDone(marked, ["It exports."], THE_PLANNER)?.task.markedPlanned).toBe(
+      false,
+    );
     expect(
-      proposePipeline(marked, { pipelineId: "full", reason: "It changes the API." })?.task
-        .markedPlanned,
+      proposePipeline(marked, { pipelineId: "full", reason: "It changes the API." }, THE_PLANNER)
+        ?.task.markedPlanned,
     ).toBe(false);
   });
 });

@@ -63,7 +63,7 @@ async function rendered(folds: BoardGroupFolds): Promise<HTMLElement> {
           tasks={[TASK]}
           queue={[]}
           projects={[]}
-          cto={undefined}
+          shaper={undefined}
           planner="Jan"
           folds={folds}
           cardsArea={() => null}

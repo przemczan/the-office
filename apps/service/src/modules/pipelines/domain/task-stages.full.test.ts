@@ -69,7 +69,7 @@ describe("editProblems", () => {
     const edited = [implement, tests, { ...review, session: "continue" as const }, publish];
 
     expect(editProblems(own, edited, [], roles).map(({ text }) => text)).toEqual([
-      "Stage 3 · Review & fix: continuing a session needs the same Role in the Stage before.",
+      "Stage 3 · Review & fix: continuing a session needs the same Role or the same duty in the Stage before.",
     ]);
   });
 
@@ -101,8 +101,8 @@ describe("rolesNamedByOpenTasks", () => {
       ),
     ).toEqual(
       new Map([
-        ["admin-panel", new Set(["developer"])],
-        ["billing", new Set(["reviewer"])],
+        ["admin-panel", { roles: new Set(["developer"]), duties: new Set() }],
+        ["billing", { roles: new Set(["reviewer"]), duties: new Set() }],
       ]),
     );
   });

@@ -17,7 +17,7 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { EngineCascade, OFFICE_MANAGER, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
@@ -41,6 +41,7 @@ import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { dutiesProvider } from "./duties.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
 import { StageThreads } from "./stage-threads.js";
@@ -64,7 +65,11 @@ import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtur
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
+import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE } from "../domain/user.fixtures.js";
+
+/** The Role holding Default person to talk to by default. */
+const OFFICE_MANAGER = "office-manager";
 
 const outputMasks = new ProjectOutputMasksForTests();
 
@@ -112,7 +117,9 @@ function roleOf(roleKey: string): SessionRole | undefined {
     }),
   };
   const card = cards[roleKey];
-  return card && !letGo.has(roleKey) ? { roleKey, cardVersion: 1, card } : undefined;
+  return card && !letGo.has(roleKey)
+    ? { roleKey, cardVersion: 1, card, mcpToolDefault: MCP_TOOL_DEFAULT_STAND_IN }
+    : undefined;
 }
 
 /** Boots the conversations on a scripted engine that replays `scripts`, one per session opened. */
@@ -165,6 +172,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ThreadService,
       Briefs,
       sessionMemoryProvider(),
+      dutiesProvider(),
       TaskThreadSetups,
       InitiativeThreadSetups,
       SessionPlaces,
@@ -191,7 +199,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     ],
   }));
   // As the Projects, People and Work modules register the chat tools that read records.
-  for (const name of chatOfficeTools(OFFICE_MANAGER)) {
+  for (const name of chatOfficeTools(["default-person-to-talk-to"])) {
     if (name === POST_LINK_CARD_TOOL) continue;
     app.get(OfficeToolRegistry).register({
       name,

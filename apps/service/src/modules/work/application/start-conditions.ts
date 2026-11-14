@@ -27,6 +27,7 @@ import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.
 import { TaskRepository } from "../ports/task-repository.js";
 import { OfficeLimits } from "./office-limits.js";
 import { DailyCaps } from "./daily-caps.js";
+import { withDutiesHeld } from "./duty-holders.js";
 import { StartsSinceReading } from "./starts-since-reading.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
 import { UsageEstimates } from "./usage-estimates.js";
@@ -99,10 +100,11 @@ export class StartConditionsReader {
         task,
         project?.name ?? task.projectId,
       );
-      const stage = pipeline && firstAgentStage(pipeline.stages);
-      const person = stage && (await this.people.find(stage.role));
+      const stages = pipeline && (await withDutiesHeld(pipeline.stages, this.people));
+      const role = stages && firstAgentStage(stages)?.role;
+      const person = role === undefined ? undefined : await this.people.find(role);
       return {
-        stages: pipeline?.stages,
+        stages,
         person: person?.card,
         officeWideLimit,
         project: project && { name: project.name, projectLimit: project.projectLimit },

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
-import { aRole, aRoleCard, OFFERED_MODELS } from "../../domain/role.fixtures.js";
+import { aRole, aRoleCard, CARD_CONTEXT } from "../../domain/role.fixtures.js";
 import type { Role } from "../../domain/role.js";
 import { changeRoleCard } from "../../domain/role-changes.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
@@ -46,7 +46,7 @@ describe("PostgresRoleRepository", () => {
     const savedAt = new Date("2026-10-25T11:00:00.000Z");
 
     const { role: changed, event } = await repository.update(role.key, (stored) =>
-      changeRoleCard(stored, aRoleCard({ taskLimit: 2 }), OFFERED_MODELS, savedAt, BEN_ITO),
+      changeRoleCard(stored, aRoleCard({ taskLimit: 2 }), CARD_CONTEXT, savedAt, BEN_ITO),
     );
 
     expect(changed).toEqual({

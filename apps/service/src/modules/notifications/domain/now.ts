@@ -54,6 +54,8 @@ export interface StageOfTask {
     readonly role?: string;
   };
   readonly state: string;
+  /** For an Agent Stage naming a duty rather than a Role, the Role working it, if anyone does. */
+  readonly workedBy?: string;
   readonly runs: readonly { readonly startedAt: Date; readonly endedAt: Date | undefined }[];
 }
 
@@ -302,18 +304,18 @@ export function waitingGateOf(
 }
 
 export function currentStageOf(stages: readonly StageOfTask[]): CurrentStage | undefined {
-  let current: { readonly stage: StageOfTask["stage"]; readonly since: Date } | undefined;
-  for (const { stage, runs } of stages) {
-    const latest = runs.at(-1);
+  let current: (StageOfTask & { readonly since: Date }) | undefined;
+  for (const stage of stages) {
+    const latest = stage.runs.at(-1);
     if (latest && (!current || latest.startedAt.getTime() >= current.since.getTime())) {
-      current = { stage, since: latest.startedAt };
+      current = { ...stage, since: latest.startedAt };
     }
   }
   return (
     current && {
       key: current.stage.key,
       name: current.stage.name,
-      role: current.stage.role,
+      role: current.stage.role ?? current.workedBy,
       since: current.since,
     }
   );

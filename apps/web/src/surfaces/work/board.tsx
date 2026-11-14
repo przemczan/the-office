@@ -7,7 +7,7 @@ import { initiativeQueries, placeTask, taskQueries } from "../../api/work.ts";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { useCto } from "../../shell/work/use-cto.ts";
+import { useShaper } from "../../shell/work/use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
@@ -59,7 +59,7 @@ export function Board(): ReactNode {
   const showToast = useToast();
   const waitingOnYou = useWaitingOnYouInItsState();
   const planner = usePlanner()?.card.name;
-  const cto = useCto();
+  const shaper = useShaper();
   const peopleWorkingOn = usePeopleWorking();
   const currentStageOf = useCurrentStage();
 
@@ -277,8 +277,8 @@ export function Board(): ReactNode {
             tasks={tasks.data ?? []}
             queue={queue}
             projects={projects.data}
-            cto={cto}
-            planner={planner ?? "the Planner"}
+            shaper={shaper}
+            planner={planner ?? "whoever holds Plans"}
             folds={folds}
             canLandIn={canLandIn}
             cardsArea={(group, column, cards) =>
@@ -331,7 +331,7 @@ function BoardColumns({
             <h3>
               {column.label} <span className="board-count">{cards.length}</span>
             </h3>
-            <div className="board-hint">{column.hint(planner ?? "the Planner")}</div>
+            <div className="board-hint">{column.hint(planner ?? "whoever holds Plans")}</div>
             {cardsArea(column, cards)}
           </section>
         );

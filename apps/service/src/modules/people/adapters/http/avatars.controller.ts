@@ -14,10 +14,11 @@ import type { Role as RoleResponse } from "@the-office/contracts";
 import type { Response } from "express";
 import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { imageContent } from "../../../../platform/images/image-content.js";
+import { Duties } from "../../application/duties.js";
 import { PersonAvatars } from "../../application/person-avatars.js";
 import { RoleService } from "../../application/role-service.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
-import { filledKeys, toRoleResponse } from "./role-responses.js";
+import { roleResponseContext, toRoleResponse } from "./role-responses.js";
 
 @Controller("roles/:key/avatar")
 @UseFilters(RoleRefusalsFilter)
@@ -25,6 +26,7 @@ export class AvatarsController {
   constructor(
     private readonly avatars: PersonAvatars,
     private readonly roles: RoleService,
+    private readonly duties: Duties,
   ) {}
 
   @Post()
@@ -50,6 +52,9 @@ export class AvatarsController {
   }
 
   private async roleOf(key: string): Promise<RoleResponse> {
-    return toRoleResponse(await this.roles.read(key), filledKeys(await this.roles.list()));
+    return toRoleResponse(
+      await this.roles.read(key),
+      await roleResponseContext(this.roles, this.duties),
+    );
   }
 }

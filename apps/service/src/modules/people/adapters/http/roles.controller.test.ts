@@ -42,7 +42,7 @@ import {
 import { RoleOverrideMoves } from "../../application/role-override-moves.js";
 import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
-import { OFFERED_MODELS } from "../../domain/role.fixtures.js";
+import { CARD_CONTEXT } from "../../domain/role.fixtures.js";
 import { changeRoleCard } from "../../domain/role-changes.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
 import { RoleRepository } from "../../ports/role-repository.js";
@@ -171,10 +171,24 @@ describe("GET /api/presets", () => {
     ]);
     expect(presets[1]?.card).toMatchObject({ title: "Developer", taskLimit: 3 });
   });
+
+  it("gives each preset the duties it holds by default", async () => {
+    const presets = presetListSchema.parse(await get("/presets"));
+
+    expect(presets.map(({ roleKey, duties }) => [roleKey, duties])).toEqual([
+      ["planner", ["plans"]],
+      ["developer", ["implements"]],
+      ["reviewer", ["reviews"]],
+      ["cto", ["shapes-initiatives", "asked-first-when-out-of-tries"]],
+      ["devops", ["onboards-projects", "mcp-tool-consultant"]],
+      ["office-manager", ["default-person-to-talk-to"]],
+    ]);
+  });
 });
 
 describe("GET /api/role-card-options", () => {
   it("offers each engine's models, its default model and what it can't do, the known Roles, how each switch is seen to and where an MCP tool starts", async () => {
+    await hire("devops", "Nina");
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
     const models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
@@ -193,6 +207,32 @@ describe("GET /api/role-card-options", () => {
     ]);
     expect(options.mcpToolDefault).toEqual({ kind: "consult", role: "devops" });
     expect(options.taskLimits).toEqual({ lowest: 1, highest: 6 });
+  });
+
+  it("offers Ask me as where an MCP tool starts while nobody holds the MCP duty", async () => {
+    const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
+
+    expect(options.mcpToolDefault).toEqual({ kind: "ask-me" });
+  });
+
+  it("offers a Role hired from scratch among the known Roles, by its title, never the Caretaker", async () => {
+    const title = `Analyst ${randomUUID().slice(0, 8)}`;
+    const key = title.toLowerCase().replace(" ", "-");
+    const card = { ...editOf(await hire("developer", "Ada")), name: "Rui", title };
+
+    try {
+      expect((await send("POST", "/roles", { card })).status).toBe(201);
+
+      const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
+
+      expect(options.knownRoles).toContainEqual({ key, title });
+      expect(options.knownRoles.map((role) => role.key)).not.toContain("caretaker");
+    } finally {
+      await app
+        .get<Database>(DATABASE)
+        .delete(roles)
+        .where(inArray(roles.key, [key]));
+    }
   });
 
   it("runs every preset on the Office default", async () => {
@@ -345,6 +385,7 @@ describe("GET /api/roles", () => {
       expect((await send("PUT", `/mcp-servers/${name}/roles`, { roles: ["planner"] })).status).toBe(
         200,
       );
+      await hire("devops", "Nina");
       const hired = await hire("planner", "Jan");
       const changed = await send("PUT", "/roles/planner/card", {
         ...editOf(hired),
@@ -533,13 +574,7 @@ describe("PUT /api/roles/:key/card", () => {
     await app
       .get(RoleRepository)
       .update("developer", (stored) =>
-        changeRoleCard(
-          stored,
-          { ...stored.card, roleOverride },
-          OFFERED_MODELS,
-          new Date(),
-          ANN_LEE,
-        ),
+        changeRoleCard(stored, { ...stored.card, roleOverride }, CARD_CONTEXT, new Date(), ANN_LEE),
       );
     await send("POST", "/roles/developer/let-go", {});
     const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", defaultModel: "claude-haiku-5-5" };

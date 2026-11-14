@@ -7,14 +7,20 @@ import { EngineModule } from "../engine/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { AvatarsController } from "./adapters/http/avatars.controller.js";
+import { DutiesController } from "./adapters/http/duties.controller.js";
 import { MemoryController } from "./adapters/http/memory.controller.js";
 import { RolesController } from "./adapters/http/roles.controller.js";
 import { PeopleOfficeTools } from "./adapters/office-tools/people-office-tools.js";
+import { PostgresDutyRepository } from "./adapters/postgres/postgres-duty-repository.js";
 import { PeopleEarlierRecords } from "./adapters/postgres/people-earlier-records.js";
 import { PostgresMemoryRepository } from "./adapters/postgres/postgres-memory-repository.js";
+import { PostgresOfficeSetupRepository } from "./adapters/postgres/postgres-office-setup-repository.js";
 import { PostgresRoleRepository } from "./adapters/postgres/postgres-role-repository.js";
 import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
+import { Duties } from "./application/duties.js";
+import { DutyChangeChecks } from "./application/duty-change-checks.js";
 import { MemoryService } from "./application/memory-service.js";
+import { OfficeSetup } from "./application/office-setup.js";
 import { PersonAvatars } from "./application/person-avatars.js";
 import { RoleCards } from "./application/role-cards.js";
 import { RoleOverrideChecks } from "./application/role-override-checks.js";
@@ -22,17 +28,21 @@ import { RoleOverrideMoves } from "./application/role-override-moves.js";
 import { PersonRecords } from "./application/person-records.js";
 import { RoleService } from "./application/role-service.js";
 import { AvatarFiles } from "./ports/avatar-files.js";
+import { DutyRepository } from "./ports/duty-repository.js";
 import { MemoryRepository } from "./ports/memory-repository.js";
+import { OfficeSetupRepository } from "./ports/office-setup-repository.js";
 import { RoleRepository } from "./ports/role-repository.js";
 
 @Module({
   // A Role card names its skills and MCP servers, which the Skills and MCP servers modules keep;
   // chats read People through an Office tool on the Engine's registry.
   imports: [SkillsModule, McpServersModule, EngineModule],
-  controllers: [RolesController, AvatarsController, MemoryController],
+  controllers: [RolesController, AvatarsController, MemoryController, DutiesController],
   providers: [
     { provide: RoleRepository, useClass: PostgresRoleRepository },
     { provide: MemoryRepository, useClass: PostgresMemoryRepository },
+    { provide: DutyRepository, useClass: PostgresDutyRepository },
+    { provide: OfficeSetupRepository, useClass: PostgresOfficeSetupRepository },
     {
       provide: AvatarFiles,
       inject: [OfficeDataDirectory],
@@ -40,6 +50,9 @@ import { RoleRepository } from "./ports/role-repository.js";
         new ImageFolder(officeData.folder("avatars")),
     },
     RoleService,
+    Duties,
+    DutyChangeChecks,
+    OfficeSetup,
     PersonAvatars,
     RoleOverrideChecks,
     RoleOverrideMoves,
@@ -50,7 +63,18 @@ import { RoleRepository } from "./ports/role-repository.js";
     PersonRecords,
     PeopleEarlierRecords,
   ],
-  exports: [RoleCards, RoleService, RoleOverrideChecks, MemoryService, PersonRecords],
+  exports: [
+    RoleCards,
+    RoleService,
+    RoleOverrideChecks,
+    MemoryService,
+    PersonRecords,
+    Duties,
+    DutyRepository,
+    DutyChangeChecks,
+    OfficeSetup,
+    OfficeSetupRepository,
+  ],
 })
 export class PeopleModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

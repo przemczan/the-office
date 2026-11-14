@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CARETAKER_FIXED_PARTS } from "./caretaker.js";
-import { ASK_ME } from "./hard-switches.js";
+import { ALLOWED, ASK_ME, NEVER } from "./hard-switches.js";
 import { CARETAKER } from "./known-roles.js";
-import { aRole, aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
+import { aRole, aRoleCard, CARD_CONTEXT } from "./role.fixtures.js";
 import { changeRoleCard, hireFromScratch, letGo } from "./role-changes.js";
 import { RoleRefused } from "./role-refused.js";
 
@@ -30,6 +30,22 @@ function refusal(change: () => unknown): readonly string[] {
   throw new Error("The change was not refused.");
 }
 
+describe("the Caretaker's fixed parts", () => {
+  // Spec §2.2: setting up The Office gives the Caretaker a tool, never other capabilities or switches.
+  it("stay a chat with Memory, the profile Allow changes grants, Change Roles Never and no Task limit", () => {
+    expect(CARETAKER_FIXED_PARTS).toEqual({
+      capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
+      permissionProfile: { edit: true, run: "anything", web: true },
+      hardSwitches: {
+        runInstalls: ALLOWED,
+        publishOutsideThePipeline: ALLOWED,
+        changeRoles: NEVER,
+      },
+      taskLimit: "none",
+    });
+  });
+});
+
 describe("the Caretaker's card", () => {
   it("takes a change to its instructions, effort, Role override and MCP tool settings", () => {
     const changed = changeRoleCard(
@@ -44,7 +60,7 @@ describe("the Caretaker's card", () => {
           mcpTools: { "github/list_issues": { kind: "allowed" } },
         },
       },
-      OFFERED_MODELS,
+      CARD_CONTEXT,
       at,
       null,
     );
@@ -65,7 +81,7 @@ describe("the Caretaker's card", () => {
   ])("refuses a change to its %s", (part, fields) => {
     expect(
       refusal(() =>
-        changeRoleCard(caretaker, { ...caretakerCard, ...fields }, OFFERED_MODELS, at, null),
+        changeRoleCard(caretaker, { ...caretakerCard, ...fields }, CARD_CONTEXT, at, null),
       ),
     ).toEqual([expect.stringContaining(`The Caretaker's ${part}`)]);
   });
@@ -74,7 +90,7 @@ describe("the Caretaker's card", () => {
     const changed = changeRoleCard(
       aRole(),
       aRoleCard({ taskLimit: "none" }),
-      OFFERED_MODELS,
+      CARD_CONTEXT,
       at,
       null,
     );
@@ -92,7 +108,7 @@ describe("the Caretaker's Role", () => {
 
   it("takes nobody hired from scratch into its key", () => {
     expect(
-      refusal(() => hireFromScratch(CARETAKER, caretakerCard, OFFERED_MODELS, undefined, at, null)),
+      refusal(() => hireFromScratch(CARETAKER, caretakerCard, CARD_CONTEXT, undefined, at, null)),
     ).toContain("The Caretaker is built in: nobody else is hired into their Role.");
   });
 });

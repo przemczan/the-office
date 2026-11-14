@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { effortSchema, hardSwitchValueSchema, runPermissionSchema } from "./people.js";
+import {
+  dutyKeySchema,
+  effortSchema,
+  hardSwitchValueSchema,
+  runPermissionSchema,
+} from "./people.js";
 import { projectCommandKeySchema } from "./projects.js";
 
 /** "On failure go back to Stage X, at most N times": the Stage's key and its rounds. */
@@ -57,8 +62,10 @@ export const stageSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("agent"),
     ...stageFields,
-    /** The key of the Role that works it. */
-    role: z.string(),
+    /** The key of the Role that works it; a Stage names a Role or a duty, never both. */
+    role: z.string().optional(),
+    /** The duty whose holder works it when the Stage starts (spec §2.3). */
+    duty: dutyKeySchema.optional(),
     brief: z.string(),
     session: z.enum(["fresh", "continue"]),
     /** Tokens. */
@@ -95,6 +102,7 @@ export const stageFieldChangesSchema = z
     name: z.string().optional(),
     optional: z.boolean().optional(),
     role: z.string().optional(),
+    duty: dutyKeySchema.optional(),
     brief: z.string().optional(),
     session: z.enum(["fresh", "continue"]).optional(),
     budget: z.int().positive().optional(),

@@ -2,15 +2,15 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
 import type { Avatar } from "./avatar.js";
 import { isBuiltIn } from "./caretaker.js";
-import { KNOWN_ROLES } from "./known-roles.js";
-import { presetFor } from "./presets.js";
+import { mcpToolDefault } from "./duties.js";
+import { presetFor, presetTitle } from "./presets.js";
 import type { Role } from "./role.js";
 import {
   personNameProblems,
   roleCardProblems,
   trimmedRoleCard,
-  type ModelsOffered,
   type RoleCard,
+  type RoleCardContext,
 } from "./role-card.js";
 import { roleCardChanges } from "./role-card-changes.js";
 import {
@@ -70,19 +70,19 @@ export function hire(
 export function hireFromScratch(
   roleKey: string,
   edit: RoleCard,
-  modelsOffered: ModelsOffered,
+  context: RoleCardContext,
   filledBy: Role | undefined,
   hiredAt: Date,
   savedBy: UserRef | null,
   proposedBy?: string,
 ): RoleChange<RoleHired> {
   const card = trimmedRoleCard(edit);
-  const problems = roleCardProblems(roleKey, card, modelsOffered);
-  const presetTitle = KNOWN_ROLES.get(roleKey);
+  const problems = roleCardProblems(roleKey, card, context);
+  const presetsOwnTitle = presetTitle(roleKey);
   if (roleKey === "" && card.title !== "") {
     problems.push("Give the Role a title with letters or digits.");
-  } else if (presetTitle) {
-    problems.push(`Hire the ${presetTitle} Role from its preset.`);
+  } else if (presetsOwnTitle) {
+    problems.push(`Hire the ${presetsOwnTitle} Role from its preset.`);
   } else if (isBuiltIn(roleKey)) {
     problems.push("The Caretaker is built in: nobody else is hired into their Role.");
   } else if (filledBy) {
@@ -144,7 +144,7 @@ export function hireBack(role: Role, hiredBackAt: Date): RoleChange<RoleHiredBac
 export function changeRoleCard(
   role: Role,
   edit: RoleCard,
-  modelsOffered: ModelsOffered,
+  context: RoleCardContext,
   savedAt: Date,
   savedBy: UserRef | null,
   proposedBy?: string,
@@ -155,9 +155,9 @@ export function changeRoleCard(
     ]);
   }
   const card = trimmedRoleCard(edit);
-  const problems = roleCardProblems(role.key, card, modelsOffered);
+  const problems = roleCardProblems(role.key, card, context);
   if (problems.length > 0) throw new RoleRefused(problems);
-  const changes = roleCardChanges(role.card, card);
+  const changes = roleCardChanges(role.card, card, mcpToolDefault(context.mcpConsultant));
   if (changes.length === 0) return undefined;
   const changed: Role = {
     ...role,
@@ -194,7 +194,10 @@ export function moveRoleOverride(
     cardProposedBy: undefined,
     cardSavedBy: null,
   };
-  return { role: changed, event: new RoleCardChanged(changed, roleCardChanges(role.card, card)) };
+  return {
+    role: changed,
+    event: new RoleCardChanged(changed, [{ field: "roleOverride", from: roleOverride, to: moved }]),
+  };
 }
 
 /**

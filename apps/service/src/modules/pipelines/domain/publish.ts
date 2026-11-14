@@ -67,7 +67,9 @@ export type Publication =
        * it into a branch Resolve merged before, which a rebase would undo.
        */
       readonly baseTakenIn: BaseTakenIn;
-      /** For a Task of an Initiative's branch, the bases that had moved on, in the order taken in. */
+      /**
+       * For a Task of an Initiative's branch, the bases that had moved on, in the order taken in.
+       */
       readonly basesTakenIn?: readonly string[];
     }
   | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
@@ -219,7 +221,9 @@ export interface UnfinishedPublication {
   readonly published: PublishedWork;
   /** Why the latest run failed, when it did. */
   readonly error: string | undefined;
-  /** Whether the user, or the CTO, chose Continue on the latest run's failure. */
+  /**
+   * Whether the user, or the Consultant asked first, chose Continue on the latest run's failure.
+   */
   readonly continued: boolean;
 }
 
@@ -296,7 +300,9 @@ export function continuedOutcome({ published, error }: UnfinishedPublication): S
   };
 }
 
-/** Each Stage's latest result that tells of the work, under its name; a Stage yet to run has none. */
+/**
+ * Each Stage's latest result that tells of the work, under its name; a Stage yet to run has none.
+ */
 function stageResults(stages: readonly Stage[], runs: readonly StageRun[]): string[] {
   const testResults = latestTestResults(stages, runs);
   return stages.flatMap((stage) => {

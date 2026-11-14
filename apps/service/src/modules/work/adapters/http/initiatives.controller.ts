@@ -117,7 +117,8 @@ export class InitiativesController {
 
   /**
    * The user's choice of the Initiative's Pipeline in one Project it spans, null for None; refused
-   * once the Initiative is no longer being shaped, where only the CTO's Proposal changes it.
+   * once the Initiative is no longer being shaped, where only a Proposal of whoever shapes
+   * Initiatives changes it.
    */
   @Put(":id/pipeline")
   async choosePipeline(
@@ -170,8 +171,8 @@ export class InitiativesController {
   }
 
   /**
-   * A new shaping Thread with the CTO, who starts on it at once; its Threads are listed by
-   * GET /initiatives/:id/threads.
+   * A new shaping Thread with whoever shapes Initiatives, who starts on it at once; its Threads are
+   * listed by GET /initiatives/:id/threads.
    */
   @Post(":id/shaping")
   @HttpCode(HttpStatus.OK)
@@ -251,7 +252,10 @@ export class InitiativesController {
     return this.respondToPause(await this.pausing.resume(id, authorOf(signedIn)));
   }
 
-  /** A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it names. */
+  /**
+   * A new Task in the Initiative, in Shaping or Backlog in its Project, waiting for the Tasks it
+   * names.
+   */
   @Post(":id/tasks")
   async addTask(
     @Param("id", ParseUUIDPipe) id: string,

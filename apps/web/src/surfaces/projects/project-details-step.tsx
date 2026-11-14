@@ -29,7 +29,7 @@ const COMMAND_EXAMPLES: Readonly<Record<string, string>> = {
 };
 
 const COMMANDS_HINT =
-  "Optional. Leave any you don't know yet: set them later on the Project's page, or ask Devops.";
+  "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.";
 
 const SOURCE_ICONS: Readonly<Record<ProjectSource["whereItIs"], string>> = {
   folder: "folder",

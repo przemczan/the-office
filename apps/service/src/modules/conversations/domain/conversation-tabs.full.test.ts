@@ -40,6 +40,35 @@ describe("a Task's conversation tabs", () => {
     expect(tabs[0]?.threadId).toBe("planning");
   });
 
+  it("pins the tab of whoever holds Plans, whatever their Role key", () => {
+    const tabs = conversationTabs(
+      "lead",
+      [
+        onTask("oscar-stage", { roleKey: "oscar", stageThread: true, startedAt: FIRST }),
+        onTask("lead-planning", { roleKey: "lead", startedAt: LATER }),
+      ],
+      [],
+    );
+
+    expect(tabs.map(({ roleKey }) => roleKey)).toEqual(["lead", "oscar"]);
+    expect(tabs[0]?.threadId).toBe("lead-planning");
+  });
+
+  it("pins no planning tab while nobody holds Plans, leaving the people who worked", () => {
+    expect(conversationTabs(undefined, [], [])).toEqual([]);
+
+    const tabs = conversationTabs(
+      undefined,
+      [
+        onTask("rui-stage", { roleKey: "rui", stageThread: true, startedAt: LATER }),
+        onTask("oscar-stage", { roleKey: "oscar", stageThread: true, startedAt: FIRST }),
+      ],
+      [],
+    );
+
+    expect(tabs.map(({ roleKey }) => roleKey)).toEqual(["oscar", "rui"]);
+  });
+
   it("holds the person's own Thread, not their Stage's, and says while their Stage runs", () => {
     const [, oscar] = conversationTabs(
       PLANNER,
