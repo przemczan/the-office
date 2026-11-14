@@ -254,8 +254,11 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
 function toGateActionResponse(action: GateAction): GateActionResponse {
   switch (action.kind) {
     case "continue":
+      return action.feedback === undefined
+        ? { kind: "continue" }
+        : { kind: "continue", feedback: action.feedback };
     case "drop":
-      return { kind: action.kind };
+      return { kind: "drop" };
     case "send-back":
       return { kind: "send-back", stageKey: action.stageKey, feedback: action.feedback };
   }

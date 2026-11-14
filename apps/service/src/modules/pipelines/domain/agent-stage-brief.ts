@@ -61,6 +61,8 @@ export interface EarlierResult {
   readonly stageName: string;
   readonly kind: StageKind;
   readonly outcome: StageOutcome;
+  /** A Gate's run alone: the notes the user let the work continue with. */
+  readonly gateNotes?: string;
 }
 
 /** What an Agent Stage's Brief is assembled from: the record, with no model call (spec §2.5). */
@@ -353,8 +355,13 @@ function earlierResultWords(result: EarlierResult): string {
 }
 
 /** A Stage run's result as a line of a Brief, without its Handover note. */
-export function stageResultWords({ stageName, kind, outcome }: EarlierResult): string {
+export function stageResultWords({ stageName, kind, outcome, gateNotes }: EarlierResult): string {
   const name = `- ${stageName} (${STAGE_KIND_NAMES[kind]})`;
+  if (gateNotes !== undefined) {
+    // A later brief line stays within its item, as laterStageWords keeps a brief's.
+    const notes = gateNotes.replaceAll("\n", "\n  ");
+    return `${name}: the user let the work continue, with notes for the Stages after it. Follow them:\n  ${notes}`;
+  }
   switch (outcome.status) {
     case "done":
       return `${name}: done. ${outcome.summary}`;
@@ -365,15 +372,21 @@ export function stageResultWords({ stageName, kind, outcome }: EarlierResult): s
   }
 }
 
-/** The runs that ended with a result, in the order given; a Gate's has none to brief with. */
+/**
+ * The runs that ended with a result, in the order given. A Gate's has none to brief with, but for
+ * the notes the user let the work continue with, which every later Stage follows (spec §2.3).
+ */
 export function earlierResults(
   stages: readonly Stage[],
   runs: readonly StageRun[],
 ): EarlierResult[] {
-  return runs.flatMap(({ stageKey, outcome }) => {
+  return runs.flatMap(({ stageKey, outcome, gateAction }): EarlierResult[] => {
     const stage = stages.find(({ key }) => key === stageKey);
-    if (!stage || stage.kind === "gate" || !outcome) return [];
-    return [{ stageName: stage.name, kind: stage.kind, outcome }];
+    if (!stage || !outcome) return [];
+    if (stage.kind !== "gate") return [{ stageName: stage.name, kind: stage.kind, outcome }];
+    const gateNotes = gateAction?.kind === "continue" ? gateAction.feedback : undefined;
+    if (gateNotes === undefined) return [];
+    return [{ stageName: stage.name, kind: stage.kind, outcome, gateNotes }];
   });
 }
 

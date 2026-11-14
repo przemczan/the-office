@@ -10,10 +10,13 @@ import { AttachmentGallery } from "../attachments/attachment-gallery.tsx";
 import { oneRound } from "../attachments/attachment-rounds.ts";
 import { useDroppingTask, WhatDroppingDoes } from "./drop-task-dialog.tsx";
 import {
+  ContinueNotesField,
   ContinueRefused,
   SendBackFields,
   useContinuingAtGate,
+  useContinuingWithNotes,
   useSendingBack,
+  type ContinuingWithNotes,
   type SendingBack,
 } from "./gate-actions.tsx";
 import {
@@ -25,15 +28,20 @@ import {
   testsBeforeGate,
   testsFact,
 } from "./gate-card-words.ts";
-import { continueLabel, SEND_BACK_WITH_NOTES, type WaitingGate } from "./gate-words.ts";
+import {
+  CONTINUE_WITH_NOTES,
+  continueLabel,
+  SEND_BACK_WITH_NOTES,
+  type WaitingGate,
+} from "./gate-words.ts";
 import { RECORD_ELEMENT_ID } from "./record-tab.ts";
 
-type GateStep = "send-back" | "drop";
+type GateStep = "continue-with-notes" | "send-back" | "drop";
 
 /**
  * The Gate's details (spec 4.1): what the work came to in four facts and the Attachments of this
- * round, with every action in the bar. Send back's notes and Drop's confirmation are steps over the
- * bar, as no window opens on another.
+ * round, with every action in the bar. Continue's and Send back's notes and Drop's confirmation are
+ * steps over the bar, as no window opens on another.
  */
 export function GateWindow({
   task,
@@ -50,6 +58,7 @@ export function GateWindow({
 }): ReactNode {
   const [step, setStep] = useState<GateStep>();
   const continuing = useContinuingAtGate(task, waiting);
+  const continuingWithNotes = useContinuingWithNotes(task, waiting, roles, onClose);
   const sending = useSendingBack(task, waiting.sendBackTargets, roles, onClose);
   const dropping = useDroppingTask(() => dropAtGate(task.id), onClose);
   const allAttachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
@@ -61,6 +70,7 @@ export function GateWindow({
   const busy = continuing.isPending;
   const cancelStep = (): void => setStep(undefined);
   const steps: Record<GateStep, DialogStep> = {
+    "continue-with-notes": continueWithNotesStep(continuingWithNotes, waiting, cancelStep),
     "send-back": sendBackStep(sending, cancelStep),
     drop: {
       content: (
@@ -101,6 +111,15 @@ export function GateWindow({
             {continueLabel(waiting)}
           </Button>
           <OpenChanges taskId={task.id} onOpen={onClose} />
+          {waiting.nextAgentStage && (
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() => setStep("continue-with-notes")}
+            >
+              {CONTINUE_WITH_NOTES}
+            </Button>
+          )}
           {waiting.sendBackTargets.length > 0 && (
             <Button variant="secondary" disabled={busy} onClick={() => setStep("send-back")}>
               {SEND_BACK_WITH_NOTES}
@@ -124,6 +143,28 @@ export function GateWindow({
       </div>
     </Dialog>
   );
+}
+
+function continueWithNotesStep(
+  continuing: ContinuingWithNotes,
+  waiting: WaitingGate,
+  onCancel: () => void,
+): DialogStep {
+  return {
+    content: <ContinueNotesField continuing={continuing} />,
+    actions: (
+      <Button
+        variant="accent"
+        loading={continuing.isPending}
+        disabled={!continuing.written}
+        title={continuing.written ? undefined : "Write your notes first"}
+        onClick={continuing.send}
+      >
+        {continueLabel(waiting)}
+      </Button>
+    ),
+    onCancel,
+  };
 }
 
 function sendBackStep(sending: SendingBack, onCancel: () => void): DialogStep {

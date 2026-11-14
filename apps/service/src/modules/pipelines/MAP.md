@@ -219,7 +219,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `built-in-stage-templates.ts`: builtInStageTemplates
 - `followed-hard-switches.ts`: FollowedHardSwitchValue, FollowedHardSwitches, hardSwitchesSection
 - `gate-refused.ts`: GateRefused
-- `gate.ts`: GATE_REACHED, waitingGateRun, lastActedOnGateRun, sendBackTargets, gateActionProblems
+- `gate.ts`: GATE_REACHED, waitingGateRun, lastActedOnGateRun, sendBackTargets, agentStageFollowsGate, gateActionProblems
 - `library-pipeline.ts`: PipelineEdit, TaskOnPipeline, ProjectOnPipeline, InitiativeOnPipeline, ProjectPipelineOnPipeline, PipelineUse, pipelineEditProblems, pipelineEditFlags, proposedStagesProblems, proposedEdit, addedPipeline, savedPipeline, copiedPipeline, pipelineUse, missingCommandProblems, removalProblems
 - `pipeline-library-events.ts`: PipelineAdded, PipelineSaved, PipelineRemoved
 - `pipeline-library-refusals.ts`: PipelineRemovalRefused, UnknownPipeline, UnknownProjectPipeline, UnknownStageTemplate

@@ -285,11 +285,11 @@
 - `capture-idea-dialog.tsx`: CaptureIdeaDialog
 - `drop-task-dialog.tsx`: DropTaskDialog, useDroppingTask, WhatDroppingDoes
 - `edit-idea-dialog.tsx`: EditIdeaDialog
-- `gate-actions.tsx`: ContinueRefused, SendingBack, useSendingBack, SendBackFields, useContinuingAtGate
+- `gate-actions.tsx`: ContinueRefused, SendingBack, useSendingBack, SendBackFields, useContinuingAtGate, ContinuingWithNotes, useContinuingWithNotes, ContinueNotesField
 - `gate-card-words.ts`: gateQuestion, gateHeading, linesChanged, testsBeforeGate, testsFact, definitionOfDoneFact, gateFactsLine, attachmentsOfThisRound
 - `gate-card.tsx`: GateCard
 - `gate-window.tsx`: GateWindow
-- `gate-words.ts`: WaitingGate, waitingGateOf, defaultSendBackTarget, SEND_BACK_WITH_NOTES, sendBackWords, continueLabel
+- `gate-words.ts`: WaitingGate, waitingGateOf, defaultSendBackTarget, SEND_BACK_WITH_NOTES, sendBackWords, CONTINUE_WITH_NOTES, continueNotesPlaceholder, continueLabel
 - `idea-fields.tsx`: IdeaFields
 - `needs-you-list.tsx`: NeedsYouList
 - `new-task-dialog.tsx`: NewTaskDialog

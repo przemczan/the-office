@@ -163,15 +163,22 @@ export const stageRunCommandOutputsSchema = z.object({ outputs: z.array(z.string
 export type StageRunCommandOutputs = z.infer<typeof stageRunCommandOutputsSchema>;
 
 /**
- * What the user did at a Gate: let the work continue, send it back to an earlier Agent Stage with
- * their feedback, or drop the Task.
+ * What the user did at a Gate: let the work continue, with notes for the Agent Stages after it or
+ * none, send it back to an earlier Agent Stage with their feedback, or drop the Task.
  */
 export const gateActionSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("continue") }),
+  z.object({ kind: z.literal("continue"), feedback: z.string().optional() }),
   z.object({ kind: z.literal("send-back"), stageKey: z.string(), feedback: z.string() }),
   z.object({ kind: z.literal("drop") }),
 ]);
 export type GateAction = z.infer<typeof gateActionSchema>;
+
+/**
+ * POST /tasks/:id/gate/continue: optional notes for the Agent Stages after the Gate. No body, or
+ * blank notes, is plain Continue.
+ */
+export const continueAtGateSchema = z.object({ feedback: z.string().optional() });
+export type ContinueAtGate = z.infer<typeof continueAtGateSchema>;
 
 /** POST /tasks/:id/gate/send-back: the earlier Agent Stage, and what should change. */
 export const sendBackSchema = z.object({

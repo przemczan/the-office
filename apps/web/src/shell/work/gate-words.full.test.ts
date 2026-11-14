@@ -2,6 +2,7 @@ import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   continueLabel,
+  continueNotesPlaceholder,
   defaultSendBackTarget,
   sendBackWords,
   waitingGateOf,
@@ -104,6 +105,24 @@ describe("waitingGateOf", () => {
     expect(waitingGateOf([at(implement, "running"), at(look, "pending")])).toBeUndefined();
     const last = waitingGateOf([at(implement, "done"), at(look, "waiting-on-you")]);
     expect(last && continueLabel(last)).toBe("Continue");
+  });
+
+  it("names the first Agent Stage after the Gate, which notes reach, or none when no Agent Stage follows", () => {
+    const beforeReview = waitingGateOf([
+      at(implement, "done"),
+      at(look, "waiting-on-you"),
+      at(tests, "pending"),
+      at(review, "pending"),
+    ]);
+    const beforePublish = waitingGateOf([
+      at(implement, "done"),
+      at(look, "waiting-on-you"),
+      at(publish, "pending"),
+    ]);
+
+    expect(beforeReview?.nextAgentStage).toBe(review);
+    expect(beforePublish?.nextAgentStage).toBeUndefined();
+    expect(continueNotesPlaceholder("Jim")).toBe("What should Jim know as the work goes on?");
   });
 });
 

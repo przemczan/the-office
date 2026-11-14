@@ -12,9 +12,9 @@ import { StageInterpreter } from "./stage-interpreter.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 /**
- * What the user does at a Gate (spec §2.3): Continue, Send back with feedback to an earlier Agent
- * Stage, using no round, or Drop. The action is kept on the Gate's run, which the walk replays, and
- * the walk goes on from it as it does from an answered Decision.
+ * What the user does at a Gate (spec §2.3): Continue, with notes or none, Send back with feedback
+ * to an earlier Agent Stage, using no round, or Drop. The action is kept on the Gate's run, which
+ * the walk replays, and the walk goes on from it as it does from an answered Decision.
  */
 @Injectable()
 export class GateService {
@@ -25,8 +25,10 @@ export class GateService {
     private readonly events: EventBus,
   ) {}
 
-  continue(taskId: string): Promise<TaskProgress | undefined> {
-    return this.act(taskId, { kind: "continue" });
+  /** Blank notes are plain Continue. */
+  continue(taskId: string, feedback?: string): Promise<TaskProgress | undefined> {
+    const notes = feedback?.trim();
+    return this.act(taskId, notes ? { kind: "continue", feedback: notes } : { kind: "continue" });
   }
 
   sendBack(taskId: string, stageKey: string, feedback: string): Promise<TaskProgress | undefined> {

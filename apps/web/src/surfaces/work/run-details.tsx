@@ -271,7 +271,9 @@ function RunSummary({
       {gateAction && (
         <div>
           <p className="run-label">{gateChoiceWords(gateAction, names)}</p>
-          {gateAction.kind === "send-back" && <MarkdownText text={gateAction.feedback} />}
+          {gateAction.kind !== "drop" && gateAction.feedback !== undefined && (
+            <MarkdownText text={gateAction.feedback} />
+          )}
         </div>
       )}
       {outcome?.handoverNote ? (

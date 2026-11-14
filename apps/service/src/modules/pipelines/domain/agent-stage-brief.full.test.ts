@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { agentStageRecord, agentStageWork, type BriefTask } from "./agent-stage-brief.js";
+import {
+  agentStageRecord,
+  agentStageWork,
+  earlierResults,
+  stageResultWords,
+  type BriefTask,
+} from "./agent-stage-brief.js";
 import { allowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
+import { GATE_REACHED } from "./gate.js";
 import type { AgentStage, Stage } from "./stage.js";
+import { aStageRun } from "./stage-run.fixtures.js";
 
 const GIT = ["status", "diff"];
 const COMMANDS = [
@@ -132,6 +140,38 @@ describe("agentStageRecord", () => {
       "## Earlier Stages\n\n- Implement (Agent Stage): done. Added it.\n  Handover note: Check the list.\n- Tests (Script Stage): failed. 1 fails.",
     );
     expect(record).toContain("## What changed so far\n\n2 files changed");
+  });
+});
+
+describe("earlierResults", () => {
+  const implement: Stage = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    optional: false,
+    role: "developer",
+    brief: "Build it.",
+    session: "fresh",
+    budget: 100_000,
+  };
+  const look: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
+  const done = { status: "done", summary: "Added it." } as const;
+
+  it("names a Gate's run only for the notes the user continued with, in run order", () => {
+    const runs = [
+      aStageRun({ stageKey: "implement", outcome: done }),
+      aStageRun({ stageKey: "look", outcome: GATE_REACHED, gateAction: { kind: "continue" } }),
+      aStageRun({
+        stageKey: "look",
+        outcome: GATE_REACHED,
+        gateAction: { kind: "continue", feedback: "Build version B.\nKeep the colours." },
+      }),
+    ];
+
+    expect(earlierResults([implement, look], runs).map(stageResultWords)).toEqual([
+      "- Implement (Agent Stage): done. Added it.",
+      "- Look (Gate): the user let the work continue, with notes for the Stages after it. Follow them:\n  Build version B.\n  Keep the colours.",
+    ]);
   });
 });
 

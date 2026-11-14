@@ -9,7 +9,9 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  continueAtGateSchema,
   sendBackSchema,
+  type ContinueAtGate,
   type SendBack,
   type TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
@@ -24,11 +26,17 @@ import { toTaskStagesResponse } from "./pipeline-responses.js";
 export class TaskGateController {
   constructor(private readonly gates: GateService) {}
 
-  /** Continue: the work goes on to the Stage after the Gate. */
+  /**
+   * Continue: the work goes on to the Stage after the Gate, with the notes every later Agent Stage
+   * is briefed with, when the body brings any. No body is plain Continue.
+   */
   @Post("continue")
   @HttpCode(HttpStatus.OK)
-  async continue(@Param("id", ParseUUIDPipe) id: string): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(await this.gates.continue(id));
+  async continue(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(continueAtGateSchema.optional())) body: ContinueAtGate | undefined,
+  ): Promise<TaskStagesResponse> {
+    return toTaskStagesResponse(await this.gates.continue(id, body?.feedback));
   }
 
   /** Send back: the chosen earlier Agent Stage runs again with the feedback, using no round. */

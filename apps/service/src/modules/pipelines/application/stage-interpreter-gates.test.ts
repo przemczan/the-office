@@ -117,6 +117,32 @@ describe("A Gate", () => {
     ]);
   });
 
+  it("briefs every Agent Stage after the Gate with the notes Continue brings, under Earlier Stages", async () => {
+    pipelines = await startPipelinesApplication([agentDone, agentDone, agentDone]);
+    const taskId = await walkStages(pipelines, [
+      draft,
+      look,
+      anAgentStage("build"),
+      anAgentStage("polish"),
+    ]);
+
+    await gates().continue(taskId, "  The design is accepted: build version B.\n");
+    await walked(taskId);
+
+    expect((await runsOf(pipelines, taskId))[1]?.gateAction).toEqual({
+      kind: "continue",
+      feedback: "The design is accepted: build version B.",
+    });
+    const notesLine =
+      "- Look (Gate): the user let the work continue, with notes for the Stages after it. Follow them:\n  The design is accepted: build version B.";
+    for (const request of pipelines.stageThreads.requests.slice(1)) {
+      expect(request.record).toContain(`## Earlier Stages\n\n`);
+      expect(request.record).toContain(notesLine);
+    }
+    expect(pipelines.stageThreads.requests).toHaveLength(3);
+    expect(eventsOf(taskId)).toEqual([["reached", "look"], ["continued"]]);
+  });
+
   it("sends the work back to the chosen Stage with the feedback in a fresh session, using no round", async () => {
     pipelines = await startPipelinesApplication([agentDone, agentDone, agentDone]);
     const taskId = await walkStages(pipelines, [draft, measure, look]);

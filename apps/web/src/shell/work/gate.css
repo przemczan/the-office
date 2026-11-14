@@ -6,7 +6,7 @@
   margin-top: 12px;
 }
 
-.gate-send-back-fields {
+.gate-step-fields {
   display: flex;
   flex-direction: column;
   gap: 10px;
