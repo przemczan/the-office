@@ -1,10 +1,4 @@
 /* The Workstation figure and its panel (workstation-figure.tsx, workstation-panel.tsx). */
-.shell-strip-workstation {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 /* The strip's % says busy or high by its colour too; calm, it stays as the strip's other figures. */
 .shell-strip-workstation b[data-level="busy"] {
   color: var(--warning-fg);

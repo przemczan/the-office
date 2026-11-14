@@ -47,7 +47,10 @@ export const DEFAULT_ROUTING: Routing = {
   "office.down": { desktop: true, phone: true },
 };
 
-/** "Window nearly used" at 90% of the 5-hour window: a default, told to the user (task 16). */
+/**
+ * "Window nearly used" at 90% of the 5-hour window: a default, told to the user (task 16). The
+ * contracts' `WINDOW_NEARLY_USED_PERCENT` gives the strip the same.
+ */
 export const WINDOW_NEARLY_USED_PERCENT = 90;
 
 /** The kind's own key and each level above it, nearest first: `a.b.c`, `a.b`, `a`. */

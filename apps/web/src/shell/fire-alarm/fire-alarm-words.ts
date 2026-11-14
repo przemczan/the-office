@@ -74,12 +74,16 @@ export function allClearSummary(resuming: number, tokens: number, setAside: numb
   return setAside > 0 ? `${resumes} · ${setAside} held or dropped` : resumes;
 }
 
-/** The strip's line and the panel's heading: stopping, then on since it sounded. */
-export function alarmStateWords(alarm: FireAlarmOnNow | null): string {
-  if (!alarm) return "Alarm off · all clear";
+/** The panel's heading: stopping, then on since it sounded. */
+export function alarmStateWords(alarm: FireAlarmOnNow): string {
   return alarm.stopping
     ? "Alarm on · stopping at safe points"
     : `Alarm on since ${clockOf(alarm.since)}`;
+}
+
+/** The strip's Fire alarm figure: "Stopping at safe points", then "On since 14:02". */
+export function alarmFigureWords(alarm: FireAlarmOnNow): string {
+  return alarm.stopping ? "Stopping at safe points" : `On since ${clockOf(alarm.since)}`;
 }
 
 /** What a Task the alarm holds is called, wherever its state shows. */

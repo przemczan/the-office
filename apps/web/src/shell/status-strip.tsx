@@ -1,112 +1,85 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import type { Now, SinceYouLeft } from "@the-office/contracts";
+import { useNavigate } from "@tanstack/react-router";
+import { countedTokens, type FireAlarmOnNow, type Now } from "@the-office/contracts";
+import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { officeUpdateQueries } from "../api/office-updates.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
 import { roleQueries } from "../api/people.ts";
-import { alarmStateWords } from "./fire-alarm/fire-alarm-words.ts";
-import "./fire-alarm/fire-alarm.css";
+import { tokensShort } from "./conversation/context-words.ts";
+import { alarmFigureWords } from "./fire-alarm/fire-alarm-words.ts";
+import { useFireAlarmReview } from "./fire-alarm/fire-alarm-review.tsx";
 import {
   askForDesktopPermission,
   desktopPermission,
-  type DesktopPermission as Permission,
+  type DesktopPermission,
 } from "./notifications/desktop-channel.ts";
-import { doneSinceYouLeft, needsYouWords } from "./notifications/now-words.ts";
-import { OfficeNotificationsFigure } from "./notifications/office-notifications-figure.tsx";
+import { needsYouWords } from "./notifications/now-words.ts";
+import { officeMessages } from "./notifications/office-messages.ts";
+import { OfficeMessages } from "./notifications/office-messages-slot.tsx";
 import { useNeedsYou } from "./notifications/use-needs-you.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
-import { TokenCount } from "./token-count.tsx";
+import { StripFigure, StripLabel } from "./strip-figure.tsx";
+import { TokenInfo } from "./token-count.tsx";
 import { UsageFigure } from "./usage-figure.tsx";
 import { WorkstationFigure } from "./workstation/workstation-figure.tsx";
 
 /**
- * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
- * user in the Projects shown, which opens the Needs you panel, desks in use, tokens today, the usage figure, Tasks
- * touched and done since the user left, then on the right the Workstation figure (polled on its
- * own, so it shows while Now loads), an Office update while one is scheduled, and the fire
- * alarm's state, its desks at 0 while it is on.
- * While the web has lost the service it says so first,
- * and the Office's own Notifications (the window, the engine) show here until they clear: the newest
- * one, with the others in a list from "+N more".
+ * The Office-wide figures under the top bar (spec §4, docs/design/status-strip.html), live from
+ * `now.changed`, each a label over its value. On the left, never hidden: Needs you in the Projects
+ * shown, which opens the Needs you panel, the engines' 5-hour windows, desks in use and tokens
+ * today, then the fire alarm while it is on, its desks at 0. On the right the Workstation figure
+ * (polled on its own, so it shows while Now loads) and one slot of a fixed width for what The
+ * Office tells the user. The strip lays itself out by its own width (`@container strip`).
  */
 export function StatusStrip(): ReactNode {
-  const reconnecting = useEventStreamStatus() === "reconnecting";
   const now = useQuery(nowQueries.now()).data;
-  const officeNotifications = (useQuery(notificationQueries.open()).data ?? []).filter(({ kind }) =>
-    kind.startsWith("office."),
-  );
-  const roles = useQuery(roleQueries.list()).data;
-  const sinceYouLeft = useQuery(nowQueries.sinceYouLeft()).data;
   return (
     <div className="shell-strip" role="status" aria-label="Status strip">
-      {reconnecting && (
-        <span className="shell-strip-stat">
-          <span className="shell-dot reconnecting" />
-          Reconnecting to The Office…
-        </span>
-      )}
-      <OfficeNotificationsFigure notifications={officeNotifications} roles={roles} />
-      {now && <Figures now={now} sinceYouLeft={sinceYouLeft} />}
-      <span className="shell-grow" />
-      <WorkstationFigure />
-      <ScheduledUpdate />
-      <DesktopPermission />
-      {now && (
-        <span className={`shell-strip-alarm${now.fireAlarm ? " on" : ""}`}>
-          <i aria-hidden="true" />
-          {alarmStateWords(now.fireAlarm)}
-        </span>
-      )}
+      <div className="shell-strip-row">
+        {now && <Figures now={now} />}
+        {now?.fireAlarm && <AlarmFigure alarm={now.fireAlarm} />}
+        <span className="shell-grow" />
+        <WorkstationFigure />
+        <OfficeMessagesSlot />
+      </div>
     </div>
   );
 }
 
-/** "Update scheduled" while an Office update waits, opening Settings › Updates. */
-function ScheduledUpdate(): ReactNode {
-  const scheduled = useQuery(officeUpdateQueries.officeUpdate()).data?.scheduled;
-  if (!scheduled) return null;
-  const waiting = scheduled.busy.length;
-  return (
-    <Link to="/settings/updates" className="shell-strip-stat shell-strip-update">
-      <span className="shell-dot running" />
-      Update scheduled
-      {waiting > 0 && `, waiting for ${waiting === 1 ? "1 thing" : `${waiting} things`}`}
-    </Link>
-  );
-}
-
-function Figures({
-  now,
-  sinceYouLeft,
-}: {
-  readonly now: Now;
-  readonly sinceYouLeft: SinceYouLeft | undefined;
-}): ReactNode {
+function Figures({ now }: { readonly now: Now }): ReactNode {
   // While the alarm is on nothing runs at a desk, though its Tasks keep theirs.
   const inUse = now.fireAlarm ? 0 : now.desks.inUse;
   return (
-    <>
+    <div className="shell-strip-figures">
       <NeedsYouFigure />
-      <span className="shell-strip-stat">
-        <span className={`shell-dot ${inUse > 0 ? "running" : "idle"}`} />
-        <b>{inUse}</b>
-        <span className="shell-strip-faint">/ {now.desks.limit}</span> desks in use
-      </span>
       <span className="shell-strip-separator" />
-      <span className="shell-strip-stat">
-        <TokenCount tokens={now.tokensToday} label="tokens today" strong />
-      </span>
       <UsageFigure now={now} />
-      <span className="shell-strip-stat wide">
-        <b>{now.tasksTouched}</b> Tasks touched
-      </span>
       <span className="shell-strip-separator" />
-      <span className="shell-strip-stat wide">
-        <b>{sinceYouLeft ? doneSinceYouLeft(sinceYouLeft) : 0}</b> done since you left
-      </span>
-    </>
+      <StripFigure
+        label={<StripLabel long="Desks in use" short="Desks" />}
+        value={
+          <>
+            <span className={`shell-dot ${inUse > 0 ? "running" : "idle"}`} />
+            <b>{inUse}</b>
+            <span className="shell-strip-faint">/ {now.desks.limit}</span>
+          </>
+        }
+        action={{ kind: "text", title: `${inUse} of ${now.desks.limit} desks in use` }}
+      />
+      <span className="shell-strip-separator" />
+      <StripFigure
+        label={<StripLabel long="Tokens today" short="Tokens" />}
+        value={
+          <>
+            <b>{tokensShort(countedTokens(now.tokensToday))}</b>
+            <TokenInfo tokens={now.tokensToday} />
+          </>
+        }
+        action={{ kind: "text" }}
+      />
+    </div>
   );
 }
 
@@ -121,23 +94,34 @@ function NeedsYouFigure(): ReactNode {
   const pops = useRises(needsYou?.shown.length);
   if (!needsYou) return null;
   const count = needsYou.shown.length;
-  const tone = count > 0 ? " alert" : needsYou.elsewhere > 0 ? " elsewhere" : "";
+  const { elsewhere } = needsYou;
+  const tone = count > 0 ? " alert" : elsewhere > 0 ? " elsewhere" : "";
   // Two classes with the same pop under different animation names, swapped on each rise, so the
   // browser replays it without remounting the button, which would take its focus away.
   const pop = pops === 0 ? "" : pops % 2 === 1 ? " pop" : " pop-again";
+  const name = `${count} ${needsYouWords(count)}${elsewhere > 0 ? `, ${elsewhere} more in other Projects` : ""}`;
   return (
-    <button
-      type="button"
-      className={`shell-strip-stat shell-strip-needs-you${tone}${pop}`}
-      aria-haspopup="dialog"
-      onClick={needsYouPanel.open}
-    >
-      {count > 0 && <span className="live-dot" aria-hidden="true" />}
-      <b>{count}</b> {needsYouWords(count)}
-      {needsYou.elsewhere > 0 && (
-        <span className="shell-strip-faint">+{needsYou.elsewhere} in other Projects</span>
-      )}
-    </button>
+    <StripFigure
+      className={`shell-strip-needs-you${tone}${pop}`}
+      label={
+        <>
+          {count > 0 && <span className="live-dot" aria-hidden="true" />}
+          Needs you
+        </>
+      }
+      value={
+        <>
+          <b>{count}</b>
+          {elsewhere > 0 && (
+            <span className="shell-strip-faint" title={`${elsewhere} more in other Projects`}>
+              <span className="shell-strip-roomy">+{elsewhere} in other Projects</span>
+              <span className="shell-strip-tight">+{elsewhere}</span>
+            </span>
+          )}
+        </>
+      }
+      action={{ kind: "button", name, onClick: needsYouPanel.open }}
+    />
   );
 }
 
@@ -153,20 +137,61 @@ function useRises(value: number | undefined): number {
   return rises;
 }
 
-/**
- * Desktop Notifications need the browser's permission, asked once: offered here until the user
- * answers, after which the browser keeps the answer.
- */
-function DesktopPermission(): ReactNode {
-  const [permission, setPermission] = useState<Permission>(desktopPermission);
-  if (permission !== "default") return null;
+/** While the alarm is on, after Tokens today: why Desks in use reads 0, opening the all clear's review. */
+function AlarmFigure({ alarm }: { readonly alarm: FireAlarmOnNow }): ReactNode {
+  const review = useFireAlarmReview();
+  const navigate = useNavigate();
+  const words = alarmFigureWords(alarm);
   return (
-    <button
-      type="button"
-      className="shell-strip-stat shell-strip-action"
-      onClick={() => void askForDesktopPermission().then(setPermission)}
-    >
-      Turn on desktop notifications
-    </button>
+    <StripFigure
+      className="shell-strip-alarm"
+      label={
+        <>
+          <Icon name="siren" size={11} />
+          Fire alarm
+        </>
+      }
+      value={
+        <b>
+          <span className="shell-strip-roomy">{words}</span>
+          <span className="shell-strip-tight">On</span>
+        </b>
+      }
+      action={{
+        kind: "button",
+        name: `Fire alarm: ${words}. See what will resume, then give the all clear`,
+        onClick: () => {
+          review.open();
+          void navigate({ to: "/" });
+        },
+      }}
+    />
+  );
+}
+
+/**
+ * Gathers what The Office tells the user into the slot: the web reconnecting, the Office's own
+ * Notifications until they clear, an Office update while one is scheduled, and the desktop ask
+ * until the user answers, after which the browser keeps the answer.
+ */
+function OfficeMessagesSlot(): ReactNode {
+  const reconnecting = useEventStreamStatus() === "reconnecting";
+  const notifications = useQuery(notificationQueries.open()).data ?? [];
+  const roles = useQuery(roleQueries.list()).data;
+  const scheduled = useQuery(officeUpdateQueries.officeUpdate()).data?.scheduled;
+  const [permission, setPermission] = useState<DesktopPermission>(desktopPermission);
+  const messages = officeMessages({
+    reconnecting,
+    notifications,
+    updateWaitingFor: scheduled ? scheduled.busy.length : undefined,
+    desktopAsk: permission === "default",
+  });
+  if (!messages) return null;
+  return (
+    <OfficeMessages
+      messages={messages}
+      roles={roles}
+      onAskForDesktop={() => void askForDesktopPermission().then(setPermission)}
+    />
   );
 }

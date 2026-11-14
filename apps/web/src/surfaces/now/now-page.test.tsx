@@ -10,7 +10,6 @@ const NOW: Now = {
   running: [],
   queue: [],
   tokensToday: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
-  tasksTouched: 0,
   desks: { inUse: 0, limit: 3 },
   usageWindows: [],
   fireAlarm: null,

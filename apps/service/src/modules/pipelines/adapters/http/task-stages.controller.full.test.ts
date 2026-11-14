@@ -174,4 +174,28 @@ describe("POST /api/tasks/:id/stages/check", () => {
 
     expect(stagesCheckSchema.parse(await response.json())).toEqual({ problems: [] });
   });
+
+  it("checks a Task with no Pipeline against the one the draft follows, and refuses it without one", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    pipelines.tasks.put(taskId, { state: "backlog", pipelineId: undefined });
+    const stages = [anAgentStage("implement"), tests];
+
+    const withChosen = await fetch(
+      `${await pipelines.app.getUrl()}/api/tasks/${taskId}/stages/check`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ stages, pipelineId: "quick-fix" }),
+      },
+    );
+    const withoutChosen = await check(taskId, stages);
+
+    expect(stagesCheckSchema.parse(await withChosen.json())).toEqual({ problems: [] });
+    expect(withoutChosen.status).toBe(422);
+    expect(await withoutChosen.json()).toMatchObject({
+      problems: [{ text: "The Task has no Pipeline yet: choose one first." }],
+    });
+    expect((await stagesOf(taskId)).stages).toBeNull();
+  });
 });

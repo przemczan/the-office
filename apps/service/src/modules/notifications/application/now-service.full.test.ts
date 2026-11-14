@@ -143,16 +143,13 @@ describe("NowService", () => {
       vi.useRealTimers();
     });
 
-    it("counts today's tokens by how much each Thread grew, and each Task touched once", async () => {
+    it("counts today's tokens by how much each Thread grew", async () => {
       const before = await readNow();
       const threadId = randomUUID();
-      const taskId = randomUUID();
 
       await events.publish(new TokensCounted(threadWith(threadId, 0, 150), new Date()));
       // The turn's own count replaces the running one: 140 in all, not 290.
       await events.publish(new TurnEnded(threadWith(threadId, 140, 0), new Date()));
-      await events.publish(new StageRunStarted(taskId, randomUUID(), "build"));
-      await events.publish(new StageRunStarted(taskId, randomUUID(), "test"));
 
       const now = await readNow();
       // Each kind apart: the running turn's cache reads went as the ended turn's input came.
@@ -162,7 +159,6 @@ describe("NowService", () => {
         cacheRead: 0,
         cacheCreation: 0,
       });
-      expect(now.tasksTouched - before.tasksTouched).toBe(1);
     });
 
     it("counts a Thread first seen with earlier turns from those turns, not from nothing", async () => {

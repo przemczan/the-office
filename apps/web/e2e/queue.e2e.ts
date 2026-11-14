@@ -998,14 +998,14 @@ test("the fire alarm: sounded from the top bar, it stops and holds the Tasks, th
   const strip = page.getByRole("status", { name: "Status strip" });
 
   await page.goto("/now");
-  await expect(strip).toContainText("Alarm off · all clear");
+  await expect(strip).not.toContainText("Fire alarm");
   await page.getByRole("button", { name: "Sound the alarm" }).click();
 
   await expect(
     page.getByText("Alarm sounded: every Stage stops at its next safe point."),
   ).toBeVisible();
-  await expect(strip).toContainText(/Alarm on/);
-  await expect(strip).toContainText(/(?<!\d)0\/ \d+ desks in use/);
+  await expect(strip.getByRole("button", { name: /^Fire alarm: / })).toBeVisible();
+  await expect(strip.getByTitle(/^0 of \d+ desks in use$/)).toBeVisible();
   const panel = page.getByRole("region", { name: "Fire alarm" });
   await expect(panel.getByRole("heading", { name: /^Alarm on since \d/ })).toBeVisible();
   await expect(panel.getByRole("listitem").filter({ hasText: task.title })).toContainText(
@@ -1039,7 +1039,7 @@ test("the fire alarm: sounded from the top bar, it stops and holds the Tasks, th
   await review.getByRole("button", { name: "All clear", exact: true }).click();
 
   await expect(page.getByText("All clear. 0 Tasks resume.")).toBeVisible();
-  await expect(strip).toContainText("Alarm off · all clear");
+  await expect(strip).not.toContainText("Fire alarm");
   await expect(page.getByRole("region", { name: "Fire alarm" })).toBeHidden();
   await page.goto(`/tasks/${task.id}`);
   await expect(page.getByText("Paused by the alarm")).toBeHidden();

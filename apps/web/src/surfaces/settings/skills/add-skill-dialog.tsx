@@ -110,7 +110,8 @@ export function AddSkillDialog({
           ) : (
             <Alert tone="info" title="Installing needs whoever holds Onboards and repairs Projects">
               They fetch a skill from its source at a pinned version, and you confirm it. Choose who
-              in Settings › Duties, or <Link to="/people">hire someone on the People page.</Link>
+              in <Link to="/settings/duties">Settings › Duties</Link>, or{" "}
+              <Link to="/people">hire someone on the People page.</Link>
             </Alert>
           ))}
         {by === "upload" && (

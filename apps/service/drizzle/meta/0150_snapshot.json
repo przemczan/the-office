@@ -1,6 +1,6 @@
 {
-  "id": "adf1394a-b390-404e-816a-b3dfeddef884",
-  "prevId": "2d212f39-7f60-4a78-bb5f-aa5fbbc024dd",
+  "id": "2d212f39-7f60-4a78-bb5f-aa5fbbc024dd",
+  "prevId": "73aaa42f-ba55-44cc-91f7-2ceaeb236c3d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1923,6 +1923,12 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "short_line": {
+          "name": "short_line",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1998,39 +2004,6 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.tasks_touched": {
-      "name": "tasks_touched",
-      "schema": "",
-      "columns": {
-        "day": {
-          "name": "day",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "tasks_touched_day_task_id_pk": {
-          "name": "tasks_touched_day_task_id_pk",
-          "columns": [
-            "day",
-            "task_id"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -2692,12 +2665,6 @@
         "ended_at": {
           "name": "ended_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role_key": {
-          "name": "role_key",
-          "type": "text",
           "primaryKey": false,
           "notNull": false
         }

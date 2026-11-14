@@ -1,4 +1,5 @@
 import type { EngineId } from "../../engine/index.js";
+import { SESSION_SHAPING_DUTIES } from "./session-instructions.js";
 import type { ContextOverride, ThreadSession } from "./thread.js";
 
 /** A person's default for a Thread whose cache has cooled, from their Role card (spec §9). */
@@ -230,13 +231,16 @@ function warmUntil(
   return now.getTime() < until ? new Date(until) : undefined;
 }
 
-/** Whether the person holds other duties than as the session started; unknown is not. */
+/**
+ * Whether the person holds other duties than as the session started, among those its tools and
+ * instructions depend on; unknown is not.
+ */
 function dutiesChanged(
   started: readonly string[] | undefined,
   now: readonly string[] | undefined,
 ): boolean {
   if (started === undefined || now === undefined) return false;
-  return started.length !== now.length || started.some((duty) => !now.includes(duty));
+  return SESSION_SHAPING_DUTIES.some((duty) => started.includes(duty) !== now.includes(duty));
 }
 
 function withoutSession(briefTokens: number): Omit<ContextDecision, "move" | "reason"> {

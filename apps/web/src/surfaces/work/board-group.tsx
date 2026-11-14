@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Project, QueuedTask, Role, Task } from "@the-office/contracts";
 import { FoldButton, Icon, ProgressBar } from "@the-office/ui";
-import { useRef, type ReactNode } from "react";
+import { useRef, type MouseEvent, type ReactNode } from "react";
 import { cardsIn, COLUMNS, type Column } from "./board-columns.ts";
 import type { BoardGroupFolds } from "./board-group-folds.ts";
 import {
@@ -117,7 +117,14 @@ function GroupSection({
   const foldedWords = foldedGroupWords(group, queue);
   return (
     <section className={open ? "board-group" : "board-group folded"} aria-label={name}>
-      <div className="group-head board-group-pinned">
+      <div
+        className={
+          foldable ? "group-head board-group-pinned foldable" : "group-head board-group-pinned"
+        }
+        onClick={
+          foldable ? (event) => foldOnHeadClick(event, () => folds.toggle(group)) : undefined
+        }
+      >
         {foldable ? (
           <FoldButton unfolded={open} onClick={() => folds.toggle(group)}>
             {nameWords}
@@ -173,6 +180,21 @@ function GroupSection({
       )}
     </section>
   );
+}
+
+/**
+ * A press anywhere on a foldable head folds it, as a wider target for the pointer; the
+ * `FoldButton` stays the one control for the keyboard and screen readers, so the head isn't a
+ * second button. A press on a control inside the head, the `FoldButton` itself or "Open
+ * Initiative", is that control's alone, and so is one in a popover, which React passes up the
+ * head's tree though its DOM lies outside it.
+ */
+function foldOnHeadClick(event: MouseEvent<HTMLDivElement>, toggle: () => void): void {
+  const { target, currentTarget } = event;
+  if (!(target instanceof Element) || !currentTarget.contains(target)) return;
+  const control = target.closest("a, button, input, [role='button']");
+  if (control && currentTarget.contains(control)) return;
+  toggle();
 }
 
 function GroupProgress({ progress }: { readonly progress: InitiativeProgress }): ReactNode {

@@ -69,10 +69,10 @@ async function threadOn(
   return id;
 }
 
-describe("migration 0149", () => {
+describe("migration 0150", () => {
   it("lists every planning Thread an Initiative opened, oldest first, and never its shaping Threads", async () => {
     const migration = await readFile(
-      new URL("../../../../../drizzle/0149_initiative_planning_threads.sql", import.meta.url),
+      new URL("../../../../../drizzle/0150_initiative_planning_threads.sql", import.meta.url),
       "utf8",
     );
     const [planned, latestUnstarted] = [randomUUID(), randomUUID()];

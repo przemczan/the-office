@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { EngineReferenceLock } from "../../engine/index.js";
 import {
   dutiesHeldBy,
   dutyChangeProblems,
@@ -67,6 +68,7 @@ export class Duties {
     private readonly roles: RoleRepository,
     private readonly checks: DutyChangeChecks,
     private readonly events: EventBus,
+    private readonly engineReferences: EngineReferenceLock,
   ) {}
 
   /** Every duty, in spec order. */
@@ -159,17 +161,24 @@ export class Duties {
 
   /**
    * Makes every change or none, refusing with DutyRefused when any breaks a rule, or names
-   * another Role than its `from` now, as a Proposal applied after the value changed.
+   * another Role than its `from` now, as a Proposal applied after the value changed. Held under
+   * Engine's `EngineReferenceLock` from the read through the save, as an Office set-up and every
+   * save weighed by the engines are, so two changes never both pass against the same `from` and
+   * the registered checks weigh the engines as they are saved.
    */
   async changeAll(changes: readonly DutyChange[]): Promise<void> {
-    const { problems, saves } = await this.weighed(changes, await this.now());
-    if (problems.length > 0) throw new DutyRefused(problems);
-    if (saves.length === 0) return;
     const changedAt = new Date();
-    await this.repository.assignAll(
-      saves.map(({ duty, to }) => ({ duty, roleKey: to })),
-      changedAt,
-    );
+    const saves = await this.engineReferences.holding(async () => {
+      const weighed = await this.weighed(changes, await this.now());
+      if (weighed.problems.length > 0) throw new DutyRefused(weighed.problems);
+      if (weighed.saves.length > 0) {
+        await this.repository.assignAll(
+          weighed.saves.map(({ duty, to }) => ({ duty, roleKey: to })),
+          changedAt,
+        );
+      }
+      return weighed.saves;
+    });
     for (const { duty, from, to } of saves) {
       await this.events.publish(new DutyHolderChanged(duty, from, to, changedAt));
     }

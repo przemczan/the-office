@@ -45,6 +45,11 @@ export interface Notification {
   readonly roleKey: string | undefined;
   /** In the person's first person, or the UI's own voice when nobody speaks. */
   readonly line: string;
+  /**
+   * The line cut to fit the status strip, in nobody's voice as the strip names who speaks beside
+   * it; undefined for the kinds that have none, which the strip shows by `line`.
+   */
+  readonly shortLine: string | undefined;
   readonly pointsTo: Pointer;
   /** Where its kind's routing sends it. */
   readonly channels: readonly Channel[];
@@ -65,6 +70,7 @@ export interface NotificationDraft {
   readonly kind: NotificationKind;
   readonly roleKey: string | undefined;
   readonly line: string;
+  readonly shortLine: string | undefined;
   readonly pointsTo: Pointer;
 }
 
@@ -97,6 +103,7 @@ export function decisionWaiting(decision: {
     kind: "needs-you.decision",
     roleKey: decision.roleKey,
     line: decision.roleKey ? `I need your answer: ${decision.question}` : decision.question,
+    shortLine: undefined,
     pointsTo: { kind: "decision", decisionId: decision.id, taskId: decision.taskId },
   };
 }
@@ -113,6 +120,7 @@ export function gateWaiting(
     line: personRole
       ? `My work is ready for your look at ${gate.name}.`
       : `${gate.name} waits for your look.`,
+    shortLine: undefined,
     pointsTo: { kind: "gate", taskId, stageKey: gate.key },
   };
 }
@@ -207,6 +215,7 @@ function taskOutcome(
     kind,
     roleKey: personRole,
     line: personRole ? firstPerson : officeVoice,
+    shortLine: undefined,
     pointsTo: { kind: "task", taskId },
   };
 }
@@ -225,6 +234,7 @@ export function initiativeDone(
     line: shaper
       ? "Our Initiative is done: every one of its Tasks is Done."
       : "The Initiative is done.",
+    shortLine: undefined,
     pointsTo: { kind: "initiative", initiativeId },
   };
 }
@@ -246,6 +256,7 @@ export function windowNearlyUsed(
     defaultPerson,
     `We've used ${percent}% of ${engine.name}'s 5-hour window.`,
     `${percent}% of ${engine.name}'s 5-hour window is used.`,
+    `${engine.name}: ${percent}% of 5-hour window`,
   );
 }
 
@@ -259,6 +270,7 @@ export function windowReset(
     defaultPerson,
     `${engine.name}'s 5-hour window reset, so we have all of it again.`,
     `${engine.name}'s 5-hour window reset.`,
+    `${engine.name}'s window reset`,
   );
 }
 
@@ -276,6 +288,7 @@ export function windowUsedUp(
     defaultPerson,
     `${engine.name}'s ${window} is used up until ${until}. I've paused the Tasks on it, and the rest wait.`,
     `${engine.name}'s ${window} is used up until ${until}. Tasks on it are paused and wait.`,
+    `${engine.name} used up until ${until}`,
   );
 }
 
@@ -290,6 +303,7 @@ export function engineDown(
     defaultPerson,
     `I can't reach ${engine.name}: ${reason}`,
     `${engine.name} is down: ${reason}`,
+    `${engine.name} is down`,
   );
 }
 
@@ -301,6 +315,7 @@ export function officeUpdated(to: string, defaultPerson: string | undefined): No
       defaultPerson,
       `I updated The Office to ${to}.`,
       `The Office updated to ${to}.`,
+      `Updated to ${to}`,
     ),
     pointsTo: { kind: "office-update" },
   };
@@ -318,6 +333,7 @@ export function officeUpdateFailed(
       defaultPerson,
       `The Office's update failed at ${step}, so I took it back to ${from}. The log is in Settings › Updates.`,
       `The Office's update failed at ${step}; it is back on ${from}. The log is in Settings › Updates.`,
+      `Update failed, back on ${from}`,
     ),
     pointsTo: { kind: "office-update" },
   };
@@ -335,9 +351,10 @@ function engineKind(
   defaultPerson: string | undefined,
   firstPerson: string,
   officeVoice: string,
+  shortLine: string,
 ): NotificationDraft {
   return {
-    ...officeKind(kind, defaultPerson, firstPerson, officeVoice),
+    ...officeKind(kind, defaultPerson, firstPerson, officeVoice, shortLine),
     pointsTo: { kind: "office", engineId: engine.id },
   };
 }
@@ -347,11 +364,13 @@ function officeKind(
   defaultPerson: string | undefined,
   firstPerson: string,
   officeVoice: string,
+  shortLine: string,
 ): NotificationDraft {
   return {
     kind,
     roleKey: defaultPerson,
     line: defaultPerson ? firstPerson : officeVoice,
+    shortLine,
     pointsTo: { kind: "office" },
   };
 }

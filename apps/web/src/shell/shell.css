@@ -8,11 +8,14 @@ body,
 }
 
 .shell {
+  /* Holds the chat drawer over the page in the page's row (chat.css). */
+  position: relative;
   display: grid;
   /* The rail sets its own width, icon-only or expanded, the chat drawer takes its own beside the
      page, and the page takes the rest. */
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: 56px 48px minmax(0, 1fr);
+  /* The status strip sets its own height: 52px, or 94px in two rows on a narrow strip. */
+  grid-template-rows: 56px auto minmax(0, 1fr);
   height: 100vh;
 }
 
@@ -184,25 +187,112 @@ body,
   min-width: 0;
 }
 
-/* ---- status strip */
+/* ---- status strip (docs/design/status-strip.html, adopted): each figure a label over its value,
+   the four figures on the left, the Workstation figure and the slot for what The Office tells the
+   user on the right. It lays itself out by its own width, so the rail expanded or the chat drawer
+   beside the page counts as a narrower window would. 52px in all, 94px in two rows under 600px. */
 .shell-strip {
   grid-column: 2 / -1;
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  padding: 0 var(--pad-page);
-  overflow: hidden;
+  min-width: 0;
+  container: strip / inline-size;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   font: var(--type-body-sm);
   color: var(--fg-2);
 }
 
-.shell-strip-stat {
+.shell-strip-row {
+  --slot-width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 51px;
+  padding: 0 var(--pad-page);
+  overflow: hidden;
+}
+
+.shell-strip-figures {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Around a figure whose list opens under it, which places the list. */
+.shell-strip-anchor {
+  display: flex;
+  flex: none;
+}
+
+.shell-strip-figure {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 8px;
+  margin: 0 -8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-2);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+button.shell-strip-figure:hover {
+  background: var(--surface-sunken);
+}
+
+/* Desks and tokens open nothing, so they don't light up as if they would. */
+.shell-strip-figure.static {
+  cursor: default;
+}
+
+.shell-strip-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 var(--text-2xs) / 14px var(--font-sans);
+  letter-spacing: 0.01em;
+  color: var(--fg-3);
+}
+
+.shell-strip-value {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  white-space: nowrap;
+  height: 18px;
+}
+
+.shell-strip-value b {
+  font: 600 15px/1 var(--font-sans);
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-tight);
+}
+
+.shell-strip-value b[data-tone="nearly-used"] {
+  color: var(--warning-fg);
+}
+
+.shell-strip-value b[data-tone="used-up"] {
+  color: var(--danger-fg);
+}
+
+.shell-strip-faint {
+  color: var(--fg-3);
+}
+
+.shell-strip-separator {
+  flex: none;
+  width: 1px;
+  height: 28px;
+  background: var(--border);
 }
 
 .shell-dot {
@@ -210,10 +300,6 @@ body,
   height: 8px;
   border-radius: 50%;
   flex: none;
-}
-
-.shell-dot.reconnecting {
-  background: var(--warning);
 }
 
 .shell-dot.running {
@@ -224,73 +310,15 @@ body,
   background: var(--border-strong);
 }
 
-.shell-strip-stat b {
-  font: 600 15px/1 var(--font-sans);
-  color: var(--fg-1);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: var(--tracking-tight);
+/* The words a narrower strip leaves out (`roomy`) or shows instead (`tight`, `short`). */
+.shell-strip-tight,
+.shell-strip-short {
+  display: none;
 }
 
-.shell-strip-needs-you,
-.shell-strip-usage,
-.shell-strip-office-button,
-.shell-strip-action {
-  padding: 4px 8px;
-  margin: 0 -8px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.shell-strip-action {
-  color: var(--fg-3);
-}
-
-.shell-strip-office {
-  color: var(--fg-1);
-}
-
-.shell-strip-office-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* A long line is cut rather than pushing the other figures out of the strip; `title` holds it whole. */
-.shell-strip-office-line {
-  max-width: 420px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.shell-strip-update {
-  color: var(--fg-1);
-  text-decoration: none;
-}
-
-.shell-strip-update:hover {
-  text-decoration: underline;
-}
-
-.shell-strip-needs-you:hover,
-.shell-strip-usage:hover,
-.shell-strip-office-button:hover,
-.shell-strip-action:hover {
-  background: var(--surface-sunken);
-}
-
-.shell-strip-faint {
-  color: var(--fg-3);
-}
-
-/* ---- Needs you: quiet while nothing waits, a tint while only other Projects have something, and a
-   filled pill with a pulsing dot while something waits in the Projects shown. */
+/* ---- Needs you: quiet while nothing waits, a tint while only other Projects have something, and
+   filled with a pulsing dot while something waits in the Projects shown. */
 .shell-strip-needs-you {
-  position: relative;
   color: var(--fg-3);
 }
 
@@ -304,20 +332,30 @@ body,
   color: var(--warning-fg);
 }
 
-.shell-strip-needs-you.alert,
-.shell-strip-needs-you.alert .shell-strip-faint {
-  color: var(--fg-on-accent);
+.shell-strip-needs-you.elsewhere .shell-strip-label,
+.shell-strip-needs-you.elsewhere .shell-strip-faint {
+  color: inherit;
 }
 
 .shell-strip-needs-you.alert {
   /* Filled, it no longer hides in the strip's gap the way a hover background may. */
   margin: 0;
+  padding: 5px 12px;
   background: var(--accent);
-  font-weight: 600;
+  color: var(--fg-on-accent);
 }
 
-.shell-strip-needs-you.alert:hover {
+button.shell-strip-needs-you.alert:hover {
   background: var(--accent-hover);
+}
+
+.shell-strip-needs-you.alert .shell-strip-label,
+.shell-strip-needs-you.alert .shell-strip-faint {
+  color: color-mix(in oklab, var(--fg-on-accent) 82%, transparent);
+}
+
+.shell-strip-needs-you.alert .shell-strip-value {
+  font-weight: 600;
 }
 
 .shell-strip-needs-you.alert b {
@@ -389,57 +427,246 @@ body,
   }
 }
 
-.shell-strip-separator {
-  flex: none;
-  width: 1px;
-  height: 20px;
-  background: var(--border);
+/* ---- the 5-hour window: its % and meter amber when nearly used, red once used up */
+.shell-strip-engines {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shell-strip-engines:has(> span) {
+  gap: 10px;
+}
+
+.shell-strip-engines > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .shell-strip-meter {
-  width: 120px;
+  display: inline-block;
+  flex: none;
+  width: 56px;
   height: 4px;
   overflow: hidden;
   border-radius: 2px;
-  background: var(--surface-sunken);
+  background: var(--border);
+}
+
+.shell-strip-engines > span .shell-strip-meter {
+  width: 18px;
 }
 
 .shell-strip-meter i {
   display: block;
   height: 100%;
+  border-radius: inherit;
   background: var(--fg-3);
 }
 
-/* The other Office Notifications under the newest; `.floating-menu` draws and places it. */
-.shell-office-list {
+.shell-strip-meter[data-tone="nearly-used"] i {
+  background: var(--warning);
+}
+
+.shell-strip-meter[data-tone="used-up"] i {
+  background: var(--danger);
+}
+
+/* ---- the fire alarm while it is on, after Tokens today */
+.shell-strip-alarm {
+  margin: 0;
+  padding: 5px 10px;
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.shell-strip-alarm .shell-strip-label,
+.shell-strip-alarm b {
+  color: inherit;
+}
+
+button.shell-strip-alarm:hover {
+  background: var(--danger-subtle);
+  box-shadow: inset 0 0 0 1px var(--danger-border);
+}
+
+/* ---- the slot: what The Office tells the user, of a fixed width at the strip's right end. It gives
+   way, down to 168px, only where the figures would otherwise not fit. */
+.shell-strip-slot {
+  display: grid;
+  flex: 0 1 auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 9px;
+  width: var(--slot-width);
+  min-width: 168px;
+  height: 40px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--tone);
+  color: var(--fg-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.shell-strip-slot:hover {
+  background: var(--surface-sunken);
+}
+
+.shell-strip-slot[aria-expanded="true"] {
+  border-color: var(--border-strong);
+}
+
+.shell-strip-slot-icon {
+  display: grid;
+  color: var(--tone);
+}
+
+.shell-strip-slot-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* Cut on the slot, whole in the list. */
+.shell-strip-slot-short {
+  overflow: hidden;
+  font: 500 var(--text-sm) / 17px var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-strip-slot-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  font: var(--type-caption);
+  line-height: 15px;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.shell-strip-slot-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-3);
+}
+
+.shell-strip-slot-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--neutral-border);
+  border-radius: var(--radius-full);
+  background: var(--neutral-subtle);
+  color: var(--neutral-fg);
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-strip-slot.pulse .shell-strip-slot-icon {
+  animation: slot-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes slot-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-strip-slot.pulse .shell-strip-slot-icon {
+    animation: none;
+  }
+}
+
+/* A message's tone, on its left edge and its icon as every block's left edge has one. */
+.tone-warning {
+  --tone: var(--warning);
+}
+
+.tone-danger {
+  --tone: var(--danger);
+}
+
+.tone-success {
+  --tone: var(--success);
+}
+
+.tone-info {
+  --tone: var(--info);
+}
+
+.tone-neutral {
+  --tone: var(--fg-3);
+}
+
+/* The slot's list, every message whole: packages/ui's Popover draws it. */
+.popover:has(> .shell-office-messages) {
+  width: 360px;
+  max-width: calc(100vw - 16px);
+  padding: 6px 0;
+}
+
+.shell-office-messages .popover-head {
+  gap: 6px;
+  padding: 4px 14px 8px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shell-office-messages .popover-head .shell-strip-faint {
+  font-weight: 400;
+}
+
+.shell-office-messages ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell-office-messages li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  box-shadow: inset 3px 0 0 var(--tone);
   font: var(--type-body-sm);
   color: var(--fg-1);
 }
 
-.shell-office-list ul {
-  display: grid;
+.shell-office-messages li:last-child {
+  border-bottom: 0;
+}
+
+.shell-office-messages li .shell-strip-slot-icon {
+  padding-top: 1px;
+}
+
+.shell-office-messages li p {
   margin: 0;
-  padding: 0 8px;
-  list-style: none;
+  line-height: 1.45;
 }
 
-.shell-office-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 8px 0;
+.shell-office-messages li .shell-strip-slot-meta {
+  margin-top: 4px;
 }
 
-/* The list has room to wrap what the strip cuts. */
-.shell-office-list .shell-strip-office-line {
-  white-space: normal;
+.shell-office-messages .shell-office-message-action {
+  margin-top: 8px;
 }
 
-.shell-office-list li + li {
-  border-top: 1px solid var(--border);
-}
-
-/* The list under the usage figure; `.floating-menu` draws and places it. */
+/* ---- Usage by engine, under the 5-hour window; `.floating-menu` draws and places it */
 .shell-usage-list {
   font: var(--type-body-sm);
   color: var(--fg-2);
@@ -455,7 +682,7 @@ body,
 
 .shell-usage-list li {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   padding: 8px 0;
 }
 
@@ -463,14 +690,118 @@ body,
   border-top: 1px solid var(--border);
 }
 
-.shell-usage-list b {
+.shell-usage-engine {
+  color: var(--fg-1);
+  font-weight: 600;
+}
+
+.shell-usage-window {
+  display: grid;
+  grid-template-columns: 24px 120px 44px auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.shell-usage-window .shell-strip-meter {
+  width: 120px;
+}
+
+.shell-usage-window b {
   color: var(--fg-1);
   font-variant-numeric: tabular-nums;
 }
 
-.shell-usage-engine {
-  color: var(--fg-1);
-  font-weight: 600;
+.shell-usage-window b[data-tone="nearly-used"] {
+  color: var(--warning-fg);
+}
+
+.shell-usage-window b[data-tone="used-up"] {
+  color: var(--danger-fg);
+}
+
+/* ---- the strip's widths, by its own width (docs/design/status-strip.html, section 4) */
+@container strip (max-width: 1179px) {
+  .shell-strip-row {
+    --slot-width: 260px;
+  }
+
+  .shell-strip-cores {
+    display: none;
+  }
+}
+
+@container strip (max-width: 899px) {
+  .shell-strip-row {
+    --slot-width: 216px;
+  }
+
+  .shell-strip-row,
+  .shell-strip-figures {
+    gap: 12px;
+  }
+
+  .shell-strip-roomy {
+    display: none;
+  }
+
+  .shell-strip-tight {
+    display: inline;
+  }
+}
+
+/* Two rows: the four figures alone, spread across with short labels, then the Workstation figure,
+   the alarm while on, and the slot filling the rest of the row. */
+@container strip (max-width: 599px) {
+  .shell-strip-row {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    column-gap: 14px;
+    row-gap: 0;
+    height: 93px;
+    padding: 0 14px;
+  }
+
+  .shell-strip-figures {
+    flex: 1 0 100%;
+    justify-content: space-between;
+    gap: 8px;
+    height: 50px;
+  }
+
+  .shell-strip-row > .shell-grow,
+  .shell-strip-separator,
+  .shell-strip-long,
+  .shell-strip-figure .shell-strip-meter {
+    display: none;
+  }
+
+  .shell-strip-short {
+    display: inline;
+  }
+
+  .shell-strip-engines:has(> span) {
+    gap: 6px;
+  }
+
+  .shell-strip-row > .shell-strip-anchor:has(.shell-strip-workstation) {
+    order: 1;
+  }
+
+  .shell-strip-row > .shell-strip-alarm {
+    order: 2;
+  }
+
+  .shell-strip-slot {
+    order: 3;
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    height: 36px;
+  }
+
+  .shell-strip-slot-meta {
+    display: none;
+  }
 }
 
 /* ---- page */
@@ -605,16 +936,8 @@ body,
 }
 
 @media (max-width: 720px) {
-  .shell-top,
-  .shell-strip {
+  .shell-top {
     padding: 0 14px;
-  }
-
-  .shell-strip .shell-strip-meter,
-  .shell-strip-separator,
-  .shell-strip-stat.wide,
-  .shell-strip-workstation-detail {
-    display: none;
   }
 }
 
@@ -1114,8 +1437,12 @@ body,
   color: var(--danger-fg);
 }
 
+.priority-icon.priority-normal {
+  color: var(--success-fg);
+}
+
 .priority-icon.priority-low {
-  color: var(--fg-3);
+  color: var(--info-fg);
 }
 
 .attachment-chips,

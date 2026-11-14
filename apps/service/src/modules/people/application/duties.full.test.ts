@@ -167,6 +167,19 @@ describe("Duties", () => {
     expect(repository.saves).toBe(1);
   });
 
+  it("refuses the second of two changes made at once from the same holder", async () => {
+    const { duties, repository } = office();
+
+    const outcomes = await Promise.allSettled([
+      duties.changeAll([{ duty: "plans", from: "planner", to: "lead" }]),
+      duties.changeAll([{ duty: "plans", from: "planner", to: null }]),
+    ]);
+
+    expect(outcomes.map(({ status }) => status)).toEqual(["fulfilled", "rejected"]);
+    expect(await duties.holderOf("plans")).toBe("lead");
+    expect(repository.saves).toBe(1);
+  });
+
   it("runs every registered check before saving, refusing with its reasons", async () => {
     const { duties, checks, repository } = office();
     const weighed: unknown[] = [];

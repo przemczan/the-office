@@ -16,6 +16,7 @@ export class PostgresNotificationRepository extends NotificationRepository {
     await this.database.insert(notifications).values({
       ...notification,
       roleKey: notification.roleKey ?? null,
+      shortLine: notification.shortLine ?? null,
       phonePushedAt: notification.phonePushedAt ?? null,
     });
   }
@@ -26,11 +27,14 @@ export class PostgresNotificationRepository extends NotificationRepository {
       .from(notifications)
       .where(isNull(notifications.clearedAt))
       .orderBy(asc(notifications.raisedAt));
-    return rows.map(({ clearedAt: _clearedAt, roleKey, phonePushedAt, ...notification }) => ({
-      ...notification,
-      roleKey: roleKey ?? undefined,
-      phonePushedAt: phonePushedAt ?? undefined,
-    }));
+    return rows.map(
+      ({ clearedAt: _clearedAt, roleKey, shortLine, phonePushedAt, ...notification }) => ({
+        ...notification,
+        roleKey: roleKey ?? undefined,
+        shortLine: shortLine ?? undefined,
+        phonePushedAt: phonePushedAt ?? undefined,
+      }),
+    );
   }
 
   async clear(ids: readonly string[], clearedAt: Date): Promise<void> {

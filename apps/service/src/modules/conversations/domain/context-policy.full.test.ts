@@ -212,11 +212,11 @@ describe("a session whose context filled up", () => {
       };
     }
 
-    it("start fresh once they differ from the session's, whatever would resume", () => {
+    it("start fresh once those deciding its tools differ from the session's, whatever would resume", () => {
       for (const continuation of [
         startedHolding(["plans"], ["plans", "onboards-projects"]),
         startedHolding(["plans", "onboards-projects"], ["plans"]),
-        startedHolding(["plans"], []),
+        startedHolding(["onboards-projects"], []),
         startedHolding([], ["default-person-to-talk-to"]),
         startedHolding(["plans"], ["shapes-initiatives"]),
         {
@@ -235,9 +235,11 @@ describe("a session whose context filled up", () => {
       }
     });
 
-    it("resume as before when they are the same, in any order, or either side is unknown", () => {
+    it("resume as before when they are the same, in any order, differ only in duties no tool depends on, or either side is unknown", () => {
       for (const continuation of [
         startedHolding(["plans", "reviews"], ["reviews", "plans"]),
+        startedHolding(["plans"], []),
+        startedHolding(["shapes-initiatives"], ["shapes-initiatives", "reviews", "implements"]),
         startedHolding([], []),
         startedHolding(undefined, ["plans"]),
         startedHolding(["plans"], undefined),

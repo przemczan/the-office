@@ -23,6 +23,7 @@
 @import "./card.css";
 @import "./sized-controls.css";
 @import "./grouped-select.css";
+@import "./searchable-select.css";
 @import "./dialog.css";
 @import "./fold-button.css";
 @import "./link-button.css";

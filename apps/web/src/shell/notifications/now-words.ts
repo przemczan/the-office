@@ -1,5 +1,11 @@
 import type { BadgeProps } from "@the-office/ui";
-import type { CurrentStage, Engine, Now, SinceYouLeft, TaskOutcome } from "@the-office/contracts";
+import {
+  WINDOW_NEARLY_USED_PERCENT,
+  type CurrentStage,
+  type Engine,
+  type Now,
+  type TaskOutcome,
+} from "@the-office/contracts";
 import type { CardEdge } from "../item-card.tsx";
 import { clockOf, durationWords, momentWords } from "../time.ts";
 
@@ -54,11 +60,6 @@ export function resetMomentWords(
   return resetsAt === null ? undefined : `resets ${momentWords(resetsAt, now)}`;
 }
 
-/** How many of the outcomes since the user left are Done. */
-export function doneSinceYouLeft({ finished }: Pick<SinceYouLeft, "finished">): number {
-  return finished.filter(({ outcome }) => outcome === "done").length;
-}
-
 export type UsageWindows = Now["usageWindows"][number];
 export type UsageWindow = UsageWindows["fiveHour"];
 export type NamedUsageWindows = UsageWindows & { readonly engineName: string };
@@ -94,40 +95,78 @@ export function percentWords({ percentUsed }: Pick<UsageWindow, "percentUsed">):
 /** Past this many engines the strip no longer shows each one's %, to stay small. */
 const MOST_ENGINES_SHOWN_ONE_BY_ONE = 3;
 
-/** A part of the strip's usage figure, as "5h 42%", its number to be set apart from its words. */
-export interface UsageFigurePart {
-  readonly before?: string;
-  readonly figure: string;
-  readonly after?: string;
-  /** The engine the figure is of, where the words alone don't say. */
-  readonly engineName?: string;
+/** How close a usage window is to used up: amber from "Window nearly used", red once it is. */
+export type UsageTone = "calm" | "nearly-used" | "used-up";
+
+export function usageTone({ percentUsed }: Pick<UsageWindow, "percentUsed">): UsageTone {
+  if (percentUsed >= 100) return "used-up";
+  if (percentUsed >= WINDOW_NEARLY_USED_PERCENT) return "nearly-used";
+  return "calm";
+}
+
+/** How much of a usage window's meter is filled, 0 to 100. */
+export function meterFilled({ percentUsed }: Pick<UsageWindow, "percentUsed">): number {
+  return Math.min(100, Math.max(0, percentUsed));
+}
+
+/** One 5-hour window the strip's usage figure shows: its %, how full its meter is, its tone. */
+export interface UsageReading {
+  readonly engineName: string;
+  readonly percent: string;
+  /** How much of the meter is filled, 0 to 100. */
+  readonly filled: number;
+  readonly tone: UsageTone;
 }
 
 /**
- * The strip's usage figure, in parts shown with " · " between them: "5h 42% · 7d 17%" for one
- * engine, "5h 42% · 80% · 12%" for a few, "5h 80% max · 5 engines" past that; none until one is read.
+ * The strip's usage figure: `one` engine's 5-hour window with its 7-day one after it, `each` of two
+ * or three engines' 5-hour windows, or past that the `highest` of them.
  */
-export function usageFigureWords(windows: readonly NamedUsageWindows[]): UsageFigurePart[] {
+export interface UsageFigureWords {
+  readonly shows: "one" | "each" | "highest";
+  /** After its label "5-hour window": "resets 14:20", "used up until 14:20" or "3 engines". */
+  readonly detail: string | undefined;
+  readonly readings: readonly UsageReading[];
+  /** After the readings: "7d 17%" for one engine, "highest" past three. */
+  readonly after: string | undefined;
+}
+
+/** The strip's usage figure; none until an engine's windows are read. */
+export function usageFigureWords(
+  windows: readonly NamedUsageWindows[],
+): UsageFigureWords | undefined {
   const [first] = windows;
-  if (!first) return [];
+  if (!first) return undefined;
   if (windows.length === 1) {
-    return [
-      { before: "5h", figure: percentWords(first.fiveHour) },
-      { before: "7d", figure: percentWords(first.sevenDay) },
-    ];
+    return {
+      shows: "one",
+      detail: oneEngineDetail(first.fiveHour),
+      readings: [readingOf(first)],
+      after: `7d ${percentWords(first.sevenDay)}`,
+    };
   }
+  const detail = `${windows.length} engines`;
   if (windows.length > MOST_ENGINES_SHOWN_ONE_BY_ONE) {
-    const highest = Math.max(...windows.map(({ fiveHour }) => fiveHour.percentUsed));
-    return [
-      { before: "5h", figure: percentWords({ percentUsed: highest }), after: "max" },
-      { figure: String(windows.length), after: "engines" },
-    ];
+    const highest = windows.reduce((top, engine) =>
+      engine.fiveHour.percentUsed > top.fiveHour.percentUsed ? engine : top,
+    );
+    return { shows: "highest", detail, readings: [readingOf(highest)], after: "highest" };
   }
-  return windows.map(({ engineName, fiveHour }, index) => ({
-    ...(index === 0 && { before: "5h" }),
-    figure: percentWords(fiveHour),
+  return { shows: "each", detail, readings: windows.map(readingOf), after: undefined };
+}
+
+function oneEngineDetail(fiveHour: UsageWindow): string | undefined {
+  if (usageTone(fiveHour) !== "used-up") return resetWords(fiveHour.resetsAt);
+  return fiveHour.resetsAt === null ? "used up" : `used up until ${clockOf(fiveHour.resetsAt)}`;
+}
+
+function readingOf({ engineName, fiveHour }: NamedUsageWindows): UsageReading {
+  return {
     engineName,
-  }));
+    percent: percentWords(fiveHour),
+    filled: meterFilled(fiveHour),
+    tone: usageTone(fiveHour),
+  };
 }
 
 /** "5-hour window: Home account 42%, Work account 80%", what the figure says for a screen reader. */

@@ -21,6 +21,13 @@ export interface SessionPerson {
 /** The duties a Role's person holds as their session starts, which decide its built-in tools. */
 export type HeldDuties = readonly DutyKey[];
 
+/** The only duties a session's built-in tools and instructions depend on. */
+export const SESSION_SHAPING_DUTIES: readonly DutyKey[] = [
+  "default-person-to-talk-to",
+  "shapes-initiatives",
+  "onboards-projects",
+];
+
 /**
  * A chat session's standing instructions: who the person is, the Office instructions, their card's
  * instructions, and that a chat only reads (spec §2.4, §6). The same for every session of a card

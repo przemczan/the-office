@@ -55,12 +55,14 @@ export function OfficeSetupHint({
           <PresetLine key={preset.roleKey} preset={preset} duties={duties} />
         ))}
       </ul>
-      <p className="office-setup-fallback">
-        While nobody holds a duty, you do it yourself, except{" "}
-        {inWords(labelsFallingBackTo("caretaker", duties))}, which goes to {caretakerName}, and{" "}
-        {inWords(labelsFallingBackTo("unstaffed", duties))}, whose Pipelines can't start. A Role
-        from scratch can take any duty in <Link to="/settings/duties">Settings › Duties</Link>.
-      </p>
+      {duties.length > 0 && (
+        <p className="office-setup-fallback">
+          While nobody holds a duty, you do it yourself, except{" "}
+          {inWords(labelsFallingBackTo("caretaker", duties))}, which goes to {caretakerName}, and{" "}
+          {inWords(labelsFallingBackTo("unstaffed", duties))}, whose Pipelines can't start. A Role
+          from scratch can take any duty in <Link to="/settings/duties">Settings › Duties</Link>.
+        </p>
+      )}
       <div className="hire-tile-actions">
         {onHire && (
           <Button variant="secondary" onClick={onHire}>

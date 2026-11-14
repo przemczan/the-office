@@ -12,9 +12,11 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  stagesCheckRequestSchema,
   taskStagesEditSchema,
   type StageRunCommandOutputs,
   type StagesCheck,
+  type StagesCheckRequest,
   type TaskStagesEdit,
   type TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
@@ -54,14 +56,18 @@ export class TaskStagesController {
     return toTaskStagesResponse(await this.taskStages.edit(id, stages));
   }
 
-  /** What saving the edited Stages would be refused for; it saves nothing. */
+  /**
+   * What saving the edited Stages would be refused for, as if the Task followed `pipelineId` when it
+   * is given; it saves nothing.
+   */
   @Post(":id/stages/check")
   @HttpCode(HttpStatus.OK)
+  @UseFilters(StagesEditRefusalsFilter)
   async check(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(taskStagesEditSchema)) { stages }: TaskStagesEdit,
+    @Body(new ContractPipe(stagesCheckRequestSchema)) { stages, pipelineId }: StagesCheckRequest,
   ): Promise<StagesCheck> {
-    const problems = await this.taskStages.check(id, stages);
+    const problems = await this.taskStages.check(id, stages, pipelineId);
     return { problems: problems.map(toStageProblemResponse) };
   }
 }

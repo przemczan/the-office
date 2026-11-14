@@ -137,8 +137,9 @@ function NoProposalYet({
   if (!devopsName) {
     return (
       <Alert tone="info" title="Updating needs whoever holds Onboards and repairs Projects">
-        They propose the update with notes on what changes, and you apply it. Choose who in Settings
-        › Duties, or <Link to="/people">hire someone on the People page.</Link>
+        They propose the update with notes on what changes, and you apply it. Choose who in{" "}
+        <Link to="/settings/duties">Settings › Duties</Link>, or{" "}
+        <Link to="/people">hire someone on the People page.</Link>
       </Alert>
     );
   }

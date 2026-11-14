@@ -158,7 +158,8 @@ export function clearMemory(key: string): Promise<void> {
 /**
  * Every People event makes the Roles stale; ["roles"] also covers each Role's own queries. A hire
  * also changes who the other Roles' Consult values reach and who holds each duty; that and a duty
- * change also change who works the Stages naming it, and what the Stage editor flags.
+ * change also change who works the Stages naming it, and what the Stage editor flags. A card change
+ * renames a holder or changes their Task limit, which the duties and the Stage editor show too.
  */
 export const roleEventInvalidations: Readonly<
   Record<RoleWebEvent["type"], EventInvalidations[string]>
@@ -166,7 +167,7 @@ export const roleEventInvalidations: Readonly<
   "role.hired": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
   "role.let-go": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
   "role.hired-back": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
-  "role.card-changed": () => [ROLES, ENGINE_CASCADE],
+  "role.card-changed": () => [ROLES, ENGINE_CASCADE, DUTIES, ...staleStaffing()],
   "role.avatar-changed": () => [ROLES],
   "role.memory-changed": () => [ROLES],
   "duty.changed": () => [DUTIES, ROLES, ROLE_CARD_OPTIONS, ...staleStaffing()],

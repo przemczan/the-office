@@ -20,7 +20,4 @@ export abstract class OfficeDayFigures {
   abstract countThreadTokens(threadId: string, tokens: ThreadTokens, day: string): Promise<void>;
   /** Every kind; which of them a count shows is the web's (spec 2.7, "Today's figures"). */
   abstract tokensOn(day: string): Promise<TokenKinds>;
-  /** Marks the Task touched on the day; marking it again changes nothing. */
-  abstract touchTask(taskId: string, day: string): Promise<void>;
-  abstract tasksTouchedOn(day: string): Promise<number>;
 }

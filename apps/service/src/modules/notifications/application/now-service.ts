@@ -64,6 +64,7 @@ import { UserActivityRepository } from "../ports/user-activity-repository.js";
 const NOW_CHANGES: readonly DomainEventClass[] = [
   TaskStarted,
   TaskResumed,
+  StageRunStarted,
   StageRunEnded,
   GateReached,
   GateContinued,
@@ -130,32 +131,22 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   async now(): Promise<Now> {
     const at = new Date();
     const day = officeDayOf(at);
-    const [
-      started,
-      openDecisions,
-      queued,
-      tasks,
-      tokensToday,
-      tasksTouched,
-      officeWideLimit,
-      fireAlarm,
-    ] = await Promise.all([
-      this.startedTasks(),
-      this.decisions.listOpen(),
-      this.queue.list(),
-      this.tasks.list(),
-      this.figures.tokensOn(day),
-      this.figures.tasksTouchedOn(day),
-      this.deskLimit.officeWideLimit(),
-      this.fireAlarm.read(),
-    ]);
+    const [started, openDecisions, queued, tasks, tokensToday, officeWideLimit, fireAlarm] =
+      await Promise.all([
+        this.startedTasks(),
+        this.decisions.listOpen(),
+        this.queue.list(),
+        this.tasks.list(),
+        this.figures.tokensOn(day),
+        this.deskLimit.officeWideLimit(),
+        this.fireAlarm.read(),
+      ]);
     return nowOf({
       started,
       openDecisions,
       queued,
       tasks,
       tokensToday,
-      tasksTouched,
       officeWideLimit,
       usageWindows: [...this.usage.readingsByEngine].map(([engineId, { fiveHour, sevenDay }]) => ({
         engineId,
@@ -229,10 +220,6 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   }
 
   private subscribeToFigures(): void {
-    this.events.subscribe(StageRunStarted, async ({ taskId, occurredAt }) => {
-      await this.figures.touchTask(taskId, officeDayOf(occurredAt));
-      this.announceInBackground();
-    });
     for (const eventClass of [TokensCounted, TurnEnded]) {
       this.events.subscribe(eventClass, async ({ thread, occurredAt }) => {
         await this.figures.countThreadTokens(

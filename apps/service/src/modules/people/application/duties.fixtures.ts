@@ -1,4 +1,5 @@
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { EngineReferenceLock } from "../../engine/index.js";
 import type { Role } from "../domain/role.js";
 import { DutyRepositoryForTests } from "../ports/duty-repository.fixtures.js";
 import type { RoleRepository } from "../ports/role-repository.js";
@@ -13,5 +14,11 @@ export function dutiesOver(
   checks = new DutyChangeChecks(),
 ): Duties {
   const people: Pick<RoleRepository, "list"> = { list: () => Promise.resolve(roles) };
-  return new Duties(repository, people as RoleRepository, checks, events);
+  return new Duties(
+    repository,
+    people as RoleRepository,
+    checks,
+    events,
+    new EngineReferenceLock(),
+  );
 }

@@ -29,14 +29,28 @@ export function TaskStateBadge({
   );
 }
 
-/** High and low show by an arrow, named on hover; normal shows nothing, as most Tasks are. */
+/** The priority's own icon in its colour, named on hover. */
 export function PriorityIcon({ priority }: { readonly priority: Priority }): ReactNode {
-  if (priority === "normal") return null;
   const name = `${PRIORITY_NAMES[priority]} priority`;
   return (
     <PlainMark words={name} className={`priority-icon priority-${priority}`}>
       <Icon name={PRIORITY_ICONS[priority]} size={14} />
       <span className="visually-hidden">{name}</span>
     </PlainMark>
+  );
+}
+
+/** The priority's icon in its colour alone, where words beside it name it, as a menu's item does. */
+export function PriorityGlyph({
+  priority,
+  size,
+}: {
+  readonly priority: Priority;
+  readonly size: number;
+}): ReactNode {
+  return (
+    <span className={`priority-icon priority-${priority}`} aria-hidden="true">
+      <Icon name={PRIORITY_ICONS[priority]} size={size} />
+    </span>
   );
 }

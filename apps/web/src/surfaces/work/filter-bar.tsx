@@ -1,7 +1,8 @@
 import type { BoardFilters, Initiative, Priority } from "@the-office/contracts";
-import { Button, Icon, Select, Switch } from "@the-office/ui";
+import { Button, Icon, SearchableSelect, Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { PriorityGlyph } from "../../shell/work/task-state-badge.tsx";
+import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { hasBoardFilters, withBoardFilter } from "./board-filters.ts";
 import { SavedViewsRow } from "./saved-views.tsx";
 import { SearchBox } from "./search-box.tsx";
@@ -60,21 +61,24 @@ export function FilterBar({
                 )
               }
             >
-              <Icon name={priority === "normal" ? "minus" : PRIORITY_ICONS[priority]} size={13} />
+              <PriorityGlyph priority={priority} size={13} />
               {PRIORITY_NAMES[priority]}
             </FilterChip>
           ))}
         </div>
-        <Select
-          aria-label="Initiative"
-          size="sm"
-          value={filters.initiative ?? ""}
-          options={[
-            { value: "", label: "Any Initiative" },
-            ...initiatives.map(({ id, name }) => ({ value: id, label: name })),
-          ]}
-          onChange={(initiative) => onChange(withBoardFilter(filters, "initiative", initiative))}
-        />
+        <div className="board-filter-initiative">
+          <SearchableSelect
+            label="Initiative"
+            labelHidden
+            size="sm"
+            placeholder="Any Initiative"
+            value={filters.initiative ?? ""}
+            options={initiatives.map(({ id, name }) => ({ value: id, label: name }))}
+            clearLabel="Clear the Initiative filter"
+            noMatches="No Initiative matches"
+            onChange={(initiative) => onChange(withBoardFilter(filters, "initiative", initiative))}
+          />
+        </div>
         <FilterChip
           on={filters.blocked === true}
           onClick={() =>

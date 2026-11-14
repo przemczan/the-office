@@ -20,7 +20,6 @@ export function toNowResponse(now: Now): NowResponse {
     running: now.running.map(toRunningResponse),
     queue: now.queue.map(({ reasons, ...queued }) => ({ ...queued, reasons: [...reasons] })),
     tokensToday: now.tokensToday,
-    tasksTouched: now.tasksTouched,
     desks: now.desks,
     usageWindows: now.usageWindows.map(({ engineId, fiveHour, sevenDay }) => ({
       engineId,

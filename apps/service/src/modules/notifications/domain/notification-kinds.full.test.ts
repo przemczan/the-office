@@ -1,3 +1,4 @@
+import { WINDOW_NEARLY_USED_PERCENT as STRIP_NEARLY_USED_PERCENT } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   channelsOf,
@@ -6,9 +7,16 @@ import {
   NOTIFICATION_KINDS,
   ROUTING_LEVELS,
   routedChannel,
+  WINDOW_NEARLY_USED_PERCENT,
   withChannelSet,
   withLevelReset,
 } from "./notification-kinds.js";
+
+describe("WINDOW_NEARLY_USED_PERCENT", () => {
+  it("is where the status strip turns the 5-hour window amber too", () => {
+    expect(WINDOW_NEARLY_USED_PERCENT).toBe(STRIP_NEARLY_USED_PERCENT);
+  });
+});
 
 describe("levelsOf", () => {
   it("is the kind and each level above it, nearest first", () => {

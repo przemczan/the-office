@@ -38,7 +38,6 @@ const PARTS: NowParts = {
   queued: [],
   tasks: [],
   tokensToday: NO_TOKENS,
-  tasksTouched: 0,
   officeWideLimit: 3,
   usageWindows: [],
   fireAlarm: { on: false },

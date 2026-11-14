@@ -10,7 +10,6 @@ function nowWith(parts: Pick<Now, "needsYou" | "running">): Now {
     ...parts,
     queue: [],
     tokensToday: NO_TOKENS,
-    tasksTouched: 0,
     desks: { inUse: parts.running.length, limit: 3 },
     usageWindows: [],
     fireAlarm: undefined,

@@ -1041,22 +1041,29 @@
     {
       "idx": 148,
       "version": "7",
-      "when": 1794660463924,
-      "tag": "0148_duties",
+      "when": 1794676945839,
+      "tag": "0148_status_strip_short_line",
       "breakpoints": true
     },
     {
       "idx": 149,
       "version": "7",
-      "when": 1794660463925,
-      "tag": "0149_initiative_planning_threads",
+      "when": 1794676945840,
+      "tag": "0149_duties",
       "breakpoints": true
     },
     {
       "idx": 150,
       "version": "7",
-      "when": 1794660463926,
-      "tag": "0150_stage_duties",
+      "when": 1794676945841,
+      "tag": "0150_initiative_planning_threads",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1794676945842,
+      "tag": "0151_stage_duties",
       "breakpoints": true
     }
   ]
