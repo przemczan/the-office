@@ -154,6 +154,26 @@ describe("planning after a restart", () => {
     expect(initiativeThreads.askedAgain).toEqual([]);
   });
 
+  it("leaves a Task's own planning Thread for the user to go on when its Initiative is paused", async () => {
+    const { initiativeId } = await anInitiativeInPlanning();
+    const task = taskSchema.parse(
+      await postOk(`/initiatives/${initiativeId}/tasks`, {
+        title: "Export CLI",
+        projectId: `project-${randomUUID()}`,
+        priority: "normal",
+        blockedBy: [],
+      }),
+    );
+    await postOk(`/tasks/${task.id}/planning`);
+    const threadId = randomUUID();
+    taskThreads.personsThreads.set(threadId, { taskId: task.id, roleKey: "planner" });
+    await postOk(`/initiatives/${initiativeId}/pause`);
+
+    await wake(threadId);
+
+    expect(taskThreads.askedAgain).toEqual([]);
+  });
+
   it("wakes nobody while the fire alarm sounds", async () => {
     const own = await aTaskInPlanning();
     const initiative = await anInitiativeInPlanning();
