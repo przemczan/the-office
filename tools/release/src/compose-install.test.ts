@@ -60,15 +60,14 @@ const envExample = readRepositoryFile(`${COMPOSE_FOLDER}/${COMPOSE_ASSETS.envFil
 const office = serviceOf(install, "office");
 
 describe("the Compose install's docker-compose.yml", () => {
-  it("is project the-office with The Office, its data folder step, Postgres, and Grafana behind its profile", () => {
+  it("is project the-office with The Office, its data folder step and Postgres, and no Grafana: The Office runs that itself", () => {
     assert.equal(install.name, "the-office");
     assert.deepEqual(Object.keys(install.services).toSorted(), [
       "data-folder",
       "office",
-      "otel-lgtm",
       "postgres",
     ]);
-    assert.deepEqual(serviceOf(install, "otel-lgtm").profiles, ["grafana"]);
+    assert.equal(install.services["otel-lgtm"], undefined);
     for (const name of ["data-folder", "office", "postgres"]) {
       assert.equal(serviceOf(install, name).profiles, undefined, `${name} has no profile`);
     }
@@ -147,10 +146,13 @@ describe("the Compose install's docker-compose.yml", () => {
   });
 
   it("reads the variables .env.example lists, and .env.example lists no other", () => {
-    const read = variablesRead(installComposeText);
-    // Compose itself reads COMPOSE_PROFILES, not the file.
-    const listed = new Set([...keysOf(envExample)].filter((key) => key !== "COMPOSE_PROFILES"));
-    assert.deepEqual(read, listed);
+    assert.deepEqual(variablesRead(installComposeText), keysOf(envExample));
+  });
+
+  it("leaves the bundled Grafana's profile and port out of .env.example", () => {
+    const keys = keysOf(envExample);
+    assert.equal(keys.has("COMPOSE_PROFILES"), false);
+    assert.equal(keys.has("GRAFANA_PORT"), false);
   });
 });
 

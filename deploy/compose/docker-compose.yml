@@ -8,6 +8,9 @@
 #
 # The dev stack (the repository's own docker-compose.yml) is Compose project `the-office` too, with
 # the same `postgres-data` volume, so a machine runs one of them, never both.
+#
+# The bundled Grafana isn't here: The Office runs it itself, as Compose project `the-office-grafana`,
+# when it's chosen in Settings › Telemetry.
 name: the-office
 
 services:
@@ -92,25 +95,6 @@ services:
       retries: 3
       start_period: 60s
       start_interval: 1s
-    restart: unless-stopped
-
-  # The bundled Grafana, started while COMPOSE_PROFILES holds grafana. The Office reaches its OTLP
-  # endpoint at 127.0.0.1:4318 over the host's network.
-  otel-lgtm:
-    profiles: [grafana]
-    image: grafana/otel-lgtm:0.38.0@sha256:75cdf892daffadf3763ef61c16a6d7f8586216fce0b40bba7874a0b053121084
-    ports:
-      - "127.0.0.1:${GRAFANA_PORT:-3300}:3000"
-      - "127.0.0.1:4317:4317" # OTLP over gRPC
-      - "127.0.0.1:4318:4318" # OTLP over HTTP
-    healthcheck:
-      # The image's own check: its ready file, then each component's ready endpoint.
-      test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 120s
-      start_interval: 2s
     restart: unless-stopped
 
 volumes:

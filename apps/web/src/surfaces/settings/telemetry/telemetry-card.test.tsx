@@ -19,7 +19,17 @@ const OFF: TelemetrySettings = {
   running: { kind: "off" },
   setByEnvironment: false,
   appliesAtNextStart: false,
+  bundledGrafana: { state: "not-wanted", address: "http://localhost:3300", earlierStopped: [] },
 };
+
+function bundled(bundledGrafana: Partial<TelemetrySettings["bundledGrafana"]>): TelemetrySettings {
+  return {
+    ...OFF,
+    saved: { kind: "bundled-grafana" },
+    appliesAtNextStart: true,
+    bundledGrafana: { ...OFF.bundledGrafana, ...bundledGrafana },
+  };
+}
 
 afterEach(closePage);
 
@@ -59,7 +69,7 @@ describe("the Telemetry card", () => {
     const sent = stubService({
       "GET /api/settings/telemetry": () => ({ status: 200, body: current }),
       "PUT /api/settings/telemetry": () => {
-        current = { ...OFF, saved: { kind: "bundled-grafana" }, appliesAtNextStart: true };
+        current = bundled({ state: "starting" });
         return { status: 200, body: current };
       },
     });
@@ -70,6 +80,9 @@ describe("the Telemetry card", () => {
     act(() => buttonNamed(page, "Save")?.click());
 
     await until(() => expect(page.textContent).toContain("Saved, not running yet"));
+    expect(page.ownerDocument.body.textContent).toContain(
+      "the bundled Grafana is starting, and The Office exports to it from its next start.",
+    );
     expect(sent.find(({ request }) => request === "PUT /api/settings/telemetry")?.body).toEqual({
       kind: "bundled-grafana",
     });
@@ -176,6 +189,7 @@ describe("the Telemetry card", () => {
           running: { kind: "exporting", endpoint: "http://collector:4318" },
           setByEnvironment: true,
           appliesAtNextStart: false,
+          bundledGrafana: OFF.bundledGrafana,
         },
       }),
     });
@@ -186,5 +200,98 @@ describe("the Telemetry card", () => {
     expect(page.textContent).toContain("Now: exporting to http://collector:4318.");
     expect(buttonNamed(page, "Save")).toBeUndefined();
     expect(page.querySelectorAll("input")).toHaveLength(0);
+  });
+
+  describe("the bundled Grafana's state", () => {
+    it("says it is starting, and that the first start can take minutes", async () => {
+      stubService({
+        "GET /api/settings/telemetry": () => ({
+          status: 200,
+          body: bundled({ state: "starting" }),
+        }),
+      });
+      const { page } = await openPage("/telemetry", pages);
+      await until(() => expect(page.textContent).toContain("Bundled Grafana: Starting…"));
+
+      expect(page.textContent).toContain("can take a few minutes");
+      expect(page.textContent).not.toContain("Open Grafana");
+    });
+
+    it("says it is running, with a link that opens it in a new tab", async () => {
+      stubService({
+        "GET /api/settings/telemetry": () => ({ status: 200, body: bundled({ state: "running" }) }),
+      });
+      const { page } = await openPage("/telemetry", pages);
+      await until(() => expect(page.textContent).toContain("Bundled Grafana: Running"));
+
+      const link = [...page.querySelectorAll("a")].find(
+        (each) => each.textContent === "Open Grafana",
+      );
+      expect(link?.getAttribute("href")).toBe("http://localhost:3300");
+      expect(link?.getAttribute("target")).toBe("_blank");
+    });
+
+    it("says why it couldn't start, and Try again starts it once more", async () => {
+      const sent = stubService({
+        "GET /api/settings/telemetry": () => ({
+          status: 200,
+          body: bundled({ state: "failed", problem: "Docker isn't running on this computer." }),
+        }),
+        "POST /api/settings/telemetry/bundled-grafana/start": () => ({
+          status: 200,
+          body: bundled({ state: "starting" }),
+        }),
+      });
+      const { page } = await openPage("/telemetry", pages);
+      await until(() => expect(page.textContent).toContain("Bundled Grafana: Couldn't start"));
+
+      expect(page.textContent).toContain("Docker isn't running on this computer.");
+      act(() => buttonNamed(page, "Try again")?.click());
+
+      await until(() => expect(page.textContent).toContain("Bundled Grafana: Starting…"));
+      expect(
+        sent.filter(
+          ({ request }) => request === "POST /api/settings/telemetry/bundled-grafana/start",
+        ),
+      ).toHaveLength(1);
+      expect(buttonNamed(page, "Try again")).toBeUndefined();
+    });
+
+    it("names the earlier bundled Grafana The Office stopped", async () => {
+      stubService({
+        "GET /api/settings/telemetry": () => ({
+          status: 200,
+          body: bundled({ state: "running", earlierStopped: ["office-grafana", "lgtm"] }),
+        }),
+      });
+      const { page } = await openPage("/telemetry", pages);
+      await until(() => expect(page.textContent).toContain("Bundled Grafana: Running"));
+
+      expect(page.textContent).toContain(
+        "The Office stopped the earlier bundled Grafana (office-grafana, lgtm)",
+      );
+      expect(page.textContent).toContain("kept, not removed");
+    });
+
+    it("shows nothing for Off or an own endpoint, nor while Bundled Grafana is only picked", async () => {
+      stubService({
+        "GET /api/settings/telemetry": () => ({
+          status: 200,
+          body: {
+            ...OFF,
+            saved: { kind: "own-endpoint", endpoint: "https://otlp.example.com", headerNames: [] },
+            bundledGrafana: { ...OFF.bundledGrafana, state: "running" },
+          },
+        }),
+      });
+      const { page } = await openPage("/telemetry", pages);
+      await until(() => expect(page.textContent).toContain("Endpoint URL"));
+
+      expect(page.textContent).not.toContain("Bundled Grafana:");
+      act(() => radio(page, "Bundled Grafana").click());
+      expect(page.textContent).not.toContain("Bundled Grafana:");
+      act(() => radio(page, "Off").click());
+      expect(page.textContent).not.toContain("Bundled Grafana:");
+    });
   });
 });

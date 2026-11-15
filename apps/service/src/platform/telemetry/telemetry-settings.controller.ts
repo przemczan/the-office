@@ -3,7 +3,8 @@ import {
   ConflictException,
   Controller,
   Get,
-  Injectable,
+  HttpCode,
+  Post,
   Put,
   UnprocessableEntityException,
 } from "@nestjs/common";
@@ -13,9 +14,9 @@ import {
   type TelemetrySettings,
 } from "@the-office/contracts";
 import { ContractPipe } from "../http/contract-pipe.js";
-import { OfficeDataDirectory } from "../office-data/office-data-directory.js";
+import { BundledGrafanaKeeper } from "./bundled-grafana/bundled-grafana-keeper.js";
+import { SavedTelemetrySetting } from "./saved-telemetry-setting.js";
 import { choiceToSave, savedChoiceOf } from "./telemetry-choice.js";
-import { readTelemetryFile, telemetryFilePath, writeTelemetryFile } from "./telemetry-file.js";
 import { RunningTelemetrySettings } from "./telemetry-in-effect.js";
 import {
   isSetByEnvironment,
@@ -26,40 +27,18 @@ import {
 
 const SET_BY_ENVIRONMENT =
   "The environment sets telemetry (the OTEL_ variables in .env), so it can't be changed here.";
-
-/** The telemetry setting's file in the Office data directory, written one save at a time. */
-@Injectable()
-export class SavedTelemetrySetting {
-  private readonly path: string;
-  private writes: Promise<unknown> = Promise.resolve();
-
-  constructor(officeData: OfficeDataDirectory) {
-    this.path = telemetryFilePath(officeData.path);
-  }
-
-  async read(): Promise<TelemetryChoice | undefined> {
-    return (await readTelemetryFile(this.path)).choice;
-  }
-
-  /** Runs `change` on the saved choice, alone, saving what it answers unless it throws. */
-  change(change: (saved: TelemetryChoice | undefined) => TelemetryChoice): Promise<void> {
-    const changed = this.writes.then(async () =>
-      writeTelemetryFile(this.path, change(await this.read())),
-    );
-    this.writes = changed.catch(() => undefined);
-    return changed;
-  }
-}
+const BUNDLED_GRAFANA_NOT_CHOSEN = "Bundled Grafana isn't the saved choice, so it isn't started.";
 
 /**
- * Settings › Telemetry: where The Office exports from its next start. The headers' values
- * never leave the service.
+ * Settings › Telemetry: where The Office exports from its next start, and the bundled Grafana,
+ * started at once when chosen. The headers' values never leave the service.
  */
 @Controller("settings/telemetry")
 export class TelemetrySettingsController {
   constructor(
     private readonly saved: SavedTelemetrySetting,
     private readonly running: RunningTelemetrySettings,
+    private readonly bundledGrafana: BundledGrafanaKeeper,
   ) {}
 
   @Get()
@@ -67,14 +46,15 @@ export class TelemetrySettingsController {
     return this.answer(await this.saved.read());
   }
 
-  /** Saves the choice for the next start; refused while the environment sets telemetry. */
+  /**
+   * Saves the choice for the next start, starting the bundled Grafana at once when it is chosen, so
+   * it is ready by then; refused while the environment sets telemetry.
+   */
   @Put()
   async save(
     @Body(new ContractPipe(telemetryChoiceSchema)) sent: TelemetryChoice,
   ): Promise<TelemetrySettings> {
-    if (isSetByEnvironment(this.running.inEffect)) {
-      throw new ConflictException({ message: SET_BY_ENVIRONMENT, reasons: [SET_BY_ENVIRONMENT] });
-    }
+    this.refuseWhileSetByEnvironment();
     let kept: TelemetryChoice | undefined;
     await this.saved.change((saved) => {
       const checked = choiceToSave(sent, saved);
@@ -87,10 +67,33 @@ export class TelemetrySettingsController {
       kept = checked.choice;
       return checked.choice;
     });
+    if (kept?.kind === "bundled-grafana") void this.bundledGrafana.start();
     return this.answer(kept);
   }
 
-  private answer(saved: TelemetryChoice | undefined): TelemetrySettings {
+  /** Try again: starts the bundled Grafana while it is the saved choice. */
+  @Post("bundled-grafana/start")
+  @HttpCode(200)
+  async startBundledGrafana(): Promise<TelemetrySettings> {
+    this.refuseWhileSetByEnvironment();
+    const saved = await this.saved.read();
+    if (saved?.kind !== "bundled-grafana") {
+      throw new ConflictException({
+        message: BUNDLED_GRAFANA_NOT_CHOSEN,
+        reasons: [BUNDLED_GRAFANA_NOT_CHOSEN],
+      });
+    }
+    void this.bundledGrafana.start();
+    return this.answer(saved);
+  }
+
+  private refuseWhileSetByEnvironment(): void {
+    if (isSetByEnvironment(this.running.inEffect)) {
+      throw new ConflictException({ message: SET_BY_ENVIRONMENT, reasons: [SET_BY_ENVIRONMENT] });
+    }
+  }
+
+  private async answer(saved: TelemetryChoice | undefined): Promise<TelemetrySettings> {
     const inEffect = this.running.inEffect;
     const setByEnvironment = isSetByEnvironment(inEffect);
     return {
@@ -99,6 +102,7 @@ export class TelemetrySettingsController {
       setByEnvironment,
       appliesAtNextStart:
         !setByEnvironment && !sameTelemetry(telemetrySettingsFrom(saved, {}), inEffect),
+      bundledGrafana: await this.bundledGrafana.status(saved),
     };
   }
 }

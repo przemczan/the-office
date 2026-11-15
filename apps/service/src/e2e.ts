@@ -43,6 +43,10 @@ await launch(
     const { HostKeyScanner } = await import("./platform/git-identity/host-key-scanner.js");
     const { hostKeyOf } = await import("./platform/git-identity/host-keys.js");
     const { OfficeLogger } = await import("./platform/telemetry/office-logger.js");
+    const { BundledGrafana } =
+      await import("./platform/telemetry/bundled-grafana/bundled-grafana.js");
+    const { ScriptedBundledGrafana } =
+      await import("./platform/telemetry/bundled-grafana/scripted-bundled-grafana.js");
     const scannedKey = hostKeyOf(hostKey);
     if (!scannedKey) throw new Error(`OFFICE_E2E_HOST_KEY is no ssh public key: ${hostKey}`);
     const scanner: InstanceType<typeof HostKeyScanner> = {
@@ -70,6 +74,9 @@ await launch(
       // Settings › Updates is tested on both systems, though Windows doesn't offer updating.
       .overrideProvider(UpdateSystem)
       .useValue({ refusal: undefined })
+      // No end-to-end test starts or stops a real Grafana container.
+      .overrideProvider(BundledGrafana)
+      .useValue(new ScriptedBundledGrafana())
       // The testing module's own logger shows errors alone; the service logs as main.ts's does.
       .setLogger(new OfficeLogger())
       .compile();

@@ -20,6 +20,7 @@ import { InvalidOfficeConfigError } from "./platform/config/invalid-office-confi
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
 import { configureHttp, HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 import { currentOperatingSystem } from "./platform/os/current-operating-system.js";
+import { BundledGrafanaKeeper } from "./platform/telemetry/bundled-grafana/bundled-grafana-keeper.js";
 import { OfficeLogger } from "./platform/telemetry/office-logger.js";
 import type { StartedTelemetry } from "./platform/telemetry/start-telemetry.js";
 import type { WebAppSource } from "./platform/web-app/web-app.module.js";
@@ -106,9 +107,10 @@ function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): voi
  * the restart cut short (spec §2.4), sets again the resume of each Task the usage window paused,
  * resuming one whose reset passed meanwhile (spec §2.1), then releases the kept queue (spec §2.1),
  * since a desk may have been freed while the service was down; the release holds while the alarm is on. Last, it starts the
- * daily archiving of finished Tasks and ended Initiatives, here only so a test app never runs it, and sweeps the run
- * environments the last run left (spec §5.5) in the background, as the container runtime may be
- * slow or not there. After every module's start, so the walks the release starts aren't taken for
+ * daily archiving of finished Tasks and ended Initiatives, here only so a test app never runs it, sweeps the run
+ * environments the last run left (spec §5.5) and starts or stops the bundled Grafana as the
+ * telemetry setting wants it, both in the background, as the container runtime may be slow or not
+ * there. After every module's start, so the walks the release starts aren't taken for
  * ones the last run left.
  */
 async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void> {
@@ -126,6 +128,12 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
     .sweep()
     .catch((error: unknown) => {
       logger.warn(`The run environments the last run left were not swept: ${String(error)}`);
+    });
+  void app
+    .get(BundledGrafanaKeeper)
+    .keepAtStart()
+    .catch((error: unknown) => {
+      logger.warn(`The bundled Grafana was not checked: ${String(error)}`);
     });
 }
 

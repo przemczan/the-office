@@ -1,9 +1,9 @@
-# Local infrastructure for The Office: Postgres and the OpenTelemetry backend (spec §5.2).
-# Values come from .env (copy .env.example). Ports are published on 127.0.0.1 only, since
-# The Office serves localhost alone (spec §5.1). otel-lgtm, the bundled Grafana, is behind the
-# grafana profile, which .env.example turns on through COMPOSE_PROFILES; without it the
-# telemetry goes to the user's own endpoint, or nowhere. The checks run in a Task's run environment
-# (.devcontainer/), with a Postgres of its own; this file is for npm run dev and the host's checks.
+# Local infrastructure for The Office: Postgres (spec §5.2). Values come from .env (copy
+# .env.example). Ports are published on 127.0.0.1 only, since The Office serves localhost alone
+# (spec §5.1). The bundled Grafana isn't here: The Office runs it itself, as Compose project
+# `the-office-grafana`, when it's chosen in Settings › Telemetry. The checks run in a Task's run
+# environment (.devcontainer/), with a Postgres of its own; this file is for npm run dev and the
+# host's checks.
 name: the-office
 
 services:
@@ -27,23 +27,6 @@ services:
       retries: 3
       start_period: 60s
       start_interval: 1s
-    restart: unless-stopped
-
-  otel-lgtm:
-    profiles: [grafana]
-    image: grafana/otel-lgtm:0.38.0@sha256:75cdf892daffadf3763ef61c16a6d7f8586216fce0b40bba7874a0b053121084
-    ports:
-      - "127.0.0.1:${GRAFANA_PORT:?copy .env.example to .env}:3000"
-      - "127.0.0.1:4317:4317" # OTLP over gRPC
-      - "127.0.0.1:4318:4318" # OTLP over HTTP
-    healthcheck:
-      # The image's own check: its ready file, then each component's ready endpoint.
-      test: ["CMD", "/otel-lgtm/docker/healthcheck.sh"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 120s
-      start_interval: 2s
     restart: unless-stopped
 
 volumes:

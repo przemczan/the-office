@@ -138,7 +138,6 @@ Go on with [First run](#first-run). If The Office doesn't start in time, the ins
    | `OFFICE_HOST`, `OFFICE_PORT` | The address and port, on the host's network: `127.0.0.1` and `4310` by default. `0.0.0.0` or the machine's IP address opens it on your network (as [above](#reaching-it-from-other-machines)). |
    | `OFFICE_PUBLIC_ADDRESS` | Blank, or the `https://` address your reverse proxy serves it at ([Behind a reverse proxy](running-the-office.md#behind-a-reverse-proxy)). |
    | `POSTGRES_PORT` | The port Postgres is published on, on `127.0.0.1` only: `5432`. |
-   | `COMPOSE_PROFILES`, `GRAFANA_PORT` | `grafana` to start the bundled Grafana, at `http://localhost:3300`; blank leaves it out. |
    | `OFFICE_SKIP_SETUP_BASICS` | `true` leaves out First-run setup's basics ([First run](#first-run)). |
    | `OFFICE_IMAGE` | Left commented out, unless you run another image, such as a fork's. |
 
@@ -163,7 +162,7 @@ Go on with [First run](#first-run). If The Office doesn't start in time, the ins
 
 Go on with [First run](#first-run).
 
-The Compose install runs three containers: `office`, `postgres` (its data in the volume `the-office_postgres-data`), and `otel-lgtm` while the `grafana` profile is on. The repository's own `docker-compose.yml`, the dev stack, uses the same project name and volume, so a machine runs one of them, never both.
+The Compose install runs two containers: `office` and `postgres` (its data in the volume `the-office_postgres-data`). When Bundled Grafana is chosen ([Telemetry](#telemetry)), The Office starts it itself, as a Compose project of its own, `the-office-grafana`. The repository's own `docker-compose.yml`, the dev stack, uses the same project name and volume, so a machine runs one of them, never both.
 
 **Only Projects inside the data folder work with run environments:** those added by Repository URL, which The Office clones into `<data folder>/repositories/`. A Project added from a local folder outside the data folder isn't at that path on the host, so its run environment can't mount it.
 
@@ -208,16 +207,9 @@ What The Office reads at its start, and how to apply a change:
 
 ### Telemetry
 
-Telemetry is set in Settings › Telemetry (or First-run setup): Off, Bundled Grafana, or Your own endpoint, an OTLP over HTTP address. A change applies at the next start. On a direct install or a checkout, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_HEADERS` in the configuration wins over the setting ([running-the-office.md](running-the-office.md#telemetry)).
+Telemetry is set in Settings › Telemetry (or First-run setup): Off, Bundled Grafana, or Your own endpoint, an OTLP over HTTP address. A change of where telemetry goes applies at the next start. On a direct install or a checkout, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_HEADERS` in the configuration wins over the setting ([running-the-office.md](running-the-office.md#telemetry)).
 
-- **Compose install:** `COMPOSE_PROFILES=grafana` in `.env`, then `docker compose up -d`, starts the bundled Grafana at `http://localhost:3300`; then choose Bundled Grafana.
-- **Direct install:** the bundled Grafana isn't installed. Start it in Docker, on this machine alone, then choose Bundled Grafana:
-
-  ```sh
-  sudo docker run -d --name the-office-grafana --restart unless-stopped -p 127.0.0.1:3300:3000 -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 grafana/otel-lgtm:0.38.0@sha256:75cdf892daffadf3763ef61c16a6d7f8586216fce0b40bba7874a0b053121084
-  ```
-
-  Or choose Your own endpoint.
+**Choosing Bundled Grafana is enough,** on every install: The Office starts it at once, in Docker, as its own Compose project `the-office-grafana`, at `http://localhost:3300` on this machine alone. Settings › Telemetry shows whether it is running, or why it couldn't start, with **Try again**. It needs the Docker The Office already uses for run environments, and ports `3300`, `4317` and `4318` free on `127.0.0.1`. Its data is kept in the volume `the-office-grafana_data`. Choosing Off or Your own endpoint stops it at the next start, keeping its data.
 
 ### Setting a user's password on the host
 
@@ -327,6 +319,13 @@ curl -fsSLo docker-compose.yml https://github.com/przemczan/the-office/releases/
 
 Compare your `.env` with that release's `the-office.env` for new values.
 
+### From a release with the Grafana profile
+
+Releases before The Office ran the bundled Grafana itself started it from the Compose install's `otel-lgtm` service, behind the `grafana` profile, or by hand with `docker run` on a direct install. After the update:
+
+- **Compose install:** remove `COMPOSE_PROFILES` and `GRAFANA_PORT` from `.env`.
+- **The earlier Grafana is stopped, never removed,** when The Office starts its own; its log and Settings › Telemetry name it. It had no volume, so no data moves to the new one. Remove it when you no longer need it: the Compose one by its container's name, which `docker ps -a --filter label=com.docker.compose.service=otel-lgtm` lists, such as `docker rm the-office-otel-lgtm-1`; the one started by hand with `sudo docker rm the-office-grafana`.
+
 ## Uninstalling
 
 ### Direct install
@@ -356,7 +355,7 @@ After `--uninstall` alone, running the installer again brings the same Office ba
 
 `--purge` removes the data folder only when it is The Office's own: an absolute folder below a top-level one (not `/srv` or `/var/lib` themselves, nor inside `/etc`, `/usr` and the like), owned by `the-office`. Otherwise it keeps it and says why, along with the user's home when the folder is inside it; remove it by hand if you mean to.
 
-A bundled Grafana you started [by hand](#telemetry) stays: `sudo docker rm -f the-office-grafana`.
+The [bundled Grafana](#telemetry) stays: `sudo docker compose -p the-office-grafana down` removes it, with `-v` its data too.
 
 #### Removing the packages it added
 
@@ -402,7 +401,9 @@ What `down` leaves:
 
   If another Office shares it, add `--filter label=office.instance=<id>` to each listing, where `<id>` is `printf %s /var/lib/the-office | sha256sum | cut -c1-12` for your data folder.
 
-- **The images** of The Office, Postgres and Grafana. `docker compose down --rmi all` (with `-v` or without) removes those the compose file names along with the containers; the images of earlier versions, left by updates, go by hand:
+- **The [bundled Grafana](#telemetry)**, its own Compose project: `docker compose -p the-office-grafana down` removes it, with `-v` its data too, and `--rmi all` its image.
+
+- **The images** of The Office and Postgres. `docker compose down --rmi all` (with `-v` or without) removes those the compose file names along with the containers; the images of earlier versions, left by updates, go by hand:
 
   ```sh
   docker image ls ghcr.io/przemczan/the-office
@@ -418,7 +419,7 @@ What `down` leaves:
 
 ### A checkout
 
-Stop and disable its service if it has one (`sudo systemctl disable --now the-office`, then remove its unit), run `docker compose down` in the checkout (`down -v` to delete its database), then remove the checkout and the data folder named by `OFFICE_DATA_DIR` in its `.env` (by default `~/.local/share/the-office`, or `%LOCALAPPDATA%\the-office` on Windows).
+Stop and disable its service if it has one (`sudo systemctl disable --now the-office`, then remove its unit), run `docker compose down` in the checkout (`down -v` to delete its database) and `docker compose -p the-office-grafana down` for the bundled Grafana (`down -v` to delete its data), then remove the checkout and the data folder named by `OFFICE_DATA_DIR` in its `.env` (by default `~/.local/share/the-office`, or `%LOCALAPPDATA%\the-office` on Windows).
 
 ## Moving from a checkout
 

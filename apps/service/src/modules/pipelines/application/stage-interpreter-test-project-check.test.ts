@@ -48,7 +48,7 @@ import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
  * Task's branch and worktree are discarded after. Live, so it runs only when asked:
  * OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>, with
  * OFFICE_CHECK_REPORT=<a file> to keep what it saw. The trace is looked up in Grafana unless
- * OFFICE_CHECK_GRAFANA=off (a machine without otel-lgtm); OFFICE_CHECK_PAGE_HOLD_MS keeps the
+ * OFFICE_CHECK_GRAFANA=off (a machine without the bundled Grafana); OFFICE_CHECK_PAGE_HOLD_MS keeps the
  * service up that long after the run, its address in the report, to look at the Task page. It hires
  * the Planner and the Developer from their presets, so it runs alone.
  */
@@ -58,7 +58,8 @@ const REPORT = process.env["OFFICE_CHECK_REPORT"];
 const WITH_GRAFANA = process.env["OFFICE_CHECK_GRAFANA"] !== "off";
 const PAGE_HOLD_MS = Number(process.env["OFFICE_CHECK_PAGE_HOLD_MS"] ?? "0");
 const OTLP_ENDPOINT = process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? "http://127.0.0.1:4318";
-const GRAFANA = `http://127.0.0.1:${process.env["GRAFANA_PORT"] ?? "3300"}`;
+/** The bundled Grafana, which The Office runs at this fixed port. */
+const GRAFANA = "http://127.0.0.1:3300";
 const WEB_APP = fileURLToPath(new URL("../../../../../web", import.meta.url));
 const PLANNER_OPENING_MS = 240_000;
 const WALK_MS = 60 * 60_000;

@@ -66,6 +66,7 @@ const TELEMETRY_OFF: TelemetrySettings = {
   running: { kind: "off" },
   setByEnvironment: false,
   appliesAtNextStart: false,
+  bundledGrafana: { state: "not-wanted", address: "http://localhost:3300", earlierStopped: [] },
 };
 
 /** A WebSocket the service would answer, quiet throughout. */

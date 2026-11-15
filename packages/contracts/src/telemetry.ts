@@ -43,17 +43,37 @@ export const runningTelemetrySchema = z.discriminatedUnion("kind", [
 export type RunningTelemetry = z.infer<typeof runningTelemetrySchema>;
 
 /**
- * `GET` and `PUT /settings/telemetry` (Settings › Telemetry): the saved choice, what runs now,
- * whether OTEL_* variables in the environment set telemetry instead (the card is then read-only),
- * and whether the saved choice differs from what runs, applying the next time The Office starts.
+ * The bundled Grafana as The Office keeps it: `not-wanted` unless Bundled Grafana is saved and the
+ * environment doesn't set telemetry; else `starting`, `running` or `failed` with the problem in
+ * plain words. `earlierStopped` names the earlier bundled Grafana containers The Office stopped
+ * before starting its own.
+ */
+export const bundledGrafanaStatusSchema = z.object({
+  state: z.enum(["not-wanted", "starting", "running", "failed"]),
+  problem: z.string().optional(),
+  address: z.string(),
+  earlierStopped: z.array(z.string()),
+});
+export type BundledGrafanaStatus = z.infer<typeof bundledGrafanaStatusSchema>;
+
+/**
+ * `GET` and `PUT /settings/telemetry` (Settings › Telemetry), and `POST
+ * /settings/telemetry/bundled-grafana/start` (Try again): the saved choice, what runs now, whether
+ * OTEL_* variables in the environment set telemetry instead (the card is then read-only), whether
+ * the saved choice differs from what runs, applying the next time The Office starts, and the
+ * bundled Grafana's state.
  */
 export const telemetrySettingsSchema = z.object({
   saved: savedTelemetryChoiceSchema,
   running: runningTelemetrySchema,
   setByEnvironment: z.boolean(),
   appliesAtNextStart: z.boolean(),
+  bundledGrafana: bundledGrafanaStatusSchema,
 });
 export type TelemetrySettings = z.infer<typeof telemetrySettingsSchema>;
 
 /** The bundled Grafana's OTLP over HTTP endpoint, on this machine. */
 export const BUNDLED_GRAFANA_ENDPOINT = "http://127.0.0.1:4318";
+
+/** Where a person opens the bundled Grafana, on the machine The Office runs on. */
+export const BUNDLED_GRAFANA_ADDRESS = "http://localhost:3300";

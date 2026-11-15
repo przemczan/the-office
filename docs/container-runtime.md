@@ -1,6 +1,6 @@
 # Container runtime
 
-What runs each Task's run environment, and in a checkout or a Compose install also The Office's Postgres and the bundled Grafana ([docker-compose.yml](../docker-compose.yml), [spec §5.2](spec/5.2-stack.md)): Docker Engine with the Compose plugin, from Docker's own apt repository, held at the versions below. A direct install runs PostgreSQL natively, so there Docker carries only the run environments (and a bundled Grafana you start by hand, [installing.md](installing.md#telemetry)). The checkout's systemd unit in [running-the-office.md](running-the-office.md#an-example-systemd-unit) needs `docker.service`.
+What runs each Task's run environment, the bundled Grafana, and in a checkout or a Compose install also The Office's Postgres ([docker-compose.yml](../docker-compose.yml), [spec §5.2](spec/5.2-stack.md)): Docker Engine with the Compose plugin, from Docker's own apt repository, held at the versions below. The bundled Grafana is The Office's own Compose project, `the-office-grafana`, on every install, which The Office starts when it is chosen ([running-the-office.md](running-the-office.md#telemetry)). A direct install runs PostgreSQL natively, so there Docker carries only the run environments and the bundled Grafana. The checkout's systemd unit in [running-the-office.md](running-the-office.md#an-example-systemd-unit) needs `docker.service`.
 
 ## What is installed
 

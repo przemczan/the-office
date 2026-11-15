@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../test/test-application.js";
 import { OfficeDataModule } from "../office-data/office-data.module.js";
 import { isOwnerOnly } from "../os/owner-only.fixtures.js";
+import { BundledGrafana } from "./bundled-grafana/bundled-grafana.js";
+import { ScriptedBundledGrafana } from "./bundled-grafana/scripted-bundled-grafana.js";
 import { TelemetryHttpModule } from "./telemetry-http.module.js";
 import { RunningTelemetrySettings } from "./telemetry-in-effect.js";
 import { TELEMETRY_OFF, type TelemetryInEffect } from "./telemetry-settings.js";
@@ -14,17 +16,26 @@ import { TelemetryModule } from "./telemetry.module.js";
 
 const SECRET = "Basic c2VjcmV0LXRva2Vu";
 
+const NOT_WANTED = {
+  state: "not-wanted",
+  address: "http://localhost:3300",
+  earlierStopped: [],
+} as const;
+
 describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
   let officeData: string | undefined;
   let app: INestApplication | undefined;
   let url: string;
+  let grafana: ScriptedBundledGrafana;
 
   async function start(inEffect: TelemetryInEffect = TELEMETRY_OFF): Promise<void> {
+    grafana = new ScriptedBundledGrafana();
     officeData = await mkdtemp(join(tmpdir(), "telemetry-settings-"));
     const started = await startTestApplication({
       imports: [OfficeDataModule.forRoot(officeData), TelemetryModule, TelemetryHttpModule],
       overrides: [
         { provide: RunningTelemetrySettings, useValue: new RunningTelemetrySettings(inEffect) },
+        { provide: BundledGrafana, useValue: grafana },
       ],
     });
     app = started.app;
@@ -50,6 +61,11 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
     return telemetrySettingsSchema.parse(await (await fetch(url)).json());
   }
 
+  async function settingsOnceStarted(): Promise<TelemetrySettings> {
+    await expect.poll(async () => (await settings()).bundledGrafana.state).not.toBe("starting");
+    return settings();
+  }
+
   const filePath = () => join(officeData ?? "", "telemetry.json");
 
   it("answers off with nothing saved", async () => {
@@ -60,7 +76,9 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
       running: { kind: "off" },
       setByEnvironment: false,
       appliesAtNextStart: false,
+      bundledGrafana: NOT_WANTED,
     });
+    expect(grafana.calls).toEqual([]);
   });
 
   it("saves the user's own endpoint owner-only for the next start, never answering a header's value", async () => {
@@ -86,6 +104,7 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
       running: { kind: "off" },
       setByEnvironment: false,
       appliesAtNextStart: true,
+      bundledGrafana: NOT_WANTED,
     });
     expect(JSON.stringify(await settings())).not.toContain(SECRET);
     expect(JSON.parse(await readFile(filePath(), "utf8"))).toMatchObject({
@@ -188,8 +207,10 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
       running: { kind: "exporting", endpoint: "http://collector:4318" },
       setByEnvironment: true,
       appliesAtNextStart: false,
+      bundledGrafana: NOT_WANTED,
     });
     expect(JSON.parse(await readFile(filePath(), "utf8"))).toEqual({ kind: "bundled-grafana" });
+    expect(grafana.calls).toEqual([]);
   });
 
   it("takes a file that isn't a setting as nothing saved", async () => {
@@ -197,5 +218,75 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
     await writeFile(filePath(), "{ not json");
 
     expect((await settings()).saved).toEqual({ kind: "off" });
+  });
+
+  describe("the bundled Grafana", () => {
+    it("starts at once when Bundled Grafana is saved, telling Starting, then Running", async () => {
+      await start();
+      grafana.holdStarts();
+
+      const answer = telemetrySettingsSchema.parse(
+        await (await put({ kind: "bundled-grafana" })).json(),
+      );
+      expect(answer.bundledGrafana.state).toBe("starting");
+      grafana.releaseStarts();
+
+      expect((await settingsOnceStarted()).bundledGrafana).toEqual({
+        state: "running",
+        address: "http://localhost:3300",
+        earlierStopped: [],
+      });
+      expect(grafana.calls).toContain("start");
+    });
+
+    it("stops an earlier bundled Grafana first and names it", async () => {
+      await start();
+      grafana.earlier = ["the-office-otel-lgtm-1"];
+
+      await put({ kind: "bundled-grafana" });
+
+      expect((await settingsOnceStarted()).bundledGrafana).toMatchObject({
+        state: "running",
+        earlierStopped: ["the-office-otel-lgtm-1"],
+      });
+      expect(grafana.stoppedEarlier).toEqual(["the-office-otel-lgtm-1"]);
+    });
+
+    it("tells why it couldn't start, and Try again starts it again", async () => {
+      await start();
+      grafana.failStartWith = { kind: "port-taken" };
+      await put({ kind: "bundled-grafana" });
+
+      expect((await settingsOnceStarted()).bundledGrafana).toMatchObject({
+        state: "failed",
+        problem: expect.stringContaining("port 3300, 4317 or 4318") as unknown,
+      });
+
+      grafana.failStartWith = undefined;
+      const retried = await fetch(`${url}/bundled-grafana/start`, { method: "POST" });
+
+      expect(retried.status).toBe(200);
+      expect((await settingsOnceStarted()).bundledGrafana.state).toBe("running");
+      expect(grafana.calls.filter((call) => call === "start")).toHaveLength(2);
+    });
+
+    it("refuses Try again while Bundled Grafana isn't saved", async () => {
+      await start();
+
+      const refused = await fetch(`${url}/bundled-grafana/start`, { method: "POST" });
+
+      expect(refused.status).toBe(409);
+      expect(grafana.calls).toEqual([]);
+    });
+
+    it("starts nothing when another choice is saved", async () => {
+      await start();
+
+      await put({ kind: "own-endpoint", endpoint: "https://otlp.example.com" });
+      await put({ kind: "off" });
+
+      expect((await settings()).bundledGrafana).toEqual(NOT_WANTED);
+      expect(grafana.calls).toEqual([]);
+    });
   });
 });

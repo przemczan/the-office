@@ -42,7 +42,8 @@ import { AgentSdkEngine } from "./agent-sdk-engine.js";
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];
 const OTLP_ENDPOINT = process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? "http://127.0.0.1:4318";
-const GRAFANA = `http://127.0.0.1:${process.env["GRAFANA_PORT"] ?? "3300"}`;
+/** The bundled Grafana, which The Office runs at this fixed port. */
+const GRAFANA = "http://127.0.0.1:3300";
 const RECORDING = fileURLToPath(
   new URL("../scripted/recordings/test-project.jsonl", import.meta.url),
 );

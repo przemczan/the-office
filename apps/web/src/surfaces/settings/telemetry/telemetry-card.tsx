@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BUNDLED_GRAFANA_ENDPOINT,
+  type BundledGrafanaStatus,
   type RunningTelemetry,
   type SavedTelemetryChoice,
   type TelemetryChoice,
@@ -18,7 +19,12 @@ import {
   type RadioListOption,
 } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
-import { saveTelemetry, TELEMETRY_SETTINGS, telemetryQueries } from "../../../api/telemetry.ts";
+import {
+  saveTelemetry,
+  startBundledGrafana,
+  TELEMETRY_SETTINGS,
+  telemetryQueries,
+} from "../../../api/telemetry.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import "./telemetry.css";
@@ -33,6 +39,9 @@ interface HeaderRow {
   readonly saved: boolean;
 }
 
+/** How often the card reads the settings again while the bundled Grafana starts. */
+const STARTING_REFETCH_MILLISECONDS = 3_000;
+
 const KIND_OPTIONS: readonly RadioListOption[] = [
   { value: "off", label: "Off: nothing is exported" },
   {
@@ -46,7 +55,9 @@ const KIND_OPTIONS: readonly RadioListOption[] = [
  * Where The Office exports its traces, metrics and logs: off, the bundled Grafana or the user's
  * own OTLP endpoint with its headers. A saved header's value never comes back: its row shows the
  * name, and an empty value keeps it. Read-only while the environment's OTEL_ variables set
- * telemetry. Settings › Telemetry and the First-run setup's Telemetry step both show it.
+ * telemetry. With Bundled Grafana saved, the bundled Grafana's state shows under the choice, read
+ * again every few seconds while it starts. Settings › Telemetry and the First-run setup's
+ * Telemetry step both show it.
  */
 export function TelemetryCard({
   onSaved,
@@ -54,7 +65,11 @@ export function TelemetryCard({
   /** Called with the saved settings, such as for the First-run setup to move on. */
   readonly onSaved?: (settings: TelemetrySettings) => void;
 } = {}): ReactNode {
-  const settings = useQuery(telemetryQueries.settings());
+  const settings = useQuery({
+    ...telemetryQueries.settings(),
+    refetchInterval: (query) =>
+      query.state.data?.bundledGrafana.state === "starting" ? STARTING_REFETCH_MILLISECONDS : false,
+  });
   // Each save starts the form again from what was saved, even when the choice is the same.
   const [saves, setSaves] = useState(0);
   return (
@@ -130,7 +145,7 @@ function TelemetryForm({
     onSuccess: async (answer) => {
       queryClient.setQueryData(TELEMETRY_SETTINGS, answer);
       await queryClient.invalidateQueries({ queryKey: TELEMETRY_SETTINGS });
-      showToast("Telemetry was saved: it applies the next time The Office starts.");
+      showToast(savedToast(answer));
       onSaved(answer);
     },
   });
@@ -153,6 +168,9 @@ function TelemetryForm({
         value={kind}
         onChange={(value) => setKind(value as Kind)}
       />
+      {saved.kind === "bundled-grafana" && settings.bundledGrafana.state !== "not-wanted" && (
+        <BundledGrafanaState status={settings.bundledGrafana} />
+      )}
       {kind === "own-endpoint" && (
         <div className="telemetry-endpoint">
           <Input
@@ -245,6 +263,79 @@ function TelemetryForm({
       </div>
     </form>
   );
+}
+
+/**
+ * The bundled Grafana's state while Bundled Grafana is saved: Starting…, Running with a link to
+ * open it, or Couldn't start with the problem and Try again; and the earlier bundled Grafana The
+ * Office stopped, if any.
+ */
+function BundledGrafanaState({ status }: { readonly status: BundledGrafanaStatus }): ReactNode {
+  const queryClient = useQueryClient();
+  const starting = useMutation({
+    mutationFn: startBundledGrafana,
+    onSuccess: (answer) => queryClient.setQueryData(TELEMETRY_SETTINGS, answer),
+  });
+  return (
+    <div className="telemetry-grafana" role="group" aria-label="Bundled Grafana">
+      {status.state === "starting" && (
+        <Alert tone="info" title="Bundled Grafana: Starting…">
+          The first start pulls its image, which can take a few minutes.
+        </Alert>
+      )}
+      {status.state === "running" && (
+        <Alert
+          tone="success"
+          title="Bundled Grafana: Running"
+          action={
+            <a className="telemetry-link" href={status.address} target="_blank" rel="noreferrer">
+              Open Grafana
+            </a>
+          }
+        >
+          At {status.address}.
+        </Alert>
+      )}
+      {status.state === "failed" && (
+        <Alert
+          tone="danger"
+          title="Bundled Grafana: Couldn't start"
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={starting.isPending}
+              disabled={starting.isPending}
+              onClick={() => starting.mutate()}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {status.problem ?? "The Office couldn't start it."}
+        </Alert>
+      )}
+      {starting.error && (
+        <RefusalAlert title="The bundled Grafana wasn't started" error={starting.error} />
+      )}
+      {status.earlierStopped.length > 0 && (
+        <p className="telemetry-note">
+          The Office stopped the earlier bundled Grafana ({status.earlierStopped.join(", ")}) to
+          start its own; it was kept, not removed.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The saved toast: with Bundled Grafana, that it starts now, and when the exporters switch to it. */
+function savedToast(answer: TelemetrySettings): string {
+  if (answer.saved.kind !== "bundled-grafana") {
+    return "Telemetry was saved: it applies the next time The Office starts.";
+  }
+  return answer.appliesAtNextStart
+    ? "Telemetry was saved: the bundled Grafana is starting, and The Office exports to it from its next start."
+    : "Telemetry was saved: the bundled Grafana is starting.";
 }
 
 function savedRows(saved: Extract<SavedTelemetryChoice, { kind: "own-endpoint" }> | undefined) {

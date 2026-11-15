@@ -25,3 +25,16 @@ export const telemetryQueries = {
 export function saveTelemetry(choice: TelemetryChoice): Promise<TelemetrySettings> {
   return sendToApi("PUT", "/settings/telemetry", choice, telemetrySettingsSchema);
 }
+
+/**
+ * Try again: starts the bundled Grafana once more after it couldn't start, answering the settings
+ * with its state. Refused while Bundled Grafana isn't saved or the environment sets telemetry.
+ */
+export function startBundledGrafana(): Promise<TelemetrySettings> {
+  return sendToApi(
+    "POST",
+    "/settings/telemetry/bundled-grafana/start",
+    {},
+    telemetrySettingsSchema,
+  );
+}
