@@ -1,0 +1,4 @@
+# The image is built from the packed tarballs alone (Dockerfile, docs/releasing.md).
+*
+!Dockerfile
+!dist/release/*.tar.gz

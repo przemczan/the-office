@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import {
   exitStatusOf,
   HEALTHY,
+  serviceRootOf,
   serviceStartProblems,
   WEB_APP_TITLE,
   type ServiceStart,
@@ -60,5 +62,15 @@ describe("exitStatusOf", () => {
 
   it("is the signal's name for any other signal", () => {
     assert.equal(exitStatusOf({ code: null, signal: "SIGKILL" }), "SIGKILL");
+  });
+});
+
+describe("serviceRootOf", () => {
+  it("checks the checkout's service, or the folder --root names", () => {
+    assert.equal(serviceRootOf([], "/srv/checkout"), "/srv/checkout");
+    assert.equal(
+      serviceRootOf(["--root", "dist/release/the-office-1.2.3"], "/srv/checkout"),
+      resolve("dist/release/the-office-1.2.3"),
+    );
   });
 });

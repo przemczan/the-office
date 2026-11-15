@@ -60,6 +60,7 @@ export class OfficeUpdatesController {
 }
 
 function toOfficeUpdate({
+  version,
   current,
   check,
   refusal,
@@ -68,6 +69,7 @@ function toOfficeUpdate({
   lastResult,
 }: OfficeUpdateView): OfficeUpdate {
   return {
+    ...(version && { version }),
     current: toCommit(current),
     ...(check && {
       check: {

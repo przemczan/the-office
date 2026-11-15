@@ -49,6 +49,8 @@ export type OfficeUpdateResult = z.infer<typeof officeUpdateResultSchema>;
 
 /** Settings › Updates: the version The Office runs, what its last check found, and a scheduled update. */
 export const officeUpdateSchema = z.object({
+  /** The Office release's version, as `1.2.3`; absent when The Office runs from a checkout. */
+  version: z.string().min(1).optional(),
   current: officeCommitSchema,
   /** What the last check found; absent before the first check ends. */
   check: z

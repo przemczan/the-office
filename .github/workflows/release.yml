@@ -1,0 +1,73 @@
+# Releases main by hand (docs/releasing.md): semantic-release takes the next version from the
+# Conventional Commits since the last v* tag, runs `npm run verify` in the run environment, packs
+# and checks the tarballs and the image, pushes the image, tags v<version> and makes the GitHub
+# Release with the tarballs. The Dry run builds and checks the same, and tags, releases and pushes
+# nothing.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: build and check the tarballs and the amd64 image, release nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history and its tags: the version and the notes come from the commits since the last v* tag.
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Name the image
+        env:
+          OWNER: ${{ github.repository_owner }}
+        # GHCR takes lower-case names only.
+        run: echo "IMAGE=ghcr.io/${OWNER,,}/the-office" >> "$GITHUB_ENV"
+      - name: Install semantic-release
+        run: npm ci --prefix tools/release/semantic-release
+
+      - name: Release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: tools/release/semantic-release/node_modules/.bin/semantic-release
+
+      - name: "Dry run: npm run verify in the run environment"
+        if: ${{ inputs.dry_run }}
+        run: bash tools/release/verify.sh
+      - name: "Dry run: build and check the tarballs and the amd64 image"
+        if: ${{ inputs.dry_run }}
+        run: bash tools/release/prepare.sh "0.0.0-dry-run.${GITHUB_SHA::7}" --no-push
+      - name: "Dry run: keep the tarballs"
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: the-office-dry-run-tarballs
+          path: |
+            dist/release/*.tar.gz
+            dist/release/*.sha256
+          retention-days: 7

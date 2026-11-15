@@ -56,7 +56,7 @@ Restarting or upgrading `docker.service` stops Postgres and, through `Requires=d
    and note the counts to compare: `docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select count(*) from tasks; select count(*) from projects"'`.
 3. `apt-mark unhold` the five packages, `apt-get install` the new exact versions, `apt-mark hold` them again.
 4. `docker compose up -d --wait postgres` reports it healthy and the counts match; then `systemctl start the-office`.
-5. Change the table above in the same commit. To restore a backup instead: `docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < <dump>`.
+5. Change the table above in the same commit, and the CLI, buildx and Compose versions in the [Dockerfile](../Dockerfile), whose image carries them from Docker's Debian repository ([releasing.md](releasing.md)). To restore a backup instead: `docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < <dump>`.
 
 ## What a run environment mounts
 
@@ -71,7 +71,7 @@ git refuses a repository owned by another user ("dubious ownership"). The servic
 
 Reaching the runtime is reaching the workstation as root: a container can mount `/`. So the Office rules refuse an Agent's command that runs `docker`, `docker-compose`, `podman`, `podman-compose` or `nerdctl`, names a runtime's socket (`docker.sock`, `podman.sock`, `containerd.sock`), or sets `DOCKER_HOST`, `DOCKER_CONTEXT` or `CONTAINER_HOST`, in every Role and Stage; only the Caretaker with Allow changes on may (`container-runtime-commands.ts` in the engine module). No session's environment carries those variables.
 
-**Accepted limit:** the hook sees the command, not what it runs. A command that calls the runtime indirectly, such as an npm script that runs `docker compose`, isn't seen; the-office has no such script since its Linux checks moved into run environments (Task 62120c02). Agents run as the same OS user as the service, and spec §6 leaves a hostile Agent out of the threat model.
+**Accepted limit:** the hook sees the command, not what it runs. A command that calls the runtime indirectly, such as an npm script that runs `docker compose`, isn't seen; the-office has no such npm script since its Linux checks moved into run environments (Task 62120c02); the release scripts in `tools/release/` call `docker` and run only in the Release workflow on GitHub ([releasing.md](releasing.md)), never in a Stage. Agents run as the same OS user as the service, and spec §6 leaves a hostile Agent out of the threat model.
 
 ## Windows: an open follow-up
 

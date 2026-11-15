@@ -1,0 +1,39 @@
+{
+  "branches": ["main"],
+  "tagFormat": "v${version}",
+  "plugins": [
+    [
+      "./tools/release/semantic-release/first-release.mjs",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [{ "type": "refactor", "release": "patch" }],
+        "presetConfig": {
+          "types": [
+            { "type": "feat", "section": "Features" },
+            { "type": "fix", "section": "Fixes" },
+            { "type": "perf", "section": "Performance" },
+            { "type": "refactor", "section": "Refactoring" }
+          ]
+        }
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "verifyReleaseCmd": "bash tools/release/verify.sh",
+        "prepareCmd": "bash tools/release/prepare.sh ${nextRelease.version}",
+        "publishCmd": "bash tools/release/publish-image.sh ${nextRelease.version}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [{ "path": "dist/release/*.tar.gz" }, { "path": "dist/release/*.sha256" }],
+        "successComment": false,
+        "failComment": false,
+        "releasedLabels": false,
+        "failTitle": false
+      }
+    ]
+  ]
+}

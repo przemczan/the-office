@@ -109,7 +109,7 @@
 
 - `updates-section.tsx`: UpdatesSection
 - `updates-words.ts`: lastResultWords, waitingWords
-- Tests: updates-words.full.test.ts
+- Tests: updates-section.test.tsx, updates-words.full.test.ts
 
 ### users/
 

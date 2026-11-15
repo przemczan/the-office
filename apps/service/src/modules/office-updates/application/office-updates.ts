@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { BusyItem } from "../domain/busy-item.js";
 import type { OfficeCommit } from "../domain/office-commit.js";
+import { releaseWords, type OfficeRelease } from "../domain/office-release.js";
 import {
   BusyWorkChanged,
   OfficeUpdateCancelled,
@@ -15,6 +16,7 @@ import { OfficeUpdateRefused } from "../domain/office-update-refused.js";
 import { stepWords, type OfficeUpdateResult } from "../domain/office-update-result.js";
 import { NO_LAUNCHER, updateRefusal, type CheckoutState } from "../domain/update-refusal.js";
 import { OfficeCheckout } from "../ports/office-checkout.js";
+import { OfficeReleaseStamp } from "../ports/office-release-stamp.js";
 import { UpdateFolder } from "../ports/update-folder.js";
 import { UpdateSystem } from "../ports/update-system.js";
 import { BusyWork } from "./busy-work.js";
@@ -39,6 +41,8 @@ export interface OfficeUpdateCheck {
 
 /** Settings › Updates, as the service sees it now. */
 export interface OfficeUpdateView {
+  /** The Office release's version; undefined when The Office runs from a checkout. */
+  readonly version: string | undefined;
   readonly current: OfficeCommit;
   readonly check: OfficeUpdateCheck | undefined;
   readonly refusal: string | undefined;
@@ -59,11 +63,13 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   private found: OfficeUpdateCheck | undefined;
   private checking: Promise<OfficeUpdateCheck> | undefined;
   private currentCommit: Promise<OfficeCommit> | undefined;
+  private release: Promise<OfficeRelease | undefined> | undefined;
   private readonly readyListeners: (() => void)[] = [];
   private exiting = false;
 
   constructor(
     private readonly checkout: OfficeCheckout,
+    private readonly releaseStamp: OfficeReleaseStamp,
     private readonly folder: UpdateFolder,
     private readonly system: UpdateSystem,
     private readonly hold: OfficeUpdateHold,
@@ -78,6 +84,7 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
 
   /** Tells what the launcher did since the last run, then checks daily, the first check now. */
   async onApplicationBootstrap(): Promise<void> {
+    await this.announceRelease();
     await this.announceNewResult().catch((error: unknown) => {
       this.logger.error(`The last Office update's result wasn't read: ${String(error)}`);
     });
@@ -100,6 +107,7 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   async view(): Promise<OfficeUpdateView> {
     const scheduled = this.hold.scheduled;
     return {
+      version: (await this.officeRelease())?.version,
       current: await this.current(),
       check: this.found,
       refusal: this.refusal(),
@@ -156,13 +164,36 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
     return this.found;
   }
 
+  /**
+   * The commit The Office runs: a release's from its stamp, as a release has no `.git` (and git
+   * would read a repository above it), else the checkout's.
+   */
   private current(): Promise<OfficeCommit> {
     // The service runs one commit from its start to its end.
-    this.currentCommit ??= this.checkout.current().catch((error: unknown) => {
-      this.currentCommit = undefined;
+    this.currentCommit ??= this.officeRelease()
+      .then((release) => release?.commit ?? this.checkout.current())
+      .catch((error: unknown) => {
+        this.currentCommit = undefined;
+        throw error;
+      });
+    return this.currentCommit;
+  }
+
+  private officeRelease(): Promise<OfficeRelease | undefined> {
+    this.release ??= this.releaseStamp.read().catch((error: unknown) => {
+      this.release = undefined;
       throw error;
     });
-    return this.currentCommit;
+    return this.release;
+  }
+
+  /** Names the release in the log at boot, so the log of a release install says which it runs. */
+  private async announceRelease(): Promise<void> {
+    const release = await this.officeRelease().catch((error: unknown) => {
+      this.logger.error(`The Office release's stamp wasn't read: ${String(error)}`);
+      return undefined;
+    });
+    if (release) this.logger.log(releaseWords(release));
   }
 
   /** Why Update is refused now; a check's findings count once there is one. */

@@ -1,3 +1,15 @@
+import { resolve } from "node:path";
+import { parseArgs } from "node:util";
+
+/**
+ * The folder whose built service the check starts: `--root <folder>`, such as an unpacked Office
+ * release, else the checkout the check runs from.
+ */
+export function serviceRootOf(args: readonly string[], checkout: string): string {
+  const { values } = parseArgs({ args: [...args], options: { root: { type: "string" } } });
+  return values.root === undefined ? checkout : resolve(values.root);
+}
+
 /** What the started service answered, and how it ended when told to stop. */
 export interface ServiceStart {
   /** `/api/health`'s body; undefined when it never answered. */

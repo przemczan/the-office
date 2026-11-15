@@ -14,7 +14,8 @@ let webAppDirectory: string;
 let service: TestApplication;
 
 beforeAll(async () => {
-  webAppDirectory = await mkdtemp(path.join(tmpdir(), "office-web-app-"));
+  // Under a dot folder, as an install in ~/.local is: the web app is served all the same.
+  webAppDirectory = await mkdtemp(path.join(tmpdir(), ".office-web-app-"));
   await mkdir(path.join(webAppDirectory, "dist", "assets"), { recursive: true });
   await writeFile(path.join(webAppDirectory, "dist", "index.html"), INDEX_HTML);
   await writeFile(path.join(webAppDirectory, "dist", "assets", "index.js"), SCRIPT);
