@@ -163,6 +163,7 @@ function EditTaskStagesForm({
     <Dialog
       size="medium"
       title={notChosen ? `Choose a Pipeline for ${task.title}` : `Stages of ${task.title}`}
+      unsavedChanges={edited || swapped}
       onClose={onClose}
       actions={
         <>

@@ -35,6 +35,11 @@ export function EditIdeaDialog({
     <Dialog
       size="medium"
       title="Edit the Idea"
+      unsavedChanges={
+        draft.title !== idea.title ||
+        draft.notes !== idea.notes ||
+        draft.projectId !== idea.projectId
+      }
       onClose={onClose}
       actions={
         <Button type="submit" form={formId} loading={editing.isPending}>

@@ -62,6 +62,7 @@ function WhoHasItForm({
     <Dialog
       size="medium"
       title={`Who has ${skill.name}`}
+      unsavedChanges={everyone !== skill.everyone || !sameRoles(chosen, skill.roles)}
       onClose={onClose}
       actions={
         <Button loading={saving.isPending} onClick={() => saving.mutate()}>

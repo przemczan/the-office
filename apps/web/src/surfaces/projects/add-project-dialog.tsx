@@ -119,6 +119,10 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
       size="medium"
       keepsHeight
       title="Add a Project"
+      // The GitHub list's search only finds a repository; picking one starts its clone.
+      unsavedChanges={
+        source !== undefined || picked !== undefined || folder.trim() !== "" || url.trim() !== ""
+      }
       onClose={onClose}
       actions={
         <>

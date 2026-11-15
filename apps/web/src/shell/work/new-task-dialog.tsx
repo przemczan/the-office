@@ -88,10 +88,19 @@ export function NewTaskDialog({
       if (!initiative) await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
     },
   });
+  // Choices and pasted Attachments come with no field's input, so they are counted here.
+  const unsavedChanges =
+    draft.title !== "" ||
+    draft.description !== "" ||
+    draft.projectId !== undefined ||
+    (draft.tags?.length ?? 0) > 0 ||
+    pending.length > 0 ||
+    blockedBy.size > 0;
   return (
     <Dialog
       size="medium"
       title={initiative ? `Add a Task to ${initiative.name}` : "New Task"}
+      unsavedChanges={unsavedChanges}
       onClose={onClose}
       actions={
         <>

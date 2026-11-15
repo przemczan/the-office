@@ -43,6 +43,7 @@ export function SetUpAuthenticatorDialog({
     <Dialog
       size="medium"
       title={codes ? "Save your recovery codes" : "Set up the authenticator"}
+      unsavedChanges={codes ? false : undefined}
       onClose={onClose}
       actions={
         codes ? (
@@ -160,6 +161,7 @@ export function NewRecoveryCodesDialog({ onClose }: { readonly onClose: () => vo
     <Dialog
       size="medium"
       title={codes ? "Save your new recovery codes" : "Make new recovery codes"}
+      unsavedChanges={codes ? false : undefined}
       onClose={onClose}
       actions={
         codes ? (

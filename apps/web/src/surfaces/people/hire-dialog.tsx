@@ -46,6 +46,7 @@ export function HireDialog({
     <Dialog
       size="medium"
       title="Hire a Role"
+      unsavedChanges={roleKey !== presets[0]?.roleKey || typedName !== undefined}
       onClose={onClose}
       actions={
         <Button type="submit" form={formId} loading={hiring.isPending}>

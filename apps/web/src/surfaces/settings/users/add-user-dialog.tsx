@@ -20,7 +20,12 @@ export function AddUserDialog({ onClose }: { readonly onClose: () => void }): Re
   const added = adding.data;
   if (added) {
     return (
-      <Dialog size="medium" title={`${added.user.name} was added`} onClose={onClose}>
+      <Dialog
+        size="medium"
+        title={`${added.user.name} was added`}
+        unsavedChanges={false}
+        onClose={onClose}
+      >
         <OneTimePasswordShown
           name={added.user.name}
           email={added.user.email}

@@ -74,6 +74,15 @@ function chipNames(): string[] {
   return [...document.querySelectorAll(".pending-attachments .attachment-open")].map(shownText);
 }
 
+/** As a browser sends a press that starts and ends on the window's dimmed backdrop. */
+function pressOutside(): void {
+  const backdrop = document.body.querySelector(".dialog-backdrop");
+  if (!backdrop) throw new Error("There is no window open.");
+  for (const type of ["pointerdown", "pointerup", "click"]) {
+    act(() => backdrop.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true })));
+  }
+}
+
 async function addTheTask(): Promise<void> {
   await act(async () => buttonNamed(document.body, "Add the Task")?.click());
 }
@@ -143,5 +152,17 @@ describe("New Task", () => {
     expect(paste(title, [screenshot()], "Fix the login")).toBe(false);
 
     expect(chipNames()).toEqual([]);
+  });
+
+  it("asks before a press outside closes it with a title typed", async () => {
+    await openNewTask();
+    typed(document.body, "Title", TASK.title);
+
+    pressOutside();
+
+    expect(shownText(document.body)).toContain(
+      "Close without saving? What you entered here will be lost.",
+    );
+    expect(buttonNamed(document.body, "Close without saving")).toBeDefined();
   });
 });

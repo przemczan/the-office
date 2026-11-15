@@ -1,15 +1,18 @@
 // `Dialog` is the window of docs/spec/4.1-ui-rules.md#windows: four sizes and one frame, which a
-// preview can maximize, closed only by Escape, its X or its Close button. The design system's Drawer closes on a press on its dimmed
-// backdrop, so a press landing on the backdrop itself is stopped before its handler sees it.
-// design-system/ stays as exported, hence the wrapper rather than an edit there. The conversation's
-// drawer on the Task and Initiative pages is the exception, closing on a press outside: a side view
-// with its draft kept, not a window, and built apart from these
-// (apps/web/src/surfaces/work/conversation-drawer.tsx). `Tooltip` is built here too (its press-to-open
+// preview can maximize, closed by Escape, its X, its Close button or a press on its dimmed
+// backdrop. A press outside is the one way to close it by accident, so a window holding unsaved
+// input asks first, in a step over its bar. The design system's Drawer closes on any click on its
+// backdrop, a drag from inside it included, so the wrapper takes that click over and closes it on a
+// press outside as a window closes. design-system/ stays as exported, hence the wrapper rather than
+// an edit there. The conversation's drawer on the Task and Initiative pages closes on a press
+// outside too, built apart from these (apps/web/src/surfaces/work/conversation-drawer.tsx); the chat
+// drawer has no backdrop and stays open beside the page. `Tooltip` is built here too (its press-to-open
 // companion, `Popover`, in popover.tsx): the design system's sits inside its trigger, where anything
 // clipping or stacking around it covers it. A popover's Esc goes first, as a menu's does. One press
 // of Escape closes one thing: a menu first, then a window, then the side panel opened last (the chat
 // drawer, the Needs you panel, the conversation's drawer), by the order in `openSidePanels`.
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -55,6 +58,13 @@ interface DialogContentProps {
    * Restore. Each opening starts at the window's own size.
    */
   readonly maximizable?: boolean;
+  /**
+   * Whether closing the window loses what the user entered, so a press outside asks first. Left
+   * out, it is whether any field inside has had input since the window opened. A form that knows
+   * its own state, or a choice made without a field, says it; a window whose fields only search or
+   * filter says `false`.
+   */
+  readonly unsavedChanges?: boolean;
   readonly onClose: () => void;
 }
 
@@ -81,15 +91,24 @@ export type DialogProps = DialogContentProps & DialogSizeProps;
 export function Drawer(props: DrawerProps): ReactNode {
   const { open = true, inline = false, onClose } = props;
   const frame = useRef<HTMLDivElement>(null);
-  useCloseOnEscape(open && !inline && !!onClose, onClose ?? closeNothing, frame, "side-panel");
+  const closable = open && !inline && !!onClose;
+  useCloseOnEscape(closable, onClose ?? closeNothing, frame, "side-panel");
+  const backdrop = useCallback(() => frame.current?.firstElementChild ?? null, []);
+  const pressedOutside = usePressOutside(closable, frame, backdrop);
   // Its own Escape listens on `window`, as a menu's does, so a press meant for a menu reaches it too.
   const closeUnlessForAMenu = (): void => {
     if (!menuIsOpen()) onClose?.();
   };
+  // Stopped before the design system's handler, which would close on any click landing on it.
+  const closeOnPressOutside = (event: MouseEvent<HTMLDivElement>): void => {
+    if (!closable || event.target !== backdrop()) return;
+    event.stopPropagation();
+    if (pressedOutside()) onClose?.();
+  };
   return (
-    <KeepOpenOnBackdropPress ref={frame} inline={inline}>
+    <div ref={frame} style={{ display: "contents" }} onClickCapture={closeOnPressOutside}>
       <DesignSystemDrawer {...props} onClose={onClose && closeUnlessForAMenu} />
-    </KeepOpenOnBackdropPress>
+    </div>
   );
 }
 
@@ -104,15 +123,52 @@ export function Dialog({
   actions,
   step,
   maximizable = false,
+  unsavedChanges,
   onClose,
 }: DialogProps): ReactNode {
   const titleId = useId();
   const frame = useRef<HTMLDivElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
   const [maximized, setMaximized] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
   useCloseOnEscape(open, onClose, frame);
-  // A window kept mounted while closed opens again at its own size.
-  if (!open && maximized) setMaximized(false);
+  const backdropElement = useCallback(() => backdrop.current, []);
+  const pressedOutside = usePressOutside(open, frame, backdropElement);
+  // A window kept mounted while closed opens again at its own size, with nothing entered.
+  if (!open && (maximized || entered || confirmingClose)) {
+    setMaximized(false);
+    setEntered(false);
+    setConfirmingClose(false);
+  }
   if (!open) return null;
+  const holdsUnsavedInput = unsavedChanges ?? entered;
+  const closeOnPressOutside = (event: MouseEvent<HTMLDivElement>): void => {
+    if (event.target !== event.currentTarget || !pressedOutside()) return;
+    if (holdsUnsavedInput) setConfirmingClose(true);
+    else onClose();
+  };
+  // In the capture phase, so a field that stops its events still counts; a picker portalled out of
+  // the window still bubbles through it in React's tree.
+  const noteInput = (): void => {
+    if (!entered) setEntered(true);
+  };
+  const closeStep: DialogStep | undefined = confirmingClose
+    ? {
+        content: (
+          <>
+            <strong>Close without saving?</strong> What you entered here will be lost.
+          </>
+        ),
+        actions: (
+          <Button variant="danger" onClick={onClose}>
+            Close without saving
+          </Button>
+        ),
+        onCancel: () => setConfirmingClose(false),
+      }
+    : undefined;
+  const barStep = closeStep ?? step;
   const isMaximized = maximizable && maximized;
   const frameClasses = ["dialog-frame", size];
   if (keepsHeight) frameClasses.push("keeps-height");
@@ -120,13 +176,19 @@ export function Dialog({
   // On the body, so a window opened from inside a card is over the whole page and takes none of the
   // card's styles.
   return createPortal(
-    <div className={`dialog-backdrop${isMaximized ? " maximized" : ""}`}>
+    <div
+      ref={backdrop}
+      className={`dialog-backdrop${isMaximized ? " maximized" : ""}`}
+      onClick={closeOnPressOutside}
+    >
       <div
         ref={frame}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         className={frameClasses.join(" ")}
+        onInputCapture={noteInput}
+        onChangeCapture={noteInput}
       >
         <header className="dialog-head">
           <h2 id={titleId}>{title}</h2>
@@ -141,12 +203,18 @@ export function Dialog({
           <IconButton icon={<Icon name="x" />} label="Close (Esc)" size="sm" onClick={onClose} />
         </header>
         <div className="dialog-body">{children}</div>
-        {step && <div className="dialog-step">{step.content}</div>}
+        {/* Kept while the confirmation is over it, so Cancel brings it back as it was. */}
+        {step && (
+          <div className="dialog-step" hidden={confirmingClose}>
+            {step.content}
+          </div>
+        )}
+        {closeStep && <div className="dialog-step">{closeStep.content}</div>}
         <footer className="dialog-bar">
-          {step ? (
+          {barStep ? (
             <>
-              {step.actions}
-              <Button variant="secondary" onClick={step.onCancel}>
+              {barStep.actions}
+              <Button variant="secondary" onClick={barStep.onCancel}>
                 Cancel
               </Button>
             </>
@@ -376,21 +444,46 @@ function useCloseOnTriggerMove(
   }, [pointedAt, setPointedAt, trigger]);
 }
 
-function KeepOpenOnBackdropPress({
-  ref,
-  inline,
-  children,
-}: {
-  readonly ref: RefObject<HTMLDivElement | null>;
-  readonly inline: boolean;
-  readonly children: ReactNode;
-}): ReactNode {
-  const stopBackdropPress = (event: MouseEvent<HTMLDivElement>): void => {
-    if (!inline && event.target === event.currentTarget.firstElementChild) event.stopPropagation();
+interface BackdropPress {
+  startedOnBackdrop: boolean;
+  endedOnBackdrop: boolean;
+}
+
+/**
+ * Whether the click now landing on the backdrop of `element`, a window or a side panel, was a
+ * press outside it: one that started and ended on the backdrop while nothing was open over it. A
+ * drag from inside lets go on the backdrop, and its click lands there too; a press closing a menu
+ * or a popover inside closes only that.
+ */
+function usePressOutside(
+  open: boolean,
+  element: RefObject<HTMLElement | null>,
+  backdrop: () => Element | null,
+): () => boolean {
+  const press = useRef<BackdropPress>({ startedOnBackdrop: false, endedOnBackdrop: false });
+  useEffect(() => {
+    if (!open) return;
+    // In the capture phase on `window`, before a popover closes on the same press, as Escape's
+    // topmost check is read before a menu closes.
+    const noteStart = ({ target }: PointerEvent): void => {
+      press.current = {
+        startedOnBackdrop: target === backdrop() && isTopmost(element.current),
+        endedOnBackdrop: false,
+      };
+    };
+    const noteEnd = ({ target }: PointerEvent): void => {
+      press.current.endedOnBackdrop = target === backdrop();
+    };
+    window.addEventListener("pointerdown", noteStart, { capture: true });
+    window.addEventListener("pointerup", noteEnd, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", noteStart, { capture: true });
+      window.removeEventListener("pointerup", noteEnd, { capture: true });
+    };
+  }, [open, element, backdrop]);
+  return () => {
+    const { startedOnBackdrop, endedOnBackdrop } = press.current;
+    press.current = { startedOnBackdrop: false, endedOnBackdrop: false };
+    return startedOnBackdrop && endedOnBackdrop;
   };
-  return (
-    <div ref={ref} style={{ display: "contents" }} onClickCapture={stopBackdropPress}>
-      {children}
-    </div>
-  );
 }

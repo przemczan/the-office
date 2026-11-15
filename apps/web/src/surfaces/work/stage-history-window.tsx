@@ -76,6 +76,8 @@ export function StageHistoryWindow({
           </span>
         </span>
       }
+      // A message written to the Stage waits in its Thread's draft for when the window opens again.
+      unsavedChanges={false}
       onClose={onClose}
     >
       <div ref={content} className="stage-history">

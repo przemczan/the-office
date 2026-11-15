@@ -88,7 +88,8 @@ export function useDrawerFollowsAddress(address: DrawerAddress | undefined): voi
  * The conversation's panel. On a narrow page it is a drawer over the page, reached by a handle
  * with the unread count. The design system's Drawer can't serve: closed it unmounts its content,
  * and this one must keep the draft, the folds and the count, so closed it is only out of sight.
- * Pressing outside closes it, unlike a window (overlays.tsx): it is a side view, losing nothing.
+ * Pressing outside closes it, as it does a window (overlays.tsx), and never needs to ask: closed it
+ * keeps its draft, so nothing is lost.
  */
 export function ConversationPanel({
   unread,

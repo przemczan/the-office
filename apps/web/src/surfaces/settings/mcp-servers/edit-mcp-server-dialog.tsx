@@ -59,6 +59,7 @@ function EditMcpServerForm({
     <Dialog
       size="medium"
       title={`Edit ${saved.name}`}
+      unsavedChanges={JSON.stringify(draft) !== JSON.stringify(draftOfServer(saved))}
       onClose={onClose}
       actions={
         <Button type="submit" form={formId} loading={saving.isPending}>

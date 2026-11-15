@@ -22,6 +22,7 @@ export function RepositoryFileWindow({
     <Dialog
       size="medium"
       title={title}
+      unsavedChanges={selected !== null}
       onClose={onClose}
       actions={
         <Button

@@ -29,6 +29,7 @@ export function ShapeIdeaDialog({
     <Dialog
       size="medium"
       title="Which Project is the Task in?"
+      unsavedChanges={chosen !== undefined}
       onClose={onClose}
       actions={
         <Button

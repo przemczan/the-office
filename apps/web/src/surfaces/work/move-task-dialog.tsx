@@ -31,6 +31,7 @@ export function MoveTaskDialog({
     <Dialog
       size="medium"
       title={`Move ${task.title} to another Project`}
+      unsavedChanges={chosen !== undefined}
       onClose={onClose}
       actions={
         canMove && (

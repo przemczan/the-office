@@ -47,6 +47,12 @@ export function CaptureIdeaDialog({
     <Dialog
       size="medium"
       title="Capture an Idea"
+      unsavedChanges={
+        draft.title !== "" ||
+        draft.notes !== "" ||
+        draft.projectId !== projectId ||
+        pending.length > 0
+      }
       onClose={onClose}
       actions={
         <>

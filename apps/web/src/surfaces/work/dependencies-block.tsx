@@ -142,6 +142,7 @@ function AddDependencyDialog({
     <Dialog
       size="medium"
       title="What must be Done first?"
+      unsavedChanges={blockerId !== undefined}
       onClose={onClose}
       actions={
         <Button

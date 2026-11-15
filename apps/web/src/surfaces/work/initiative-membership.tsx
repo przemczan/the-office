@@ -128,6 +128,7 @@ function JoinInitiativeDialog({
     <Dialog
       size="medium"
       title="Add to an Initiative"
+      unsavedChanges={initiative !== undefined}
       onClose={onClose}
       actions={
         <>
@@ -202,6 +203,7 @@ export function TakeOutDialog({
     <Dialog
       size={only ? "small" : "medium"}
       title={only ? `Take ${only.title} out of ${initiative.name}?` : "Take a Task out"}
+      unsavedChanges={chosen !== only?.id}
       onClose={onClose}
       actions={
         <Button
@@ -275,6 +277,7 @@ export function AddExistingTaskDialog({
     <Dialog
       size="medium"
       title={`Add an existing Task to ${initiative.name}`}
+      unsavedChanges={task !== undefined}
       onClose={onClose}
       actions={
         <>

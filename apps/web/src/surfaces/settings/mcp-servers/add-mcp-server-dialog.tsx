@@ -61,6 +61,8 @@ export function AddMcpServerDialog({
     <Dialog
       size="medium"
       title="Add an MCP server"
+      // The transport and the secret and required boxes are chosen with no field's input.
+      unsavedChanges={config !== "" || JSON.stringify(draft) !== JSON.stringify(NEW_MCP_SERVER)}
       onClose={onClose}
       actions={
         <Button

@@ -1,5 +1,5 @@
 import { act, useRef, useState, type ReactNode } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -53,8 +53,37 @@ function pressOn(element: Element | null | undefined): void {
   act(() => element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true })));
 }
 
+function dispatch(element: Element, type: string): void {
+  act(() => element.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true })));
+}
+
+/**
+ * As a real press: `pointerdown` where it starts, `pointerup` where it ends, and the click on what
+ * holds both, as a browser sends it.
+ */
+function pressFrom(
+  start: Element | null | undefined,
+  end: Element | null | undefined = start,
+  clicked: Element | null | undefined = end,
+): void {
+  if (!start || !end || !clicked) throw new Error("Nothing to press");
+  dispatch(start, "pointerdown");
+  dispatch(end, "pointerup");
+  dispatch(clicked, "click");
+}
+
+function typeInto(field: Element | null | undefined): void {
+  if (!field) throw new Error("Nothing to type into");
+  act(() => field.dispatchEvent(new Event("input", { bubbles: true })));
+}
+
 const backdrop = (): Element | null | undefined =>
   document.querySelector("[role=dialog]")?.parentElement;
+
+const backdrops = (): Element[] =>
+  [...document.querySelectorAll("[role=dialog]")].flatMap(({ parentElement }) =>
+    parentElement ? [parentElement] : [],
+  );
 
 // The design system's Button carries its own <style>, which isn't part of its name.
 const nameOf = (button: Element): string =>
@@ -86,11 +115,44 @@ describe.each([
   ],
   ["Drawer", (onClose: () => void) => <Drawer title="New Task" onClose={onClose} />],
 ])("%s", (_, overlay) => {
-  it("stays open on a press on its backdrop", () => {
+  it("closes on a press on its backdrop", () => {
     const onClose = vi.fn<() => void>();
     show(overlay(onClose));
 
-    pressOn(backdrop());
+    pressFrom(backdrop());
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("stays open on a press that starts inside it and ends on its backdrop", () => {
+    const onClose = vi.fn<() => void>();
+    show(overlay(onClose));
+
+    // The click lands on what holds both ends of the press: the backdrop.
+    pressFrom(document.querySelector("[role=dialog] h2, [role=dialog] h3"), backdrop());
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("stays open on a press that starts on its backdrop and ends inside it", () => {
+    const onClose = vi.fn<() => void>();
+    show(overlay(onClose));
+
+    pressFrom(backdrop(), document.querySelector("[role=dialog] h2, [role=dialog] h3"), backdrop());
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("stays open on a press on its backdrop while a menu inside is open, which closes alone", () => {
+    const onClose = vi.fn<() => void>();
+    show(
+      <>
+        {overlay(onClose)}
+        <div role="menu" />
+      </>,
+    );
+
+    pressFrom(backdrop());
 
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -111,6 +173,210 @@ describe.each([
     pressEscape();
 
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+const stepText = (): string | null | undefined =>
+  document.querySelector(".dialog-step")?.textContent;
+
+function NewTask({
+  onClose,
+  unsavedChanges,
+}: {
+  readonly onClose: () => void;
+  readonly unsavedChanges?: boolean;
+}): ReactNode {
+  return (
+    <Dialog
+      size="medium"
+      title="New Task"
+      actions={<button>Create</button>}
+      unsavedChanges={unsavedChanges}
+      onClose={onClose}
+    >
+      <input aria-label="Title" />
+    </Dialog>
+  );
+}
+
+describe("a press outside a window holding unsaved input", () => {
+  it("asks first in a step over the bar once something was typed", () => {
+    const onClose = vi.fn<() => void>();
+    show(<NewTask onClose={onClose} />);
+    typeInto(document.querySelector("input"));
+
+    pressFrom(backdrop());
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(stepText()).toBe("Close without saving? What you entered here will be lost.");
+    expect(barButtons()).toEqual(["Close without saving", "Cancel", "Close"]);
+  });
+
+  it("keeps the window and what was typed on Cancel", () => {
+    const onClose = vi.fn<() => void>();
+    show(<NewTask onClose={onClose} />);
+    const title = document.querySelector("input");
+    if (title) title.value = "Fix the login";
+    typeInto(title);
+    pressFrom(backdrop());
+
+    pressOn(button(".dialog-bar", "Cancel"));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector(".dialog-step")).toBeNull();
+    expect(barButtons()).toEqual(["Create", "Close"]);
+    expect(document.querySelector("input")?.value).toBe("Fix the login");
+  });
+
+  it("closes on Close without saving", () => {
+    const onClose = vi.fn<() => void>();
+    show(<NewTask onClose={onClose} />);
+    typeInto(document.querySelector("input"));
+    pressFrom(backdrop());
+
+    pressOn(button(".dialog-bar", "Close without saving"));
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("counts input in a picker portalled out of the window", () => {
+    const onClose = vi.fn<() => void>();
+    const picker = document.createElement("div");
+    document.body.append(picker);
+    show(
+      <Dialog size="medium" title="New Task" onClose={onClose}>
+        {createPortal(<input aria-label="Find a Project" />, picker)}
+      </Dialog>,
+    );
+    typeInto(picker.querySelector("input"));
+
+    pressFrom(backdrop());
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(stepText()).toContain("Close without saving?");
+    picker.remove();
+  });
+
+  it("closes without asking when the window says nothing is lost, as a search", () => {
+    const onClose = vi.fn<() => void>();
+    show(<NewTask onClose={onClose} unsavedChanges={false} />);
+    typeInto(document.querySelector("input"));
+
+    pressFrom(backdrop());
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("asks without anything typed when the window says it holds unsaved input", () => {
+    const onClose = vi.fn<() => void>();
+    show(<NewTask onClose={onClose} unsavedChanges />);
+
+    pressFrom(backdrop());
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(stepText()).toContain("Close without saving?");
+  });
+
+  it("takes the place of the window's own step, which Cancel brings back as it was", () => {
+    const onCancel = vi.fn<() => void>();
+    show(
+      <Dialog
+        size="small"
+        title="Drop"
+        step={{
+          content: <textarea aria-label="Reason" />,
+          actions: <button>Drop</button>,
+          onCancel,
+        }}
+        onClose={() => {}}
+      />,
+    );
+    const reason = document.querySelector("textarea");
+    if (reason) reason.value = "Done elsewhere";
+    typeInto(reason);
+    pressFrom(backdrop());
+
+    expect(document.querySelector(".dialog-step:not([hidden]) textarea")).toBeNull();
+    expect(barButtons()).toEqual(["Close without saving", "Cancel", "Close"]);
+
+    pressOn(button(".dialog-bar", "Cancel"));
+
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(document.querySelectorAll(".dialog-step")).toHaveLength(1);
+    expect(
+      document.querySelector<HTMLTextAreaElement>(".dialog-step:not([hidden]) textarea")?.value,
+    ).toBe("Done elsewhere");
+    expect(barButtons()).toEqual(["Drop", "Cancel", "Close"]);
+  });
+
+  it("leaves Escape, the X and Close to close at once", () => {
+    for (const close of [
+      () => pressEscape(),
+      () => pressOn(button(".dialog-head", "Close (Esc)")),
+      () => pressOn(button(".dialog-bar", "Close")),
+    ]) {
+      const onClose = vi.fn<() => void>();
+      show(<NewTask onClose={onClose} />);
+      typeInto(document.querySelector("input"));
+
+      close();
+
+      expect(onClose).toHaveBeenCalledOnce();
+      act(() => root.render(null));
+    }
+  });
+
+  it("opens again with nothing entered after it was closed", () => {
+    const onClose = vi.fn<() => void>();
+    show(
+      <Dialog open size="medium" title="New Task" onClose={onClose}>
+        <input aria-label="Title" />
+      </Dialog>,
+    );
+    typeInto(document.querySelector("input"));
+    show(<Dialog open={false} size="medium" title="New Task" onClose={onClose} />);
+    show(<Dialog open size="medium" title="New Task" onClose={onClose} />);
+
+    pressFrom(backdrop());
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+describe("a press outside a window over another", () => {
+  it("closes only the Attachment viewer over a window", () => {
+    const onCloseUnder = vi.fn<() => void>();
+    show(<WindowWithViewer onCloseUnder={onCloseUnder} />);
+    pressOn(button(".dialog-body", "View today.png"));
+
+    pressFrom(backdrops().at(-1));
+
+    expect(document.querySelectorAll("[role=dialog]")).toHaveLength(1);
+    expect(onCloseUnder).not.toHaveBeenCalled();
+  });
+
+  it("closes only the window over the Needs you panel", () => {
+    const onClosePanel = vi.fn<() => void>();
+    show(<PanelWithWindow onClosePanel={onClosePanel} />);
+    pressOn(button("aside", "Open details"));
+
+    pressFrom(document.querySelector(".dialog-backdrop"));
+
+    expect(document.querySelector(".dialog-frame")).toBeNull();
+    expect(onClosePanel).not.toHaveBeenCalled();
+  });
+
+  it("waits for a picker inside that isn't the design system's", () => {
+    const onClose = vi.fn<() => void>();
+    show(
+      <Dialog size="medium" title="New Task" onClose={onClose}>
+        <MenuOfItsOwn />
+      </Dialog>,
+    );
+
+    pressFrom(backdrop());
+
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 
