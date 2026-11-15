@@ -22,7 +22,13 @@ import {
   type ConsultantPerson,
 } from "../domain/consult.js";
 import { MessagesLogged, TurnEnded } from "../domain/conversation-events.js";
-import { answerWords, type Decision, type DecisionAnswer } from "../domain/decision.js";
+import {
+  answerWords,
+  CLOSED_DECISION_REFUSAL,
+  isOpen,
+  type Decision,
+  type DecisionAnswer,
+} from "../domain/decision.js";
 import type { Thread } from "../domain/thread.js";
 import {
   logMessages,
@@ -256,6 +262,7 @@ export class Consultations implements OnModuleInit {
         "This Decision is answered already: the user took the Consultation over, or someone it was passed on to answered. There is nothing left to answer.",
       ]);
     }
+    if (decision.closedAt) throw new ThreadRefused([CLOSED_DECISION_REFUSAL]);
     if (decision.putTo !== consultation.roleKey) {
       throw new ThreadRefused([
         "You passed this Decision on: it waits on someone else now. There is nothing left to answer.",
@@ -299,7 +306,7 @@ export class Consultations implements OnModuleInit {
     if (failure?.kind !== "failure") return;
     const { decisionId, askerThreadId } = thread.consultation;
     const decision = await this.repository.decision(decisionId);
-    if (!decision || decision.answer || decision.putTo !== thread.roleKey) return;
+    if (!decision || !isOpen(decision) || decision.putTo !== thread.roleKey) return;
     this.logger.warn(
       `Consultation ${thread.id} couldn't answer Decision ${decision.id}; the user is asked: ${failure.reason}`,
     );

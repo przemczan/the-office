@@ -8,6 +8,7 @@ import { FirstRunSetup } from "./modules/users/index.js";
 import { RunEnvironments } from "./modules/run-environments/index.js";
 import {
   DroppedInitiativeTasks,
+  DroppedTaskDecisions,
   FireAlarmService,
   InitiativeArchiving,
   PlanningAfterRestart,
@@ -103,7 +104,8 @@ function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): voi
  * Puts right the answers and the background Sub-agents the last run cut short, finishes a fire
  * alarm's sounding it stopped during (spec §2.8), which also pauses again the Tasks an all clear it
  * stopped during had resumed before turning the alarm off, drops the Tasks that Initiatives dropped
- * earlier left open (spec §2.1), so none of them starts, wakes the planner in each planning Thread
+ * earlier left open (spec §2.1), so none of them starts, closes the Decisions left open on dropped
+ * Tasks (spec §2.4), wakes the planner in each planning Thread
  * the restart cut short (spec §2.4), sets again the resume of each Task the usage window paused,
  * resuming one whose reset passed meanwhile (spec §2.1), then releases the kept queue (spec §2.1),
  * since a desk may have been freed while the service was down; the release holds while the alarm is on. Last, it starts the
@@ -118,6 +120,7 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
   const subAgentsLost = await app.get(SubAgentsAndProcesses).recover();
   await app.get(FireAlarmService).finishSounding();
   await app.get(DroppedInitiativeTasks).dropLeftOpen();
+  await app.get(DroppedTaskDecisions).closeLeftOpen();
   await app.get(PlanningAfterRestart).wake([...answersCutShort, ...subAgentsLost]);
   await app.get(UsageWindowResumes).start();
   await app.get(QueueService).release();

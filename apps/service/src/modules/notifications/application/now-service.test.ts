@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { nowSchema, type Now } from "@the-office/contracts";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
+import { DecisionClosed, DecisionOpened } from "../../conversations/index.js";
 import { NowChanged } from "../domain/now-events.js";
 import { NotificationsModule } from "../notifications.module.js";
 import {
@@ -142,6 +143,35 @@ describe("NowService", () => {
     ]);
   });
 
+  it("no longer lists a Decision its Task's Drop closed, and announces it", async () => {
+    const taskId = randomUUID();
+    const decision = { id: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") };
+    tasks.tasks = [
+      {
+        id: taskId,
+        title: "Add a filter",
+        projectId: "p1",
+        state: "waiting-on-you",
+        pausedBy: undefined,
+        resumesAt: undefined,
+      },
+    ];
+    const decisions = app.get(OpenDecisionsForTests);
+    decisions.open = [decision];
+    await events.publish(decisionEvent(DecisionOpened, decision));
+    await vi.waitFor(() =>
+      expect(announced.at(-1)?.now.needsYou).toEqual([
+        expect.objectContaining({ kind: "decision", decisionId: decision.id }),
+      ]),
+    );
+
+    decisions.open = [];
+    await events.publish(decisionEvent(DecisionClosed, decision));
+
+    await vi.waitFor(() => expect(announced.at(-1)?.now.needsYou).toEqual([]));
+    expect((await readNow()).needsYou).toEqual([]);
+  });
+
   it("carries the fire alarm while it is on, with how each Task it paused would resume", async () => {
     const taskId = randomUUID();
     tasks.tasks = [
@@ -195,3 +225,17 @@ describe("NowService", () => {
     });
   });
 });
+
+type DecisionEventParameters = ConstructorParameters<typeof DecisionOpened>;
+
+/** Only what Now reads of a Decision: which one, on which Task. */
+function decisionEvent(
+  eventClass: typeof DecisionOpened | typeof DecisionClosed,
+  decision: { readonly id: string; readonly taskId: string },
+): DecisionOpened | DecisionClosed {
+  const [thread, asked] = [{}, decision] as unknown as [
+    DecisionEventParameters[0],
+    DecisionEventParameters[1],
+  ];
+  return new eventClass(thread, asked, new Date());
+}

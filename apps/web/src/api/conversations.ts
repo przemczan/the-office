@@ -373,6 +373,7 @@ export const threadEventInvalidations: Readonly<
   "thread.decision-opened": () => [THREADS, DECISIONS, TASKS],
   "thread.decision-answered": () => [THREADS, DECISIONS, TASKS],
   "thread.decision-reopened": () => [THREADS, DECISIONS, TASKS],
+  "thread.decision-closed": () => [THREADS, DECISIONS, TASKS],
   "thread.proposal-drafted": () => [THREADS, [...PROPOSALS, "open"]],
   "thread.proposal-applied": () => [THREADS, PROPOSALS],
   "thread.proposal-declined": () => [THREADS, PROPOSALS],

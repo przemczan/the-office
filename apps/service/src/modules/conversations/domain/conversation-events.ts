@@ -122,6 +122,17 @@ export class DecisionAnswered extends DomainEvent {
   }
 }
 
+/** A Decision nobody had answered was closed, as its Task was dropped: nobody waits on it now. */
+export class DecisionClosed extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly decision: Decision,
+    closedAt: Date,
+  ) {
+    super(closedAt);
+  }
+}
+
 /**
  * A Decision waits anew: on the user again, as when the session its answer went to never started
  * or its Consultant can't answer it, or on the Consultant it was passed on to.

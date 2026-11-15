@@ -60,6 +60,8 @@ export function useDecisionThread(
  */
 export function DecisionOnTask(props: DecisionCardProps): ReactNode {
   const attachments = useNamedAttachments(props.decision);
+  // A closed one has nothing left to answer, so it shows its closed form, Attachments or not.
+  if (props.decision.closedAt !== null) return <DecisionCard {...props} />;
   if (attachments === undefined) return null;
   if (attachments.length === 0) return <DecisionCard {...props} />;
   return <DecisionToLookAt {...props} attachments={attachments} />;

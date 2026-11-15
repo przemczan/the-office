@@ -14,4 +14,9 @@ export abstract class TaskDecisions {
   abstract tasksWithOpenDecisions(): Promise<readonly string[]>;
   /** The Decisions on the Task waiting on the user, in any of its Threads, the first asked first. */
   abstract waitingOnTheUserOn(taskId: string): Promise<readonly DecisionWaitingOnTheUser[]>;
+  /**
+   * Closes every Decision still open on the dropped Task, waiting on the user or put to a
+   * Consultant, in any of its Threads; nothing when none is.
+   */
+  abstract closeOnDroppedTask(taskId: string): Promise<void>;
 }

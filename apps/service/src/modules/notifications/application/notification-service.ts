@@ -4,6 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import {
   DecisionAnswered,
+  DecisionClosed,
   DecisionOpened,
   DecisionReopened,
   TurnEnded,
@@ -148,6 +149,9 @@ export class NotificationService implements OnModuleInit {
       taskId === undefined
         ? undefined
         : this.handle({ kind: "decision-answered", decisionId: id, taskId }),
+    );
+    this.events.subscribe(DecisionClosed, ({ decision: { id } }) =>
+      this.handle({ kind: "decision-closed", decisionId: id }),
     );
     this.events.subscribe(GateReached, async ({ taskId, stageKey }) => {
       const [gate, { personRole }] = await Promise.all([

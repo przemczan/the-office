@@ -24,7 +24,12 @@ import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RecordMention } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
-import { answerWords, atUsersRequestWords, namedAttachments } from "./decision-words.ts";
+import {
+  answerWords,
+  atUsersRequestWords,
+  CLOSED_WORDS,
+  namedAttachments,
+} from "./decision-words.ts";
 import { roleFirstName } from "../person-name.ts";
 import { NamedTag, PersonTag } from "../person-tag.tsx";
 import { userName, useSignedInUserId } from "../use-user-name.ts";
@@ -58,14 +63,18 @@ export function DecisionCard({
       place={place}
     >
       <DecisionDetail decision={decision} roles={roles} />
-      <OpenDecision
-        decision={decision}
-        personName={personName}
-        answering={answering}
-        reachesAtTurnEnd={reachesAtTurnEnd}
-        followUps={followUps}
-        roles={roles}
-      />
+      {decision.closedAt === null ? (
+        <OpenDecision
+          decision={decision}
+          personName={personName}
+          answering={answering}
+          reachesAtTurnEnd={reachesAtTurnEnd}
+          followUps={followUps}
+          roles={roles}
+        />
+      ) : (
+        <ClosedLine />
+      )}
     </DecisionFrame>
   );
 }
@@ -123,7 +132,12 @@ export function DecisionInThread({
           On <RecordMention link={{ kind: "task", taskId: decision.taskId }} written="its Task" />
         </p>
       )}
-      {decision.answer === null ? (
+      {decision.closedAt !== null ? (
+        <>
+          <DecisionDetail decision={decision} roles={roles} />
+          <ClosedLine />
+        </>
+      ) : decision.answer === null ? (
         <p className="decision-hint">
           {decision.putTo === null
             ? "Waits on you."
@@ -155,6 +169,19 @@ export function DecisionInThread({
         </>
       )}
     </DecisionFrame>
+  );
+}
+
+/**
+ * A Decision closed unanswered, as its Task was dropped: in the answer's place, with nothing left to
+ * answer or take over (spec §2.4).
+ */
+function ClosedLine(): ReactNode {
+  return (
+    <div className="decision-answered decision-closed">
+      <Icon name="x" size={12} />
+      <span>{CLOSED_WORDS}</span>
+    </div>
   );
 }
 

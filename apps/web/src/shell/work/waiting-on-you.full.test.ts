@@ -64,6 +64,7 @@ function aDecisionOn(taskId: string): Decision {
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,
+    closedAt: null,
   };
 }
 

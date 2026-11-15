@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { DecisionAnswered, DecisionOpened, DeliveryMarked } from "./conversation-events.js";
+import {
+  DecisionAnswered,
+  DecisionClosed,
+  DecisionOpened,
+  DeliveryMarked,
+} from "./conversation-events.js";
 import { approvalQuestion, APPROVAL_OPTIONS } from "./consult.js";
-import { answerForUserProblems, answerGivenBy, answerProblems } from "./decision.js";
+import { answerForUserProblems, answerGivenBy, answerProblems, isOpen } from "./decision.js";
 import {
   answerDecision,
+  closeDecision,
   deliverWaitingAnswers,
   keepAnswerForTurnEnd,
   openDecision,
@@ -73,6 +79,34 @@ describe("answering a Decision", () => {
     expect(refusalOf(() => answerDecision({ ...waiting, state: "answering" }, answering))).toEqual([
       "Jan is still answering. Answer once they finish.",
     ]);
+  });
+});
+
+describe("closing a Decision as its Task is dropped", () => {
+  const open = aDecision({ id: "decision-1" });
+  const waiting = aThread({ home: TASK_HOME, session: SESSION, openDecisions: [open] });
+
+  it("closes the open Decision, so the Thread no longer waits on it", () => {
+    const closed = closeDecision(waiting, "decision-1", AT);
+    if (!closed) throw new Error("It closed nothing.");
+
+    const decision = { ...open, closedAt: AT };
+    expect(closed.decision).toEqual(decision);
+    expect(closed.thread).toEqual({ ...waiting, openDecisions: [] });
+    expect(closed.logged).toEqual([]);
+    expect(closed.event).toEqual(new DecisionClosed(closed.thread, decision, AT));
+    expect(isOpen(decision)).toBe(false);
+  });
+
+  it("changes nothing for a Decision the Thread doesn't wait on", () => {
+    expect(closeDecision({ ...waiting, openDecisions: [] }, "decision-1", AT)).toBeUndefined();
+  });
+
+  it("refuses an answer to a closed Decision, by the user or a person at their request", () => {
+    const closed = { ...open, closedAt: AT };
+    const words = ["This Decision was closed: its Task was dropped."];
+    expect(answerProblems(closed, { kind: "option", option: 0 })).toEqual(words);
+    expect(answerForUserProblems(closed, aThread({ id: "thread-of-the-cto" }))).toEqual(words);
   });
 });
 

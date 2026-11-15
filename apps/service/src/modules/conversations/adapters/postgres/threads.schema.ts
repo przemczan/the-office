@@ -141,17 +141,21 @@ export const decisions = pgTable(
     passedOn: jsonb("passed_on").$type<readonly SavedPassedOn[]>().notNull().default([]),
     answer: jsonb("answer").$type<DecisionAnswer & AnswerGivenBy>(),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
+    /** When it was closed unanswered, as its Task was dropped; null otherwise. */
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     /** When an approval this answer gave a held call let it through; null while it is unused. */
     approvalSpentAt: timestamp("approval_spent_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("decisions_open_on_task_in_thread")
       .on(table.threadId, table.taskId)
-      .where(sql`${table.answeredAt} is null`),
+      .where(sql`${table.answeredAt} is null and ${table.closedAt} is null`),
     // Nulls are distinct to the index above, so a chat Thread's one open call needs its own.
     uniqueIndex("decisions_open_on_no_task_in_thread")
       .on(table.threadId)
-      .where(sql`${table.answeredAt} is null and ${table.taskId} is null`),
+      .where(
+        sql`${table.answeredAt} is null and ${table.closedAt} is null and ${table.taskId} is null`,
+      ),
     index("decisions_task").on(table.taskId, table.answeredAt),
   ],
 );

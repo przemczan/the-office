@@ -52,6 +52,9 @@ type ProposalRow = typeof proposals.$inferSelect;
 /** The client or a transaction on it: whichever reads the Threads' open Decisions. */
 type Reader = Pick<Database, "select">;
 
+/** A Decision still open: neither answered nor closed. */
+const unanswered = and(isNull(decisions.answeredAt), isNull(decisions.closedAt));
+
 @Injectable()
 export class PostgresThreadRepository extends ThreadRepository {
   constructor(@Inject(DATABASE) private readonly database: Database) {
@@ -149,6 +152,7 @@ export class PostgresThreadRepository extends ThreadRepository {
               passedOn: decisionRow.passedOn,
               answer: decisionRow.answer,
               answeredAt: decisionRow.answeredAt,
+              closedAt: decisionRow.closedAt,
             },
           });
       }
@@ -258,9 +262,7 @@ export class PostgresThreadRepository extends ThreadRepository {
       .select()
       .from(decisions)
       // A call made from a chat never waits on the user: a chat has no Needs you (spec §2.4).
-      .where(
-        and(isNull(decisions.answeredAt), isNull(decisions.putTo), isNotNull(decisions.taskId)),
-      )
+      .where(and(unanswered, isNull(decisions.putTo), isNotNull(decisions.taskId)))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
   }
@@ -277,7 +279,7 @@ export class PostgresThreadRepository extends ThreadRepository {
     const rows = await this.database
       .select()
       .from(decisions)
-      .where(and(where, isNull(decisions.answeredAt)))
+      .where(and(where, unanswered))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
   }
@@ -339,7 +341,7 @@ async function withOpenDecisions(reader: Reader, rows: readonly ThreadRow[]): Pr
           decisions.threadId,
           rows.map((row) => row.id),
         ),
-        isNull(decisions.answeredAt),
+        unanswered,
       ),
     )
     .orderBy(asc(decisions.askedAt), asc(decisions.id));
@@ -469,10 +471,12 @@ function toDecisionRow({
   roleKey,
   putTo,
   passedOn,
+  closedAt,
   ...fields
 }: Decision): SavedDecision {
   const decision = {
     ...fields,
+    closedAt: closedAt ?? null,
     taskId: taskId ?? null,
     roleKey: roleKey ?? null,
     putTo: putTo ?? null,
@@ -493,11 +497,13 @@ function toDecision({
   roleKey,
   putTo,
   passedOn,
+  closedAt,
   approvalSpentAt: _approvalSpentAt,
   ...row
 }: DecisionRow): Decision {
   return {
     ...row,
+    ...(closedAt === null ? {} : { closedAt }),
     taskId: taskId ?? undefined,
     roleKey: roleKey ?? undefined,
     putTo: putTo ?? undefined,

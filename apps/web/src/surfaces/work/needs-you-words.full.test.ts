@@ -28,6 +28,7 @@ function decisionPutTo(putTo: string | null): Decision {
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,
+    closedAt: null,
   };
 }
 

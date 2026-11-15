@@ -197,7 +197,7 @@
 - `context-words.ts`: MOVE_WORDS, ContextChoice, CONTEXT_CHOICES, overrideOf, contextChoiceOf, CacheState, cacheStateAt, startsASessionWords, offersAChoice, contextChoiceWords, tokensShort, contextDetail, contextLabel, contextBarLabel
 - `decision-card.tsx`: DecisionCard, DecisionCardProps, useNamedAttachments, DecisionInThread, bringDecisionCardIntoView, decisionCardElementId, DecisionCardLinkContext, DecisionFrame, DecisionHeading, DecisionDetail, ConsultationNote, Recommendation, FollowUpsHint, AnswerRefused, ReachesAtTurnEndHint, stillAnsweringHint, useAnswering
 - `decision-on-task.tsx`: useDecisionThread, DecisionOnTask, MentionedDecisionWindow
-- `decision-words.ts`: atUsersRequestWords, answerWords, namedAttachments, decisionDetailsWords
+- `decision-words.ts`: atUsersRequestWords, CLOSED_WORDS, answerWords, namedAttachments, decisionDetailsWords
 - `details-store.ts`: DETAILS_STORAGE_KEY, DetailsStore, createDetailsStore, Details, useDetails
 - `details-switch.tsx`: DetailsSwitch
 - `devops-proposal-changes.tsx`: ProposedCommandChanges, commandWords, ProposedStageChanges, ProposedStageFieldChanges, ProposedProjectPipelineFields, ProposedSkillInstallFields, ProposedSkillUpdateFields

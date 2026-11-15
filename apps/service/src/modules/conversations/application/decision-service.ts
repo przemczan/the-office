@@ -5,6 +5,7 @@ import { RoleCards } from "../../people/index.js";
 import {
   answerForUserProblems,
   answerGivenBy,
+  CLOSED_DECISION_REFUSAL,
   isApproval,
   isOnTask,
   type Answerer,
@@ -16,7 +17,12 @@ import {
 import { DecisionNotFound } from "../domain/decision-not-found.js";
 import { latestWriter } from "../domain/message.js";
 import type { Home, Thread } from "../domain/thread.js";
-import { openDecision, openDecisionOf, recordDecisionAnswer } from "../domain/thread-changes.js";
+import {
+  closeDecision,
+  openDecision,
+  openDecisionOf,
+  recordDecisionAnswer,
+} from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
@@ -109,12 +115,13 @@ export class DecisionService {
    * The answer to The Office's Decision, or to one in a Stage Thread, goes to the Task's Pipeline
    * instead, which runs on from it, even when given while the asking Stage still runs: the
    * Pipeline reads it as the Stage ends. Refused once it is answered, and while the person is
-   * still answering.
+   * still answering, and once it is closed.
    */
   async answer(id: string, answer: DecisionAnswer, answerer: Answerer): Promise<Thread> {
     const decision = await this.repository.decision(id);
     if (!decision) throw new DecisionNotFound(id);
     if (decision.answer) throw new ThreadRefused(["This Decision is answered already."]);
+    if (decision.closedAt) throw new ThreadRefused([CLOSED_DECISION_REFUSAL]);
     const thread = await this.repository.find(decision.threadId);
     if (!thread) throw new Error(`Decision ${id}'s Thread is gone.`);
     if (decision.roleKey !== undefined && !thread.stageThread) {
@@ -131,6 +138,21 @@ export class DecisionService {
     );
     if (event) await this.events.publish(event);
     return answered;
+  }
+
+  /**
+   * The Task was dropped (spec §2.4): every Decision still open on it, waiting on the user or put
+   * to a Consultant, in any of its Threads, is closed, so it leaves Needs you and can no longer be
+   * answered. A Consultation's session isn't stopped here: the Task's Drop stops its work.
+   */
+  async closeOnDroppedTask(taskId: string): Promise<void> {
+    const open = await this.repository.unansweredOn(taskId);
+    for (const { id, threadId } of open) {
+      const { event } = await this.repository.update(threadId, (latest) =>
+        closeDecision(latest, id, new Date()),
+      );
+      if (event) await this.events.publish(event);
+    }
   }
 
   /**

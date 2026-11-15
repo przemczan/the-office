@@ -141,9 +141,10 @@ function speakerAndText(
 function decisionWords(decision: Decision | undefined): string {
   if (decision === undefined) return "Opened a Decision.";
   const asked = `Decision: ${decision.question}`;
-  return decision.answer === undefined
-    ? `${asked} Not answered yet.`
-    : `${asked} Answered: ${answerWords(decision, decision.answer)}`;
+  if (decision.answer) return `${asked} Answered: ${answerWords(decision, decision.answer)}`;
+  return decision.closedAt
+    ? `${asked} Closed unanswered: its Task was dropped.`
+    : `${asked} Not answered yet.`;
 }
 
 function proposalWords(proposal: Proposal | undefined): string {

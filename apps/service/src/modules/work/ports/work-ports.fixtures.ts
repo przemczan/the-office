@@ -519,6 +519,8 @@ export class TaskDecisionsForTests extends TaskDecisions {
   readonly open = new Map<string, number>();
   readonly inThread = new Map<string, readonly OpenTaskDecision[]>();
   readonly waiting = new Map<string, readonly DecisionWaitingOnTheUser[]>();
+  /** The Tasks whose open Decisions Work closed, in the order it closed them. */
+  readonly closedOn: string[] = [];
 
   async openOn(taskId: string): Promise<number> {
     return this.open.get(taskId) ?? 0;
@@ -534,6 +536,12 @@ export class TaskDecisionsForTests extends TaskDecisions {
 
   async waitingOnTheUserOn(taskId: string): Promise<readonly DecisionWaitingOnTheUser[]> {
     return this.waiting.get(taskId) ?? [];
+  }
+
+  async closeOnDroppedTask(taskId: string): Promise<void> {
+    this.closedOn.push(taskId);
+    this.open.delete(taskId);
+    this.waiting.delete(taskId);
   }
 }
 

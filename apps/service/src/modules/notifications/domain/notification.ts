@@ -394,6 +394,8 @@ export function windowMove(
 export type Handling =
   /** Answering a Decision also handles the failure it was opened about. */
   | { readonly kind: "decision-answered"; readonly decisionId: string; readonly taskId: string }
+  /** Dropping its Task closed the Decision, which no longer waits on the user. */
+  | { readonly kind: "decision-closed"; readonly decisionId: string }
   | { readonly kind: "gate-acted"; readonly taskId: string }
   | { readonly kind: "task-resumed"; readonly taskId: string }
   /** The user opened the Task, which is where its outcome is looked at. */
@@ -419,6 +421,8 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
         (pointsTo.kind === "decision" && pointsTo.decisionId === handling.decisionId) ||
         (kind === "outcomes.task-failed" && pointsAt(pointsTo, handling.taskId))
       );
+    case "decision-closed":
+      return pointsTo.kind === "decision" && pointsTo.decisionId === handling.decisionId;
     case "gate-acted":
       return pointsTo.kind === "gate" && pointsTo.taskId === handling.taskId;
     case "task-resumed":

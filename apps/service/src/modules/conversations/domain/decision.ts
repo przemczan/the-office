@@ -136,6 +136,16 @@ export interface Decision extends DecisionDraft {
   readonly passedOn: readonly PassedOn[];
   /** Undefined while it waits on the user or the Consultant. */
   readonly answer: GivenAnswer | undefined;
+  /** When it was closed unanswered, as its Task was dropped; undefined otherwise. */
+  readonly closedAt?: Date | undefined;
+}
+
+/** Why a closed Decision can't be answered, in words for the user and any person alike. */
+export const CLOSED_DECISION_REFUSAL = "This Decision was closed: its Task was dropped.";
+
+/** Whether the Decision still waits: neither answered nor closed. */
+export function isOpen({ answer, closedAt }: Pick<Decision, "answer" | "closedAt">): boolean {
+  return answer === undefined && closedAt === undefined;
 }
 
 /** A Decision on a Task: every one but a call made from a chat. */
@@ -189,6 +199,7 @@ export function attachmentProblems(
 
 /** Every problem with the user's answer to an open Decision, in the UI's words. */
 export function answerProblems(decision: Decision, answer: DecisionAnswer): string[] {
+  if (decision.closedAt) return [CLOSED_DECISION_REFUSAL];
   if (answer.kind === "free-answer") {
     return answer.text.trim() === "" ? ["Write your answer first."] : [];
   }
@@ -212,6 +223,7 @@ export function answerForUserProblems(decision: Decision, caller: Thread): strin
     return ["Only in a Thread the user talks to you in can you answer a Decision for them."];
   }
   if (decision.answer) return ["This Decision is answered already."];
+  if (decision.closedAt) return [CLOSED_DECISION_REFUSAL];
   if (decision.putTo !== undefined) {
     return [
       `This Decision is put to the person in the Role ${decision.putTo}, who answers it in a Consultation; only a Decision waiting on the user can be answered for them.`,

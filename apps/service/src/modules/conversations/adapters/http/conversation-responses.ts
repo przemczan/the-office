@@ -385,7 +385,12 @@ function decisionOf(
   return decision;
 }
 
-export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): DecisionResponse {
+export function toDecisionResponse({
+  answer,
+  askedAt,
+  closedAt,
+  ...decision
+}: Decision): DecisionResponse {
   return {
     ...decision,
     taskId: decision.taskId ?? null,
@@ -401,6 +406,7 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
     askedAt: askedAt.toISOString(),
     answer: answer ? toAnswerResponse(answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
+    closedAt: closedAt?.toISOString() ?? null,
     answeredByUser: answer?.user ?? null,
     answeredBy: answer?.answeredBy ?? null,
     atUsersRequest: answer?.atUsersRequest ? { ...answer.atUsersRequest } : null,

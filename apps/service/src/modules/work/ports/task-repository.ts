@@ -62,6 +62,9 @@ export abstract class TaskRepository {
   /** Every Task, in no particular order. */
   abstract list(): Promise<readonly Task[]>;
 
+  /** The ids of every Dropped Task, archived or not, in no particular order. */
+  abstract droppedIds(): Promise<readonly string[]>;
+
   /** Those of the Tasks there are, by their ids, in no particular order. */
   abstract findAll(ids: readonly string[]): Promise<readonly Task[]>;
 

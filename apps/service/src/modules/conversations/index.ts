@@ -47,6 +47,7 @@ export { ConversationsModule } from "./conversations.module.js";
 export type { PlanningThreadElsewhere } from "./domain/conversation-tabs.js";
 export {
   DecisionAnswered,
+  DecisionClosed,
   DecisionOpened,
   DecisionReopened,
   TokensCounted,

@@ -15,6 +15,7 @@ import {
   ContextRead,
   DeliveryMarked,
   DecisionAnswered,
+  DecisionClosed,
   DecisionOpened,
   DecisionReopened,
   MessagesLogged,
@@ -765,6 +766,28 @@ export function recordDecisionAnswer(
     logged: [answerLine(thread, recording)],
     decision,
     event: new DecisionAnswered(without, decision, answeredAt),
+  };
+}
+
+/**
+ * The Decision's Task was dropped: the open Decision is closed unanswered, so nobody waits on it,
+ * the user or a Consultant, and it can't be answered any more. Its card shows it closed. None for
+ * a Decision the Thread doesn't wait on, answered or closed already.
+ */
+export function closeDecision(
+  thread: Thread,
+  decisionId: string,
+  closedAt: Date,
+): ThreadChange<DecisionClosed> | undefined {
+  const open = openDecisionOf(thread, decisionId);
+  if (!open) return undefined;
+  const decision: Decision = { ...open, closedAt };
+  const without = withoutDecision(thread, decisionId);
+  return {
+    thread: without,
+    logged: [],
+    decision,
+    event: new DecisionClosed(without, decision, closedAt),
   };
 }
 

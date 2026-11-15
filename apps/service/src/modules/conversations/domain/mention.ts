@@ -86,6 +86,9 @@ function standing(decision: Decision): string {
         : `the person in the Role ${answer.answeredBy}`;
     return `Answered by ${by} on ${answer.answeredAt.toISOString()}: ${answerWords(decision, answer)}`;
   }
+  if (decision.closedAt) {
+    return `Closed unanswered on ${decision.closedAt.toISOString()}: its Task was dropped.`;
+  }
   return putTo === undefined
     ? "Not answered yet: it waits on the user."
     : `Not answered yet: it waits on the person in the Role ${putTo}, in a Consultation.`;

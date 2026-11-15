@@ -376,6 +376,8 @@ export const decisionSchema = z.object({
   /** Null while it waits on the user or the Consultant. */
   answer: decisionAnswerSchema.nullable(),
   answeredAt: z.iso.datetime().nullable(),
+  /** When it was closed unanswered, as its Task was dropped; null otherwise. */
+  closedAt: z.iso.datetime().nullable(),
   /**
    * The user who answered it themselves, any user, as Decisions are shared; null while it is open,
    * when someone else answered, and on an answer from before users existed.
@@ -1071,6 +1073,11 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   /** The session the answer went to never started: the Decision waits on the user again. */
   webEventSchema.extend({
     type: z.literal("thread.decision-reopened"),
+    ...decisionWebEventFields,
+  }),
+  /** The Decision's Task was dropped: it was closed unanswered, and nobody waits on it now. */
+  webEventSchema.extend({
+    type: z.literal("thread.decision-closed"),
     ...decisionWebEventFields,
   }),
   webEventSchema.extend({

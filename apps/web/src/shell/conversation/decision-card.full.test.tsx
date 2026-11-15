@@ -14,7 +14,7 @@ import { roleQueries } from "../../api/people.ts";
 import { taskQueries } from "../../api/work.ts";
 import { ToastProvider } from "../toasts.tsx";
 import { BY_ANN, BY_YOU, signIn } from "../user.fixtures.ts";
-import { DecisionInThread } from "./decision-card.tsx";
+import { DecisionCard, DecisionInThread } from "./decision-card.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -49,6 +49,7 @@ function aDecision(threadId: string): Decision {
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,
+    closedAt: null,
   };
 }
 
@@ -61,7 +62,10 @@ const CONSULTATION_ON_TASK = "3a2b1c0d-9e8f-4a7b-8c6d-5e4f3a2b1c0d";
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
 const REVIEWER = { key: "reviewer", letGoAt: null, card: { name: "Michael" } } as unknown as Role;
 
-async function rendered(decision: Decision): Promise<HTMLElement> {
+async function rendered(
+  decision: Decision,
+  view: "in-thread" | "card" = "in-thread",
+): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
@@ -88,7 +92,12 @@ async function rendered(decision: Decision): Promise<HTMLElement> {
   queryClient.setQueryData(threadQueries.one(CONSULTATION_ON_TASK).queryKey, consultation);
   queryClient.setQueryData(threadQueries.onTask(TASK.id).queryKey, [consultation]);
   const rootRoute = createRootRoute({
-    component: () => <DecisionInThread decision={decision} personName="Angela" />,
+    component: () =>
+      view === "card" ? (
+        <DecisionCard decision={decision} personName="Angela" answering={false} followUps />
+      ) : (
+        <DecisionInThread decision={decision} personName="Angela" />
+      ),
   });
   const router = createRouter({
     routeTree: rootRoute,
@@ -269,6 +278,37 @@ describe("an answered Decision in its Thread", () => {
     expect(answeredLine(page).querySelector("a")?.getAttribute("href")).toBe(
       `/tasks/${TASK.id}?taskThread=${TASK_THREAD}`,
     );
+  });
+});
+
+describe("a closed Decision", () => {
+  afterEach(() => document.body.replaceChildren());
+
+  /** Closed unanswered, as its Task was dropped while it waited on a Consultant. */
+  const closed: Decision = {
+    ...aDecision(TASK_THREAD),
+    putTo: "reviewer",
+    closedAt: "2026-11-15T09:00:00.000Z",
+  };
+
+  it("says its Task was dropped on its card, with nothing to answer or take over", async () => {
+    const page = await rendered(closed, "card");
+
+    expect(answeredLine(page).textContent).toBe("Closed: the Task was dropped.");
+    expect(page.querySelector(".decision-options")).toBeNull();
+    expect(page.querySelector(".decision-free-answer")).toBeNull();
+    expect(page.querySelector(".decision-consultation")).toBeNull();
+    expect(page.textContent).not.toContain("A question first?");
+    expect(page.querySelectorAll("button:not([aria-label='Copy link'])")).toHaveLength(0);
+  });
+
+  it("says so in its Thread, no longer waiting on anyone", async () => {
+    const page = await rendered(closed);
+
+    expect(answeredLine(page).textContent).toBe("Closed: the Task was dropped.");
+    expect(page.textContent).not.toContain("Waiting on");
+    expect(page.textContent).not.toContain("Needs you");
+    expect(page.textContent).not.toContain("Open the Consultation");
   });
 });
 

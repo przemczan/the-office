@@ -5,6 +5,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import {
   DecisionAnswered,
+  DecisionClosed,
   DecisionOpened,
   DecisionReopened,
   TokensCounted,
@@ -73,6 +74,7 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   TaskStagesEdited,
   DecisionOpened,
   DecisionAnswered,
+  DecisionClosed,
   DecisionReopened,
   UsageWindowsChanged,
   OfficeWideLimitChanged,

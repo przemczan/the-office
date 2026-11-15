@@ -64,6 +64,14 @@ export class PostgresTaskRepository extends TaskRepository {
     return (await this.database.select().from(tasks)).map(toTask);
   }
 
+  async droppedIds(): Promise<readonly string[]> {
+    const rows = await this.database
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(eq(tasks.state, "dropped"));
+    return rows.map(({ id }) => id);
+  }
+
   async findAll(ids: readonly string[]): Promise<readonly Task[]> {
     const rows = await this.database
       .select()

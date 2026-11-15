@@ -3,6 +3,7 @@ export { IdeaService } from "./application/idea-service.js";
 export { InitiativeService } from "./application/initiative-service.js";
 export { InitiativeArchiving } from "./application/initiative-archiving.js";
 export { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.js";
+export { DroppedTaskDecisions } from "./application/dropped-task-decisions.js";
 export { PlanningAfterRestart } from "./application/planning-after-restart.js";
 export { OfficeLimits } from "./application/office-limits.js";
 export { QueueService } from "./application/queue-service.js";

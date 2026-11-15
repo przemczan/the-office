@@ -969,6 +969,11 @@
   color: var(--success-fg);
 }
 
+/* Closed unanswered, as its Task was dropped: the answered line's place, muted. */
+.decision-answered.decision-closed {
+  color: var(--fg-2);
+}
+
 /* ---- a Proposal: a card in the drafting person's chat (prototypes/app/people.js) */
 .message.proposal-card {
   /* Its overflow is hidden for the rounded corners, which would let the list shrink it. */

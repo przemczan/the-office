@@ -14,6 +14,9 @@ export function atUsersRequestWords(
     : `at ${user.name}'s request`;
 }
 
+/** A Decision closed unanswered, as dropping its Task closes it (spec §2.4). */
+export const CLOSED_WORDS = "Closed: the Task was dropped.";
+
 /** The answer in words: the option picked, or what the user wrote. */
 export function answerWords(answer: DecisionAnswer, { options }: Decision): string {
   return answer.kind === "option" ? (options[answer.option] ?? "") : answer.text;

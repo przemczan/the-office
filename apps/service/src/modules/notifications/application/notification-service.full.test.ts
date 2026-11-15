@@ -15,7 +15,12 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
+import {
+  DecisionAnswered,
+  DecisionClosed,
+  DecisionOpened,
+  TurnEnded,
+} from "../../conversations/index.js";
 import {
   EngineDown,
   UsageWindowReset,
@@ -57,7 +62,7 @@ type DecisionEventParameters = ConstructorParameters<typeof DecisionOpened>;
 
 /** Only what Notifications reads of a Decision: who asks what, on which Task. */
 function decisionEvent(
-  eventClass: typeof DecisionOpened | typeof DecisionAnswered,
+  eventClass: typeof DecisionOpened | typeof DecisionAnswered | typeof DecisionClosed,
   decision: { readonly id: string; readonly taskId: string; readonly roleKey: string | undefined },
 ): DecisionOpened {
   const [thread, asked] = [{}, { ...decision, question: "Keep the query string?" }] as unknown as [
@@ -193,6 +198,18 @@ describe("NotificationService", () => {
     expect((await openNotifications()).map(({ id }) => id)).toContain(notification?.id);
 
     await events.publish(decisionEvent(DecisionAnswered, decision));
+
+    expect(cleared).toEqual([notification?.id]);
+    expect((await openNotifications()).map(({ id }) => id)).not.toContain(notification?.id);
+  });
+
+  it("clears a Decision's Notification as its Task's Drop closes it", async () => {
+    const decision = { id: randomUUID(), taskId: randomUUID(), roleKey: "developer" };
+    await events.publish(decisionEvent(DecisionOpened, decision));
+    const [notification] = raised.map((event) => event.notification);
+    expect(notification?.pointsTo).toMatchObject({ kind: "decision", decisionId: decision.id });
+
+    await events.publish(decisionEvent(DecisionClosed, decision));
 
     expect(cleared).toEqual([notification?.id]);
     expect((await openNotifications()).map(({ id }) => id)).not.toContain(notification?.id);
