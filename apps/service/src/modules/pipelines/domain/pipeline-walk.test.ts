@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { GATE_REACHED } from "./gate.js";
-import { nextMove, reportedMet, reportedOutOfReach, unmetStatements } from "./pipeline-walk.js";
+import {
+  gateChecksDefinitionOfDone,
+  nextMove,
+  reportedMet,
+  reportedOutOfReach,
+  unmetStatements,
+} from "./pipeline-walk.js";
 import {
   RESOLVE_GATE_KEY,
   RESOLVE_KEY,
@@ -1273,6 +1279,141 @@ describe("nextMove at a Gate", () => {
     const ran = atTheGate({ ...sendBack, stageKey: "ship" });
 
     expect(() => nextMove(gated, ran, NO_DEFINITION_OF_DONE)).toThrow(/isn't earlier/);
+  });
+});
+
+function gateStage(key: string): Stage {
+  return { kind: "gate", key, name: key, optional: false };
+}
+
+const publishStage: Stage = {
+  kind: "script",
+  key: "publish",
+  name: "publish",
+  optional: false,
+  command: "publish",
+};
+
+/** The write meeting the first statement of two, the Gate continued, then `after`. */
+function continuedThen(...after: readonly Ran[]): StageRun[] {
+  return continuedAtTheGate(
+    runs(["write", meeting(1)], ["gate", GATE_REACHED], ...after),
+    after.length + 1,
+  );
+}
+
+describe("a Gate before Publish", () => {
+  const gate = gateStage("gate");
+  const publish = publishStage;
+  const gateThenPublish = [agentStage("write"), gate, publish];
+
+  it("is the Definition of Done check: Continue runs Publish unchecked, and the Task completes after it", () => {
+    expect(nextMove(gateThenPublish, continuedThen(), DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: publish,
+    });
+    expect(nextMove(gateThenPublish, continuedThen(["publish", done]), DEFINITION_OF_DONE)).toEqual(
+      { move: "complete" },
+    );
+  });
+
+  it("still is with Script Stages between it and Publish", () => {
+    const withCheck = [agentStage("write"), gate, scriptStage("check"), publish];
+
+    expect(nextMove(withCheck, continuedThen(["check", done]), DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: publish,
+    });
+  });
+
+  it("isn't with an Agent Stage between it and Publish, whose report the check waits for", () => {
+    const withReview = [agentStage("write"), gate, agentStage("review"), publish];
+    const ran = continuedThen(["review", meeting()]);
+
+    expect(nextMove(withReview, ran, DEFINITION_OF_DONE)).toMatchObject({
+      move: "ask",
+      run: ran[2],
+      question: { kind: "definition-of-done", unmet: ["The name persists"], before: publish },
+    });
+  });
+
+  it("counts the Continue after the work it sent back reaches it again", () => {
+    const sentBack: GateAction = { kind: "send-back", stageKey: "write", feedback: "Smaller." };
+    const ran = continuedAtTheGate(
+      runs(
+        ["write", meeting(1)],
+        ["gate", GATE_REACHED],
+        ["write", meeting(1)],
+        ["gate", GATE_REACHED],
+      ),
+    ).map((run, index) => (index === 1 ? { ...run, gateAction: sentBack } : run));
+
+    expect(nextMove(gateThenPublish, ran, DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: publish,
+    });
+  });
+
+  it("replays a Definition of Done Decision already recorded on the Gate's or Publish's run", () => {
+    const open = continuedAtTheGate(
+      runs(["write", meeting(1)], ["gate", GATE_REACHED, decided("definition-of-done")]),
+    );
+    expect(nextMove(gateThenPublish, open, DEFINITION_OF_DONE)).toEqual({
+      move: "wait",
+      run: open[1],
+    });
+
+    const answer = { kind: "one-more-round", guidance: undefined } as const;
+    const oneMoreRound = continuedAtTheGate(
+      runs(["write", meeting(1)], ["gate", GATE_REACHED, decided("definition-of-done", answer)]),
+    );
+    expect(nextMove(gateThenPublish, oneMoreRound, DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "write" },
+      carriedFailure: { stageKey: "write", round: 1 },
+    });
+
+    const publishAsked = continuedThen(["publish", done, decided("definition-of-done")]);
+    expect(nextMove(gateThenPublish, publishAsked, DEFINITION_OF_DONE)).toEqual({
+      move: "wait",
+      run: publishAsked[2],
+    });
+  });
+});
+
+describe("gateChecksDefinitionOfDone", () => {
+  const gate = gateStage;
+  const publish = publishStage;
+
+  it("is true for a Gate with only Script Stages, or none, before the Publish after it", () => {
+    expect(gateChecksDefinitionOfDone([agentStage("write"), gate("look"), publish], 1)).toBe(true);
+    const withCheck = [agentStage("write"), gate("look"), scriptStage("check"), publish];
+    expect(gateChecksDefinitionOfDone(withCheck, 1)).toBe(true);
+  });
+
+  it("passes over Resolve's Stages put before Publish", () => {
+    const resolving = walkedStages(
+      [agentStage("write"), gate("look"), publish],
+      runs(
+        ["write", done],
+        ["look", GATE_REACHED],
+        [
+          "publish",
+          { status: "failed", error: "Conflict.", baseMoved: { conflictedFiles: ["a.ts"] } },
+        ],
+      ),
+    );
+    const lookAt = resolving.findIndex(({ key }) => key === "look");
+    expect(resolving.some(({ key }) => key === RESOLVE_KEY)).toBe(true);
+    expect(gateChecksDefinitionOfDone(resolving, lookAt)).toBe(true);
+  });
+
+  it("is false with an Agent Stage or a later Gate before Publish, with no Publish after it, or for any other Stage", () => {
+    const withReview = [gate("look"), agentStage("review"), publish];
+    expect(gateChecksDefinitionOfDone(withReview, 0)).toBe(false);
+    expect(gateChecksDefinitionOfDone([gate("look"), gate("again"), publish], 0)).toBe(false);
+    expect(gateChecksDefinitionOfDone([agentStage("write"), gate("look")], 1)).toBe(false);
+    expect(gateChecksDefinitionOfDone([agentStage("write"), publish], 0)).toBe(false);
   });
 });
 

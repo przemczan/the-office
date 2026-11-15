@@ -377,6 +377,8 @@ test(
       lockedStages: 1,
       testResults: [],
       definitionOfDoneMet: [],
+      definitionOfDoneOutOfReach: [],
+      gatesCheckingDefinitionOfDone: [],
     };
     await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
     await queryOfficeDatabase(`update threads set state = 'answering' where id = $1`, [threadId]);
@@ -2761,6 +2763,8 @@ test("selecting a Stage opens its history window, to move between Stages and run
     lockedStages: 3,
     testResults: [],
     definitionOfDoneMet: [],
+    definitionOfDoneOutOfReach: [],
+    gatesCheckingDefinitionOfDone: [],
   };
   await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
   await page.route(`**/api/tasks/${task.id}/stage-runs/*/command-outputs`, (route) =>
@@ -3001,6 +3005,8 @@ test("Continue with notes at a Gate sends them on, and the Gate's run shows them
     lockedStages: 2,
     testResults: [],
     definitionOfDoneMet: [],
+    definitionOfDoneOutOfReach: [],
+    gatesCheckingDefinitionOfDone: [],
   });
   let stages = stagesWith(null, "pending");
   await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
@@ -3040,6 +3046,96 @@ test("Continue with notes at a Gate sends them on, and the Gate's run shows them
   await expect(detailsOf(gateHistory, 2)).toContainText("You continued, with notes");
   await expect(detailsOf(gateHistory, 2)).toContainText(notes);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-notes-history.png") });
+});
+
+test("a Gate just before Publish is the Definition of Done check: it lists what isn't reported met, and Continue publishes anyway", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Gate check", "GC");
+  const task = await createdTask(page, project, "Export the usage");
+  await choosePipeline(page, task);
+  await page.request.put(`/api/tasks/${task.id}/definition-of-done`, {
+    data: {
+      definitionOfDone: [
+        "The usage exports as a file.",
+        "The file keeps the dates.",
+        "The export runs on Windows.",
+      ],
+    },
+  });
+  const implement = anAgentStage("implement", "Implement");
+  const look: Stage = { kind: "gate", key: "look", name: "Review", optional: false };
+  const publish: Stage = {
+    kind: "script",
+    key: "publish",
+    name: "Publish",
+    optional: false,
+    command: "publish",
+  };
+  const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  const gateReached: StageRun["outcome"] = {
+    status: "done",
+    summary: "The Task reached the Gate and waited for the user.",
+    skipped: false,
+    definitionOfDoneMet: null,
+    pullRequestUrl: null,
+    handoverNote: null,
+  };
+  const stages: TaskStages = {
+    stages: [
+      {
+        stage: implement,
+        state: "done",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [
+          {
+            ...aStageRun(1, at(0), at(5)),
+            outcome: { ...gateReached, summary: "Exported.", definitionOfDoneMet: [1] },
+          },
+        ],
+      },
+      {
+        stage: look,
+        state: "waiting-on-you",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [{ ...aStageRun(2, at(5), at(5)), outcome: gateReached }],
+      },
+      { stage: publish, state: "pending", tokens: noTokens, wentBack: null, runs: [] },
+    ],
+    editedForTask: false,
+    lockedStages: 2,
+    testResults: [],
+    definitionOfDoneMet: [1],
+    definitionOfDoneOutOfReach: [{ statement: 3, why: "It needs a Windows machine." }],
+    gatesCheckingDefinitionOfDone: ["look"],
+  };
+  await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+  await page.goto(`/tasks/${task.id}`);
+
+  const gate = page.getByRole("region", { name: "Gate · Review" });
+  const unmet = gate.getByRole("region", { name: "Definition of Done not reported met" });
+  await expect(unmet.getByRole("listitem")).toHaveText([
+    "The file keeps the dates.",
+    "The export runs on Windows.Out of reach: It needs a Windows machine.",
+  ]);
+  await expect(gate.getByRole("button", { name: "Continue and publish anyway" })).toBeVisible();
+  await gate.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-gate-checks-definition-of-done.png"),
+  });
+
+  await gate.getByRole("button", { name: "Show details" }).click();
+  const details = page.getByRole("dialog", { name: /Before Publish/ });
+  await expect(
+    details
+      .getByRole("region", { name: "Definition of Done not reported met" })
+      .getByRole("listitem"),
+  ).toHaveCount(2);
+  await expect(details.getByRole("button", { name: "Continue and publish anyway" })).toBeVisible();
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-gate-window-checks-definition-of-done.png"),
+  });
 });
 
 test(
@@ -3109,6 +3205,8 @@ test(
       lockedStages: 2,
       testResults: [],
       definitionOfDoneMet: [],
+      definitionOfDoneOutOfReach: [],
+      gatesCheckingDefinitionOfDone: [],
     };
     await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
     await page.goto(`/tasks/${task.id}`);

@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../token-words.ts";
 import {
   attachmentsOfThisRound,
+  continueAtGateLabel,
   definitionOfDoneFact,
   gateFactsLine,
   gateHeading,
@@ -18,7 +19,9 @@ import {
   linesChanged,
   testsBeforeGate,
   testsFact,
+  unmetAtTheCheck,
 } from "./gate-card-words.ts";
+import type { WaitingGate } from "./gate-words.ts";
 
 function aResult(state: TestResultState): TestResult {
   return { stageKey: state, name: state, state, detail: null };
@@ -146,6 +149,52 @@ describe("definitionOfDoneFact", () => {
     const definitionOfDone = ["It exports.", "It keeps the dates.", "The tests pass."];
     expect(definitionOfDoneFact({ definitionOfDone }, [1, 3])).toBe("2 of 3");
     expect(definitionOfDoneFact({ definitionOfDone }, [])).toBe("0 of 3");
+  });
+});
+
+describe("unmetAtTheCheck", () => {
+  const gate: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
+  const definitionOfDone = ["It exports.", "It keeps the dates.", "It runs on Windows."];
+  const reports = {
+    definitionOfDoneMet: [1],
+    definitionOfDoneOutOfReach: [{ statement: 3, why: "Needs a Windows machine." }],
+  };
+
+  it("lists the statements not Reported met, an Out of reach one with its why, at the Gate that is the check", () => {
+    const taskStages = { ...reports, gatesCheckingDefinitionOfDone: ["look"] };
+
+    expect(unmetAtTheCheck({ definitionOfDone }, taskStages, { gate })).toEqual([
+      { statement: "It keeps the dates.", outOfReachWhy: undefined },
+      { statement: "It runs on Windows.", outOfReachWhy: "Needs a Windows machine." },
+    ]);
+  });
+
+  it("lists none at a Gate that isn't the check, or with every statement met", () => {
+    const elsewhere = { ...reports, gatesCheckingDefinitionOfDone: ["another"] };
+    expect(unmetAtTheCheck({ definitionOfDone }, elsewhere, { gate })).toEqual([]);
+
+    const allMet = {
+      definitionOfDoneMet: [1, 2, 3],
+      definitionOfDoneOutOfReach: [],
+      gatesCheckingDefinitionOfDone: ["look"],
+    };
+    expect(unmetAtTheCheck({ definitionOfDone }, allMet, { gate })).toEqual([]);
+  });
+});
+
+describe("continueAtGateLabel", () => {
+  const waiting = {
+    gate: { kind: "gate", key: "look", name: "Look", optional: false },
+    next: { kind: "script", key: "publish", name: "Publish", optional: false, command: "publish" },
+  } as WaitingGate;
+
+  it("says Continue publishes anyway over unmet statements", () => {
+    const unmet = [{ statement: "It keeps the dates.", outOfReachWhy: undefined }];
+    expect(continueAtGateLabel(waiting, unmet)).toBe("Continue and publish anyway");
+  });
+
+  it("names the next Stage with nothing unmet", () => {
+    expect(continueAtGateLabel(waiting, [])).toBe("Continue to Publish");
   });
 });
 

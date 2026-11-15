@@ -6,14 +6,17 @@ import { projectQueries } from "../../api/projects.ts";
 import { clockOf } from "../time.ts";
 import { ContinueRefused, useContinuingAtGate } from "./gate-actions.tsx";
 import {
+  continueAtGateLabel,
   definitionOfDoneFact,
   gateFactsLine,
   gateHeading,
   gateQuestion,
   testsBeforeGate,
+  unmetAtTheCheck,
 } from "./gate-card-words.ts";
+import { GateUnmetStatements } from "./gate-unmet-statements.tsx";
 import { GateWindow } from "./gate-window.tsx";
-import { continueLabel, type WaitingGate } from "./gate-words.ts";
+import type { WaitingGate } from "./gate-words.ts";
 import "./gate.css";
 
 /**
@@ -39,6 +42,7 @@ export function GateCard({
   const reachedAt = stages
     .find(({ stage }) => stage.key === waiting.gate.key)
     ?.runs.at(-1)?.startedAt;
+  const unmet = unmetAtTheCheck(task, taskStages, waiting);
   return (
     <section className="message gate-card" aria-label={`Gate · ${waiting.gate.name}`}>
       <div className="message-by">
@@ -54,6 +58,7 @@ export function GateCard({
           definitionOfDoneFact(task, taskStages.definitionOfDoneMet),
         )}
       </p>
+      <GateUnmetStatements unmet={unmet} />
       <div className="gate-actions">
         <Button
           variant="accent"
@@ -61,7 +66,7 @@ export function GateCard({
           disabled={continuing.isPending}
           onClick={() => continuing.mutate()}
         >
-          {continueLabel(waiting)}
+          {continueAtGateLabel(waiting, unmet)}
         </Button>
         <Button variant="secondary" onClick={() => setDetailsOpen(true)}>
           Show details

@@ -12,7 +12,11 @@ import {
   NO_STAGE_WORKERS,
   type Stage,
 } from "../domain/stage.js";
-import { reportedMet } from "../domain/pipeline-walk.js";
+import {
+  gateChecksDefinitionOfDone,
+  reportedMet,
+  reportedOutOfReach,
+} from "../domain/pipeline-walk.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { staffingProblems } from "../domain/stage-staffing.js";
@@ -319,5 +323,9 @@ function progressOf(
     editedForTask: own.editedForTask,
     lockedStages: lockedStageCount(stages, runs),
     definitionOfDoneMet: reportedMet(runs),
+    definitionOfDoneOutOfReach: reportedOutOfReach(runs),
+    gatesCheckingDefinitionOfDone: stages
+      .filter((_stage, index) => gateChecksDefinitionOfDone(stages, index))
+      .map(({ key }) => key),
   };
 }

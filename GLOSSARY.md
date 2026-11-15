@@ -386,7 +386,7 @@ A Stage kept in the Pipeline library to add to a Pipeline or a Task's Stages as 
 _Avoid_: Stage preset, Stage blueprint
 
 **Gate**:
-A Stage at which the Task waits for the user to look at the work so far and let it continue.
+A Stage at which the Task waits for the user to look at the work so far and let it continue. A Gate with no Agent Stage between it and Publish is the Definition of Done check: its Continue calls the Definition of Done met.
 _Avoid_: Checkpoint, approval step
 
 **Pipeline rail**:

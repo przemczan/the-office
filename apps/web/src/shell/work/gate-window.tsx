@@ -21,19 +21,17 @@ import {
 } from "./gate-actions.tsx";
 import {
   attachmentsOfThisRound,
+  continueAtGateLabel,
   definitionOfDoneFact,
   gateHeading,
   gateQuestion,
   linesChanged,
   testsBeforeGate,
   testsFact,
+  unmetAtTheCheck,
 } from "./gate-card-words.ts";
-import {
-  CONTINUE_WITH_NOTES,
-  continueLabel,
-  SEND_BACK_WITH_NOTES,
-  type WaitingGate,
-} from "./gate-words.ts";
+import { GateUnmetStatements } from "./gate-unmet-statements.tsx";
+import { CONTINUE_WITH_NOTES, SEND_BACK_WITH_NOTES, type WaitingGate } from "./gate-words.ts";
 import { RECORD_ELEMENT_ID } from "./record-tab.ts";
 
 type GateStep = "continue-with-notes" | "send-back" | "drop";
@@ -68,9 +66,11 @@ export function GateWindow({
     waiting,
   );
   const busy = continuing.isPending;
+  const unmet = unmetAtTheCheck(task, taskStages, waiting);
+  const continueWords = continueAtGateLabel(waiting, unmet);
   const cancelStep = (): void => setStep(undefined);
   const steps: Record<GateStep, DialogStep> = {
-    "continue-with-notes": continueWithNotesStep(continuingWithNotes, waiting, cancelStep),
+    "continue-with-notes": continueWithNotesStep(continuingWithNotes, continueWords, cancelStep),
     "send-back": sendBackStep(sending, cancelStep),
     drop: {
       content: (
@@ -108,7 +108,7 @@ export function GateWindow({
             disabled={busy}
             onClick={() => continuing.mutate(undefined, { onSuccess: onClose })}
           >
-            {continueLabel(waiting)}
+            {continueWords}
           </Button>
           <OpenChanges taskId={task.id} onOpen={onClose} />
           {waiting.nextAgentStage && (
@@ -135,6 +135,7 @@ export function GateWindow({
         {continuing.error && <ContinueRefused error={continuing.error} />}
         <div className="gate-question">{gateQuestion(waiting)}</div>
         <GateFacts task={task} taskStages={taskStages} waiting={waiting} />
+        <GateUnmetStatements unmet={unmet} />
         {attachments.length > 0 && (
           <section aria-label="Attachments">
             <AttachmentGallery rounds={oneRound(attachments)} />
@@ -147,7 +148,7 @@ export function GateWindow({
 
 function continueWithNotesStep(
   continuing: ContinuingWithNotes,
-  waiting: WaitingGate,
+  continueWords: string,
   onCancel: () => void,
 ): DialogStep {
   return {
@@ -160,7 +161,7 @@ function continueWithNotesStep(
         title={continuing.written ? undefined : "Write your notes first"}
         onClick={continuing.send}
       >
-        {continueLabel(waiting)}
+        {continueWords}
       </Button>
     ),
     onCancel,
