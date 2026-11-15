@@ -913,8 +913,8 @@ test("the Initiatives tab is a board by state, Dropped folded at the foot of Don
   await expect(activeCard).toContainText("0 of 2 Tasks done");
   await expect(activeCard).toContainText("1 waiting on you");
   await expect(activeCard).toHaveClass(/edge-decision/);
-  await expect(done.getByRole("article", { name: `Usage reports ${word}` })).toHaveClass(
-    /edge-done/,
+  await expect(done.getByRole("article", { name: `Usage reports ${word}` })).not.toHaveClass(
+    /edge-/,
   );
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-initiatives-board.png") });
 

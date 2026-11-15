@@ -335,7 +335,14 @@ function EndedCard({
   const progress = initiativeProgress(tasksOfInitiative(initiative, reading.tasks), reading.tasks);
   return (
     <article
-      className={`board-card initiative-card ended ${initiative.state === "done" ? "edge-done" : "edge-failed"}`}
+      className={[
+        "board-card",
+        "initiative-card",
+        "ended",
+        initiative.state === "dropped" && "edge-failed",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={initiative.name}
     >
       <div className="board-card-head">

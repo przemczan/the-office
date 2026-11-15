@@ -162,8 +162,7 @@ describe("an Initiative's card", () => {
 
     expect(now).toEqual({ waitingOnYou: 1, inProgress: 2, blocked: 1 });
     expect(activeEdge(now)).toBe("edge-decision");
-    expect(activeEdge({ ...now, waitingOnYou: 0 })).toBe("edge-running");
-    expect(activeEdge({ waitingOnYou: 0, inProgress: 0, blocked: 3 })).toBeUndefined();
+    expect(activeEdge({ ...now, waitingOnYou: 0 })).toBeUndefined();
   });
 
   it("says why an Active one has nothing to count", () => {
