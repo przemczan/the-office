@@ -8,6 +8,7 @@ An **Office release** is a version of The Office cut from `main`: the tag `v<ver
 - **A GitHub Release** whose notes list the subjects of the `feat`, `fix`, `perf` and `refactor` commits since the last `v*` tag, under Features, Fixes, Performance and Refactoring, with breaking changes on top. Other types (`docs`, `test`, `build`, `ci`, `chore`, `style`) aren't listed.
 - **Two tarballs**, `the-office-<version>-linux-x64.tar.gz` and `the-office-<version>-linux-arm64.tar.gz`, each with a `.sha256` that `sha256sum -c` checks.
 - **The image** `ghcr.io/<owner>/the-office:<version>` and `:latest`, for `linux/amd64` and `linux/arm64`.
+- **`install.sh`**, the Debian/Ubuntu installer ([tools/install/install.sh](../tools/install/install.sh)), stamped with the release's version and repository (`GITHUB_REPOSITORY`), so `curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sudo bash` installs the newest release ([spec §5.1](spec/5.1-shape.md#defaults), "Installing on Debian/Ubuntu"). The prepare step replaces its `@OFFICE_VERSION@` and `@OFFICE_REPOSITORY@` and fails if a placeholder is left; the Dry run keeps it with the tarballs.
 
 **Linux only.** The tarballs are for glibc Linux on x64 and arm64 (Debian, Ubuntu and the like; not Alpine), and the image for amd64 and arm64. Windows and macOS keep running The Office from a checkout ([running-the-office.md](running-the-office.md)).
 
@@ -17,8 +18,8 @@ In GitHub, **Actions › Release › Run workflow** on `main`. It:
 
 1. takes the next version from the Conventional Commits since the last `v*` tag (AGENTS.md, "Commits and releases"): a breaking change raises the major, a `feat` the minor, a `fix`, `perf` or `refactor` the patch. **With none of those since the last tag, nothing is released**: the run ends green with no tag, release or image;
 2. runs `npm ci && npm run verify` in the run environment, the `checks` service of [.devcontainer/compose.yaml](../.devcontainer/compose.yaml), on a copy of the checkout ([tools/release/verify.sh](../tools/release/verify.sh)). A failure ends the run there: no tag, no release, no image;
-3. builds, packs both tarballs, starts the x64 tarball against a throwaway Postgres with the [service start check](../tools/service-start-check/src/main.ts), builds the amd64 image and checks it ([tools/release/image-check.sh](../tools/release/image-check.sh)), then pushes `:<version>` for both platforms ([tools/release/prepare.sh](../tools/release/prepare.sh));
-4. pushes the tag, moves `:latest` to the version ([tools/release/publish-image.sh](../tools/release/publish-image.sh)) and makes the GitHub Release with the tarballs and their checksums.
+3. builds, packs both tarballs, stamps `install.sh`, starts the x64 tarball against a throwaway Postgres with the [service start check](../tools/service-start-check/src/main.ts), builds the amd64 image and checks it ([tools/release/image-check.sh](../tools/release/image-check.sh)), then pushes `:<version>` for both platforms ([tools/release/prepare.sh](../tools/release/prepare.sh));
+4. pushes the tag, moves `:latest` to the version ([tools/release/publish-image.sh](../tools/release/publish-image.sh)) and makes the GitHub Release with the tarballs, their checksums and `install.sh`.
 
 The image check starts the image as an install would and asserts: `/api/health` answers `{"database":"up"}` and `/` serves the web app; the first start's logs hold the setup token, and `docker exec <container> npm run setup-token -- --quiet` prints a new one; the service doesn't run as root; `git`, `ssh`, `docker`, `docker compose`, `docker buildx` and Claude Code answer `--version`; `docker stop` ends it with exit status 143.
 

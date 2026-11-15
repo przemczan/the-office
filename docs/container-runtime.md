@@ -12,6 +12,8 @@ What runs The Office's Postgres, the bundled Grafana ([docker-compose.yml](../do
 | `docker-buildx-plugin` | `0.38.1-1~ubuntu.24.04~noble` | |
 | `docker-compose-plugin` | `5.7.0-1~ubuntu.24.04~noble` | Docker Compose version v5.7.0 |
 
+The Debian/Ubuntu installer ([tools/install/install.sh](../tools/install/install.sh)) installs and holds the same versions, with the suffix built for each system it supports (`5:29.9.3-1~debian.13~trixie`), and checks the same key fingerprint; a version change updates its constants in the same commit.
+
 The Office's own machine (Ubuntu 24.04 x64, a Proxmox LXC guest) runs them, approved by Devops on 2026-11-08. It had Ubuntu's `docker.io` 29.1.3 and `docker-compose-v2` 2.40.3 before, which follow Ubuntu's updates rather than a pin. `apt-mark showhold` lists the five packages.
 
 ## Why Docker Engine and not Podman
@@ -56,7 +58,7 @@ Restarting or upgrading `docker.service` stops Postgres and, through `Requires=d
    and note the counts to compare: `docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select count(*) from tasks; select count(*) from projects"'`.
 3. `apt-mark unhold` the five packages, `apt-get install` the new exact versions, `apt-mark hold` them again.
 4. `docker compose up -d --wait postgres` reports it healthy and the counts match; then `systemctl start the-office`.
-5. Change the table above in the same commit, and the CLI, buildx and Compose versions in the [Dockerfile](../Dockerfile), whose image carries them from Docker's Debian repository ([releasing.md](releasing.md)). To restore a backup instead: `docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < <dump>`.
+5. Change the table above in the same commit, the installer's `DOCKER_*_VERSION` constants, and the CLI, buildx and Compose versions in the [Dockerfile](../Dockerfile), whose image carries them from Docker's Debian repository ([releasing.md](releasing.md)). To restore a backup instead: `docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < <dump>`.
 
 ## What a run environment mounts
 
