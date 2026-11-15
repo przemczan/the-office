@@ -9,6 +9,7 @@ import {
 } from "./api/event-stream-provider.tsx";
 import { engineEventInvalidations } from "./api/engine.ts";
 import { gitHubEventInvalidations } from "./api/github.ts";
+import { liveViewEventCacheUpdates } from "./api/live-view.ts";
 import { mcpServerEventInvalidations } from "./api/mcp-servers.ts";
 import { notificationEventCacheUpdates } from "./api/notifications.ts";
 import { roleEventInvalidations } from "./api/people.ts";
@@ -46,6 +47,7 @@ const EVENT_CACHE_UPDATES: EventCacheUpdates = {
   ...notificationEventCacheUpdates,
   ...skillEventCacheUpdates,
   ...workEventCacheUpdates,
+  ...liveViewEventCacheUpdates,
 };
 
 /**

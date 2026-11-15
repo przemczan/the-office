@@ -1,0 +1,347 @@
+/* ---- The Live view: the floor fills the page, the list a column beside it (a drawer when narrow) */
+.live-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.live-view[data-list="open"] {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.live-floor {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+.live-floor-alert {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 2;
+}
+
+.live-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.live-canvas:active {
+  cursor: grabbing;
+}
+
+.live-canvas.over-figure {
+  cursor: pointer;
+}
+
+/* The floor clips what overflows it, so the canvas's focus ring is drawn inside its edge. */
+.live-canvas:focus-visible {
+  outline-offset: calc(-1 * var(--space-0-5));
+}
+
+.live-floor-failed {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  margin: 0;
+  padding: var(--pad-page);
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  text-align: center;
+}
+
+/* ---- Nameplates: positioned by transform from the stage's anchors, so a pan moves no layout */
+.live-nameplates {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.live-nameplate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  will-change: transform;
+}
+
+.live-nameplate-face {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--space-5);
+  padding: 0 var(--space-1-5) 0 var(--space-0-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: color-mix(in oklab, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow-1);
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+  color: var(--fg-1);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.live-nameplate-face:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.live-nameplate-face.compact {
+  padding: 1px;
+}
+
+.live-nameplate-face.compact .live-nameplate-name,
+.live-nameplate-face.compact .live-nameplate-new {
+  display: none;
+}
+
+.live-nameplate-face.compact .live-state-dot {
+  position: absolute;
+  right: calc(-1 * var(--space-0-5));
+  bottom: calc(-1 * var(--space-0-5));
+  border: 1.5px solid var(--surface);
+}
+
+.live-nameplate-new {
+  padding: var(--space-0-5) var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+  color: var(--accent-subtle-fg);
+}
+
+/* ---- Each look state's dot, on a nameplate and in the list */
+.live-state-dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--fg-3);
+}
+
+.live-state-dot.working {
+  background: var(--success);
+}
+
+.live-state-dot.consulting {
+  background: var(--info);
+}
+
+.live-state-dot.waiting-on-you {
+  background: var(--warning);
+}
+
+.live-state-dot.joined {
+  background: var(--accent);
+}
+
+.live-state-dot.home {
+  background: var(--border-strong);
+}
+
+/* ---- The tooltip's and popover's words */
+.live-tooltip {
+  display: grid;
+  gap: var(--space-0-5);
+}
+
+.live-tooltip-press {
+  opacity: 0.72;
+  font-weight: 400;
+}
+
+.live-popover-title {
+  font-weight: 400;
+  color: var(--fg-3);
+}
+
+/* ---- The controls over the floor */
+.live-toolbar {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  display: flex;
+  gap: var(--space-1-5);
+}
+
+.live-toolbar .btn,
+.live-toolbar button {
+  box-shadow: var(--shadow-1);
+}
+
+.live-zoom {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  padding: var(--space-0-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.live-zoom-percent {
+  min-width: var(--space-10);
+  font: 500 var(--text-xs) / 1 var(--font-sans);
+  color: var(--fg-2);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-zoom-separator {
+  width: 1px;
+  height: var(--space-4);
+  background: var(--border);
+}
+
+/* ---- The list */
+.live-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.live-list-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.live-list-head h2 {
+  margin: 0;
+  font: var(--type-card-title);
+}
+
+.live-list-count {
+  flex: 1;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.live-list-summary {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.live-list-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-1) 0 var(--space-4);
+}
+
+.live-list-group h3 {
+  margin: var(--space-3) var(--space-4) var(--space-1);
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.live-list-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-person-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--pad-row) var(--space-3) var(--pad-row) var(--space-4);
+}
+
+.live-person-row + .live-person-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.live-person-text {
+  min-width: 0;
+}
+
+.live-person-name {
+  overflow: hidden;
+  font: 600 var(--text-sm) / 1.4 var(--font-sans);
+  color: var(--fg-1);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.live-person-name span {
+  font-weight: 400;
+  color: var(--fg-3);
+}
+
+.live-person-state {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  font: var(--type-caption);
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.live-person-links {
+  grid-column: 2 / -1;
+}
+
+.live-work-links {
+  display: grid;
+  gap: var(--space-0-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-work-link {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1-5);
+  padding: var(--space-0-5) 0;
+  font: 500 var(--text-xs) / 1.35 var(--font-sans);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 2px;
+}
+
+.live-work-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.live-work-link svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--fg-3);
+}
+
+/* A narrow page lists everyone in a drawer over the floor instead (spec 4.1, Narrow). */
+@container page (max-width: 844px) {
+  .live-view[data-list="open"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

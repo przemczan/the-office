@@ -21,6 +21,7 @@ import { LinkedIdentitiesSection } from "./surfaces/account/linked-identities-se
 import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
+import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
@@ -410,6 +411,13 @@ const projectsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const liveViewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "live-view",
+  component: LiveViewPage,
+  staticData: { title: "Live view" },
+});
+
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "projects/$projectId",
@@ -698,6 +706,7 @@ export const router = createRouter({
       projectServerValuesRoute,
       projectAppearanceRoute,
     ]),
+    liveViewRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,
       settingsPipelinesRoute,

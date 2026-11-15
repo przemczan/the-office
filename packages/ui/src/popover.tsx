@@ -26,6 +26,13 @@ export interface PopoverProps {
   readonly triggerClassName?: string;
   /** Words on hover or focus of the trigger while the popover is closed. */
   readonly tooltip?: ReactNode;
+  /**
+   * Holds it open or closed, for a popover also opened from elsewhere, such as a press on a figure
+   * drawn on a canvas. Left out, its trigger opens and closes it.
+   */
+  readonly open?: boolean;
+  /** Each press of its trigger, a press outside, Esc and following a link ask for a change here. */
+  readonly onOpenChange?: (open: boolean) => void;
   readonly children: ReactNode;
 }
 
@@ -42,14 +49,28 @@ export function Popover({
   trigger,
   triggerClassName,
   tooltip,
+  open: heldOpen,
+  onOpenChange,
   children,
 }: PopoverProps): ReactNode {
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = heldOpen ?? ownOpen;
   const [openedByKeyboard, setOpenedByKeyboard] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const bodyId = useId();
+  const askedToChange = useRef(onOpenChange);
+  useEffect(() => {
+    askedToChange.current = onOpenChange;
+  });
+  const setOpen = useCallback((next: boolean) => {
+    setOwnOpen(next);
+    askedToChange.current?.(next);
+  }, []);
   // One for the popover's life, as its listeners and its placing depend on it.
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => {
+    setOpenedByKeyboard(false);
+    setOpen(false);
+  }, [setOpen]);
   useEscapeWaitsFor(open);
 
   useEffect(() => {

@@ -53,6 +53,7 @@
 - `github.ts`: gitHubQueries, gitHubAppManifestForm, startGitHubSignIn, signOutOfGitHub, gitHubEventInvalidations
 - `google-client.ts`: GOOGLE_CLIENT, googleClientQueries, saveGoogleClient, removeGoogleClient
 - `linked-identities.ts`: LINKED_IDENTITIES, linkedIdentityQueries, continueWith, startLinking, unlinkIdentity
+- `live-view.ts`: liveViewQueries, liveViewEventCacheUpdates
 - `mcp-servers.ts`: mcpServerQueries, addMcpServer, readPastedConfig, changeMcpServer, changeMcpServerState, assignMcpServer, removeMcpServer, mcpServerEventInvalidations
 - `notifications.ts`: nowQueries, notificationQueries, setTiming, setRoutingChannel, resetRouting, reportActivity, notificationEventCacheUpdates
 - `office-identity.ts`: officeIdentityQueries, regenerateSshKey, scanHost, confirmFingerprint

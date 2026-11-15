@@ -192,6 +192,26 @@ describe("Popover", () => {
 
     expect(popovers()[0]?.contains(document.activeElement)).toBe(false);
   });
+
+  it("held open from elsewhere, asks for each change instead of making it", () => {
+    const asked = vi.fn<(open: boolean) => void>();
+    const held = (open: boolean): ReactNode => (
+      <Popover label="Jim" trigger="Jim" open={open} onOpenChange={asked}>
+        <a href="#task">A Stage of a Task</a>
+      </Popover>
+    );
+    show(held(true));
+    expect(popovers()).toHaveLength(1);
+
+    pressKey("Escape");
+    expect(asked).toHaveBeenLastCalledWith(false);
+    expect(popovers()).toHaveLength(1);
+
+    show(held(false));
+    press(trigger("Jim"));
+    expect(asked).toHaveBeenLastCalledWith(true);
+    expect(popovers()).toHaveLength(0);
+  });
 });
 
 describe("PlainMark", () => {

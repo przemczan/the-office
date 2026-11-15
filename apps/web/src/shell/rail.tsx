@@ -19,6 +19,7 @@ const SURFACES: readonly Surface[] = [
   { to: "/work", label: "Work", icon: "kanban", alsoOn: ["/tasks/"] },
   { to: "/people", label: "People", icon: "users" },
   { to: "/projects", label: "Projects", icon: "folder-git-2" },
+  { to: "/live-view", label: "Live view", icon: "building-2" },
 ];
 
 const SETTINGS: Surface = { to: "/settings", label: "Settings", icon: "settings-2" };

@@ -22,6 +22,7 @@
 - `fake-github.ts`: FAKE_GITHUB_URL, FAKE_GITHUB_API_URL, fakeGitHubVariables, InstalledRepository, startFakeGitHub, installApp
 - `fake-mcp-server.ts`: FAKE_MCP_SERVER, FAKE_MCP_TOOLS, CONNECTING, addFakeMcpServer, addFakeMcpServerTurnedOn
 - `git-host.ts`: E2E_GIT_HOST, E2E_GIT_HOST_FOLDER, gitHostVariables, serveRepository, branchOnHost
+- `live-view.e2e.ts`
 - `mcp-servers.e2e.ts`
 - `office-checkout.ts`: NEWER_SUBJECTS, createOfficeCheckout
 - `office-data.ts`: E2E_OFFICE_DATA, taskWorktreePath

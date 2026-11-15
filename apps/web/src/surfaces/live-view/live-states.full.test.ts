@@ -1,0 +1,380 @@
+import type { LiveAgent, LiveConsulting, LiveWaitingOnYou } from "@the-office/contracts";
+import { describe, expect, it } from "vitest";
+import { amenitiesOf, consultSpot, deskOf, deskSpot, layoutOffice } from "./floor-plan.ts";
+import { lightAt } from "./light.ts";
+import {
+  LIST_GROUPS,
+  lookStateOf,
+  lookStatesOf,
+  monitorsOf,
+  placementsOf,
+  stateWords,
+  summaryWords,
+  workLinksOf,
+} from "./live-states.ts";
+import { officePerson, rosterOf } from "./live-view.fixtures.ts";
+import type { Light, OfficePerson, RecordTitles } from "./live-view-types.ts";
+
+const NOW = new Date(2026, 10, 15, 13, 5);
+const DAY = lightAt(NOW);
+const NIGHT: Light = { phase: "night", tint: 0x404080, lampsOn: true };
+
+const THREAD = "00000000-0000-4000-8000-000000000001";
+const OTHER_THREAD = "00000000-0000-4000-8000-000000000002";
+const DECISION = "00000000-0000-4000-8000-0000000000d1";
+
+const TITLES: RecordTitles = {
+  tasks: new Map([["task-1", "Fix the door"]]),
+  initiatives: new Map([["initiative-1", "Office visualisation"]]),
+};
+const NAMES = new Map(rosterOf(30).map((person) => [person.roleKey, person.name]));
+
+function minutesAgo(minutes: number): string {
+  return new Date(NOW.getTime() - minutes * 60_000).toISOString();
+}
+
+function stage(taskId = "task-1", threadId = THREAD): LiveAgent {
+  return { threadId, home: { kind: "task", taskId }, kind: "stage", consultation: null };
+}
+
+function asking(consultantRoleKey: string): LiveConsulting {
+  return {
+    decisionId: DECISION,
+    threadId: OTHER_THREAD,
+    home: { kind: "task", taskId: "task-1" },
+    consultantRoleKey,
+    question: "Which way?",
+    since: minutesAgo(2),
+  };
+}
+
+function waiting(home: LiveWaitingOnYou["home"]): LiveWaitingOnYou {
+  return {
+    decisionId: DECISION,
+    threadId: OTHER_THREAD,
+    home,
+    byTheOffice: false,
+    question: "Ship it?",
+    since: minutesAgo(1),
+  };
+}
+
+function working(roleKey: string, agents: LiveAgent[] = [stage()]): OfficePerson {
+  return officePerson(roleKey, { state: "working", agents });
+}
+
+function consulting(roleKey: string, consultantRoleKey: string): OfficePerson {
+  return officePerson(roleKey, { state: "consulting", consulting: [asking(consultantRoleKey)] });
+}
+
+function idleFor(roleKey: string, minutes: number): OfficePerson {
+  return officePerson(roleKey, { idleSince: minutesAgo(minutes) });
+}
+
+/** The eight with someone swapped in by Role key. */
+function eightWith(...people: OfficePerson[]): OfficePerson[] {
+  return rosterOf(8).map(
+    (person) =>
+      people.find((other) => other.roleKey === person.roleKey) ?? idleFor(person.roleKey, 40),
+  );
+}
+
+function placed(people: OfficePerson[], light = DAY) {
+  const layout = layoutOffice(people);
+  return { layout, placements: placementsOf(people, layout, amenitiesOf(layout), light, NOW) };
+}
+
+describe("look states", () => {
+  it("follows the snapshot's headline", () => {
+    expect(lookStateOf(working("developer"), NOW, DAY)).toBe("working");
+    expect(lookStateOf(consulting("developer", "cto"), NOW, DAY)).toBe("consulting");
+    const waitingPerson = officePerson("developer", {
+      state: "waiting-on-you",
+      waitingOnYou: [waiting({ kind: "task", taskId: "task-1" })],
+    });
+    expect(lookStateOf(waitingPerson, NOW, DAY)).toBe("waiting-on-you");
+  });
+
+  it("falls asleep at exactly thirty minutes idle, not at twenty-nine", () => {
+    expect(lookStateOf(idleFor("developer", 29), NOW, DAY)).toBe("idle");
+    expect(lookStateOf(idleFor("developer", 30), NOW, DAY)).toBe("asleep");
+  });
+
+  it("shows someone hired within the hour as just joined, then idle", () => {
+    expect(
+      lookStateOf(
+        officePerson("developer", { hiredAt: minutesAgo(59), idleSince: minutesAgo(59) }),
+        NOW,
+        DAY,
+      ),
+    ).toBe("joined");
+    expect(
+      lookStateOf(
+        officePerson("developer", { hiredAt: minutesAgo(60), idleSince: minutesAgo(5) }),
+        NOW,
+        DAY,
+      ),
+    ).toBe("idle");
+  });
+
+  it("sends someone idle home only at night", () => {
+    expect(lookStateOf(idleFor("developer", 5), NOW, NIGHT)).toBe("home");
+    expect(lookStateOf(working("developer"), NOW, NIGHT)).toBe("working");
+  });
+});
+
+describe("placements", () => {
+  it("seats the working, the waiting and the asleep at their desk", () => {
+    const waitingPerson = officePerson("reviewer", {
+      state: "waiting-on-you",
+      waitingOnYou: [waiting({ kind: "task", taskId: "task-1" })],
+    });
+    const { layout, placements } = placed(
+      eightWith(working("developer"), waitingPerson, idleFor("cto", 45)),
+    );
+    const developerDesk = deskOf(layout, "developer")!;
+    expect(placements.get("developer")).toMatchObject({
+      kind: "desk",
+      spot: deskSpot(developerDesk),
+      activity: "working",
+      pose: "sit-back",
+      facing: "back",
+      depth: developerDesk.depth + 0.1,
+      conversation: null,
+    });
+    expect(placements.get("reviewer")).toMatchObject({
+      kind: "desk",
+      activity: "waiting",
+      pose: "sit-back-raise",
+    });
+    expect(placements.get("cto")).toMatchObject({
+      kind: "desk",
+      activity: "asleep",
+      pose: "sit-back-sleep",
+    });
+  });
+
+  it("puts the idle in the chill seats in hire order", () => {
+    const people = rosterOf(8).map((person) => idleFor(person.roleKey, 5));
+    const { placements } = placed(people);
+    const kinds = people.map((person) => placements.get(person.roleKey)?.kind);
+    expect(kinds).toEqual(["chill", "chill", "chill", "chill", "chill", "chill", "chill", "desk"]);
+    expect(placements.get("office-manager")).toMatchObject({ pose: "sit-front", z: 1 });
+  });
+
+  it("stands someone consulting at the Consultant's desk, the Consultant turned round to talk", () => {
+    const { layout, placements } = placed(
+      eightWith(consulting("developer", "cto"), working("cto")),
+    );
+    expect(placements.get("developer")).toMatchObject({
+      kind: "consult",
+      spot: consultSpot(deskOf(layout, "cto")!),
+      pose: "stand-back-talk",
+      conversation: ["cto", "developer"],
+    });
+    expect(placements.get("cto")).toMatchObject({
+      kind: "desk",
+      activity: "talking",
+      pose: "sit-front",
+      facing: "front",
+      conversation: ["cto", "developer"],
+    });
+  });
+
+  it("meets two asking one Consultant at the meeting spot, the Consultant in seat 0", () => {
+    const people = eightWith(
+      consulting("developer", "cto"),
+      consulting("reviewer", "cto"),
+      working("cto"),
+    );
+    const layout = layoutOffice(people);
+    const amenities = amenitiesOf(layout);
+    const placements = placementsOf(people, layout, amenities, DAY, NOW);
+    expect(placements.get("cto")).toMatchObject({
+      kind: "meeting",
+      spot: amenities.meetingSeats[0],
+    });
+    expect(placements.get("developer")?.spot).toBe(amenities.meetingSeats[1]);
+    expect(placements.get("reviewer")?.spot).toBe(amenities.meetingSeats[2]);
+    expect(placements.get("reviewer")?.conversation).toEqual(["cto", "developer", "reviewer"]);
+  });
+
+  it("leaves at their own desk whoever can't join a Consultant, so no two stand on one spot", () => {
+    const people = rosterOf(16).map((person) => {
+      if (["developer", "reviewer", "technical-writer", "qa-engineer"].includes(person.roleKey))
+        return consulting(person.roleKey, "cto");
+      if (["frontend-developer", "backend-developer"].includes(person.roleKey))
+        return consulting(person.roleKey, "devops");
+      return working(person.roleKey);
+    });
+    const { layout, placements } = placed(people);
+    // The CTO meets the first three; the fourth waits at their own desk.
+    expect(placements.get("qa-engineer")).toMatchObject({
+      kind: "desk",
+      spot: deskSpot(deskOf(layout, "qa-engineer")!),
+    });
+    // Devops, asked by two while the meeting spot is taken, has the first at the desk.
+    expect(placements.get("frontend-developer")).toMatchObject({
+      kind: "consult",
+      spot: consultSpot(deskOf(layout, "devops")!),
+    });
+    expect(placements.get("backend-developer")).toMatchObject({
+      kind: "desk",
+      spot: deskSpot(deskOf(layout, "backend-developer")!),
+    });
+  });
+
+  it("takes someone gone home off the floor", () => {
+    const { placements } = placed(eightWith(idleFor("developer", 5)), NIGHT);
+    expect(placements.get("developer")?.kind).toBe("gone");
+  });
+});
+
+describe("monitors", () => {
+  it("lights one monitor per session, a laptop for someone who only talks", () => {
+    expect(monitorsOf(working("developer", [stage(), stage()]), "working")).toEqual({
+      shown: 3,
+      lit: 2,
+      laptop: false,
+      tag: null,
+    });
+    expect(monitorsOf(working("office-manager", [stage()]), "working")).toEqual({
+      shown: 1,
+      lit: 1,
+      laptop: true,
+      tag: null,
+    });
+  });
+
+  it("counts sessions past those shown in a green tag", () => {
+    const extra = monitorsOf(working("cto", [stage(), stage(), stage()]), "working");
+    expect(extra).toEqual({ shown: 2, lit: 2, laptop: false, tag: { count: 1, lit: true } });
+  });
+
+  it("counts monitors past three in a dark tag until a session runs on them", () => {
+    expect(monitorsOf(working("ml-engineer", [stage()]), "working").tag).toEqual({
+      count: 2,
+      lit: false,
+    });
+    expect(
+      monitorsOf(working("ml-engineer", [stage(), stage(), stage(), stage()]), "working").tag,
+    ).toEqual({ count: 2, lit: true });
+  });
+
+  it("lights nothing once they have gone home", () => {
+    expect(monitorsOf(working("developer"), "home").lit).toBe(0);
+  });
+});
+
+describe("words and links", () => {
+  it("names each running session by its record", () => {
+    const person = working("developer", [
+      stage(),
+      {
+        threadId: OTHER_THREAD,
+        home: { kind: "initiative", initiativeId: "initiative-1" },
+        kind: "thread",
+        consultation: null,
+      },
+      {
+        threadId: THREAD,
+        home: { kind: "chat", roleKey: "developer" },
+        kind: "thread",
+        consultation: null,
+      },
+    ]);
+    expect(stateWords(person, "working", TITLES, NAMES)).toBe(
+      'Working on a Stage of the Task "Fix the door", the Initiative "Office visualisation" and a chat',
+    );
+    expect(stateWords(consulting("developer", "cto"), "consulting", TITLES, NAMES)).toBe(
+      'Asking Michael: "Which way?"',
+    );
+    expect(stateWords(idleFor("developer", 40), "asleep", TITLES, NAMES)).toMatch(
+      /^Asleep at their desk/,
+    );
+  });
+
+  it("links the Decision first, then each session's Thread", () => {
+    const person = officePerson("developer", {
+      state: "waiting-on-you",
+      waitingOnYou: [waiting({ kind: "task", taskId: "task-1" })],
+      agents: [stage("task-1", THREAD)],
+    });
+    expect(workLinksOf(person, TITLES, NAMES).map((link) => link.target)).toEqual([
+      { kind: "task", taskId: "task-1", threadId: OTHER_THREAD, decisionId: DECISION },
+      { kind: "task", taskId: "task-1", threadId: THREAD, decisionId: null },
+    ]);
+  });
+
+  it("links each session by its home", () => {
+    const person = working("cto", [
+      {
+        threadId: THREAD,
+        home: { kind: "initiative", initiativeId: "initiative-1" },
+        kind: "thread",
+        consultation: null,
+      },
+      {
+        threadId: OTHER_THREAD,
+        home: { kind: "chat", roleKey: "cto" },
+        kind: "thread",
+        consultation: null,
+      },
+      {
+        threadId: OTHER_THREAD,
+        home: { kind: "chat", roleKey: "cto" },
+        kind: "thread",
+        consultation: null,
+      },
+    ]);
+    expect(workLinksOf(person, TITLES, NAMES).map((link) => link.target)).toEqual([
+      { kind: "initiative", initiativeId: "initiative-1", threadId: THREAD },
+      { kind: "chat", roleKey: "cto", threadId: OTHER_THREAD },
+    ]);
+  });
+
+  it("offers someone idle their chat and their page on People", () => {
+    expect(workLinksOf(idleFor("cto", 5), TITLES, NAMES).map((link) => link.target)).toEqual([
+      { kind: "chat", roleKey: "cto", threadId: null },
+      { kind: "person", roleKey: "cto" },
+    ]);
+    expect(workLinksOf(idleFor("developer", 5), TITLES, NAMES).map((link) => link.target)).toEqual([
+      { kind: "person", roleKey: "developer" },
+    ]);
+  });
+
+  it("sums the office up", () => {
+    const people = eightWith(
+      working("developer"),
+      working("reviewer"),
+      working("devops"),
+      working("planner"),
+      consulting("ui-ux-designer", "cto"),
+      officePerson("caretaker", {
+        state: "waiting-on-you",
+        waitingOnYou: [waiting({ kind: "chat", roleKey: "caretaker" })],
+      }),
+      idleFor("office-manager", 5),
+      idleFor("cto", 45),
+    );
+    expect(summaryWords(people, DAY, NOW, lookStatesOf(people, NOW, DAY))).toBe(
+      "8 people: 4 working, 1 consulting, 1 waiting on you, 1 idle, 1 asleep. Day, 13:05.",
+    );
+    const one = [working("developer")];
+    expect(summaryWords(one, DAY, NOW, lookStatesOf(one, NOW, DAY))).toBe(
+      "1 person: 1 working. Day, 13:05.",
+    );
+  });
+
+  it("groups the list in its order", () => {
+    expect(LIST_GROUPS.map((group) => group.words)).toEqual([
+      "Waiting on you",
+      "Consulting",
+      "Working",
+      "Just joined",
+      "Idle",
+      "Asleep at their desk",
+      "Gone home",
+    ]);
+  });
+});
