@@ -1,0 +1,44 @@
+# Every commit reaching main is a Conventional Commit (AGENTS.md, "Commits and releases").
+name: Conventional Commits
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    # edited: a squash merge takes the title and body as they are when it's merged.
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  check-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The whole history and its tags: the check starts after the newest v* tag.
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Check the pushed commits
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: npm run check-commits -- --from "$BEFORE" --to "$AFTER"
+
+      - name: Check the pull request's title and body, which a squash merge makes the commit
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n\n%s\n' "$TITLE" "$BODY" > "$RUNNER_TEMP/pull-request-message.txt"
+          npm run check-commits -- --message-file "$RUNNER_TEMP/pull-request-message.txt"

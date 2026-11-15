@@ -26,6 +26,7 @@ Choices the spec leaves open. Change one only with the user, and update this lis
   - `apps/web`: React + Vite, `src/shell/`, `src/surfaces/<surface>/` and `src/api/` (the service's API and event stream).
   - `packages/contracts`: the HTTP and WebSocket contract (zod schemas and their types), the one thing the service and the web share.
   - `packages/ui`: the design system for React. A typed barrel over `design-system/components/**` (the `.jsx` files with their `.d.ts`), plus the theme layers. `design-system/` itself stays as exported, so it can be re-exported from claude.ai.
+  - `tools/commit-check`: checks that the commits reaching main are Conventional Commits ([Commits and releases](#commits-and-releases)).
   - `tools/engine-check`: the [engine check](docs/engine-check.md), re-run on every SDK bump.
   - `tools/lint-rules`: the oxlint plugin that enforces the module and workspace boundaries ([apps/service/docs/module-template.md](apps/service/docs/module-template.md)) and keeps `process.platform` in the platform layer.
   - `tools/service-start-check`: the last check of `npm run verify`, the built service started against `DATABASE_URL`'s Postgres on port 4392: `/api/health` answers `{"database":"up"}`, `/` serves the web app, and SIGTERM ends it with status 143.
@@ -42,3 +43,14 @@ Choices the spec leaves open. Change one only with the user, and update this lis
 - **Architecture:** modules as bounded contexts, layered and talking through application services and domain events ([spec 5.3](docs/spec/5.3-modules.md)); the template is [apps/service/docs/module-template.md](apps/service/docs/module-template.md).
 - **Model calls cost quota:** tests use the scripted engine adapter; real sessions run only in the engine check and in a Task's check on the Test Project, with the cheapest model that proves the point.
 - **Commit locally, never push.** Pushing, publishing and anything else that leaves the workstation waits for the user's go-ahead.
+
+## Commits and releases
+
+- **Commit messages are the changelog: [Conventional Commits](https://www.conventionalcommits.org/).** The type decides the release:
+  - `feat` → minor;
+  - `fix`, `perf`, `refactor` → patch;
+  - `!` after the type, or a `BREAKING CHANGE:` footer → major;
+  - other types (`docs`, `test`, `build`, `ci`, `chore`, `style`) release nothing.
+- **The subject is in plain words.** It becomes the GitHub Release's notes, so it says what changed for someone running The Office, in the [glossary](GLOSSARY.md)'s terms: `fix(pipelines): a Stage stopped by the fire alarm starts again after the all clear`. An optional scope is the module or surface.
+- **One Task is one commit on main**, carrying the Task's commit message. The Office's Stage commits stay on the Task's branch, and its "Merge main from origin into …" merge commits aren't checked.
+- **The check:** the `Conventional Commits` workflow (`.github/workflows/conventional-commits.yml`, running `tools/commit-check` with `commitlint.config.js`) checks every non-merge commit reaching main after the newest `v*` tag, and every pull request's title and body as the commit a squash merge makes of them. Before the first release it checks nothing. `npm run check-commits -- --from <sha> --to <sha>` or `-- --message-file <path>` runs it by hand. No local commit hook: The Office's Stage commits aren't Conventional Commits.
