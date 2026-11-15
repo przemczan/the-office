@@ -170,7 +170,7 @@ valid_port() {
 # An absolute folder, as a plain word office.env and systemd both read as it is.
 valid_data_dir() {
   [[ $1 =~ ^/[A-Za-z0-9._/-]+$ ]] || return 1
-  [[ /$1/ != */../* && /$1/ != */./* ]] || return 1
+  [[ /$1/ != */../* && /$1/ != */./* && $1 != *//* ]] || return 1
   [[ ${1%/} != "" ]]
 }
 
@@ -502,6 +502,7 @@ gather_answers() {
   if [[ -n $existing_data_dir && $existing_data_dir != "$DATA_DIR" ]]; then
     die "The Office's data folder is $existing_data_dir and can't be changed by the installer; moving the data is done by hand."
   fi
+  check_data_dir_free
   REQUESTED_VERSION=""
   local given_version
   given_version=$(first_of "$FLAG_VERSION" "${OFFICE_VERSION:-}")
@@ -743,15 +744,22 @@ install_release() {
   RELEASE_CHANGED=true
 }
 
+# Checked with the answers, before anything changes: a folder holding someone else's files isn't
+# handed to the service user.
+check_data_dir_free() {
+  local folder owner
+  folder=$(root_path "$DATA_DIR")
+  [[ -e $folder ]] || return 0
+  [[ -d $folder ]] || die "$DATA_DIR isn't a folder; choose another data folder."
+  [[ -n $(ls -A "$folder") ]] || return 0
+  owner=$(stat -c %U "$folder")
+  [[ $owner == "$SERVICE_USER" ]] ||
+    die "$DATA_DIR isn't empty and belongs to $owner, not $SERVICE_USER; choose another data folder."
+}
+
 prepare_data_dir() {
   local folder
   folder=$(root_path "$DATA_DIR")
-  if [[ -d $folder && -n $(ls -A "$folder") ]]; then
-    local owner
-    owner=$(stat -c %U "$folder")
-    [[ $owner == "$SERVICE_USER" ]] ||
-      die "$DATA_DIR isn't empty and belongs to $owner, not $SERVICE_USER; choose another data folder."
-  fi
   step "Preparing the data folder $DATA_DIR"
   run install -d -m 0750 "$folder"
   run chown "$SERVICE_USER:$SERVICE_USER" "$folder"
@@ -852,8 +860,13 @@ make_setup_token() {
   while IFS= read -r line || [[ -n $line ]]; do
     [[ $line =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] && variables+=("$line")
   done <"$(root_path "$ENV_FILE")"
-  output=$(runuser -u "$SERVICE_USER" -- env "${variables[@]}" "$NODE" \
-    "$(root_path "$INSTALL_DIR/current/apps/service/dist/setup-token.js")" --quiet 2>"$WORK_DIR/setup-token.err") || status=$?
+  # Exported rather than given to `env`, so the database password stays off the command line, which
+  # every user of the machine can read; runuser keeps the environment but HOME, SHELL, USER and LOGNAME.
+  output=$(
+    export "${variables[@]}"
+    runuser -u "$SERVICE_USER" -- "$NODE" \
+      "$(root_path "$INSTALL_DIR/current/apps/service/dist/setup-token.js")" --quiet 2>"$WORK_DIR/setup-token.err"
+  ) || status=$?
   cat "$WORK_DIR/setup-token.err" >>"$LOG"
   if ((status == 0)); then
     SETUP_TOKEN=$output

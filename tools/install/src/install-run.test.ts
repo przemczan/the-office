@@ -138,8 +138,14 @@ describe("a fresh install", () => {
     // The token is made before the start, so the service's first start prints none, with office.env's values.
     const calls = machine.calls();
     assert.ok(
-      calls.findIndex((call) => call.startsWith("runuser -u the-office -- env ")) <
+      calls.findIndex((call) => call.startsWith("runuser -u the-office -- /usr/bin/node ")) <
         calls.indexOf("systemctl restart the-office"),
+    );
+    // The database password reaches it through the environment, never a command line.
+    const password = passwordIn(envFile);
+    assert.deepEqual(
+      calls.filter((call) => call.includes(password)),
+      [],
     );
     assert.equal(
       machine.readState("setup-token-env").trim(),
@@ -205,6 +211,9 @@ describe("a fresh install", () => {
     assert.match(refused(["--host", "localhost"]), /localhost isn't an IP address/);
     assert.match(refused(["--port", "99999"]), /99999 isn't a port/);
     assert.match(refused(["--data-dir", "relative"]), /relative isn't an absolute folder/);
+    mkdirSync(machine.path("/srv/taken"), { recursive: true });
+    writeFileSync(machine.path("/srv/taken/someone-else.txt"), "");
+    assert.match(refused(["--data-dir", "/srv/taken"]), /\/srv\/taken isn't empty and belongs to/);
     machine.setState("ports-in-use", "4310\n");
     assert.match(refused(), /Port 4310 is already in use/);
     assert.deepEqual(callsTo("apt-get"), []);

@@ -147,7 +147,17 @@ describe("the answers", () => {
     for (const dir of ["/var/lib/the-office", "/srv/office_data/", "/data"]) {
       assert.equal(succeeds("valid_data_dir", dir), true, dir);
     }
-    for (const dir of ["relative/path", "/", "/with space", "/a/../b", "/a/./b", '/q"uote', ""]) {
+    for (const dir of [
+      "relative/path",
+      "/",
+      "/with space",
+      "/a/../b",
+      "/a/./b",
+      "//",
+      "/a//b",
+      '/q"uote',
+      "",
+    ]) {
       assert.equal(succeeds("valid_data_dir", dir), false, dir);
     }
   });
