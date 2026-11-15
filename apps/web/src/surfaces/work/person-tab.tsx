@@ -9,6 +9,7 @@ import { ContextBar } from "../../shell/conversation/context-bar.tsx";
 import { startsASessionWords } from "../../shell/conversation/context-words.ts";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { useThreadDrafts } from "../../shell/conversation/thread-drafts.tsx";
+import { writingPlaceholder } from "../../shell/conversation/thread-writing.ts";
 import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
@@ -340,7 +341,11 @@ function WritingInTab({
       <ThreadComposer
         thread={thread}
         personName={personName}
-        placeholder={composerPlaceholder(personName)}
+        placeholder={
+          thread.state === "answering"
+            ? writingPlaceholder(thread, personName)
+            : composerPlaceholder(personName)
+        }
         autoFocus={false}
         keepsDraft
         onSent={onSent}

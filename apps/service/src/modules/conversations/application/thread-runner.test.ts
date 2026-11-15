@@ -435,7 +435,7 @@ function sessionRole(version: number): SessionRole {
 }
 
 /** A session's turn: what the person writes, then its end, with the context it leaves. */
-function aTurn(consumed: string, text: string, contextTokens = 32_000): Step[] {
+function aTurn(consumed: string | readonly string[], text: string, contextTokens = 32_000): Step[] {
   return [
     { step: "event", event: { kind: "text", text, withinToolCall: undefined } },
     {
@@ -443,7 +443,7 @@ function aTurn(consumed: string, text: string, contextTokens = 32_000): Step[] {
       event: {
         kind: "turn-ended",
         outcome: "completed",
-        consumedMessageIds: [consumed],
+        consumedMessageIds: [consumed].flat(),
         usage: USAGE,
         sessionCostUsd: 0.01,
         output: undefined,
@@ -733,6 +733,217 @@ describe("a Thread more than one user writes in", () => {
   });
 });
 
+/** What a test holds until it opens it. */
+function aGate(): { readonly passed: Promise<void>; readonly open: () => void } {
+  let opens: (() => void) | undefined;
+  const passed = new Promise<void>((resolve) => {
+    opens = resolve;
+  });
+  return { passed, open: () => opens?.() };
+}
+
+/** The user's message written while the person answers, as the session gets it. */
+function aBargeIn(id: string): Step {
+  return { step: "send", message: { id, text: "" }, priority: "next" };
+}
+
+/** The user's messages in the Thread's log, each with its delivery. */
+async function deliveries(threadId: string): Promise<[string, string | undefined][]> {
+  return (await threads.messages(threadId)).flatMap((message) =>
+    message.kind === "user" ? [[message.text, message.delivery]] : [],
+  );
+}
+
+/** What the session was sent with priority next. */
+function sentNext(): string[] {
+  return (engine.sessions[0]?.received ?? []).flatMap((request) =>
+    request.step === "send" && request.priority === "next" ? [request.message.text] : [],
+  );
+}
+
+describe("a message written while the person answers", () => {
+  const LANDS = "the message lands";
+
+  it("lands at the next safe point of the turn running, and is delivered once the turn took it", async () => {
+    await startWith(
+      started(
+        { step: "event", event: { kind: "text", text: "Looking.", withinToolCall: undefined } },
+        aBargeIn("barge-in"),
+        { step: "wait", mark: LANDS },
+        ...aTurn(["brief", "barge-in"], "Both noted."),
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await vi.waitFor(async () => {
+      expect((await threads.messages(thread.id)).map(({ kind }) => kind)).toContain("person");
+    });
+
+    const barged = await runner.send(thread.id, "The build too.", ANN_LEE);
+
+    expect(barged.state).toBe("answering");
+    expect(await deliveries(thread.id)).toEqual([
+      ["Check the tests.", "delivered"],
+      ["The build too.", "waiting"],
+    ]);
+    engine.sessions[0]?.reach(LANDS);
+    await answered(thread.id, 5);
+    expect(await deliveries(thread.id)).toEqual([
+      ["Check the tests.", "delivered"],
+      ["The build too.", "delivered"],
+    ]);
+    expect(sentNext()).toEqual(["The build too."]);
+  });
+
+  it("holds a message written while the session opens until its turn starts", async () => {
+    await startWith(started(aBargeIn("barge-in"), ...aTurn(["brief", "barge-in"], "Both noted.")));
+    const opening = aGate();
+    const start = engine.start.bind(engine);
+    vi.spyOn(engine, "start").mockImplementation(async (session) => {
+      await opening.passed;
+      return start(session);
+    });
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+    expect(engine.sessions).toHaveLength(0);
+    opening.open();
+    await answered(thread.id, 4);
+
+    expect(await deliveries(thread.id)).toEqual([
+      ["Check the tests.", "delivered"],
+      ["The build too.", "delivered"],
+    ]);
+    expect(engine.sessions[0]?.received.map(({ step }) => step)).toEqual([
+      "start",
+      "send",
+      "read-context-usage",
+    ]);
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the Thread answering until a turn has taken a message still to land", async () => {
+    const NEXT_TURN = "the engine starts the next turn";
+    await startWith(
+      started(
+        aBargeIn("barge-in"),
+        ...aTurn("brief", "First answer."),
+        { step: "wait", mark: NEXT_TURN },
+        ...aTurn("barge-in", "Second answer."),
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+
+    await vi.waitFor(async () => {
+      expect((await threads.read(thread.id)).tokens.output).toBe(USAGE.output);
+    });
+    expect((await threads.read(thread.id)).state).toBe("answering");
+    expect((await deliveries(thread.id))[1]).toEqual(["The build too.", "waiting"]);
+    engine.sessions[0]?.reach(NEXT_TURN);
+    const log = await answered(thread.id, 5);
+
+    expect((await deliveries(thread.id))[1]).toEqual(["The build too.", "delivered"]);
+    expect(exchanges(log).at(-1)).toMatchObject({ kind: "person", text: "Second answer." });
+  });
+
+  it("marks a message not delivered when the turn fails before taking it", async () => {
+    await startWith(
+      started(
+        aBargeIn("barge-in"),
+        {
+          step: "event",
+          event: {
+            kind: "turn-ended",
+            outcome: "failed",
+            consumedMessageIds: ["brief"],
+            usage: USAGE,
+            sessionCostUsd: 0.01,
+            output: undefined,
+            errors: ["The model is overloaded."],
+          },
+        },
+        { step: "read-context-usage", usage: { tokens: 32_000, window: WINDOW } },
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+
+    await vi.waitFor(async () => {
+      expect((await deliveries(thread.id))[1]).toEqual(["The build too.", "not-delivered"]);
+    });
+  });
+
+  it("marks a message not delivered when the user stops the answer", async () => {
+    await startWith(started(aBargeIn("barge-in"), { step: "end" }));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+    await vi.waitFor(() => expect(sentNext()).toHaveLength(1));
+
+    await runner.stopAnswering(thread.id, "Stopped by the user.");
+
+    expect((await threads.read(thread.id)).state).toBe("waiting");
+    expect((await deliveries(thread.id))[1]).toEqual(["The build too.", "not-delivered"]);
+  });
+
+  it("marks a message not delivered when the session ends before taking it", async () => {
+    await startWith(started(aBargeIn("barge-in")));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Check the tests.", ANN_LEE);
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+
+    await vi.waitFor(async () => {
+      expect((await deliveries(thread.id))[1]).toEqual(["The build too.", "not-delivered"]);
+    });
+  });
+
+  it("goes with its mentions, the Open page and who wrote it, as any message to a running session", async () => {
+    await startWith(started(aBargeIn("barge-in"), ...aTurn(["brief", "barge-in"], "Noted.")));
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    personRecords.set("planner", "Jan · Planner (Role planner)");
+    const openPage = { kind: "person", roleKey: "planner" } as const;
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Check the tests.", ANN_LEE);
+
+    await runner.send(chat.id, "Compare [@Export CSV](/tasks/x).", BEN_ITO, {
+      mentions: [{ kind: "task", taskId }],
+      openPage,
+    });
+    const log = await answered(chat.id, 4);
+
+    expect(sentNext()).toEqual([
+      "## The message from the user Ben Ito\n\nCompare [@Export CSV](/tasks/x)." +
+        "\n\n## Records the user mentioned\n\nExport CSV (Task) · Plan: write the exporter." +
+        "\n\n## The page the user has open\n\nJan · Planner (Role planner)",
+    ]);
+    expect(drafts(log).filter(({ kind }) => kind === "user")[1]).toEqual({
+      kind: "user",
+      text: "Compare [@Export CSV](/tasks/x).",
+      delivery: "delivered",
+      writtenBy: BEN_ITO,
+      openPage,
+    });
+  });
+
+  it("lands in a Task's planning Thread too", async () => {
+    await startWith(started(aBargeIn("barge-in"), ...aTurn(["brief", "barge-in"], "Planned.")));
+    const planning = await plannerAnswering();
+
+    await runner.send(planning.id, "Mind the archived Projects.", ANN_LEE);
+    await answered(planning.id, 4);
+
+    expect(await deliveries(planning.id)).toEqual([
+      [PLAN_IT, "delivered"],
+      ["Mind the archived Projects.", "delivered"],
+    ]);
+  });
+});
+
 describe("continuing a Thread", () => {
   it("sends a message within the hour to the running session, with no context line", async () => {
     await startWith(started(...aTurn("brief", "Hello."), sent("m-2"), ...aTurn("m-2", "Sure.")));
@@ -972,16 +1183,6 @@ describe("continuing a Thread", () => {
     expect(engine.sessions).toHaveLength(2);
     expect(drafts(log)[3]).toMatchObject({ kind: "context", move: "fresh", reason: "your-choice" });
     expect((await threads.read(thread.id)).override).toBeUndefined();
-  });
-
-  it("refuses a message while the person is still answering", async () => {
-    await startWith(started(sent("never")));
-    const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.", ANN_LEE);
-
-    await expect(runner.send(thread.id, "Hello again.", ANN_LEE)).rejects.toThrow(
-      new ThreadRefused(["Jan is still answering. Send it once they finish."]),
-    );
   });
 
   it("refuses to continue once the person's Chat is off, keeping the Thread readable", async () => {
@@ -2719,11 +2920,15 @@ describe("when a session doesn't answer", () => {
     ]);
   });
 
-  it("recovers a Thread left answering when The Office stopped", async () => {
+  it("recovers a Thread left answering when The Office stopped, its waiting messages not delivered", async () => {
     // The session waits for a message nobody sends: it is still answering.
-    await startWith(started(sent("never")));
+    await startWith(started(aBargeIn("barge-in"), sent("never")));
     const thread = await threads.startInChat(roleKey);
     await runner.send(thread.id, "Hello.", ANN_LEE);
+    await runner.send(thread.id, "The build too.", ANN_LEE);
+    await vi.waitFor(() =>
+      expect(engine.sessions[0]?.received.map(({ step }) => step)).toContain("send"),
+    );
     // Test files share one database: recovering every Thread would fail those answering in others.
     const answering = repository.answering.bind(repository);
     vi.spyOn(repository, "answering").mockImplementation(async () =>
@@ -2739,6 +2944,11 @@ describe("when a session doesn't answer", () => {
       kind: "failure",
       reason: "The Office stopped while this was being answered.",
     });
+    const said = (await threads.messages(thread.id)).filter(({ kind }) => kind === "user");
+    expect(said.map((message) => message.kind === "user" && message.delivery)).toEqual([
+      "delivered",
+      "not-delivered",
+    ]);
   });
 });
 

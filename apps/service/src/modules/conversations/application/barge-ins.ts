@@ -10,25 +10,28 @@ export interface BargeInMessage {
 export interface BargeInsAfterTurn {
   /** The messages the turn took. */
   readonly delivered: readonly string[];
-  /** Messages sent are still to land: the engine starts a turn with them, which the Stage reads. */
+  /** Messages sent are still to land: the engine starts a turn with them, which is read in turn. */
   readonly stillToLand: boolean;
 }
 
 /**
- * The messages the user writes into a running Stage Thread (barge-in, spec §2.4), each sent with
- * priority `next` so it lands at the next safe point, between tool calls, of the turn running.
- * Between the Stage's turns, while The Office reads the last one, a message is held and goes with
- * The Office's next message: sent then, it would start a turn of its own that The Office would
- * read as the answer to something else.
+ * The messages the user writes into a Thread while the person answers there, or a Stage runs
+ * (barge-in, spec §2.4), each sent with priority `next` so it lands at the next safe point, between
+ * tool calls, of the turn running. While no turn runs, as between a Stage's turns while The Office
+ * reads the last one, or while the session opens, a message is held and goes once the next turn
+ * starts: sent then, it would start a turn of its own, read as the answer to something else.
  */
 export class BargeIns {
-  private turnRunning = true;
   private ended = false;
   private readonly held: BargeInMessage[] = [];
   private readonly sent = new Set<string>();
   private latestWriter: UserRef | undefined;
 
-  constructor(private readonly sendNext: (message: BargeInMessage) => void) {}
+  /** `turnRunning` is false when the session that takes the messages hasn't started its turn yet. */
+  constructor(
+    private readonly sendNext: (message: BargeInMessage) => void,
+    private turnRunning = true,
+  ) {}
 
   /**
    * Who wrote the message before `writer`'s in this session, undefined for its first, so a session
@@ -41,7 +44,7 @@ export class BargeIns {
     return before;
   }
 
-  /** False once the Stage's session has ended: the message can't reach the person. */
+  /** False once the session has ended: the message can't reach the person. */
   take(message: BargeInMessage): boolean {
     if (this.ended) return false;
     if (this.turnRunning) this.send(message);
@@ -49,7 +52,7 @@ export class BargeIns {
     return true;
   }
 
-  /** The Office has sent its next message, which starts a turn: the held messages follow it. */
+  /** The message that starts a turn has been sent: the held messages follow it. */
   turnStarted(): void {
     this.turnRunning = true;
     for (const message of this.held.splice(0)) this.send(message);

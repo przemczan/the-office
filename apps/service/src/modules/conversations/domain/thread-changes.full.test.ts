@@ -247,7 +247,7 @@ describe("a Thread's tokens", () => {
       contextTokens: 31_000,
       contextWindow: 200_000,
       handingOver: false,
-      officeSendsNext: false,
+      turnFollows: false,
       endedAt: AT,
     });
 

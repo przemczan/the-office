@@ -80,6 +80,48 @@ describe("barge-in", () => {
 
     expect(() =>
       bargeIn(waiting, { id: "said", text: "Too late?", at: AT, writtenBy: ANN_LEE }),
-    ).toThrow(ThreadRefused);
+    ).toThrow(new ThreadRefused(["The Stage ended before your message went. Send it again."]));
+  });
+
+  it("logs a message to a chat the person answers in as waiting, with its Open page", () => {
+    const answering = aThread({ state: "answering" });
+    const openPage = { kind: "person", roleKey: "planner" } as const;
+
+    const { thread, logged } = bargeIn(answering, {
+      id: "said",
+      text: "The build too.",
+      at: AT,
+      writtenBy: ANN_LEE,
+      openPage,
+      personName: "Jan",
+    });
+
+    expect(thread.state).toBe("answering");
+    expect(logged).toEqual([
+      {
+        kind: "user",
+        id: "said",
+        threadId: answering.id,
+        text: "The build too.",
+        delivery: "waiting",
+        at: AT,
+        writtenBy: ANN_LEE,
+        openPage,
+      },
+    ]);
+  });
+
+  it("is refused in a chat once the person has finished, naming them", () => {
+    const waiting = aThread({ state: "waiting" });
+
+    expect(() =>
+      bargeIn(waiting, {
+        id: "said",
+        text: "Too late?",
+        at: AT,
+        writtenBy: ANN_LEE,
+        personName: "Jan",
+      }),
+    ).toThrow(new ThreadRefused(["Jan finished before your message went. Send it again."]));
   });
 });

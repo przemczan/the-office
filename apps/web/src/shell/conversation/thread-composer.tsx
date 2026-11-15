@@ -14,7 +14,7 @@ import { ContextReading, SessionRow } from "./context-reading.tsx";
 import { threadReadingLook } from "./context-reading-words.ts";
 import { useHandoverNotes } from "./handover-notes.tsx";
 import { useThreadDrafts } from "./thread-drafts.tsx";
-import { takesMessages } from "./thread-writing.ts";
+import { takesMessages, writingPlaceholder } from "./thread-writing.ts";
 
 /**
  * Writing in a Thread: the composer with whatever waits to go in it, or why nothing more can be
@@ -79,8 +79,6 @@ export function ThreadComposer({
       await queryClient.invalidateQueries(threadQueries.messages(answering.id));
     },
   });
-  const answering = thread.state === "answering";
-  const stageRunning = answering && thread.stageThread;
   const closed = !takesMessages(thread);
   return (
     <>
@@ -108,18 +106,9 @@ export function ThreadComposer({
       />
       {readOnlyReason === undefined ? (
         <Composer
-          placeholder={
-            placeholder ??
-            (stageRunning
-              ? `Write to ${personName}… (lands at the next safe point)`
-              : `Write to ${personName}…`)
-          }
-          busy={(answering && !stageRunning) || closed}
-          busyHint={
-            closed
-              ? "You write here while a Stage runs"
-              : `${personName} is still answering. Send it once they finish.`
-          }
+          placeholder={placeholder ?? writingPlaceholder(thread, personName)}
+          busy={closed}
+          busyHint="You write here while a Stage runs"
           prefilledNote={
             handoverNote && { text: handoverNote.text, writer: roleName(handoverNote.from, roles) }
           }

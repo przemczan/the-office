@@ -75,7 +75,7 @@ describe("MessageField", () => {
 
   it("says why on Enter while it can't send, until it can again", () => {
     const onSend = vi.fn<() => void>();
-    const busyReason = "Jan is still answering. Send it once they finish.";
+    const busyReason = "You write here while a Stage runs";
     show(field({ canSend: false, busyReason }, onSend));
     expect(busyLine()).toBeUndefined();
     press({ key: "Enter" });

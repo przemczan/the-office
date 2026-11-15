@@ -11,6 +11,7 @@ import {
   type SessionRole,
 } from "../../people/index.js";
 import { ApprovalHolds } from "./approval-holds.js";
+import { BargeIns } from "./barge-ins.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
 import {
@@ -51,11 +52,17 @@ import {
   type OpenPage,
   type OpenPageRecord,
 } from "../domain/open-page.js";
-import { latestWriter, type Message, type MessageDraft } from "../domain/message.js";
+import {
+  latestWriter,
+  type Message,
+  type MessageDelivery,
+  type MessageDraft,
+} from "../domain/message.js";
 import type { Thread, ThreadSession } from "../domain/thread.js";
 import type { UserRef } from "../domain/user.js";
 import {
   answerDecision,
+  bargeIn,
   beginAnswer,
   beginAskingAgain,
   beginOpening,
@@ -64,9 +71,11 @@ import {
   endTurn,
   failAnswer,
   failDecisionAnswer,
+  finishedFirst,
   freshSession,
   keepAnswerForTurnEnd,
   logMessages,
+  markDelivery,
   openDecisionOf,
   readRunningContext,
   reopenDecision,
@@ -190,6 +199,8 @@ export class ThreadRunner implements OnModuleDestroy {
   private readonly live = new Map<string, LiveSession>();
   /** Sessions still ending, by Thread: a resume of one waits until its process is gone. */
   private readonly endings = new Map<string, Promise<void>>();
+  /** The user's messages to the answer running, by Thread, from its start until it ends. */
+  private readonly bargeIns = new Map<string, BargeIns>();
 
   constructor(
     private readonly repository: ThreadRepository,
@@ -213,9 +224,9 @@ export class ThreadRunner implements OnModuleDestroy {
 
   /**
    * Logs the user's message and has the person answer it; the answer comes into the log as it is
-   * written. Into a Stage Thread while its Stage runs, the message lands at the next safe point
-   * instead (barge-in). Refused while the person is still answering in this Thread, when nobody
-   * fills their Role any more, or in a chat, when their Chat is off. The session gets the record
+   * written. While the person is answering, or a Stage runs in the Thread, the message lands at
+   * the next safe point of the turn running instead (barge-in). Refused when nobody fills their
+   * Role any more, or in a chat, when their Chat is off. The session gets the record
    * of each Task, Idea or Decision the message mentions with it, and the Open page's; the log keeps
    * the message as written, with the user who wrote it (`writtenBy`), its Open page and whose
    * Handover note it started from (`handoverNoteFrom`) when a Link card gave it. The session is told
@@ -236,6 +247,9 @@ export class ThreadRunner implements OnModuleDestroy {
     const { mentions = [], handoverNoteFrom } = sent;
     // Only the chat drawer sends one: a Task's or an Initiative's Threads are about their record.
     const openPage = thread.home.kind === "chat" ? sent.openPage : undefined;
+    if (thread.state === "answering") {
+      return this.bargeIn(thread, current, { text, writtenBy, mentions, openPage });
+    }
     const said: Message = {
       kind: "user",
       id: randomUUID(),
@@ -251,12 +265,7 @@ export class ThreadRunner implements OnModuleDestroy {
     const given: GivenRecords = {
       mentioned: await this.mentionedRecords.read(mentions),
       openPage: ofBrief && (await this.mentionedRecords.openPage(ofBrief)),
-      ofRunningSession: async () => {
-        if (!openPage) return undefined;
-        const log = await this.repository.messages(threadId);
-        const page = openPageToGive({ openPage, mentions, log, newSession: false });
-        return page && (await this.mentionedRecords.openPage(page));
-      },
+      ofRunningSession: () => this.openPageOfRunningSession(threadId, openPage, mentions),
     };
     return this.take(
       thread,
@@ -266,6 +275,54 @@ export class ThreadRunner implements OnModuleDestroy {
       [],
       given,
     );
+  }
+
+  /**
+   * The user writes while the person answers (barge-in, spec §2.4): the message is logged waiting
+   * and goes to the turn running, or to the one about to start, with the records given as with any
+   * message to a running session; it is marked delivered once a turn has taken it. Refused once
+   * the answer has ended.
+   */
+  private async bargeIn(
+    thread: Thread,
+    { card }: SessionRole,
+    {
+      text,
+      writtenBy,
+      mentions,
+      openPage,
+    }: {
+      readonly text: string;
+      readonly writtenBy: UserRef;
+      readonly mentions: readonly Mention[];
+      readonly openPage: OpenPage | undefined;
+    },
+  ): Promise<Thread> {
+    const bargeIns = this.bargeIns.get(thread.id);
+    if (!bargeIns) throw new ThreadRefused([finishedFirst(thread, card.name)]);
+    const mentioned = await this.mentionedRecords.read(mentions);
+    // Read before the message is logged, so the log holds only the messages before it.
+    const page = await this.openPageOfRunningSession(thread.id, openPage, mentions);
+    const fromUser = messageFromUser(text, writtenBy, await this.previousWriter(thread.id));
+    const id = randomUUID();
+    const logged = await this.change(thread.id, (latest) =>
+      bargeIn(latest, { id, text, writtenBy, openPage, personName: card.name, at: new Date() }),
+    );
+    const said = { id, text: withOpenPageRecord(withMentionedRecords(fromUser, mentioned), page) };
+    if (!bargeIns.take(said)) await this.mark(thread.id, [id], "not-delivered");
+    return logged;
+  }
+
+  /** The Open page's record for a running or resumed session, unless it has it already. */
+  private async openPageOfRunningSession(
+    threadId: string,
+    openPage: OpenPage | undefined,
+    mentions: readonly Mention[],
+  ): Promise<OpenPageRecord | undefined> {
+    if (!openPage) return undefined;
+    const log = await this.repository.messages(threadId);
+    const page = openPageToGive({ openPage, mentions, log, newSession: false });
+    return page && (await this.mentionedRecords.openPage(page));
   }
 
   /**
@@ -511,6 +568,12 @@ export class ThreadRunner implements OnModuleDestroy {
       }),
     );
     const withRecords = withOpenPageRecord(withMentionedRecords(text, given.mentioned), openPage);
+    // Held until the answer's turn starts, so a message never starts a turn of its own.
+    const bargeIns = new BargeIns(
+      (message) => this.live.get(thread.id)?.session.send(message, "next"),
+      false,
+    );
+    this.bargeIns.set(thread.id, bargeIns);
     this.answerInBackground(answering, {
       said: { id: said.id, text: newSession ? said.text : withRecords },
       briefed: briefedMessage(place.brief.text, said.text, said.writtenBy),
@@ -554,6 +617,7 @@ export class ThreadRunner implements OnModuleDestroy {
     await this.change(threadId, (thread) =>
       thread.state === "answering" ? failAnswer(thread, reason, new Date()) : undefined,
     );
+    await this.endBargeIns(threadId);
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -678,6 +742,7 @@ export class ThreadRunner implements OnModuleDestroy {
     if (decision.move === "resume" && live?.session.id === session.id && sameTools) {
       this.turnBegan(live);
       live.session.send(said, "later");
+      this.bargeIns.get(thread.id)?.turnStarted();
       return;
     }
     const start = new SessionStartWatch(
@@ -729,6 +794,7 @@ export class ThreadRunner implements OnModuleDestroy {
       start.at("waiting for the engine's first event");
       this.watch(thread, role, place, opened, start);
       opened.send({ ...said, text: withLeftOutServers(said.text, servers.leftOut) }, "later");
+      this.bargeIns.get(thread.id)?.turnStarted();
       return;
     }
     let opened: EngineSession;
@@ -764,6 +830,7 @@ export class ThreadRunner implements OnModuleDestroy {
     }
     start.at("waiting for the engine's first event");
     this.watch(thread, role, place, opened, start);
+    this.bargeIns.get(thread.id)?.turnStarted();
     // Only once the new session runs: until then the Thread may go back to the one it replaces.
     if (replaced) {
       await this.forget(replaced.id);
@@ -875,6 +942,7 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.change(threadId, (latest) =>
         failAnswer(latest, "The session ended before the answer was finished.", new Date()),
       );
+      await this.endBargeIns(threadId);
     }
   }
 
@@ -931,10 +999,12 @@ export class ThreadRunner implements OnModuleDestroy {
         },
       ]);
     }
-    live.turnRunning = false;
+    const stillToLand = await this.landBargeIns(threadId, turn);
+    if (!stillToLand) live.turnRunning = false;
     const usage = await this.contextUsageOf(threadId, live);
     const wroteNote = live.handingOver;
     const handingOver =
+      !stillToLand &&
       !wroteNote &&
       usage !== undefined &&
       usage.tokens >= usage.window * DEFAULT_CONTEXT_POLICY_SETTINGS.handOverAtShare;
@@ -944,10 +1014,12 @@ export class ThreadRunner implements OnModuleDestroy {
         contextTokens: usage?.tokens ?? 0,
         contextWindow: usage?.window,
         handingOver,
-        officeSendsNext: false,
+        turnFollows: stillToLand,
         endedAt: new Date(),
       }),
     );
+    // The engine starts the next turn with the user's messages, which is read as this one was.
+    if (stillToLand) return;
     if (handingOver) {
       live.handingOver = true;
       this.turnBegan(live);
@@ -965,6 +1037,46 @@ export class ThreadRunner implements OnModuleDestroy {
         `Thread ${threadId}'s waiting answers weren't handed over: ${messageOf(error)}`,
       );
     });
+  }
+
+  /**
+   * Marks the user's messages the turn took as delivered; the answer's messages end with it unless
+   * some sent are still to land, which the function answers.
+   */
+  private async landBargeIns(threadId: string, turn: TurnEndedEvent): Promise<boolean> {
+    const bargeIns = this.bargeIns.get(threadId);
+    if (!bargeIns) return false;
+    const { delivered, stillToLand } = bargeIns.turnEnded(
+      turn.consumedMessageIds,
+      turn.outcome === "completed",
+    );
+    // Ended at once, so a message written from now on is refused rather than held.
+    const undelivered = stillToLand ? [] : this.closeBargeIns(threadId);
+    await this.mark(threadId, delivered, "delivered");
+    await this.mark(threadId, undelivered, "not-delivered");
+    return stillToLand;
+  }
+
+  /** The answer has ended: the user's messages to it that never landed are marked so. */
+  private async endBargeIns(threadId: string): Promise<void> {
+    await this.mark(threadId, this.closeBargeIns(threadId), "not-delivered");
+  }
+
+  /** Ends the answer's messages, answering those that never landed. */
+  private closeBargeIns(threadId: string): readonly string[] {
+    const bargeIns = this.bargeIns.get(threadId);
+    this.bargeIns.delete(threadId);
+    return bargeIns?.end() ?? [];
+  }
+
+  private async mark(
+    threadId: string,
+    messageIds: readonly string[],
+    delivery: MessageDelivery,
+  ): Promise<void> {
+    await this.change(threadId, (thread) =>
+      markDelivery(thread, { messageIds, delivery }, new Date()),
+    );
   }
 
   private turnBegan(live: LiveSession): void {
@@ -1046,6 +1158,7 @@ export class ThreadRunner implements OnModuleDestroy {
     const reason = messageOf(error);
     const [first, ...others] = answers ?? [];
     try {
+      await this.endBargeIns(threadId);
       await this.change<DecisionReopened | MessagesLogged>(threadId, (thread) =>
         first
           ? failDecisionAnswer(thread, first, reason, new Date(), unopened)
