@@ -23,6 +23,9 @@ export const INSTALLED_WORKSPACES = [
   "tools/office-launcher",
 ] as const;
 
+/** A release's version, as `--version` gives it: `major.minor.patch[-prerelease]`. */
+export const RELEASE_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
 /** The root scripts a release keeps: what runs The Office and what sets it up. */
 export const RELEASE_SCRIPTS = ["start", "set-password", "setup-token"] as const;
 

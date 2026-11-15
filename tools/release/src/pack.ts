@@ -26,6 +26,7 @@ import {
   RELEASE_ARCHES,
   RELEASE_FILES,
   RELEASE_STAMP_FILE,
+  RELEASE_VERSION,
   RELEASE_WORKSPACES,
   releaseFolderName,
   releasePackageJson,
@@ -63,7 +64,7 @@ function argumentsGiven(): { version: string; arch: ReleaseArch } {
     options: { version: { type: "string" }, arch: { type: "string" } },
   });
   const given = values.arch;
-  if (!values.version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(values.version)) {
+  if (!values.version || !RELEASE_VERSION.test(values.version)) {
     throw new Error("Give the release's version as --version <major.minor.patch[-prerelease]>.");
   }
   if (!RELEASE_ARCHES.some((each) => each === given)) {

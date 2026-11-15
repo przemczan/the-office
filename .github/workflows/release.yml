@@ -1,8 +1,8 @@
 # Releases main by hand (docs/releasing.md): semantic-release takes the next version from the
 # Conventional Commits since the last v* tag, runs `npm run verify` in the run environment, packs
-# and checks the tarballs and the image, pushes the image, tags v<version> and makes the GitHub
-# Release with the tarballs. The Dry run builds and checks the same, and tags, releases and pushes
-# nothing.
+# and checks the tarballs, the image and the Compose install, pushes the image, tags v<version> and
+# makes the GitHub Release with the tarballs, install.sh and the Compose install's files. The Dry
+# run builds and checks the same, and tags, releases and pushes nothing.
 name: Release
 
 on:
@@ -71,4 +71,6 @@ jobs:
             dist/release/*.tar.gz
             dist/release/*.sha256
             dist/release/install.sh
+            dist/release/docker-compose.yml
+            dist/release/the-office.env
           retention-days: 7

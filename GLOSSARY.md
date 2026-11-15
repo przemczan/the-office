@@ -305,6 +305,10 @@ _Avoid_: Upgrade, self-update, release, deploy
 A version of The Office cut from `main` by the Release workflow: the tag `v<version>`, its GitHub Release, a tarball for each Linux CPU and the container image, with the version Settings › Updates shows. Not an Office update, which moves a checkout to its upstream's newest commit.
 _Avoid_: Build, distribution, package, update
 
+**Compose install**:
+The Office installed with Docker Compose: a folder holding an Office release's `docker-compose.yml` and its `.env`, which run the release's container image as the service `office` beside a Postgres of its own, with the host's Docker socket and the Office data folder at the same path. Not the dev stack, the repository's own `docker-compose.yml`.
+_Avoid_: Docker install, container install
+
 **Launcher**:
 What `npm start` runs: it starts The Office's service, and when the service stops for an Office update, installs the update and starts it again.
 _Avoid_: Supervisor, wrapper, runner
