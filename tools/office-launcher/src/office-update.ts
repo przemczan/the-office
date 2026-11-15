@@ -1,7 +1,7 @@
-// An Office update, as the launcher runs it between two runs of the service (docs/running-the-office.md).
+// An Office update of a checkout, as the launcher runs it between two runs of the service
+// (docs/running-the-office.md).
 import { spawn } from "node:child_process";
-import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { UpdateLog, writeResult, type UpdateResult, type UpdateStep } from "./update-folder.ts";
 
 /** A program and its arguments. */
 export type Command = readonly [string, ...string[]];
@@ -24,74 +24,29 @@ export interface OfficeUpdateOptions {
   readonly commands: UpdateCommands;
 }
 
-/** The steps of an update, as `result.json` names the one that failed. */
-export type UpdateStep = "fetch" | "merge" | "install" | "build";
-
-/** What `result.json` holds once an update is over; the service reads it as it starts. */
-export type UpdateResult =
-  | {
-      readonly outcome: "updated";
-      readonly from: string;
-      readonly to: string;
-      readonly finishedAt: string;
-    }
-  | {
-      readonly outcome: "failed";
-      readonly from: string;
-      readonly to: string;
-      readonly failedStep: UpdateStep;
-      /** Set when going back to `from` failed too, so the checkout may be neither. */
-      readonly rollbackFailed?: true;
-      readonly finishedAt: string;
-    };
-
-export const REQUEST_FILE = "request.json";
-export const RESULT_FILE = "result.json";
-export const LOG_FILE = "log.txt";
-
 /**
- * Runs the update the service asked for in `request.json`: fast-forwards the checkout to its target
- * commit, installs and builds, and on a failure goes back to the commit it started from and builds
- * that again. Either way `result.json` tells the next run of the service how it went, and `log.txt`
- * holds every step's output. Undefined when nothing was asked.
+ * Fast-forwards the checkout to `target`, installs and builds, and on a failure goes back to the
+ * commit it started from and builds that again. Either way `result.json` tells the next run of the
+ * service how it went, and `log.txt` holds every step's output.
  */
 export async function runOfficeUpdate(
   options: OfficeUpdateOptions,
-): Promise<UpdateResult | undefined> {
-  const target = takeRequest(options.updateFolder);
-  if (!target) return undefined;
-  const log = openSync(join(options.updateFolder, LOG_FILE), "w");
+  target: string,
+): Promise<UpdateResult> {
+  const log = new UpdateLog(options.updateFolder);
   try {
     const result = await update(options, target, log);
-    writeFileSync(join(options.updateFolder, RESULT_FILE), `${JSON.stringify(result, null, 2)}\n`);
+    writeResult(options.updateFolder, result);
     return result;
   } finally {
-    closeSync(log);
+    log.close();
   }
-}
-
-/** The target commit of the request, which is taken, so a crash mid-update never repeats it. */
-function takeRequest(updateFolder: string): string | undefined {
-  mkdirSync(updateFolder, { recursive: true });
-  const requestPath = join(updateFolder, REQUEST_FILE);
-  let text: string;
-  try {
-    text = readFileSync(requestPath, "utf8");
-  } catch {
-    return undefined;
-  }
-  rmSync(requestPath, { force: true });
-  const { target } = JSON.parse(text) as { target?: unknown };
-  if (typeof target !== "string" || !/^[0-9a-f]{40}$/.test(target)) {
-    throw new Error(`${requestPath} names no commit to update to.`);
-  }
-  return target;
 }
 
 async function update(
   { repository, commands }: OfficeUpdateOptions,
   target: string,
-  log: number,
+  log: UpdateLog,
 ): Promise<UpdateResult> {
   const run = (step: string, command: Command) => runLogged(step, command, repository, log);
   const from = (await output(["git", "rev-parse", "HEAD"], repository)).trim();
@@ -124,17 +79,17 @@ function runLogged(
   step: string,
   [program, ...args]: Command,
   cwd: string,
-  log: number,
+  log: UpdateLog,
 ): Promise<boolean> {
-  writeFileSync(log, `\n== ${step}: ${[program, ...args].join(" ")}\n`);
+  log.step(step, [program, ...args].join(" "));
   return new Promise((resolve) => {
-    const child = spawn(program, args, { cwd, stdio: ["ignore", log, log] });
+    const child = spawn(program, args, { cwd, stdio: ["ignore", log.fd, log.fd] });
     child.on("error", (error) => {
-      writeFileSync(log, `${error.message}\n`);
+      log.write(error.message);
       resolve(false);
     });
     child.on("exit", (code, signal) => {
-      writeFileSync(log, `== ${step} ended with ${signal ?? `exit code ${code}`}\n`);
+      log.write(`== ${step} ended with ${signal ?? `exit code ${code}`}`);
       resolve(code === 0);
     });
   });

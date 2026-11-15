@@ -1,15 +1,22 @@
+import type { OfficeUpdateRequest } from "../domain/office-update-request.js";
 import type { OfficeUpdateResult } from "../domain/office-update-result.js";
 
 /**
- * The folder the launcher and the service share (docs/running-the-office.md): the service writes the
+ * The folder the launcher (or the Office updater) and the service share (docs/running-the-office.md): the service writes the
  * request there before it exits for an update, and the launcher leaves the result and its log.
  */
 export abstract class UpdateFolder {
-  /** Whether the service runs under the launcher, which alone carries out an update. */
+  /**
+   * Whether the folder is there: the launcher gives it, or a container keeps it in the Office data
+   * directory for the Office updater.
+   */
   abstract readonly launched: boolean;
 
-  /** Asks the launcher to update to `target` once the service exits for it. */
-  abstract writeRequest(target: string): Promise<void>;
+  /** The folder's path; undefined when there is none. */
+  abstract readonly path: string | undefined;
+
+  /** Asks the launcher or the Office updater for the update. */
+  abstract writeRequest(request: OfficeUpdateRequest): Promise<void>;
 
   /**
    * The result the launcher left of an update since the service last started, kept from then on as

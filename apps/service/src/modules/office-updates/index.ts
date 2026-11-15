@@ -6,7 +6,7 @@ export {
 } from "./application/office-update-hold.js";
 export { OFFICE_UPDATE_CHECK, OfficeUpdates } from "./application/office-updates.js";
 export type { BusyItem, BusyKind } from "./domain/busy-item.js";
-export { shortCommit } from "./domain/office-commit.js";
+export { officeVersionWords } from "./domain/office-version.js";
 export {
   BusyWorkChanged,
   OfficeUpdateCancelled,

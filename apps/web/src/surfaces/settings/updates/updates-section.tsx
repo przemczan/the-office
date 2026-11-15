@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { OfficeCommit, OfficeUpdate } from "@the-office/contracts";
+import type {
+  OfficeCommit,
+  OfficeReleaseNote,
+  OfficeUpdate,
+  OfficeUpdateTarget,
+} from "@the-office/contracts";
 import { Alert, Button, Card, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
@@ -9,28 +14,28 @@ import {
   officeUpdateQueries,
   scheduleOfficeUpdate,
 } from "../../../api/office-updates.ts";
+import { MarkdownDocument } from "../../../shell/markdown-text.tsx";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
-import { momentWords } from "../../../shell/time.ts";
+import { dayOf, momentWords } from "../../../shell/time.ts";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
-import { lastResultWords, waitingWords } from "./updates-words.ts";
+import { installNote, installWords, lastResultWords, waitingWords } from "./updates-words.ts";
 import "./updates.css";
 
 /**
- * Settings › Updates (spec §5.1 Defaults, "Updating The Office"): the version The Office runs,
- * Check for updates, and Update, which waits for the work going on and then has the launcher
- * install the newest commit and start The Office again.
+ * Settings › Updates (spec §5.1 Defaults, "Updating The Office"): how The Office was installed
+ * and the version it runs, Check for updates, and Update, which waits for the work going on and then
+ * has the launcher or the Office updater install the newest commit or release and start The Office
+ * again.
  */
 export function UpdatesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Updates" });
   const officeUpdate = useQuery(officeUpdateQueries.officeUpdate());
   return (
     <>
-      <p className="settings-note">
-        The Office updates its own checkout to the newest commit of its upstream branch. A check
-        runs every day and installs nothing; Update waits until nobody is mid-turn and nothing runs,
-        then The Office restarts on the new version.
-      </p>
+      {officeUpdate.data && (
+        <p className="settings-note">{installNote(officeUpdate.data.install)}</p>
+      )}
       {officeUpdate.data && <VersionCard officeUpdate={officeUpdate.data} />}
       {officeUpdate.data?.scheduled && <ScheduledCard officeUpdate={officeUpdate.data} />}
       {officeUpdate.data?.lastResult && <LastResultCard officeUpdate={officeUpdate.data} />}
@@ -51,8 +56,21 @@ function VersionCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }):
     mutationFn: scheduleOfficeUpdate,
     onSettled: () => queryClient.invalidateQueries(officeUpdateQueries.officeUpdate()),
   });
-  const { version, current, check, refusal, scheduled } = officeUpdate;
+  const { install, version, current, check, refusal, scheduled } = officeUpdate;
   const behind = check?.behind ?? [];
+  const releases = check?.releases ?? [];
+  const updateButton = !scheduled && (
+    <Button
+      size="sm"
+      iconLeft={<Icon name="download" size={14} />}
+      loading={scheduling.isPending}
+      disabled={refusal !== undefined}
+      title={refusal}
+      onClick={() => scheduling.mutate()}
+    >
+      Update
+    </Button>
+  );
   return (
     <Card title={<SettingsCardTitle icon="refresh-cw">Version</SettingsCardTitle>}>
       <div className="updates-card-body">
@@ -64,6 +82,9 @@ function VersionCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }):
               </>
             )}
             <CommitWords commit={current} />
+          </span>
+          <span className="settings-note" aria-label="How The Office was installed">
+            {installWords(install)}
           </span>
           <Button
             variant="secondary"
@@ -78,7 +99,10 @@ function VersionCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }):
         {check && (
           <p className="settings-note">
             Checked {momentWords(check.checkedAt)}.
-            {behind.length === 0 && !check.problem && " The Office is up to date."}
+            {behind.length === 0 &&
+              releases.length === 0 &&
+              !check.problem &&
+              " The Office is up to date."}
           </p>
         )}
         {check?.problem && (
@@ -93,17 +117,7 @@ function VersionCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }):
               <span className="settings-note">
                 {behind.length === 1 ? "1 commit" : `${behind.length} commits`}
               </span>
-              {!scheduled && (
-                <Button
-                  size="sm"
-                  iconLeft={<Icon name="download" size={14} />}
-                  loading={scheduling.isPending}
-                  disabled={refusal !== undefined}
-                  onClick={() => scheduling.mutate()}
-                >
-                  Update
-                </Button>
-              )}
+              {updateButton}
             </div>
             <ul className="updates-commits" aria-label="Commits behind">
               {behind.map((commit) => (
@@ -114,6 +128,7 @@ function VersionCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }):
             </ul>
           </section>
         )}
+        {releases.length > 0 && <ReleasesAvailable releases={releases} action={updateButton} />}
         {refusal && (
           <Alert tone="warning" title="Update is refused">
             {refusal}
@@ -141,7 +156,7 @@ function ScheduledCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }
       <div className="updates-card-body">
         <div className="updates-row">
           <span>
-            To <CommitWords commit={scheduled.target} />. {waitingWords(scheduled.busy.length)}
+            To <TargetWords target={scheduled.target} />. {waitingWords(scheduled.busy.length)}
           </span>
           <Button
             variant="secondary"
@@ -194,6 +209,64 @@ function LastResultCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate 
         </Alert>
       </div>
     </Card>
+  );
+}
+
+/** The newer releases, newest first: the newest's notes open, the older ones' folded. */
+function ReleasesAvailable({
+  releases,
+  action,
+}: {
+  readonly releases: readonly OfficeReleaseNote[];
+  readonly action: ReactNode;
+}): ReactNode {
+  const [newest] = releases;
+  if (!newest) return null;
+  return (
+    <section className="updates-available" aria-label="Update available">
+      <div className="updates-row">
+        <strong>Version {newest.version} available</strong>
+        {releases.length > 1 && (
+          <span className="settings-note">{releases.length} newer versions</span>
+        )}
+        {action}
+      </div>
+      <ul className="updates-releases" aria-label="Newer versions">
+        {releases.map((release, index) => (
+          <li key={release.version}>
+            <details className="updates-release" open={index === 0}>
+              <summary className="updates-release-heading">
+                <span className="updates-release-chevron">
+                  <Icon name="chevron-right" size={14} />
+                </span>
+                <strong>{release.version}</strong>
+                {release.name !== release.version && <span>{release.name}</span>}
+                <span className="settings-note">{dayOf(release.publishedAt)}</span>
+              </summary>
+              <div className="updates-release-notes">
+                {release.notes.trim() ? (
+                  <MarkdownDocument text={release.notes} />
+                ) : (
+                  <p className="settings-note">This release has no notes.</p>
+                )}
+                <a className="updates-link" href={release.url} target="_blank" rel="noreferrer">
+                  Release notes
+                </a>
+              </div>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TargetWords({ target }: { readonly target: OfficeUpdateTarget }): ReactNode {
+  if (target.kind === "commit") return <CommitWords commit={target} />;
+  return (
+    <>
+      <strong>{target.version}</strong> · {dayOf(target.publishedAt)}
+    </>
   );
 }
 

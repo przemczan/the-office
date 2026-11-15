@@ -1,11 +1,11 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { OfficeCommit } from "./office-commit.js";
+import type { OfficeUpdateTarget } from "./office-update-target.js";
 
 /** A check ended: what it found may have changed, an update newly found among it. */
 export class OfficeUpdateChecked extends DomainEvent {
   constructor(
-    /** The upstream's newest commit when the checkout is behind it. */
-    readonly available: OfficeCommit | undefined,
+    /** The newest commit or release when there is one newer than what runs. */
+    readonly available: OfficeUpdateTarget | undefined,
     /** Whether `available` is newer than what the check before found. */
     readonly newlyFound: boolean,
   ) {
@@ -15,7 +15,7 @@ export class OfficeUpdateChecked extends DomainEvent {
 
 /** The user scheduled an Office update: new Starts queue and Tasks wait at their next Stage. */
 export class OfficeUpdateScheduled extends DomainEvent {
-  constructor(readonly target: OfficeCommit) {
+  constructor(readonly target: OfficeUpdateTarget) {
     super();
   }
 }
@@ -30,7 +30,10 @@ export class BusyWorkChanged extends DomainEvent {
   }
 }
 
-/** The launcher updated The Office, as the service found at its start. */
+/**
+ * The launcher or the Office updater updated The Office, as the service found at its start: `from`
+ * and `to` are commits for a checkout, versions for a release or a container.
+ */
 export class OfficeUpdated extends DomainEvent {
   constructor(
     readonly from: string,
@@ -41,7 +44,7 @@ export class OfficeUpdated extends DomainEvent {
   }
 }
 
-/** The launcher's update failed, and it went back to the commit it started from. */
+/** The update failed, and The Office went back to the commit or version it started from. */
 export class OfficeUpdateFailed extends DomainEvent {
   constructor(
     readonly from: string,

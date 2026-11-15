@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { runLauncher, UPDATE_EXIT_CODE } from "./launcher.ts";
-import { LOG_FILE, REQUEST_FILE, RESULT_FILE, type UpdateResult } from "./office-update.ts";
+import { LOG_FILE, REQUEST_FILE, RESULT_FILE, type UpdateResult } from "./update-folder.ts";
 
 // A service that asks for an update to TARGET on its first run, and ends on its second.
 const FAKE_SERVICE = `
@@ -62,11 +62,14 @@ function pushNewerCommit(buildFails: boolean): string {
 function launch(target: string) {
   const lines: string[] = [];
   const exitCode = runLauncher({
-    repository: checkout,
-    updateFolder,
-    commands: { install: ["node", "-e", ""], build: ["node", "build.cjs"] },
+    install: {
+      mode: "checkout",
+      updateFolder,
+      repository: checkout,
+      commands: { install: ["node", "-e", ""], build: ["node", "build.cjs"] },
+    },
     service: ["node", "-e", FAKE_SERVICE],
-    serviceDirectory: checkout,
+    serviceDirectory: () => checkout,
     environment: { ...process.env, TARGET: target },
     log: (line) => lines.push(line),
   });

@@ -89,7 +89,8 @@ function copyReleaseFiles(): void {
     cwd: repositoryRoot,
     encoding: "utf8",
   });
-  writeJson(join(releaseRoot, RELEASE_STAMP_FILE), releaseStamp(version, commitLine));
+  const repository = process.env["GITHUB_REPOSITORY"]?.trim() || undefined;
+  writeJson(join(releaseRoot, RELEASE_STAMP_FILE), releaseStamp(version, commitLine, repository));
 }
 
 /**

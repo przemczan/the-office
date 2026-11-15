@@ -16,7 +16,11 @@ import {
   UsageWindowUsedUp,
   usageWindowWords,
 } from "../../engine/index.js";
-import { OfficeUpdated, OfficeUpdateFailed, shortCommit } from "../../office-updates/index.js";
+import {
+  OfficeUpdated,
+  OfficeUpdateFailed,
+  officeVersionWords,
+} from "../../office-updates/index.js";
 import { CARETAKER } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
@@ -250,12 +254,12 @@ export class NotificationService implements OnModuleInit {
     // A newer update's result replaces what the last one's said.
     this.events.subscribe(OfficeUpdated, async ({ to }) => {
       await this.handle({ kind: "office-update-opened" });
-      await this.raise(officeUpdated(shortCommit(to), await this.defaultPerson()));
+      await this.raise(officeUpdated(officeVersionWords(to), await this.defaultPerson()));
     });
     this.events.subscribe(OfficeUpdateFailed, async ({ from, failedStep }) => {
       await this.handle({ kind: "office-update-opened" });
       await this.raise(
-        officeUpdateFailed(failedStep, shortCommit(from), await this.defaultPerson()),
+        officeUpdateFailed(failedStep, officeVersionWords(from), await this.defaultPerson()),
       );
     });
     // A turn that ended came back from its session's engine, which therefore answers again.

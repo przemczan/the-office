@@ -132,7 +132,7 @@
 
 ### os/
 
-- `current-operating-system.ts`: currentOperatingSystem
+- `current-operating-system.ts`: currentOperatingSystem, processorArchitecture
 - `linux-processes.ts`: LinuxProcess, hasEnded, processFromStat, runningInGroup
 - `linux.ts`: linux
 - `move-when-free.ts`: moveWhenFree

@@ -75,9 +75,12 @@ describe("Settings › Updates", () => {
 
     await (app.get(Schedule) as ManualSchedule).runDaily(OFFICE_UPDATE_CHECK);
 
-    expect(found.map(({ available, newlyFound }) => [available?.commit, newlyFound])).toEqual([
-      [newest, true],
-    ]);
+    expect(
+      found.map(({ available, newlyFound }) => [
+        available?.kind === "commit" && available.commit,
+        newlyFound,
+      ]),
+    ).toEqual([[newest, true]]);
     expect((await officeUpdate()).check?.behind).toHaveLength(1);
     expect(await checkout.head()).not.toBe(newest);
   });

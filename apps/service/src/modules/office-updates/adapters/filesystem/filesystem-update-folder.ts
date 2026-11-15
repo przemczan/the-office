@@ -1,17 +1,21 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { officeUpdateResultSchema } from "@the-office/contracts";
+import type { OfficeUpdateRequest } from "../../domain/office-update-request.js";
 import type { OfficeUpdateResult } from "../../domain/office-update-result.js";
 import { UpdateFolder } from "../../ports/update-folder.js";
 
-// The files the launcher reads and writes (tools/office-launcher/src/office-update.ts).
+// The files the launcher and the Office updater read and write (tools/office-launcher/src/update-folder.ts).
 const REQUEST_FILE = "request.json";
 const RESULT_FILE = "result.json";
 const LOG_FILE = "log.txt";
 /** A result once the service has announced it, so a restart doesn't announce it again. */
 const LAST_RESULT_FILE = "last-result.json";
 
-/** The launcher's folder, as `OFFICE_UPDATE_FOLDER` names it; none without the launcher. */
+/**
+ * The launcher's folder, as `OFFICE_UPDATE_FOLDER` names it, or a container's in its Office data
+ * directory; none without either.
+ */
 export class FilesystemUpdateFolder extends UpdateFolder {
   constructor(private readonly folder: string | undefined) {
     super();
@@ -21,15 +25,19 @@ export class FilesystemUpdateFolder extends UpdateFolder {
     return this.folder !== undefined;
   }
 
-  async writeRequest(target: string): Promise<void> {
-    await mkdir(this.path(""), { recursive: true });
-    await writeFile(this.path(REQUEST_FILE), `${JSON.stringify({ target })}\n`);
+  get path(): string | undefined {
+    return this.folder;
+  }
+
+  async writeRequest(request: OfficeUpdateRequest): Promise<void> {
+    await mkdir(this.fileIn(""), { recursive: true });
+    await writeFile(this.fileIn(REQUEST_FILE), `${JSON.stringify(request)}\n`);
   }
 
   async takeNewResult(): Promise<OfficeUpdateResult | undefined> {
     if (!this.folder) return undefined;
     const result = await this.readResult(RESULT_FILE);
-    if (result) await rename(this.path(RESULT_FILE), this.path(LAST_RESULT_FILE));
+    if (result) await rename(this.fileIn(RESULT_FILE), this.fileIn(LAST_RESULT_FILE));
     return result;
   }
 
@@ -38,17 +46,17 @@ export class FilesystemUpdateFolder extends UpdateFolder {
   }
 
   async log(): Promise<string | undefined> {
-    return this.folder ? readIfThere(this.path(LOG_FILE)) : undefined;
+    return this.folder ? readIfThere(this.fileIn(LOG_FILE)) : undefined;
   }
 
   private async readResult(file: string): Promise<OfficeUpdateResult | undefined> {
-    const text = await readIfThere(this.path(file));
+    const text = await readIfThere(this.fileIn(file));
     if (text === undefined) return undefined;
     const result = officeUpdateResultSchema.parse(JSON.parse(text));
     return { ...result, finishedAt: new Date(result.finishedAt) };
   }
 
-  private path(file: string): string {
+  private fileIn(file: string): string {
     if (!this.folder) throw new Error("The Office runs without its launcher, which has no folder.");
     return join(this.folder, file);
   }

@@ -20,3 +20,8 @@ export function currentOperatingSystem(): OperatingSystem {
       throw new Error(`The Office runs on Windows and Linux, not on ${process.platform}.`);
   }
 }
+
+/** The CPU The Office runs on, in Node's words (`x64`, `arm64`), as a release's tarball names it. */
+export function processorArchitecture(): string {
+  return process.arch;
+}

@@ -11,12 +11,16 @@ import {
 } from "@nestjs/common";
 import type {
   OfficeCommit as OfficeCommitResponse,
+  OfficeReleaseNote,
   OfficeUpdate,
   OfficeUpdateResult as OfficeUpdateResultResponse,
+  OfficeUpdateTarget as OfficeUpdateTargetResponse,
 } from "@the-office/contracts";
 import { OfficeUpdates, type OfficeUpdateView } from "../../application/office-updates.js";
 import { shortCommit, type OfficeCommit } from "../../domain/office-commit.js";
 import type { OfficeUpdateResult } from "../../domain/office-update-result.js";
+import type { OfficeUpdateTarget } from "../../domain/office-update-target.js";
+import type { PublishedRelease } from "../../domain/published-release.js";
 import { OfficeUpdateRefusalsFilter } from "./office-update-refusals.filter.js";
 
 /** Settings › Updates. */
@@ -30,7 +34,7 @@ export class OfficeUpdatesController {
     return toOfficeUpdate(await this.updates.view());
   }
 
-  /** Checks the upstream now and answers what it found. */
+  /** Checks the upstream or GitHub Releases now and answers what it found. */
   @Post("check")
   async check(): Promise<OfficeUpdate> {
     await this.updates.check();
@@ -49,7 +53,7 @@ export class OfficeUpdatesController {
     await this.updates.cancel();
   }
 
-  /** The launcher's log of the last update, as plain text. */
+  /** The log of the last update, as plain text. */
   @Get("log")
   @Header("Content-Type", "text/plain; charset=utf-8")
   async log(): Promise<string> {
@@ -60,6 +64,7 @@ export class OfficeUpdatesController {
 }
 
 function toOfficeUpdate({
+  install,
   version,
   current,
   check,
@@ -69,6 +74,7 @@ function toOfficeUpdate({
   lastResult,
 }: OfficeUpdateView): OfficeUpdate {
   return {
+    install,
     ...(version && { version }),
     current: toCommit(current),
     ...(check && {
@@ -76,6 +82,7 @@ function toOfficeUpdate({
         checkedAt: check.checkedAt.toISOString(),
         ...(check.newest && { newest: toCommit(check.newest) }),
         behind: check.behind.map(toCommit),
+        releases: check.releases.map(toReleaseNote),
         ...(check.problem && { problem: check.problem }),
       },
     }),
@@ -83,7 +90,7 @@ function toOfficeUpdate({
     checking,
     ...(scheduled && {
       scheduled: {
-        target: toCommit(scheduled.target),
+        target: toTarget(scheduled.target),
         scheduledAt: scheduled.scheduledAt.toISOString(),
         busy: scheduled.busy.map(({ kind, label }) => ({ kind, label })),
       },
@@ -99,6 +106,22 @@ function toCommit({ commit, subject, committedAt }: OfficeCommit): OfficeCommitR
     subject,
     committedAt: committedAt.toISOString(),
   };
+}
+
+function toReleaseNote({
+  version,
+  name,
+  publishedAt,
+  notes,
+  url,
+}: PublishedRelease): OfficeReleaseNote {
+  return { version, name, publishedAt: publishedAt.toISOString(), notes, url };
+}
+
+function toTarget(target: OfficeUpdateTarget): OfficeUpdateTargetResponse {
+  if (target.kind === "commit") return { kind: "commit", ...toCommit(target) };
+  const { version, name, publishedAt, url } = target;
+  return { kind: "release", version, name, publishedAt: publishedAt.toISOString(), url };
 }
 
 function toResult(result: OfficeUpdateResult): OfficeUpdateResultResponse {

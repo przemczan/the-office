@@ -12,6 +12,10 @@ const releaseStampSchema = z.object({
   commit: z.string().min(1),
   committedAt: z.iso.datetime({ offset: true }),
   subject: z.string(),
+  repository: z
+    .string()
+    .regex(/^[\w.-]+\/[\w.-]+$/)
+    .optional(),
 });
 
 /** The stamp in the folder The Office runs from; none there in a checkout. */
@@ -27,8 +31,12 @@ export class FilesystemOfficeReleaseStamp extends OfficeReleaseStamp {
     const parsed = releaseStampSchema.safeParse(JSON.parse(text));
     if (!parsed.success)
       throw new Error(`${path} isn't an Office release's stamp: ${parsed.error}`);
-    const { version, commit, committedAt, subject } = parsed.data;
-    return { version, commit: { commit, subject, committedAt: new Date(committedAt) } };
+    const { version, commit, committedAt, subject, repository } = parsed.data;
+    return {
+      version,
+      commit: { commit, subject, committedAt: new Date(committedAt) },
+      repository,
+    };
   }
 }
 

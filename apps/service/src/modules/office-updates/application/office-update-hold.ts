@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import type { OfficeCommit } from "../domain/office-commit.js";
+import type { OfficeUpdateTarget } from "../domain/office-update-target.js";
 
 /** The words a Start's wait gives, and a Task held at its next Stage, while an update is scheduled. */
 export const OFFICE_UPDATE_SCHEDULED = "An update is scheduled.";
 
 export interface ScheduledOfficeUpdate {
-  readonly target: OfficeCommit;
+  readonly target: OfficeUpdateTarget;
   readonly scheduledAt: Date;
 }
 

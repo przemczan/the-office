@@ -135,15 +135,87 @@ npm run set-password -- --email ada@example.com --clear-authenticator
 
 Settings › Updates' Version card shows the commit The Office runs. An Office release shows its version before it (`1.2.3 · <commit>`), read from the `office-release.json` it carries, and its log says "The Office 1.2.3 (<commit>)" at each start ([releasing.md](releasing.md)); a checkout shows its commit alone.
 
+The note at the top of Settings › Updates says how The Office was installed, which decides how it updates. The service reads it from `OFFICE_INSTALL`:
+
+| Install | Set by | Updates by |
+| --- | --- | --- |
+| A checkout (`npm start` from git, on Linux, Windows or a dev machine) | nothing: the default | the launcher's git update |
+| A release (a tarball under `releases/`, run by its launcher) | the launcher, `release` for its child | the launcher installing a newer tarball |
+| A container (Docker Compose) | the image, `ENV OFFICE_INSTALL=container` | the Office updater |
+
+A copy of a release that its launcher didn't start from a `releases/` folder is refused Update: "This copy of The Office wasn't installed into a releases folder, so it can't update itself."
+
 ## How an Office update works
 
-1. A daily check, the first at the service's start, and **Check for updates** in Settings › Updates fetch the checkout's upstream (`@{upstream}`, normally `origin/main`) and list the commits it is behind. Nothing is installed. git runs as the service's own user with its own config: this is no Project, so the Office identity has no part in it.
-2. **Update** is refused, with the reason, when the checkout has local changes to tracked files, has commits its upstream doesn't have, has no upstream, or the service runs without the launcher. On Windows, updating isn't offered.
-3. Once the user schedules the update, new Starts join the queue with "An update is scheduled." and each Task waits before its next Agent or Script Stage. The update waits for an Agent mid-turn (in a Stage, a chat or a Consultation), a Thread of any kind whose background Sub-agents still run after its turn (a planning Thread's research, say), a Script Stage, a Publish, a clone and an environment check; a Task waiting on the user, a paused Task and an idle Thread with no Sub-agent running don't hold it back. Any other restart stops background Sub-agents; a planning Thread that loses them, or is cut mid-turn, has its planner woken again as the service starts. Settings › Updates lists what it waits for, and the status strip shows "Update scheduled". **Cancel** releases what it held. The schedule is kept in memory, so a restart cancels it.
-4. When nothing is busy, the service writes `<office-data>/update/request.json` (`{ "target": "<commit>" }`), stops gracefully and exits with code 75.
-5. The launcher takes the request and runs, in the checkout, `git fetch`, `git merge --ff-only <target>`, `npm ci` and `npm run build`, each step's output going to `update/log.txt`. If one fails, it runs `git reset --hard <previous commit>`, `npm ci` and `npm run build` again. Either way it writes `update/result.json` (`outcome`, `from`, `to`, the `failedStep`, and `rollbackFailed` when going back failed too) and starts the service.
-6. As it starts, the service reads `result.json`, raises a Notification ("The Office updated to …", or "The Office's update failed at …" with the log in Settings › Updates) and keeps it as `last-result.json`, so it is told once.
+### What every install shares
 
-A stop signal during an update lets the update finish and starts nothing after it. A change to the launcher itself applies from its next start; systemd's `Restart=always` gives it one whenever the launcher exits.
+1. A daily check, the first at the service's start, and **Check for updates** in Settings › Updates look for something newer. Nothing is installed. A check that can't read what it looks for shows its problem, and installs nothing.
+2. **Update** is refused, with the reason that says what to do (below, per install). On Windows, updating isn't offered.
+3. Once the user schedules the update, new Starts join the queue with "An update is scheduled." and each Task waits before its next Agent or Script Stage. The update waits for an Agent mid-turn (in a Stage, a chat or a Consultation), a Thread of any kind whose background Sub-agents still run after its turn (a planning Thread's research, say), a Script Stage, a Publish, a clone and an environment check; a Task waiting on the user, a paused Task and an idle Thread with no Sub-agent running don't hold it back. Any other restart stops background Sub-agents; a planning Thread that loses them, or is cut mid-turn, has its planner woken again as the service starts. Settings › Updates lists what it waits for, and the status strip shows "Update scheduled". **Cancel** releases what it held. The schedule is kept in memory, so a restart cancels it.
+4. When nothing is busy, the service writes `<office-data>/update/request.json` and hands the update over: to the launcher by exiting with code 75, or to the Office updater in a container.
+5. Whatever carries it out writes `update/log.txt`, each step's output, and `update/result.json`: `outcome`, `from` and `to` (a commit or a version), the `failedStep`, and `rollbackFailed` when going back failed too.
+6. As it starts, the service reads `result.json`, raises a Notification ("The Office updated to …", or "The Office's update failed at …" with the log in Settings › Updates) and keeps it as `last-result.json`, so it is told once. A commit is named by its first 7 characters, a version whole.
+
+A rollback puts the previous code back, never the database: a migration the newer version ran stays. So each release's migrations keep the previous release working (expand, then contract), and going back stays safe.
+
+### A checkout
+
+1. The check fetches the checkout's upstream (`@{upstream}`, normally `origin/main`) and lists the commits it is behind. git runs as the service's own user with its own config: this is no Project, so the Office identity has no part in it.
+2. Update is refused when the checkout has local changes to tracked files, has commits its upstream doesn't have, has no upstream, or the service runs without the launcher.
+3. The request is `{ "kind": "commit", "target": "<commit>" }`. The launcher takes it and runs, in the checkout, `git fetch`, `git merge --ff-only <target>`, `npm ci` and `npm run build`. If one fails, it runs `git reset --hard <previous commit>`, `npm ci` and `npm run build` again. Either way it starts the service. The steps a failure names: `fetch`, `merge`, `install`, `build`.
 
 `tools/deploy/update.sh` still updates the host by hand from the workstation, outside the service.
+
+### A release install (a tarball)
+
+The layout the installer sets up, owned by the service's user so the launcher can switch it:
+
+```
+/opt/the-office/
+  releases/
+    1.3.0/          one unpacked tarball per version (no "v")
+    1.4.0/
+  current -> releases/1.4.0
+```
+
+Its unit, `/etc/systemd/system/the-office.service`, starts the launcher of the release `current` points at, and its config comes from `/etc/the-office/office.env`, which only root reads (systemd reads it for the service, which never opens the file):
+
+```ini
+[Service]
+EnvironmentFile=/etc/the-office/office.env
+ExecStart=/usr/bin/node /opt/the-office/current/tools/office-launcher/src/main.ts
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=15min
+```
+
+The launcher knows it runs a release when the folder it was loaded from carries `office-release.json`, sits in a `releases` folder, and `current` beside that folder is a link. It then sets `OFFICE_INSTALL=release` for the service, and starts the service from `current` each time.
+
+1. The check reads the GitHub Releases of the repository the release's `office-release.json` names (`repository`, set when the release was packed): `GET {OFFICE_GITHUB_API_URL}/repos/<repository>/releases?per_page=30`, without signing in, given up after 30 seconds. Drafts, pre-releases and tags that aren't a version (`v1.2.3`) are left out; each version newer than the one running is listed, newest first, with its notes. "GitHub Releases couldn't be read: …" is the check's problem when the read fails.
+2. Update is refused when the service runs without its launcher or outside a `releases` folder, when the stamp names no repository, or when the newest release has no `the-office-<version>-linux-<cpu>.tar.gz` and its `.sha256` for this machine's CPU.
+3. The request is `{ "kind": "release", "version", "from", "tarballUrl", "checksumUrl" }` (https only). The service exits with code 75, and the launcher runs, each step in `log.txt`:
+   1. **download**: the tarball and its `.sha256` into `update/downloads/`;
+   2. **verify**: the tarball's sha256 matches its line in `.sha256`, for that file name; once unpacked, its top folder is `the-office-<version>` and its `office-release.json` says that version;
+   3. **unpack**: into `releases/.unpack-<version>`, renamed to `releases/<version>` (a folder left by a failed attempt is replaced);
+   4. **switch**: `current.next` is written and renamed over `current`, so the switch is all or nothing;
+   5. **start**: `result.json` says `updated` first, then the service starts from `current`, and the launcher waits up to 5 minutes for `/api/health` to answer `{"database":"up"}` (on `127.0.0.1` when the service listens on `0.0.0.0` or `::`), or for the service to end.
+4. A failure before the switch changes nothing: the previous version starts again. A failure at the start stops the new service, switches `current` back to `releases/<from>`, writes `failed` at `start` (`rollbackFailed` when switching back failed too) and starts the previous version.
+5. After a good update the launcher keeps `current`'s release, the one before it and the one the running launcher was loaded from, removes the other releases, and empties `downloads/`.
+
+The launcher keeps running the code it was loaded from: the new release's launcher takes over at the unit's next start. A stop signal during an update lets the update finish and starts nothing after it; systemd's `Restart=always` starts the launcher again whenever it exits.
+
+### A Docker Compose install (a container)
+
+The compose folder holds `docker-compose.yml` and `.env`, and the image's tag comes only from `OFFICE_VERSION` in `.env`. The Compose project is `the-office`, its service `office`, with Docker's socket at `/var/run/docker.sock` (and its group through `group_add`), the Office data folder mounted at the same path on the host and in the container, `restart: unless-stopped`, `stop_grace_period: 1m` and the image's `HEALTHCHECK`.
+
+1. The check reads GitHub Releases as a release install does.
+2. Update is refused when the service can't reach Docker's socket, when its container wasn't started by Docker Compose (the refusal gives the commands to run by hand: `docker pull <image>:<version>`, then `OFFICE_VERSION=<version>` in `.env` and `docker compose up -d office` in the compose folder), or when the compose files lie outside the compose project's folder.
+3. The request is `{ "kind": "container", "version", "from", "image" }` in `<OFFICE_DATA_DIR>/update`. The service doesn't exit: it starts the **Office updater**, a short-lived container of the image it runs itself (`docker run -d --rm --label org.the-office.updater=1 --user 0:0`), with the socket, the compose folder and the data folder mounted, running `tools/office-launcher/src/container-main.ts`. The updater:
+   1. reads the Office container with `docker inspect`, and its Compose labels: project, service, working folder, compose files and env file;
+   2. **download**: `docker pull <image>:<version>`;
+   3. **switch**: sets `OFFICE_VERSION=<version>` in `.env` (the env file Compose names, else `.env` in the working folder), in place, keeping its other lines, owner and mode; `docker compose config` must then give the office service the image `…:<version>`, else `.env` is put back and the update fails;
+   4. **start**: writes `result.json` `updated`, runs `docker compose -p <project> --project-directory <folder> -f <file> up -d --no-deps office`, which replaces only the Office container, and waits up to 5 minutes for the new one to be `healthy`;
+   5. on a failure after the switch, sets `OFFICE_VERSION=<from>` again, runs `up -d --no-deps office` again, and writes `failed` (`rollbackFailed` when that fails too);
+   6. gives `result.json` and `log.txt` to the update folder's owner, so the service reads them.
+4. When the updater ends while the service that started it still runs, the update failed before replacing it: the service announces the result, releases the scheduled update's hold, and the queue goes on, with no restart. When the updater can't be started, the update stays scheduled, and the log says why.

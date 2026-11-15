@@ -25,11 +25,49 @@ export const busyItemSchema = z.object({
 });
 export type BusyItem = z.infer<typeof busyItemSchema>;
 
-/** The steps of an Office update the launcher runs, as a failed one names where it stopped. */
-export const officeUpdateStepSchema = z.enum(["fetch", "merge", "install", "build"]);
+/**
+ * The steps of an Office update, as a failed one names where it stopped: a checkout's (fetch to
+ * build), and a release's or a container's (download to start).
+ */
+export const officeUpdateStepSchema = z.enum([
+  "fetch",
+  "merge",
+  "install",
+  "build",
+  "download",
+  "verify",
+  "unpack",
+  "switch",
+  "start",
+]);
 export type OfficeUpdateStep = z.infer<typeof officeUpdateStepSchema>;
 
-/** How the last Office update ended, as the launcher left it. */
+/** How The Office was installed: a git checkout, a release tarball under its launcher, or a container. */
+export const officeInstallSchema = z.enum(["checkout", "release", "container"]);
+export type OfficeInstall = z.infer<typeof officeInstallSchema>;
+
+/** A released version of The Office newer than the one running, as GitHub Releases has it. */
+export const officeReleaseNoteSchema = z.object({
+  version: z.string().min(1),
+  name: z.string(),
+  publishedAt: z.iso.datetime(),
+  /** The release's notes, in Markdown. */
+  notes: z.string(),
+  url: z.url(),
+});
+export type OfficeReleaseNote = z.infer<typeof officeReleaseNoteSchema>;
+
+/** What a scheduled Office update installs: a checkout's commit, or a released version. */
+export const officeUpdateTargetSchema = z.discriminatedUnion("kind", [
+  officeCommitSchema.extend({ kind: z.literal("commit") }),
+  officeReleaseNoteSchema.omit({ notes: true }).extend({ kind: z.literal("release") }),
+]);
+export type OfficeUpdateTarget = z.infer<typeof officeUpdateTargetSchema>;
+
+/**
+ * How the last Office update ended, as the launcher or the Office updater left it. `from` and `to`
+ * are commits for a checkout and versions for a release or a container.
+ */
 export const officeUpdateResultSchema = z.discriminatedUnion("outcome", [
   z.object({
     outcome: z.literal("updated"),
@@ -42,6 +80,8 @@ export const officeUpdateResultSchema = z.discriminatedUnion("outcome", [
     from: z.string(),
     to: z.string(),
     failedStep: officeUpdateStepSchema,
+    /** Going back to `from` failed too, so The Office may run neither. */
+    rollbackFailed: z.literal(true).optional(),
     finishedAt: z.iso.datetime(),
   }),
 ]);
@@ -51,16 +91,19 @@ export type OfficeUpdateResult = z.infer<typeof officeUpdateResultSchema>;
 export const officeUpdateSchema = z.object({
   /** The Office release's version, as `1.2.3`; absent when The Office runs from a checkout. */
   version: z.string().min(1).optional(),
+  install: officeInstallSchema,
   current: officeCommitSchema,
   /** What the last check found; absent before the first check ends. */
   check: z
     .object({
       checkedAt: z.iso.datetime(),
-      /** The upstream's newest commit; absent when there is no upstream. */
+      /** A checkout's: the upstream's newest commit; absent when there is no upstream. */
       newest: officeCommitSchema.optional(),
-      /** The commits the checkout is behind its upstream, newest first. */
+      /** A checkout's: the commits it is behind its upstream, newest first. */
       behind: z.array(officeCommitSchema),
-      /** Why the check couldn't read the upstream, such as a failed fetch. */
+      /** A release's or a container's: the released versions newer than it, newest first. */
+      releases: z.array(officeReleaseNoteSchema),
+      /** Why the check couldn't read the upstream or GitHub Releases, such as a failed fetch. */
       problem: z.string().optional(),
     })
     .optional(),
@@ -69,7 +112,7 @@ export const officeUpdateSchema = z.object({
   checking: z.boolean(),
   scheduled: z
     .object({
-      target: officeCommitSchema,
+      target: officeUpdateTargetSchema,
       scheduledAt: z.iso.datetime(),
       busy: z.array(busyItemSchema),
     })

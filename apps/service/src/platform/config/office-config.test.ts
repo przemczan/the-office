@@ -52,6 +52,24 @@ describe("readOfficeConfig", () => {
     expect(isOfficeOwnVariable("OFFICE_SKIP_SETUP_BASICS")).toBe(true);
   });
 
+  it("reads how The Office was installed, refuses another kind, and keeps it from Project commands", () => {
+    const config = readOfficeConfig(
+      { OFFICE_PORT: port, DATABASE_URL: databaseUrl, OFFICE_INSTALL: "container" },
+      platformDefaults(),
+    );
+    const error = readProblems({
+      OFFICE_PORT: port,
+      DATABASE_URL: databaseUrl,
+      OFFICE_INSTALL: "snap",
+    });
+
+    expect(config.officeInstall).toBe("container");
+    expect(error.problems).toEqual([
+      { variable: "OFFICE_INSTALL", problem: "must be checkout, release or container" },
+    ]);
+    expect(isOfficeOwnVariable("OFFICE_INSTALL")).toBe(true);
+  });
+
   it("reads the public address as its origin", () => {
     const config = readOfficeConfig(
       {

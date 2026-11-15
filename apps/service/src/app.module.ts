@@ -200,6 +200,9 @@ export class AppModule {
         OfficeUpdatesModule.register({
           checkout: officeCheckout,
           updateFolder: config.officeUpdateFolder,
+          install: config.officeInstall,
+          officeDataDirectory: config.officeDataDirectory,
+          gitHubApiUrl: config.gitHub.apiUrl,
         }),
         NotificationsModule.register({
           imports: [work, conversations, pipelines, PeopleModule, EngineModule],

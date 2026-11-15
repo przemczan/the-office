@@ -298,16 +298,20 @@ The user's act that turns the Fire alarm off, after seeing on Now what will resu
 _Avoid_: Lift, reset, unpause
 
 **Office update**:
-Moving The Office itself to the newest commit of its own checkout's upstream: found by its daily check, scheduled by the user's Update in Settings › Updates, held until nothing is busy, then installed by the launcher as The Office restarts. Not a Skill's Update.
+Moving The Office itself to something newer, as its install allows: a checkout to the newest commit of its upstream, a release install or a container install to the newest Office release. Found by its daily check, scheduled by the user's Update in Settings › Updates, held until nothing is busy, then installed by the launcher (a checkout or a release install) or the Office updater (a container install), which goes back to the previous version when it fails. Not a Skill's Update.
 _Avoid_: Upgrade, self-update, release, deploy
 
 **Office release**:
-A version of The Office cut from `main` by the Release workflow: the tag `v<version>`, its GitHub Release, a tarball for each Linux CPU and the container image, with the version Settings › Updates shows. Not an Office update, which moves a checkout to its upstream's newest commit.
+A version of The Office cut from `main` by the Release workflow: the tag `v<version>`, its GitHub Release, a tarball for each Linux CPU and the container image, with the version Settings › Updates shows. Not an Office update, which moves an install to a newer version.
 _Avoid_: Build, distribution, package, update
 
 **Launcher**:
-What `npm start` runs: it starts The Office's service, and when the service stops for an Office update, installs the update and starts it again.
+What `npm start` and a release install's unit run: it starts The Office's service, and when the service stops for an Office update, installs the update (a checkout's newest commit, or a release's tarball into `releases/` and the switch of `current`) and starts it again, going back to the previous version when the update fails.
 _Avoid_: Supervisor, wrapper, runner
+
+**Office updater**:
+The short-lived container a container install's Office update runs in: started by The Office from its own image, it pulls the new image, sets the version in the compose folder's `.env`, recreates The Office's container through Docker Compose and waits for it to be healthy, or puts the previous version back.
+_Avoid_: Watchtower, update container, sidecar
 
 **Notification**:
 A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared by handling it, never by reading the Notification itself.

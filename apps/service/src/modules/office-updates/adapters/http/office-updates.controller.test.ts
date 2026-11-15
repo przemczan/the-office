@@ -78,6 +78,7 @@ describe("Settings › Updates", () => {
       subject: "The first version",
     });
     expect(before.current.shortCommit).toHaveLength(7);
+    expect(before.install).toBe("checkout");
     expect(before.version).toBeUndefined();
     expect(before.check).toBeUndefined();
     expect(checked.check?.newest?.commit).toBe(newest);
@@ -85,6 +86,7 @@ describe("Settings › Updates", () => {
       "Add Settings › Updates",
       "Add the launcher",
     ]);
+    expect(checked.check?.releases).toEqual([]);
     expect(checked.refusal).toBeUndefined();
   });
 
@@ -102,6 +104,7 @@ describe("Settings › Updates", () => {
 
     const shown = await officeUpdate();
 
+    expect(shown.install).toBe("release");
     expect(shown.version).toBe("1.2.3");
     expect(shown.current).toEqual({
       commit: stamp.commit,
@@ -130,7 +133,7 @@ describe("Settings › Updates", () => {
     expect((await send("DELETE", "/schedule")).status).toBe(204);
     endBusy();
 
-    expect(scheduled.scheduled?.target.commit).toBe(newest);
+    expect(scheduled.scheduled?.target).toMatchObject({ kind: "commit", commit: newest });
     expect(scheduled.scheduled?.busy).toEqual([
       { kind: "clone", label: "The clone of a repository" },
     ]);

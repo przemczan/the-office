@@ -2,7 +2,9 @@ import { Injectable, Logger, type OnApplicationBootstrap, type OnModuleInit } fr
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { BusyItem } from "../domain/busy-item.js";
+import { installKindOf, type InstallKind } from "../domain/install-kind.js";
 import type { OfficeCommit } from "../domain/office-commit.js";
+import { imageRepository } from "../domain/office-container.js";
 import { releaseWords, type OfficeRelease } from "../domain/office-release.js";
 import {
   BusyWorkChanged,
@@ -13,13 +15,20 @@ import {
   OfficeUpdateScheduled,
 } from "../domain/office-update-events.js";
 import { OfficeUpdateRefused } from "../domain/office-update-refused.js";
+import type { OfficeUpdateRequest } from "../domain/office-update-request.js";
 import { stepWords, type OfficeUpdateResult } from "../domain/office-update-result.js";
-import { NO_LAUNCHER, updateRefusal, type CheckoutState } from "../domain/update-refusal.js";
+import { targetWords, type OfficeUpdateTarget } from "../domain/office-update-target.js";
+import { tarballAssetsOf, type PublishedRelease } from "../domain/published-release.js";
+import { updateRefusal, type UpdateState } from "../domain/update-refusal.js";
 import { OfficeCheckout } from "../ports/office-checkout.js";
+import { OfficeContainer } from "../ports/office-container.js";
 import { OfficeReleaseStamp } from "../ports/office-release-stamp.js";
+import { OfficeReleases } from "../ports/office-releases.js";
 import { UpdateFolder } from "../ports/update-folder.js";
+import { UpdateHandOff, type HandedOff } from "../ports/update-hand-off.js";
 import { UpdateSystem } from "../ports/update-system.js";
 import { BusyWork } from "./busy-work.js";
+import { OfficeInstallSetting } from "./office-install.js";
 import { OfficeUpdateHold, type ScheduledOfficeUpdate } from "./office-update-hold.js";
 
 /** The daily job's name in the schedule. */
@@ -33,14 +42,19 @@ export const UNDER_WAY = "The update is under way: The Office is stopping for it
 /** What the last check found. */
 export interface OfficeUpdateCheck {
   readonly checkedAt: Date;
+  /** A checkout's: the upstream's newest commit. */
   readonly newest: OfficeCommit | undefined;
+  /** A checkout's: the commits it is behind its upstream, newest first. */
   readonly behind: readonly OfficeCommit[];
+  /** A release's or a container's: the released versions newer than it, newest first. */
+  readonly releases: readonly PublishedRelease[];
   readonly problem: string | undefined;
-  readonly state: CheckoutState;
+  readonly state: UpdateState;
 }
 
 /** Settings › Updates, as the service sees it now. */
 export interface OfficeUpdateView {
+  readonly install: InstallKind;
   /** The Office release's version; undefined when The Office runs from a checkout. */
   readonly version: string | undefined;
   readonly current: OfficeCommit;
@@ -52,10 +66,10 @@ export interface OfficeUpdateView {
 }
 
 /**
- * Office updates (spec §5.1 Defaults, "Updating The Office"): the daily check of the checkout's
- * upstream, which installs nothing, and the update the user schedules. A scheduled update holds new
- * work and waits for the work going on to end; then the service asks the launcher for the update
- * and stops, and the launcher installs it and starts the service again.
+ * Office updates (spec §5.1 Defaults, "Updating The Office"): the daily check, which installs
+ * nothing, of the checkout's upstream or of GitHub Releases, and the update the user schedules. A
+ * scheduled update holds new work and waits for the work going on to end; then the service hands it
+ * over: to the launcher, stopping for it, or to the Office updater, which replaces its container.
  */
 @Injectable()
 export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
@@ -70,8 +84,12 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   constructor(
     private readonly checkout: OfficeCheckout,
     private readonly releaseStamp: OfficeReleaseStamp,
+    private readonly releases: OfficeReleases,
+    private readonly container: OfficeContainer,
     private readonly folder: UpdateFolder,
+    private readonly handOff: UpdateHandOff,
     private readonly system: UpdateSystem,
+    private readonly installSetting: OfficeInstallSetting,
     private readonly hold: OfficeUpdateHold,
     private readonly busyWork: BusyWork,
     private readonly events: EventBus,
@@ -82,7 +100,7 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
     this.events.subscribe(BusyWorkChanged, () => this.exitIfIdle());
   }
 
-  /** Tells what the launcher did since the last run, then checks daily, the first check now. */
+  /** Tells what the last update did, then checks daily, the first check now. */
   async onApplicationBootstrap(): Promise<void> {
     await this.announceRelease();
     await this.announceNewResult().catch((error: unknown) => {
@@ -98,7 +116,7 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
     this.readyListeners.push(listener);
   }
 
-  /** Fetches the upstream and keeps what it found; a check going on is joined, not repeated. */
+  /** Reads what is newer and keeps what it found; a check going on is joined, not repeated. */
   check(): Promise<OfficeUpdateCheck> {
     this.checking ??= this.runCheck().finally(() => (this.checking = undefined));
     return this.checking;
@@ -107,34 +125,39 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   async view(): Promise<OfficeUpdateView> {
     const scheduled = this.hold.scheduled;
     return {
+      install: await this.install(),
       version: (await this.officeRelease())?.version,
       current: await this.current(),
       check: this.found,
-      refusal: this.refusal(),
+      refusal: await this.refusal(),
       checking: this.checking !== undefined,
       scheduled: scheduled && { ...scheduled, busy: this.busyWork.list() },
       lastResult: await this.folder.lastResult(),
     };
   }
 
-  /** The launcher's log of the last update. */
+  /** The log of the last update, as the launcher or the Office updater left it. */
   log(): Promise<string | undefined> {
     return this.folder.log();
   }
 
   /**
-   * Schedules the update to the upstream's newest commit, after a fresh check: refused when the
+   * Schedules the update to the newest commit or release, after a fresh check: refused when the
    * check finds a reason, or nothing newer. It goes ahead once nothing is busy.
    */
   async schedule(): Promise<void> {
     if (this.hold.isScheduled()) throw new OfficeUpdateRefused([ALREADY_SCHEDULED]);
-    const { newest, behind } = await this.check();
-    const refusal = this.refusal();
+    const found = await this.check();
+    const refusal = await this.refusal();
     if (refusal) throw new OfficeUpdateRefused([refusal]);
-    if (!newest || behind.length === 0) throw new OfficeUpdateRefused([UP_TO_DATE]);
+    const target = targetOf(found);
+    if (!target) {
+      const releaseProblem = found.state.install === "checkout" ? undefined : found.problem;
+      throw new OfficeUpdateRefused([releaseProblem ?? UP_TO_DATE]);
+    }
     if (this.hold.isScheduled()) throw new OfficeUpdateRefused([ALREADY_SCHEDULED]);
-    this.hold.hold({ target: newest, scheduledAt: this.clock.now() });
-    await this.events.publish(new OfficeUpdateScheduled(newest));
+    this.hold.hold({ target, scheduledAt: this.clock.now() });
+    await this.events.publish(new OfficeUpdateScheduled(target));
     await this.exitIfIdle();
   }
 
@@ -142,26 +165,75 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   async cancel(): Promise<void> {
     if (this.exiting) throw new OfficeUpdateRefused([UNDER_WAY]);
     if (!this.hold.isScheduled()) throw new OfficeUpdateRefused([NOTHING_SCHEDULED]);
-    this.hold.hold(undefined);
-    await this.events.publish(new OfficeUpdateCancelled());
+    await this.releaseHold();
   }
 
   private async runCheck(): Promise<OfficeUpdateCheck> {
+    const install = await this.install();
+    const before = this.found && targetOf(this.found);
+    this.found =
+      install === "checkout" ? await this.checkUpstream() : await this.checkReleases(install);
+    if (this.found.problem) this.logger.warn(`The Office update check: ${this.found.problem}`);
+    const available = targetOf(this.found);
+    await this.events.publish(
+      new OfficeUpdateChecked(
+        available,
+        available !== undefined && (!before || targetWords(available) !== targetWords(before)),
+      ),
+    );
+    return this.found;
+  }
+
+  private async checkUpstream(): Promise<OfficeUpdateCheck> {
     const read = await this.checkout.readUpstream();
-    const before = this.found?.behind[0]?.commit;
-    this.found = {
+    return {
       checkedAt: this.clock.now(),
       newest: read.newest,
       behind: read.behind,
+      releases: [],
       problem: read.fetchProblem,
-      state: read,
+      state: { install: "checkout", checkout: read },
     };
-    if (read.fetchProblem) this.logger.warn(`The Office update check: ${read.fetchProblem}`);
-    const available = read.behind[0];
-    await this.events.publish(
-      new OfficeUpdateChecked(available, available !== undefined && available.commit !== before),
-    );
-    return this.found;
+  }
+
+  /** GitHub Releases newer than the release The Office runs; a failed read is the problem. */
+  private async checkReleases(install: "release" | "container"): Promise<OfficeUpdateCheck> {
+    const release = await this.officeRelease();
+    let releases: PublishedRelease[] = [];
+    let problem: string | undefined;
+    if (release?.repository) {
+      try {
+        releases = await this.releases.newerThan(release.repository, release.version);
+      } catch (error) {
+        problem = `GitHub Releases couldn't be read: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+    const newest = releases[0];
+    return {
+      checkedAt: this.clock.now(),
+      newest: undefined,
+      behind: [],
+      releases,
+      problem,
+      state:
+        install === "release"
+          ? { ...this.releaseState(release), newest }
+          : { install, container: await this.container.read(), newest },
+    };
+  }
+
+  private async install(): Promise<InstallKind> {
+    return installKindOf(this.installSetting.variable, (await this.officeRelease()) !== undefined);
+  }
+
+  private releaseState(release: OfficeRelease | undefined): UpdateState & { install: "release" } {
+    return {
+      install: "release" as const,
+      installed: this.installSetting.variable === "release" && this.folder.launched,
+      repository: release?.repository,
+      newest: undefined,
+      architecture: this.system.architecture,
+    };
   }
 
   /**
@@ -197,31 +269,85 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /** Why Update is refused now; a check's findings count once there is one. */
-  private refusal(): string | undefined {
-    const context = {
-      launched: this.folder.launched,
-      systemRefusal: this.system.refusal,
-    };
-    return this.found
-      ? updateRefusal(this.found.state, context)
-      : (context.systemRefusal ?? (context.launched ? undefined : NO_LAUNCHER));
+  private async refusal(): Promise<string | undefined> {
+    const context = { launched: this.folder.launched, systemRefusal: this.system.refusal };
+    return updateRefusal(this.found?.state ?? (await this.stateBeforeCheck()), context);
   }
 
-  /** Once an update is scheduled and nothing is busy, asks the launcher for it and stops. */
+  private async stateBeforeCheck(): Promise<UpdateState> {
+    const install = await this.install();
+    if (install === "checkout") return { install, checkout: undefined };
+    if (install === "container") return { install, container: undefined, newest: undefined };
+    return this.releaseState(await this.officeRelease());
+  }
+
+  /** Once an update is scheduled and nothing is busy, hands it over. */
   private async exitIfIdle(): Promise<void> {
     const scheduled = this.hold.scheduled;
     if (!scheduled || this.exiting || this.busyWork.list().length > 0) return;
     this.exiting = true;
+    let handedOff: HandedOff;
     try {
-      await this.folder.writeRequest(scheduled.target.commit);
+      handedOff = await this.handOff.handOff(await this.requestFor(scheduled.target));
     } catch (error) {
       // Left scheduled, so the user sees it and can cancel it, or the next change tries again.
       this.exiting = false;
-      this.logger.error(`The Office update's request wasn't written: ${String(error)}`);
+      this.logger.error(`The Office update wasn't handed over: ${String(error)}`);
       return;
     }
-    this.logger.log(`Stopping to update The Office to ${scheduled.target.commit}.`);
-    for (const listener of this.readyListeners) listener();
+    const target = targetWords(scheduled.target);
+    if (handedOff.serviceStops) {
+      this.logger.log(`Stopping to update The Office to ${target}.`);
+      for (const listener of this.readyListeners) listener();
+      return;
+    }
+    this.logger.log(`The Office updater is updating The Office to ${target}.`);
+    void handedOff.ended
+      .catch((error: unknown) => {
+        this.logger.error(`The Office updater wasn't followed to its end: ${String(error)}`);
+      })
+      .then(() => this.updaterEnded());
+  }
+
+  /**
+   * The Office updater ended while this service still runs, so it never replaced it: the update
+   * failed before that, and what it held goes on.
+   */
+  private async updaterEnded(): Promise<void> {
+    this.logger.warn("The Office updater ended without replacing The Office.");
+    await this.announceNewResult().catch((error: unknown) => {
+      this.logger.error(`The Office updater's result wasn't read: ${String(error)}`);
+    });
+    this.exiting = false;
+    await this.releaseHold();
+  }
+
+  /** Lets go of the scheduled update, so what it held goes on. */
+  private async releaseHold(): Promise<void> {
+    this.hold.hold(undefined);
+    await this.events.publish(new OfficeUpdateCancelled());
+  }
+
+  /** What the launcher or the Office updater is asked for, from what the last check found. */
+  private async requestFor(target: OfficeUpdateTarget): Promise<OfficeUpdateRequest> {
+    if (target.kind === "commit") return { kind: "commit", target: target.commit };
+    const found = this.found;
+    const release = found?.releases.find(({ version }) => version === target.version);
+    const from = (await this.officeRelease())?.version;
+    if (!found || !release || !from) {
+      throw new Error(`Version ${target.version} is no longer among the releases found.`);
+    }
+    const { state } = found;
+    if (state.install === "release") {
+      const assets = tarballAssetsOf(release, this.system.architecture);
+      if (!assets) throw new Error(`Version ${release.version} has no tarball for this CPU.`);
+      return { kind: "release", version: release.version, from, ...assets };
+    }
+    if (state.install === "container" && state.container?.reachable) {
+      const image = imageRepository(state.container.container.image);
+      return { kind: "container", version: release.version, from, image };
+    }
+    throw new Error("The Office can't tell how to install a release here.");
   }
 
   private async announceNewResult(): Promise<void> {
@@ -238,4 +364,19 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
           ),
     );
   }
+}
+
+/** What an update would install now: the upstream's newest commit, or the newest release. */
+function targetOf({ newest, behind, releases }: OfficeUpdateCheck): OfficeUpdateTarget | undefined {
+  if (newest && behind.length > 0) return { kind: "commit", ...newest };
+  const [release] = releases;
+  return (
+    release && {
+      kind: "release",
+      version: release.version,
+      name: release.name,
+      publishedAt: release.publishedAt,
+      url: release.url,
+    }
+  );
 }

@@ -17,6 +17,11 @@ export interface OfficeConfig {
    */
   readonly officeUpdateFolder?: string;
   /**
+   * `OFFICE_INSTALL`: how The Office was installed, set by the image for a container and by the
+   * launcher for a release in its releases folder; absent in a checkout.
+   */
+  readonly officeInstall?: "checkout" | "release" | "container";
+  /**
    * The public address, as an origin (`https://office.example.com`), at which The Office is reached
    * through the user's reverse proxy (spec §5.1 Defaults); absent when it has none.
    */
@@ -40,6 +45,7 @@ const PORT_RANGE = "must be a port number from 1 to 65535";
 const HOST_ADDRESS = "must be an IP address, such as 127.0.0.1 or 0.0.0.0";
 const WEB_ADDRESS = "must be an http:// or https:// URL";
 const TRUE_OR_FALSE = "must be true or false";
+const INSTALL_KIND = "must be checkout, release or container";
 const PUBLIC_ADDRESS =
   "must be an https:// address with no path, such as https://office.example.com";
 // Loopback unless the user opens The Office to the LAN (spec §5.1).
@@ -94,6 +100,10 @@ const environmentSchema = z.object({
     blankAsUnset,
     z.string().refine(isAbsolute, "must be an absolute path").optional(),
   ),
+  OFFICE_INSTALL: z.preprocess(
+    blankAsUnset,
+    z.enum(["checkout", "release", "container"], { error: INSTALL_KIND }).optional(),
+  ),
   OFFICE_GITHUB_URL: z.preprocess(
     blankAsUnset,
     z.url({ protocol: /^https?$/, error: WEB_ADDRESS }).default(GITHUB_SITE.webUrl),
@@ -141,6 +151,7 @@ export function readOfficeConfig(
     ...(result.data.OFFICE_UPDATE_FOLDER && {
       officeUpdateFolder: result.data.OFFICE_UPDATE_FOLDER,
     }),
+    ...(result.data.OFFICE_INSTALL && { officeInstall: result.data.OFFICE_INSTALL }),
     ...(result.data.OFFICE_PUBLIC_ADDRESS && { publicAddress: result.data.OFFICE_PUBLIC_ADDRESS }),
   };
 }

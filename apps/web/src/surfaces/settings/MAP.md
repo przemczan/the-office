@@ -119,7 +119,7 @@
 ### updates/
 
 - `updates-section.tsx`: UpdatesSection
-- `updates-words.ts`: lastResultWords, waitingWords
+- `updates-words.ts`: versionWords, installWords, installNote, lastResultWords, waitingWords
 - Tests: updates-section.test.tsx, updates-words.full.test.ts
 
 ### users/

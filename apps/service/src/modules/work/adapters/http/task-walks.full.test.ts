@@ -435,7 +435,7 @@ describe("An Office update, through the scripted engine", () => {
 
         expect(queued.queued?.reasons).toEqual(["An update is scheduled."]);
         const scheduled = await officeUpdateOf(office);
-        expect(scheduled.scheduled?.target.commit).toBe(newest);
+        expect(scheduled.scheduled?.target).toMatchObject({ kind: "commit", commit: newest });
         expect(scheduled.scheduled?.busy).toEqual([
           { kind: "turn", label: `${DEVELOPER_NAME} in the Stage Build` },
         ]);
@@ -447,7 +447,7 @@ describe("An Office update, through the scripted engine", () => {
         const request = JSON.parse(
           await readFile(join(office.updateFolder, "request.json"), "utf8"),
         );
-        expect(request).toEqual({ target: newest });
+        expect(request).toEqual({ kind: "commit", target: newest });
         expect((await office.send("DELETE", "/office-update/schedule")).status).toBe(422);
       } finally {
         await office.close();

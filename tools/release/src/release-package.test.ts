@@ -84,6 +84,13 @@ describe("an Office release's tarball", () => {
     });
     assert.throws(() => releaseStamp("1.2.3", "fatal: not a git repository"), /Not a commit/);
   });
+
+  it("stamps the GitHub repository it is released from, where the service looks for newer ones", () => {
+    const line = `${COMMIT}\x1f2026-11-14T10:00:00+01:00\x1ffeat: releases\n`;
+
+    assert.equal(releaseStamp("1.2.3", line, "owner/the-office").repository, "owner/the-office");
+    assert.throws(() => releaseStamp("1.2.3", line, "the-office"), /owner\/name/);
+  });
 });
 
 describe("a release's Claude Code", () => {

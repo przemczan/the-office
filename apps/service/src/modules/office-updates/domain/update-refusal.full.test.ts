@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { LOCAL_CHANGES, NO_LAUNCHER, NO_UPSTREAM, updateRefusal } from "./update-refusal.js";
+import {
+  LOCAL_CHANGES,
+  NO_LAUNCHER,
+  NO_UPSTREAM,
+  updateRefusal,
+  type CheckoutState,
+  type UpdateState,
+} from "./update-refusal.js";
 
-const clean = { localChanges: false, upstream: "origin/main", ahead: 0 };
+const cleanState = { localChanges: false, upstream: "origin/main", ahead: 0 };
+const clean = checkout(cleanState);
+
+function checkout(state: CheckoutState): UpdateState {
+  return { install: "checkout", checkout: state };
+}
 const launched = { launched: true };
 
 describe("Why Update is refused", () => {
@@ -10,9 +22,13 @@ describe("Why Update is refused", () => {
   });
 
   it("refuses local changes, a checkout without an upstream and one that diverged", () => {
-    expect(updateRefusal({ ...clean, localChanges: true }, launched)).toBe(LOCAL_CHANGES);
-    expect(updateRefusal({ ...clean, upstream: undefined }, launched)).toBe(NO_UPSTREAM);
-    expect(updateRefusal({ ...clean, ahead: 2 }, launched)).toBe(
+    expect(updateRefusal(checkout({ ...cleanState, localChanges: true }), launched)).toBe(
+      LOCAL_CHANGES,
+    );
+    expect(updateRefusal(checkout({ ...cleanState, upstream: undefined }), launched)).toBe(
+      NO_UPSTREAM,
+    );
+    expect(updateRefusal(checkout({ ...cleanState, ahead: 2 }), launched)).toBe(
       "The Office's checkout has diverged from origin/main.",
     );
   });

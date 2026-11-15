@@ -451,6 +451,19 @@ describe("NotificationService", () => {
     ).toEqual([]);
   });
 
+  it("names a release's update by its versions, whole, with the step it failed at", async () => {
+    await events.publish(new OfficeUpdated("1.3.0", "1.4.0", new Date()));
+    await events.publish(
+      new OfficeUpdateFailed("1.4.0", "1.5.0", "starting the new version", new Date()),
+    );
+
+    expect(raised.map(({ notification }) => notification.line)).toEqual([
+      "I updated The Office to 1.4.0.",
+      "The Office's update failed at starting the new version, so I took it back to 1.4.0. The log is in Settings › Updates.",
+    ]);
+    await reportActivity({ kind: "office-update" });
+  });
+
   it("raises each engine's down on its own, handled when that engine answers again", async () => {
     // Engine ids no other file raises, as the database is shared.
     await events.publish(down("work-account", "Work account"));

@@ -107,18 +107,39 @@ export interface ReleaseStamp {
   readonly commit: string;
   readonly committedAt: string;
   readonly subject: string;
+  /**
+   * The GitHub repository it is released from, as `owner/name`, where the service looks for newer
+   * releases; absent when packed outside GitHub Actions.
+   */
+  readonly repository?: string;
 }
 
 /** The format `releaseStamp` reads: `git log -1 --format=<this>`. */
 export const STAMP_COMMIT_FORMAT = "%H%x1f%cI%x1f%s";
 
-/** The stamp of `version`, from the released commit as `git log -1 --format=STAMP_COMMIT_FORMAT` shows it. */
-export function releaseStamp(version: string, commitLine: string): ReleaseStamp {
+/**
+ * The stamp of `version`, from the released commit as `git log -1 --format=STAMP_COMMIT_FORMAT`
+ * shows it, and the repository GitHub Actions names (`GITHUB_REPOSITORY`).
+ */
+export function releaseStamp(
+  version: string,
+  commitLine: string,
+  repository?: string,
+): ReleaseStamp {
   const [commit = "", committedAt = "", ...subject] = commitLine.trim().split("\x1f");
   if (!/^[0-9a-f]{40,64}$/.test(commit) || Number.isNaN(Date.parse(committedAt))) {
     throw new Error(`Not a commit as git log shows it: '${commitLine.trim()}'.`);
   }
-  return { version, commit, committedAt, subject: subject.join("\x1f") };
+  if (repository !== undefined && !/^[\w.-]+\/[\w.-]+$/.test(repository)) {
+    throw new Error(`Not a GitHub repository as owner/name: '${repository}'.`);
+  }
+  return {
+    version,
+    commit,
+    committedAt,
+    subject: subject.join("\x1f"),
+    ...(repository && { repository }),
+  };
 }
 
 /** The prefix of the SDK's per-platform packages, each holding a Claude Code binary. */
