@@ -5,7 +5,11 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { BusyWork } from "../../office-updates/index.js";
-import type { RunEnvironmentOptions, TaskInWorktree } from "../domain/run-environment.js";
+import type {
+  FileOwnerIds,
+  RunEnvironmentOptions,
+  TaskInWorktree,
+} from "../domain/run-environment.js";
 import type { ContainerRuntime } from "../ports/container-runtime.js";
 import { KnownTasks, type KnownTask } from "../ports/known-tasks.js";
 import { RunEnvironmentSettingsForTests } from "../ports/run-environment-settings.fixtures.js";
@@ -14,6 +18,7 @@ import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
 import { RunEnvironments } from "./run-environments.js";
+import { ServiceOwner } from "./service-owner.js";
 
 /** The Tasks the sweep weighs, as a test lists them. */
 export class KnownTasksForTests extends KnownTasks {
@@ -48,6 +53,8 @@ export interface RunEnvironmentsTestbed {
 export async function runEnvironmentsTestbed(
   runtime: ContainerRuntime,
   options?: RunEnvironmentOptions,
+  /** The non-root Office's user and group the checks' files go back to; none is a root Office. */
+  serviceOwner?: FileOwnerIds,
 ): Promise<RunEnvironmentsTestbed> {
   const folder = await mkdtemp(join(tmpdir(), "office-run-environments-"));
   const events = new EventBus();
@@ -64,6 +71,7 @@ export async function runEnvironmentsTestbed(
     knownTasks,
     settings,
     new HostCores(TESTBED_HOST_CORES),
+    new ServiceOwner(serviceOwner),
     schedule,
     busyWork,
     events,

@@ -131,6 +131,10 @@ For a user who lost their authenticator and their recovery codes too, `--clear-a
 npm run set-password -- --email ada@example.com --clear-authenticator
 ```
 
+## Which version runs
+
+Settings › Updates' Version card shows the commit The Office runs. An Office release shows its version before it (`1.2.3 · <commit>`), read from the `office-release.json` it carries, and its log says "The Office 1.2.3 (<commit>)" at each start ([releasing.md](releasing.md)); a checkout shows its commit alone.
+
 ## How an Office update works
 
 1. A daily check, the first at the service's start, and **Check for updates** in Settings › Updates fetch the checkout's upstream (`@{upstream}`, normally `origin/main`) and list the commits it is behind. Nothing is installed. git runs as the service's own user with its own config: this is no Project, so the Office identity has no part in it.

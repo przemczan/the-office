@@ -6,9 +6,10 @@ import { attachmentQueries } from "../../api/work.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 import { AttachmentPicker } from "./attachment-picker.tsx";
-import { attach, type PendingAttachment } from "./pending-attachment.ts";
+import { usePastedFiles } from "./pasted-files.ts";
+import { attachAll, type PendingAttachment } from "./pending-attachment.ts";
 
-/** Adds one Attachment to an Idea or a Task as soon as it is chosen. */
+/** Adds an Attachment to an Idea or a Task as soon as it is chosen or pasted. */
 export function AddAttachmentDialog({
   owner,
   ownerTitle,
@@ -22,21 +23,25 @@ export function AddAttachmentDialog({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const attaching = useMutation({
-    mutationFn: (pending: PendingAttachment) => attach(owner, pending),
-    onSuccess: async (attachment) => {
-      await queryClient.invalidateQueries(attachmentQueries.of(owner));
-      showToast(`${attachment.name} attached.`);
+    mutationFn: (pending: readonly PendingAttachment[]) => attachAll(owner, pending),
+    onSettled: () => queryClient.invalidateQueries(attachmentQueries.of(owner)),
+    onSuccess: (attachments) => {
+      showToast(`${attachments.map((attachment) => attachment.name).join(", ")} attached.`);
       onClose();
     },
   });
+  usePastedFiles((files) =>
+    attaching.mutate(files.map((file): PendingAttachment => ({ kind: "file", file }))),
+  );
   return (
     <Dialog size="medium" title="Attach" onClose={onClose}>
       <div className="dialog-stack">
         <p className="dialog-text">
-          To {ownerTitle}. A document is a Markdown file; images show as pictures.
+          To {ownerTitle}. A document is a Markdown file; images show as pictures. An image on the
+          clipboard can be pasted here.
         </p>
         {attaching.error && <RefusalAlert title="It can't be attached" error={attaching.error} />}
-        <AttachmentPicker onPick={(pending) => attaching.mutate(pending)} />
+        <AttachmentPicker onPick={(pending) => attaching.mutate([pending])} />
       </div>
     </Dialog>
   );

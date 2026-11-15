@@ -1,14 +1,16 @@
 // The last check of `npm run verify`: the built service started against DATABASE_URL's Postgres
 // answers /api/health with the database up, serves the built web app, and ends on SIGTERM.
+// `--root <folder>` checks the service of another folder laid out as the checkout, such as an
+// unpacked Office release (tools/release/prepare.sh).
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { serviceStartProblems, type ServiceExit } from "./service-start.ts";
+import { serviceRootOf, serviceStartProblems, type ServiceExit } from "./service-start.ts";
 
-const repositoryRoot = resolve(import.meta.dirname, "../../..");
+const serviceRoot = serviceRootOf(process.argv.slice(2), resolve(import.meta.dirname, "../../.."));
 // Off OFFICE_PORT, which a running Office holds, and off the e2e ports (4390, 4391).
 const PORT = 4392;
 const SERVICE_URL = `http://127.0.0.1:${PORT}`;
@@ -21,11 +23,11 @@ try {
   console.log(`Starting the built service on ${SERVICE_URL}`);
   // `.env` as the service's npm scripts load it: a variable already set, as in a run environment, wins.
   const serviceArguments = [
-    `--env-file-if-exists=${join(repositoryRoot, ".env")}`,
-    join(repositoryRoot, "apps/service/dist/main.js"),
+    `--env-file-if-exists=${join(serviceRoot, ".env")}`,
+    join(serviceRoot, "apps/service/dist/main.js"),
   ];
   const service = spawn(process.execPath, serviceArguments, {
-    cwd: repositoryRoot,
+    cwd: serviceRoot,
     env: {
       ...process.env,
       OFFICE_HOST: "127.0.0.1",

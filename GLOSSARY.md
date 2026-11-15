@@ -301,6 +301,10 @@ _Avoid_: Lift, reset, unpause
 Moving The Office itself to the newest commit of its own checkout's upstream: found by its daily check, scheduled by the user's Update in Settings › Updates, held until nothing is busy, then installed by the launcher as The Office restarts. Not a Skill's Update.
 _Avoid_: Upgrade, self-update, release, deploy
 
+**Office release**:
+A version of The Office cut from `main` by the Release workflow: the tag `v<version>`, its GitHub Release, a tarball for each Linux CPU and the container image, with the version Settings › Updates shows. Not an Office update, which moves a checkout to its upstream's newest commit.
+_Avoid_: Build, distribution, package, update
+
 **Launcher**:
 What `npm start` runs: it starts The Office's service, and when the service stops for an Office update, installs the update and starts it again.
 _Avoid_: Supervisor, wrapper, runner

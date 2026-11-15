@@ -136,7 +136,7 @@
 - `linux-processes.ts`: LinuxProcess, hasEnded, processFromStat, runningInGroup
 - `linux.ts`: linux
 - `move-when-free.ts`: moveWhenFree
-- `operating-system.ts`: OperatingSystem, SshPrograms, UserEnvironment
+- `operating-system.ts`: OperatingSystem, FileOwner, SshPrograms, UserEnvironment
 - `owner-only.fixtures.ts`: isOwnerOnly
 - `path-rules.ts`: PathRules, PathEntry, PathLimits, pathLengthProblem
 - `process-trees.fixtures.ts`: isRunning, processMark, isMarkedRunning, commandLinesHolding

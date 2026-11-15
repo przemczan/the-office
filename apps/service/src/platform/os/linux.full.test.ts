@@ -103,6 +103,14 @@ describe("linux", () => {
     ).toBe("/var/tmp/claude-1000");
   });
 
+  it("has the files it makes belong to the process's user and group", () => {
+    expect(linux({ variables: {}, homeDirectory, userId: 1000, groupId: 1001 }).fileOwner).toEqual({
+      userId: 1000,
+      groupId: 1001,
+    });
+    expect(linux({ variables: {}, homeDirectory }).fileOwner).toBeUndefined();
+  });
+
   it("finds the bundled Claude Code in its glibc or musl build", () => {
     const binaries = linux({ variables: {}, homeDirectory }).claudeCodeBinaries;
 

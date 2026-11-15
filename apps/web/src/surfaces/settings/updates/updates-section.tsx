@@ -51,13 +51,18 @@ function VersionCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }):
     mutationFn: scheduleOfficeUpdate,
     onSettled: () => queryClient.invalidateQueries(officeUpdateQueries.officeUpdate()),
   });
-  const { current, check, refusal, scheduled } = officeUpdate;
+  const { version, current, check, refusal, scheduled } = officeUpdate;
   const behind = check?.behind ?? [];
   return (
     <Card title={<SettingsCardTitle icon="refresh-cw">Version</SettingsCardTitle>}>
       <div className="updates-card-body">
         <div className="updates-row">
           <span className="updates-version" aria-label="Current version">
+            {version && (
+              <>
+                <strong>{version}</strong> ·{" "}
+              </>
+            )}
             <CommitWords commit={current} />
           </span>
           <Button

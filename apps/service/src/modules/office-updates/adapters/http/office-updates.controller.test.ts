@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type INestApplication } from "@nestjs/common";
@@ -36,13 +36,17 @@ afterEach(async () => {
 });
 
 /** On a system that updates The Office, whichever the tests run on, unless told `overrides`. */
-async function start(launched = true, overrides = [updateSystem()]): Promise<void> {
+async function start(
+  launched = true,
+  overrides = [updateSystem()],
+  officeFolder = checkout.path,
+): Promise<void> {
   const started = await startTestApplication({
     imports: [
       EventsModule,
       EventStreamModule,
       OfficeUpdatesModule.register({
-        checkout: checkout.path,
+        checkout: officeFolder,
         updateFolder: launched ? updateFolder : undefined,
       }),
     ],
@@ -74,6 +78,7 @@ describe("Settings › Updates", () => {
       subject: "The first version",
     });
     expect(before.current.shortCommit).toHaveLength(7);
+    expect(before.version).toBeUndefined();
     expect(before.check).toBeUndefined();
     expect(checked.check?.newest?.commit).toBe(newest);
     expect(checked.check?.behind.map(({ subject }) => subject)).toEqual([
@@ -81,6 +86,29 @@ describe("Settings › Updates", () => {
       "Add the launcher",
     ]);
     expect(checked.refusal).toBeUndefined();
+  });
+
+  it("shows an Office release's version and commit from its stamp, with no .git", async () => {
+    const release = join(folder, "release");
+    await mkdir(release);
+    const stamp = {
+      version: "1.2.3",
+      commit: "0123456789abcdef0123456789abcdef01234567",
+      committedAt: "2026-11-14T10:00:00+01:00",
+      subject: "feat: The Office installs from released versions",
+    };
+    await writeFile(join(release, "office-release.json"), JSON.stringify(stamp));
+    await start(true, [updateSystem()], release);
+
+    const shown = await officeUpdate();
+
+    expect(shown.version).toBe("1.2.3");
+    expect(shown.current).toEqual({
+      commit: stamp.commit,
+      shortCommit: "0123456",
+      subject: stamp.subject,
+      committedAt: "2026-11-14T09:00:00.000Z",
+    });
   });
 
   it("refuses Update with the reason: local changes, a diverged checkout, no upstream", async () => {

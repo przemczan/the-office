@@ -1,5 +1,6 @@
 import { availableParallelism } from "node:os";
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { currentOperatingSystem } from "../../platform/os/current-operating-system.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { ComposeCommandLine } from "./adapters/compose/compose-command-line.js";
@@ -20,6 +21,8 @@ import { RunEnvironmentFolders } from "./application/run-environment-folders.js"
 import { RunEnvironmentImages } from "./application/run-environment-images.js";
 import { RunEnvironmentSlots } from "./application/run-environment-slots.js";
 import { RunEnvironments } from "./application/run-environments.js";
+import { ServiceOwner, serviceOwnerOf } from "./application/service-owner.js";
+import type { FileOwnerIds } from "./domain/run-environment.js";
 import { ContainerRuntime } from "./ports/container-runtime.js";
 import { KnownTasks } from "./ports/known-tasks.js";
 import { ProjectSettings } from "./ports/project-settings.js";
@@ -38,6 +41,11 @@ export interface RunEnvironmentsModuleOptions {
   readonly containerRuntime?: ContainerRuntime;
   /** This computer's cores, which Automatic follows; `os.availableParallelism()` unless a test gives them. */
   readonly hostCores?: number;
+  /**
+   * The user and group checks' files are handed back to; the operating system's file owner unless
+   * a test gives one, none for root.
+   */
+  readonly serviceOwner?: FileOwnerIds;
 }
 
 @Module({})
@@ -47,6 +55,7 @@ export class RunEnvironmentsModule {
     knownTasks,
     containerRuntime,
     hostCores = availableParallelism(),
+    serviceOwner = currentOperatingSystem().fileOwner,
   }: RunEnvironmentsModuleOptions): DynamicModule {
     return {
       module: RunEnvironmentsModule,
@@ -58,6 +67,7 @@ export class RunEnvironmentsModule {
           : { provide: ContainerRuntime, useValue: containerRuntime },
         { provide: RunEnvironmentSettings, useClass: PostgresRunEnvironmentSettings },
         { provide: HostCores, useValue: new HostCores(hostCores) },
+        { provide: ServiceOwner, useValue: serviceOwnerOf(serviceOwner) },
         { provide: KnownTasks, useExisting: knownTasks },
         RunEnvironmentFolders,
         RunEnvironmentImages,

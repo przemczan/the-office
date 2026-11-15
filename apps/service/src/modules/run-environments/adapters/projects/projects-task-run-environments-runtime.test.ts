@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFile, rm } from "node:fs/promises";
+import { lstat, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -30,6 +30,17 @@ const DEFINITION = {
 
 /** Set on the service only: a command in a run environment must never see it. */
 const HOST_ONLY = "OFFICE_RUN_ENVIRONMENT_CHECK_HOST_ONLY";
+
+const hostUserId = process.getuid?.();
+const hostGroupId = process.getgid?.();
+/**
+ * The non-root Office the checks' files go back to: this process's own user when it isn't root,
+ * so the test can still remove what it made, else one no file here starts with.
+ */
+const NON_ROOT_OFFICE =
+  hostUserId === undefined || hostGroupId === undefined || hostUserId === 0
+    ? { userId: 4321, groupId: 4321 }
+    : { userId: hostUserId, groupId: hostGroupId };
 
 function aCommand(
   commandLine: string,
@@ -192,6 +203,121 @@ describe.skipIf(missing !== undefined)(
     });
   },
 );
+
+describe.skipIf(missing !== undefined)(
+  `Checks of a non-root Office on the real container runtime${missing ? ` (skipped: ${missing})` : ""}`,
+  REAL_RUNTIME_TEST,
+  () => {
+    const runtime = new ComposeCommandLine();
+    let testbed: RunEnvironmentsTestbed;
+    const registry = new TaskRunEnvironments();
+
+    beforeAll(async () => {
+      testbed = await runEnvironmentsTestbed(
+        runtime,
+        {
+          limits: {
+            cpuLimit: { choice: "fixed", fixedCpus: 1 },
+            memoryMegabytes: 256,
+            processes: 128,
+          },
+          runEnvironmentsAtOnce: 1,
+        },
+        NON_ROOT_OFFICE,
+      );
+      new ProjectsTaskRunEnvironments(
+        registry,
+        testbed.environments,
+        testbed.knownTasks,
+        testbed.folders,
+      ).onModuleInit();
+    }, REAL_RUNTIME_TEST.timeout);
+
+    afterAll(async () => {
+      testbed.knownTasks.tasks = [];
+      await testbed.environments.sweep();
+      for (const { name } of await runtime.listImages(officeLabels(testbed.folders.instance))) {
+        await runtime.removeImage(name);
+      }
+      await rm(testbed.folder, { recursive: true, force: true });
+    }, REAL_RUNTIME_TEST.timeout);
+
+    it("gives what a root check wrote back to The Office's user, leaving its own files untouched", async () => {
+      testbed.knownTasks.tasks.push({ id: "task-1", title: "Task task-1", state: "in-progress" });
+      const worktree = join(testbed.folder, "worktrees", "task-1");
+      await writeFiles(worktree, DEFINITION);
+      const task: TaskInRunEnvironment = {
+        taskId: "task-1",
+        projectId: "shop",
+        worktree,
+        repositoryGitFolder: join(worktree, ".git"),
+        installCommand: "echo installed",
+        installInputs: ["package-lock.json"],
+        installVariables: [],
+      };
+      await registry.run(task, aCommand("true"));
+      const untouched = await stat(join(worktree, "package-lock.json"));
+
+      const finished = await registry.run(
+        task,
+        aCommand('[ "$(id -u)" = 0 ] && mkdir -p out/dir && echo written > out/dir/file'),
+      );
+
+      expect(finished).toMatchObject({ outcome: "passed", output: "" });
+      for (const path of ["out", "out/dir", "out/dir/file"]) {
+        expect(await ownerOf(join(worktree, path))).toEqual(NON_ROOT_OFFICE);
+      }
+      expect((await stat(join(worktree, "package-lock.json"))).ctimeMs).toBe(untouched.ctimeMs);
+    });
+
+    it("has git trust the worktree and the git folder another user owns, the Project setting nothing", async () => {
+      await testbed.environments.remove("task-1");
+      testbed.knownTasks.tasks.push({ id: "task-2", title: "Task task-2", state: "in-progress" });
+      const repository = join(testbed.folder, "git-repository");
+      const worktree = join(testbed.folder, "worktrees", "task-2");
+      gitIn(testbed.folder, "init", "--quiet", "--initial-branch=main", repository);
+      gitIn(repository, "commit", "--quiet", "--allow-empty", "--message", "First");
+      gitIn(repository, "worktree", "add", "--quiet", "-b", "task-2", worktree);
+      await writeFiles(worktree, GIT_DEFINITION);
+      const task: TaskInRunEnvironment = {
+        taskId: "task-2",
+        projectId: "shop",
+        worktree,
+        repositoryGitFolder: gitIn(
+          worktree,
+          "rev-parse",
+          "--path-format=absolute",
+          "--git-common-dir",
+        ).trim(),
+        installCommand: "apk add --no-cache git",
+        installInputs: ["package-lock.json"],
+        installVariables: [],
+      };
+      // The first check's hand-back leaves the worktree's top folder The Office's user's.
+      await registry.run(task, aCommand("true"));
+      expect(await ownerOf(worktree)).toEqual(NON_ROOT_OFFICE);
+
+      const trusted = await registry.run(
+        task,
+        aCommand("git rev-parse HEAD && git status --short"),
+      );
+      const untrusted = await registry.run(
+        task,
+        aCommand("unset GIT_CONFIG_COUNT; git rev-parse HEAD"),
+      );
+
+      expect(trusted).toMatchObject({ outcome: "passed" });
+      expect(trusted.output).toContain(gitIn(worktree, "rev-parse", "HEAD"));
+      expect(untrusted).toMatchObject({ outcome: "failed" });
+      expect(untrusted.output).toMatch(/dubious ownership/);
+    });
+  },
+);
+
+async function ownerOf(path: string): Promise<{ userId: number; groupId: number }> {
+  const { uid, gid } = await lstat(path);
+  return { userId: uid, groupId: gid };
+}
 
 /** Alpine with git installed as its image is built. */
 const GIT_DEFINITION = {

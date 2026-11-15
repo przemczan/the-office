@@ -16,7 +16,6 @@ export class BuiltWebApp implements OnModuleInit {
   // After Nest registered the API's routes, and before its handler for paths none of them took.
   onModuleInit(): void {
     const files = express.static(this.directory, { index: false });
-    const indexFile = path.join(this.directory, "index.html");
     this.httpAdapterHost.httpAdapter.use(
       (request: Request, response: Response, next: NextFunction) => {
         if (isApiPath(request.url)) {
@@ -25,9 +24,11 @@ export class BuiltWebApp implements OnModuleInit {
         }
         files(request, response, () => {
           // An address of the app itself, such as /settings, gets index.html for the router to
-          // open; a missing file, such as /assets/gone.js, stays a 404.
-          if (isAppAddress(request)) response.sendFile(indexFile, { headers: NOT_CACHED });
-          else next();
+          // open; a missing file, such as /assets/gone.js, stays a 404. Sent from `root`, so only
+          // the path under it is checked for dot folders, not where The Office is, such as ~/.local.
+          if (isAppAddress(request)) {
+            response.sendFile("index.html", { root: this.directory, headers: NOT_CACHED });
+          } else next();
         });
       },
     );

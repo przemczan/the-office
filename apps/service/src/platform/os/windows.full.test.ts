@@ -46,6 +46,12 @@ describe("windows", () => {
     );
   });
 
+  it("names no numeric owner for its files", () => {
+    expect(
+      windows({ variables: {}, homeDirectory, userId: 1000, groupId: 1000 }).fileOwner,
+    ).toBeUndefined();
+  });
+
   it("has no load average", () => {
     expect(windows({ variables: {}, homeDirectory }).hasLoadAverage).toBe(false);
   });
