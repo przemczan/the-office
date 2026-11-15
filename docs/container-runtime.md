@@ -81,6 +81,14 @@ Not handled:
 - a check user other than root (`remoteUser: node`, say) can't write a worktree it doesn't own, and nothing changes that;
 - a process a check left running (a server started in the background) may write files after the hand-back; the next check's hand-back covers them.
 
+## The Office in a container
+
+The Compose install ([deploy/compose/docker-compose.yml](../deploy/compose/docker-compose.yml), [spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Installing with Docker Compose") runs The Office's image beside the host's Docker, not inside a Docker of its own:
+
+- **The host's socket**, `/var/run/docker.sock`, mounted at the same path, with the socket's group (`DOCKER_GID` in `.env`) added to the image's user `office` (uid 10001). The Docker CLI, Compose and buildx in the image start run environments through it on the host's daemon, which is reaching the host as root, as for any member of the `docker` group.
+- **The data folder at the same absolute path** on the host and in the container (`OFFICE_DATA_DIR`). A run environment's bind mounts name the Task's worktree and the repository's git folder by their paths as The Office sees them, and the host's daemon reads those paths on the host, so they resolve only when both sides agree. A one-shot step makes the folder's top uid 10001's before The Office first starts, and the hand-back above gives what a root check wrote back to uid 10001.
+- **Only Projects inside the data folder mount:** those added by Repository URL, cloned into `<data>/repositories/`. A Project added from a local folder of the container's own, outside the data folder, isn't on the host at that path, and its run environment can't mount it.
+
 ## Agents never reach it
 
 Reaching the runtime is reaching the workstation as root: a container can mount `/`. So the Office rules refuse an Agent's command that runs `docker`, `docker-compose`, `podman`, `podman-compose` or `nerdctl`, names a runtime's socket (`docker.sock`, `podman.sock`, `containerd.sock`), or sets `DOCKER_HOST`, `DOCKER_CONTEXT` or `CONTAINER_HOST`, in every Role and Stage; only the Caretaker with Allow changes on may (`container-runtime-commands.ts` in the engine module). No session's environment carries those variables.

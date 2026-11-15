@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # `prepare.sh <version> [--no-push]`, the Release workflow's prepare step (docs/releasing.md):
-# packs both tarballs and stamps install.sh with the version and GITHUB_REPOSITORY, checks the x64
-# tarball and the amd64 image against a throwaway Postgres, then pushes the image for both
-# platforms as $IMAGE:<version>. --no-push, for the Dry run, stops after the checks.
+# packs both tarballs, stamps install.sh with the version and GITHUB_REPOSITORY, writes the Compose
+# install's assets, checks the x64 tarball and the amd64 image against a throwaway Postgres and the
+# Compose install with that image, then pushes the image for both platforms as $IMAGE:<version>.
+# --no-push, for the Dry run, stops after the checks.
 # Linux with Docker and buildx (QEMU for arm64), as on the Release runner.
 set -euo pipefail
 
@@ -42,9 +43,14 @@ fi
 bash -n dist/release/install.sh
 echo "::endgroup::"
 
+echo "::group::Write the Compose install's docker-compose.yml and the-office.env for $version"
+npm run compose-assets -- --version "$version"
+echo "::endgroup::"
+
 network=office-release-check
 postgres=office-release-postgres
-check_image=office-release-check:$version
+check_image_name=office-release-check
+check_image=$check_image_name:$version
 cleanup() {
   docker rm --force --volumes "$postgres" office-release-image-check >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
@@ -77,6 +83,10 @@ echo "::group::Check the amd64 image"
 docker buildx build --platform linux/amd64 --load --tag "$check_image" "${image_arguments[@]}" .
 bash tools/release/image-check.sh "$check_image" "$network" \
   "postgres://office:office@$postgres:5432/the_office"
+echo "::endgroup::"
+
+echo "::group::Check the Compose install with the amd64 image"
+bash tools/release/compose-check.sh "$check_image_name" "$version"
 echo "::endgroup::"
 
 if [[ $push == true ]]; then

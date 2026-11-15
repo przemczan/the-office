@@ -66,8 +66,10 @@ ENV OFFICE_HOST=0.0.0.0 \
 WORKDIR /opt/the-office
 USER office
 EXPOSE 4310
+# At the address the service listens on, which on the host's network (the Compose install) can be a
+# LAN IP alone; every address (0.0.0.0 or ::) is asked at 127.0.0.1.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.OFFICE_PORT}/api/health`).then((response) => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
+    CMD ["node", "-e", "const host = process.env.OFFICE_HOST || '127.0.0.1'; const address = host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host.includes(':') ? `[${host}]` : host; fetch(`http://${address}:${process.env.OFFICE_PORT || 4310}/api/health`).then((response) => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
 # tini passes SIGTERM on to the service, which re-raises it, so `docker stop` ends it with 143.
 # No launcher: the Office updater, a short-lived container of this image, replaces this one.
 ENTRYPOINT ["tini", "--", "node", "--enable-source-maps", "apps/service/dist/main.js"]

@@ -30,7 +30,8 @@
     "service-start-check": "npm run check --workspace @the-office/service-start-check",
     "engine-check": "npm run check --workspace @the-office/engine-check --",
     "check-commits": "npm run check --workspace @the-office/commit-check --",
-    "pack-release": "npm run pack-release --workspace @the-office/release --"
+    "pack-release": "npm run pack-release --workspace @the-office/release --",
+    "compose-assets": "npm run compose-assets --workspace @the-office/release --"
   },
   "engines": {
     "node": ">=22.18 <23"

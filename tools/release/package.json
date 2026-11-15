@@ -4,8 +4,12 @@
   "type": "module",
   "scripts": {
     "pack-release": "node src/pack.ts",
+    "compose-assets": "node src/compose-assets.ts",
     "typecheck": "tsc -p .",
     "test": "node --test \"src/**/*.test.ts\" && npm run test:first-release",
     "test:first-release": "npm ci --prefix semantic-release --no-audit --no-fund --loglevel=error && node --test semantic-release/first-release.test.mjs"
+  },
+  "devDependencies": {
+    "yaml": "2.9.1"
   }
 }
