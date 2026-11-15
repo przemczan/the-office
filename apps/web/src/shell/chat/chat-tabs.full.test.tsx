@@ -158,11 +158,36 @@ describe("the chat's tabs", () => {
   });
 
   it("closes the focused tab with Delete, the focus moving to its neighbour", () => {
-    const { host, onClose } = rendered();
+    const { host, onShow, onClose } = rendered();
+    tabAt(host, 0).focus();
     press(tabAt(host, 0), "Delete");
 
+    expect(onShow).toHaveBeenCalledWith("developer");
     expect(onClose).toHaveBeenCalledWith("planner");
     expect(document.activeElement).toBe(tabAt(host, 1));
+  });
+
+  it("closing the shown tab shows its neighbour on screen, past a person left out", () => {
+    const { host, onShow, onClose } = rendered({ shown: "planner", people: [PLANNER, CTO] });
+    const close = host.querySelector<HTMLButtonElement>(
+      '[aria-label="Close the chat with Jan Planner"]',
+    );
+
+    act(() => close?.click());
+
+    expect(onShow).toHaveBeenCalledWith("cto");
+    expect(onClose).toHaveBeenCalledWith("planner");
+  });
+
+  it("closing another tab keeps the shown one and gives it the focus", () => {
+    const { host, onShow, onClose } = rendered();
+    const developer = tabAt(host, 1);
+    developer.focus();
+    press(developer, "Delete");
+
+    expect(onShow).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledWith("developer");
+    expect(document.activeElement).toBe(tabAt(host, 0));
   });
 
   it("leaves out a person no longer offered in the chat", () => {

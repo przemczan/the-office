@@ -39,12 +39,18 @@ export function ChatTabs({
   const close = (index: number): void => {
     const closing = open[index];
     if (!closing) return;
-    // The shown tab's neighbour takes its place, and the focus with it.
-    if (closing.role.key === shown) {
-      const next = open[index + 1] ?? open[index - 1];
-      if (next) tabElements.current.get(next.role.key)?.focus();
-    }
+    const closingShown = closing.role.key === shown;
+    const hadFocus = tabElements.current
+      .get(closing.role.key)
+      ?.parentElement?.contains(document.activeElement);
+    // The shown tab's neighbour on screen takes its place: the store's neighbour may be a person no
+    // longer offered, whose tab is left out.
+    const next = open[index + 1] ?? open[index - 1];
+    if (closingShown && next) onShow(next.role.key);
     onClose(closing.role.key);
+    // The focus stays in the row rather than falling to the page with the closed tab.
+    const focused = closingShown ? next?.role.key : shown;
+    if (hadFocus && focused !== undefined) tabElements.current.get(focused)?.focus();
   };
   const onKeyDown = (event: KeyboardEvent, index: number): void => {
     const move: Record<string, (() => void) | undefined> = {

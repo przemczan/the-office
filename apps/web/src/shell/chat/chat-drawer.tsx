@@ -43,7 +43,16 @@ export function ChatDrawer(): ReactNode {
   const chat = useChat();
   const layout = useChatDrawerLayout();
   const frame = useRef<HTMLElement>(null);
-  const role = useQuery({ ...roleQueries.one(chat.roleKey ?? ""), enabled: !!chat.roleKey });
+  const queryClient = useQueryClient();
+  const role = useQuery({
+    ...roleQueries.one(chat.roleKey ?? ""),
+    enabled: !!chat.roleKey,
+    // A tab's person is in the hired people's list, so switching tabs never empties the drawer.
+    placeholderData: () =>
+      queryClient
+        .getQueryData(roleQueries.list().queryKey)
+        ?.find(({ key }) => key === chat.roleKey),
+  });
   useCloseOnEscape(chat.isOpen, chat.close, frame, "side-panel");
   const openedLast = useOpenedLast(frame);
   useDrawerFocus(chat.isOpen, frame);

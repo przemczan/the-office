@@ -165,7 +165,7 @@
   color: var(--fg-1);
 }
 
-/* ---- the person picker */
+/* ---- the person tabs */
 /* Positioned so a tab's offset is from the row's start, for keeping the shown tab in view. */
 .chat-tabs {
   position: relative;
@@ -223,6 +223,7 @@
   height: 7px;
 }
 
+/* ---- the person picker */
 .chat-people {
   display: grid;
   flex: 1;
