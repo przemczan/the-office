@@ -64,7 +64,7 @@ WORKDIR /opt/the-office
 USER office
 EXPOSE 4310
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD ["node", "-e", "fetch('http://127.0.0.1:4310/api/health').then((response) => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
+    CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.OFFICE_PORT}/api/health`).then((response) => process.exit(response.ok ? 0 : 1), () => process.exit(1))"]
 # tini passes SIGTERM on to the service, which re-raises it, so `docker stop` ends it with 143.
 # No launcher: how an image updates is Self-update's part.
 ENTRYPOINT ["tini", "--", "node", "--enable-source-maps", "apps/service/dist/main.js"]

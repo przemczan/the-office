@@ -8,10 +8,13 @@ cd "$(dirname "$0")/../.."
 compose=(docker compose --file .devcontainer/compose.yaml --project-name office-release-verify)
 trap '"${compose[@]}" down --volumes --remove-orphans' EXIT
 
-# Copied without node_modules and dist, which the run environment installs and builds itself.
+# Copied without node_modules and dist, which the run environment installs and builds itself, and
+# owned by the container's root: git refuses a repository another user owns ("dubious ownership"),
+# and the runner's checkout belongs to its own user.
 "${compose[@]}" run --rm --volume "$PWD:/checkout:ro" --workdir /work checks bash -c '
   set -euo pipefail
-  tar --create --directory /checkout --exclude=node_modules --exclude=dist . | tar --extract
+  tar --create --directory /checkout --exclude=node_modules --exclude=dist . |
+    tar --extract --no-same-owner
   npm ci
   npm run verify
 '
