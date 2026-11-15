@@ -10,7 +10,11 @@ export function StandingWords({ standing }: { readonly standing: ChatStanding })
   );
 }
 
-export function StandingDot({ standing: { kind } }: { readonly standing: ChatStanding }): ReactNode {
+export function StandingDot({
+  standing: { kind },
+}: {
+  readonly standing: ChatStanding;
+}): ReactNode {
   return kind === "answered" || kind === "answering" ? (
     <span className={`chat-dot ${kind}`} />
   ) : null;

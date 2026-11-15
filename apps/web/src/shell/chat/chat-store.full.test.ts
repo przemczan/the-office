@@ -88,15 +88,15 @@ describe("the chat's place", () => {
   });
 });
 
+const roleKeys = (chat: ChatStore): string[] => chat.place().tabs.map(({ roleKey }) => roleKey);
+
+function withTabs(...people: string[]): ChatStore {
+  const chat = createChatStore(aStorage());
+  for (const roleKey of people) chat.open(roleKey);
+  return chat;
+}
+
 describe("the chat's tabs", () => {
-  const roleKeys = (chat: ChatStore): string[] => chat.place().tabs.map(({ roleKey }) => roleKey);
-
-  function withTabs(...people: string[]): ChatStore {
-    const chat = createChatStore(aStorage());
-    for (const roleKey of people) chat.open(roleKey);
-    return chat;
-  }
-
   it("adds a tab for each person opened, once, in the order they were opened", () => {
     const chat = withTabs("planner", "devops", "planner");
 

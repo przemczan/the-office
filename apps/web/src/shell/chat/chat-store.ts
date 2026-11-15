@@ -144,7 +144,9 @@ function withTabOpen(
     return [...tabs, { roleKey, threadId, onThreadList: false }];
   }
   if (threadId === undefined) return tabs;
-  return tabs.map((tab) => (tab.roleKey === roleKey ? { roleKey, threadId, onThreadList: false } : tab));
+  return tabs.map((tab) =>
+    tab.roleKey === roleKey ? { roleKey, threadId, onThreadList: false } : tab,
+  );
 }
 
 function placeOf({ isOpen, roleKey, tabs }: StoredPlace): ChatPlace {

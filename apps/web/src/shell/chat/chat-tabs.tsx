@@ -103,10 +103,7 @@ export function ChatTabs({
   );
 }
 
-/**
- * Scrolls the row, and only the row, so the shown tab is in view: scrollIntoView would scroll the
- * page and the drawer too.
- */
+/** Keeps the shown tab in view as the person shown changes. */
 function useShownTabInView(
   row: RefObject<HTMLDivElement | null>,
   tabElements: RefObject<ReadonlyMap<string, HTMLElement>>,
@@ -115,11 +112,18 @@ function useShownTabInView(
   useEffect(() => {
     const frame = row.current;
     const item = shown === undefined ? undefined : tabElements.current.get(shown)?.parentElement;
-    if (!frame || !item) return;
-    // The row is positioned, so a tab's offset is from the row's start.
-    const start = item.offsetLeft;
-    const end = start + item.offsetWidth;
-    if (start < frame.scrollLeft) frame.scrollLeft = start;
-    else if (end > frame.scrollLeft + frame.clientWidth) frame.scrollLeft = end - frame.clientWidth;
+    if (frame && item) scrollIntoRow(frame, item);
   }, [row, tabElements, shown]);
+}
+
+/**
+ * Scrolls the row, and only the row, so the item is in view: scrollIntoView would scroll the page
+ * and the drawer too.
+ */
+function scrollIntoRow(row: HTMLElement, item: HTMLElement): void {
+  // The row is positioned, so an item's offset is from the row's start.
+  const start = item.offsetLeft;
+  const end = start + item.offsetWidth;
+  if (start < row.scrollLeft) row.scrollLeft = start;
+  else if (end > row.scrollLeft + row.clientWidth) row.scrollLeft = end - row.clientWidth;
 }

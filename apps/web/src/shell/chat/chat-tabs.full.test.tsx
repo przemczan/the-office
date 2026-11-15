@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Role } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { roleQueries } from "../../api/people.ts";
 import type { ChatTab } from "./chat-store.ts";
 import { ChatTabs } from "./chat-tabs.tsx";
@@ -37,13 +37,15 @@ const DEVELOPER = aPerson("developer", "Ada Developer", {
 });
 const CTO = aPerson("cto", "Grace CTO", { answering: true });
 
-let host: HTMLElement | undefined;
-afterEach(() => host?.remove());
+let mounted: HTMLElement | undefined;
+afterEach(() => mounted?.remove());
+
+type OnPerson = (roleKey: string) => void;
 
 interface Rendered {
   readonly host: HTMLElement;
-  readonly onShow: ReturnType<typeof vi.fn>;
-  readonly onClose: ReturnType<typeof vi.fn>;
+  readonly onShow: Mock<OnPerson>;
+  readonly onClose: Mock<OnPerson>;
 }
 
 function rendered({
@@ -55,14 +57,15 @@ function rendered({
   readonly shown?: string | undefined;
   readonly people?: readonly ChatPerson[];
 } = {}): Rendered {
-  const onShow = vi.fn();
-  const onClose = vi.fn();
+  const onShow = vi.fn<OnPerson>();
+  const onClose = vi.fn<OnPerson>();
   const queryClient = new QueryClient();
   queryClient.setQueryData(
     roleQueries.list().queryKey,
     people.map(({ role }) => role),
   );
-  host = document.body.appendChild(document.createElement("div"));
+  const host = document.body.appendChild(document.createElement("div"));
+  mounted = host;
   const root = createRoot(host);
   act(() =>
     root.render(
@@ -136,7 +139,9 @@ describe("the chat's tabs", () => {
 
   it("moves between the tabs with the arrow keys, around the ends", () => {
     const { host, onShow } = rendered();
-    const [planner, developer, cto] = [0, 1, 2].map((index) => tabAt(host, index));
+    const planner = tabAt(host, 0);
+    const developer = tabAt(host, 1);
+    const cto = tabAt(host, 2);
 
     press(planner, "ArrowRight");
     expect(document.activeElement).toBe(developer);

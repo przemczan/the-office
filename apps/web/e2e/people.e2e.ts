@@ -1167,7 +1167,8 @@ async function startNewThread(chat: Locator) {
   const page = chat.page();
   const started = page.waitForResponse(
     (response) =>
-      response.request().method() === "POST" && /\/api\/chats\/[^/]+\/threads$/.test(response.url()),
+      response.request().method() === "POST" &&
+      /\/api\/chats\/[^/]+\/threads$/.test(response.url()),
   );
   await chat.getByRole("button", { name: "New thread", exact: true }).click();
   const { id } = (await (await started).json()) as { id: string };
