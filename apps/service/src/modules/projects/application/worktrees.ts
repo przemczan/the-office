@@ -308,7 +308,7 @@ export class Worktrees {
   async changesSoFar(project: Project, taskId: string): Promise<string | undefined> {
     const summary = await this.git.diffSummary(
       this.pathOf(project, taskId),
-      await this.basesOf(project, taskId),
+      await this.changeBases(project, taskId),
       await this.publishedFrom(project, taskId),
     );
     return summary === "" ? undefined : summary;
@@ -347,7 +347,7 @@ export class Worktrees {
           ? NO_BRANCH_CHANGES
           : this.git.branchChanges(
               project.path,
-              await this.basesOf(project, taskId),
+              await this.changeBases(project, taskId),
               revision,
               await this.publishedFrom(project, taskId),
             ),
@@ -362,7 +362,7 @@ export class Worktrees {
    * here, then the base branch as its upstream has it when it tracks one (spec §9). One gone from
    * here leaves the base branch alone.
    */
-  private async basesOf(project: Project, taskId: string): Promise<readonly string[]> {
+  async changeBases(project: Project, taskId: string): Promise<readonly string[]> {
     const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
     const baseBranch = upstream
       ? `refs/remotes/${upstream.remote}/${upstream.branch}`
@@ -375,7 +375,7 @@ export class Worktrees {
 
   /**
    * Where the Task's branch forked from its bases when it was published, in the order of
-   * `basesOf`; undefined before.
+   * `changeBases`; undefined before.
    */
   private async publishedFrom(
     project: Project,

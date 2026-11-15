@@ -764,6 +764,10 @@ export class TaskGitForTests extends TaskGit {
     return Promise.resolve(this.changes.get(taskId));
   }
 
+  changeBases(): Promise<readonly string[]> {
+    return Promise.resolve(["refs/remotes/origin/main"]);
+  }
+
   removeWorktree(_projectId: string, taskId: string): Promise<void> {
     this.observe?.("removeWorktree");
     if (this.removalFailure) return Promise.reject(new Error(this.removalFailure));

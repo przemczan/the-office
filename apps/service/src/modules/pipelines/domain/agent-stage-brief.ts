@@ -37,8 +37,13 @@ export interface BriefCommitMessage {
 
 /** The commit message the last Agent Stage before a Publish rechecks, and what it diffs against. */
 export interface RecheckedCommitMessage extends BriefCommitMessage {
-  /** The branch Publish lands the Task on, whose fork point the Task's whole diff starts from. */
+  /** The branch Publish lands the Task on. */
   readonly landsOn: string;
+  /**
+   * The revisions the Task's changes are counted from, as "What changed so far" counts them: the
+   * base branch as its upstream has it, after the Initiative's branch for a Task of one.
+   */
+  readonly changesFrom: readonly string[];
 }
 
 /** The Task's record, as an Agent Stage's Brief has it. */
@@ -294,9 +299,26 @@ function recheckSection(commitMessage: RecheckedCommitMessage): string {
     : "None is written, so Publish would use the default:";
   return `## Recheck the commit message
 
-Yours is the last Agent Stage before Publish, which lands the Task as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff since its branch forked from ${commitMessage.landsOn} (\`git diff ${commitMessage.landsOn}...HEAD\`; the Brief's "What changed so far" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. ${now}
+Yours is the last Agent Stage before Publish, which lands the Task on ${commitMessage.landsOn} as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (${wholeDiffCommand(commitMessage.changesFrom)}; the Brief's "What changed so far" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. ${now}
 
 ${fenced(commitMessage.text)}`;
+}
+
+/**
+ * The read-only git that shows the Task's own changes: a diff from where the branch forked from its
+ * one base; with two, the Task's own commits, as a diff from either would count the other's commits
+ * taken in as the Task's.
+ */
+function wholeDiffCommand(changesFrom: readonly string[]): string {
+  const [base, ...others] = changesFrom.map(shortRevision);
+  if (base === undefined) return "`git diff HEAD`";
+  if (others.length === 0) return `\`git diff ${base}...HEAD\``;
+  return `\`git log -p --no-merges HEAD --not ${[base, ...others].join(" ")}\`, its own commits without what the bases brought in`;
+}
+
+/** A ref as git takes it for short: `refs/remotes/origin/main` as `origin/main`. */
+function shortRevision(revision: string): string {
+  return revision.replace(/^refs\/(?:remotes|heads)\//, "");
 }
 
 /**

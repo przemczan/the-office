@@ -153,6 +153,11 @@ export class TaskWorktrees {
     return this.worktrees.changesSoFar(await this.projects.read(projectId), taskId);
   }
 
+  /** The revisions the Task's changes so far are counted from. */
+  async changeBases(projectId: string, taskId: string): Promise<readonly string[]> {
+    return this.worktrees.changeBases(await this.projects.read(projectId), taskId);
+  }
+
   /**
    * The files, line counts and diff of what the Task's commits changed since its branch left the
    * base branch, as the Changes tab shows them, with the worktree's path while it has one; none

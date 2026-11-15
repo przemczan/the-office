@@ -92,6 +92,7 @@ const COMMIT_MESSAGE = {
   text: "Rename a device\n\nAdds a rename dialog.",
   written: true,
   landsOn: "main",
+  changesFrom: ["refs/remotes/origin/main"],
 };
 
 /** The Task's record in an Agent Stage's Brief, with the given commit message. */
@@ -127,9 +128,24 @@ describe("an Agent Stage's Brief and the Task's commit message", () => {
     const implementWork = agentStageWork(implement, { pipeline, commitMessage: COMMIT_MESSAGE });
 
     expect(reviewWork).toContain("## Recheck the commit message");
-    expect(reviewWork).toContain("`git diff main...HEAD`");
+    expect(reviewWork).toContain("lands the Task on main as one commit");
+    expect(reviewWork).toContain("`git diff origin/main...HEAD`");
     expect(reviewWork).toContain("Rename a device\n\nAdds a rename dialog.");
     expect(implementWork).not.toContain("## Recheck the commit message");
+  });
+
+  it("reads a Task of an Initiative's own commits, without what its two bases brought in", () => {
+    const work = agentStageWork(review, {
+      pipeline: pipelineOf([implement, review, publish]),
+      commitMessage: {
+        ...COMMIT_MESSAGE,
+        landsOn: "initiative/sign-in",
+        changesFrom: ["4f2c9e1a", "refs/remotes/origin/main"],
+      },
+    });
+
+    expect(work).toContain("lands the Task on initiative/sign-in as one commit");
+    expect(work).toContain("`git log -p --no-merges HEAD --not 4f2c9e1a origin/main`");
   });
 });
 

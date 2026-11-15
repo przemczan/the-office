@@ -350,7 +350,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
           commands: task.project.commands,
           roleTitle: (roleKey) => this.people.roleTitle(roleKey),
         },
-        commitMessage: { ...task.commitMessage, landsOn: landsOn(task) },
+        commitMessage: {
+          ...task.commitMessage,
+          landsOn: landsOn(task),
+          changesFrom: await this.git.changeBases(task.project.id, run.taskId),
+        },
       }),
       folder: task.worktree.path,
       environment: task.worktree.environment,

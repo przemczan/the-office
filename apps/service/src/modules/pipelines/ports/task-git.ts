@@ -57,6 +57,12 @@ export abstract class TaskGit {
   abstract changesSoFar(projectId: string, taskId: string): Promise<string | undefined>;
 
   /**
+   * The revisions `changesSoFar` counts the Task's changes from, as git names them here: the base
+   * branch as its upstream has it, after the Initiative's branch for a Task of one.
+   */
+  abstract changeBases(projectId: string, taskId: string): Promise<readonly string[]>;
+
+  /**
    * Removes the Task's worktree with whatever it holds, as after Publish; its branch stays, and a
    * later Stage gets the worktree back from it.
    */
