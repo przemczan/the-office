@@ -17,6 +17,34 @@ export interface OfficeTask {
   readonly resumesAt: Date | undefined;
 }
 
+/** An Initiative as Now reads it, from Work. */
+export interface OfficeInitiative {
+  readonly id: string;
+  readonly name: string;
+  /** Shaping, active, done or dropped: Now shows only those in Shaping. */
+  readonly state: string;
+  /** Shaping counts from here: an Initiative is in Shaping from the moment it is made. */
+  readonly createdAt: Date;
+}
+
+/** One of an Initiative's Tasks, as Now counts it, from Work. */
+export interface InitiativeTask {
+  readonly projectId: string;
+  readonly state: string;
+}
+
+/** An Initiative being shaped, as Now's Shaping section shows it. */
+export interface ShapingInitiative {
+  readonly initiativeId: string;
+  readonly title: string;
+  /** The Projects its Tasks so far are in, in the order its Tasks came. */
+  readonly projectIds: readonly string[];
+  /** Who holds Shapes Initiatives, by their Role's key; undefined while nobody does. */
+  readonly shapedBy: string | undefined;
+  readonly taskCount: number;
+  readonly since: Date;
+}
+
 /** The fire alarm, from Work: off, or on since it was sounded. */
 export type NowFireAlarm = { readonly on: false } | { readonly on: true; readonly since: Date };
 
@@ -175,6 +203,8 @@ export interface Now {
   readonly running: readonly RunningTask[];
   /** The queue for Start, first place first (spec §2.1, "A queue for Start"). */
   readonly queue: readonly QueuedTask[];
+  /** The Initiatives in Shaping, oldest first (the user's request of 2026-11-15). */
+  readonly shaping: readonly ShapingInitiative[];
   readonly tokensToday: TokenKinds;
   readonly desks: Desks;
   /** Each engine's whose account's windows were read, in the order each was first read. */
@@ -216,6 +246,11 @@ export interface NowParts {
   /** First place first. */
   readonly queued: readonly QueuedOnNow[];
   readonly tasks: readonly OfficeTask[];
+  readonly initiatives: readonly OfficeInitiative[];
+  /** Each Initiative's Tasks, by the Initiative's id. */
+  readonly initiativeTasks: ReadonlyMap<string, readonly InitiativeTask[]>;
+  /** Who holds Shapes Initiatives, by their Role's key; undefined while nobody does. */
+  readonly shaper: string | undefined;
   readonly tokensToday: TokenKinds;
   readonly officeWideLimit: number;
   readonly usageWindows: readonly EngineUsageWindows[];
@@ -242,6 +277,7 @@ export function nowOf(parts: NowParts): Now {
     needsYou: needsYouOf(parts.openDecisions, gates, parts.tasks),
     running,
     queue: queueOf(parts.queued, parts.tasks),
+    shaping: shapingOf(parts),
     tokensToday: parts.tokensToday,
     desks: { inUse: parts.started.length, limit: parts.officeWideLimit },
     usageWindows: parts.usageWindows,
@@ -272,6 +308,30 @@ function fireAlarmOf(
     paused,
     resumeTokens: paused.reduce((sum, { resume }) => sum + (resume?.tokens ?? 0), 0),
   };
+}
+
+/**
+ * The Initiatives in Shaping, oldest first, each with its Tasks so far and their Projects; a Task
+ * Dropped no longer counts.
+ */
+function shapingOf({ initiatives, initiativeTasks, shaper }: NowParts): ShapingInitiative[] {
+  return initiatives
+    .filter(({ state }) => state === "shaping")
+    .toSorted(
+      (one, other) =>
+        one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id),
+    )
+    .map(({ id, name, createdAt }) => {
+      const tasks = (initiativeTasks.get(id) ?? []).filter(({ state }) => state !== "dropped");
+      return {
+        initiativeId: id,
+        title: name,
+        projectIds: [...new Set(tasks.map(({ projectId }) => projectId))],
+        shapedBy: shaper,
+        taskCount: tasks.length,
+        since: createdAt,
+      };
+    });
 }
 
 function queueOf(queued: readonly QueuedOnNow[], tasks: readonly OfficeTask[]): QueuedTask[] {

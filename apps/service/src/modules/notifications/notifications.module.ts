@@ -25,6 +25,7 @@ import { NotificationTimingRepository } from "./ports/notification-timing-reposi
 import { OfficeDayFigures } from "./ports/office-day-figures.js";
 import { OfficeStatusCards } from "./ports/office-status-cards.js";
 import { OfficeFireAlarm } from "./ports/office-fire-alarm.js";
+import { OfficeInitiatives } from "./ports/office-initiatives.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
 import { OpenDecisions } from "./ports/open-decisions.js";
 import { PhonePush } from "./ports/phone-push.js";
@@ -40,6 +41,7 @@ export interface NotificationsModuleOptions {
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly officeTasks: Type<OfficeTasks>;
+  readonly officeInitiatives: Type<OfficeInitiatives>;
   readonly openDecisions: Type<OpenDecisions>;
   readonly taskStageProgress: Type<TaskStageProgress>;
   readonly deskLimit: Type<DeskLimit>;
@@ -61,6 +63,7 @@ export class NotificationsModule {
   static register({
     imports,
     officeTasks,
+    officeInitiatives,
     openDecisions,
     taskStageProgress,
     deskLimit,
@@ -85,6 +88,7 @@ export class NotificationsModule {
         // Task 28 binds Web Push here.
         { provide: PhonePush, useClass: RecordingPhonePush },
         { provide: OfficeTasks, useExisting: officeTasks },
+        { provide: OfficeInitiatives, useExisting: officeInitiatives },
         { provide: OpenDecisions, useExisting: openDecisions },
         { provide: TaskStageProgress, useExisting: taskStageProgress },
         { provide: DeskLimit, useExisting: deskLimit },

@@ -7,6 +7,7 @@ import type {
   QueuedOnNow,
   Role,
   RunningTask,
+  ShapingOnNow,
   SinceYouLeft,
 } from "@the-office/contracts";
 import { Badge } from "@the-office/ui";
@@ -35,7 +36,7 @@ import { ProjectChip } from "../../shell/project-chip.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { narrowed, type Narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
-import { momentWords } from "../../shell/time.ts";
+import { durationWords, momentWords } from "../../shell/time.ts";
 import { useClock } from "../../shell/use-clock.ts";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { TASK_STATE_TONES, taskStateWords } from "../../shell/work/work-words.ts";
@@ -44,7 +45,7 @@ import "./now.css";
 import { TokenCount } from "../../shell/token-count.tsx";
 
 /**
- * Home: what needs the user, what is running and queued, what happened since they left, and today's tokens;
+ * Home: what needs the user, what is running and queued, the Initiatives being shaped, what happened since they left, and today's tokens;
  * nothing else (spec §4), with the fire alarm above while it is on (spec §2.8). Each Decision and Gate is answered in place. The Project filter narrows
  * the three feeds; desks and tokens stay Office-wide.
  */
@@ -82,6 +83,19 @@ export function NowPage(): ReactNode {
               <PanelHeading icon="list-ordered" title="Queue" count={String(now.queue.length)} />
               <Feed>
                 <QueueFeed queue={now.queue} projects={projects} />
+              </Feed>
+            </>
+          )}
+          {now && now.shaping.length > 0 && (
+            <>
+              <PanelHeading icon="sparkles" title="Shaping" count={String(now.shaping.length)} />
+              <Feed>
+                <ShapingFeed
+                  shaping={now.shaping}
+                  projects={projects}
+                  roles={roles}
+                  clock={clock}
+                />
               </Feed>
             </>
           )}
@@ -226,6 +240,103 @@ function QueueFeed({
       <InOtherProjectsNote count={elsewhere} one="Task" many="Tasks" />
     </>
   );
+}
+
+/**
+ * The Initiatives being shaped, oldest first (the user's request of 2026-11-15): each with its
+ * Projects, who shapes it, its Tasks so far and how long it has been shaped. One with no Tasks yet
+ * is in no Project, so the Project filter always shows it.
+ */
+function ShapingFeed({
+  shaping,
+  projects,
+  roles,
+  clock,
+}: {
+  readonly shaping: readonly ShapingOnNow[];
+  readonly projects: readonly Project[] | undefined;
+  readonly roles: readonly Role[] | undefined;
+  readonly clock: Date;
+}): ReactNode {
+  const { shows } = useProjectFilter();
+  const { shown, elsewhere } = narrowed(shaping, ({ projectIds }) => shows(projectIds));
+  return (
+    <>
+      {shown.length === 0 && <EmptyCard>Nothing is being shaped in these Projects.</EmptyCard>}
+      {shown.map((initiative) => (
+        <ShapingCard
+          key={initiative.initiativeId}
+          initiative={initiative}
+          projects={projects}
+          roles={roles}
+          clock={clock}
+        />
+      ))}
+      <InOtherProjectsNote count={elsewhere} one="Initiative" many="Initiatives" />
+    </>
+  );
+}
+
+function ShapingCard({
+  initiative,
+  projects,
+  roles,
+  clock,
+}: {
+  readonly initiative: ShapingOnNow;
+  readonly projects: readonly Project[] | undefined;
+  readonly roles: readonly Role[] | undefined;
+  readonly clock: Date;
+}): ReactNode {
+  const { shapedBy } = initiative;
+  const person = shapedBy === null ? undefined : roles?.find(({ key }) => key === shapedBy);
+  return (
+    <ItemCard edge="running" label={`Shaping: ${initiative.title}`}>
+      <div className="now-item">
+        <div className="now-item-heading">
+          <Badge tone="info">Shaping</Badge>
+          <Link
+            to="/work/initiatives/$initiativeId"
+            params={{ initiativeId: initiative.initiativeId }}
+            className="now-item-title"
+          >
+            {initiative.title}
+          </Link>
+          {initiative.projectIds.map((projectId) => (
+            <ProjectChip key={projectId} projectId={projectId} projects={projects} />
+          ))}
+        </div>
+        <div className="now-item-sub">
+          {shapedBy === null ? (
+            "Nobody shapes Initiatives yet"
+          ) : (
+            <>
+              {person && <PersonAvatar roleKey={person.key} name={person.card.name} size="xs" />}
+              {person ? person.card.name : shapedBy}
+            </>
+          )}
+          <span>·</span>
+          {taskCountWords(initiative.taskCount)}
+          <span>·</span>
+          {shapedForWords(initiative.since, clock)}
+        </div>
+      </div>
+    </ItemCard>
+  );
+}
+
+/** "No Tasks yet", "1 Task", "3 Tasks". */
+function taskCountWords(count: number): string {
+  if (count === 0) return "No Tasks yet";
+  return count === 1 ? "1 Task" : `${count} Tasks`;
+}
+
+/** "Shaped for 18 min", "Shaped for 3h 10 min", "Shaped for 2 days". */
+function shapedForWords(since: string, clock: Date): string {
+  const milliseconds = Math.max(0, clock.getTime() - Date.parse(since));
+  const days = Math.floor(milliseconds / 86_400_000);
+  if (days === 0) return `Shaped for ${durationWords(milliseconds)}`;
+  return days === 1 ? "Shaped for 1 day" : `Shaped for ${days} days`;
 }
 
 function SinceYouLeftFeed({

@@ -10,6 +10,7 @@ import { SubAgentOrProcessNotFound } from "../domain/sub-agent-or-process-not-fo
 import {
   changeSubAgent,
   endItem,
+  progressSubAgent,
   RESTART_ENDING,
   SESSION_END_ENDING,
   stateOf,
@@ -261,6 +262,13 @@ export class SessionFollowing {
         const item = await this.find(event.callId);
         const changed = item?.kind === "sub-agent" ? changeSubAgent(item, event) : undefined;
         if (changed) await this.saved(changed, "changed", now);
+        return;
+      }
+      case "sub-agent-progress": {
+        const item = await this.find(event.callId);
+        const progressed =
+          item?.kind === "sub-agent" ? progressSubAgent(item, event.totalTokens) : undefined;
+        if (progressed) await this.saved(progressed, "changed", now);
         return;
       }
       case "sub-agent-ended": {

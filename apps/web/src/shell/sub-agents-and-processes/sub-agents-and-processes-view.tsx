@@ -25,11 +25,10 @@ import {
   itemTitle,
   kindWords,
   listGroups,
-  ranFor,
-  ranWords,
   STATE_WORDS,
   startedByWords,
   stateWords,
+  timeWords,
 } from "./sub-agents-and-processes-words.ts";
 import { useCaughtUpStream } from "./use-caught-up.ts";
 import { useSubAgentsAndProcesses } from "./use-sub-agents-and-processes.ts";
@@ -184,7 +183,7 @@ function ListItem({
           {stateWords(item)}
         </span>
         <span> · </span>
-        <span>{ranWords(ranFor(item, now))}</span>
+        <span>{timeWords(item, now)}</span>
       </span>
     </button>
   );

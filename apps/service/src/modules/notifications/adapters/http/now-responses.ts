@@ -19,6 +19,12 @@ export function toNowResponse(now: Now): NowResponse {
     needsYou: now.needsYou.map(toNeedsYouResponse),
     running: now.running.map(toRunningResponse),
     queue: now.queue.map(({ reasons, ...queued }) => ({ ...queued, reasons: [...reasons] })),
+    shaping: now.shaping.map(({ projectIds, shapedBy, since, ...initiative }) => ({
+      ...initiative,
+      projectIds: [...projectIds],
+      shapedBy: shapedBy ?? null,
+      since: since.toISOString(),
+    })),
     tokensToday: now.tokensToday,
     desks: now.desks,
     usageWindows: now.usageWindows.map(({ engineId, fiveHour, sevenDay }) => ({

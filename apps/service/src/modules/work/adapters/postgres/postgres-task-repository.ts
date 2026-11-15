@@ -14,6 +14,7 @@ import type { ProjectFilter } from "../../domain/project-filter.js";
 import type { StateChange } from "../../domain/state-change.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
+import type { DependencyChanges } from "../../domain/task-dependencies.js";
 import type { TaskCreated, TaskReordered } from "../../domain/task-events.js";
 import { STARTED_STATES } from "../../domain/task-states.js";
 import {
@@ -26,6 +27,7 @@ import {
 import { tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
+  changeEveryDependencyHeld,
   heldTask,
   canBeRowId,
   holdManualOrder,
@@ -168,6 +170,15 @@ export class PostgresTaskRepository extends TaskRepository {
   ): Promise<TaskUpdate<Event>> {
     return this.database.transaction((transaction) =>
       changeDependenciesHeld(transaction, id, change),
+    );
+  }
+
+  async changeEveryDependency(
+    id: string,
+    change: (task: Task, tasks: readonly Task[]) => DependencyChanges,
+  ): Promise<DependencyChanges> {
+    return this.database.transaction((transaction) =>
+      changeEveryDependencyHeld(transaction, id, change),
     );
   }
 

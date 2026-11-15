@@ -9,6 +9,7 @@ import type {
  * The words of what the next message does to the session, and why (spec §2.5). Under the composer:
  * "Continues · cache warm, 41 min left", the size being the context reading's. In the log's context
  * lines: "Continuing · cache warm · 41k context"; "Fresh · cache expired, 48k context · brief ~3k".
+ * A session started after an earlier one is a rule: "New session · you chose it · brief ~3k".
  */
 
 export const MOVE_WORDS: Readonly<Record<ContextMove, string>> = {
@@ -159,6 +160,22 @@ export function contextDetail(
 /** The whole label, as the log's context lines keep it: "Continuing · cache warm · 41k context". */
 export function contextLabel(context: LabelContext, personName: string): string {
   return `${MOVE_WORDS[context.move]} · ${contextDetail(context, personName)}`;
+}
+
+/**
+ * The rule opening a session after an earlier one: "New session · you chose it · brief ~3k", a
+ * hand-off saying so.
+ */
+export function newSessionLabel(context: LabelContext, personName: string): string {
+  const handOff = context.move === "hand-off" ? ["hand-off"] : [];
+  return ["New session", ...handOff, contextDetail(context, personName)].join(" · ");
+}
+
+/** An earlier session, folded: "Earlier session · 12 messages · ended at 85k context". */
+export function earlierSessionLabel(messages: number, endedAtTokens: number | null): string {
+  const parts = ["Earlier session", messages === 1 ? "1 message" : `${messages} messages`];
+  if (endedAtTokens !== null) parts.push(`ended at ${tokensShort(endedAtTokens)} context`);
+  return parts.join(" · ");
 }
 
 /** The Context bar's label with no choice offered: the size is the context reading's. */

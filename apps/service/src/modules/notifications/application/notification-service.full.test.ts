@@ -53,6 +53,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
@@ -125,6 +126,7 @@ describe("NotificationService", () => {
         NotificationsModule.register({
           imports: [NotificationsPortsForTestsModule],
           officeTasks: OfficeTasksForTests,
+          officeInitiatives: OfficeInitiativesForTests,
           openDecisions: OpenDecisionsForTests,
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,

@@ -30,7 +30,12 @@ import {
   type TaskChange,
 } from "./task-changes.js";
 import { projectsToPublish, unfinishedPublishingTask } from "./publishing-task.js";
-import { addDependency, blockPublishingTask, removeDependency } from "./task-dependencies.js";
+import {
+  blockPublishingTask,
+  dependencyChanges,
+  removeDependency,
+  type DependencyChanges,
+} from "./task-dependencies.js";
 import { changeDescription, changeTitle } from "./task-description.js";
 import { TaskRefused } from "./task-refused.js";
 import type { StateChangeCause } from "./state-change.js";
@@ -454,7 +459,8 @@ export function requireShaperTaskAllowed(
 
 /**
  * Whoever shapes Initiatives makes one of the Initiative's Tasks wait for `blockerId`, any Task
- * anywhere; the rules are addDependency's.
+ * anywhere; the rules and every change it makes are dependencyChanges', none when it waits for it
+ * already, directly or through another Task.
  */
 export function addDependencyOfItsTask(
   initiative: Initiative,
@@ -462,8 +468,11 @@ export function addDependencyOfItsTask(
   task: Task,
   blockerId: string,
   tasks: readonly Task[],
-): TaskChange<TaskDependencyAdded> | undefined {
-  return changeItsTask(initiative, route, task, () => addDependency(task, blockerId, tasks));
+): DependencyChanges {
+  requireItsTask(initiative, task);
+  const changes = dependencyChanges(task, blockerId, tasks);
+  if (changes.changed.length > 0) requireOpenTo(initiative, route, SHAPING_CHANGES);
+  return changes;
 }
 
 export function removeDependencyOfItsTask(

@@ -186,6 +186,11 @@ const sessionEvent = z.discriminatedUnion("kind", [
     background: z.boolean(),
   }),
   z.object({
+    kind: z.literal("sub-agent-progress"),
+    callId: z.string(),
+    totalTokens: z.number(),
+  }),
+  z.object({
     kind: z.literal("sub-agent-ended"),
     callId: z.string(),
     ending: backgroundEnding,

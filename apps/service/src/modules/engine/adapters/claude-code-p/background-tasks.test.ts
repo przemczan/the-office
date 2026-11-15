@@ -37,7 +37,7 @@ describe("BackgroundTasks on the -p fallback's stream", () => {
     await rm(folder, { recursive: true, force: true });
   });
 
-  it("reports a background command with its output in order and whole, a foreground Sub-agent from its call alone, and a background one with what it reported back", async () => {
+  it("reports a background command with its output in order and whole, a foreground Sub-agent from its call alone, and a background one with what it reported back, each Sub-agent's context size as the engine's progress gives it", async () => {
     const recorded = recordedEvents(await playRecordedSession(streamJsonWire(), outputFile));
 
     expect(recorded.inOrder).toEqual(RECORDED_EVENTS);

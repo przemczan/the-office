@@ -98,6 +98,16 @@ export interface SubAgentChangedEvent {
   readonly background: boolean;
 }
 
+/**
+ * A running Sub-agent's progress, as the engine reports it: its context size so far, in tokens.
+ * Engines that report none send none; its size then comes with its end.
+ */
+export interface SubAgentProgressEvent {
+  readonly kind: "sub-agent-progress";
+  readonly callId: string;
+  readonly totalTokens: number;
+}
+
 export interface SubAgentEndedEvent {
   readonly kind: "sub-agent-ended";
   readonly callId: string;
@@ -246,6 +256,7 @@ export interface McpServerNotStartedEvent {
 export type BackgroundEvent =
   | SubAgentStartedEvent
   | SubAgentChangedEvent
+  | SubAgentProgressEvent
   | SubAgentEndedEvent
   | ProcessStartedEvent
   | ProcessOutputEvent

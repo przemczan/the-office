@@ -37,6 +37,7 @@ export {
   TaskQueueReasonsChanged,
 } from "./domain/queue-events.js";
 export {
+  TaskAddedToInitiative,
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
@@ -57,6 +58,7 @@ export {
   TaskStarted,
   TaskStateChanged,
   TaskStopped,
+  TaskTakenOutOfInitiative,
 } from "./domain/task-events.js";
 export { TaskRefused } from "./domain/task-refused.js";
 export { STARTED_STATES, TASK_STATE_NAMES } from "./domain/task-states.js";

@@ -60,6 +60,23 @@ export const queuedOnNowSchema = z.object({
 });
 export type QueuedOnNow = z.infer<typeof queuedOnNowSchema>;
 
+/**
+ * An Initiative being shaped (the user's request of 2026-11-15): its Tasks so far, the Projects
+ * they are in, and who shapes it.
+ */
+export const shapingOnNowSchema = z.object({
+  initiativeId: z.uuid(),
+  title: z.string(),
+  /** The Projects its Tasks so far are in, which the Project filter narrows by. */
+  projectIds: z.array(z.string()),
+  /** Who holds Shapes Initiatives, by their Role's key; null while nobody does. */
+  shapedBy: z.string().min(1).nullable(),
+  taskCount: z.number().int().nonnegative(),
+  /** Shaping counts from here. */
+  since: z.iso.datetime(),
+});
+export type ShapingOnNow = z.infer<typeof shapingOnNowSchema>;
+
 export const taskOutcomeSchema = z.enum(["done", "failed", "paused"]);
 export type TaskOutcome = z.infer<typeof taskOutcomeSchema>;
 
@@ -153,6 +170,8 @@ export const nowSchema = z.object({
   running: z.array(runningTaskSchema),
   /** The queue for Start, first place first. */
   queue: z.array(queuedOnNowSchema),
+  /** The Initiatives in Shaping, oldest first. */
+  shaping: z.array(shapingOnNowSchema),
   tokensToday: tokenTotalsSchema,
   /** The running Tasks against the Office-wide limit. */
   desks: z.object({ inUse: z.number().int().nonnegative(), limit: z.number().int().positive() }),

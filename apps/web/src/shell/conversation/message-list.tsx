@@ -2,8 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import type { Message, MessageDelivery } from "@the-office/contracts";
 import { Avatar, Badge, Icon, TextButton } from "@the-office/ui";
 import {
+  Fragment,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -16,7 +18,7 @@ import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
 import { usageWindowUsedUpWords } from "../usage-window-words.ts";
 import { userName, useSignedInUserId, useUserName, type UserNamer } from "../use-user-name.ts";
-import { contextLabel } from "./context-words.ts";
+import { contextLabel, earlierSessionLabel, newSessionLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionInThread } from "./decision-card.tsx";
 import { answerWords, atUsersRequestWords } from "./decision-words.ts";
@@ -27,6 +29,7 @@ import {
   withDayLines,
   withLogLines,
   type LogLine,
+  type LogPiece,
   type MessageGroup,
   type ToolCall,
   type TurnMessage,
@@ -34,6 +37,7 @@ import {
 import { latestToolCall, onlyDetailsWouldShow, visibleMessages } from "./message-visibility.ts";
 import { OfficeStatusCard } from "./office-status-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
+import { piecesBySession, threadSessions, type ContextLineMessage } from "./thread-sessions.ts";
 
 const NO_LOG_LINES: readonly LogLine[] = [];
 
@@ -127,22 +131,28 @@ export function MessageList({
         readerLeftEnd.current = scrollHeight - scrollTop - clientHeight > FOLLOWING_DISTANCE_PX;
       }}
     >
-      {withDayLines(withLogLines(groupedMessages(visible), logLines)).map((piece) =>
-        piece.kind === "line" ? (
-          <p key={piece.line.id} className="message-log-line">
-            {piece.line.words}
-          </p>
-        ) : (
-          <GroupItem
-            key={piece.id}
-            group={piece}
-            roleKey={roleKey}
-            personName={personName}
-            stageThread={stageThread}
-            handoverNoteReader={handoverNoteReader}
-          />
-        ),
-      )}
+      <Sessions
+        messages={messages}
+        details={details}
+        logLines={logLines}
+        renderPiece={(piece) =>
+          piece.kind === "line" ? (
+            <p key={piece.line.id} className="message-log-line">
+              {piece.line.words}
+            </p>
+          ) : (
+            <GroupItem
+              key={piece.id}
+              group={piece}
+              roleKey={roleKey}
+              personName={personName}
+              stageThread={stageThread}
+              handoverNoteReader={handoverNoteReader}
+            />
+          )
+        }
+        personName={personName}
+      />
       {answering && (
         <Working
           roleKey={roleKey}
@@ -158,6 +168,99 @@ export function MessageList({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The log by session: each session started after an earlier one opens with its rule, which shows
+ * whatever the Details switch says, and every session but the current one folds. A Thread with one
+ * session shows as a plain log.
+ */
+function Sessions({
+  messages,
+  details,
+  logLines,
+  renderPiece,
+  personName,
+}: {
+  readonly messages: readonly Message[];
+  readonly details: boolean;
+  readonly logLines: readonly LogLine[];
+  readonly renderPiece: (piece: LogPiece) => ReactNode;
+  readonly personName: string;
+}): ReactNode {
+  const sessions = threadSessions(messages);
+  const shown = sessions.flatMap((session) => [
+    ...(session.opening ? [session.opening] : []),
+    ...visibleMessages(session.messages, details),
+  ]);
+  const pieces = withDayLines(withLogLines(groupedMessages(shown), logLines));
+  const shared = piecesBySession(pieces, sessions);
+  return shared.map(({ session, before, pieces: own }, index) => (
+    <Fragment key={session.id}>
+      {before.map(renderPiece)}
+      {session.opening && <SessionRule line={session.opening} personName={personName} />}
+      {index === shared.length - 1 ? (
+        own.map(renderPiece)
+      ) : (
+        <EarlierSession
+          messages={visibleMessages(session.messages, details).length}
+          endedAtTokens={session.endedAtTokens}
+        >
+          {own.map(renderPiece)}
+        </EarlierSession>
+      )}
+    </Fragment>
+  ));
+}
+
+/** The rule a session started after an earlier one opens with, its Brief openable below it. */
+function SessionRule({
+  line,
+  personName,
+}: {
+  readonly line: ContextLineMessage;
+  readonly personName: string;
+}): ReactNode {
+  return (
+    <div className="session-rule">
+      <p className="session-rule-line">{newSessionLabel(line, personName)}</p>
+      {line.brief !== null && <BriefFold brief={line.brief} />}
+    </div>
+  );
+}
+
+/**
+ * An earlier session's messages under one line, closed at first. A Decision's link opens it at its
+ * card, as the log scrolls to the card.
+ */
+function EarlierSession({
+  messages,
+  endedAtTokens,
+  children,
+}: {
+  readonly messages: number;
+  readonly endedAtTokens: number | null;
+  readonly children: ReactNode;
+}): ReactNode {
+  const fold = useRef<HTMLDetailsElement>(null);
+  const openedAtLink = useRef(false);
+  useLayoutEffect(() => {
+    const shown = fold.current;
+    if (openedAtLink.current || shown === null) return;
+    if (shown.querySelector(".decision-card.linked-to") === null) return;
+    openedAtLink.current = true;
+    shown.open = true;
+  });
+  if (messages === 0) return children;
+  return (
+    <details className="earlier-session" ref={fold}>
+      <summary>
+        <Icon name="chevron-right" size={12} />
+        {earlierSessionLabel(messages, endedAtTokens)}
+      </summary>
+      <div className="earlier-session-log">{children}</div>
+    </details>
   );
 }
 
@@ -737,16 +840,28 @@ function ContextLine({
   readonly line: Extract<Message, { kind: "context" }>;
   readonly personName: string;
 }): ReactNode {
-  const [open, setOpen] = useState(false);
   const label = contextLabel(line, personName);
   if (line.brief === null) return <div className="message-office">{label}</div>;
+  return <BriefFold brief={line.brief}>{label}</BriefFold>;
+}
+
+/** A session's Brief, read only once opened so a closed fold holds nothing but its label. */
+function BriefFold({
+  brief,
+  children,
+}: {
+  readonly brief: string;
+  /** What the line says before "Brief". */
+  readonly children?: ReactNode;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
   return (
     <details
       className="message-office message-brief"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary>
-        {label}
+        {children}
         <span className="message-brief-toggle">
           <Icon name="chevron-down" size={12} />
           Brief
@@ -754,7 +869,7 @@ function ContextLine({
       </summary>
       {open && (
         <div className="message-brief-text">
-          <MarkdownText text={line.brief} />
+          <MarkdownText text={brief} />
         </div>
       )}
     </details>

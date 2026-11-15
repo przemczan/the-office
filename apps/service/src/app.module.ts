@@ -207,6 +207,7 @@ export class AppModule {
         NotificationsModule.register({
           imports: [work, conversations, pipelines, PeopleModule, EngineModule],
           officeTasks: TaskService,
+          officeInitiatives: InitiativeService,
           openDecisions: DecisionService,
           taskStageProgress: TaskStagesService,
           deskLimit: OfficeLimits,

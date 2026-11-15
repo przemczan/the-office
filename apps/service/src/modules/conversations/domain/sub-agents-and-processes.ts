@@ -106,7 +106,8 @@ export function stateOf(item: SubAgentOrProcess): ItemState {
 
 /**
  * The item ended as `ending` says, at `at`, with what the end adds. A state only moves forward: one
- * already ended stays as it ended, so a late or repeated end changes nothing (undefined).
+ * already ended stays as it ended, so a late or repeated end changes nothing (undefined). An end
+ * that gives no context size keeps the one its progress gave.
  */
 export function endItem<Item extends SubAgentOrProcess>(
   item: Item,
@@ -116,7 +117,20 @@ export function endItem<Item extends SubAgentOrProcess>(
     Partial<Pick<Process, "exitCode">> = {},
 ): Item | undefined {
   if (item.ending !== undefined) return undefined;
-  return { ...item, ...added, ending, endedAt: at, revision: item.revision + 1 };
+  const kept =
+    item.kind === "sub-agent" && added.totalTokens === undefined
+      ? { ...added, totalTokens: item.totalTokens }
+      : added;
+  return { ...item, ...kept, ending, endedAt: at, revision: item.revision + 1 };
+}
+
+/**
+ * A running Sub-agent's context size, as the engine's progress reports it: a revision, so it
+ * streams like any change. Once it ended, or with no new size, nothing changes (undefined).
+ */
+export function progressSubAgent(subAgent: SubAgent, totalTokens: number): SubAgent | undefined {
+  if (subAgent.ending !== undefined || subAgent.totalTokens === totalTokens) return undefined;
+  return { ...subAgent, totalTokens, revision: subAgent.revision + 1 };
 }
 
 /** The engine told more of a Sub-agent after its start: kept even once it ended. */

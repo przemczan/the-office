@@ -23,10 +23,11 @@ import {
 import { archiveTask, restoreTask } from "../domain/task-archive.js";
 import { unfinishedPublishingTask } from "../domain/publishing-task.js";
 import {
-  addDependency,
   blockingTasks,
   blockPublishingTask,
+  dependencyChanges,
   removeDependency,
+  type DependencyChanges,
 } from "../domain/task-dependencies.js";
 import {
   TaskResumed,
@@ -48,6 +49,7 @@ import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/task-repository.js";
+import { publishDependencyChanges } from "./dependency-events.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 
 /** The Tasks use cases. Each change is saved first and its event published after. */
@@ -181,13 +183,18 @@ export class TaskService {
     return task;
   }
 
-  /** The Task waits for `blockerId` to be Done before it can start; any Task, in any Project. */
-  async addDependency(id: string, blockerId: string): Promise<Task> {
-    const { task, event } = await this.repository.changeDependencies(id, (held, tasks) =>
-      addDependency(held, blockerId, tasks),
+  /**
+   * The Task waits for `blockerId` to be Done before it can start; any Task, in any Project. Only
+   * when it doesn't wait for it through another Task already, and every direct wait the new one
+   * covers is taken out, on it and on the Tasks waiting for it (dependencyChanges), all saved at
+   * once and each link added or removed published after.
+   */
+  async addDependency(id: string, blockerId: string): Promise<DependencyChanges> {
+    const changes = await this.repository.changeEveryDependency(id, (held, tasks) =>
+      dependencyChanges(held, blockerId, tasks),
     );
-    if (event) await this.events.publish(event);
-    return task;
+    await publishDependencyChanges(this.events, changes);
+    return changes;
   }
 
   async removeDependency(id: string, blockerId: string): Promise<Task> {

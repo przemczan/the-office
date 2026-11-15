@@ -502,7 +502,7 @@ export const ADD_DEPENDENCY_ACTION = officeAction({
   name: "add_dependency",
   record: "task",
   description:
-    "Makes a Task wait for another Task to be Done before it can start: any Task, in any Project or Initiative. Refused once the Task has started, for a Task that is dropped or archived, for the Task itself, and for a wait that would close a cycle.",
+    "Makes a Task wait for another Task to be Done before it can start: any Task, in any Project or Initiative. Refused once the Task has started, for a Task that is dropped or archived, for the Task itself, and for a wait that would close a cycle. A Task waits directly only for Tasks it doesn't already wait for through another Task: when it already does, nothing is added and the answer says through which Task; otherwise the direct waits the new one covers, on this Task and on the Tasks not started that wait for it, are taken out, and the answer names each one.",
   input: z.object({
     taskId: z.uuid().describe("The id of the Task that must wait."),
     blockerId: z.uuid().describe("The id of the Task that must be Done first."),

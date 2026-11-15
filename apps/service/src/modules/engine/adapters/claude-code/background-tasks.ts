@@ -3,6 +3,7 @@ import type {
   SDKBackgroundTasksChangedMessage,
   SDKMessage,
   SDKTaskNotificationMessage,
+  SDKTaskProgressMessage,
   SDKTaskStartedMessage,
   SDKTaskUpdatedMessage,
   SDKUserMessage,
@@ -47,6 +48,8 @@ interface SubAgent {
   /** How many interrupts came before it started. */
   readonly interruptsBefore: number;
   ended: boolean;
+  /** Its context size the engine last reported while it ran. */
+  totalTokens: number | undefined;
 }
 
 interface RunningProcess {
@@ -176,6 +179,7 @@ export class BackgroundTasks {
       background,
       interruptsBefore: this.interrupts,
       ended: false,
+      totalTokens: undefined,
     });
     return {
       kind: "sub-agent-started",
@@ -262,6 +266,8 @@ export class BackgroundTasks {
         return this.taskStarted(message);
       case "task_updated":
         return this.taskUpdated(message);
+      case "task_progress":
+        return this.taskProgress(message);
       case "task_notification":
         return this.taskNotified(message);
       case "background_tasks_changed":
@@ -297,6 +303,7 @@ export class BackgroundTasks {
         background,
         interruptsBefore: this.interrupts,
         ended: false,
+        totalTokens: undefined,
       });
       return [
         {
@@ -351,6 +358,21 @@ export class BackgroundTasks {
     if (subAgent === undefined || subAgent.ended || subAgent.background) return [];
     subAgent.background = true;
     return [subAgentChanged(subAgent)];
+  }
+
+  /**
+   * A running Sub-agent's context size so far, from the engine's progress; a Process's progress,
+   * and a size no different from the last one reported, give nothing.
+   */
+  private taskProgress(progress: SDKTaskProgressMessage): BackgroundEvent[] {
+    const callId = this.callIdsByTask.get(progress.task_id) ?? progress.tool_use_id ?? "";
+    const subAgent = this.subAgents.get(callId);
+    // Read loosely: the `-p` stream's message is the CLI's JSON, not checked against the type.
+    const totalTokens = number(record(progress.usage)["total_tokens"]);
+    if (subAgent === undefined || subAgent.ended || totalTokens === undefined) return [];
+    if (totalTokens === subAgent.totalTokens) return [];
+    subAgent.totalTokens = totalTokens;
+    return [{ kind: "sub-agent-progress", callId, totalTokens }];
   }
 
   private taskNotified(notified: SDKTaskNotificationMessage): BackgroundEvent[] {

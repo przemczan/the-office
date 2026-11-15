@@ -5,6 +5,7 @@ import type { ProjectFilter } from "../domain/project-filter.js";
 import type { StateChange } from "../domain/state-change.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
+import type { DependencyChanges } from "../domain/task-dependencies.js";
 import type { TaskCreated, TaskReordered } from "../domain/task-events.js";
 
 /** The Task after an update, with the change's event, or undefined when nothing changed. */
@@ -115,6 +116,17 @@ export abstract class TaskRepository {
     id: string,
     change: (task: Task, tasks: readonly Task[]) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>>;
+
+  /**
+   * As `changeDependencies`, for an added dependency that may change several Tasks
+   * (dependencyChanges): saves every Task `change` changed in the one transaction, the Task held
+   * and saved whole, the others' dependencies alone, and never those of a Task that has started
+   * meanwhile. Answers the changes as saved.
+   */
+  abstract changeEveryDependency(
+    id: string,
+    change: (task: Task, tasks: readonly Task[]) => DependencyChanges,
+  ): Promise<DependencyChanges>;
 
   /**
    * As `update`, with the Task's neighbours and every other Task's key on the board read in the

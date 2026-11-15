@@ -6,6 +6,7 @@ import type {
   SubAgentOrProcess,
   SubAgentOrProcessState,
 } from "@the-office/contracts";
+import { tokensShort } from "../conversation/context-words.ts";
 import { threadTitle } from "../conversation/thread-title.ts";
 import { clockOf } from "../time.ts";
 
@@ -128,7 +129,25 @@ export function stateWords(item: SubAgentOrProcess): string {
 
 /** Each list item's second line: "Process · Failed · exit code 1 · 3m 10s". */
 export function secondLine(item: SubAgentOrProcess, now: Date): string {
-  return `${kindWords(item)} · ${stateWords(item)} · ${ranWords(ranFor(item, now))}`;
+  return `${kindWords(item)} · ${stateWords(item)} · ${timeWords(item, now)}`;
+}
+
+/** How long it ran, with a Sub-agent's context size when the engine gave one: "3m 12s · 45k context". */
+export function timeWords(item: SubAgentOrProcess, now: Date): string {
+  const context = contextWords(item);
+  const ran = ranWords(ranFor(item, now));
+  return context === undefined ? ran : `${ran} · ${context}`;
+}
+
+/**
+ * A Sub-agent's context size, "45k context", as the engine reported it last: while it runs, from
+ * its progress, then from its end. Undefined with no figure (never "0 context") and for a Process.
+ */
+export function contextWords(item: SubAgentOrProcess): string | undefined {
+  if (item.kind !== "sub-agent" || item.totalTokens === null || item.totalTokens <= 0) {
+    return undefined;
+  }
+  return `${tokensShort(item.totalTokens)} context`;
 }
 
 /** How long it ran, or has run so far. */
