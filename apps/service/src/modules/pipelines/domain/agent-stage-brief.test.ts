@@ -94,24 +94,28 @@ const COMMIT_MESSAGE = {
   landsOn: "main",
 };
 
+/** The Task's record in an Agent Stage's Brief, with the given commit message. */
+function recordWithCommitMessage(commitMessage: BriefTask["commitMessage"]): string {
+  return agentStageRecord({
+    task: { ...task, commitMessage },
+    earlier: [],
+    diffSummary: undefined,
+    commands: allowedCommands("read-only-git", [], undefined, ["status"]),
+    hardSwitches: {
+      runInstalls: { kind: "consult", person: "Devops" },
+      publishOutsideThePipeline: { kind: "never" },
+    },
+  });
+}
+
 describe("an Agent Stage's Brief and the Task's commit message", () => {
   it("shows the commit message, and says when it is the default", () => {
-    const record = (commitMessage: BriefTask["commitMessage"]) =>
-      agentStageRecord({
-        task: { ...task, commitMessage },
-        earlier: [],
-        diffSummary: undefined,
-        commands: allowedCommands("read-only-git", [], undefined, ["status"]),
-        hardSwitches: {
-          runInstalls: { kind: "consult", person: "Devops" },
-          publishOutsideThePipeline: { kind: "never" },
-        },
-      });
-
-    expect(record({ text: "Rename a device\n\nAdds a rename dialog.", written: true })).toContain(
+    expect(
+      recordWithCommitMessage({ text: "Rename a device\n\nAdds a rename dialog.", written: true }),
+    ).toContain(
       "## The commit message\n\nPublish lands the Task as one commit with this message:\n\n```\nRename a device\n\nAdds a rename dialog.\n```\n\nUpdate it with write_commit_message",
     );
-    expect(record({ text: "Rename a device", written: false })).toContain(
+    expect(recordWithCommitMessage({ text: "Rename a device", written: false })).toContain(
       "None is written yet, so Publish lands the Task as one commit with the default",
     );
   });

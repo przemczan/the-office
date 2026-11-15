@@ -3190,8 +3190,14 @@ test(
 );
 
 /** What git prints, trimmed, run in the repository's remote. */
-function gitOnRemote(repository: TemporaryRepositoryWithRemote, ...gitArguments: string[]): string {
-  return execFileSync("git", gitArguments, { cwd: repository.remote, encoding: "utf8" }).trim();
+function gitOnRemote(
+  repositoryWithRemote: TemporaryRepositoryWithRemote,
+  ...gitArguments: string[]
+): string {
+  return execFileSync("git", gitArguments, {
+    cwd: repositoryWithRemote.remote,
+    encoding: "utf8",
+  }).trim();
 }
 
 /** What `git rev-parse` names in the repository. */
