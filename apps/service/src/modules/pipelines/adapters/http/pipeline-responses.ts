@@ -167,9 +167,18 @@ export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskSt
       lockedStages: 0,
       testResults: [],
       definitionOfDoneMet: [],
+      definitionOfDoneOutOfReach: [],
+      gatesCheckingDefinitionOfDone: [],
     };
   }
-  const { stages, editedForTask, lockedStages, definitionOfDoneMet } = progress;
+  const {
+    stages,
+    editedForTask,
+    lockedStages,
+    definitionOfDoneMet,
+    definitionOfDoneOutOfReach,
+    gatesCheckingDefinitionOfDone,
+  } = progress;
   // Each Stage's own runs in their order, which is all the latest results are read from.
   const testResults = latestTestResults(
     stages.map(({ stage }) => stage),
@@ -181,6 +190,11 @@ export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskSt
     lockedStages,
     testResults: testResults.map((result) => ({ ...result, detail: result.detail ?? null })),
     definitionOfDoneMet: [...definitionOfDoneMet],
+    definitionOfDoneOutOfReach: definitionOfDoneOutOfReach.map(({ statement, why }) => ({
+      statement,
+      why,
+    })),
+    gatesCheckingDefinitionOfDone: [...gatesCheckingDefinitionOfDone],
   };
 }
 

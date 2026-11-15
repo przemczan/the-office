@@ -1,6 +1,13 @@
-import type { Attachment, ChangedFile, Task, TaskStage, TestResult } from "@the-office/contracts";
+import type {
+  Attachment,
+  ChangedFile,
+  Task,
+  TaskStage,
+  TaskStages,
+  TestResult,
+} from "@the-office/contracts";
 import { attachmentsOfGateRun } from "../attachments/attachment-rounds.ts";
-import type { WaitingGate } from "./gate-words.ts";
+import { continueLabel, type WaitingGate } from "./gate-words.ts";
 import { reportedMetCount } from "./work-words.ts";
 
 /** What the Gate asks of the user, as the card and its slim bar say it. */
@@ -54,6 +61,43 @@ export function definitionOfDoneFact(
   met: readonly number[],
 ): string {
   return `${reportedMetCount(definitionOfDone, met)} of ${definitionOfDone.length}`;
+}
+
+/** A Definition of Done statement not Reported met, with the latest why when it is Out of reach. */
+export interface UnmetStatement {
+  readonly statement: string;
+  readonly outOfReachWhy: string | undefined;
+}
+
+/**
+ * The statements not Reported met when the Gate is the Definition of Done check for the Publish
+ * after it (spec §2.3), which its Continue calls met; none at any other Gate.
+ */
+export function unmetAtTheCheck(
+  { definitionOfDone }: Pick<Task, "definitionOfDone">,
+  taskStages: Pick<
+    TaskStages,
+    "definitionOfDoneMet" | "definitionOfDoneOutOfReach" | "gatesCheckingDefinitionOfDone"
+  >,
+  { gate }: Pick<WaitingGate, "gate">,
+): UnmetStatement[] {
+  if (!taskStages.gatesCheckingDefinitionOfDone.includes(gate.key)) return [];
+  const outOfReach = new Map(
+    taskStages.definitionOfDoneOutOfReach.map(({ statement, why }) => [statement, why]),
+  );
+  return definitionOfDone.flatMap((statement, index) =>
+    taskStages.definitionOfDoneMet.includes(index + 1)
+      ? []
+      : [{ statement, outOfReachWhy: outOfReach.get(index + 1) }],
+  );
+}
+
+/** Continue's label, which says so when Continue publishes over unmet statements. */
+export function continueAtGateLabel(
+  waiting: WaitingGate,
+  unmet: readonly UnmetStatement[],
+): string {
+  return unmet.length > 0 ? "Continue and publish anyway" : continueLabel(waiting);
 }
 
 /** The card's line of what the window shows as facts; the files are left out until they are known. */

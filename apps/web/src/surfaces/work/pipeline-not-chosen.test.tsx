@@ -123,6 +123,8 @@ const PROJECT_PIPELINES = [
 const NO_STAGES_OF_ITS_OWN: TaskStages = {
   stages: null,
   definitionOfDoneMet: [],
+  definitionOfDoneOutOfReach: [],
+  gatesCheckingDefinitionOfDone: [],
   editedForTask: false,
   lockedStages: 0,
   testResults: [],

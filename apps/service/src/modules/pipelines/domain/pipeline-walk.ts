@@ -114,7 +114,10 @@ interface Walk {
   readonly roundsAdded: Map<string, number>;
   /** Every run of the Task, oldest first, of which `replayed` is a start. */
   readonly runs: readonly StageRun[];
-  /** Whether the user answered the Definition of Done check before Publish "Call it met". */
+  /**
+   * Whether the user called the Definition of Done met: answered its check before Publish "Call it
+   * met", or continued at the Gate that is the check (`gateChecksDefinitionOfDone`).
+   */
   calledMet: boolean;
 }
 
@@ -131,8 +134,9 @@ const DEFINITION_OF_DONE_ROUNDS = "definition of done";
  * The one walk over a Task's Stages (spec §2.3): a straight list whose only control flow is "on
  * failure go back to Stage X, at most N times", with the user asked when a Stage fails with no
  * retries left and when the Definition of Done isn't reported met before Publish (or at the end of
- * a Pipeline without one), and waiting at each Gate for the user, who may send the work back to an
- * earlier Stage without using a round. The position, each loop's rounds, the user's answers and Gate actions are replayed from the Task's
+ * a Pipeline without one) unless a Gate just before it was the check, and waiting at each Gate for
+ * the user, who may send the work back to an earlier Stage without using a round. The position,
+ * each loop's rounds, the user's answers and Gate actions are replayed from the Task's
  * Stage runs, oldest first, so they are kept nowhere else. A loop's rounds belong to the Stage that
  * owns it and count over the whole Task: going back again never resets them.
  */
@@ -312,6 +316,7 @@ function afterGate(walk: Walk, run: StageRun): StoppingMove | undefined {
   if (!action) return { move: "wait", run };
   switch (action.kind) {
     case "continue":
+      if (gateChecksDefinitionOfDone(walk.stages, walk.position.index)) walk.calledMet = true;
       return advance(walk, run);
     case "drop":
       return { move: "drop" };
@@ -595,6 +600,22 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
   }
   if (checksBeforePublish(walk.stages)) return undefined;
   return checkDefinitionOfDone(walk, run);
+}
+
+/**
+ * Whether the Gate at `index` is the Definition of Done check for the Publish Stage after it (spec
+ * §2.3), so its Continue calls the Definition of Done met: no Agent Stage, whose report may change
+ * what is met, nor a later Gate stands between them; Script Stages may. Resolve's Stages don't count.
+ */
+export function gateChecksDefinitionOfDone(stages: readonly Stage[], index: number): boolean {
+  const gate = stages[index];
+  if (gate?.kind !== "gate" || isResolveStage(gate)) return false;
+  for (const stage of stages.slice(index + 1)) {
+    if (isResolveStage(stage)) continue;
+    if (stage.kind !== "script") return false;
+    if (isPublishStage(stage)) return true;
+  }
+  return false;
 }
 
 /**

@@ -76,6 +76,8 @@ describe("GET /api/tasks/:id/stages", () => {
       lockedStages: 0,
       testResults: [],
       definitionOfDoneMet: [],
+      definitionOfDoneOutOfReach: [],
+      gatesCheckingDefinitionOfDone: [],
     });
   });
 

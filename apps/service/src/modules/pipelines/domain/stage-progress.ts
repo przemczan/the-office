@@ -4,6 +4,7 @@ import { staffedRole, staffedStages } from "./stage-staffing.js";
 import {
   addTokens,
   NO_STAGE_TOKENS,
+  type OutOfReachStatement,
   type StageInterruption,
   type StageRun,
   type StageTokens,
@@ -50,6 +51,10 @@ export interface TaskProgress {
   readonly lockedStages: number;
   /** The Definition of Done statements Reported met, by their numbers (`reportedMet`). */
   readonly definitionOfDoneMet: readonly number[];
+  /** The statements Out of reach, with the latest why (`reportedOutOfReach`). */
+  readonly definitionOfDoneOutOfReach: readonly OutOfReachStatement[];
+  /** The keys of the Gates that are the Definition of Done check (`gateChecksDefinitionOfDone`). */
+  readonly gatesCheckingDefinitionOfDone: readonly string[];
 }
 
 /** Each of the Task's Stages, in order, with where it stands from the Task's runs. */

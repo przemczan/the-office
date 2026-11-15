@@ -293,6 +293,16 @@ export const taskStagesSchema = z.object({
    * all the Task's runs: met once any Agent Stage reported it, until a later report takes it back.
    */
   definitionOfDoneMet: z.array(z.int().positive()),
+  /**
+   * The statements not Reported met that an Agent reported Out of reach, by their numbers from 1,
+   * each with its latest why.
+   */
+  definitionOfDoneOutOfReach: z.array(z.object({ statement: z.int().positive(), why: z.string() })),
+  /**
+   * The keys of the Gates that are the Definition of Done check for the Publish after them, as no
+   * Agent Stage stands between: Continue there calls it met (spec §2.3).
+   */
+  gatesCheckingDefinitionOfDone: z.array(z.string()),
   /** Whether the user edited them for the Task: the Pipeline's label says so. */
   editedForTask: z.boolean(),
   /** How many Stages, from the first, have started: an edit keeps them as they are, where they are. */

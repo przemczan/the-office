@@ -80,6 +80,8 @@ function stagesOfItsOwn(editedForTask: boolean): TaskStages {
   return {
     stages: null,
     definitionOfDoneMet: [],
+    definitionOfDoneOutOfReach: [],
+    gatesCheckingDefinitionOfDone: [],
     editedForTask,
     lockedStages: 0,
     testResults: [],

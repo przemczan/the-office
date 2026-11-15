@@ -66,6 +66,29 @@
   margin-bottom: 0;
 }
 
+/* What Continue at the Definition of Done check publishes over. */
+.gate-unmet {
+  margin-top: 10px;
+}
+
+.gate-unmet-title {
+  margin: 0 0 4px;
+  font: var(--type-caption);
+  font-weight: 600;
+  color: var(--warning-fg);
+}
+
+.gate-unmet-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.gate-unmet-why {
+  display: block;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
 .gate-window-title {
   display: flex;
   flex-wrap: wrap;

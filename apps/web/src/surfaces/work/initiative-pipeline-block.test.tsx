@@ -151,6 +151,8 @@ function stagesOf(stages: readonly TaskStage[]): TaskStages {
   return {
     stages: [...stages],
     definitionOfDoneMet: [],
+    definitionOfDoneOutOfReach: [],
+    gatesCheckingDefinitionOfDone: [],
     editedForTask: false,
     lockedStages: 0,
     testResults: [],

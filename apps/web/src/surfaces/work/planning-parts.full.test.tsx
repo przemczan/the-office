@@ -52,6 +52,8 @@ function stagesWith(definitionOfDoneMet: readonly number[]): TaskStages {
   return {
     stages: [],
     definitionOfDoneMet: [...definitionOfDoneMet],
+    definitionOfDoneOutOfReach: [],
+    gatesCheckingDefinitionOfDone: [],
     editedForTask: false,
     lockedStages: 0,
     testResults: [],
