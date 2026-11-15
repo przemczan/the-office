@@ -107,7 +107,7 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-async function launch(): Promise<{ exitCode: number; lines: string[] }> {
+async function launch({ withPort = true } = {}): Promise<{ exitCode: number; lines: string[] }> {
   const lines: string[] = [];
   const request = {
     kind: "release",
@@ -129,7 +129,7 @@ async function launch(): Promise<{ exitCode: number; lines: string[] }> {
     serviceDirectory: () => join(realpathSync(join(installRoot, "current")), "apps", "service"),
     environment: {
       ...process.env,
-      OFFICE_PORT: String(await freePort()),
+      OFFICE_PORT: withPort ? String(await freePort()) : "",
       RUNS: join(root, "runs.txt"),
       REQUEST: JSON.stringify(request),
     },
@@ -232,6 +232,22 @@ test("a new version that never gets healthy is stopped, and current goes back to
   });
   assert.deepEqual(runs(), [`${FROM} release`, `${TO} release`, `${FROM} release`]);
   assert.match(readFileSync(join(updateFolder, "log.txt"), "utf8"), /wasn't up within 1\.5 s/);
+});
+
+test("a launcher that can't tell where the new version answers /api/health fails before downloading", async () => {
+  serveTarball();
+  let downloaded = false;
+  onTarballRequested = () => (downloaded = true);
+
+  const { exitCode } = await launch({ withPort: false });
+
+  assert.equal(exitCode, 0);
+  assert.equal(downloaded, false);
+  assert.equal(current(), join("releases", FROM));
+  const ended = result();
+  assert.equal(ended.outcome === "failed" && ended.failedStep, "start");
+  assert.deepEqual(runs(), [`${FROM} release`, `${FROM} release`]);
+  assert.match(readFileSync(join(updateFolder, "log.txt"), "utf8"), /OFFICE_PORT isn't set/);
 });
 
 test("a stop signal mid-update lets the update finish, and runs nothing after it", async () => {

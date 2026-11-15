@@ -125,7 +125,7 @@ async function updateOnce(options: LauncherOptions): Promise<RunningService | un
         {
           ...install,
           startService: () => startService(options),
-          healthUrl: healthUrlOf(options.environment),
+          healthUrl: () => healthUrlOf(options.environment),
         },
         request,
       );

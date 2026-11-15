@@ -50,7 +50,8 @@ export interface ReleaseUpdateOptions extends ReleaseInstall {
   readonly updateFolder: string;
   /** Starts the service from `current`, as it points now. */
   readonly startService: () => RunningService;
-  readonly healthUrl: string;
+  /** Where the new version answers /api/health; it throws when that can't be told. */
+  readonly healthUrl: () => string;
   readonly health?: HealthWait;
   /** How a URL is downloaded; fetch, unless a test serves the release itself. */
   readonly download?: (url: string) => Promise<Response>;
@@ -96,7 +97,10 @@ export async function runReleaseUpdate(
     return ended;
   };
   try {
+    let healthUrl: string;
     try {
+      // Before anything changes: a new version whose health can't be checked is never switched to.
+      healthUrl = await attempt(log, "start", "where it answers /api/health", options.healthUrl);
       await install(options, request, log);
     } catch (error) {
       if (!(error instanceof StepFailed)) throw error;
@@ -106,7 +110,7 @@ export async function runReleaseUpdate(
       emptyDownloads(options.updateFolder);
     }
     const result = finished({ outcome: "updated" });
-    const service = await startNewVersion(options, request, log);
+    const service = await startNewVersion(options, healthUrl, request, log);
     if (service) {
       prune(options, request, log);
       return { result, service };
@@ -161,15 +165,15 @@ async function install(
   );
 }
 
-async function attempt(
+async function attempt<T>(
   log: UpdateLog,
   step: UpdateStep,
   what: string,
-  run: () => Promise<void> | void,
-): Promise<void> {
+  run: () => Promise<T> | T,
+): Promise<T> {
   log.step(step, what);
   try {
-    await run();
+    return await run();
   } catch (error) {
     throw new StepFailed(step, error);
   }
@@ -269,7 +273,8 @@ function pointCurrentAt(installRoot: string, version: string): void {
 
 /** The new version, once healthy; else it is stopped, and undefined. */
 async function startNewVersion(
-  { startService, healthUrl, health = { timeoutMs: HEALTH_TIMEOUT_MS } }: ReleaseUpdateOptions,
+  { startService, health = { timeoutMs: HEALTH_TIMEOUT_MS } }: ReleaseUpdateOptions,
+  healthUrl: string,
   { version }: ReleaseRequest,
   log: UpdateLog,
 ): Promise<RunningService | undefined> {
