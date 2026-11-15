@@ -7,6 +7,7 @@ import { BusyWorkModule } from "../office-updates/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { FireAlarmLiftsController } from "./adapters/http/fire-alarm-lifts.controller.js";
+import { LiveViewController } from "./adapters/http/live-view.controller.js";
 import { OfficeInstructionsController } from "./adapters/http/office-instructions.controller.js";
 import { ProposalsController } from "./adapters/http/proposals.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
@@ -26,6 +27,7 @@ import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-re
 import { DutyProposals } from "./adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "./adapters/proposals/office-instructions-proposals.js";
 import { SizeThresholdProposals } from "./adapters/proposals/size-threshold-proposals.js";
+import { LiveViewWebEvents } from "./adapters/websocket/live-view-web-events.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
 import { Consultations } from "./application/consultations.js";
@@ -49,6 +51,7 @@ import { PostgresSubAgentAndProcessRepository } from "./adapters/postgres/postgr
 import { SubAgentsAndProcessesController } from "./adapters/http/sub-agents-and-processes.controller.js";
 import { SubAgentAndProcessRepository } from "./ports/sub-agent-and-process-repository.js";
 import { LinkCards } from "./application/link-cards.js";
+import { LiveView } from "./application/live-view.js";
 import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
 import { MentionedRecords } from "./application/mentioned-records.js";
 import { OfficeInstructions } from "./application/office-instructions.js";
@@ -119,6 +122,7 @@ export class ConversationsModule {
         OfficeInstructionsController,
         FireAlarmLiftsController,
         SubAgentsAndProcessesController,
+        LiveViewController,
       ],
       providers: [
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -150,6 +154,7 @@ export class ConversationsModule {
         ThreadContexts,
         ThreadSummaries,
         TaskConversations,
+        LiveView,
         ThreadRunner,
         InterruptedAnswers,
         DecisionService,
@@ -185,6 +190,7 @@ export class ConversationsModule {
         ThreadHistoryOfficeTool,
         ConversationsEarlierRecords,
         ThreadWebEvents,
+        LiveViewWebEvents,
       ],
       exports: [
         DecisionService,

@@ -30,6 +30,14 @@ export interface Consultant {
   readonly title: string;
 }
 
+/** A person filling a Role now; `hiredAt` is when the Role was filled, which a hire back keeps. */
+export interface HiredPerson {
+  readonly roleKey: string;
+  readonly name: string;
+  readonly title: string;
+  readonly hiredAt: Date;
+}
+
 /**
  * The Role cards for the modules that start sessions (spec §2.2): a new session gets the current
  * version and records it; a resumed one is given the version it recorded, so a change reaches only
@@ -65,6 +73,19 @@ export class RoleCards {
   async hiredKeys(): Promise<ReadonlySet<string>> {
     const roles = await this.repository.list();
     return new Set(roles.filter((role) => !role.letGoAt).map((role) => role.key));
+  }
+
+  /** Everyone filling a Role now, the Caretaker included, the oldest hire first. */
+  async hiredPeople(): Promise<readonly HiredPerson[]> {
+    const roles = await this.repository.list();
+    return roles
+      .filter((role) => !role.letGoAt)
+      .map(({ key, card, hiredAt }) => ({
+        roleKey: key,
+        name: card.name,
+        title: card.title,
+        hiredAt,
+      }));
   }
 
   /** The people hired now whose Consultant capability is on. */

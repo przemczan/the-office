@@ -1,5 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Decision } from "./decision.js";
+import type { LiveView } from "./live-view.js";
 import type { Message, MessageDelivery } from "./message.js";
 import type { Proposal } from "./proposal.js";
 import type {
@@ -226,5 +227,12 @@ export class ProcessOutputKept extends DomainEvent {
     keptAt: Date,
   ) {
     super(keptAt);
+  }
+}
+
+/** What a person of The Office is doing now changed: the whole Live view, as read after it. */
+export class LiveViewChanged extends DomainEvent {
+  constructor(readonly liveView: LiveView) {
+    super();
   }
 }

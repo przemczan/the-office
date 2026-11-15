@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../domain/message.js";
-import type { Thread } from "../../domain/thread.js";
+import type { Thread, ThreadSession } from "../../domain/thread.js";
 import { logMessages, openDecision } from "../../domain/thread-changes.js";
 import type { LoggedMessagesRange } from "../../ports/thread-repository.js";
 import { aUserMessage } from "../../domain/thread.fixtures.js";
@@ -23,6 +23,23 @@ function twoAMinute(index: number): Date {
 function endOf(threads: readonly Thread[]): { readonly at: Date; readonly id: string } | undefined {
   const last = threads.at(-1);
   return last && { at: last.startedAt, id: last.id };
+}
+
+/** A session of the person's whose last engine call ended `lastCallAt`, if it made one. */
+function sessionEndingAt(roleKey: string, lastCallAt: Date | undefined): ThreadSession {
+  return {
+    id: randomUUID(),
+    roleKey,
+    cardVersion: 1,
+    officeInstructionsVersion: 0,
+    engineId: "claude-code",
+    startedAt: AT,
+    lastCallAt,
+    contextTokens: 0,
+    startContextTokens: undefined,
+    full: false,
+    changesAllowed: false,
+  };
 }
 
 /** A time on a day only this file's range test logs messages on. */
@@ -115,6 +132,48 @@ describe("PostgresThreadRepository", () => {
         openDecision({ ...latest, openDecisions: [] }, { ...call, id: randomUUID() }),
       ),
     ).rejects.toThrow(/"decisions"/);
+  });
+
+  it("reads the busy Threads: answering, or holding an open Decision", async () => {
+    const roleKey = `role-${randomUUID()}`;
+    const answering = aThreadOfItsOwn(roleKey, { state: "answering" });
+    const holding = aThreadOfItsOwn(roleKey);
+    const idle = aThreadOfItsOwn(roleKey);
+    for (const thread of [answering, holding, idle]) await repository.add(thread);
+    const { thread: waiting } = await repository.update(holding.id, (latest) =>
+      openDecision(latest, {
+        id: randomUUID(),
+        question: "Which Postgres version?",
+        context: "The run environment needs one.",
+        options: ["16", "17"],
+        recommendation: { option: 1, reason: "The newest is supported longest." },
+        putTo: "devops",
+        askedAt: AT,
+      }),
+    );
+
+    const busy = (await repository.busy()).filter((thread) => thread.roleKey === roleKey);
+
+    expect(busy.toSorted((one, other) => (one.id > other.id ? 1 : -1))).toEqual(
+      [answering, waiting].toSorted((one, other) => (one.id > other.id ? 1 : -1)),
+    );
+  });
+
+  it("reads when each person's last engine call ended, over all their Threads", async () => {
+    const called = `role-${randomUUID()}`;
+    const neverCalled = `role-${randomUUID()}`;
+    const latest = new Date("2026-10-25T11:45:12.345Z");
+    await repository.add(aThreadOfItsOwn(called, { session: sessionEndingAt(called, AT) }));
+    await repository.add(aThreadOfItsOwn(called, { session: sessionEndingAt(called, latest) }));
+    await repository.add(aThreadOfItsOwn(called));
+    await repository.add(
+      aThreadOfItsOwn(neverCalled, { session: sessionEndingAt(neverCalled, undefined) }),
+    );
+
+    const lastCalls = await repository.lastCallsByPerson();
+
+    expect(lastCalls.get(called)).toEqual(latest);
+    expect(lastCalls.has(neverCalled)).toBe(false);
   });
 
   it("saves a change with the messages it logged, in their order", async () => {

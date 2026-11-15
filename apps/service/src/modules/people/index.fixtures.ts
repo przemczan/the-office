@@ -9,6 +9,7 @@ export { DutyRepositoryForTests } from "./ports/duty-repository.fixtures.js";
 export { OfficeSetupRepository } from "./ports/office-setup-repository.js";
 export { RoleRepository } from "./ports/role-repository.js";
 export { OfficeSetupRepositoryForTests } from "./ports/office-setup-repository.fixtures.js";
+export { aRole } from "./domain/role.fixtures.js";
 
 /**
  * Where an MCP tool the card leaves unset stands, for tests that stand in for People's `SessionRole`:

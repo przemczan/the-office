@@ -66,6 +66,12 @@ export abstract class ThreadRepository {
   /** Every Thread whose person is answering now, in any home. */
   abstract answering(): Promise<readonly Thread[]>;
 
+  /** Every Thread whose person is answering now or that holds an open Decision, in any home. */
+  abstract busy(): Promise<readonly Thread[]>;
+
+  /** When each person's last engine call ended, over all their Threads, by the key of their Role. */
+  abstract lastCallsByPerson(): Promise<ReadonlyMap<string, Date>>;
+
   /** The home's Threads, the newest started first. */
   abstract listIn(home: Home): Promise<readonly Thread[]>;
 

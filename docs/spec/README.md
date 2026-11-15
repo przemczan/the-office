@@ -109,10 +109,12 @@ Where each default lives (the old §9):
 - Who holds a duty: [2.2 People](2.2-people.md#defaults)
 - Duties on screen: [2.2 People](2.2-people.md#defaults)
 - Setting up an Office with nobody hired: [2.2 People](2.2-people.md#defaults)
+- A person's headline state on the Live view: [2.2 People](2.2-people.md#defaults)
 - A Stage names a Role or a duty: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The holder of Asked first on failures (formerly "The CTO first on failures"): [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The public address: [5.1 Shape](5.1-shape.md#defaults)
 - Users is its own module: [5.3 Modules](5.3-modules.md#defaults)
+- The Live view's read model lives in Conversations: [5.3 Modules](5.3-modules.md#defaults)
 - Password rules, the one-time password, slow-down and lockout, how long a device stays signed in, recovery codes, the authenticator, removing users, records from before users, Since you left per user: [2.10 Users and signing in](2.10-users-and-signing-in.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.

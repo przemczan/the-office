@@ -136,6 +136,40 @@ describe("RoleCards", () => {
     await expect(roleCards.forResumedSession(role.key, 1)).resolves.toEqual(session);
   });
 
+  it("lists the people hired now, the oldest hire first, leaving out someone let go until hired back", async () => {
+    const first = aRole({ key: `role-${randomUUID()}`, hiredAt: new Date("2026-01-01T09:00:00Z") });
+    const second = aRole({
+      key: `role-${randomUUID()}`,
+      hiredAt: new Date("2026-01-02T09:00:00Z"),
+    });
+    await repository.add(second);
+    await repository.add(first);
+    const ours = async () =>
+      (await roleCards.hiredPeople()).filter(({ roleKey }) =>
+        [first.key, second.key].includes(roleKey),
+      );
+
+    await roles.letGo(first.key);
+    const withoutFirst = await ours();
+    await roles.hireBack(first.key);
+
+    expect(withoutFirst.map(({ roleKey }) => roleKey)).toEqual([second.key]);
+    expect(await ours()).toEqual([
+      {
+        roleKey: first.key,
+        name: first.card.name,
+        title: first.card.title,
+        hiredAt: first.hiredAt,
+      },
+      {
+        roleKey: second.key,
+        name: second.card.name,
+        title: second.card.title,
+        hiredAt: second.hiredAt,
+      },
+    ]);
+  });
+
   it("refuses to resume with a card version the Role doesn't have", async () => {
     const role = aRole({ key: `role-${randomUUID()}` });
     await repository.add(role);

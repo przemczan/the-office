@@ -85,6 +85,31 @@ export class PostgresThreadRepository extends ThreadRepository {
     return withOpenDecisions(this.database, rows);
   }
 
+  async busy(): Promise<readonly Thread[]> {
+    const holdingOpenDecisions = this.database
+      .select({ threadId: decisions.threadId })
+      .from(decisions)
+      .where(unanswered);
+    const rows = await this.database
+      .select()
+      .from(threads)
+      .where(or(eq(threads.state, "answering"), inArray(threads.id, holdingOpenDecisions)));
+    return withOpenDecisions(this.database, rows);
+  }
+
+  async lastCallsByPerson(): Promise<ReadonlyMap<string, Date>> {
+    // Read as `started_at` is, so the driver's timestamp text becomes a Date the same way.
+    const lastCallAt =
+      sql<Date | null>`max((${threads.session}->>'lastCallAt')::timestamptz)`.mapWith(
+        threads.startedAt,
+      );
+    const rows = await this.database
+      .select({ roleKey: threads.roleKey, lastCallAt })
+      .from(threads)
+      .groupBy(threads.roleKey);
+    return new Map(rows.flatMap(({ roleKey, lastCallAt: at }) => (at ? [[roleKey, at]] : [])));
+  }
+
   async listIn(home: Home): Promise<readonly Thread[]> {
     const { kind, id } = homeColumns(home);
     const rows = await this.database
