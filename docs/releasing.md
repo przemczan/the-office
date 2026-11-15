@@ -1,5 +1,7 @@
 # Releasing The Office
 
+Installing, updating and removing a release is in [installing.md](installing.md); this page is about cutting one.
+
 An **Office release** is a version of The Office cut from `main`: the tag `v<version>`, a GitHub Release whose notes are its commits, two tarballs and a container image. Only the **Release** workflow ([.github/workflows/release.yml](../.github/workflows/release.yml)) cuts one, run by hand; nobody tags or publishes a release otherwise. Installing a release and moving to a newer one are the installers' and Self-update's part; an Office update ([running-the-office.md](running-the-office.md)) still moves a checkout to its upstream's newest commit.
 
 ## What a release carries

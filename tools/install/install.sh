@@ -7,6 +7,8 @@
 #
 # Running it again is safe: it keeps the answers, the database password, the installed version and
 # the lines a user added to office.env, and restarts The Office only when something changed.
+# `--uninstall` removes The Office again, keeping its data for a later install unless `--purge` is
+# given too; Node, Docker and PostgreSQL stay either way.
 # `install.sh --help` lists its options. Spec §5.1 Defaults, "Installing on Debian/Ubuntu".
 set -euo pipefail
 
@@ -30,6 +32,11 @@ readonly ENV_FILE=/etc/the-office/office.env
 readonly UNIT_FILE=/etc/systemd/system/the-office.service
 readonly LOG_FILE=/var/log/the-office-install.log
 readonly NODE=/usr/bin/node
+readonly NPM=/usr/bin/npm
+
+# What every run environment's containers, networks, volumes and images carry (apps/service's
+# run-environments module), which --uninstall removes them by, with instance_label's.
+readonly MANAGED_LABEL=office.managed=true
 
 readonly DATABASE_ROLE=office
 readonly DATABASE_NAME=the_office
@@ -172,6 +179,65 @@ valid_data_dir() {
   [[ $1 =~ ^/[A-Za-z0-9._/-]+$ ]] || return 1
   [[ /$1/ != */../* && /$1/ != */./* && $1 != *//* ]] || return 1
   [[ ${1%/} != "" ]]
+}
+
+# instance_label <data dir>: the label naming one Office's run environments among others sharing
+# Docker, as instanceIdOf in apps/service's run-environments domain makes it from the data folder.
+instance_label() {
+  local digest
+  digest=$(printf '%s' "$1" | sha256sum)
+  echo "office.instance=${digest:0:12}"
+}
+
+# safe_data_dir <path>: succeeds when --purge may remove the folder as The Office's data folder,
+# else prints why not. It refuses what valid_data_dir does, every top-level folder (/, /srv, /data),
+# anything in the system's own folders (/bin, /boot, /dev, /etc, /lib*, /proc, /root, /run, /sbin,
+# /sys, /usr) or in /opt/the-office, a folder right in /var (/var/lib) and a home folder
+# (/home/<user>). Who owns it is checked at the run, as this reads nothing of the system.
+safe_data_dir() {
+  if ! valid_data_dir "$1"; then
+    echo "it isn't an absolute folder written as a plain word"
+    return 1
+  fi
+  local dir=${1%/} top rest
+  rest=${dir#/}
+  top=${rest%%/*}
+  if [[ $rest != */* ]]; then
+    echo "it is a top-level folder"
+    return 1
+  fi
+  case $top in
+    bin | boot | dev | etc | lib | lib32 | lib64 | libx32 | proc | root | run | sbin | sys | usr)
+      echo "it is in the system's folder /$top"
+      return 1
+      ;;
+  esac
+  if [[ $dir == "$INSTALL_DIR" || $dir == "$INSTALL_DIR"/* ]]; then
+    echo "it is in $INSTALL_DIR"
+    return 1
+  fi
+  rest=${rest#*/}
+  if [[ $rest != */* && $top == var ]]; then
+    echo "it is a system folder"
+    return 1
+  fi
+  if [[ $rest != */* && $top == home ]]; then
+    echo "it is a home folder"
+    return 1
+  fi
+}
+
+# uninstall_arguments_fit <uninstall> <purge> <install options given>: succeeds when the options
+# go together, else prints why not. --uninstall takes only --purge and --yes beside it.
+uninstall_arguments_fit() {
+  if [[ $1 == true && -n $3 ]]; then
+    echo "--uninstall takes only --purge and --yes, not $3."
+    return 1
+  fi
+  if [[ $1 != true && $2 == true ]]; then
+    echo "--purge goes with --uninstall."
+    return 1
+  fi
 }
 
 # env_value <file> <key>: the key's value in an env file (the last line setting it), unquoted.
@@ -320,6 +386,7 @@ resolve_answers() {
 # ---------------------------------------------------------------------------------------------
 
 FLAG_HOST="" FLAG_PORT="" FLAG_DATA_DIR="" FLAG_VERSION=""
+UNINSTALL=false PURGE=false INSTALL_OPTIONS=""
 HOST="" PORT="" DATA_DIR=""
 HOST_SOURCE="" PORT_SOURCE="" DATA_DIR_SOURCE=""
 LOG=""
@@ -376,10 +443,27 @@ Options (each also read from the variable named after it):
   --version <x.y.z>   The release to install (OFFICE_VERSION); a rerun keeps the installed one
                       unless a newer version is given.
   --yes               Ask nothing: take the values given, else the installed ones, else the defaults.
+                      With --uninstall, remove without asking to confirm.
+  --uninstall         Stop and remove The Office's service, its unit, /opt/the-office and its run
+                      environment containers, networks, volumes and images; keep the data folder,
+                      the database, office.env and the the-office user, so running the installer
+                      again brings the same Office back.
+  --purge             With --uninstall: also remove the data folder, the database and its role,
+                      /etc/the-office and the the-office user.
   --help              Show this.
 
 Running it again is safe: it keeps the answers, the installed version and office.env's other lines.
+Node, Docker and PostgreSQL stay installed, even with --uninstall --purge.
 EOF
+}
+
+# The Release's one-liner, which installs the newest release.
+install_command() {
+  echo "curl -fsSL https://github.com/$(repository)/releases/latest/download/install.sh | sudo bash"
+}
+
+guide_url() {
+  echo "https://github.com/$(repository)/blob/main/docs/installing.md"
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -398,25 +482,38 @@ parse_arguments() {
           --data-dir) FLAG_DATA_DIR=$2 ;;
           --version) FLAG_VERSION=$2 ;;
         esac
+        INSTALL_OPTIONS=${INSTALL_OPTIONS:+$INSTALL_OPTIONS }$1
         shift 2
         ;;
       --yes | -y) ASSUME_YES=true && shift ;;
+      --uninstall) UNINSTALL=true && shift ;;
+      --purge) PURGE=true && shift ;;
       --help | -h) usage && exit 0 ;;
       *) die "Unknown option $1. See --help." ;;
     esac
   done
+  local problem
+  problem=$(uninstall_arguments_fit "$UNINSTALL" "$PURGE" "$INSTALL_OPTIONS") || die "$problem"
 }
 
 SYSTEM_ID="" SYSTEM_VERSION_ID="" SYSTEM_CODENAME="" ARCH="" IN_CONTAINER=false
 
-preflight() {
-  if [[ $(id -u) != 0 ]]; then
-    echo "The installer changes the system, so it runs as root. Run it with sudo:" >&2
-    echo "  curl -fsSL https://github.com/$(repository)/releases/latest/download/install.sh | sudo bash" >&2
-    exit 1
-  fi
+# require_root <the one-liner's arguments>: stops, giving the sudo one-liner, unless run as root.
+require_root() {
+  [[ $(id -u) == 0 ]] && return
+  echo "The installer changes the system, so it runs as root. Run it with sudo:" >&2
+  echo "  $(install_command)$1" >&2
+  exit 1
+}
+
+require_systemd() {
   [[ -d $(root_path /run/systemd/system) ]] ||
     die "This machine doesn't run systemd, which runs The Office as a service."
+}
+
+preflight() {
+  require_root ""
+  require_systemd
   local os_release
   os_release=$(root_path /etc/os-release)
   [[ -f $os_release ]] || die "No /etc/os-release, so the system can't be told."
@@ -918,8 +1015,230 @@ print_result() {
   else
     echo "The Office already has its first user: sign in."
     echo "For a lost password, set a new one with:"
-    echo "  sudo bash -c 'set -a; . $ENV_FILE; cd $INSTALL_DIR/current && runuser -u $SERVICE_USER -- npm run set-password -- --email <email>'"
+    echo "  sudo systemd-run --quiet --pty --wait --collect --uid=$SERVICE_USER --gid=$SERVICE_USER -p EnvironmentFile=$ENV_FILE --working-directory=$INSTALL_DIR/current $NPM run set-password -- --email <email>"
   fi
+  echo
+  echo "Guide: $(guide_url)"
+}
+
+# ---------------------------------------------------------------------------------------------
+# The steps of an uninstall (--uninstall, and --purge with it).
+# ---------------------------------------------------------------------------------------------
+
+# Installed is any of the unit, /opt/the-office, office.env and the service user being there.
+office_installed() {
+  [[ -f $(root_path "$UNIT_FILE") || -e $(root_path "$INSTALL_DIR") || -f $(root_path "$ENV_FILE") ]] ||
+    getent passwd "$SERVICE_USER" >/dev/null
+}
+
+USER_EXISTS=false
+DOCKER_REACHABLE=false
+REMOVE_DATA_DIR=false
+DATA_DIR_PROBLEM=""
+REMOVING=()
+KEEPING=()
+
+# Decides what goes and what stays, reading the system and changing nothing.
+plan_uninstall() {
+  if getent passwd "$SERVICE_USER" >/dev/null; then USER_EXISTS=true; fi
+  DATA_DIR=$(env_value "$(root_path "$ENV_FILE")" OFFICE_DATA_DIR)
+  DATA_DIR=${DATA_DIR%/}
+  if [[ -f $(root_path "$UNIT_FILE") ]]; then REMOVING+=("the service $SERVICE_NAME and its unit $UNIT_FILE"); fi
+  if [[ -e $(root_path "$INSTALL_DIR") ]]; then REMOVING+=("$INSTALL_DIR"); fi
+  if [[ -z $DATA_DIR ]]; then
+    KEEPING+=("any run environment containers, networks, volumes and images: office.env doesn't name the data folder, which tells them from another Office's")
+  elif command -v docker >/dev/null && docker info >>"$LOG" 2>&1; then
+    DOCKER_REACHABLE=true
+    REMOVING+=("the run environments' containers, networks, volumes and images (labelled $MANAGED_LABEL and $(instance_label "$DATA_DIR"))")
+  else
+    KEEPING+=("any run environment containers, networks, volumes and images: Docker isn't reachable")
+  fi
+  if [[ -f $(root_path "$LOG_FILE") ]]; then REMOVING+=("the install log $LOG_FILE"); fi
+  if [[ $PURGE == true ]]; then
+    plan_purge
+  else
+    if [[ -n $DATA_DIR ]]; then KEEPING+=("the data folder $DATA_DIR"); fi
+    KEEPING+=("the database $DATABASE_NAME and its role $DATABASE_ROLE")
+    if [[ -f $(root_path "$ENV_FILE") ]]; then KEEPING+=("$ENV_FILE"); fi
+    if [[ $USER_EXISTS == true ]]; then KEEPING+=("the user $SERVICE_USER and its home $SERVICE_HOME"); fi
+  fi
+  KEEPING+=("Node, Docker and PostgreSQL, and their apt sources")
+}
+
+plan_purge() {
+  if command -v pg_lsclusters >/dev/null &&
+    CLUSTER_PORT=$(cluster_port "$(pg_lsclusters --no-header 2>>"$LOG")"); then
+    REMOVING+=("the database $DATABASE_NAME and its role $DATABASE_ROLE (PostgreSQL $POSTGRES_MAJOR on port $CLUSTER_PORT)")
+  else
+    CLUSTER_PORT=""
+    KEEPING+=("the database $DATABASE_NAME and its role $DATABASE_ROLE: no PostgreSQL $POSTGRES_MAJOR cluster was found")
+  fi
+  local folder owner
+  if [[ -z $DATA_DIR ]]; then
+    DATA_DIR_PROBLEM="office.env doesn't name it"
+  elif DATA_DIR_PROBLEM=$(safe_data_dir "$DATA_DIR"); then
+    folder=$(root_path "$DATA_DIR")
+    if [[ -d $folder ]]; then
+      owner=$(stat -c %U "$folder")
+      if [[ $owner == "$SERVICE_USER" ]]; then
+        REMOVE_DATA_DIR=true
+        REMOVING+=("the data folder $DATA_DIR")
+      else
+        DATA_DIR_PROBLEM="it belongs to $owner, not $SERVICE_USER"
+      fi
+    elif [[ -e $folder ]]; then
+      DATA_DIR_PROBLEM="it isn't a folder"
+    fi
+  fi
+  if [[ -n $DATA_DIR_PROBLEM ]]; then KEEPING+=("the data folder${DATA_DIR:+ $DATA_DIR}: $DATA_DIR_PROBLEM"); fi
+  if [[ -e $(root_path "$CONFIG_DIR") ]]; then REMOVING+=("$CONFIG_DIR"); fi
+  if [[ $USER_EXISTS == true ]]; then REMOVING+=("the user $SERVICE_USER and its home $SERVICE_HOME"); fi
+}
+
+# list_items <item>…: one line each, under a heading.
+list_items() {
+  if (($# == 0)); then
+    note "nothing"
+    return
+  fi
+  local item
+  for item in "$@"; do
+    note "$item"
+  done
+}
+
+# Shows what goes and what stays, and takes a yes at the terminal unless --yes was given.
+confirm_uninstall() {
+  echo
+  echo "This removes:"
+  list_items "${REMOVING[@]}"
+  echo "and keeps:"
+  list_items "${KEEPING[@]}"
+  echo
+  [[ $ASSUME_YES == true ]] && return
+  open_terminal
+  [[ $TTY_OPEN == true ]] ||
+    die "There is no terminal to confirm on; run it again with --yes to uninstall."
+  local answer
+  printf 'Continue? [y/N] '
+  IFS= read -r -u 3 answer || answer=""
+  [[ $answer == [Yy]* ]] || die "Stopped; nothing was removed."
+}
+
+remove_service() {
+  step "Stopping and removing the service $SERVICE_NAME"
+  # Not loaded (its unit already gone, say) is fine: there is nothing to stop.
+  systemctl disable --now "$SERVICE_NAME" >>"$LOG" 2>&1 || true
+  rm -f "$(root_path "$UNIT_FILE")"
+  run systemctl daemon-reload
+}
+
+# remove_managed <containers|networks|volumes|images>: removes Docker's of that kind that carry
+# MANAGED_LABEL and this Office's instance_label, so another Office's on the same Docker stay.
+remove_managed() {
+  local kind=$1
+  local -a list remove ids
+  case $kind in
+    containers) list=(docker ps -aq) remove=(docker rm -f) ;;
+    networks) list=(docker network ls -q) remove=(docker network rm) ;;
+    volumes) list=(docker volume ls -q) remove=(docker volume rm -f) ;;
+    images) list=(docker image ls -q) remove=(docker image rm -f) ;;
+  esac
+  # An image with several tags is listed once for each.
+  mapfile -t ids < <("${list[@]}" --filter "label=$MANAGED_LABEL" \
+    --filter "label=$(instance_label "$DATA_DIR")" 2>>"$LOG" | awk 'NF && !seen[$0]++')
+  ((${#ids[@]} > 0)) || return 0
+  note "${#ids[@]} $kind"
+  run "${remove[@]}" "${ids[@]}"
+}
+
+remove_docker_leftovers() {
+  if [[ $DOCKER_REACHABLE != true ]]; then
+    note "Any run environment containers, networks, volumes and images are kept."
+    return
+  fi
+  step "Removing the run environments' containers, networks, volumes and images"
+  local kind
+  for kind in containers networks volumes images; do
+    remove_managed "$kind"
+  done
+}
+
+remove_install_dir() {
+  step "Removing $INSTALL_DIR"
+  rm -rf "$(root_path "$INSTALL_DIR")"
+  rm -f "$(root_path "$LOG_FILE")"
+}
+
+purge_data() {
+  if [[ -n $CLUSTER_PORT ]]; then
+    step "Dropping the database $DATABASE_NAME and its role $DATABASE_ROLE"
+    run psql_admin -c "drop database if exists $DATABASE_NAME with (force);"
+    run psql_admin -c "drop role if exists $DATABASE_ROLE;"
+  else
+    note "No PostgreSQL $POSTGRES_MAJOR cluster was found, so the database $DATABASE_NAME is kept."
+  fi
+  if [[ $REMOVE_DATA_DIR == true ]]; then
+    step "Removing the data folder $DATA_DIR"
+    rm -rf "$(root_path "$DATA_DIR")"
+  elif [[ -n $DATA_DIR_PROBLEM ]]; then
+    note "Kept the data folder${DATA_DIR:+ $DATA_DIR}: $DATA_DIR_PROBLEM; remove it by hand if you mean to."
+  fi
+  step "Removing $CONFIG_DIR"
+  rm -rf "$(root_path "$CONFIG_DIR")"
+  if [[ $USER_EXISTS == true ]]; then
+    step "Removing the user $SERVICE_USER"
+    run userdel --remove "$SERVICE_USER"
+  fi
+}
+
+print_uninstall_result() {
+  echo
+  if [[ $PURGE == true ]]; then
+    echo "The Office is uninstalled, its data with it."
+  else
+    echo "The Office is uninstalled; its data is kept."
+  fi
+  echo "Removed:"
+  list_items "${REMOVING[@]}"
+  echo "Kept:"
+  list_items "${KEEPING[@]}"
+  echo
+  echo "Node, Docker and PostgreSQL stay installed; to remove them too, see $(guide_url)#uninstalling"
+  echo
+  if [[ $PURGE == true ]]; then
+    echo "To install The Office again:"
+    echo "  $(install_command)"
+  else
+    echo "Running the installer again brings the same Office back:"
+    echo "  $(install_command)"
+    echo "To remove its data too:"
+    echo "  $(install_command) -s -- --uninstall --purge"
+  fi
+}
+
+uninstall() {
+  local arguments=" -s -- --uninstall"
+  [[ $PURGE == true ]] && arguments+=" --purge"
+  require_root "$arguments"
+  require_systemd
+  if ! office_installed; then
+    echo "The Office isn't installed here; nothing to remove."
+    return 0
+  fi
+  WORK_DIR=$(mktemp -d)
+  trap cleanup EXIT
+  # The install log goes too, so this run logs into the work folder, which goes at the end.
+  LOG=$WORK_DIR/uninstall.log
+
+  plan_uninstall
+  confirm_uninstall
+
+  remove_service
+  remove_docker_leftovers
+  remove_install_dir
+  if [[ $PURGE == true ]]; then purge_data; fi
+  print_uninstall_result
 }
 
 cleanup() {
@@ -931,6 +1250,10 @@ APT_SOURCES_CHANGED=false
 
 main() {
   parse_arguments "$@"
+  if [[ $UNINSTALL == true ]]; then
+    uninstall
+    return
+  fi
   preflight
 
   LOG=$(root_path "$LOG_FILE")

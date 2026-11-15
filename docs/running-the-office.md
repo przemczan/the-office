@@ -1,10 +1,28 @@
 # Running The Office
 
-How The Office runs on a Linux host, kept running by systemd, how it is reached through a reverse proxy, how a user gets back in, and how it updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Updating The Office").
+Running The Office from a checkout of the repository (for development, on Windows and macOS, and for contributors), and what holds for every install: how it is reached through a reverse proxy, how a user gets back in, telemetry, and how it updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Updating The Office").
+
+**To install The Office on a Linux machine, use a release instead:** the direct install on Debian/Ubuntu or the Compose install, both in [installing.md](installing.md), which also covers their configuration, backups, updates and uninstalling.
+
+## Running from a checkout
+
+On Windows, macOS or Linux, with Node at `.nvmrc`'s version, git, and Docker with Compose (for the dev stack's Postgres and the run environments, [container-runtime.md](container-runtime.md)):
+
+```sh
+git clone https://github.com/przemczan/the-office.git
+cd the-office
+npm ci
+cp .env.example .env
+docker compose up -d --wait postgres
+npm run build
+npm start
+```
+
+`.env` at the root is the checkout's configuration, read by the launcher, the service, `npm run setup-token` and `npm run set-password`; its comments say what each value does. After changing it, restart `npm start`. The first start prints the address and the setup token ([First run](#first-run-the-setup-token)).
 
 ## `npm start` runs the launcher
 
-`npm start` (at the root, or in `apps/service`) runs the launcher, `tools/office-launcher/src/main.ts`, which Node runs with its types stripped, so nothing builds it. The launcher:
+In a checkout, `npm start` (at the root, or in `apps/service`) runs the launcher, `tools/office-launcher/src/main.ts`, which Node runs with its types stripped, so nothing builds it. The launcher:
 
 - reads `.env` at the root, as the service does;
 - starts the service (`node dist/main.js` in `apps/service`) as its child, with `OFFICE_UPDATE_FOLDER` set to `<office-data>/update`;
@@ -15,7 +33,7 @@ How The Office runs on a Linux host, kept running by systemd, how it is reached 
 
 ## An example systemd unit
 
-`/etc/systemd/system/the-office.service`, for a checkout in `/opt/the-office` with the compose stack's Postgres beside it. It needs `docker.service`: Docker Engine at the versions [container-runtime.md](container-runtime.md) holds, which also says how to upgrade it without losing Postgres.
+The checkout way of keeping The Office running on a Linux host; a direct install sets up its own unit ([installing.md](installing.md#install-on-debianubuntu)). `/etc/systemd/system/the-office.service`, for a checkout in `/opt/the-office` with the compose stack's Postgres beside it. It needs `docker.service`: Docker Engine at the versions [container-runtime.md](container-runtime.md) holds, which also says how to upgrade it without losing Postgres.
 
 ```ini
 [Unit]
@@ -51,7 +69,7 @@ The Office is used at `localhost`, by IP on a trusted local network over plain H
 - **`X-Forwarded-Proto: https`.** A request at the public address's name counts as HTTPS only with it, and only then does the sign-in cookie get `Secure` (nginx: `proxy_set_header X-Forwarded-Proto $scheme;`; Caddy sets it).
 - **WebSocket upgrades on `/api/events`.** The live updates come over a WebSocket there (nginx: `proxy_http_version 1.1;`, `proxy_set_header Upgrade $http_upgrade;` and `proxy_set_header Connection "upgrade";` in that location; Caddy passes them by default).
 
-Then give The Office its public address in `.env` and restart it:
+Then give The Office its public address in its configuration (`office.env` on a direct install, `.env` on a Compose install or in a checkout, [installing.md](installing.md#configuration)) and restart it:
 
 ```ini
 OFFICE_PUBLIC_ADDRESS=https://office.example.com
@@ -91,7 +109,7 @@ Not yet checked on real Google, only with Google's endpoints stubbed and its aut
 
 ## First run: the setup token
 
-The installer creates no user. The first person to open The Office creates their own account, and only with the **setup token**, so whoever reaches it first over the network can't claim it. The service's first start prints one to its standard output, with the address to open, so `journalctl -u the-office` or `docker logs` shows it:
+The installer creates no user. The first person to open The Office creates their own account, and only with the **setup token**, so whoever reaches it first over the network can't claim it. The direct installer prints one itself; otherwise the service's first start prints one to its standard output, with the address to open, so `docker compose logs office` or the checkout's terminal shows it:
 
 ```text
 The Office waits for its first user. Open http://localhost:4310 and give it this setup token:
@@ -99,7 +117,7 @@ The Office waits for its first user. Open http://localhost:4310 and give it this
     ABCD-EFGH-JKMN-PQRS-TUVW-XYZ2
 ```
 
-A start with a token already waiting prints none, only how to get one, so a restart never replaces the one an installer printed. For a lost token, run on the host, in the checkout:
+A start with a token already waiting prints none, only how to get one, so a restart never replaces the one an installer printed. For a lost token on a direct or Compose install, see [installing.md](installing.md#a-new-setup-token); in a checkout, run:
 
 ```sh
 npm run setup-token
@@ -107,7 +125,7 @@ npm run setup-token
 
 It prints a new token and where to open The Office, and ends any earlier token. `npm run --silent setup-token -- --quiet` prints the token alone, for an installer to read (or `node apps/service/dist/setup-token.js --quiet` after a build). It runs the database's migrations first, so it works before the first start. Once a user exists it makes no token and exits with 1, pointing to `npm run set-password`; other arguments exit with 2. The Office keeps only the token's hash, and the first user uses it up.
 
-After the first user, First-run setup walks through the basics, each skippable: the Office default engine and its login, Sign in with GitHub for git, and telemetry. Finishing or skipping the rest closes it for good. An automated install sets `OFFICE_SKIP_SETUP_BASICS=true` to leave the basics out; the setup token and the first user are still asked for.
+After the first user, First-run setup walks through the basics, each skippable ([installing.md](installing.md#first-run)). An automated install sets `OFFICE_SKIP_SETUP_BASICS=true` to leave the basics out; the setup token and the first user are still asked for.
 
 ## Telemetry
 
@@ -117,13 +135,15 @@ When `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_H
 
 ## Setting a user's password on the host
 
-A user who lost their password gets back in through a command on the host, in the checkout:
+A user who lost their password gets back in through a command on the host. In a checkout:
 
 ```sh
 npm run set-password -- --email ada@example.com
 ```
 
-It asks for the new password twice without showing it (or reads one line from standard input when that isn't a terminal), sets it, lifts the user's lockout and signs out all their signed-in devices. It reads `.env` as the service does, so it reaches the same database; the service may run meanwhile. An unknown email ends it with a message and a non-zero exit code.
+On a direct install it runs as the user `the-office` with `office.env`'s settings, and on a Compose install in the `office` container; [installing.md](installing.md#setting-a-users-password-on-the-host) gives both commands.
+
+It asks for the new password twice without showing it (or reads one line from standard input when that isn't a terminal), sets it, lifts the user's lockout and signs out all their signed-in devices. It reads the configuration as the service does, so it reaches the same database; the service may run meanwhile. An unknown email ends it with a message and a non-zero exit code.
 
 For a user who lost their authenticator and their recovery codes too, `--clear-authenticator` also removes both, so they sign in with the new password alone and can set up an authenticator again:
 
@@ -140,8 +160,8 @@ The note at the top of Settings › Updates says how The Office was installed, w
 | Install | Set by | Updates by |
 | --- | --- | --- |
 | A checkout (`npm start` from git, on Linux, Windows or a dev machine) | nothing: the default | the launcher's git update |
-| A release (a tarball under `releases/`, run by its launcher) | the launcher, `release` for its child | the launcher installing a newer tarball |
-| A container (Docker Compose) | the image, `ENV OFFICE_INSTALL=container` | the Office updater |
+| A release (the direct install: a tarball under `releases/`, run by its launcher) | the launcher, `release` for its child | the launcher installing a newer tarball |
+| A container (the Compose install) | the image, `ENV OFFICE_INSTALL=container` | the Office updater |
 
 A copy of a release that its launcher didn't start from a `releases/` folder is refused Update: "This copy of The Office wasn't installed into a releases folder, so it can't update itself."
 
@@ -164,11 +184,11 @@ A rollback puts the previous code back, never the database: a migration the newe
 2. Update is refused when the checkout has local changes to tracked files, has commits its upstream doesn't have, has no upstream, or the service runs without the launcher.
 3. The request is `{ "kind": "commit", "target": "<commit>" }`. The launcher takes it and runs, in the checkout, `git fetch`, `git merge --ff-only <target>`, `npm ci` and `npm run build`. If one fails, it runs `git reset --hard <previous commit>`, `npm ci` and `npm run build` again. Either way it starts the service. The steps a failure names: `fetch`, `merge`, `install`, `build`.
 
-`tools/deploy/update.sh` still updates the host by hand from the workstation, outside the service.
+`tools/deploy/update.sh` still updates a checkout host by hand from the workstation, outside the service.
 
 ### A release install (a tarball)
 
-The layout the installer sets up, owned by the service's user so the launcher can switch it:
+A direct install ([installing.md](installing.md#install-on-debianubuntu)). The layout the installer sets up, owned by the service's user so the launcher can switch it:
 
 ```
 /opt/the-office/

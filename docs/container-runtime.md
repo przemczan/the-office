@@ -1,6 +1,6 @@
 # Container runtime
 
-What runs The Office's Postgres, the bundled Grafana ([docker-compose.yml](../docker-compose.yml), [spec §5.2](spec/5.2-stack.md)) and each Task's run environment: Docker Engine with the Compose plugin, from Docker's own apt repository, held at the versions below. The systemd unit in [running-the-office.md](running-the-office.md) needs `docker.service`.
+What runs each Task's run environment, and in a checkout or a Compose install also The Office's Postgres and the bundled Grafana ([docker-compose.yml](../docker-compose.yml), [spec §5.2](spec/5.2-stack.md)): Docker Engine with the Compose plugin, from Docker's own apt repository, held at the versions below. A direct install runs PostgreSQL natively, so there Docker carries only the run environments (and a bundled Grafana you start by hand, [installing.md](installing.md#telemetry)). The checkout's systemd unit in [running-the-office.md](running-the-office.md#an-example-systemd-unit) needs `docker.service`.
 
 ## What is installed
 
@@ -22,7 +22,7 @@ The compose file and the systemd unit already ran on Docker Engine, and Docker's
 
 ## Installing it on a fresh Linux machine
 
-As root, on Ubuntu 24.04 (for another release, its codename in `Suites` and the versions `apt-cache madison docker-ce` lists for it):
+**A direct install does this itself:** the installer ([installing.md](installing.md#install-on-debianubuntu)) adds Docker's repository, checks its key, installs these versions and holds them. By hand, for a checkout or a Compose install, as root, on Ubuntu 24.04 (for another release, its codename in `Suites` and the versions `apt-cache madison docker-ce` lists for it):
 
 ```sh
 install -m 0755 -d /etc/apt/keyrings
@@ -50,15 +50,27 @@ docker version && docker compose version
 
 ## Upgrading safely
 
-Restarting or upgrading `docker.service` stops Postgres and, through `Requires=docker.service`, The Office with every Stage running. So an upgrade is run by hand from a terminal, never from a Stage:
+Restarting or upgrading `docker.service` stops every run environment, so every check running fails; in a checkout or a Compose install it also stops Postgres, and with it The Office. So an upgrade is run by hand from a terminal, never from a Stage, while nothing runs, after a backup ([installing.md](installing.md#backups)):
 
-1. `systemctl stop the-office`.
-2. Back up the database, from the checkout (`/opt/the-office`):
-   `docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > /root/the-office-$(date +%F).dump`,
-   and note the counts to compare: `docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select count(*) from tasks; select count(*) from projects"'`.
-3. `apt-mark unhold` the five packages, `apt-get install` the new exact versions, `apt-mark hold` them again.
-4. `docker compose up -d --wait postgres` reports it healthy and the counts match; then `systemctl start the-office`.
-5. Change the table above in the same commit, the installer's `DOCKER_*_VERSION` constants, and the CLI, buildx and Compose versions in the [Dockerfile](../Dockerfile), whose image carries them from Docker's Debian repository ([releasing.md](releasing.md)). To restore a backup instead: `docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < <dump>`.
+- **A direct install** (Postgres runs natively and stays up):
+  1. `systemctl stop the-office`.
+  2. `apt-mark unhold` the five packages, `apt-get install` the new exact versions, `apt-mark hold` them again.
+  3. `docker version` reports the new versions; then `systemctl start the-office`.
+- **A Compose install**, in the compose folder:
+  1. `docker compose stop office`; back up the database, and note the counts to compare: `docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select count(*) from tasks; select count(*) from projects"'`.
+  2. `apt-mark unhold` the five packages, `apt-get install` the new exact versions, `apt-mark hold` them again. The containers stop with the daemon and start again with it (`restart: unless-stopped`), except `office`, stopped by hand.
+  3. `docker compose up -d --wait postgres` reports it healthy and the counts match; then `docker compose up -d`.
+- **A checkout** (`/opt/the-office`, with the unit in [running-the-office.md](running-the-office.md#an-example-systemd-unit)):
+  1. `systemctl stop the-office`.
+  2. Back up the database, in the checkout:
+     `docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > /root/the-office-$(date +%F).dump`,
+     and note the counts to compare, as above.
+  3. `apt-mark unhold` the five packages, `apt-get install` the new exact versions, `apt-mark hold` them again.
+  4. `docker compose up -d --wait postgres` reports it healthy and the counts match; then `systemctl start the-office`.
+
+  To restore a backup instead: `docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < <dump>`.
+
+A new version to hold changes the table above in the same commit, the installer's `DOCKER_*_VERSION` constants, and the CLI, buildx and Compose versions in the [Dockerfile](../Dockerfile), whose image carries them from Docker's Debian repository ([releasing.md](releasing.md)).
 
 ## What a run environment mounts
 

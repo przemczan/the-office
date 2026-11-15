@@ -1,14 +1,20 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
-import { callFunction, withScript } from "./install-script.fixtures.ts";
+import { callFunction, withScript, type BashResult } from "./install-script.fixtures.ts";
 
 function output(name: string, ...args: string[]): string {
   const result = callFunction(name, args);
   assert.equal(result.status, 0, `${name} ${args.join(" ")} failed: ${result.stderr}`);
   return result.stdout.trimEnd();
+}
+
+/** parse_arguments' reading of the arguments: --uninstall's, --purge's and --yes's. */
+function parsed(...args: string[]): BashResult {
+  return withScript('parse_arguments "$@"; echo "$UNINSTALL $PURGE $ASSUME_YES"', args);
 }
 
 function succeeds(name: string, ...args: string[]): boolean {
@@ -160,6 +166,57 @@ describe("the answers", () => {
     ]) {
       assert.equal(succeeds("valid_data_dir", dir), false, dir);
     }
+  });
+
+  it("lets --purge remove only a data folder that is nobody else's", () => {
+    for (const dir of [
+      "/var/lib/the-office",
+      "/srv/office-data",
+      "/srv/office-data/",
+      "/home/alice/office",
+    ]) {
+      assert.equal(succeeds("safe_data_dir", dir), true, dir);
+    }
+    for (const dir of [
+      "/",
+      "/var",
+      "/etc",
+      "/home",
+      "/srv",
+      "/var/lib",
+      "/home/alice",
+      "/etc/the-office",
+      "/usr/local/office",
+      "/opt/the-office",
+      "/opt/the-office/data",
+      "relative/office",
+      "/var/lib/../office",
+      "",
+    ]) {
+      assert.equal(succeeds("safe_data_dir", dir), false, dir);
+    }
+    assert.equal(callFunction("safe_data_dir", ["/srv"]).stdout.trim(), "it is a top-level folder");
+  });
+
+  it("labels the run environments of the data folder's Office as the service does", () => {
+    const digest = createHash("sha256").update("/var/lib/the-office").digest("hex").slice(0, 12);
+    assert.equal(output("instance_label", "/var/lib/the-office"), `office.instance=${digest}`);
+  });
+
+  it("takes only --purge and --yes beside --uninstall, and --purge only with it", () => {
+    assert.equal(succeeds("uninstall_arguments_fit", "true", "true", ""), true);
+    assert.equal(succeeds("uninstall_arguments_fit", "false", "false", "--host --port"), true);
+    assert.equal(
+      callFunction("uninstall_arguments_fit", ["true", "false", "--host"]).stdout.trim(),
+      "--uninstall takes only --purge and --yes, not --host.",
+    );
+    assert.equal(
+      callFunction("uninstall_arguments_fit", ["false", "true", ""]).stdout.trim(),
+      "--purge goes with --uninstall.",
+    );
+    assert.equal(parsed("--uninstall", "--purge", "--yes").stdout.trim(), "true true true");
+    assert.match(parsed("--uninstall", "--host", "0.0.0.0").stderr, /not --host\./);
+    assert.match(parsed("--purge").stderr, /--purge goes with --uninstall\./);
   });
 
   it("resolves each answer from the flags, else the environment, else office.env, else the defaults", () => {

@@ -250,6 +250,10 @@ function writeDockerStub(stubs: string): void {
   info) [[ ! -f $FAKE_STATE/docker-info-fails ]] ;;
   compose) [[ ! -f $FAKE_STATE/docker-lacks-compose ]] ;;
   buildx) [[ ! -f $FAKE_STATE/docker-lacks-buildx ]] ;;
+  # The run environments' leftovers, listed by their label; an image is listed once for each tag.
+  ps) [[ $* == *label=office.managed=true*label=office.instance=* ]] && printf 'container-1\\ncontainer-2\\n'; exit 0 ;;
+  network | volume) [[ $2 == ls && $* == *label=office.managed=true*label=office.instance=* ]] && echo "$1-1"; exit 0 ;;
+  image) [[ $2 == ls && $* == *label=office.managed=true*label=office.instance=* ]] && printf 'image-1\\nimage-1\\n'; exit 0 ;;
 esac`,
   );
 }
@@ -301,6 +305,7 @@ done`,
     `case "$1" in
   is-active) [[ -f $FAKE_STATE/running ]] ;;
   start|restart) [[ \${!#} == the-office ]] && touch "$FAKE_STATE/running"; exit 0 ;;
+  disable) [[ $2 == --now ]] && rm -f "$FAKE_STATE/running"; exit 0 ;;
 esac`,
   );
   writeStub(
@@ -310,8 +315,32 @@ esac`,
   );
   writeStub(stubs, "useradd", `echo "\${!#}" >>"$FAKE_STATE/users"`);
   writeStub(stubs, "usermod", "");
+  writeStub(
+    stubs,
+    "userdel",
+    `grep -vx "\${!#}" "$FAKE_STATE/users" >"$FAKE_STATE/users.left" 2>/dev/null
+mv "$FAKE_STATE/users.left" "$FAKE_STATE/users"`,
+  );
   writeStub(stubs, "getent", `[[ $1 == passwd ]] && grep -qx "$2" "$FAKE_STATE/users" 2>/dev/null`);
-  writeStub(stubs, "chown", "");
+  // chown records each path's owner, as the tests run unprivileged, and stat -c %U answers it.
+  writeStub(
+    stubs,
+    "chown",
+    `owner=""
+for argument in "$@"; do
+  [[ $argument == -* ]] && continue
+  if [[ -z $owner ]]; then owner=\${argument%%:*}; else echo "$argument $owner" >>"$FAKE_STATE/owners"; fi
+done`,
+  );
+  writeStub(
+    stubs,
+    "stat",
+    `if [[ $1 == -c && $2 == %U ]]; then
+  owner=$(awk -v path="$3" '$1 == path { owner = $2 } END { print owner }' "$FAKE_STATE/owners" 2>/dev/null)
+  [[ -n $owner ]] && echo "$owner" && exit 0
+fi
+PATH=\${PATH#*:} exec stat "$@"`,
+  );
   writeStub(stubs, "journalctl", `echo "the-office[1234]: the journal's last lines"`);
   writeStub(stubs, "hostname", `[[ $1 == -I ]] && echo "192.168.1.20 fd00::20 "`);
   writeStub(
@@ -352,6 +381,8 @@ if [[ $1 == psql ]]; then
     *pg_database*) [[ -f $FAKE_STATE/database ]] && echo 1 ;;
     "create role"*) touch "$FAKE_STATE/role" ;;
     "create database"*) touch "$FAKE_STATE/database" ;;
+    "drop database"*) rm -f "$FAKE_STATE/database" ;;
+    "drop role"*) rm -f "$FAKE_STATE/role" ;;
   esac
   exit 0
 fi

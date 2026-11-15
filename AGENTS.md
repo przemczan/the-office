@@ -46,6 +46,7 @@ Choices the spec leaves open. Change one only with the user, and update this lis
 - **Reference is behaviour, not code:** `D:\Projects\software-factory` shows how something worked and what went wrong; write fresh code. That repository stays untouched.
 - **Architecture:** modules as bounded contexts, layered and talking through application services and domain events ([spec 5.3](docs/spec/5.3-modules.md)); the template is [apps/service/docs/module-template.md](apps/service/docs/module-template.md).
 - **Model calls cost quota:** tests use the scripted engine adapter; real sessions run only in the engine check and in a Task's check on the Test Project, with the cheapest model that proves the point.
+- **The install docs follow the installs:** [docs/installing.md](docs/installing.md) is the user's guide to the direct and Compose installs (requirements, install, first run, configuration, backups, updating, uninstalling, moving from a checkout), with [README.md](README.md) its summary. A change to `tools/install/install.sh`'s flags or messages, to `deploy/compose/`, or to the install layout updates them in the same change; `tools/install`'s `install-docs.test.ts` checks their one-liner, flags, asset names and links.
 - **Commit locally, never push.** Pushing, publishing and anything else that leaves the workstation waits for the user's go-ahead.
 
 ## Commits and releases

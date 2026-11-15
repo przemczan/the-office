@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
   existsSync,
@@ -292,7 +293,15 @@ describe("a rerun", () => {
     const printed = installed();
     assert.doesNotMatch(printed, /Setup token/);
     assert.match(printed, /already has its first user: sign in/);
-    assert.match(printed, /npm run set-password/);
+    assert.ok(
+      printed.includes(
+        "  sudo systemd-run --quiet --pty --wait --collect --uid=the-office --gid=the-office -p EnvironmentFile=/etc/the-office/office.env --working-directory=/opt/the-office/current /usr/bin/npm run set-password -- --email <email>\n",
+      ),
+    );
+    assert.match(
+      printed,
+      /^Guide: https:\/\/github\.com\/przemczan\/the-office\/blob\/main\/docs\/installing\.md$/m,
+    );
   });
 
   it("installs and switches to a newer --version, and restarts", () => {
@@ -326,6 +335,155 @@ describe("a rerun", () => {
       refused(["--data-dir", "/srv/elsewhere"]),
       /data folder is \/var\/lib\/the-office and can't be changed/,
     );
+  });
+});
+
+/** Fails unless the install is all still there and nothing was removed. */
+function assertStillInstalled(): void {
+  assert.ok(existsSync(machine.path("/etc/systemd/system/the-office.service")));
+  assert.ok(existsSync(machine.path("/opt/the-office/current")));
+  assert.ok(existsSync(machine.path("/var/log/the-office-install.log")));
+  assert.ok(!callsTo("systemctl").some((call) => call.startsWith("systemctl disable")));
+  assert.deepEqual(
+    callsTo("docker").filter((call) => call.includes(" rm")),
+    [],
+  );
+}
+
+describe("an uninstall", () => {
+  beforeEach(() => {
+    machine = freshMachine();
+    installed();
+    machine.clearCalls();
+  });
+  afterEach(() => machine.remove());
+
+  it("removes the service, its unit, /opt/the-office and the install log, and keeps the data, office.env and the user", () => {
+    const printed = installed(["--uninstall", "--yes"]);
+
+    assert.ok(callsTo("systemctl").includes("systemctl disable --now the-office"));
+    assert.ok(callsTo("systemctl").includes("systemctl daemon-reload"));
+    assert.equal(existsSync(machine.path("/etc/systemd/system/the-office.service")), false);
+    assert.equal(existsSync(machine.path("/opt/the-office")), false);
+    assert.equal(existsSync(machine.path("/var/log/the-office-install.log")), false);
+    assert.ok(existsSync(machine.path("/var/lib/the-office")));
+    assert.ok(existsSync(machine.path("/etc/the-office/office.env")));
+    assert.equal(machine.readState("users").trim(), "the-office");
+    assert.doesNotMatch(machine.readState("sql.log"), /drop/);
+    assert.deepEqual(callsTo("userdel"), []);
+    assert.match(printed, /^Kept:\n {4}the data folder \/var\/lib\/the-office$/m);
+    assert.match(
+      printed,
+      /^Node, Docker and PostgreSQL stay installed; to remove them too, see https:\/\/github\.com\/przemczan\/the-office\/blob\/main\/docs\/installing\.md#uninstalling$/m,
+    );
+    assert.match(printed, /\| sudo bash -s -- --uninstall --purge$/m);
+  });
+
+  it("removes the run environments' containers, networks, volumes and images by this Office's labels", () => {
+    installed(["--uninstall", "--yes"]);
+    const docker = callsTo("docker");
+    const instance = createHash("sha256").update("/var/lib/the-office").digest("hex").slice(0, 12);
+    for (const listing of [
+      "docker ps -aq",
+      "docker network ls -q",
+      "docker volume ls -q",
+      "docker image ls -q",
+    ]) {
+      assert.ok(
+        docker.includes(
+          `${listing} --filter label=office.managed=true --filter label=office.instance=${instance}`,
+        ),
+        listing,
+      );
+    }
+    assert.ok(docker.includes("docker rm -f container-1 container-2"));
+    assert.ok(docker.includes("docker network rm network-1"));
+    assert.ok(docker.includes("docker volume rm -f volume-1"));
+    assert.ok(docker.includes("docker image rm -f image-1"));
+  });
+
+  it("keeps Docker's leftovers, saying so, when Docker doesn't answer", () => {
+    machine.setFlag("docker-info-fails");
+    const printed = installed(["--uninstall", "--yes"]);
+    assert.deepEqual(
+      callsTo("docker").filter((call) => call.includes(" rm")),
+      [],
+    );
+    assert.match(printed, /Docker isn't reachable/);
+  });
+
+  it("with --purge, also drops the database and its role and removes the data folder, /etc/the-office and the user", () => {
+    const printed = installed(["--uninstall", "--purge", "--yes"]);
+
+    const sql = machine.readState("sql.log");
+    assert.match(sql, /^drop database if exists the_office with \(force\);$/m);
+    assert.match(sql, /^drop role if exists office;$/m);
+    assert.equal(existsSync(machine.path("/var/lib/the-office")), false);
+    assert.equal(existsSync(machine.path("/etc/the-office")), false);
+    assert.equal(existsSync(machine.path("/opt/the-office")), false);
+    assert.deepEqual(callsTo("userdel"), ["userdel --remove the-office"]);
+    assert.equal(machine.readState("users").trim(), "");
+    assert.match(printed, /^ {4}the data folder \/var\/lib\/the-office$/m);
+    assert.match(printed, /^The Office is uninstalled, its data with it\.$/m);
+  });
+
+  it("with --purge, keeps a data folder that isn't safe to remove", () => {
+    appendFileSync(machine.path("/etc/the-office/office.env"), "OFFICE_DATA_DIR=/srv\n");
+    mkdirSync(machine.path("/srv"));
+    writeFileSync(machine.path("/srv/keep.txt"), "");
+    const printed = installed(["--uninstall", "--purge", "--yes"]);
+    assert.ok(existsSync(machine.path("/srv/keep.txt")));
+    assert.match(
+      printed,
+      /Kept the data folder \/srv: it is a top-level folder; remove it by hand if you mean to\./,
+    );
+  });
+
+  it("with --purge, keeps a data folder that belongs to someone else", () => {
+    machine.setState("owners", `${machine.path("/var/lib/the-office")} alice\n`);
+    const printed = installed(["--uninstall", "--purge", "--yes"]);
+    assert.ok(existsSync(machine.path("/var/lib/the-office")));
+    assert.match(
+      printed,
+      /Kept the data folder \/var\/lib\/the-office: it belongs to alice, not the-office; remove it by hand if you mean to\./,
+    );
+  });
+
+  it("refuses without a terminal to confirm on and without --yes, changing nothing", () => {
+    assert.match(
+      refused(["--uninstall"]),
+      /There is no terminal to confirm on; run it again with --yes to uninstall\./,
+    );
+    assertStillInstalled();
+  });
+
+  it("stops when the user doesn't confirm, changing nothing", () => {
+    mkdirSync(machine.path("/dev"));
+    writeFileSync(machine.path("/dev/tty"), "\n");
+    assert.match(refused(["--uninstall", "--purge"]), /Stopped; nothing was removed\./);
+    assertStillInstalled();
+    assert.ok(existsSync(machine.path("/var/lib/the-office")));
+  });
+
+  it("refuses --purge without --uninstall, and an install option beside --uninstall", () => {
+    assert.match(refused(["--purge"]), /--purge goes with --uninstall\./);
+    assert.match(
+      refused(["--uninstall", "--port", "4400"]),
+      /--uninstall takes only --purge and --yes, not --port\./,
+    );
+    assertStillInstalled();
+  });
+});
+
+describe("an uninstall where nothing is installed", () => {
+  beforeEach(() => (machine = freshMachine()));
+  afterEach(() => machine.remove());
+
+  it("says so and succeeds, changing nothing", () => {
+    const printed = installed(["--uninstall", "--purge", "--yes"]);
+    assert.match(printed, /^The Office isn't installed here; nothing to remove\.$/m);
+    assertNothingChanged();
+    assert.deepEqual(callsTo("systemctl"), []);
   });
 });
 

@@ -309,6 +309,10 @@ _Avoid_: Build, distribution, package, update
 The Office installed with Docker Compose: a folder holding an Office release's `docker-compose.yml` and its `.env`, which run the release's container image as the service `office` beside a Postgres of its own, with the host's Docker socket and the Office data folder at the same path. Not the dev stack, the repository's own `docker-compose.yml`.
 _Avoid_: Docker install, container install
 
+**Direct install**:
+The Office installed by `install.sh` on Debian/Ubuntu as a systemd service from a release tarball: the release under `/opt/the-office/releases/`, `/etc/the-office/office.env`, the user `the-office` and the machine's own PostgreSQL. Settings › Updates calls it "Installed from a release tarball". Not a checkout, which runs from git.
+_Avoid_: Native install, bare-metal install
+
 **Launcher**:
 What `npm start` and a release install's unit run: it starts The Office's service, and when the service stops for an Office update, installs the update (a checkout's newest commit, or a release's tarball into `releases/` and the switch of `current`) and starts it again, going back to the previous version when the update fails.
 _Avoid_: Supervisor, wrapper, runner
