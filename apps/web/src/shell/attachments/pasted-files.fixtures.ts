@@ -17,11 +17,11 @@ export function clipboardOf(
 export function paste(target: Element, files: readonly File[], text?: string): boolean {
   const event = new Event("paste", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "clipboardData", { value: clipboardOf(files, text) });
-  let pasted = true;
+  let leftToBrowser = true;
   act(() => {
-    pasted = target.dispatchEvent(event);
+    leftToBrowser = target.dispatchEvent(event);
   });
-  return !pasted;
+  return !leftToBrowser;
 }
 
 /** A PNG named as browsers name a pasted screenshot. */
