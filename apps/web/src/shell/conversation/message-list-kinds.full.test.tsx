@@ -136,8 +136,9 @@ function shownLog(
   {
     details = true,
     answering = false,
+    stageThread = true,
     roles,
-  }: { details?: boolean; answering?: boolean; roles?: Role[] } = {},
+  }: { details?: boolean; answering?: boolean; stageThread?: boolean; roles?: Role[] } = {},
 ): HTMLElement {
   const page = document.createElement("div");
   const queryClient = new QueryClient();
@@ -151,7 +152,7 @@ function shownLog(
           messages={messages}
           personName="Jan"
           answering={answering}
-          stageThread
+          stageThread={stageThread}
           details={details}
         />
       </QueryClientProvider>,
@@ -204,6 +205,27 @@ describe("MessageList's kinds", () => {
     expect(
       [...log.querySelectorAll(".message-delivery")].map(({ textContent }) => textContent),
     ).toEqual(["Delivered", "Lands at the next safe point"]);
+  });
+
+  it("marks the user's messages in a chat too, one that never landed as the person finishing first", () => {
+    const log = shownLog(
+      [
+        written("a", "First", "delivered"),
+        written("b", "Second", "waiting"),
+        written("c", "Third", "not-delivered"),
+      ],
+      { stageThread: false },
+    );
+    expect(
+      [...log.querySelectorAll(".message-delivery")].map(({ textContent }) => textContent),
+    ).toEqual(["Delivered", "Lands at the next safe point", "Not delivered: Jan finished first"]);
+  });
+
+  it("says a message in a Stage Thread that never landed was ended by the Stage", () => {
+    const log = shownLog([written("a", "First", "not-delivered")]);
+    expect(log.querySelector(".message-delivery")?.textContent).toBe(
+      "Not delivered: the Stage ended first",
+    );
   });
 
   it("gives the user's turn and the person's the same row: avatar, name and time", () => {

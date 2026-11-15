@@ -849,7 +849,7 @@ export class StageThreads {
         contextTokens: context?.tokens ?? 0,
         contextWindow: context?.window,
         handingOver: false,
-        officeSendsNext: true,
+        turnFollows: true,
         endedAt: new Date(),
       }),
     );

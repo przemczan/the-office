@@ -71,7 +71,7 @@ export function MessageList({
   readonly personName: string;
   /** The person is writing an answer now. */
   readonly answering: boolean;
-  /** The user's messages say whether they reached the person, as one written while the Stage runs waits. */
+  /** A Stage's work runs in it, which a message that never reached the person ended before. */
   readonly stageThread: boolean;
   /** The Details switch: tool activity and the context lines show. */
   readonly details: boolean;
@@ -302,7 +302,13 @@ function Turn({
               With <OpenPageChip page={message.openPage} /> open
             </p>
           )}
-          {stageThread && message.kind === "user" && <DeliveryMark delivery={message.delivery} />}
+          {message.kind === "user" && (
+            <DeliveryMark
+              delivery={message.delivery}
+              personName={personName}
+              stageThread={stageThread}
+            />
+          )}
         </div>
       ))}
     </TurnFrame>
@@ -640,21 +646,50 @@ function HandoverNoteFrom({ roleKey }: { readonly roleKey: string }): ReactNode 
   );
 }
 
-const DELIVERY_MARKS: Readonly<Record<MessageDelivery, { icon: string; words: string }>> = {
-  waiting: { icon: "clock", words: "Lands at the next safe point" },
-  delivered: { icon: "check", words: "Delivered" },
-  "not-delivered": { icon: "circle-x", words: "Not delivered: the Stage ended first" },
+const DELIVERY_ICONS: Readonly<Record<MessageDelivery, string>> = {
+  waiting: "clock",
+  delivered: "check",
+  "not-delivered": "circle-x",
 };
 
-/** Whether the user's message reached the person, written while the Stage ran (barge-in). */
-function DeliveryMark({ delivery }: { readonly delivery: MessageDelivery }): ReactNode {
-  const { icon, words } = DELIVERY_MARKS[delivery];
+/**
+ * Whether the user's message reached the person: one written while they answer, or a Stage runs,
+ * lands at the next safe point (barge-in), unless the answer or the Stage ends first.
+ */
+function DeliveryMark({
+  delivery,
+  personName,
+  stageThread,
+}: {
+  readonly delivery: MessageDelivery;
+  readonly personName: string;
+  readonly stageThread: boolean;
+}): ReactNode {
+  const icon = DELIVERY_ICONS[delivery];
+  const words = deliveryWords(delivery, personName, stageThread);
   return (
     <div className={`message-delivery ${delivery}`}>
       <Icon name={icon} size={12} />
       {words}
     </div>
   );
+}
+
+function deliveryWords(
+  delivery: MessageDelivery,
+  personName: string,
+  stageThread: boolean,
+): string {
+  switch (delivery) {
+    case "waiting":
+      return "Lands at the next safe point";
+    case "delivered":
+      return "Delivered";
+    case "not-delivered":
+      return stageThread
+        ? "Not delivered: the Stage ended first"
+        : `Not delivered: ${personName} finished first`;
+  }
 }
 
 /**

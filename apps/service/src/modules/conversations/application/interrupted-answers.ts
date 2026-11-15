@@ -1,11 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { failAnswer } from "../domain/thread-changes.js";
+import { failAnswer, markDelivery } from "../domain/thread-changes.js";
+import { waitingMessageIds } from "../domain/undelivered-messages.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 
 /**
  * Threads left answering when The Office last stopped: no session answers them any more, so each
- * waits for the user again, with why in its log. Run as the service starts, before it serves.
+ * waits for the user again, with why in its log, and the user's messages still waiting to land
+ * there never will. Run as the service starts, before it serves.
  */
 @Injectable()
 export class InterruptedAnswers {
@@ -26,7 +28,16 @@ export class InterruptedAnswers {
       if (!event) continue;
       cutShort.push(thread.id);
       await this.events.publish(event);
+      await this.markUndelivered(thread.id);
     }
     return cutShort;
+  }
+
+  private async markUndelivered(threadId: string): Promise<void> {
+    const messageIds = waitingMessageIds(await this.repository.messages(threadId));
+    const { event } = await this.repository.update(threadId, (latest) =>
+      markDelivery(latest, { messageIds, delivery: "not-delivered" }, new Date()),
+    );
+    if (event) await this.events.publish(event);
   }
 }

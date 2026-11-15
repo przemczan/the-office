@@ -25,6 +25,7 @@ import {
   TurnEnded,
 } from "./conversation-events.js";
 import type { Message, MessageDelivery, MessageDraft, StageWorkClosing } from "./message.js";
+import type { OpenPage } from "./open-page.js";
 import { proposedChangeProblems, type Proposal, type ProposedChange } from "./proposal.js";
 import { ProposalRefused } from "./proposal-refused.js";
 import {
@@ -317,31 +318,33 @@ export interface Opening {
 /**
  * The person takes the user's message: it is logged, with the move when it wasn't simply
  * continuing a warm session, and the Thread is answering. The moment's override is spent. Refused
- * while the person is still answering: a chat has no barge-in.
+ * while the person is still answering: a message then comes with `bargeIn` instead.
  */
 export function beginAnswer(thread: Thread, answering: Answering): ThreadChange<MessagesLogged> {
   const { said } = answering;
   return begin(thread, answering, [...movedLines(thread, answering, said.at), said], said.at);
 }
 
+/** The user's message written while the person answers, as `bargeIn` logs it. */
+export interface BargingIn extends Pick<Message, "id" | "at"> {
+  readonly text: string;
+  readonly writtenBy: UserRef;
+  /** The page open beside the chat drawer as it was sent (spec §2.4). */
+  readonly openPage?: OpenPage;
+  /** Who answers, which a Thread other than a Stage Thread names when it refuses the message. */
+  readonly personName?: string;
+}
+
 /**
- * The user writes into a Stage Thread while the Stage's work runs in it (barge-in, spec §2.4): the
- * message is logged waiting for the next safe point, between tool calls, and the Thread goes on
- * answering. Refused once the Stage's work there has ended.
+ * The user writes into a Thread while the person answers in it, or a Stage's work runs there
+ * (barge-in, spec §2.4): the message is logged waiting for the next safe point, between tool
+ * calls, and the Thread goes on answering. Refused once the answer, or the Stage's work, has ended.
  */
 export function bargeIn(
   thread: Thread,
-  {
-    id,
-    text,
-    at,
-    writtenBy,
-  }: Pick<Message, "id" | "at"> & { readonly text: string; readonly writtenBy: UserRef },
+  { id, text, at, writtenBy, openPage, personName }: BargingIn,
 ): ThreadChange<MessagesLogged> {
-  if (!thread.stageThread) throw new Error(`Thread ${thread.id} is not a Stage Thread.`);
-  if (thread.state !== "answering") {
-    throw new ThreadRefused(["The Stage ended before your message went. Send it again."]);
-  }
+  if (thread.state !== "answering") throw new ThreadRefused([finishedFirst(thread, personName)]);
   const said: Message = {
     kind: "user",
     id,
@@ -350,10 +353,19 @@ export function bargeIn(
     delivery: "waiting",
     at,
     writtenBy,
+    openPage,
   };
   const logged = logMessages(thread, [said], at);
   if (!logged) throw new Error("A barge-in always logs its message.");
   return logged;
+}
+
+/** Why a message written to a Thread that stopped answering as it went is refused. */
+export function finishedFirst(thread: Thread, personName: string | undefined): string {
+  if (thread.stageThread) return "The Stage ended before your message went. Send it again.";
+  if (personName === undefined)
+    throw new Error(`Thread ${thread.id} refuses with no person named.`);
+  return `${personName} finished before your message went. Send it again.`;
 }
 
 /**
@@ -890,10 +902,11 @@ export interface TurnCount {
   /** The context neared its limit, so The Office asks for a Handover note next. */
   readonly handingOver: boolean;
   /**
-   * The Office goes on sending the person messages itself, as it does in a Stage Thread until the
-   * Stage ends: the Thread stays answering.
+   * Another turn follows, so the Thread stays answering: The Office goes on sending the person
+   * messages itself, as in a Stage Thread until the Stage ends, or the engine starts one with the
+   * user's messages still to land.
    */
-  readonly officeSendsNext: boolean;
+  readonly turnFollows: boolean;
   readonly endedAt: Date;
 }
 
@@ -904,12 +917,12 @@ export interface TurnCount {
  */
 export function endTurn(
   thread: Thread,
-  { usage, contextTokens, contextWindow, handingOver, officeSendsNext, endedAt }: TurnCount,
+  { usage, contextTokens, contextWindow, handingOver, turnFollows, endedAt }: TurnCount,
 ): ThreadChange<TurnEnded> {
   if (!thread.session) throw new Error(`Thread ${thread.id} has no session to end a turn of.`);
   const ended: Thread = {
     ...thread,
-    state: handingOver || officeSendsNext ? "answering" : "waiting",
+    state: handingOver || turnFollows ? "answering" : "waiting",
     tokens: addTokens(thread.tokens, usage),
     runningTurnTokens: NO_TOKENS,
     session: {
