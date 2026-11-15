@@ -4,6 +4,7 @@ import { linkedRecordsSection, type TaskLinks } from "../domain/linked-records.j
 import { taskRecordText } from "../domain/record-words.js";
 import type { Task } from "../domain/task.js";
 import { taskBranchBase } from "../domain/task-branch-base.js";
+import { commitMessageOf } from "../domain/task-commit-message.js";
 import { descriptionSection } from "../domain/task-description.js";
 import { taskWhoAskedSection } from "../domain/who-asked.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
@@ -17,6 +18,8 @@ import { TaskService } from "./task-service.js";
 
 /** A Task's record, as a session working on the Task reads it. */
 export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfDone"> {
+  /** The commit message Publish lands it as: the one written, or the default. */
+  readonly commitMessage: { readonly text: string; readonly written: boolean };
   /** The Description, as the section of a Brief the Planner's has too. */
   readonly descriptionSection: string;
   /** Each of its Attachments, as a line of a Brief; none when it has none. */
@@ -87,6 +90,7 @@ export class TaskRecords {
       descriptionSection: descriptionSection(task.description),
       plan: task.plan,
       definitionOfDone: task.definitionOfDone,
+      commitMessage: { text: commitMessageOf(task), written: task.commitMessage !== "" },
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
       linkedRecordsSection: linkedRecordsSection(links),
       whoAskedSection: taskWhoAskedSection(task, stateChanges, "start"),

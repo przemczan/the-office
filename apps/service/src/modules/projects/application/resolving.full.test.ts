@@ -94,12 +94,14 @@ async function aTaskConflictingWithTheBase(): Promise<ConflictedTask> {
   return { taskId, branch: worktree.branch, worktreePath: worktree.path, commit, file, baseCommit };
 }
 
+const MESSAGE = { subject: "Resolve it", body: "", whole: "Resolve it" };
+
 function originMain(): string {
   return gitIn(repository.originPath, "rev-parse", "refs/heads/main");
 }
 
 describe("Resolving", REAL_GIT_TEST, () => {
-  it("merges the base in, leaving the conflicted file, and commits it once resolved, which Publish then fast-forwards the base to", async () => {
+  it("merges the base in, leaving the conflicted file, and commits it once resolved, which Publish then lands as one commit", async () => {
     const task = await aTaskConflictingWithTheBase();
 
     await expect(resolving.start(mergingProject(), task.taskId)).resolves.toEqual({
@@ -125,16 +127,28 @@ describe("Resolving", REAL_GIT_TEST, () => {
     expect(gitIn(task.worktreePath, "log", "--format=%s", "--max-count=1")).toBe(
       `Merge main from origin into ${task.branch}`,
     );
-    await expect(
-      publishing.publish(mergingProject(), task.taskId, { title: "", body: "" }, "publishing-mode"),
-    ).resolves.toEqual({
+    const publication = await publishing.publish(
+      mergingProject(),
+      task.taskId,
+      MESSAGE,
+      "publishing-mode",
+    );
+
+    expect(publication).toEqual({
       kind: "merged",
       branch: task.branch,
       into: ORIGIN,
-      commit: head,
+      commit: originMain(),
+      subject: MESSAGE.subject,
+      head,
       baseTakenIn: "not-needed",
     });
-    expect(originMain()).toBe(head);
+    expect(gitIn(repository.path, "rev-list", "--parents", "--max-count=1", originMain())).toBe(
+      `${originMain()} ${task.baseCommit}`,
+    );
+    expect(gitIn(repository.path, "rev-parse", `${originMain()}^{tree}`)).toBe(
+      gitIn(repository.path, "rev-parse", `${head}^{tree}`),
+    );
   });
 
   it("takes a merge already in progress as it is", async () => {
@@ -191,7 +205,7 @@ describe("Resolving", REAL_GIT_TEST, () => {
     const publication = await publishing.publish(
       mergingProject(),
       task.taskId,
-      { title: "", body: "" },
+      MESSAGE,
       "publishing-mode",
     );
 
@@ -200,13 +214,17 @@ describe("Resolving", REAL_GIT_TEST, () => {
       kind: "merged",
       branch: task.branch,
       into: ORIGIN,
-      commit: head,
+      commit: originMain(),
+      subject: MESSAGE.subject,
+      head,
       baseTakenIn: "by-merge",
     });
     expect(gitIn(task.worktreePath, "rev-list", "--parents", "--max-count=1", "HEAD")).toBe(
       `${head} ${end.commit} ${moved}`,
     );
-    expect(originMain()).toBe(head);
+    expect(gitIn(repository.path, "rev-list", "--parents", "--max-count=1", originMain())).toBe(
+      `${originMain()} ${moved}`,
+    );
     expect(await readFile(join(task.worktreePath, task.file), "utf8")).toBe(RESOLVED);
   });
 });

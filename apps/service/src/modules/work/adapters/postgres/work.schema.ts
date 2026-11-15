@@ -164,6 +164,10 @@ export const tasks = pgTable(
       .notNull()
       .default(sql`'{}'`),
     definitionOfDoneConfirmed: boolean("definition_of_done_confirmed").notNull().default(false),
+    /** Empty while none is written, and Publish takes the default. */
+    commitMessage: text("commit_message").notNull().default(""),
+    /** Null until Publish lands the commit message. */
+    commitMessagePublishedAt: timestamp("commit_message_published_at", { withTimezone: true }),
     /** Null until the Task's Pipeline is chosen. */
     pipelineId: text("pipeline_id"),
     /** Null while the Planner proposes none. */

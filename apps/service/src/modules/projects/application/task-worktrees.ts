@@ -3,7 +3,7 @@ import type {
   Publication,
   PublishingBranchPush,
   PublishTarget,
-  PullRequestText,
+  CommitMessage,
 } from "../domain/publication.js";
 import type { ResolveEnd, ResolveStart } from "../domain/resolve.js";
 import type { CommandRun } from "../domain/command-run.js";
@@ -169,10 +169,10 @@ export class TaskWorktrees {
   async publish(
     projectId: string,
     taskId: string,
-    text: PullRequestText,
+    message: CommitMessage,
     target: PublishTarget,
   ): Promise<Publication> {
-    return this.publishing.publish(await this.projects.read(projectId), taskId, text, target);
+    return this.publishing.publish(await this.projects.read(projectId), taskId, message, target);
   }
 
   /**

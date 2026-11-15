@@ -65,6 +65,7 @@ describe("AgentStageRunner", () => {
           "consult",
           "attach_file",
           "attach_link",
+          "write_commit_message",
           "update_branch",
           "run_project_command",
         ],

@@ -7,7 +7,7 @@ import {
 import {
   PUBLISHING_TEST,
   PublishingTestbed,
-  pullRequestText,
+  commitMessage,
   type PullRequestsForTests,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import type { Publishing } from "./publishing.js";
@@ -31,26 +31,41 @@ afterAll(async () => {
 });
 
 describe("Publishing in merge mode", PUBLISHING_TEST, () => {
-  it("moves the base on the remote to the Task's branch, leaving the user's checkout as it is", async () => {
+  it("lands the Task on the base on the remote as one commit with its message, leaving the user's checkout as it is", async () => {
     const localMain = gitIn(repository.path, "rev-parse", "main");
     const task = await testbed.aTaskWithACommit(testbed.mergingProject());
 
     const publication = await publishing.publish(
       testbed.mergingProject(),
       task.taskId,
-      pullRequestText,
+      commitMessage,
       "publishing-mode",
     );
 
+    const forkedFrom = gitIn(repository.path, "rev-parse", `${task.commit}^`);
+    const landed = testbed.originCommitOf("main") ?? "";
     expect(publication).toEqual({
       kind: "merged",
       branch: task.branch,
       into: { remote: "origin", branch: "main" },
-      commit: task.commit,
+      commit: landed,
+      subject: commitMessage.subject,
+      head: task.commit,
       baseTakenIn: "not-needed",
     });
-    expect(testbed.originCommitOf("main")).toBe(task.commit);
-    expect(gitIn(repository.path, "rev-parse", "refs/remotes/origin/main")).toBe(task.commit);
+    expect(landed).not.toBe(task.commit);
+    expect(gitIn(repository.path, "rev-list", "--parents", "--max-count=1", landed)).toBe(
+      `${landed} ${forkedFrom}`,
+    );
+    expect(gitIn(repository.path, "log", "--format=%B", "--max-count=1", landed)).toBe(
+      commitMessage.whole,
+    );
+    expect(gitIn(repository.path, "rev-parse", `${landed}^{tree}`)).toBe(
+      gitIn(repository.path, "rev-parse", `${task.commit}^{tree}`),
+    );
+    expect(gitIn(repository.path, "rev-parse", "refs/remotes/origin/main")).toBe(landed);
+    // The Stage commits stay on the Task's branch alone.
+    expect(gitIn(repository.path, "branch", "--remotes", "--contains", task.commit)).toBe("");
     expect(gitIn(repository.path, "rev-parse", "main")).toBe(localMain);
     expect(gitIn(repository.path, "status", "--porcelain")).toBe("");
     expect(pullRequests.requests).toEqual([]);
@@ -63,7 +78,7 @@ describe("Publishing in merge mode", PUBLISHING_TEST, () => {
     await commitOnOrigin(repository, "main", file);
 
     await expect(
-      publishing.publish(testbed.mergingProject(), task.taskId, pullRequestText, "publishing-mode"),
+      publishing.publish(testbed.mergingProject(), task.taskId, commitMessage, "publishing-mode"),
     ).resolves.toMatchObject({
       kind: "base-moved",
       conflictedFiles: [file],

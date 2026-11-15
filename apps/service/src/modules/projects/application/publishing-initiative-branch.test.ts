@@ -8,7 +8,7 @@ import {
 import {
   PUBLISHING_TEST,
   PublishingTestbed,
-  pullRequestText,
+  commitMessage,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import { aProject } from "../domain/project.fixtures.js";
 import type { Project } from "../domain/project.js";
@@ -30,32 +30,54 @@ afterAll(async () => {
 });
 
 function publish(project: Project, taskId: string, target: "publishing-mode" | "branch-only") {
-  return testbed.publishing.publish(project, taskId, pullRequestText, target);
+  return testbed.publishing.publish(project, taskId, commitMessage, target);
 }
 
 function contains(revision: string, ancestor: string): Promise<boolean> {
   return testbed.git.contains(repository.path, revision, ancestor);
 }
 
+/** The commit and its parents, as `rev-list --parents` gives them. */
+function withParents(commit: string): string {
+  return gitIn(repository.path, "rev-list", "--parents", "--max-count=1", commit);
+}
+
+/** Expects `commit` to carry the Task's commit message and the tree of the Task's branch at `head`. */
+function expectLandedTask(commit: string, head: string): void {
+  expect(gitIn(repository.path, "log", "--format=%B", "--max-count=1", commit)).toBe(
+    commitMessage.whole,
+  );
+  expect(gitIn(repository.path, "rev-parse", `${commit}^{tree}`)).toBe(
+    gitIn(repository.path, "rev-parse", `${head}^{tree}`),
+  );
+}
+
 describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
-  it("merges into the Initiative's branch and pushes it, leaving the remote's base as it was", async () => {
+  it("lands the Task on the Initiative's branch as one commit with its message and pushes it, leaving the remote's base as it was", async () => {
     const project = testbed.mergingProject();
     const branch = testbed.anInitiativeBranch("first-push");
+    const before = testbed.localCommitOf(branch);
     const task = await testbed.aTaskWithACommit(project, undefined, branch);
     const originMain = testbed.originCommitOf("main");
 
     const publication = await publish(project, task.taskId, "publishing-mode");
 
+    const landed = testbed.localCommitOf(branch) ?? "";
     expect(publication).toEqual({
       kind: "merged",
       branch: task.branch,
       into: { remote: "origin", branch },
-      commit: task.commit,
+      commit: landed,
+      subject: commitMessage.subject,
+      head: task.commit,
       baseTakenIn: "not-needed",
       basesTakenIn: [],
     });
-    expect(testbed.originCommitOf(branch)).toBe(task.commit);
-    expect(testbed.localCommitOf(branch)).toBe(task.commit);
+    expect(landed).not.toBe(task.commit);
+    expect(withParents(landed)).toBe(`${landed} ${before}`);
+    expectLandedTask(landed, task.commit);
+    expect(testbed.originCommitOf(branch)).toBe(landed);
+    expect(testbed.localCommitOf(task.branch)).toBe(task.commit);
     expect(testbed.originCommitOf("main")).toBe(originMain);
     expect(testbed.originCommitOf(task.branch)).toBeUndefined();
   });
@@ -75,11 +97,40 @@ describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
     expect(publication.basesTakenIn).toEqual([branch, "main"]);
     expect(testbed.originCommitOf(branch)).toBe(publication.commit);
     expect(testbed.localCommitOf(branch)).toBe(publication.commit);
-    // The Task's own commit is kept as it was, which a rebase would have rewritten.
-    await expect(contains(publication.commit, task.commit)).resolves.toBe(true);
-    await expect(contains(publication.commit, initiativeTip)).resolves.toBe(true);
-    await expect(contains(publication.commit, baseTip)).resolves.toBe(true);
+    // The Task's own commit is kept as it was on its branch, which a rebase would have rewritten.
+    await expect(contains(publication.head, task.commit)).resolves.toBe(true);
+    // The Initiative's branch gains the base's own merge, then the Task's one commit on it.
+    const [, baseMerge = ""] = withParents(publication.commit).split(" ");
+    expect(withParents(publication.commit)).toBe(`${publication.commit} ${baseMerge}`);
+    expect(withParents(baseMerge)).toBe(`${baseMerge} ${initiativeTip} ${baseTip}`);
+    expect(gitIn(repository.path, "log", "--format=%s", "--max-count=1", baseMerge)).toBe(
+      `Merge main from origin into ${branch}`,
+    );
+    expectLandedTask(publication.commit, publication.head);
+    await expect(contains(publication.commit, task.commit)).resolves.toBe(false);
     expect(testbed.originCommitOf("main")).toBe(baseTip);
+  });
+
+  it("lands the Task on the Initiative's branch and the base both when their own merge would conflict", async () => {
+    const project = testbed.mergingProject();
+    const branch = testbed.anInitiativeBranch("bases-conflict", { pushed: true });
+    const task = await testbed.aTaskWithACommit(project, undefined, branch);
+    const file = "in-both-bases.txt";
+    const initiativeTip = await commitOnOrigin(repository, branch, file, "from the Initiative\n");
+    const baseTip = await commitOnOrigin(repository, "main", file, "from main\n");
+    // As Resolve would leave it: the Task's branch holds both bases, their conflict resolved.
+    const worktreePath = testbed.worktrees.pathOf(project, task.taskId);
+    gitIn(worktreePath, "fetch", "--quiet", "origin");
+    gitIn(worktreePath, "merge", "--quiet", "--no-edit", `origin/${branch}`);
+    gitIn(worktreePath, "merge", "--quiet", "--no-edit", "-X", "ours", "origin/main");
+    const head = gitIn(worktreePath, "rev-parse", "HEAD");
+
+    const publication = await publish(project, task.taskId, "publishing-mode");
+
+    expect(publication).toMatchObject({ kind: "merged", head, baseTakenIn: "not-needed" });
+    const landed = testbed.originCommitOf(branch) ?? "";
+    expect(withParents(landed)).toBe(`${landed} ${initiativeTip} ${baseTip}`);
+    expectLandedTask(landed, head);
   });
 
   it("goes to Resolve when the branch would conflict with the Initiative's branch, naming it", async () => {
@@ -177,15 +228,18 @@ describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
 
     const publication = await publish(project, task.taskId, "publishing-mode");
 
+    const landed = testbed.localCommitOf(branch) ?? "";
     expect(publication).toEqual({
       kind: "merged",
       branch: task.branch,
       into: { remote: "this repository", branch },
-      commit: task.commit,
+      commit: landed,
+      subject: commitMessage.subject,
+      head: task.commit,
       baseTakenIn: "not-needed",
       basesTakenIn: [],
     });
-    expect(testbed.localCommitOf(branch)).toBe(task.commit);
+    expectLandedTask(landed, task.commit);
     expect(testbed.originCommitOf(branch)).toBeUndefined();
   });
 

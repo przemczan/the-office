@@ -129,25 +129,27 @@ describe("A Publish Stage", () => {
     expect(pipelines.publishing.resolveCalls).toEqual([]);
   });
 
-  it("leaves the branch where a rebasing merge left it, for any Stage after it to expect", async () => {
+  it("leaves the branch where the merge of a moved base left it, for any Stage after it to expect", async () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
-    const rebased = "r".repeat(40);
+    const merged = "e".repeat(40);
     pipelines.publishing.publications.push({
       kind: "merged",
       branch: "office/task",
       into: { remote: "origin", branch: "main" },
-      commit: rebased,
-      baseTakenIn: "by-rebase",
+      commit: "f".repeat(40),
+      subject: "Rename a device",
+      head: merged,
+      baseTakenIn: "by-merge",
     });
 
     const taskId = await walkStages(pipelines, [implement, publish]);
 
     const published = (await runsOf(pipelines, taskId)).at(-1);
-    expect(published?.headCommit).toBe(rebased);
+    expect(published?.headCommit).toBe(merged);
     expect(published?.outcome).toEqual({
       status: "done",
       summary:
-        "Rebased office/task onto main, which had moved on, then merged it into main on origin, which is now at rrrrrrrr.",
+        'Merged main, which had moved on, into office/task, then landed office/task on main on origin as one commit, ffffffff "Rename a device".',
     });
   });
 

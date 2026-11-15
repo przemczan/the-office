@@ -6,7 +6,7 @@ import { serviceVariables } from "../adapters/git/command-line-git.fixtures.js";
 import {
   PUBLISHING_TEST,
   PublishingTestbed,
-  pullRequestText,
+  commitMessage,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import {
   commitOnOrigin,
@@ -77,7 +77,7 @@ async function committed(path: string, file: string): Promise<string> {
 }
 
 function publish(project: Project, taskId: string, target: "publishing-mode" | "branch-only") {
-  return testbed.publishing.publish(project, taskId, pullRequestText, target);
+  return testbed.publishing.publish(project, taskId, commitMessage, target);
 }
 
 function contains(revision: string, ancestor: string): Promise<boolean> {
@@ -178,14 +178,14 @@ describe("A Publishing Task's Publish", PUBLISHING_TEST, () => {
       url: "https://github.com/notnullsoft/admin/pull/1",
     });
     expect(testbed.pullRequests.requests).toEqual([
-      expect.objectContaining({ baseBranch: "main", branch, title: pullRequestText.title }),
+      expect.objectContaining({ baseBranch: "main", branch, title: commitMessage.subject }),
     ]);
     expect(testbed.originCommitOf(branch)).toBe(commit);
     expect(testbed.originCommitOf("main")).toBe(originMain);
     expect(gitIn(repository.path, "rev-parse", "refs/office/published/publishing-pr")).toBe(commit);
   });
 
-  it("merges the moved base by one merge commit, never a rebase, and fast-forwards the base on the remote", async () => {
+  it("merges the moved base by one merge commit, never a rebase, and fast-forwards the base on the remote, carrying the Initiative's commits unchanged", async () => {
     const project = testbed.mergingProject();
     const branch = testbed.anInitiativeBranch("merge", { pushed: true });
     const worktree = await aPublishingTask(project, "publishing-merge", branch);
@@ -205,6 +205,8 @@ describe("A Publishing Task's Publish", PUBLISHING_TEST, () => {
     expect(gitIn(repository.path, "rev-parse", `${commit}^1`)).toBe(own);
     expect(gitIn(repository.path, "rev-parse", `${commit}^2`)).toBe(baseTip);
     await expect(contains(commit, own)).resolves.toBe(true);
+    expect(publication.subject).toBeUndefined();
+    expect(publication.head).toBe(commit);
     expect(headOf(worktree.path)).toBe(commit);
     expect(testbed.originCommitOf(branch)).toBe(commit);
     expect(testbed.originCommitOf("main")).toBe(commit);
@@ -360,20 +362,25 @@ describe("A fix Task's Publish into a branch a Publishing Task holds", PUBLISHIN
 
     const publication = await publish(project, fix.taskId, "publishing-mode");
 
+    const landed = testbed.originCommitOf(branch) ?? "";
     expect(publication).toEqual({
       kind: "merged",
       branch: fix.branch,
       into: { remote: "origin", branch },
-      commit: fix.commit,
+      commit: landed,
+      subject: commitMessage.subject,
+      head: fix.commit,
       baseTakenIn: "not-needed",
       basesTakenIn: [],
       movedWorktreeOf: "publishing-fix-clean",
     });
-    expect(headOf(publishing.path)).toBe(fix.commit);
+    expect(gitIn(repository.path, "rev-list", "--parents", "--max-count=1", landed)).toBe(
+      `${landed} ${before}`,
+    );
+    expect(headOf(publishing.path)).toBe(landed);
     await expect(stat(join(publishing.path, "fix-clean.txt"))).resolves.toBeDefined();
-    expect(testbed.originCommitOf(branch)).toBe(fix.commit);
     expect(gitIn(repository.path, "rev-parse", "refs/office/moved-to/publishing-fix-clean")).toBe(
-      fix.commit,
+      landed,
     );
     await expect(updates.movedAlongBase(project, "publishing-fix-clean", before)).resolves.toBe(
       true,

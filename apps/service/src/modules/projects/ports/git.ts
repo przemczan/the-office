@@ -231,6 +231,40 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<void>;
 
+  /**
+   * Pushes `commit` to `target.branch` on `target.remote`, never forcing, so the remote takes it
+   * only when it adds to what the remote has; the remote-tracking ref follows. No local branch
+   * moves.
+   */
+  abstract pushCommit(
+    repositoryPath: string,
+    commit: string,
+    target: Upstream,
+    variables: GitVariables,
+  ): Promise<void>;
+
+  /**
+   * Writes a commit of the tree `treeish` names (a commit's or a tree's own id) on `parents`, in
+   * `message`, as `commit-tree` does: no ref and no worktree changes, and no hooks run. Returns it.
+   */
+  abstract writeCommit(
+    repositoryPath: string,
+    treeish: string,
+    parents: readonly string[],
+    message: string,
+    variables: GitVariables,
+  ): Promise<string>;
+
+  /**
+   * The tree a clean merge of two commits makes, written to git's objects only; undefined when it
+   * would conflict.
+   */
+  abstract mergedTree(
+    repositoryPath: string,
+    one: string,
+    other: string,
+  ): Promise<string | undefined>;
+
   /** The commit `revision` names, or undefined when it names none. */
   abstract findCommit(repositoryPath: string, revision: string): Promise<string | undefined>;
 
@@ -266,17 +300,6 @@ export abstract class Git {
 
   /** The best common ancestor of two revisions: where one forked from the other. */
   abstract mergeBase(repositoryPath: string, one: string, other: string): Promise<string>;
-
-  /**
-   * Rebases the branch the worktree has checked out onto `onto`, without the repository's hooks.
-   * Returns the files a commit of it conflicted in, after putting the branch back as it was;
-   * none when it rebased.
-   */
-  abstract rebase(
-    worktreePath: string,
-    onto: string,
-    variables: GitVariables,
-  ): Promise<readonly string[]>;
 
   /**
    * Merges `revision` into the branch the worktree has checked out, without the repository's hooks,
@@ -319,8 +342,11 @@ export abstract class Git {
   /** Puts the worktree and its branch back as they were before the merge in progress, if any. */
   abstract abortMerge(worktreePath: string, variables: GitVariables): Promise<void>;
 
-  /** Whether `revision` holds a merge commit that `base` doesn't. */
-  abstract hasMergesSince(repositoryPath: string, base: string, revision: string): Promise<boolean>;
+  /**
+   * Whether `revision` adds nothing to `base`: `base` holds it, or a merge of it into `base` would
+   * leave `base`'s tree as it is, as after Publish landed its changes as one commit of their own.
+   */
+  abstract addsNothing(repositoryPath: string, base: string, revision: string): Promise<boolean>;
 
   /** Whether `ancestor` is `revision` or one of the commits it was made on. */
   abstract contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean>;

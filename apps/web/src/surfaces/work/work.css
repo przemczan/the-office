@@ -2258,8 +2258,17 @@
   color: var(--fg-3);
 }
 
+.task-commit-message {
+  max-width: 72ch;
+  margin: 0;
+  font: 400 var(--text-body) / 1.55 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .task-plan + .task-quiet,
-.task-plan-text + .task-quiet {
+.task-plan-text + .task-quiet,
+.task-commit-message + .task-quiet {
   margin-top: 6px;
 }
 

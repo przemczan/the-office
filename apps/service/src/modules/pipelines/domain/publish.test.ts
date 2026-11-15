@@ -1,114 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { publishOutcome, pullRequestText } from "./publish.js";
-import type { Stage } from "./stage.js";
-import type { StageRunDecision } from "./stage-run.js";
-import { aStageRun } from "./stage-run.fixtures.js";
+import { publishedMessage, publishOutcome } from "./publish.js";
 
-const implement: Stage = {
-  kind: "agent",
-  key: "implement",
-  name: "Implement",
-  optional: false,
-  role: "developer",
-  brief: "Do it.",
-  session: "fresh",
-  budget: 250_000,
-};
-const tests: Stage = {
-  kind: "script",
-  key: "tests",
-  name: "Tests",
-  optional: false,
-  command: "test",
-  onFailure: { goBackTo: "implement", rounds: 1 },
-};
-const lint: Stage = { kind: "script", key: "lint", name: "Lint", optional: true, command: "lint" };
-const acceptance: Stage = {
-  kind: "gate",
-  key: "acceptance",
-  name: "UI acceptance",
-  optional: false,
-};
-const publish: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "Publish",
-  optional: false,
-  command: "publish",
-};
-const stages = [implement, tests, lint, acceptance, publish];
-const task = {
-  title: "Rename a device",
-  definitionOfDone: ["The new name shows on the list", "The rename persists"],
-};
-const continuedWithIssues: StageRunDecision = {
-  id: "decision-1",
-  kind: "no-retries-left",
-  options: [],
-  answer: { kind: "accept-issues" },
-};
+describe("publishedMessage", () => {
+  it("is the commit message whole, its first line the subject and the rest the body", () => {
+    expect(
+      publishedMessage("  Rename a device\n\nAdds a rename dialog.\n\nIt saves on Enter.\n"),
+    ).toEqual({
+      subject: "Rename a device",
+      body: "Adds a rename dialog.\n\nIt saves on Enter.",
+      whole: "Rename a device\n\nAdds a rename dialog.\n\nIt saves on Enter.",
+    });
+  });
 
-describe("pullRequestText", () => {
-  it("holds the Definition of Done, each Stage's latest result before Publish and the accepted issues", () => {
-    const runs = [
-      aStageRun({
-        number: 1,
-        stageKey: "implement",
-        outcome: {
-          status: "done",
-          summary: "Added the rename dialog.\n\nIt saves on Enter.",
-          definitionOfDoneMet: [1],
-        },
-      }),
-      aStageRun({
-        number: 2,
-        stageKey: "tests",
-        outcome: {
-          status: "failed",
-          error: "`npm test` failed with exit code 1.\n\nWhat it printed: …",
-        },
-        decisions: [continuedWithIssues],
-      }),
-      aStageRun({ number: 3, stageKey: "lint", outcome: undefined }),
-      aStageRun({
-        number: 4,
-        stageKey: "acceptance",
-        outcome: { status: "done", summary: "The Task waits at the Gate." },
-        gateAction: { kind: "continue" },
-      }),
-      aStageRun({
-        number: 5,
-        stageKey: "publish",
-        outcome: { status: "failed", error: "Pushing failed." },
-      }),
-    ];
-
-    expect(pullRequestText(task, stages, runs, "publish")).toEqual({
-      title: "Rename a device",
-      body: [
-        "## Definition of Done",
-        "",
-        "- [x] The new name shows on the list",
-        "- [ ] The rename persists",
-        "",
-        "## Stage results",
-        "",
-        "### Implement",
-        "",
-        "Added the rename dialog.\n\nIt saves on Enter.",
-        "",
-        "### Tests",
-        "",
-        "Failed: `npm test` failed with exit code 1.",
-        "",
-        "### UI acceptance",
-        "",
-        "The user looked at the work and let it continue.",
-        "",
-        "## Issues the user accepted",
-        "",
-        "- Tests: `npm test` failed with exit code 1.",
-      ].join("\n"),
+  it("has an empty body for a message of one line", () => {
+    expect(publishedMessage("Rename a device")).toEqual({
+      subject: "Rename a device",
+      body: "",
+      whole: "Rename a device",
     });
   });
 });
@@ -129,34 +37,54 @@ describe("publishOutcome", () => {
     });
   });
 
-  it("is done with where the merge left the base", () => {
+  it("is done with the one commit that landed the Task, by its subject", () => {
     expect(
       publishOutcome({
         kind: "merged",
         branch: "office/task-1",
         into: { remote: "origin", branch: "main" },
         commit: "0123456789abcdef0123456789abcdef01234567",
+        subject: "Rename a device",
+        head: "fedcba9876543210fedcba9876543210fedcba98",
         baseTakenIn: "not-needed",
       }),
     ).toEqual({
       status: "done",
-      summary: "Merged office/task-1 into main on origin, which is now at 01234567.",
+      summary: 'Landed office/task-1 on main on origin as one commit, 01234567 "Rename a device".',
     });
   });
 
-  it("says it rebased the branch first when the base had moved on", () => {
+  it("says it merged the base in first when the base had moved on", () => {
     expect(
       publishOutcome({
         kind: "merged",
         branch: "office/task-1",
         into: { remote: "origin", branch: "main" },
         commit: "0123456789abcdef0123456789abcdef01234567",
-        baseTakenIn: "by-rebase",
+        subject: "Rename a device",
+        head: "fedcba9876543210fedcba9876543210fedcba98",
+        baseTakenIn: "by-merge",
       }),
     ).toEqual({
       status: "done",
       summary:
-        "Rebased office/task-1 onto main, which had moved on, then merged it into main on origin, which is now at 01234567.",
+        'Merged main, which had moved on, into office/task-1, then landed office/task-1 on main on origin as one commit, 01234567 "Rename a device".',
+    });
+  });
+
+  it("is done with where a Publishing Task's merge left the base, its commits carried unchanged", () => {
+    expect(
+      publishOutcome({
+        kind: "merged",
+        branch: "initiative/usage-exports",
+        into: { remote: "origin", branch: "main" },
+        commit: "0123456789abcdef0123456789abcdef01234567",
+        head: "0123456789abcdef0123456789abcdef01234567",
+        baseTakenIn: "not-needed",
+      }),
+    ).toEqual({
+      status: "done",
+      summary: "Merged initiative/usage-exports into main on origin, which is now at 01234567.",
     });
   });
 
@@ -167,13 +95,15 @@ describe("publishOutcome", () => {
         branch: "office/task-1",
         into: { remote: "origin", branch: "initiative/usage-exports" },
         commit: "0123456789abcdef0123456789abcdef01234567",
+        subject: "Rename a device",
+        head: "fedcba9876543210fedcba9876543210fedcba98",
         baseTakenIn: "by-merge",
         basesTakenIn: ["main"],
       }),
     ).toEqual({
       status: "done",
       summary:
-        "Merged main, which had moved on, into office/task-1, then merged it into initiative/usage-exports on origin, which is now at 01234567.",
+        'Merged main, which had moved on, into office/task-1, then landed office/task-1 on initiative/usage-exports on origin as one commit, 01234567 "Rename a device".',
     });
   });
 

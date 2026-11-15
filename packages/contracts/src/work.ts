@@ -300,6 +300,14 @@ export const taskSchema = newTaskSchema.extend({
   definitionOfDone: z.array(z.string()),
   /** As `planConfirmed`, for the Definition of Done. */
   definitionOfDoneConfirmed: z.boolean(),
+  /**
+   * The message of the one commit Publish lands the Task as: the one written, or the default (the
+   * title with a short summary below it) while `commitMessageWritten` is false.
+   */
+  commitMessage: z.string(),
+  commitMessageWritten: z.boolean(),
+  /** When Publish landed the commit message, which no longer changes from then on. */
+  commitMessagePublishedAt: z.iso.datetime().nullable(),
   /** The Pipeline its work follows; null until one is chosen, which Ready needs. */
   pipelineId: z.string().nullable(),
   /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
@@ -384,6 +392,10 @@ export type MakeAPlan = z.infer<typeof makeAPlanSchema>;
 /** PUT /tasks/:id/description: the Description as the user rewrote it; empty leaves none. */
 export const descriptionChangeSchema = z.object({ description: z.string() });
 export type DescriptionChange = z.infer<typeof descriptionChangeSchema>;
+
+/** PUT /tasks/:id/commit-message: the Task's commit message; empty takes the default again. */
+export const commitMessageChangeSchema = z.object({ message: z.string() });
+export type CommitMessageChange = z.infer<typeof commitMessageChangeSchema>;
 
 /** PUT /tasks/:id/tags: the Task's Tags as they should be. */
 export const tagsChangeSchema = z.object({ tags: z.array(z.string()) });
@@ -985,6 +997,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.title-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.description-changed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.commit-message-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.tags-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.marked-planned"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),

@@ -79,6 +79,14 @@ export interface Task {
   /** As `planConfirmed`, for the Definition of Done. */
   readonly definitionOfDoneConfirmed: boolean;
   /**
+   * The message of the one commit Publish lands the Task as (task-commit-message.ts): the Planner's
+   * suggestion, updated by its Agent Stages and the user; empty when none is written, and Publish
+   * takes the default (`defaultCommitMessage`).
+   */
+  readonly commitMessage: string;
+  /** When Publish landed the commit message; after that it no longer changes. */
+  readonly commitMessagePublishedAt: Date | undefined;
+  /**
    * The Pipeline its work follows; its own Stages, once it has them, are kept by Pipelines.
    * Undefined until one is chosen: confirmed from the Planner's proposal, or chosen by the user
    * (spec §2.1). A Task is never Ready without one (`hasPipeline`).

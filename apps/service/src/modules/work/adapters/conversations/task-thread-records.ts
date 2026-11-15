@@ -32,6 +32,7 @@ import type { Task } from "../../domain/task.js";
 import { taskBranchBase } from "../../domain/task-branch-base.js";
 import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
 import { KnownPeople } from "../../ports/known-people.js";
+import { WRITE_COMMIT_MESSAGE } from "../office-tools/commit-message-office-tools.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../../ports/project-worktrees.js";
@@ -48,6 +49,7 @@ export const PLANNING_OFFICE_TOOLS = [
   "write_definition_of_done",
   "propose_pipeline",
   "write_tags",
+  WRITE_COMMIT_MESSAGE,
   "mark_planned",
   OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,

@@ -6,6 +6,7 @@
 
 **Traps:**
 
+- The Task's commit message (spec §2.3): every Agent Stage's Brief shows it (`TaskRecord.commitMessage`, Work's, the default while none is written) and its Stage message tells only the last Agent Stage before a Publish that lands it to recheck it (`isLastAgentStageBeforePublish`: Resolve Stages passed over and never it, a `branch-only` Publish landing nothing), with the branch it lands on to diff against (`landsOn`). The Publish Stage sends it whole (`publishedMessage`) and, once a `merged` Publication carries a `subject` (one commit landed) or a pull request opened, marks it published (`StartedTasks.markCommitMessagePublished`); a Publishing Task's merge carries its commits unchanged, so it marks nothing. HEAD is expected at the `merged` Publication's `head`, never its `commit`, the landed commit no local branch names.
 - A run held by the user's Pause or Stop names them: `TaskPaused`/`TaskStopped` carry the user, `StageRunInterruption.request` keeps it, `stage_runs.held_by_user` beside `held_by` for a start after a crash, and the outcome's `heldByUser` words the error, the history ("paused by the user Ann Lee") and the Brief's held section. Runs held before users existed name nobody ("the user"); there is no claim for them. A staffing Decision's answer drops or resumes the Task as `{ kind: "user", user: null }` (`ANSWERING_USER`) until Decisions say which user answered.
 - Office-wide versus Project-aware: `PipelineLibrary.list`, `find`, `has` and `rolesNamed` read the office-wide Pipelines only; `read`, `listFor` and `commandsNamedBy`, which Work's and Projects' `KnownPipelines` bind, answer Project Pipelines too, built, each with its Project and why it is Broken, any Project's for `read` and `commandsNamedBy`, so each caller refuses another Project's and names it. `forTask(pipelineId, projectId)` is the seam Start copies through (`TaskStagesService.pipeline`, so Start and a Task's first edit for itself copy a Project Pipeline's Stages as built then), answering another Project's Project Pipeline as unknown and a Broken one with its reasons, which Start refuses (`StagesEditRefused`). `GET /pipelines` stays office-wide, with `builtOnBy` per Project.
 - Broken (the CTO's rule, 2026-11-12) means the built Stages can't run, worked out by `buildStages` on every read: a Stage change whose key isn't there, an inserted key already there, a field a Change gives that its Stage's kind lacks, and `stageProblems` on the built Stages (loops, names, "continue"); each failing Stage change is skipped, so every reason shows and the Stages still read. Missing commands and the engine check need a Project and stay out of it: a Project Pipeline's own save weighs them against its Project only, and an office-wide save is refused for a Project Pipeline built from it that its Project, running it, would lack a command for (`missingCommandProblems` with that Project alone). A Project Pipeline's own save is refused while Broken; an office-wide save never is, its check answering `breaks` (`brokenBy`; `breaksOf` for the answer to a `pipeline` Proposal by whoever onboards Projects), which leaves out a Project Pipeline already Broken with the saved Stages, as the edit didn't break it. A `project-pipeline` Proposal is refused for whatever its add or save is, through the same `projectPipelineProblems`: a command its Project lacks counts only once something runs it (its Project's default or a not-started Task), as on a save.
@@ -215,7 +216,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 ### domain/
 
 - `agent-command.ts`: AgentCommand, agentCommandOf, AgentCommandEnd, agentCommandAnswer
-- `agent-stage-brief.ts`: AGENT_STAGE_INSTRUCTIONS, BriefTask, EarlierResult, AgentStageRecord, agentStageRecord, AnsweredQuestion, CarriedRound, StageWorkReasons, StagePipeline, HeldRun, agentStageWork, stageResultWords, earlierResults
+- `agent-stage-brief.ts`: AGENT_STAGE_INSTRUCTIONS, BriefCommitMessage, RecheckedCommitMessage, BriefTask, EarlierResult, AgentStageRecord, agentStageRecord, AnsweredQuestion, CarriedRound, StageWorkReasons, StagePipeline, HeldRun, agentStageWork, isLastAgentStageBeforePublish, stageResultWords, earlierResults
 - `alarm-resume.ts`: ResumeKind, TaskResume, WalkAhead, SessionAhead, walkAhead, taskResumeOf
 - `allowed-commands.ts`: RunPermission, CommandPermission, NamedCommand, AllowedCommands, stageProjectCommands, allowedCommands, commandKeyRefusal
 - `base-words.ts`: TaskBases, baseWords, publishingModeWords
@@ -231,7 +232,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `pipeline-walk.ts`: UnmetOutOfReach, WalkQuestion, NextMove, RESTARTS_ASKED_AT, nextMove, reportedMet, reportedOutOfReach, unmetStatements, addressableStatements, statementList
 - `pipeline.ts`: Pipeline, StageProblem, stageProblems, problemOnStage, singleStageProblems
 - `project-pipeline.ts`: ProjectPipeline, ProjectPipelineEdit, ProposedProjectPipeline, BuiltProjectPipeline, PipelinesAround, BrokenProjectPipeline, builtProjectPipeline, asPipeline, builtEdit, projectPipelineEditProblems, proposedProjectPipelineProblems, addedProjectPipeline, savedProjectPipeline, brokenBy
-- `publish.ts`: PullRequestText, RemoteBranch, ResolveStart, ResolveEnd, BaseTakenIn, Publication, PublishedTask, pullRequestText, publishOutcome, shippedWork, publishedVariables, UnfinishedPublication, unfinishedPublication, publishedSummary, afterPublishingFailedOutcome, shippedOutcome, continuedOutcome
+- `publish.ts`: CommitMessage, RemoteBranch, ResolveStart, ResolveEnd, BaseTakenIn, Publication, publishedMessage, publishOutcome, shippedWork, publishedVariables, UnfinishedPublication, unfinishedPublication, publishedSummary, afterPublishingFailedOutcome, shippedOutcome, continuedOutcome
 - `resolve-stages.ts`: RESOLVE_KEY, RESOLVE_TEST_KEY, RESOLVE_GATE_KEY, RESOLVE_ROUNDS, RESOLVE_TEST_COMMAND, isResolveStage, withoutResolveStages, goesToResolve, walkedStages, withResolveStages, conflictCarried, conflictCameBackTooOften, afterResolveTestFailed, resolvedByTheUser, resolveBrief
 - `script-stage-outcome.ts`: scriptStageOutcome, installFailure
 - `staffing-decision.ts`: STAFFING_OPTIONS, staffingHoldReason, staffingDecision
@@ -286,7 +287,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `task-commands.ts`: ScriptCommandKind, ScriptCommandResult, PublishingLine, CommandWait, TaskCommandOptions, AgentCommandOptions, TaskCommands
 - `task-git.ts`: WorktreeHead, TaskGit
 - `task-publishing.ts`: TaskPublishing
-- `task-records.ts`: PublishingMode, TaskRecord, TaskRecords
+- `task-records.ts`: PublishingMode, TaskCommitMessage, TaskRecord, TaskRecords
 - `task-screenshots.ts`: ScreenshotsAttaching, TaskScreenshots
 - `task-stages-repository.ts`: TaskStagesRepository
 - `task-thread-sessions.ts`: TaskThreadSessions

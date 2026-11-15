@@ -36,6 +36,7 @@ import {
   createTemporaryRepositoryWithRemote,
   fileOnRemote,
   type TemporaryRepository,
+  type TemporaryRepositoryWithRemote,
 } from "./temporary-repository.ts";
 import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
 import {
@@ -3188,6 +3189,11 @@ test(
   },
 );
 
+/** What git prints, trimmed, run in the repository's remote. */
+function gitOnRemote(repository: TemporaryRepositoryWithRemote, ...gitArguments: string[]): string {
+  return execFileSync("git", gitArguments, { cwd: repository.remote, encoding: "utf8" }).trim();
+}
+
 /** What `git rev-parse` names in the repository. */
 function revisionIn(repositoryPath: string, revision: string): string {
   return execFileSync("git", ["rev-parse", revision], {
@@ -3307,7 +3313,7 @@ async function publishingTasksOf(page: Page, initiativeId: string): Promise<Task
 }
 
 test(
-  "an Initiative's last Task Done adds its Publishing Task, whose Gate shows the whole change and whose Publish merges it into main",
+  "an Initiative's Task lands on its branch as one commit with its message, and its last Task Done adds its Publishing Task, whose Gate shows the whole change and whose Publish carries it into main",
   { tag: "@full" },
   async ({ page }) => {
     const own = await createTemporaryRepositoryWithRemote();
@@ -3388,6 +3394,11 @@ test(
       await page.request.post(`/api/tasks/${task.id}/definition-of-done/confirm`);
       await choosePipeline(page, task, publishOnly.id);
       expect((await page.request.post(`/api/tasks/${task.id}/ready`)).status()).toBe(200);
+      const commitMessage = "feat(usage): export the usage\n\nAdds the usage export file.";
+      const written = await page.request.put(`/api/tasks/${task.id}/commit-message`, {
+        data: { message: commitMessage },
+      });
+      expect(taskSchema.parse(await written.json()).state).toBe("ready");
       await commitOnTaskBranch(own, task.id, "usage-export.txt", "exported\n");
       // No Agent Stage opens a Thread, so the user's Decision past Publish needs one seeded.
       await seedStageThread(task.id);
@@ -3397,7 +3408,22 @@ test(
       await expect
         .poll(async () => fileOnRemote(own, branch, "usage-export.txt"))
         .toBe("exported\n");
+      // Its Stage commit stays on its branch: the Initiative's branch gains one commit of its own.
+      expect(gitOnRemote(own, "rev-list", "--count", `main..${branch}`)).toBe("1");
+      expect(gitOnRemote(own, "log", "--format=%B", "--max-count=1", branch)).toBe(commitMessage);
+      const landed = gitOnRemote(own, "rev-parse", branch);
       await markDoneByItsDecision(page, task.id);
+      const published = taskSchema.parse(
+        await (await page.request.get(`/api/tasks/${task.id}`)).json(),
+      );
+      expect(published.commitMessagePublishedAt).not.toBeNull();
+      await page.goto(`/tasks/${task.id}`);
+      const commitMessageBlock = page.getByRole("region", { name: "Commit message" });
+      await commitMessageBlock.getByRole("button", { name: /Commit message/ }).click();
+      await expect(commitMessageBlock).toContainText("Published as one commit.");
+      await expect(commitMessageBlock.getByRole("button", { name: "Edit" })).toHaveCount(0);
+      await commitMessageBlock.scrollIntoViewIfNeeded();
+      await screenshotScenario(page, "task-commit-message-published");
 
       // Its Done adds the Publishing Task, which the Initiative page lists as Ready.
       await expect.poll(async () => (await publishingTasksOf(page, initiative.id)).length).toBe(1);
@@ -3444,6 +3470,8 @@ test(
       await expect
         .poll(async () => fileOnRemote(own, "main", "usage-export.txt"))
         .toBe("exported\n");
+      // The Publishing Task carries the Task's one commit into main unchanged.
+      expect(gitOnRemote(own, "merge-base", "--is-ancestor", landed, "main")).toBe("");
       await markDoneByItsDecision(page, publishing.id);
       await expect.poll(async () => (await initiativeOf(page, initiative.id)).state).toBe("done");
     } finally {

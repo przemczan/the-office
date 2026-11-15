@@ -7,7 +7,7 @@ import {
   REAL_GIT_TEST,
   type TemporaryRepository,
 } from "../adapters/git/temporary-repository.fixtures.js";
-import { PublishingTestbed, pullRequestText } from "../adapters/git/publishing-testbed.fixtures.js";
+import { PublishingTestbed, commitMessage } from "../adapters/git/publishing-testbed.fixtures.js";
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
 import { BranchUpdates } from "./branch-updates.js";
@@ -219,7 +219,7 @@ describe("Changes of an Initiative's Task", REAL_GIT_TEST, () => {
     expect(soFar).not.toContain("changes-of-another-task.txt");
 
     await expect(
-      testbed.publishing.publish(project, task.taskId, pullRequestText, "publishing-mode"),
+      testbed.publishing.publish(project, task.taskId, commitMessage, "publishing-mode"),
     ).resolves.toMatchObject({ kind: "merged" });
     await commitOnOrigin(repository, "main", "changes-on-main-after.txt");
     gitIn(repository.path, "fetch", "--quiet", "origin");

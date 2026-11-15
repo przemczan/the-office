@@ -52,6 +52,10 @@ describe("TaskRecords", () => {
         "## What the user wants, in their own words\n\nLet me name each device as I call it.",
       plan: "",
       definitionOfDone: [],
+      commitMessage: {
+        text: "Rename a device\n\nLet me name each device as I call it.",
+        written: false,
+      },
       attachmentLines: [`- Mockup (link to https://example.com/mockup) · Attachment ${link.id}`],
       linkedRecordsSection: undefined,
       whoAskedSection: "## Who asked\n\nThe Task was created by the user Ann Lee.",

@@ -10,6 +10,7 @@ import {
   type Stage,
   type StageKind,
 } from "./stage.js";
+import { isResolveStage } from "./resolve-stages.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
   CarriedFailure,
@@ -26,7 +27,19 @@ import type {
  * of every Task, so it stays in the cached prefix.
  */
 export const AGENT_STAGE_INSTRUCTIONS =
-  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with run_project_command: it runs one of the Project's commands by its key, or a command line you may run, such as one test file, where the Project's commands run (in the Task's run environment when the Project has one), and answers with the exit code and a file with the whole output. Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command, never by hand in your shell, and don't write a .env or start a database to make them run there. The Brief names the commands you may run. The Office commits your work after each Stage: you never commit, push or switch branches. The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it, and you wait in it for anything else, such as a background command's output, never ending the turn to wait. Stop the background commands you no longer need before you end it. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work now meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. A Definition of Done statement you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, you report as out of reach with why, never as met. When a choice is the user's to make, open a Decision with open_decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link. Attach a design the user is to approve before its Gate, as one self-contained .html file: the preview loads nothing from outside the file. When your work needs something the base branch has and the Task's branch doesn't, call update_branch rather than asking anyone: The Office commits your work so far and brings the branch up to date.";
+  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with run_project_command: it runs one of the Project's commands by its key, or a command line you may run, such as one test file, where the Project's commands run (in the Task's run environment when the Project has one), and answers with the exit code and a file with the whole output. Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command, never by hand in your shell, and don't write a .env or start a database to make them run there. The Brief names the commands you may run. The Office commits your work after each Stage: you never commit, push or switch branches. The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it, and you wait in it for anything else, such as a background command's output, never ending the turn to wait. Stop the background commands you no longer need before you end it. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work now meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. A Definition of Done statement you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, you report as out of reach with why, never as met. When a choice is the user's to make, open a Decision with open_decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link. Attach a design the user is to approve before its Gate, as one self-contained .html file: the preview loads nothing from outside the file. When your work needs something the base branch has and the Task's branch doesn't, call update_branch rather than asking anyone: The Office commits your work so far and brings the branch up to date. The Task's commit message is the message of the one commit Publish lands the Task as: when your work changes what it should say, update it with write_commit_message.";
+
+/** The Task's commit message: the one written, or the default while none is (`written` false). */
+export interface BriefCommitMessage {
+  readonly text: string;
+  readonly written: boolean;
+}
+
+/** The commit message the last Agent Stage before a Publish rechecks, and what it diffs against. */
+export interface RecheckedCommitMessage extends BriefCommitMessage {
+  /** The branch Publish lands the Task on, whose fork point the Task's whole diff starts from. */
+  readonly landsOn: string;
+}
 
 /** The Task's record, as an Agent Stage's Brief has it. */
 export interface BriefTask {
@@ -35,6 +48,8 @@ export interface BriefTask {
   readonly descriptionSection: string;
   readonly plan: string;
   readonly definitionOfDone: readonly string[];
+  /** The message of the one commit Publish lands the Task as, and whether it was written. */
+  readonly commitMessage: BriefCommitMessage;
   /** Each of the Task's Attachments, as a line of the Brief. */
   readonly attachmentLines: readonly string[];
   /** The records the Task is linked to, worded as a section by Work; none when it has none. */
@@ -80,7 +95,7 @@ export interface AgentStageRecord {
 
 /**
  * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title, who created
- * and who started or queued it, its Description, Plan and Definition of Done, where the session works, the earlier Stages' results
+ * and who started or queued it, its Description, Plan, Definition of Done and commit message, where the session works, the earlier Stages' results
  * with their Handover notes, the diff so far, the records the Task is linked to, the Attachments,
  * the commands the Agent may run and the Hard switches it follows. Conversations adds the answered
  * Decisions; transcripts are never handed over.
@@ -101,6 +116,7 @@ export function agentStageRecord({
     task.definitionOfDone.length === 0
       ? undefined
       : `## The Definition of Done\n\n${task.definitionOfDone.map((statement, index) => `${index + 1}. ${statement}`).join("\n")}`,
+    commitMessageSection(task.commitMessage),
     earlier.length === 0
       ? undefined
       : `## Earlier Stages\n\n${earlier.map(earlierResultWords).join("\n")}`,
@@ -114,6 +130,21 @@ export function agentStageRecord({
     "The Office commits the Stage's work after it ends, so don't commit it yourself, and don't write in your Handover note that your changes are uncommitted.",
     hardSwitchesSection(hardSwitches),
   ]);
+}
+
+/** The commit message as a section of the Brief, saying when it is the default. */
+function commitMessageSection({ text, written }: BriefCommitMessage): string {
+  const what = written
+    ? "Publish lands the Task as one commit with this message:"
+    : "None is written yet, so Publish lands the Task as one commit with the default, its title with a short summary below it:";
+  return `## The commit message\n\n${what}\n\n${fenced(text)}\n\nUpdate it with write_commit_message when your work changes what it should say, following the commit convention the Project's own docs define.`;
+}
+
+/** `text` in a fence longer than any run of backticks inside it. */
+function fenced(text: string): string {
+  const longest = Math.max(2, ...[...text.matchAll(/`+/g)].map(([run]) => run.length));
+  const fence = "`".repeat(longest + 1);
+  return `${fence}\n${text}\n${fence}`;
 }
 
 /** The question the Stage's Agent asked the user last time, with the user's answer in words. */
@@ -145,6 +176,11 @@ export interface StageWorkReasons {
   readonly held?: HeldRun;
   /** The Pipeline the Stage runs in, whose Stages after it the message lists. */
   readonly pipeline?: StagePipeline;
+  /**
+   * The Task's commit message as it is now, which the last Agent Stage before a Publish rechecks
+   * (`isLastAgentStageBeforePublish`), with the branch the Task's diff is read against.
+   */
+  readonly commitMessage?: RecheckedCommitMessage;
 }
 
 /** The Task's Pipeline as an Agent Stage's message words the Stages after its own. */
@@ -184,7 +220,8 @@ export interface HeldRun {
 
 /**
  * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again after
- * its Agent's question; the Stages after it in the Pipeline; when an on-failure loop went back to
+ * its Agent's question; the Stages after it in the Pipeline; for the last Agent Stage before a
+ * Publish, to recheck the commit message; when an on-failure loop went back to
  * it, the failure it went back with; when the user sent the work back to it from a Gate, their
  * feedback; when the user held its last run, how, and so where its edits stand; and when the
  * install before it failed, why, as the Agent's commands may fail for it. A new session gets it
@@ -192,11 +229,22 @@ export interface HeldRun {
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "key" | "name" | "brief">,
-  { carried, sentBack, answered, installProblem, held, pipeline }: StageWorkReasons = {},
+  {
+    carried,
+    sentBack,
+    answered,
+    installProblem,
+    held,
+    pipeline,
+    commitMessage,
+  }: StageWorkReasons = {},
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
     pipeline && laterStagesSection(stage, pipeline),
+    pipeline && commitMessage && isLastAgentStageBeforePublish(stage, pipeline.stages)
+      ? recheckSection(commitMessage)
+      : undefined,
     held && heldSection(held),
     answered &&
       `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
@@ -210,6 +258,45 @@ ${installProblem}
 
 Commands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.`,
   ]);
+}
+
+/**
+ * Whether `stage` is the last Agent Stage before a Publish that lands the Task's commit message: a
+ * Publish by the publishing mode comes later, with no Agent Stage of the Task's own between them.
+ * The Resolve Stages The Office puts in are passed over, and are never it themselves; a branch-only
+ * Publish lands no commit message.
+ */
+export function isLastAgentStageBeforePublish(
+  stage: Pick<Stage, "key">,
+  stages: readonly Stage[],
+): boolean {
+  if (isResolveStage(stage)) return false;
+  const index = stages.findIndex(({ key }) => key === stage.key);
+  if (index === -1) return false;
+  for (const later of stages.slice(index + 1)) {
+    if (isResolveStage(later)) continue;
+    if (later.kind === "agent") return false;
+    if (
+      later.kind === "script" &&
+      later.command === PUBLISH_COMMAND &&
+      later.publishTarget !== "branch-only"
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** What the last Agent Stage before a Publish does with the commit message, as it reads now. */
+function recheckSection(commitMessage: RecheckedCommitMessage): string {
+  const now = commitMessage.written
+    ? "It reads now:"
+    : "None is written, so Publish would use the default:";
+  return `## Recheck the commit message
+
+Yours is the last Agent Stage before Publish, which lands the Task as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff since its branch forked from ${commitMessage.landsOn} (\`git diff ${commitMessage.landsOn}...HEAD\`; the Brief's "What changed so far" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. ${now}
+
+${fenced(commitMessage.text)}`;
 }
 
 /**
@@ -431,5 +518,5 @@ function startedFrom(task: BriefTask): string {
     project: { baseBranch: task.baseBranch },
     initiativeBranch: task.initiativeBranch,
   });
-  return `which started from the Initiative's branch ${task.initiativeBranch}, and its Publish merges into ${task.initiativeBranch}, not ${task.baseBranch}. The Office brings ${bases} into it`;
+  return `which started from the Initiative's branch ${task.initiativeBranch}, and its Publish lands it on ${task.initiativeBranch} as one commit, not on ${task.baseBranch}. The Office brings ${bases} into it`;
 }

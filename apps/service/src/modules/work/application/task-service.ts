@@ -36,6 +36,7 @@ import {
 } from "../domain/task-events.js";
 import { isInitiativePaused } from "../domain/initiative-pause.js";
 import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js";
+import { changeCommitMessage, publishCommitMessage } from "../domain/task-commit-message.js";
 import { changeDescription } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
@@ -148,6 +149,19 @@ export class TaskService {
   /** The user's Description, until the Task starts. */
   async changeDescription(id: string, description: string): Promise<Task> {
     return this.update(id, (task) => changeDescription(task, description));
+  }
+
+  /**
+   * The commit message Publish lands the Task as: the Planner's suggestion, an Agent Stage's update
+   * or the user's, until the Task ends or Publish lands it.
+   */
+  async changeCommitMessage(id: string, message: string): Promise<Task> {
+    return this.update(id, (task) => changeCommitMessage(task, message));
+  }
+
+  /** Publish landed the Task's commit message, which no longer changes from now on. */
+  async markCommitMessagePublished(id: string): Promise<Task> {
+    return this.update(id, (task) => publishCommitMessage(task, new Date()));
   }
 
   /** Sets the Task's Tags, in any state: the user's or the Planner's. */

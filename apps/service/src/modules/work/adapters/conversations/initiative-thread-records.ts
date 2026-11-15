@@ -28,6 +28,7 @@ import type { Task } from "../../domain/task.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
 import { TaskDecisions } from "../../ports/task-decisions.js";
+import { WRITE_COMMIT_MESSAGE } from "../office-tools/commit-message-office-tools.js";
 import {
   MARK_PLANNED,
   PROPOSE_PIPELINE,
@@ -83,6 +84,7 @@ export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
   WRITE_DEFINITION_OF_DONE,
   PROPOSE_PIPELINE,
   WRITE_TAGS,
+  WRITE_COMMIT_MESSAGE,
   MARK_PLANNED,
   ANSWER_DECISION_TOOL,
   CONSULT_TOOL,

@@ -57,7 +57,7 @@ import {
   type ScriptCommandResult,
   type TaskCommandOptions,
 } from "./task-commands.js";
-import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
+import type { CommitMessage, Publication, ResolveEnd, ResolveStart } from "../domain/publish.js";
 import type { BranchUpdate, PublishingBranchPush } from "../domain/stage-commit.js";
 import {
   RunEnvironmentDefinitions,
@@ -248,6 +248,13 @@ export class StartedTasksForTests extends StartedTasks {
   async waitingFor(taskId: string): Promise<readonly TaskBlocker[]> {
     return this.blockers.get(taskId) ?? [];
   }
+
+  /** The Tasks whose commit message Publish landed, in order. */
+  readonly commitMessagesPublished: string[] = [];
+
+  async markCommitMessagePublished(taskId: string): Promise<void> {
+    this.commitMessagesPublished.push(taskId);
+  }
 }
 
 /** A Task's record as Work would give it: planned, with one Attachment, in its worktree. */
@@ -258,6 +265,10 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       "## What the user wants, in their own words\n\nLet me name each device as I call it.",
     plan: "Add a rename dialog to the device page.",
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
+    commitMessage: {
+      text: "Rename a device\n\nAdds a rename dialog to the device page.",
+      written: true,
+    },
     attachmentLines: ["- mockup.png (image, image/png, 2048 bytes) · Attachment a-1"],
     linkedRecordsSection: undefined,
     whoAskedSection:
@@ -981,20 +992,20 @@ export class TaskPublishingForTests extends TaskPublishing {
     readonly call: "start" | "finish" | "abandon";
     readonly taskId: string;
   }[] = [];
-  /** Every Publish, in order, with the pull request's words. */
+  /** Every Publish, in order, with the commit message it lands. */
   readonly published: {
     readonly taskId: string;
-    readonly text: PullRequestText;
+    readonly message: CommitMessage;
     readonly target: PublishTarget;
   }[] = [];
 
   publish(
     _projectId: string,
     taskId: string,
-    text: PullRequestText,
+    message: CommitMessage,
     target: PublishTarget,
   ): Promise<Publication> {
-    this.published.push({ taskId, text, target });
+    this.published.push({ taskId, message, target });
     const publication = this.publications.shift() ?? {
       kind: "pull-request-opened",
       branch: aTaskRecord().worktree.branch,

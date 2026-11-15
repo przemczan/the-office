@@ -13,6 +13,7 @@ import {
 } from "./linked-records.js";
 import { stateChangeLines, type StateChange } from "./state-change.js";
 import { isPublishingTask, type Task } from "./task.js";
+import { commitMessageOf } from "./task-commit-message.js";
 import { NO_DESCRIPTION } from "./task-description.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 import { confirmationWords } from "./written-parts.js";
@@ -101,6 +102,8 @@ export function taskRecordText(
       ? ["Not written yet."]
       : task.definitionOfDone.map((statement) => `- ${statement}`)),
     "",
+    ...commitMessageLines(task),
+    "",
     "Linked records:",
     ...orNone(linkedRecordLines(links)),
     "",
@@ -116,6 +119,18 @@ export function taskRecordText(
     "",
     ...stateChangeLines(stateChanges),
   ].join("\n");
+}
+
+/** The commit message Publish lands the Task as, saying when it is the default or published. */
+function commitMessageLines(task: Task): string[] {
+  const published = task.commitMessagePublishedAt
+    ? `, published on ${task.commitMessagePublishedAt.toISOString()}`
+    : "";
+  const heading =
+    task.commitMessage === ""
+      ? `Commit message, none written, so Publish uses the default${published}:`
+      : `Commit message${published}:`;
+  return [heading, commitMessageOf(task)];
 }
 
 /**

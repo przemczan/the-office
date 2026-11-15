@@ -61,6 +61,13 @@ export class TaskDescriptionChanged extends DomainEvent {
   }
 }
 
+/** The Task's commit message was rewritten, or Publish landed it. */
+export class TaskCommitMessageChanged extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
 /** The Task's Tags as they now are. */
 export class TaskTagsChanged extends DomainEvent {
   constructor(

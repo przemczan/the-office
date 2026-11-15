@@ -63,6 +63,7 @@ import {
   TaskPriorityChanged,
   TaskRestored,
   TaskDescriptionChanged,
+  TaskCommitMessageChanged,
   TaskTitleChanged,
   TaskTagsChanged,
   TaskReordered,
@@ -266,6 +267,13 @@ export class WorkWebEvents implements OnModuleInit {
       TaskDescriptionChanged,
       (event): WebEventOf<"task.description-changed"> => ({
         type: "task.description-changed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskCommitMessageChanged,
+      (event): WebEventOf<"task.commit-message-changed"> => ({
+        type: "task.commit-message-changed",
         taskId: event.taskId,
       }),
     );

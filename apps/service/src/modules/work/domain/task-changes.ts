@@ -96,6 +96,8 @@ export function createTask(
     ...parts,
     planConfirmed: false,
     definitionOfDoneConfirmed: false,
+    commitMessage: "",
+    commitMessagePublishedAt: undefined,
     pipelineId: undefined,
     proposedPipeline: undefined,
     autoMode: false,

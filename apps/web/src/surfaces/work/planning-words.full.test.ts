@@ -44,6 +44,9 @@ describe("definitionOfDoneSummary", () => {
       state: "in-progress",
       definitionOfDone: statements,
       definitionOfDoneConfirmed: true,
+      commitMessage: "Commit message",
+      commitMessageWritten: false,
+      commitMessagePublishedAt: null,
     } as const;
 
     expect(definitionOfDoneSummary(running, [1, 2])).toBe("2 of 2 Reported met");

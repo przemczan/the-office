@@ -10,7 +10,7 @@ import {
 import {
   PUBLISHING_TEST,
   PublishingTestbed,
-  pullRequestText,
+  commitMessage,
   type PullRequestsForTests,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import type { Publishing } from "./publishing.js";
@@ -46,7 +46,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
     const log: string[] = [];
 
     const publishingDone = publishing
-      .publish(testbed.pullRequestProject(), task.taskId, pullRequestText, "publishing-mode")
+      .publish(testbed.pullRequestProject(), task.taskId, commitMessage, "publishing-mode")
       .then(() => void log.push("published"));
     await expect.poll(() => pullRequests.requests.length, { timeout: 30_000 }).toBe(1);
     const committing = git
@@ -69,7 +69,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
       publishing.publish(
         testbed.pullRequestProject(),
         task.taskId,
-        pullRequestText,
+        commitMessage,
         "publishing-mode",
       ),
     ).resolves.toMatchObject({
@@ -85,7 +85,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
       publishing.publish(
         testbed.pullRequestProject(),
         task.taskId,
-        pullRequestText,
+        commitMessage,
         "publishing-mode",
       ),
     ).resolves.toEqual({
@@ -103,7 +103,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
       publishing.publish(
         testbed.pullRequestProject(),
         task.taskId,
-        pullRequestText,
+        commitMessage,
         "publishing-mode",
       ),
     ).resolves.toEqual({
@@ -124,7 +124,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
       publishing.publish(
         testbed.pullRequestProject(),
         task.taskId,
-        pullRequestText,
+        commitMessage,
         "publishing-mode",
       ),
     ).resolves.toMatchObject({ kind: "failed" });

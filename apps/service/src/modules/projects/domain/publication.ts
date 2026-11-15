@@ -1,8 +1,12 @@
-/** The words a pull request opens with: the Task's title and its record (spec §2.3). */
-export interface PullRequestText {
-  readonly title: string;
-  /** Markdown. */
+/**
+ * The Task's commit message (spec §2.3, "The Task's commit message"): the message of the one commit
+ * Publish lands the Task as, whole, and its subject line and the rest, a pull request's title and
+ * body.
+ */
+export interface CommitMessage {
+  readonly subject: string;
   readonly body: string;
+  readonly whole: string;
 }
 
 /**
@@ -17,8 +21,8 @@ export interface RemoteBranch {
   readonly branch: string;
 }
 
-/** How Publish took in a base that had moved on since the branch left it, if it had. */
-export type BaseTakenIn = "not-needed" | "by-rebase" | "by-merge";
+/** Whether Publish took in a base that had moved on since the branch left it, by a merge commit. */
+export type BaseTakenIn = "not-needed" | "by-merge";
 
 /**
  * How a Publish ended, by the Project's publishing mode (spec §9) or the Stage's target (spec §2.3):
@@ -33,11 +37,16 @@ export type Publication =
       readonly kind: "merged";
       readonly branch: string;
       readonly into: RemoteBranch;
-      readonly commit: string;
       /**
-       * How The Office took in a base that had moved on: rebasing the branch onto it, or merging
-       * it into a branch Resolve merged before, which a rebase would undo.
+       * Where `into` is now: the one commit that landed the Task with its commit message, or a
+       * Publishing Task's tip, whose commits it carried unchanged.
        */
+      readonly commit: string;
+      /** The landed commit's subject, when Publish landed the Task as one commit. */
+      readonly subject?: string;
+      /** Where the Task's branch is left: its tip, with any base taken in by a merge commit. */
+      readonly head: string;
+      /** Whether The Office took a base that had moved on into the Task's branch by a merge. */
       readonly baseTakenIn: BaseTakenIn;
       /** For a Task of an Initiative's branch, the bases that had moved on, in the order taken in. */
       readonly basesTakenIn?: readonly string[];

@@ -1,8 +1,9 @@
-import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
+import type { CommitMessage, Publication, ResolveEnd, ResolveStart } from "../domain/publish.js";
 import type { PublishTarget } from "../domain/stage.js";
 
 /**
- * Publish by the Project's publishing mode (spec §9), or push the branch only as a Publish Stage's
+ * Publish by the Project's publishing mode (spec §9), landing the Task as one commit with its commit
+ * message or opening a pull request worded from it, or push the branch only as a Publish Stage's
  * target may say (spec §2.3), which Projects runs with The Office's own git and the user's
  * credentials, out of every Agent's reach; and the git of Resolve, when Publish's branch conflicts
  * with the base. The composition root binds it.
@@ -11,7 +12,7 @@ export abstract class TaskPublishing {
   abstract publish(
     projectId: string,
     taskId: string,
-    text: PullRequestText,
+    message: CommitMessage,
     target: PublishTarget,
   ): Promise<Publication>;
 

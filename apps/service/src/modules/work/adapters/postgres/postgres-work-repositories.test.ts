@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment } from "../../domain/attachment.js";
 import { confirmPipeline } from "../../domain/planning-changes.js";
+import { changeCommitMessage, publishCommitMessage } from "../../domain/task-commit-message.js";
 import { changeTitle } from "../../domain/task-description.js";
 import { aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
@@ -56,6 +57,20 @@ describe("PostgresTaskRepository", () => {
     await tasks.update(created.id, (task) => confirmPipeline(task, "quick-fix"));
 
     await expect(tasks.find(created.id)).resolves.toMatchObject({ pipelineId: "quick-fix" });
+  });
+
+  it("keeps a Task's commit message, empty until written, and when Publish landed it", async () => {
+    const created = await createdTask(aProjectId());
+    const publishedAt = new Date("2026-11-15T10:00:00.000Z");
+    expect(created).toMatchObject({ commitMessage: "", commitMessagePublishedAt: undefined });
+
+    await tasks.update(created.id, (task) => changeCommitMessage(task, "feat: rename\n\nBody."));
+    await tasks.update(created.id, (task) => publishCommitMessage(task, publishedAt));
+
+    await expect(tasks.find(created.id)).resolves.toMatchObject({
+      commitMessage: "feat: rename\n\nBody.",
+      commitMessagePublishedAt: publishedAt,
+    });
   });
 });
 

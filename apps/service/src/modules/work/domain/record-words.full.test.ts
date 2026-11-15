@@ -99,6 +99,23 @@ describe("taskRecordText", () => {
     ]);
   });
 
+  it("gives its commit message, saying when it is the default and when Publish landed it", () => {
+    const unwritten = taskRecordText(aTask({ title: "Rename a device" }), NOTHING);
+    const published = taskRecordText(
+      aTask({ commitMessage: "feat: rename a device", commitMessagePublishedAt: ARCHIVED_AT }),
+      NOTHING,
+    );
+
+    expect(part(unwritten, "Commit message, none written, so Publish uses the default:")).toEqual([
+      "Commit message, none written, so Publish uses the default:",
+      "Rename a device",
+    ]);
+    expect(part(published, "Commit message, published on 2026-11-01T10:00:00.000Z:")).toEqual([
+      "Commit message, published on 2026-11-01T10:00:00.000Z:",
+      "feat: rename a device",
+    ]);
+  });
+
   it("names no Move for a Task that never moved", () => {
     expect(taskRecordText(aTask(), NOTHING)).not.toContain("Moved from");
   });

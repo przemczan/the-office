@@ -116,6 +116,8 @@ describe("A Publish Stage's publishing lines", () => {
       branch: "office/task",
       into: { remote: "origin", branch: "initiative/usage-exports" },
       commit: "f".repeat(40),
+      subject: "Rename a device",
+      head: "e".repeat(40),
       baseTakenIn: "not-needed",
     });
 
@@ -188,7 +190,7 @@ describe("A Publish Stage's after publishing line", () => {
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
   });
 
-  it("gets the merged commit after a merge, and no pull request", async () => {
+  it("gets the one commit that landed the Task after a merge, and no pull request", async () => {
     pipelines = await withLines();
     const merged = "f".repeat(40);
     pipelines.publishing.publications.push({
@@ -196,7 +198,9 @@ describe("A Publish Stage's after publishing line", () => {
       branch: "office/task",
       into: { remote: "origin", branch: "main" },
       commit: merged,
-      baseTakenIn: "by-rebase",
+      subject: "Rename a device",
+      head: "e".repeat(40),
+      baseTakenIn: "by-merge",
     });
 
     await walkStages(pipelines, [implement, publish]);

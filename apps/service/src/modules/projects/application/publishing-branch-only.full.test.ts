@@ -7,7 +7,7 @@ import {
 import {
   PUBLISHING_TEST,
   PublishingTestbed,
-  pullRequestText,
+  commitMessage,
   type PullRequestsForTests,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import type { Publishing } from "./publishing.js";
@@ -43,7 +43,7 @@ describe("Publishing the branch only", PUBLISHING_TEST, () => {
       const publication = await publishing.publish(
         project,
         task.taskId,
-        pullRequestText,
+        commitMessage,
         "branch-only",
       );
 
@@ -61,7 +61,7 @@ describe("Publishing the branch only", PUBLISHING_TEST, () => {
     await commitOnOrigin(repository, "main", file);
 
     await expect(
-      publishing.publish(testbed.pullRequestProject(), task.taskId, pullRequestText, "branch-only"),
+      publishing.publish(testbed.pullRequestProject(), task.taskId, commitMessage, "branch-only"),
     ).resolves.toEqual({ kind: "branch-pushed", branch: task.branch, remote: "origin" });
     expect(testbed.originCommitOf(task.branch)).toBe(task.commit);
   });
@@ -72,7 +72,7 @@ describe("Publishing the branch only", PUBLISHING_TEST, () => {
     await publishing.publish(
       testbed.pullRequestProject(),
       task.taskId,
-      pullRequestText,
+      commitMessage,
       "branch-only",
     );
     await worktrees.remove(testbed.pullRequestProject(), task.taskId);
@@ -91,7 +91,7 @@ describe("Publishing without a remote", PUBLISHING_TEST, () => {
       const task = await testbed.aTaskWithACommit(project);
 
       await expect(
-        publishing.publish(project, task.taskId, pullRequestText, "publishing-mode"),
+        publishing.publish(project, task.taskId, commitMessage, "publishing-mode"),
       ).resolves.toEqual({
         kind: "failed",
         error:

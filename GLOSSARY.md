@@ -113,6 +113,10 @@ _Avoid_: Using "plan" for an Initiative or for the Description
 A Task's plain-language statement of what must be true when it is done; the Task ends when it is met.
 _Avoid_: Acceptance criteria, DoD (in the UI)
 
+**Commit message** (a Task's):
+The message of the one commit Publish lands a Task as, following its Project's commit convention: suggested by the Planner, updated by its Agent Stages, editable by the user until Publish lands it; with none written, the title with a short summary below it. A pull request takes its first line as the title and the rest as the body.
+_Avoid_: Squash message, PR description, Stage commit (a Stage's own commit on the Task's branch)
+
 **Save** (a Plan or a Definition of Done):
 The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task back to Planning, or to Backlog when it was never in Planning; the same words change nothing.
 _Avoid_: Save and confirm

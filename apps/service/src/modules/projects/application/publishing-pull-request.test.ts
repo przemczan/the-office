@@ -9,7 +9,7 @@ import {
 import {
   PUBLISHING_TEST,
   PublishingTestbed,
-  pullRequestText,
+  commitMessage,
   type PullRequestsForTests,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import type { Publishing } from "./publishing.js";
@@ -33,13 +33,13 @@ afterAll(async () => {
 });
 
 describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
-  it("pushes the Task's branch and opens a pull request into the base, in the record's words", async () => {
+  it("pushes the Task's branch and opens a pull request into the base, titled and worded by the commit message", async () => {
     const task = await testbed.aTaskWithACommit(testbed.pullRequestProject());
 
     const publication = await publishing.publish(
       testbed.pullRequestProject(),
       task.taskId,
-      pullRequestText,
+      commitMessage,
       "publishing-mode",
     );
 
@@ -54,7 +54,8 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
         remoteUrl: await testbed.originUrl(),
         baseBranch: "main",
         branch: task.branch,
-        ...pullRequestText,
+        title: commitMessage.subject,
+        body: commitMessage.body,
       },
     ]);
     expect(pullRequests.askedWhy).toEqual([await testbed.originUrl()]);
@@ -71,7 +72,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
       const publication = await publishing.publish(
         testbed.pullRequestProject(),
         task.taskId,
-        pullRequestText,
+        commitMessage,
         "publishing-mode",
       );
 
@@ -97,7 +98,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
       publishing.publish(
         testbed.pullRequestProject(),
         task.taskId,
-        pullRequestText,
+        commitMessage,
         "publishing-mode",
       ),
     ).resolves.toEqual({

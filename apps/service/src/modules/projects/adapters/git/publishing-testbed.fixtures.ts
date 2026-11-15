@@ -13,7 +13,7 @@ import {
 import { ShellCommandRunner } from "../shell/shell-command-runner.js";
 import type { Project, PublishingMode } from "../../domain/project.js";
 import { aProject } from "../../domain/project.fixtures.js";
-import type { PullRequestText } from "../../domain/publication.js";
+import type { CommitMessage } from "../../domain/publication.js";
 import {
   PullRequestRefused,
   PullRequests,
@@ -29,9 +29,10 @@ import { TaskBasesForTests } from "../../application/task-bases.fixtures.js";
 /** Several real git commands a test, slower while every test file runs at once. */
 export const PUBLISHING_TEST = { timeout: 30_000 } as const;
 
-export const pullRequestText: PullRequestText = {
-  title: "Rename a device",
-  body: "## Definition of Done\n\n- [x] The rename persists",
+export const commitMessage: CommitMessage = {
+  subject: "Rename a device",
+  body: "Adds a rename dialog to the device page.",
+  whole: "Rename a device\n\nAdds a rename dialog to the device page.",
 };
 
 /** GitHub in memory: each request opens a pull request, unless a test refuses, blocks or holds it. */

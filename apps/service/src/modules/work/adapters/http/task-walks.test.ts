@@ -539,7 +539,7 @@ describe("A Pipeline whose Agent Stage narrows its Project commands", () => {
 
 describe("Conflicts at Publish", () => {
   it(
-    "resolves a conflict at Publish in one merge commit, tests it and waits at a Gate, then fast-forwards the base to it, through the scripted engine",
+    "resolves a conflict at Publish in one merge commit, tests it and waits at a Gate, then lands the Task on the base as one commit, through the scripted engine",
     async () => {
       const office = await startOffice({ taskLimit: 2 });
       const startToItsGate = async (taskId: string, greeting: string): Promise<void> => {
@@ -595,7 +595,13 @@ describe("Conflicts at Publish", () => {
         await continueGate(second.id);
         await office.untilState(second.id, "done");
 
-        expect(await gitOut(office.originPath, "rev-parse", "main")).toBe(merge);
+        // One commit on the published base, of the resolved branch's tree.
+        const landed = await gitOut(office.originPath, "rev-parse", "main");
+        expect(await gitOut(office.originPath, "rev-parse", "main^")).toBe(firstPublished);
+        expect(await gitOut(office.originPath, "rev-parse", "main^{tree}")).toBe(
+          await gitOut(office.repository, "rev-parse", `${merge}^{tree}`),
+        );
+        expect(landed).not.toBe(merge);
       } finally {
         await office.close();
       }

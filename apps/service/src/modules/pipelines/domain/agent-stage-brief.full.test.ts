@@ -30,6 +30,7 @@ const task: BriefTask = {
   descriptionSection: "## What the user wants, in their own words\n\nLet me name my devices.",
   plan: "",
   definitionOfDone: [],
+  commitMessage: { text: "Rename a device", written: false },
   attachmentLines: [],
   linkedRecordsSection: undefined,
   whoAskedSection:
@@ -82,6 +83,7 @@ describe("agentStageRecord", () => {
         task.whoAskedSection,
         "## What the user wants, in their own words\n\nLet me name my devices.",
         "## Where you work\n\nThe Task's worktree, at /worktrees/task on the branch office/task, which started from main.\n\nScreenshots go in .office/screenshots/ there: git ignores it, and The Office keeps it as you leave it across test runs.",
+        "## The commit message\n\nNone is written yet, so Publish lands the Task as one commit with the default, its title with a short summary below it:\n\n```\nRename a device\n```\n\nUpdate it with write_commit_message when your work changes what it should say, following the commit convention the Project's own docs define.",
         "## Attachments\n\nNone.",
         "## Commands you may run\n\nYou may run read-only git (git status, git diff) only.",
         "Run them in the worktree, where your session starts, with paths relative to it; never `cd` to an absolute path, as that stops the Stage to ask for approval.",
@@ -101,7 +103,7 @@ describe("agentStageRecord", () => {
     });
 
     expect(record).toContain(
-      "on the branch office/task, which started from the Initiative's branch initiative/usage-exports, and its Publish merges into initiative/usage-exports, not main. The Office brings initiative/usage-exports, then main into it.\n\n",
+      "on the branch office/task, which started from the Initiative's branch initiative/usage-exports, and its Publish lands it on initiative/usage-exports as one commit, not on main. The Office brings initiative/usage-exports, then main into it.\n\n",
     );
   });
 

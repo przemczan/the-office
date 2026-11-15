@@ -63,6 +63,10 @@ export class OwnProjectsStartedTasks extends StartedTasks {
   waitingFor(taskId: string): Promise<readonly TaskBlocker[]> {
     return this.tasks.waitingFor(taskId);
   }
+
+  markCommitMessagePublished(taskId: string): Promise<unknown> {
+    return this.tasks.markCommitMessagePublished(taskId);
+  }
 }
 
 /**

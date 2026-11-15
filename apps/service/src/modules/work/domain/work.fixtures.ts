@@ -66,6 +66,8 @@ export function aTask(fields: Partial<Task> = {}): Task {
     estimatedTokens: undefined,
     definitionOfDone: [],
     definitionOfDoneConfirmed: false,
+    commitMessage: "",
+    commitMessagePublishedAt: undefined,
     pipelineId: "full",
     proposedPipeline: undefined,
     autoMode: false,

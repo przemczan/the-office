@@ -28,6 +28,7 @@ import type { SavedView } from "../../domain/saved-view.js";
 import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
+import { commitMessageOf } from "../../domain/task-commit-message.js";
 import type { EngineUsage, UsageEstimate, UsageMeasure } from "../../domain/usage-estimate.js";
 import type { UsageSettings } from "../../domain/usage-settings.js";
 
@@ -123,6 +124,9 @@ export function toTaskResponse(task: Task): TaskResponse {
     estimatedTokens: task.estimatedTokens ?? null,
     definitionOfDone: [...task.definitionOfDone],
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
+    commitMessage: commitMessageOf(task),
+    commitMessageWritten: task.commitMessage !== "",
+    commitMessagePublishedAt: task.commitMessagePublishedAt?.toISOString() ?? null,
     pipelineId: task.pipelineId ?? null,
     proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
     autoMode: task.autoMode,

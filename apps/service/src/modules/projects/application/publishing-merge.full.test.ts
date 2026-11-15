@@ -7,7 +7,7 @@ import {
 import {
   PUBLISHING_TEST,
   PublishingTestbed,
-  pullRequestText,
+  commitMessage,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import type { Publishing } from "./publishing.js";
 import type { Worktrees } from "./worktrees.js";
@@ -36,12 +36,12 @@ describe("Publishing in merge mode", PUBLISHING_TEST, () => {
     await publishing.publish(
       testbed.mergingProject(),
       task.taskId,
-      pullRequestText,
+      commitMessage,
       "publishing-mode",
     );
 
     await expect(
-      publishing.publish(testbed.mergingProject(), task.taskId, pullRequestText, "publishing-mode"),
+      publishing.publish(testbed.mergingProject(), task.taskId, commitMessage, "publishing-mode"),
     ).resolves.toEqual({
       kind: "nothing-to-publish",
       branch: task.branch,
@@ -49,30 +49,41 @@ describe("Publishing in merge mode", PUBLISHING_TEST, () => {
     });
   });
 
-  it("rebases the branch onto a base that moved on, then moves the base to it", async () => {
+  it("takes a base that moved on into the branch by one merge commit, then lands one commit on it", async () => {
     const task = await testbed.aTaskWithACommit(testbed.mergingProject());
     const moved = await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
 
     const publication = await publishing.publish(
       testbed.mergingProject(),
       task.taskId,
-      pullRequestText,
+      commitMessage,
       "publishing-mode",
     );
 
-    const rebased = gitIn(repository.path, "rev-parse", `refs/heads/${task.branch}`);
+    const head = gitIn(repository.path, "rev-parse", `refs/heads/${task.branch}`);
+    const landed = testbed.originCommitOf("main") ?? "";
     expect(publication).toEqual({
       kind: "merged",
       branch: task.branch,
       into: { remote: "origin", branch: "main" },
-      commit: rebased,
-      baseTakenIn: "by-rebase",
+      commit: landed,
+      subject: commitMessage.subject,
+      head,
+      baseTakenIn: "by-merge",
     });
-    expect(rebased).not.toBe(task.commit);
-    expect(gitIn(repository.path, "rev-parse", `${rebased}^`)).toBe(moved);
-    expect(testbed.originCommitOf("main")).toBe(rebased);
+    // The base came into the Task's branch by a merge, never a rebase: the Task's commit stays.
+    expect(gitIn(repository.path, "rev-list", "--parents", "--max-count=1", head)).toBe(
+      `${head} ${task.commit} ${moved}`,
+    );
+    expect(gitIn(repository.path, "rev-list", "--parents", "--max-count=1", landed)).toBe(
+      `${landed} ${moved}`,
+    );
+    expect(gitIn(repository.path, "rev-list", "--count", `${moved}..${landed}`)).toBe("1");
+    expect(gitIn(repository.path, "log", "--format=%B", "--max-count=1", landed)).toBe(
+      commitMessage.whole,
+    );
     const worktreePath = worktrees.pathOf(testbed.mergingProject(), task.taskId);
-    expect(gitIn(worktreePath, "rev-parse", "HEAD")).toBe(rebased);
+    expect(gitIn(worktreePath, "rev-parse", "HEAD")).toBe(head);
     expect(gitIn(worktreePath, "status", "--porcelain")).toBe("");
   });
 
@@ -83,7 +94,7 @@ describe("Publishing in merge mode", PUBLISHING_TEST, () => {
     await publishing.publish(
       testbed.mergingProject(),
       task.taskId,
-      pullRequestText,
+      commitMessage,
       "publishing-mode",
     );
 

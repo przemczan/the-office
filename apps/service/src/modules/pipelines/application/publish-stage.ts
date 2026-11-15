@@ -3,8 +3,8 @@ import {
   afterPublishingFailedOutcome,
   continuedOutcome,
   publishedVariables,
+  publishedMessage,
   publishOutcome,
-  pullRequestText,
   shippedOutcome,
   shippedWork,
   unfinishedPublication,
@@ -25,6 +25,7 @@ import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskCommands, type PublishingLine } from "../ports/task-commands.js";
 import { TaskGit } from "../ports/task-git.js";
 import { TaskPublishing } from "../ports/task-publishing.js";
+import { StartedTasks } from "../ports/started-tasks.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { TaskThreadSessions } from "../ports/task-thread-sessions.js";
 import { InitiativeBranchStages } from "./initiative-branch-stages.js";
@@ -44,7 +45,8 @@ type LineEnd =
 /**
  * Runs a Publish Stage (spec §2.3): a Script Stage The Office runs with its own git rather than a
  * Project command, with no model call. It publishes the Task's committed branch by the Project's
- * publishing mode, a pull request worded from the Task's record, or pushes the branch only when the
+ * publishing mode, landing the Task as one commit with its commit message or opening a pull request
+ * worded from it, after which the message no longer changes, or pushes the branch only when the
  * Stage's target says so (a proof of concept); once it has published, the
  * worktree goes; the branch keeps the work for any Stage after it. Its failures go where any
  * Script Stage's go; a branch that conflicts with the base goes to Resolve (`afterBaseMoved`).
@@ -68,6 +70,7 @@ export class PublishStage {
     private readonly commands: TaskCommands,
     private readonly runs: StageRunRepository,
     private readonly waits: StageRunWaits,
+    private readonly tasks: StartedTasks,
   ) {}
 
   async run(work: StageWork<"script">): Promise<StageOutcome> {
@@ -93,13 +96,12 @@ export class PublishStage {
     expected: ExpectedHead,
     ran: readonly StageCommandRunWithOutput[],
   ): Promise<StageOutcome> {
-    const { stage, run, stages, earlierRuns } = work;
-    const text = pullRequestText(task, stages, earlierRuns, stage.key);
+    const { stage, run } = work;
     const publish = () =>
       this.publishing.publish(
         task.project.id,
         run.taskId,
-        text,
+        publishedMessage(task.commitMessage.text),
         stage.publishTarget ?? "publishing-mode",
       );
     // A fix Task's Publish into the Initiative's branch waits for a running Publishing Task Stage,
@@ -108,12 +110,15 @@ export class PublishStage {
       ? await publish()
       : await this.branchStages.holding(task, publish);
     const outcome = publishOutcome(publication);
-    // A merge may have rebased the branch or merged a base into it, before a conflict with the
-    // next base too: the next Stage expects HEAD where Publish left it.
+    if (landedCommitMessage(publication)) await this.tasks.markCommitMessagePublished(run.taskId);
+    // A merge may have merged a base into the branch, before a conflict with the next base too: the
+    // next Stage expects HEAD where Publish left it.
     const left =
-      publication.kind === "merged" || publication.kind === "base-moved"
-        ? (publication.commit ?? expected.commit)
-        : expected.commit;
+      publication.kind === "merged"
+        ? publication.head
+        : publication.kind === "base-moved"
+          ? (publication.commit ?? expected.commit)
+          : expected.commit;
     await this.stageGit.leaveAt(run, { ...expected, commit: left });
     if (outcome.status !== "done") return outcome;
     if (!shipsByPublishingMode(work, task)) return this.finish(task, run.taskId, outcome);
@@ -342,6 +347,17 @@ function shipsByPublishingMode({ stage }: StageWork<"script">, task: TaskRecord)
   return (
     target === "publishing-mode" &&
     (task.publishingTask === true || task.initiativeBranch === undefined)
+  );
+}
+
+/**
+ * Whether Publish landed the Task's commit message: as the one commit it landed the Task as, or as
+ * the pull request it opened.
+ */
+function landedCommitMessage(publication: Publication): boolean {
+  return (
+    publication.kind === "pull-request-opened" ||
+    (publication.kind === "merged" && publication.subject !== undefined)
   );
 }
 

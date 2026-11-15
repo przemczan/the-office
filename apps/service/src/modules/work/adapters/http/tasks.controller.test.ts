@@ -186,6 +186,56 @@ describe("POST /api/tasks/:id/drop", () => {
   });
 });
 
+describe("PUT /api/tasks/:id/commit-message", () => {
+  it("answers the default until one is written, then the one written, trimmed, and announces it", async () => {
+    const task = await create({
+      description: "Land on the page I came from.\n\nWith its filters.",
+    });
+    expect(task).toMatchObject({
+      commitMessage: `${task.title}\n\nLand on the page I came from.`,
+      commitMessageWritten: false,
+      commitMessagePublishedAt: null,
+    });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/commit-message`, {
+      message: "  fix(work): land on the page I came from\n\nKeeps its filters.\n",
+    });
+
+    expect(taskSchema.parse(await response.json())).toMatchObject({
+      state: "backlog",
+      commitMessage: "fix(work): land on the page I came from\n\nKeeps its filters.",
+      commitMessageWritten: true,
+    });
+    expect(webEventsOf(work)).toEqual([{ type: "task.commit-message-changed", taskId: task.id }]);
+    const cleared = await sendJson(work, "PUT", `/tasks/${task.id}/commit-message`, {
+      message: " ",
+    });
+    expect(taskSchema.parse(await cleared.json())).toMatchObject({
+      commitMessage: `${task.title}\n\nLand on the page I came from.`,
+      commitMessageWritten: false,
+    });
+  });
+
+  it("refuses once Publish landed it, which the Task then shows", async () => {
+    const task = await create();
+    await sendJson(work, "PUT", `/tasks/${task.id}/commit-message`, { message: "Land it" });
+    await work.app.get(TaskService).markCommitMessagePublished(task.id);
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/commit-message`, {
+      message: "Something else",
+    });
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "Publish has landed the commit message, so it no longer changes.",
+    ]);
+    const read = await readTask(task.id);
+    expect(read.commitMessage).toBe("Land it");
+    expect(read.commitMessagePublishedAt).not.toBeNull();
+  });
+});
+
 describe("POST and DELETE /api/tasks/:id/dependencies", () => {
   it("makes a Task wait for one in another Project, kept across a read, and announces it", async () => {
     const schema = await create({ title: "Queue schema" });

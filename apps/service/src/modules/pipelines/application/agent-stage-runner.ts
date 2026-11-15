@@ -80,7 +80,8 @@ import { StageRunners } from "./stage-runners.js";
 /**
  * The Office tools of an Agent Stage's session (spec §6): it reads every record and Attachment, its
  * own Task's and those of the Tasks, Idea and Initiative it is linked to, asks the user with a
- * Decision, consults a person (in tier 1 the user answers in their place), attaches a file or a link to the Task, asks The Office to update the Task's
+ * Decision, consults a person (in tier 1 the user answers in their place), attaches a file or a link to the Task, writes
+ * the Task's commit message (`write_commit_message`, Work's), asks The Office to update the Task's
  * branch from the base, runs the Project's commands where they run (`StageProjectCommands`), and
  * reads the Stage history, an earlier run's whole outputs and Stage Thread too, so a later Stage
  * doesn't repeat a failed approach. Never `read_threads`: it reads Thread messages only through a
@@ -94,6 +95,7 @@ export const AGENT_STAGE_OFFICE_TOOLS = [
   "consult",
   "attach_file",
   "attach_link",
+  "write_commit_message",
   UPDATE_BRANCH_TOOL,
   RUN_PROJECT_COMMAND_TOOL,
 ] as const;
@@ -348,6 +350,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
           commands: task.project.commands,
           roleTitle: (roleKey) => this.people.roleTitle(roleKey),
         },
+        commitMessage: { ...task.commitMessage, landsOn: landsOn(task) },
       }),
       folder: task.worktree.path,
       environment: task.worktree.environment,
@@ -415,6 +418,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         descriptionSection: task.descriptionSection,
         plan: task.plan,
         definitionOfDone: task.definitionOfDone,
+        commitMessage: task.commitMessage,
         attachmentLines: task.attachmentLines,
         linkedRecordsSection: task.linkedRecordsSection,
         whoAskedSection: task.whoAskedSection,
@@ -745,4 +749,14 @@ function answeredQuestion(
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * The branch Publish lands the Task on: a Publishing Task's base branch, another Task's Initiative's
+ * branch when it has one, or the base branch.
+ */
+function landsOn(task: TaskRecord): string {
+  return task.publishingTask === true || task.initiativeBranch === undefined
+    ? task.project.baseBranch
+    : task.initiativeBranch;
 }

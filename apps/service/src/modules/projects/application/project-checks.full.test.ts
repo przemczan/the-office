@@ -52,7 +52,11 @@ class FakeGit extends Git {
   fetchUrlOf = notUsed;
   fetch = notUsed;
   push = notUsed;
+  pushCommit = notUsed;
+  writeCommit = notUsed;
+  mergedTree = notUsed;
   contains = notUsed;
+  addsNothing = notUsed;
   conflictsOf = notUsed;
   exclusively = notUsed;
   findCommit = notUsed;
@@ -63,14 +67,12 @@ class FakeGit extends Git {
   worktreeOf = notUsed;
   remoteHasBranch = notUsed;
   mergeBase = notUsed;
-  rebase = notUsed;
   merge = notUsed;
   fastForward = notUsed;
   hasUncommittedChanges = notUsed;
   mergeConflicts = notUsed;
   concludeMerge = notUsed;
   abortMerge = notUsed;
-  hasMergesSince = notUsed;
   addWorktree = notUsed;
   checkoutDetached = notUsed;
   removeWorktree = notUsed;

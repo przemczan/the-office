@@ -38,26 +38,24 @@ describe("CommandLineGit.conflictsOf", REAL_GIT_TEST, () => {
   });
 });
 
-describe("CommandLineGit.rebase", REAL_GIT_TEST, () => {
-  it("rebases the worktree's branch onto a moved base", async () => {
-    const { path, branch, main } = await besideAMovedMain("export {};\n");
+describe("CommandLineGit.pushCommit", REAL_GIT_TEST, () => {
+  it("pushes a commit no branch names to a branch on the remote, whose tracking ref follows", async () => {
+    const { branch, main } = await besideAMovedMain("export {};\n");
+    const commit = await git.writeCommit(
+      repository.path,
+      `refs/heads/${branch}`,
+      [main],
+      "Land the Task",
+      serviceVariables,
+    );
+    const target = { remote: "origin", branch: `landed-${worktrees.count}` };
 
-    await expect(git.rebase(path, main, serviceVariables)).resolves.toEqual([]);
+    await git.pushCommit(repository.path, commit, target, serviceVariables);
 
-    expect(gitIn(path, "rev-parse", "HEAD^")).toBe(main);
-    expect(gitIn(path, "symbolic-ref", "--short", "HEAD")).toBe(branch);
-    expect(await readFile(join(path, "src", "index.ts"), "utf8")).toBe("export const task = 1;\n");
-  });
-
-  it("names the conflicted files and puts the branch back as it was", async () => {
-    const { path, branch, main } = await besideAMovedMain("export const other = 2;\n");
-    const before = gitIn(path, "rev-parse", "HEAD");
-
-    await expect(git.rebase(path, main, serviceVariables)).resolves.toEqual(["src/index.ts"]);
-
-    expect(gitIn(path, "rev-parse", "HEAD")).toBe(before);
-    expect(gitIn(path, "symbolic-ref", "--short", "HEAD")).toBe(branch);
-    expect(gitIn(path, "status", "--porcelain")).toBe("");
+    expect(gitIn(repository.originPath, "rev-parse", `refs/heads/${target.branch}`)).toBe(commit);
+    expect(gitIn(repository.path, "rev-parse", `refs/remotes/origin/${target.branch}`)).toBe(
+      commit,
+    );
   });
 });
 
@@ -79,7 +77,7 @@ describe("CommandLineGit merges", REAL_GIT_TEST, () => {
   });
 
   it("puts the worktree and the branch back as they were when a merge is aborted", async () => {
-    const { path, branch, main } = await besideAMovedMain("export const other = 2;\n");
+    const { path, main } = await besideAMovedMain("export const other = 2;\n");
     const before = gitIn(path, "rev-parse", "HEAD");
     await git.merge(path, main, "Merge main", serviceVariables);
 
@@ -89,9 +87,6 @@ describe("CommandLineGit merges", REAL_GIT_TEST, () => {
     expect(gitIn(path, "status", "--porcelain")).toBe("");
     expect(await readFile(indexPath(path), "utf8")).toBe("export const task = 1;\n");
     await expect(git.mergeConflicts(path)).resolves.toEqual([]);
-    await expect(git.hasMergesSince(repository.path, main, `refs/heads/${branch}`)).resolves.toBe(
-      false,
-    );
     await expect(git.abortMerge(path, serviceVariables)).resolves.toBeUndefined();
   });
 });

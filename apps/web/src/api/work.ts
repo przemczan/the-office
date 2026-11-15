@@ -491,6 +491,11 @@ export function changeDescription(id: string, description: string): Promise<Task
   return sendToApi("PUT", `${taskPath(id)}/description`, { description }, taskSchema);
 }
 
+/** The Task's commit message, until Publish lands it; empty takes the default again. */
+export function changeCommitMessage(id: string, message: string): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/commit-message`, { message }, taskSchema);
+}
+
 /** Plan with whoever holds Plans: the Task moves to Planning, and its planning Thread opens. */
 export function planTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/planning`, {}, taskSchema);
@@ -742,6 +747,7 @@ export const workEventInvalidations: Readonly<
   "task.priority-changed": () => [TASKS],
   "task.title-changed": () => [TASKS],
   "task.description-changed": () => [TASKS],
+  "task.commit-message-changed": () => [TASKS],
   "task.tags-changed": () => [TASKS],
   "task.marked-planned": () => [TASKS],
   "task.reordered": () => [TASKS],

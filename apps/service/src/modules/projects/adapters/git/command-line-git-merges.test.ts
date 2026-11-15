@@ -39,6 +39,54 @@ describe("CommandLineGit.conflictsOf", REAL_GIT_TEST, () => {
   });
 });
 
+describe("CommandLineGit.writeCommit", REAL_GIT_TEST, () => {
+  it("writes one commit of a branch's tree on the parents given, in the message given, moving no ref", async () => {
+    const { branch, main } = await besideAMovedMain("export {};\n");
+    const before = gitIn(repository.path, "rev-parse", branch);
+    const message = "Rename a device\n\nAdds a rename dialog.";
+
+    const commit = await git.writeCommit(
+      repository.path,
+      `refs/heads/${branch}`,
+      [main],
+      message,
+      serviceVariables,
+    );
+
+    expect(gitIn(repository.path, "rev-list", "--parents", "--max-count=1", commit)).toBe(
+      `${commit} ${main}`,
+    );
+    expect(gitIn(repository.path, "rev-parse", `${commit}^{tree}`)).toBe(
+      gitIn(repository.path, "rev-parse", `${branch}^{tree}`),
+    );
+    expect(gitIn(repository.path, "log", "--format=%B", "--max-count=1", commit)).toBe(message);
+    expect(gitIn(repository.path, "rev-parse", branch)).toBe(before);
+  });
+});
+
+describe("CommandLineGit.addsNothing", REAL_GIT_TEST, () => {
+  it("tells a branch whose changes the base holds as a commit of their own from one that adds", async () => {
+    const { branch, main } = await besideAMovedMain("export {};\n");
+    const ref = `refs/heads/${branch}`;
+    const merged = await git.mergedTree(repository.path, main, ref);
+    if (merged === undefined) throw new Error("The branch didn't merge cleanly.");
+    const landed = await git.writeCommit(repository.path, merged, [main], "Land", serviceVariables);
+
+    await expect(git.addsNothing(repository.path, main, ref)).resolves.toBe(false);
+    await expect(git.addsNothing(repository.path, landed, ref)).resolves.toBe(true);
+    await expect(git.addsNothing(repository.path, ref, main)).resolves.toBe(false);
+    await expect(git.addsNothing(repository.path, ref, `${ref}^`)).resolves.toBe(true);
+  });
+
+  it("finds no merged tree for a branch that would conflict", async () => {
+    const { branch, main } = await besideAMovedMain("export const other = 2;\n");
+
+    await expect(git.mergedTree(repository.path, main, `refs/heads/${branch}`)).resolves.toBe(
+      undefined,
+    );
+  });
+});
+
 function indexPath(worktreePath: string): string {
   return join(worktreePath, "src", "index.ts");
 }
@@ -57,9 +105,6 @@ describe("CommandLineGit merges", REAL_GIT_TEST, () => {
     );
     expect(gitIn(path, "log", "--format=%s", "--max-count=1")).toBe("Merge main into the Task");
     expect(gitIn(path, "symbolic-ref", "--short", "HEAD")).toBe(branch);
-    await expect(git.hasMergesSince(repository.path, main, `refs/heads/${branch}`)).resolves.toBe(
-      true,
-    );
   });
 
   it("leaves a conflicting merge in progress, then commits it once the markers are gone", async () => {

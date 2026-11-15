@@ -256,6 +256,60 @@ export class CommandLineGit extends Git {
     );
   }
 
+  async pushCommit(
+    repositoryPath: string,
+    commit: string,
+    target: Upstream,
+    variables: GitVariables,
+  ): Promise<void> {
+    const remote = await this.pushUrlOf(repositoryPath, target.remote);
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: [
+          "push",
+          "--quiet",
+          "--",
+          target.remote,
+          `${commit}:refs/heads/${target.branch}`,
+        ],
+        remote,
+        variables,
+        timeoutMs: LONG_TIMEOUT_MS,
+      }),
+    );
+  }
+
+  async writeCommit(
+    repositoryPath: string,
+    treeish: string,
+    parents: readonly string[],
+    message: string,
+    variables: GitVariables,
+  ): Promise<string> {
+    const output = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: [
+        "commit-tree",
+        `${treeish}^{tree}`,
+        ...parents.flatMap((parent) => ["-p", parent]),
+        "-F",
+        "-",
+      ],
+      variables,
+      input: message,
+    });
+    return output.trim();
+  }
+
+  async mergedTree(
+    repositoryPath: string,
+    one: string,
+    other: string,
+  ): Promise<string | undefined> {
+    return this.mergedTreeOf(repositoryPath, one, other);
+  }
+
   /** Where a push to `remote` goes: its push URL, `pushInsteadOf` applied, or else its URL. */
   private async pushUrlOf(repositoryPath: string, remote: string): Promise<string> {
     const pushUrl = await this.process.run({
@@ -264,6 +318,18 @@ export class CommandLineGit extends Git {
     });
     // git refuses a name that is no configured remote, which then is a URL or path itself.
     return pushUrl.exitCode === 0 ? pushUrl.stdout.trim() : this.fetchUrlOf(repositoryPath, remote);
+  }
+
+  async addsNothing(repositoryPath: string, base: string, revision: string): Promise<boolean> {
+    if (await this.contains(repositoryPath, base, revision)) return true;
+    const [merged, baseTree] = await Promise.all([
+      this.mergedTreeOf(repositoryPath, base, revision),
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["rev-parse", "--verify", `${base}^{tree}`],
+      }),
+    ]);
+    return merged === baseTree.trim();
   }
 
   async contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean> {
@@ -400,48 +466,6 @@ export class CommandLineGit extends Git {
     return output.trim();
   }
 
-  async rebase(
-    worktreePath: string,
-    onto: string,
-    variables: GitVariables,
-  ): Promise<readonly string[]> {
-    // A rebase moves the branch's ref, which lives with the refs every worktree shares.
-    return this.locked(worktreePath, async () => {
-      // The same rebase whatever the user's git config says: no stash, no other branches moved,
-      // no pre-rebase hook, as The Office's commits run none either.
-      const gitArguments = [
-        "rebase",
-        "--quiet",
-        "--no-verify",
-        "--no-autostash",
-        "--no-update-refs",
-        onto,
-      ];
-      const result = await this.process.run({ folder: worktreePath, gitArguments, variables });
-      if (result.exitCode === 0) return [];
-      const conflicted = await this.process
-        .output({
-          folder: worktreePath,
-          gitArguments: ["diff", "--name-only", "--diff-filter=U", "-z"],
-          variables,
-        })
-        .catch(() => "");
-      // Put the branch back as it was, conflicted or failed for another reason.
-      await this.process.run({
-        folder: worktreePath,
-        gitArguments: ["rebase", "--abort"],
-        variables,
-      });
-      const files = nulSeparated(conflicted);
-      if (files.length > 0) return files;
-      throw new GitCommandFailed(
-        gitArguments,
-        result.exitCode,
-        `${result.stderr}\n${result.stdout}`.trim(),
-      );
-    });
-  }
-
   async merge(
     worktreePath: string,
     revision: string,
@@ -545,14 +569,6 @@ export class CommandLineGit extends Git {
         variables,
       });
     });
-  }
-
-  async hasMergesSince(repositoryPath: string, base: string, revision: string): Promise<boolean> {
-    const output = await this.process.output({
-      folder: repositoryPath,
-      gitArguments: ["rev-list", "--merges", "--max-count=1", revision, `^${base}`],
-    });
-    return output.trim() !== "";
   }
 
   async addWorktree(

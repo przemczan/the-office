@@ -26,7 +26,7 @@ afterEach(async () => {
 });
 
 describe("A Publish Stage", () => {
-  it("publishes the Task's branch with a pull request worded from its record, then removes the worktree", async () => {
+  it("publishes the Task's branch with its commit message, marks the message published, then removes the worktree", async () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Added the dialog."))]);
 
     const taskId = await walkStages(pipelines, [implement, publish]);
@@ -34,24 +34,15 @@ describe("A Publish Stage", () => {
     expect(pipelines.publishing.published).toEqual([
       {
         taskId,
-        text: {
-          title: "Rename a device",
-          body: [
-            "## Definition of Done",
-            "",
-            "- [x] The new name shows on the list",
-            "- [x] The rename persists",
-            "",
-            "## Stage results",
-            "",
-            "### Implement",
-            "",
-            "Added the dialog.",
-          ].join("\n"),
+        message: {
+          subject: "Rename a device",
+          body: "Adds a rename dialog to the device page.",
+          whole: "Rename a device\n\nAdds a rename dialog to the device page.",
         },
         target: "publishing-mode",
       },
     ]);
+    expect(pipelines.tasks.commitMessagesPublished).toEqual([taskId]);
     const [implemented, published] = await runsOf(pipelines, taskId);
     expect(published?.outcome).toEqual({
       status: "done",
@@ -78,6 +69,7 @@ describe("A Publish Stage", () => {
     ]);
 
     expect(pipelines.publishing.published.map(({ target }) => target)).toEqual(["branch-only"]);
+    expect(pipelines.tasks.commitMessagesPublished).toEqual([]);
     expect((await runsOf(pipelines, taskId)).at(-1)?.outcome).toEqual({
       status: "done",
       summary:
@@ -195,6 +187,8 @@ describe("A Publish Stage", () => {
         branch: "office/task",
         into: { remote: "origin", branch: initiativeBranch },
         commit: published,
+        subject: "Rename a device",
+        head: "e".repeat(40),
         baseTakenIn: "by-merge",
         basesTakenIn: [initiativeBranch, "main"],
       },
@@ -229,7 +223,7 @@ describe("A Publish Stage", () => {
       stageKey: "publish",
       outcome: {
         status: "done",
-        summary: `Merged ${initiativeBranch} and main, which had moved on, into office/task, then merged it into ${initiativeBranch} on origin, which is now at ffffffff.`,
+        summary: `Merged ${initiativeBranch} and main, which had moved on, into office/task, then landed office/task on ${initiativeBranch} on origin as one commit, ffffffff "Rename a device".`,
       },
     });
     expect(pipelines.publishing.published.map(({ target }) => target)).toEqual([

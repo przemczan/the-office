@@ -3,13 +3,13 @@ import type { Project } from "../domain/project.js";
 import {
   baseMovedError,
   type BaseTakenIn,
+  type CommitMessage,
   noRemoteError,
   pullRequestBlockedError,
   pushFailure,
   type Publication,
   type PublishingBranchPush,
   type PublishTarget,
-  type PullRequestText,
   type RemoteBranch,
 } from "../domain/publication.js";
 import { mergedBase, mergeMessage } from "../domain/resolve.js";
@@ -38,18 +38,20 @@ interface PublishContext {
 /**
  * Publish (spec §2.3, §9): The Office's own git takes a Task's committed branch to the remote its
  * base branch tracks, by the Project's publishing mode (spec §9) unless the Stage's target pushes
- * the branch only. Push + PR pushes the branch and opens a pull request; merge fast-forwards the
- * base branch on the remote to the branch, as the click-through's `git merge --ff-only` does,
- * taking in the fetched base first when it moved on. A branch that would conflict with the
+ * the branch only. Push + PR pushes the branch and opens a pull request worded from the Task's
+ * commit message, ready for a squash merge; merge lands the Task on the base branch on the remote
+ * as one commit with that message, whose parent is the fetched base, taking the base into the
+ * Task's branch first by one merge commit when it moved on. The Stage commits stay on the Task's
+ * branch alone. A branch that would conflict with the
  * freshly fetched base goes to Resolve in both (`Resolving`). Each runs with the repository to
  * itself, so nothing moves a ref between the check and the push, and records where the published
  * branch forked from the base. Pushes run with the Project's variables on the Office identity
  * (spec §5.5 Defaults), which signs them in; Push + PR is refused before anything is pushed when
  * no pull request could be opened on the remote. The user's checkout and local base branch are
  * left as they are. A Task of an Initiative with a Pipeline publishes into its Initiative's branch
- * instead, by merge whatever the publishing mode (`mergeIntoInitiativeBranch`); a Publishing Task
- * publishes that branch itself into the base branch by the publishing mode
- * (`publishPublishingTask`).
+ * instead, as one commit whatever the publishing mode (`mergeIntoInitiativeBranch`); a Publishing
+ * Task publishes that branch itself into the base branch by the publishing mode, carrying those
+ * commits unchanged (`publishPublishingTask`).
  */
 @Injectable()
 export class Publishing {
@@ -64,15 +66,15 @@ export class Publishing {
   async publish(
     project: Project,
     taskId: string,
-    text: PullRequestText,
+    message: CommitMessage,
     target: PublishTarget,
   ): Promise<Publication> {
     const taskBase = await this.taskBases.of(project, taskId);
     if (taskBase.kind === "publishing-task") {
-      return this.publishPublishingTask(project, taskId, taskBase.branch, text, target);
+      return this.publishPublishingTask(project, taskId, taskBase.branch, message, target);
     }
     if (taskBase.kind === "initiative-branch" && target === "publishing-mode") {
-      return this.mergeIntoInitiativeBranch(project, taskId, taskBase.branch);
+      return this.mergeIntoInitiativeBranch(project, taskId, taskBase.branch, message);
     }
     const branch = await this.worktrees.branchOf(project, taskId);
     const base = await this.git.upstreamOf(project.path, project.baseBranch);
@@ -89,13 +91,13 @@ export class Publishing {
             );
           });
         const context: PublishContext = { taskId, branch, base, baseCommit, variables };
-        if (await this.git.contains(project.path, baseCommit, branchRef(branch))) {
+        if (await this.git.addsNothing(project.path, baseCommit, branchRef(branch))) {
           return { kind: "nothing-to-publish", branch, base } as const;
         }
         if (target === "branch-only") return this.pushBranchOnly(project, context);
         return project.publishingMode === "merge"
-          ? this.merge(project, context)
-          : this.pushAndOpenPullRequest(project, context, text);
+          ? this.merge(project, context, message)
+          : this.pushAndOpenPullRequest(project, context, message);
       })
       .catch(publishFailure);
   }
@@ -104,7 +106,8 @@ export class Publishing {
    * Publish into the Task's Initiative's branch (spec §2.3, "Publishing into an Initiative's
    * branch"): the Task's branch takes in the freshly fetched Initiative's branch, then the base
    * branch, each by a fast-forward or one merge commit, never a rebase, and the Initiative's branch
-   * fast-forwards to it. Pushed without force to the base branch's remote when the base branch
+   * moves on by one commit with the Task's commit message and the Task's tree (`landingParents`
+   * names its parents). Pushed without force to the base branch's remote when the base branch
    * tracks one, before the local branch moves, so a refused push leaves both as they were; only
    * the local branch moves otherwise. Never a pull request. A merge that would conflict goes to
    * Resolve; a branch gone or diverged from its remote's fails. A branch held by this Project's
@@ -115,6 +118,7 @@ export class Publishing {
     project: Project,
     taskId: string,
     initiativeBranch: string,
+    message: CommitMessage,
   ): Promise<Publication> {
     const branch = await this.worktrees.branchOf(project, taskId);
     const ref = branchRef(branch);
@@ -136,16 +140,17 @@ export class Publishing {
             );
           });
         const into = mergedBase(initiative.branch, initiative.remote);
-        if (await this.git.contains(project.path, initiative.commit, ref)) {
+        if (await this.git.addsNothing(project.path, initiative.commit, ref)) {
           return { kind: "nothing-to-publish", branch, base: into };
         }
         const holder = await this.holderOf(project, initiative.branch, variables);
         if (holder.kind === "failed") return holder;
         const context = { project, taskId, branch, variables };
-        const bases: readonly FreshBase[] = [
-          { commit: initiative.commit, name: into },
-          { commit: base.commit, name: mergedBase(project.baseBranch, base.fetchedFrom) },
-        ];
+        const baseBranch: FreshBase = {
+          commit: base.commit,
+          name: mergedBase(project.baseBranch, base.fetchedFrom),
+        };
+        const bases: readonly FreshBase[] = [{ commit: initiative.commit, name: into }, baseBranch];
         const basesTakenIn: string[] = [];
         for (const each of bases) {
           const takenIn = await this.takeInByMerge(context, each);
@@ -157,7 +162,15 @@ export class Publishing {
           if (takenIn !== "not-needed") basesTakenIn.push(each.name.branch);
         }
         const baseTakenIn: BaseTakenIn = basesTakenIn.length > 0 ? "by-merge" : "not-needed";
-        const commit = await this.git.commitOf(project.path, ref);
+        const head = await this.git.commitOf(project.path, ref);
+        const parents = await this.landingParents(project, context, initiative, baseBranch);
+        const commit = await this.git.writeCommit(
+          project.path,
+          head,
+          parents,
+          message.whole,
+          variables,
+        );
         await this.moveInitiativeBranch(project, context, initiative, commit, holder);
         await this.git.setRef(
           project.path,
@@ -174,6 +187,8 @@ export class Publishing {
           branch,
           into,
           commit,
+          subject: message.subject,
+          head,
           baseTakenIn,
           basesTakenIn,
           ...(holder.kind === "publishing-task" ? { movedWorktreeOf: holder.taskId } : {}),
@@ -220,7 +235,7 @@ export class Publishing {
     project: Project,
     taskId: string,
     branch: string,
-    text: PullRequestText,
+    message: CommitMessage,
     target: PublishTarget,
   ): Promise<Publication> {
     const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
@@ -272,7 +287,7 @@ export class Publishing {
         if (target === "branch-only") return this.pushBranchOnly(project, context);
         return project.publishingMode === "merge"
           ? this.mergePublishingTask(project, context, worktree.path)
-          : this.pushAndOpenPullRequest(project, context, text);
+          : this.pushAndOpenPullRequest(project, context, message);
       })
       .catch(publishFailure);
   }
@@ -312,7 +327,7 @@ export class Publishing {
     const commit = await this.git.commitOf(project.path, ref);
     await this.moveLocalBase(project, commit);
     await this.recordPublished(project, context);
-    return { kind: "merged", branch, into: base, commit, baseTakenIn };
+    return { kind: "merged", branch, into: base, commit, head: commit, baseTakenIn };
   }
 
   /**
@@ -394,6 +409,33 @@ export class Publishing {
   }
 
   /**
+   * The parents of the one commit that lands the Task on its Initiative's branch: the branch alone
+   * when it holds the base already; else the base's own merge into it first, so the base stays one
+   * merge commit there and the Task's commit adds only the Task's work; and when that merge would
+   * conflict, the branch and the base both, the Task's tree holding the merge Resolve made.
+   */
+  private async landingParents(
+    project: Project,
+    { variables }: InitiativePublishContext,
+    initiative: FreshInitiativeBranch,
+    base: FreshBase,
+  ): Promise<readonly string[]> {
+    if (await this.git.contains(project.path, initiative.commit, base.commit)) {
+      return [initiative.commit];
+    }
+    const merged = await this.git.mergedTree(project.path, initiative.commit, base.commit);
+    if (merged === undefined) return [initiative.commit, base.commit];
+    const baseMerge = await this.git.writeCommit(
+      project.path,
+      merged,
+      [initiative.commit, base.commit],
+      mergeMessage(base.name, initiative.branch),
+      variables,
+    );
+    return [baseMerge];
+  }
+
+  /**
    * Moves the Initiative's branch to `commit`: its remote's first, by a push that never forces,
    * then the local branch from the commit it was read at, so neither moves past what someone else
    * moved it to meanwhile. A Publishing Task's worktree holding it is fast-forwarded there, so its
@@ -408,7 +450,7 @@ export class Publishing {
   ): Promise<void> {
     if (initiative.remote) {
       const into = initiative.remote;
-      await this.git.push(project.path, branch, into, variables).catch((error: unknown) => {
+      await this.git.pushCommit(project.path, commit, into, variables).catch((error: unknown) => {
         throw failure(error, (said) => pushFailure(branch, into, said));
       });
     }
@@ -437,7 +479,7 @@ export class Publishing {
   private async pushAndOpenPullRequest(
     project: Project,
     context: PublishContext,
-    { title, body }: PullRequestText,
+    { subject, body }: CommitMessage,
   ): Promise<Publication> {
     const { branch, base, baseCommit } = context;
     // Before Resolve too: a branch Resolve took on would only be refused after it.
@@ -451,7 +493,7 @@ export class Publishing {
     await this.push(project, context, { remote: base.remote, branch });
     await this.recordPublished(project, context);
     const pullRequest = await this.pullRequests
-      .open({ remoteUrl, baseBranch: base.branch, branch, title, body })
+      .open({ remoteUrl, baseBranch: base.branch, branch, title: subject, body })
       .catch((error: unknown) => {
         if (error instanceof PullRequestRefused) throw new PublishFailed(error.message);
         throw error;
@@ -471,55 +513,45 @@ export class Publishing {
   }
 
   /**
-   * Fast-forwards the remote's base to the Task's branch, taking in the fetched base first when it
-   * moved on: by a rebase (the user's answer of 2026-10-26), or by a merge when Resolve merged the
-   * branch before, as a rebase drops merge commits and so the conflicts they resolved come back
-   * (spec §2.3, "Conflicts at Publish"). One that would conflict leaves the branch as it was.
+   * Lands the Task on the remote's base as one commit with its commit message (spec §2.3): the
+   * fetched base taken into the Task's branch first by one merge commit when it moved on, never a
+   * rebase, which would drop a merge Resolve made and bring its conflicts back ("Conflicts at
+   * Publish"); then a commit of the branch's tree whose one parent is the fetched base, pushed
+   * without force, so the base gains that commit alone and the Stage commits stay on the Task's
+   * branch. One that would conflict leaves the branch as it was.
    */
-  private async merge(project: Project, context: PublishContext): Promise<Publication> {
-    const { branch } = context;
-    const ref = branchRef(branch);
-    const baseTakenIn = await this.takeInBase(project, context);
-    if (typeof baseTakenIn !== "string") return baseTakenIn;
-    await this.push(project, context, context.base);
-    await this.recordPublished(project, context);
-    const commit = await this.git.commitOf(project.path, ref);
-    return { kind: "merged", branch, into: context.base, commit, baseTakenIn };
-  }
-
-  /** How the branch took in the fetched base, or the conflict that kept it from doing so. */
-  private async takeInBase(
+  private async merge(
     project: Project,
     context: PublishContext,
-  ): Promise<BaseTakenIn | Publication> {
-    const { branch, baseCommit, base, variables } = context;
-    const ref = branchRef(branch);
-    if (await this.git.contains(project.path, ref, baseCommit)) return "not-needed";
-    const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, ref);
-    if (conflictedFiles.length > 0) return conflicting(context, conflictedFiles);
-    const worktreePath = this.worktrees.pathOf(project, context.taskId);
-    if (await this.git.hasMergesSince(project.path, baseCommit, ref)) {
-      const merge = await this.git
-        .merge(worktreePath, baseCommit, mergeMessage(base, branch), variables)
-        .catch((error: unknown) => {
-          throw failure(
-            error,
-            (said) => `Merging ${base.branch} into ${branch} failed. git said: ${said}`,
-          );
-        });
-      if (merge.kind === "merged") return "by-merge";
-      await this.git.abortMerge(worktreePath, variables);
-      return conflicting(context, merge.conflictedFiles);
-    }
-    const rebaseConflicts = await this.git
-      .rebase(worktreePath, baseCommit, variables)
-      .catch((error: unknown) => {
-        throw failure(
-          error,
-          (said) => `Rebasing ${branch} onto ${base.branch} failed. git said: ${said}`,
-        );
-      });
-    return rebaseConflicts.length > 0 ? conflicting(context, rebaseConflicts) : "by-rebase";
+    message: CommitMessage,
+  ): Promise<Publication> {
+    const { branch, base, baseCommit, variables } = context;
+    const baseTakenIn = await this.takeInByMerge(
+      { project, ...context },
+      { commit: baseCommit, name: base },
+    );
+    if (typeof baseTakenIn !== "string") return baseTakenIn;
+    const head = await this.git.commitOf(project.path, branchRef(branch));
+    const commit = await this.git.writeCommit(
+      project.path,
+      head,
+      [baseCommit],
+      message.whole,
+      variables,
+    );
+    await this.git.pushCommit(project.path, commit, base, variables).catch((error: unknown) => {
+      throw failure(error, (said) => pushFailure(branch, base, said));
+    });
+    await this.recordPublished(project, context);
+    return {
+      kind: "merged",
+      branch,
+      into: base,
+      commit,
+      subject: message.subject,
+      head,
+      baseTakenIn,
+    };
   }
 
   /**

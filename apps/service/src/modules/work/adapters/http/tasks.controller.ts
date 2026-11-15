@@ -12,6 +12,7 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  commitMessageChangeSchema,
   definitionOfDoneChangeSchema,
   descriptionChangeSchema,
   makeAPlanSchema,
@@ -24,6 +25,7 @@ import {
   taskMoveCheckQuerySchema,
   taskMoveSchema,
   taskPlacementSchema,
+  type CommitMessageChange,
   type DefinitionOfDoneChange,
   type DescriptionChange,
   type MakeAPlan,
@@ -104,6 +106,15 @@ export class TasksController {
     @Body(new ContractPipe(descriptionChangeSchema)) { description }: DescriptionChange,
   ): Promise<TaskResponse> {
     return toTaskResponse(await this.tasks.changeDescription(id, description));
+  }
+
+  /** The user's commit message, until Publish lands it (spec §2.3). */
+  @Put(":id/commit-message")
+  async changeCommitMessage(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(commitMessageChangeSchema)) { message }: CommitMessageChange,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.changeCommitMessage(id, message));
   }
 
   @Put(":id/tags")

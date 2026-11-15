@@ -1,6 +1,12 @@
 /** A Project's publishing mode: Push + PR, or merge. */
 export type PublishingMode = "push-and-pull-request" | "merge";
 
+/** The Task's commit message, and whether it was written or is the default. */
+export interface TaskCommitMessage {
+  readonly text: string;
+  readonly written: boolean;
+}
+
 /** A started Task's record, as an Agent Stage works from it. */
 export interface TaskRecord {
   readonly title: string;
@@ -8,6 +14,11 @@ export interface TaskRecord {
   readonly descriptionSection: string;
   readonly plan: string;
   readonly definitionOfDone: readonly string[];
+  /**
+   * The message of the one commit Publish lands the Task as (spec §2.3): the one written, or the
+   * default, the title with a short summary below it, while none is (`written` false).
+   */
+  readonly commitMessage: TaskCommitMessage;
   /** Each of the Task's Attachments, as a line of a Brief; none when it has none. */
   readonly attachmentLines: readonly string[];
   /**

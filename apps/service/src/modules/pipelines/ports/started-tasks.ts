@@ -99,4 +99,10 @@ export abstract class StartedTasks {
    * for them before its next Stage (spec 2.1, "Publishing Tasks").
    */
   abstract waitingFor(taskId: string): Promise<readonly TaskBlocker[]>;
+
+  /**
+   * Publish landed the Task's commit message, as one commit or a pull request: from now on it no
+   * longer changes (spec §2.3, "The Task's commit message").
+   */
+  abstract markCommitMessagePublished(taskId: string): Promise<unknown>;
 }

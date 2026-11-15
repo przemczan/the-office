@@ -41,6 +41,7 @@ import { ProjectProposals } from "./adapters/conversations/project-proposals.js"
 import { InitiativeThreadRecords } from "./adapters/conversations/initiative-thread-records.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
 import { OnboardingOfficeTools } from "./adapters/office-tools/onboarding-office-tools.js";
+import { CommitMessageOfficeTools } from "./adapters/office-tools/commit-message-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { ShapingOfficeTools } from "./adapters/office-tools/shaping-office-tools.js";
 import { WorkOfficeActions } from "./adapters/office-actions/work-office-actions.js";
@@ -286,6 +287,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         WorkWebEvents,
         WorkOfficeTools,
         PlanningOfficeTools,
+        CommitMessageOfficeTools,
         ShapingOfficeTools,
         WorkOfficeActions,
         AttachmentOfficeTools,

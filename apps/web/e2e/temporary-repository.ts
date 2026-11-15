@@ -17,19 +17,12 @@ export async function createTemporaryRepository(): Promise<TemporaryRepository> 
   await mkdir(repository);
   await writeFile(path.join(repository, "README.md"), "# Admin panel\n");
   runGit(repository, "init", "--quiet", "--initial-branch", "main");
+  // An identity of its own, for The Office's commits in it too (Publish's one commit, a merge):
+  // the Linux check's container has none configured.
+  runGit(repository, "config", "user.name", "The Office");
+  runGit(repository, "config", "user.email", "office@localhost");
   runGit(repository, "add", ".");
-  // An identity of its own: the Linux check's container has none configured.
-  runGit(
-    repository,
-    "-c",
-    "user.name=The Office",
-    "-c",
-    "user.email=office@localhost",
-    "commit",
-    "--quiet",
-    "--message",
-    "First commit",
-  );
+  runGit(repository, "commit", "--quiet", "--message", "First commit");
   return {
     folder,
     path: repository,
