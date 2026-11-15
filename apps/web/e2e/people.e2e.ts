@@ -1235,7 +1235,9 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await chat.getByRole("textbox", { name: "Message" }).press("Enter");
 
   await expect(chat.getByText("The tests run with npm test.")).toBeVisible();
-  await expect(chat.getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
+  await expect(chat.getByText(/^New session · you chose it · brief ~\d/)).toBeVisible();
+  // The earlier session's messages fold into one closed block.
+  await expect(chat.getByText(/^Earlier session · \d+ messages?/)).toBeVisible();
   // A fresh session's reading starts over.
   await expect(contextLabel(page)).toHaveText(/^Continues · cache warm, \d+ min left$/);
   await expect(chat.getByRole("img", { name: /^Context: 21k of / })).toBeVisible();
@@ -1243,7 +1245,9 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   // The browser remembers the switch.
   await page.reload();
   await expect(detailsSwitch(chatWith(page, "Jan"))).toHaveAttribute("aria-checked", "true");
-  await expect(chatWith(page, "Jan").getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
+  await expect(
+    chatWith(page, "Jan").getByText(/^New session · you chose it · brief ~\d/),
+  ).toBeVisible();
 });
 
 test("a Thread is renamed, and an old one stays readable and continues", async ({ page }) => {
@@ -1262,6 +1266,8 @@ test("a Thread is renamed, and an old one stays readable and continues", async (
   await chat.getByRole("button", { name: "Threads", exact: true }).click();
   await expect(chat.getByText("Threads · 2")).toBeVisible();
   await chat.getByRole("button", { name: /^Deploys/ }).click();
+  // Its first answer came in the session before the fresh one, folded until opened.
+  await chat.getByText(/^Earlier session · \d+ messages?/).click();
   await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
   await chat.getByRole("textbox", { name: "Message" }).fill("Thanks.");
   await chat.getByRole("textbox", { name: "Message" }).press("Enter");

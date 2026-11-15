@@ -153,6 +153,17 @@ describe("the list", () => {
     expect(itemTitles(page, "Ended")).toEqual([devServer.description]);
   });
 
+  it("shows a Sub-agent's context size next to its time as it grows, and none before the engine gives one", async () => {
+    service.list = [explore, devServer];
+    const page = await rendered();
+    expect(item(page, explore.description)?.textContent).not.toContain("context");
+    await sent(
+      itemEvent("thread.sub-agent-changed", { ...explore, totalTokens: 45_000, revision: 1 }),
+    );
+    expect(item(page, explore.description)?.textContent).toMatch(/ · 45k context$/);
+    expect(item(page, devServer.description)?.textContent).not.toContain("context");
+  });
+
   it("keeps showing the item it showed first as that one ends", async () => {
     service.list = [devServer, explore];
     const page = await rendered();

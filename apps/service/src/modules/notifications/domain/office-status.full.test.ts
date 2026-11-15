@@ -9,6 +9,7 @@ function nowWith(parts: Pick<Now, "needsYou" | "running">): Now {
   return {
     ...parts,
     queue: [],
+    shaping: [],
     tokensToday: NO_TOKENS,
     desks: { inUse: parts.running.length, limit: 3 },
     usageWindows: [],

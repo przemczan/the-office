@@ -306,3 +306,111 @@ it("shows Allow changes and a held Stage as The Office's small notes, a run on a
   expect(page.querySelector(".message-log-line")?.textContent).toBe("Implement · run 2 done");
   act(() => root.unmount());
 });
+
+it("rules off a new session after /clear and folds the earlier one, closed, until opened", () => {
+  const page = document.createElement("div");
+  const root = createRoot(page);
+  const at = "2026-11-03T10:00:00.000Z";
+  const contextLine = (
+    id: string,
+    move: "fresh" | "hand-off",
+    reason: "new-thread" | "your-choice",
+    contextTokens: number,
+  ): Message => ({
+    at,
+    id,
+    kind: "context",
+    move,
+    reason,
+    contextTokens,
+    briefTokens: 3_000,
+    brief: `The Brief of ${id}`,
+  });
+  const messages: Message[] = [
+    contextLine("c1", "fresh", "new-thread", 0),
+    { at, id: "1", kind: "person", roleKey: "developer", text: "Before" },
+    { at, id: "2", kind: "person", roleKey: "developer", text: "Still before" },
+    toolCall("3", "npm test"),
+    contextLine("c2", "fresh", "your-choice", 85_000),
+    { at, id: "4", kind: "person", roleKey: "developer", text: "After" },
+  ];
+  const show = (details: boolean): void =>
+    act(() =>
+      root.render(
+        <RenderedList
+          messages={messages}
+          personName="Jan"
+          answering={false}
+          stageThread={false}
+          details={details}
+        />,
+      ),
+    );
+
+  show(false);
+  const rule = page.querySelector(".session-rule");
+  expect(rule?.querySelector(".session-rule-line")?.textContent).toBe(
+    "New session · you chose it · brief ~3k",
+  );
+  expect(rule?.querySelector(".message-brief summary")?.textContent).toBe("Brief");
+  const earlier = page.querySelector<HTMLDetailsElement>("details.earlier-session");
+  expect(earlier?.open).toBe(false);
+  expect(earlier?.querySelector("summary")?.textContent).toBe(
+    "Earlier session · 2 messages · ended at 85k context",
+  );
+  // The current session stays open, after the rule.
+  expect(page.querySelector(".message-list > .turn")?.textContent).toContain("After");
+
+  if (!earlier) throw new Error("No earlier session.");
+  earlier.open = true;
+  act(() => void earlier.dispatchEvent(new Event("toggle")));
+  // Opened, the earlier session shows as before: one turn of both messages.
+  const turns = earlier.querySelectorAll(".earlier-session-log > .turn");
+  expect(turns).toHaveLength(1);
+  expect(turns[0]?.textContent).toContain("Still before");
+
+  // With Details on, its context line and tool call count too.
+  show(true);
+  expect(earlier.querySelector("summary")?.textContent).toBe(
+    "Earlier session · 4 messages · ended at 85k context",
+  );
+  expect(page.querySelectorAll(".session-rule")).toHaveLength(1);
+  act(() => root.unmount());
+});
+
+it("shows a Thread with one session as a plain log", () => {
+  const page = document.createElement("div");
+  const root = createRoot(page);
+  const at = "2026-11-03T10:00:00.000Z";
+  const messages: Message[] = [
+    {
+      at,
+      id: "c1",
+      kind: "context",
+      move: "fresh",
+      reason: "new-thread",
+      contextTokens: 0,
+      briefTokens: null,
+      brief: null,
+    },
+    { at, id: "1", kind: "person", roleKey: "developer", text: "Hello" },
+  ];
+
+  act(() =>
+    root.render(
+      <RenderedList
+        messages={messages}
+        personName="Jan"
+        answering={false}
+        stageThread={false}
+        details
+      />,
+    ),
+  );
+
+  expect(page.querySelector(".session-rule, .earlier-session")).toBeNull();
+  expect(page.querySelector(".message-list > .message-office")?.textContent).toBe(
+    "Fresh · new Thread",
+  );
+  act(() => root.unmount());
+});

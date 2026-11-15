@@ -960,6 +960,7 @@ interface Carrying {
 const BACKGROUND_EVENT_KINDS: ReadonlySet<SessionEvent["kind"]> = new Set([
   "sub-agent-started",
   "sub-agent-changed",
+  "sub-agent-progress",
   "sub-agent-ended",
   "process-started",
   "process-output",

@@ -2,7 +2,9 @@ import { Module } from "@nestjs/common";
 import { OfficeToolRegistry } from "../../engine/index.js";
 import type {
   EngineUsageWindows,
+  InitiativeTask,
   NowFireAlarm,
+  OfficeInitiative,
   OfficeTask,
   OpenDecision,
   QueuedOnNow,
@@ -13,6 +15,7 @@ import { AccountUsage } from "./account-usage.js";
 import { DeskLimit } from "./desk-limit.js";
 import { KnownPeople } from "./known-people.js";
 import { OfficeFireAlarm } from "./office-fire-alarm.js";
+import { OfficeInitiatives } from "./office-initiatives.js";
 import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OpenDecisions } from "./open-decisions.js";
@@ -38,6 +41,20 @@ export class OfficeTasksForTests extends OfficeTasks {
 
   async read(taskId: string): Promise<{ readonly personRole: string | undefined }> {
     return { personRole: this.people.get(taskId) };
+  }
+}
+
+export class OfficeInitiativesForTests extends OfficeInitiatives {
+  initiatives: OfficeInitiative[] = [];
+  /** Each Initiative's Tasks, by its id. */
+  readonly tasks = new Map<string, InitiativeTask[]>();
+
+  async list(): Promise<readonly OfficeInitiative[]> {
+    return this.initiatives;
+  }
+
+  async tasksByInitiative(): Promise<ReadonlyMap<string, readonly InitiativeTask[]>> {
+    return this.tasks;
   }
 }
 
@@ -115,6 +132,7 @@ export class ResumePlansForTests extends ResumePlans {
 
 const PORTS = [
   OfficeTasksForTests,
+  OfficeInitiativesForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
   DeskLimitForTests,

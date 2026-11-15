@@ -12,6 +12,7 @@ import {
   TurnEnded,
 } from "../../conversations/index.js";
 import { UsageWindowsChanged } from "../../engine/index.js";
+import { DutyHolderChanged, RoleHired, RoleHiredBack, RoleLetGo } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
   GateContinued,
@@ -26,7 +27,11 @@ import {
 import {
   AlarmSounded,
   AllClearGiven,
+  InitiativeCreated,
+  InitiativeStateChanged,
   OfficeWideLimitChanged,
+  TaskAddedToInitiative,
+  TaskCreated,
   TaskLeftQueue,
   TaskMovedUpInQueue,
   TaskPaused,
@@ -36,6 +41,8 @@ import {
   TaskStarted,
   TaskStateChanged,
   TaskStopped,
+  TaskMovedToProject,
+  TaskTakenOutOfInitiative,
 } from "../../work/index.js";
 import {
   nowOf,
@@ -51,8 +58,10 @@ import type { TaskOutcomeKind } from "../domain/task-outcome.js";
 import { recordActivity, type UserActivity } from "../domain/user-activity.js";
 import { AccountUsage } from "../ports/account-usage.js";
 import { DeskLimit } from "../ports/desk-limit.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { OfficeDayFigures } from "../ports/office-day-figures.js";
 import { OfficeFireAlarm } from "../ports/office-fire-alarm.js";
+import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { OpenDecisions } from "../ports/open-decisions.js";
 import { ResumePlans } from "../ports/resume-plans.js";
@@ -60,6 +69,9 @@ import { StartQueue } from "../ports/start-queue.js";
 import { TaskOutcomeRepository } from "../ports/task-outcome-repository.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { UserActivityRepository } from "../ports/user-activity-repository.js";
+
+/** The duty whose holder shapes each Initiative, by People's key. */
+const SHAPES_INITIATIVES = "shapes-initiatives";
 
 /** Events that change what Now shows without anything for Now to keep. */
 const NOW_CHANGES: readonly DomainEventClass[] = [
@@ -84,6 +96,18 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   TaskMovedUpInQueue,
   AlarmSounded,
   AllClearGiven,
+  // Shaping: an Initiative made (shaped from an Idea or created), confirmed or dropped, its Tasks
+  // so far and their Projects, and who holds Shapes Initiatives.
+  InitiativeCreated,
+  InitiativeStateChanged,
+  TaskCreated,
+  TaskAddedToInitiative,
+  TaskTakenOutOfInitiative,
+  TaskMovedToProject,
+  DutyHolderChanged,
+  RoleHired,
+  RoleHiredBack,
+  RoleLetGo,
 ];
 
 /**
@@ -104,6 +128,8 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly tasks: OfficeTasks,
+    private readonly initiatives: OfficeInitiatives,
+    private readonly people: KnownPeople,
     private readonly decisions: OpenDecisions,
     private readonly stages: TaskStageProgress,
     private readonly deskLimit: DeskLimit,
@@ -133,21 +159,37 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   async now(): Promise<Now> {
     const at = new Date();
     const day = officeDayOf(at);
-    const [started, openDecisions, queued, tasks, tokensToday, officeWideLimit, fireAlarm] =
-      await Promise.all([
-        this.startedTasks(),
-        this.decisions.listOpen(),
-        this.queue.list(),
-        this.tasks.list(),
-        this.figures.tokensOn(day),
-        this.deskLimit.officeWideLimit(),
-        this.fireAlarm.read(),
-      ]);
+    const [
+      started,
+      openDecisions,
+      queued,
+      tasks,
+      tokensToday,
+      officeWideLimit,
+      fireAlarm,
+      initiatives,
+      initiativeTasks,
+      shaper,
+    ] = await Promise.all([
+      this.startedTasks(),
+      this.decisions.listOpen(),
+      this.queue.list(),
+      this.tasks.list(),
+      this.figures.tokensOn(day),
+      this.deskLimit.officeWideLimit(),
+      this.fireAlarm.read(),
+      this.initiatives.list(),
+      this.initiatives.tasksByInitiative(),
+      this.people.holderOf(SHAPES_INITIATIVES),
+    ]);
     return nowOf({
       started,
       openDecisions,
       queued,
       tasks,
+      initiatives,
+      initiativeTasks,
+      shaper,
       tokensToday,
       officeWideLimit,
       usageWindows: [...this.usage.readingsByEngine].map(([engineId, { fiveHour, sevenDay }]) => ({

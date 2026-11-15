@@ -97,6 +97,25 @@ describe("the list", () => {
       secondLine(aProcess({ ...stopped, ending: { state: "stopped", by: "restart" } }), now),
     ).toBe("Process · Stopped · ended when The Office restarted · 5s");
   });
+
+  it("gives a Sub-agent's context size next to its time, finished or running, and nothing without a figure", () => {
+    const now = new Date(Date.parse(STARTED_AT) + 72_000);
+    expect(
+      secondLine(
+        aSubAgent({ ...finished, endedAt: endedAfter(192_000), totalTokens: 45_200 }),
+        now,
+      ),
+    ).toBe("Sub-agent · Explore · Finished · 3m 12s · 45k context");
+    expect(secondLine(aSubAgent({ totalTokens: 2_100 }), now)).toBe(
+      "Sub-agent · Explore · Running · 1m 12s · 2.1k context",
+    );
+    expect(secondLine(aSubAgent({ totalTokens: null }), now)).toBe(
+      "Sub-agent · Explore · Running · 1m 12s",
+    );
+    expect(secondLine(aSubAgent({ totalTokens: 0 }), now)).toBe(
+      "Sub-agent · Explore · Running · 1m 12s",
+    );
+  });
 });
 
 describe("how it ended", () => {

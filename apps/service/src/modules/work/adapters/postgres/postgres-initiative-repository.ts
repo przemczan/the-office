@@ -33,6 +33,7 @@ import type { InitiativeMembershipChange } from "../../domain/initiative-members
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
+import type { DependencyChanges } from "../../domain/task-dependencies.js";
 import type {
   TaskAddedToInitiative,
   TaskStateChanged,
@@ -49,6 +50,7 @@ import { matching } from "./search-vector.js";
 import { initiatives, tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
+  changeEveryDependencyHeld,
   everyTaskHoldingDependencies,
   canBeRowId,
   heldTask,
@@ -271,6 +273,20 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       // The Initiative first and the dependencies after, the one order every hold of both takes.
       const initiative = await heldInitiative(transaction, id);
       return changeDependenciesHeld(transaction, taskId, (task, everyTask) =>
+        change(initiative, task, everyTask),
+      );
+    });
+  }
+
+  async changeEveryDependency(
+    id: string,
+    taskId: string,
+    change: (initiative: Initiative, task: Task, tasks: readonly Task[]) => DependencyChanges,
+  ): Promise<DependencyChanges> {
+    return this.database.transaction(async (transaction) => {
+      // The Initiative first and the dependencies after, the one order every hold of both takes.
+      const initiative = await heldInitiative(transaction, id);
+      return changeEveryDependencyHeld(transaction, taskId, (task, everyTask) =>
         change(initiative, task, everyTask),
       );
     });

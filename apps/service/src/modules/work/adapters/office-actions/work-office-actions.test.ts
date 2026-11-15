@@ -200,6 +200,73 @@ describe("add_dependency and remove_dependency", () => {
     expect(taskSchema.parse(await removed.json()).blockedBy).toEqual([]);
   });
 
+  it("take out the direct waits a new one covers, on the Task and those waiting for it, saved and published", async () => {
+    const schema = await aTaskInNoInitiative("Queue schema");
+    const flash = await aTaskInNoInitiative("Store the queue on flash");
+    const client = await aTaskInNoInitiative("Mobile sync client");
+    const lights = await aTaskInNoInitiative("Status lights");
+    const release = await aTaskInNoInitiative("Release the app");
+    const wait = (taskId: string, blockerId: string) =>
+      sendJson(work, "POST", `/tasks/${taskId}/dependencies`, { blockerId });
+    await wait(flash.id, schema.id);
+    await wait(flash.id, lights.id);
+    await wait(client.id, schema.id);
+    await wait(release.id, client.id);
+    await wait(release.id, lights.id);
+    // The flash store waits for the schema and the lights, which the client and the release, waiting
+    // for the client, both wait for directly.
+    work.published.length = 0;
+
+    const answer = await callTool(ADD_DEPENDENCY_ACTION.name, {
+      taskId: client.id,
+      blockerId: flash.id,
+    });
+    const tasks = work.app.get(TaskService);
+
+    expect((await tasks.read(client.id)).blockedBy).toEqual([flash.id]);
+    expect((await tasks.read(release.id)).blockedBy).toEqual([client.id]);
+    expect((await tasks.read(flash.id)).blockedBy).toEqual([schema.id, lights.id]);
+    expect(webEventsOf(work)).toEqual(
+      expect.arrayContaining([
+        { type: "task.dependency-added", taskId: client.id, blockerId: flash.id },
+        { type: "task.dependency-removed", taskId: client.id, blockerId: schema.id },
+        { type: "task.dependency-removed", taskId: release.id, blockerId: lights.id },
+      ]),
+    );
+    expect(answer).toEqual({
+      text:
+        `"Mobile sync client" now waits for "Store the queue on flash" to be Done.` +
+        ` "Mobile sync client" no longer waits directly for "Queue schema": it waits for it through another Task it waits for.` +
+        ` "Release the app" no longer waits directly for "Status lights": it waits for it through another Task it waits for.`,
+      isError: false,
+    });
+  });
+
+  it("leave out a wait the Task has through another already, and say so to the Agent", async () => {
+    const schema = await aTaskInNoInitiative("Queue schema");
+    const flash = await aTaskInNoInitiative("Store the queue on flash");
+    const client = await aTaskInNoInitiative("Mobile sync client");
+    await sendJson(work, "POST", `/tasks/${flash.id}/dependencies`, { blockerId: schema.id });
+    await sendJson(work, "POST", `/tasks/${client.id}/dependencies`, { blockerId: flash.id });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${client.id}/dependencies`, {
+      blockerId: schema.id,
+    });
+    const answer = await callTool(ADD_DEPENDENCY_ACTION.name, {
+      taskId: client.id,
+      blockerId: schema.id,
+    });
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).blockedBy).toEqual([flash.id]);
+    expect(webEventsOf(work)).toEqual([]);
+    expect(answer).toEqual({
+      text: `"Mobile sync client" already waits for "Queue schema" through "Store the queue on flash", so no direct wait was added: a Task waits directly only for Tasks it doesn't already wait for through another Task.`,
+      isError: false,
+    });
+  });
+
   it("refuse a wait on an archived Task in the same words to the user and the Agent", async () => {
     const task = await aTaskInNoInitiative("Queue writes");
     const blocker = await aTaskInNoInitiative("Queue schema");

@@ -11,6 +11,7 @@ import type { InitiativeCreated } from "../domain/initiative-events.js";
 import type { InitiativeMembershipChange } from "../domain/initiative-membership.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
+import type { DependencyChanges } from "../domain/task-dependencies.js";
 import type {
   TaskAddedToInitiative,
   TaskStateChanged,
@@ -136,6 +137,16 @@ export abstract class InitiativeRepository {
       tasks: readonly Task[],
     ) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>>;
+
+  /**
+   * As `changeDependencies`, for an added dependency that may change several Tasks, saved as
+   * TaskRepository.changeEveryDependency saves them, holding the Initiative first.
+   */
+  abstract changeEveryDependency(
+    id: string,
+    taskId: string,
+    change: (initiative: Initiative, task: Task, tasks: readonly Task[]) => DependencyChanges,
+  ): Promise<DependencyChanges>;
 
   /**
    * Applies `change`, a Task joining or leaving the Initiative, holding the Initiative, every change

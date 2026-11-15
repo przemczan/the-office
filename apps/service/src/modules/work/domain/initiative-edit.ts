@@ -110,8 +110,16 @@ function whatStaysAsItIs(
       return undefined;
     case "add-dependency": {
       const task = taskOn(board, edit.taskId);
-      return addDependencyOfItsTask(initiative, "by-proposal", task, edit.blockerId, board)
-        ? undefined
+      const { changed, coveredBy } = addDependencyOfItsTask(
+        initiative,
+        "by-proposal",
+        task,
+        edit.blockerId,
+        board,
+      );
+      if (changed.length > 0) return undefined;
+      return coveredBy
+        ? `"${task.title}" waits for the Task ${edit.blockerId} already, through "${coveredBy.title}".`
         : `"${task.title}" waits for the Task ${edit.blockerId} already.`;
     }
     case "remove-dependency": {

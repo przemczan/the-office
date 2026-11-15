@@ -14,6 +14,8 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
 import type { Author } from "../../domain/author.js";
 import type { Task } from "../../domain/task.js";
+import type { DependencyChanges } from "../../domain/task-dependencies.js";
+import { TaskDependencyRemoved } from "../../domain/task-events.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import { toTaskResponse } from "../http/work-responses.js";
@@ -97,12 +99,40 @@ export class WorkOfficeActions implements OnModuleInit {
     return handler({
       action: ADD_DEPENDENCY_ACTION,
       handle: ({ taskId, blockerId }) => this.tasks.addDependency(taskId, blockerId),
-      response: toTaskResponse,
-      words: async (task, { blockerId }) => {
-        const blocker = await this.tasks.read(blockerId);
-        return `"${task.title}" now waits for "${blocker.title}" to be Done.`;
-      },
+      response: (changes: DependencyChanges) => toTaskResponse(changes.task),
+      words: (changes, { blockerId }) => this.dependencyWords(changes, blockerId),
     });
+  }
+
+  /**
+   * What an added dependency came to, so the Agent knows: left out as the Task waits for the
+   * blocker through another already, or added, with every direct wait it replaced.
+   */
+  private async dependencyWords(changes: DependencyChanges, blockerId: string): Promise<string> {
+    const { task, changed, coveredBy } = changes;
+    const blocker = await this.tasks.read(blockerId);
+    if (coveredBy) {
+      return `"${task.title}" already waits for "${blocker.title}" through "${coveredBy.title}", so no direct wait was added: a Task waits directly only for Tasks it doesn't already wait for through another Task.`;
+    }
+    if (changed.length === 0) return `"${task.title}" waits for "${blocker.title}" already.`;
+    const removed = changed.flatMap((each) =>
+      each.events.flatMap((event) =>
+        event instanceof TaskDependencyRemoved
+          ? [{ waiting: each.task, blockerId: event.blockerId }]
+          : [],
+      ),
+    );
+    const titles = new Map(
+      (await this.tasks.findAll(removed.map((each) => each.blockerId))).map((each) => [
+        each.id,
+        each.title,
+      ]),
+    );
+    const replaced = removed.map(
+      ({ waiting, blockerId: removedId }) =>
+        ` "${waiting.title}" no longer waits directly for "${titles.get(removedId) ?? removedId}": it waits for it through another Task it waits for.`,
+    );
+    return `"${task.title}" now waits for "${blocker.title}" to be Done.${replaced.join("")}`;
   }
 
   private removeDependency(): AnyWorkActionHandler {

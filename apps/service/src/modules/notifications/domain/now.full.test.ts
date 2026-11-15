@@ -37,6 +37,9 @@ const PARTS: NowParts = {
   openDecisions: [],
   queued: [],
   tasks: [],
+  initiatives: [],
+  initiativeTasks: new Map(),
+  shaper: undefined,
   tokensToday: NO_TOKENS,
   officeWideLimit: 3,
   usageWindows: [],
@@ -278,5 +281,58 @@ describe("the fire alarm on Now", () => {
     };
 
     expect(nowOf(parts).fireAlarm).toMatchObject({ stopping: false, resumeTokens: 4_100 });
+  });
+});
+
+describe("nowOf's Shaping", () => {
+  it("lists the Initiatives in Shaping, oldest first, with their Tasks so far and who shapes them", () => {
+    const now = nowOf({
+      ...PARTS,
+      initiatives: [
+        { id: "i2", name: "Billing", state: "shaping", createdAt: at(5) },
+        { id: "i1", name: "Onboarding", state: "shaping", createdAt: at(1) },
+        { id: "i3", name: "Search", state: "active", createdAt: at(0) },
+      ],
+      initiativeTasks: new Map([
+        [
+          "i1",
+          [
+            { projectId: "p2", state: "shaping" },
+            { projectId: "p1", state: "shaping" },
+            { projectId: "p2", state: "shaping" },
+            { projectId: "p3", state: "dropped" },
+          ],
+        ],
+      ]),
+      shaper: "product-owner",
+    });
+
+    expect(now.shaping).toEqual([
+      {
+        initiativeId: "i1",
+        title: "Onboarding",
+        projectIds: ["p2", "p1"],
+        shapedBy: "product-owner",
+        taskCount: 3,
+        since: at(1),
+      },
+      {
+        initiativeId: "i2",
+        title: "Billing",
+        projectIds: [],
+        shapedBy: "product-owner",
+        taskCount: 0,
+        since: at(5),
+      },
+    ]);
+  });
+
+  it("names nobody as its shaper while nobody holds Shapes Initiatives", () => {
+    const now = nowOf({
+      ...PARTS,
+      initiatives: [{ id: "i1", name: "Onboarding", state: "shaping", createdAt: at(1) }],
+    });
+
+    expect(now.shaping).toMatchObject([{ initiativeId: "i1", shapedBy: undefined }]);
   });
 });

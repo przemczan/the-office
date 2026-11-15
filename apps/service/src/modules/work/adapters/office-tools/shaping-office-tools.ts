@@ -114,7 +114,7 @@ export class ShapingOfficeTools implements OnModuleInit {
           .array(z.string())
           .optional()
           .describe(
-            "The ids of the Tasks that must be Done before this one can start, in any Project or Initiative; none unless it must wait.",
+            "The ids of the Tasks that must be Done before this one can start, in any Project or Initiative; none unless it must wait. It waits directly only for those no other of them already waits for.",
           ),
       }),
       run: ({ title, projectId, description, priority, blockedBy }, { sessionId }) =>

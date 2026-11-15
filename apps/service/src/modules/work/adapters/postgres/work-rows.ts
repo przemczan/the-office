@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
@@ -8,8 +8,10 @@ import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
 import type { StateChange, StateChangeCause } from "../../domain/state-change.js";
 import type { TaskChange } from "../../domain/task-changes.js";
+import type { DependencyChange, DependencyChanges } from "../../domain/task-dependencies.js";
 import type { TaskCreated } from "../../domain/task-events.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
+import { NOT_STARTED_STATES } from "../../domain/task-states.js";
 import type { TaskUpdate } from "../../ports/task-repository.js";
 import {
   attachments,
@@ -86,6 +88,37 @@ export async function changeDependenciesHeld<Event extends DomainEvent>(
   await holdDependencies(transaction);
   const task = await heldTask(transaction, id);
   return saveTask(transaction, task, change(task, await everyTask(transaction)));
+}
+
+/**
+ * Applies `change`, an added dependency that may change several Tasks, in the transaction, holding
+ * every change of dependencies and the Task meanwhile: the Task saved whole, every other Task's
+ * dependencies alone, which change only in this hold, and none of a Task that started since it was
+ * read. Answers the changes as saved.
+ */
+export async function changeEveryDependencyHeld(
+  transaction: Transaction,
+  id: string,
+  change: (task: Task, tasks: readonly Task[]) => DependencyChanges,
+): Promise<DependencyChanges> {
+  await holdDependencies(transaction);
+  const task = await heldTask(transaction, id);
+  const changes = change(task, await everyTask(transaction));
+  const saved: DependencyChange[] = [];
+  for (const each of changes.changed) {
+    if (each.task.id === task.id) {
+      await transaction.update(tasks).set(toTaskRow(each.task)).where(eq(tasks.id, task.id));
+      saved.push(each);
+      continue;
+    }
+    const updated = await transaction
+      .update(tasks)
+      .set({ blockedBy: [...each.task.blockedBy] })
+      .where(and(eq(tasks.id, each.task.id), inArray(tasks.state, [...NOT_STARTED_STATES])))
+      .returning({ id: tasks.id });
+    if (updated.length > 0) saved.push(each);
+  }
+  return { ...changes, changed: saved };
 }
 
 async function everyTask(transaction: Transaction): Promise<Task[]> {

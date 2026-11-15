@@ -3,6 +3,7 @@ import {
   changeSubAgent,
   endItem,
   outputTrim,
+  progressSubAgent,
   RESTART_ENDING,
   stateOf,
   WholeLines,
@@ -86,6 +87,22 @@ describe("a Sub-agent's or a Process's state", () => {
     expect(changed && changeSubAgent(changed, { engineTaskId: undefined, background: false })).toBe(
       undefined,
     );
+  });
+
+  it("takes a running Sub-agent's context size as a revision, and keeps it through an end that gives none", () => {
+    const progressed = progressSubAgent(A_SUB_AGENT, 2_100);
+    if (!progressed) throw new Error("It didn't change.");
+
+    expect(progressed).toMatchObject({ totalTokens: 2_100, revision: 1 });
+    expect(progressSubAgent(progressed, 2_100)).toBeUndefined();
+    const ended = endItem(progressed, { state: "stopped", by: "interrupt" }, LATER, {
+      totalTokens: undefined,
+    });
+    expect(ended).toMatchObject({ totalTokens: 2_100, revision: 2 });
+    expect(endItem(progressed, { state: "finished" }, LATER, { totalTokens: 3_000 })).toMatchObject(
+      { totalTokens: 3_000 },
+    );
+    expect(ended && progressSubAgent(ended, 4_000)).toBeUndefined();
   });
 });
 

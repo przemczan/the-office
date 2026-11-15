@@ -1,14 +1,16 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
-import type { Now, SinceYouLeft } from "@the-office/contracts";
+import type { Now, ShapingOnNow, SinceYouLeft } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { notificationEventCacheUpdates, nowQueries } from "../../api/notifications.ts";
 import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
+import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
 import { NowPage } from "./now-page.tsx";
 
 const NOW: Now = {
   needsYou: [],
   running: [],
   queue: [],
+  shaping: [],
   tokensToday: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
   desks: { inUse: 0, limit: 3 },
   usageWindows: [],
@@ -76,5 +78,84 @@ describe("Now's Since you left", () => {
     expect(queryClient.getQueryData(nowQueries.now().queryKey)).toEqual(NOW);
     expect(sent.filter(({ request }) => request === "GET /api/now/since-you-left")).toHaveLength(2);
     unsubscribe();
+  });
+});
+
+const ONBOARDING: ShapingOnNow = {
+  initiativeId: "6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+  title: "Onboarding",
+  projectIds: ["p1"],
+  shapedBy: null,
+  taskCount: 2,
+  since: "2026-11-15T08:00:00.000Z",
+};
+
+const BILLING: ShapingOnNow = {
+  initiativeId: "7b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e",
+  title: "Billing",
+  projectIds: ["p2"],
+  shapedBy: "product-owner",
+  taskCount: 0,
+  since: "2026-11-15T09:00:00.000Z",
+};
+
+function openNowWith(now: Now): Promise<{ readonly page: HTMLElement }> {
+  stubService({
+    "GET /api/now": () => ({ status: 200, body: now }),
+    "GET /api/now/since-you-left": () => ({ status: 200, body: sinceYouLeftWith("Add a filter") }),
+  });
+  return openPage("/now", { now: NowPage });
+}
+
+function shapingCards(page: HTMLElement): HTMLElement[] {
+  return [...page.querySelectorAll<HTMLElement>("[aria-label^='Shaping: ']")];
+}
+
+describe("Now's Shaping", () => {
+  afterEach(() => {
+    localStorage.removeItem(PROJECT_FILTER_STORAGE_KEY);
+    window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
+  });
+
+  it("shows nothing while no Initiative is being shaped", async () => {
+    const { page } = await openNowWith(NOW);
+
+    await until(() => expect(page.textContent).toContain("Add a filter"));
+    expect(page.textContent).not.toContain("Shaping");
+  });
+
+  it("shows each Initiative being shaped, with who shapes it and its Tasks so far, opening its page", async () => {
+    const { page } = await openNowWith({ ...NOW, shaping: [ONBOARDING, BILLING] });
+
+    await until(() => expect(shapingCards(page)).toHaveLength(2));
+    const [onboarding, billing] = shapingCards(page);
+    expect(onboarding?.textContent).toContain("Onboarding");
+    expect(onboarding?.textContent).toContain("Nobody shapes Initiatives yet");
+    expect(onboarding?.textContent).toContain("2 Tasks");
+    expect(billing?.textContent).toContain("No Tasks yet");
+    expect(billing?.textContent).toContain("product-owner");
+    expect(onboarding?.querySelector("a")?.getAttribute("href")).toBe(
+      `/work/initiatives/${ONBOARDING.initiativeId}`,
+    );
+  });
+
+  it("is narrowed by the Project filter, noting those in other Projects", async () => {
+    localStorage.setItem(PROJECT_FILTER_STORAGE_KEY, JSON.stringify(["p1"]));
+    const { page } = await openNowWith({
+      ...NOW,
+      shaping: [
+        ONBOARDING,
+        BILLING,
+        { ...BILLING, initiativeId: crypto.randomUUID(), projectIds: [] },
+      ],
+    });
+    window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
+
+    await until(() => expect(shapingCards(page)).toHaveLength(2));
+    expect(shapingCards(page).map((card) => card.getAttribute("aria-label"))).toEqual([
+      "Shaping: Onboarding",
+      "Shaping: Billing",
+    ]);
+    expect(page.textContent).toContain("1 more Initiative in other Projects");
   });
 });

@@ -139,6 +139,22 @@ export function taskStop(callId: string, taskId: string): SDKMessage[] {
   ];
 }
 
+/** The engine's progress on a task, as `SDKTaskProgressMessage`. */
+export function taskProgress(
+  taskId: string,
+  callId: string | undefined,
+  totalTokens: number,
+  toolUses = 1,
+): SDKMessage {
+  return system({
+    subtype: "task_progress",
+    task_id: taskId,
+    ...(callId === undefined ? {} : { tool_use_id: callId }),
+    description: "Working",
+    usage: { total_tokens: totalTokens, tool_uses: toolUses, duration_ms: 1_000 },
+  });
+}
+
 export function taskNotification(
   taskId: string,
   callId: string,
@@ -205,6 +221,8 @@ function recordedTurn(outputFile: string): SDKMessage[] {
       },
     ]),
     assistant([{ type: "text", text: "Looking." }], FINDING.callId),
+    // Its progress names it by its call only, as no task_started gave its task id.
+    taskProgress("a51b2", FINDING.callId, 800),
     assistant(
       [{ type: "tool_use", id: "toolu_01Glob", name: "Glob", input: { pattern: "**/config*" } }],
       FINDING.callId,
@@ -274,6 +292,12 @@ function recordedTurn(outputFile: string): SDKMessage[] {
         },
       ],
     }),
+    // The background Sub-agent's progress, by its task id; a size already reported, and the
+    // command's progress, say nothing.
+    taskProgress(REVIEWING.taskId, undefined, 2_100),
+    taskProgress(REVIEWING.taskId, undefined, 2_100, 2),
+    taskProgress(COUNTING.taskId, COUNTING.callId, 0),
+    taskProgress(REVIEWING.taskId, undefined, 3_400, 3),
     message({
       type: "result",
       subtype: "success",
@@ -361,6 +385,7 @@ export async function playRecordedSession(wire: Wire, outputFile: string): Promi
 const BACKGROUND_KINDS: ReadonlySet<string> = new Set([
   "sub-agent-started",
   "sub-agent-changed",
+  "sub-agent-progress",
   "sub-agent-ended",
   "process-started",
   "process-output",
@@ -391,6 +416,7 @@ export const RECORDED_EVENTS: readonly BackgroundEvent[] = [
     prompt: "Find where the config is read.",
     background: false,
   },
+  { kind: "sub-agent-progress", callId: FINDING.callId, totalTokens: 800 },
   {
     kind: "sub-agent-ended",
     callId: FINDING.callId,
@@ -415,6 +441,8 @@ export const RECORDED_EVENTS: readonly BackgroundEvent[] = [
     engineTaskId: REVIEWING.taskId,
     background: true,
   },
+  { kind: "sub-agent-progress", callId: REVIEWING.callId, totalTokens: 2_100 },
+  { kind: "sub-agent-progress", callId: REVIEWING.callId, totalTokens: 3_400 },
   { kind: "process-ended", callId: COUNTING.callId, ending: { state: "finished" }, exitCode: 0 },
   {
     kind: "sub-agent-ended",

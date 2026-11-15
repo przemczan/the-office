@@ -282,8 +282,70 @@
 }
 
 /* What belongs to a turn lines up with its words; only The Office's own lines take the whole width. */
-.message-list > :not(.turn, .message-office, .message-log-line, .message-details-hidden) {
+.message-list
+  > :not(
+    .turn,
+    .message-office,
+    .message-log-line,
+    .message-details-hidden,
+    .session-rule,
+    .earlier-session
+  ),
+.earlier-session-log > :not(.turn, .message-office, .message-log-line) {
   margin-left: var(--turn-gutter);
+}
+
+/* A session started after an earlier one: a rule across the log, its Brief openable below it. */
+.session-rule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.session-rule-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font: var(--type-caption);
+  font-weight: 600;
+  color: var(--fg-2);
+  text-align: center;
+}
+
+.session-rule-line::before,
+.session-rule-line::after {
+  content: "";
+  flex: 1 1 var(--space-4);
+  height: 1px;
+  background: var(--border-strong);
+}
+
+/* An earlier session, folded under one line; open, it shows its log as the current one does. */
+.earlier-session > summary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-1-5);
+  font: var(--type-caption);
+  color: var(--fg-3);
+  list-style: none;
+  cursor: pointer;
+}
+
+.earlier-session > summary::-webkit-details-marker {
+  display: none;
+}
+
+.earlier-session[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.earlier-session-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-top: var(--space-5);
 }
 
 /* A tool line belongs to the turn before it, so it sits nearer than the next turn does. */

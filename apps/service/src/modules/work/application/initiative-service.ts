@@ -80,6 +80,7 @@ import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.
 import { ProposalDrafts } from "../ports/proposal-drafts.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
+import { publishDependencyChanges } from "./dependency-events.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 import { pipelineChoiceIn } from "./pipeline-choice.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
@@ -488,9 +489,14 @@ export class InitiativeService implements OnModuleInit {
     blockerId: string,
     route: InitiativeChangeRoute,
   ): Promise<Task> {
-    return this.changeDependencies(id, taskId, (initiative, task, tasks) =>
-      addDependencyOfItsTask(initiative, route, task, blockerId, tasks),
+    const changes = await this.repository.changeEveryDependency(
+      id,
+      taskId,
+      (initiative, task, tasks) =>
+        addDependencyOfItsTask(initiative, route, task, blockerId, tasks),
     );
+    await publishDependencyChanges(this.events, changes);
+    return changes.task;
   }
 
   private async removeDependencyOfItsTask(

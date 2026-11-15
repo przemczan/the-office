@@ -7,6 +7,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionClosed, DecisionOpened } from "../../conversations/index.js";
+import { InitiativeStateChanged } from "../../work/index.js";
 import { NowChanged } from "../domain/now-events.js";
 import { NotificationsModule } from "../notifications.module.js";
 import {
@@ -18,6 +19,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
@@ -39,6 +41,7 @@ describe("NowService", () => {
         NotificationsModule.register({
           imports: [NotificationsPortsForTestsModule],
           officeTasks: OfficeTasksForTests,
+          officeInitiatives: OfficeInitiativesForTests,
           openDecisions: OpenDecisionsForTests,
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,
@@ -223,6 +226,73 @@ describe("NowService", () => {
       ],
       resumeTokens: 12_000,
     });
+  });
+
+  it("lists the Initiatives in Shaping, oldest first, shaped by nobody while nobody holds the duty", async () => {
+    const [older, newer] = [randomUUID(), randomUUID()];
+    const initiatives = app.get(OfficeInitiativesForTests);
+    initiatives.initiatives = [
+      { id: newer, name: "Billing", state: "shaping", createdAt: new Date("2026-11-15T10:00:00Z") },
+      { id: randomUUID(), name: "Search", state: "active", createdAt: new Date("2026-11-01") },
+      {
+        id: older,
+        name: "Onboarding",
+        state: "shaping",
+        createdAt: new Date("2026-11-15T08:00:00Z"),
+      },
+    ];
+    initiatives.tasks.set(older, [
+      { projectId: "p1", state: "shaping" },
+      { projectId: "p2", state: "shaping" },
+    ]);
+
+    const nobody = await readNow();
+    app.get(KnownPeopleForTests).holders.set("shapes-initiatives", "product-owner");
+    const held = await readNow();
+
+    expect(nobody.shaping).toEqual([
+      {
+        initiativeId: older,
+        title: "Onboarding",
+        projectIds: ["p1", "p2"],
+        shapedBy: null,
+        taskCount: 2,
+        since: "2026-11-15T08:00:00.000Z",
+      },
+      {
+        initiativeId: newer,
+        title: "Billing",
+        projectIds: [],
+        shapedBy: null,
+        taskCount: 0,
+        since: "2026-11-15T10:00:00.000Z",
+      },
+    ]);
+    expect(held.shaping.map(({ shapedBy }) => shapedBy)).toEqual([
+      "product-owner",
+      "product-owner",
+    ]);
+  });
+
+  it("announces Now once an Initiative leaves Shaping", async () => {
+    const initiativeId = randomUUID();
+    const initiatives = app.get(OfficeInitiativesForTests);
+    const shaping = {
+      id: initiativeId,
+      name: "Onboarding",
+      state: "shaping",
+      createdAt: new Date(),
+    };
+    initiatives.initiatives = [shaping];
+    await events.publish(new InitiativeStateChanged(randomUUID(), "shaping", "active"));
+    await vi.waitFor(() =>
+      expect(announced.at(-1)?.now.shaping).toEqual([expect.objectContaining({ initiativeId })]),
+    );
+
+    initiatives.initiatives = [{ ...shaping, state: "active" }];
+    await events.publish(new InitiativeStateChanged(initiativeId, "shaping", "active"));
+
+    await vi.waitFor(() => expect(announced.at(-1)?.now.shaping).toEqual([]));
   });
 });
 

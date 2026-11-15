@@ -30,6 +30,7 @@ import {
   NotificationsPortsForTestsModule,
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
+  OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   ResumePlansForTests,
@@ -42,6 +43,7 @@ import { UserActivityRepository } from "../ports/user-activity-repository.js";
 const NOTIFICATIONS_FOR_TESTS = NotificationsModule.register({
   imports: [NotificationsPortsForTestsModule],
   officeTasks: OfficeTasksForTests,
+  officeInitiatives: OfficeInitiativesForTests,
   openDecisions: OpenDecisionsForTests,
   taskStageProgress: TaskStageProgressForTests,
   deskLimit: DeskLimitForTests,

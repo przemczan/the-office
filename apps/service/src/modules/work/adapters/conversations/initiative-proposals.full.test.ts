@@ -9,6 +9,7 @@ import { TaskService } from "../../application/task-service.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { InitiativeEdit } from "../../domain/initiative-edit.js";
 import type { Task } from "../../domain/task.js";
+import { TaskDependencyAdded, TaskDependencyRemoved } from "../../domain/task-events.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import { ANN_LEE } from "../../domain/work.fixtures.js";
 import { ANN_LEE as ANN_LEE_USER } from "../../../conversations/index.fixtures.js";
@@ -219,5 +220,41 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
       ProposalRefused,
     );
     expect((await tasks.read(task.id)).blockedBy).toEqual([]);
+  });
+
+  it("take out the direct wait an added one covers, saved and published", async () => {
+    const tasks = work.app.get(TaskService);
+    const task = await itsTask();
+    const schema = await tasks.create(
+      { title: "Queue schema", projectId: "api", priority: "normal" },
+      ANN_LEE,
+    );
+    const store = await tasks.create(
+      { title: "Store the queue", projectId: "web", priority: "normal" },
+      ANN_LEE,
+    );
+    await tasks.addDependency(store.id, schema.id);
+    await tasks.addDependency(task.id, schema.id);
+    work.published.length = 0;
+
+    await work.app
+      .get(ProposalAppliers)
+      .apply(
+        proposed({ kind: "add-dependency", taskId: task.id, blockerId: store.id }),
+        "cto",
+        ANN_LEE_USER,
+      );
+
+    expect((await tasks.read(task.id)).blockedBy).toEqual([store.id]);
+    expect(
+      work.published.flatMap((event) =>
+        event instanceof TaskDependencyAdded || event instanceof TaskDependencyRemoved
+          ? [{ kind: event.constructor.name, taskId: event.taskId, blockerId: event.blockerId }]
+          : [],
+      ),
+    ).toEqual([
+      { kind: "TaskDependencyAdded", taskId: task.id, blockerId: store.id },
+      { kind: "TaskDependencyRemoved", taskId: task.id, blockerId: schema.id },
+    ]);
   });
 });

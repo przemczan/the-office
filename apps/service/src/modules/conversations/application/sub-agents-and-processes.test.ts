@@ -194,6 +194,58 @@ describe("a session's background Sub-agents", () => {
   });
 });
 
+describe("a Sub-agent's context size", () => {
+  it("is folded in from the engine's progress as a revision, and kept by an end that gives none", async () => {
+    const following = follow();
+    const items = app.get(SubAgentAndProcessRepository);
+    await following.take(subAgentStarted("agent-1", true));
+
+    await following.take({ kind: "sub-agent-progress", callId: "agent-1", totalTokens: 2_100 });
+    expect(await items.find({ sessionId, callId: "agent-1" })).toMatchObject({
+      totalTokens: 2_100,
+      revision: 1,
+    });
+
+    await following.take({ kind: "sub-agent-progress", callId: "agent-1", totalTokens: 2_100 });
+    await following.take({ kind: "sub-agent-progress", callId: "agent-1", totalTokens: 3_400 });
+    expect(await items.find({ sessionId, callId: "agent-1" })).toMatchObject({
+      totalTokens: 3_400,
+      revision: 2,
+    });
+
+    await following.take({
+      kind: "sub-agent-ended",
+      callId: "agent-1",
+      ending: { state: "stopped", by: "interrupt" },
+      reportedBack: undefined,
+      toolCallCount: undefined,
+      totalTokens: undefined,
+    });
+    expect(await items.find({ sessionId, callId: "agent-1" })).toMatchObject({
+      totalTokens: 3_400,
+      ending: { state: "stopped", by: "interrupt" },
+      revision: 3,
+    });
+    await following.end();
+  });
+
+  it("takes the end's size over the progress's, and no progress after the end", async () => {
+    const following = follow();
+    const items = app.get(SubAgentAndProcessRepository);
+    await following.take(subAgentStarted("agent-1", false));
+    await following.take({ kind: "sub-agent-progress", callId: "agent-1", totalTokens: 900 });
+
+    await following.take(subAgentEnded("agent-1"));
+    await following.take({ kind: "sub-agent-progress", callId: "agent-1", totalTokens: 5_000 });
+
+    expect(await items.find({ sessionId, callId: "agent-1" })).toMatchObject({
+      totalTokens: 1_200,
+      revision: 2,
+    });
+    await following.end();
+  });
+});
+
 describe("recovering after a restart", () => {
   it("returns the Threads whose background Sub-agents it stopped, never those with only a foreground one or a Process", async () => {
     const following = follow();
