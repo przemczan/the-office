@@ -117,8 +117,8 @@ export function StageEditor(props: StageEditorProps): ReactNode {
       <p className="stage-editor-rules">
         <Icon name="info" size={14} />
         Whatever the Pipeline, you are always asked when a round or budget limit is reached, a Stage
-        fails with no retries left, the Definition of Done is not met after the last review, or an
-        Agent reaches a hard switch.
+        fails with no retries left, the Definition of Done is not met before Publish, or at the end
+        without one, or an Agent reaches a hard switch.
       </p>
     </div>
   );

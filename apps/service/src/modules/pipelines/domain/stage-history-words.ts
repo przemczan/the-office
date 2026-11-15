@@ -315,7 +315,8 @@ function gateActionLines(stages: readonly Stage[], action: GateAction | undefine
 const WALK_DECISION_WORDS: Readonly<Record<WalkDecisionKind, string>> = {
   "no-retries-left": "The Stage failed with no retries left",
   budget: "The Task's tokens reached the Stage's budget",
-  "definition-of-done": "The Pipeline ended with the Definition of Done not reported met",
+  // Asked before Publish, or as a Pipeline without one ended.
+  "definition-of-done": "The Definition of Done wasn't reported met",
   restart: "The Office restarted during the Stage",
   "base-moved": "The branch conflicts with the base branch at Publish",
   "branch-moved": "The branch moved outside The Office",
@@ -348,7 +349,7 @@ function answerWords(answer: WalkAnswer | undefined): string {
     case "accept-issues":
       return "Answered: go on, with the failure accepted as an issue.";
     case "mark-done":
-      return "Answered: mark the Task done.";
+      return "Answered: call the Definition of Done met.";
     case "raise-budget":
       return `Answered: raise the budget by ${answer.tokens} tokens.`;
     case "resolved-in-worktree":

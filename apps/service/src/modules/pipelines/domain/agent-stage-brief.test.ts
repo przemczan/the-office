@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGENT_STAGE_INSTRUCTIONS,
   agentStageRecord,
   agentStageWork,
   isLastAgentStageBeforePublish,
@@ -42,6 +43,40 @@ describe("an Agent Stage's Brief says which user asked", () => {
 
     expect(record).toContain(
       `## The Task\n\nRename a device, in the Project Admin panel.\n\n${WHO_ASKED}\n\n## What the user wants`,
+    );
+  });
+
+  it("marks the Definition of Done statements earlier Stages reported met, counting every report", () => {
+    const record = agentStageRecord({
+      task: { ...task, definitionOfDone: ["The name shows", "The name persists", "It runs live"] },
+      earlier: [
+        {
+          stageName: "Implement",
+          kind: "agent",
+          outcome: { status: "done", summary: "Built.", definitionOfDoneMet: [1, 2] },
+        },
+        {
+          stageName: "Review",
+          kind: "agent",
+          outcome: { status: "done", summary: "Reviewed.", definitionOfDoneMet: [] },
+        },
+      ],
+      diffSummary: undefined,
+      commands: allowedCommands("read-only-git", [], undefined, ["status"]),
+      hardSwitches: {
+        runInstalls: { kind: "consult", person: "Devops" },
+        publishOutsideThePipeline: { kind: "never" },
+      },
+    });
+
+    expect(record).toContain(
+      "## The Definition of Done\n\n1. The name shows (Reported met so far)\n2. The name persists (Reported met so far)\n3. It runs live\n",
+    );
+  });
+
+  it("tells the Agent a statement reported met stays met unless it lists it as no longer met", () => {
+    expect(AGENT_STAGE_INSTRUCTIONS).toContain(
+      "A statement reported met, by you or an earlier Stage, stays met: the Brief marks those Reported met so far. One your work no longer meets, such as a regression you found, you list as no longer met, which takes it back.",
     );
   });
 

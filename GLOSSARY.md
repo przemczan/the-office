@@ -394,11 +394,11 @@ The window that opens when a Stage is selected on the Pipeline rail: the Pipelin
 _Avoid_: Run log, Stage details
 
 **Reported met**:
-A Definition of Done statement that the last Agent to report on it says is met; an Agent's word, which nobody verified, and a later run can take it back.
+A Definition of Done statement that an Agent Stage reported met; it stays met when later reports leave it out, until one lists it as no longer met. An Agent's word, which nobody verified.
 _Avoid_: Checked, verified, done
 
 **Out of reach**:
-A Definition of Done statement the last Agent to report says it can't verify where it works, with why, such as a live check on the user's workstation; the user checks it, as another round of the Stage can't.
+A Definition of Done statement an Agent Stage reported it can't verify where it works, with why, such as a live check on the user's workstation, and no later report met; the user checks it, as another round of the Stage can't.
 _Avoid_: Unverifiable, manual check, skipped
 
 **Before Ready**:

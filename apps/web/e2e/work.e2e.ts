@@ -3325,8 +3325,9 @@ async function seedStageThread(taskId: string): Promise<void> {
 }
 
 /**
- * Marks the Task Done by the Definition of Done Decision its walk opens past its last Stage, as the
- * user does: no Agent Stage reported the statements met.
+ * Lets the Task finish by the Definition of Done Decision its walk opens, as the user does, no Agent
+ * Stage having reported the statements met: "Mark the Task Done" past the last Stage of a Pipeline
+ * whose first Stage is Publish, "Call it met and publish" before any other Publish.
  */
 async function markDoneByItsDecision(page: Page, taskId: string): Promise<void> {
   const openOn = async () =>
@@ -3511,13 +3512,12 @@ test(
       await expect(changes.getByText("Files changed · 1")).toBeVisible();
       await expect(changes.getByRole("listitem")).toContainText(["usage-export.txt+1−0"]);
       await gate.getByRole("button", { name: "Continue to Publish" }).click();
+      // The Definition of Done is checked before Publish: nothing reaches main until it is met.
+      await markDoneByItsDecision(page, publishing.id);
 
-      await expect
-        .poll(async () => fileOnRemote(own, "main", "usage-export.txt"))
-        .toBe("exported\n");
+      expect(fileOnRemote(own, "main", "usage-export.txt")).toBe("exported\n");
       // The Publishing Task carries the Task's one commit into main unchanged.
       expect(gitOnRemote(own, "merge-base", "--is-ancestor", landed, "main")).toBe("");
-      await markDoneByItsDecision(page, publishing.id);
       await expect.poll(async () => (await initiativeOf(page, initiative.id)).state).toBe("done");
     } finally {
       await own.remove();

@@ -22,7 +22,8 @@ export interface WaitingGate {
 /** Undefined while the Task waits at no Gate. */
 export function waitingGateOf(taskStages: readonly TaskStage[]): WaitingGate | undefined {
   // Acted on, a Gate may still wait on you for a Decision the walk opened on its run, such as the
-  // Definition of Done's after Continue at the last Stage: that is the Decision's to answer.
+  // Definition of Done's after Continue at a Gate just before Publish, or at the last Stage: that is
+  // the Decision's to answer.
   const index = taskStages.findIndex(
     ({ stage, state, runs }) =>
       stage.kind === "gate" && state === "waiting-on-you" && runs.at(-1)?.gateAction === null,

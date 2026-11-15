@@ -10,6 +10,7 @@ import {
   type Stage,
   type StageKind,
 } from "./stage.js";
+import { reportedMetIn } from "./pipeline-walk.js";
 import { isResolveStage } from "./resolve-stages.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
@@ -27,7 +28,7 @@ import type {
  * of every Task, so it stays in the cached prefix.
  */
 export const AGENT_STAGE_INSTRUCTIONS =
-  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with run_project_command: it runs one of the Project's commands by its key, or a command line you may run, such as one test file, where the Project's commands run (in the Task's run environment when the Project has one), and answers with the exit code and a file with the whole output. Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command, never by hand in your shell, and don't write a .env or start a database to make them run there. The Brief names the commands you may run. The Office commits your work after each Stage: you never commit, push or switch branches. The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it, and you wait in it for anything else, such as a background command's output, never ending the turn to wait. Stop the background commands you no longer need before you end it. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work now meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. A Definition of Done statement you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, you report as out of reach with why, never as met. When a choice is the user's to make, open a Decision with open_decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link. Attach a design the user is to approve before its Gate, as one self-contained .html file: the preview loads nothing from outside the file. When your work needs something the base branch has and the Task's branch doesn't, call update_branch rather than asking anyone: The Office commits your work so far and brings the branch up to date. The Task's commit message is the message of the one commit Publish lands the Task as: when your work changes what it should say, update it with write_commit_message.";
+  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with run_project_command: it runs one of the Project's commands by its key, or a command line you may run, such as one test file, where the Project's commands run (in the Task's run environment when the Project has one), and answers with the exit code and a file with the whole output. Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command, never by hand in your shell, and don't write a .env or start a database to make them run there. The Brief names the commands you may run. The Office commits your work after each Stage: you never commit, push or switch branches. The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it, and you wait in it for anything else, such as a background command's output, never ending the turn to wait. Stop the background commands you no longer need before you end it. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. A Definition of Done statement you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, you report as out of reach with why, never as met. A statement reported met, by you or an earlier Stage, stays met: the Brief marks those Reported met so far. One your work no longer meets, such as a regression you found, you list as no longer met, which takes it back. When a choice is the user's to make, open a Decision with open_decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link. Attach a design the user is to approve before its Gate, as one self-contained .html file: the preview loads nothing from outside the file. When your work needs something the base branch has and the Task's branch doesn't, call update_branch rather than asking anyone: The Office commits your work so far and brings the branch up to date. The Task's commit message is the message of the one commit Publish lands the Task as: when your work changes what it should say, update it with write_commit_message.";
 
 /** The Task's commit message: the one written, or the default while none is (`written` false). */
 export interface BriefCommitMessage {
@@ -118,9 +119,7 @@ export function agentStageRecord({
     task.descriptionSection,
     `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, ${startedFrom(task)}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
     task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
-    task.definitionOfDone.length === 0
-      ? undefined
-      : `## The Definition of Done\n\n${task.definitionOfDone.map((statement, index) => `${index + 1}. ${statement}`).join("\n")}`,
+    definitionOfDoneSection(task.definitionOfDone, earlier),
     commitMessageSection(task.commitMessage),
     earlier.length === 0
       ? undefined
@@ -136,6 +135,25 @@ export function agentStageRecord({
     hardSwitchesSection(hardSwitches),
   ]);
 }
+
+/**
+ * The Definition of Done, numbered as results report it, marking the statements earlier Stages
+ * reported met, which stay met unless a result takes them back.
+ */
+function definitionOfDoneSection(
+  definitionOfDone: readonly string[],
+  earlier: readonly EarlierResult[],
+): string | undefined {
+  if (definitionOfDone.length === 0) return undefined;
+  const met = new Set(reportedMetIn(earlier.map(({ outcome }) => outcome)));
+  const statements = definitionOfDone.map(
+    (statement, index) =>
+      `${index + 1}. ${statement}${met.has(index + 1) ? REPORTED_MET_MARK : ""}`,
+  );
+  return `## The Definition of Done\n\n${statements.join("\n")}`;
+}
+
+const REPORTED_MET_MARK = " (Reported met so far)";
 
 /** The commit message as a section of the Brief, saying when it is the default. */
 function commitMessageSection({ text, written }: BriefCommitMessage): string {

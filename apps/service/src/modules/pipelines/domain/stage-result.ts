@@ -24,7 +24,13 @@ const stageResult = z.object({
     .array(z.int().min(1))
     .optional()
     .describe(
-      "Required when status is done: the numbers of the Definition of Done statements the work now meets, as the Brief numbers them; leave out any it doesn't meet yet.",
+      "Required when status is done: the numbers of the Definition of Done statements your work meets, as the Brief numbers them; leave out any it doesn't meet yet. One an earlier Stage reported met stays met unless you list it in definitionOfDoneNoLongerMet.",
+    ),
+  definitionOfDoneNoLongerMet: z
+    .array(z.int().min(1))
+    .optional()
+    .describe(
+      "With status done: the numbers of the Definition of Done statements an earlier Stage reported met that the work no longer meets, such as a regression found in review.",
     ),
   definitionOfDoneOutOfReach: z
     .array(
@@ -107,8 +113,9 @@ export function readStageResult(
   if (missing) {
     return { valid: false, problems: `status "${result.status}" requires "${missing}".` };
   }
-  const outOfReachProblem = outOfReachProblemOf(result, statementCount);
-  if (outOfReachProblem) return { valid: false, problems: outOfReachProblem };
+  const statementProblem =
+    outOfReachProblemOf(result, statementCount) ?? noLongerMetProblemOf(result, statementCount);
+  if (statementProblem) return { valid: false, problems: statementProblem };
   const outcome = outcomeOf(result);
   if (!outcome) return { valid: false, problems: NO_DECISION_OPENED };
   return { valid: true, outcome, screenshots: result.screenshots ?? [] };
@@ -132,6 +139,24 @@ function outOfReachProblemOf(
   return undefined;
 }
 
+/** A statement no longer met the Definition of Done doesn't have, or that is also reported met. */
+function noLongerMetProblemOf(
+  { definitionOfDoneMet, definitionOfDoneNoLongerMet }: StageResult,
+  statementCount: number,
+): string | undefined {
+  const noLongerMet = definitionOfDoneNoLongerMet ?? [];
+  const unknown = noLongerMet.filter((statement) => statement > statementCount);
+  if (unknown.length > 0) {
+    return `"definitionOfDoneNoLongerMet" names ${numbersWords(unknown)}, which the Definition of Done doesn't have: it has ${statementCount}.`;
+  }
+  const met = new Set(definitionOfDoneMet);
+  const both = noLongerMet.filter((statement) => met.has(statement));
+  if (both.length > 0) {
+    return `"definitionOfDoneMet" and "definitionOfDoneNoLongerMet" both name ${numbersWords(both)}: list a statement as met or as no longer met, not both.`;
+  }
+  return undefined;
+}
+
 function numbersWords(statements: readonly number[]): string {
   return statements.length === 1
     ? `statement ${statements.join("")}`
@@ -144,6 +169,7 @@ function outcomeOf({
   summary,
   handoverNote,
   definitionOfDoneMet,
+  definitionOfDoneNoLongerMet,
   definitionOfDoneOutOfReach,
   failureReason,
 }: StageResult): StageOutcome | undefined {
@@ -155,6 +181,8 @@ function outcomeOf({
         summary,
         ...note,
         definitionOfDoneMet: definitionOfDoneMet ?? [],
+        ...(definitionOfDoneNoLongerMet !== undefined &&
+          definitionOfDoneNoLongerMet.length > 0 && { definitionOfDoneNoLongerMet }),
         ...(definitionOfDoneOutOfReach !== undefined &&
           definitionOfDoneOutOfReach.length > 0 && { definitionOfDoneOutOfReach }),
       };

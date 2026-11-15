@@ -93,22 +93,28 @@ describe("GET /api/tasks/:id/stages", () => {
     expect(JSON.stringify(await stagesOf(taskId))).not.toContain("every line it printed");
   });
 
-  it("gives what each run reported and what stands by the walk's rule: a later report lowers it", async () => {
+  it("gives what each run reported and what stands by the walk's rule: met once reported, until taken back", async () => {
     pipelines = await startPipelinesApplication([
-      anAgentSession(aDoneResult("Wrote it.", "Check it.", [1, 2])),
-      anAgentSession(aDoneResult("Looked at it.", "One still fails.", [2])),
+      anAgentSession(aDoneResult("Wrote it.", "Check it.", [1])),
+      anAgentSession(aDoneResult("Looked at it.", "The second holds too.", [2])),
+      anAgentSession({
+        ...aDoneResult("Fixed it.", "The first broke again.", []),
+        definitionOfDoneNoLongerMet: [1],
+      }),
     ]);
     const taskId = await walkStages(pipelines, [
       anAgentStage("write"),
       anAgentStage("look"),
+      anAgentStage("fix"),
       tests,
     ]);
 
     const { stages, definitionOfDoneMet } = await stagesOf(taskId);
 
     expect(stages?.map(({ runs }) => runs[0]?.outcome)).toMatchObject([
-      { definitionOfDoneMet: [1, 2] },
+      { definitionOfDoneMet: [1] },
       { definitionOfDoneMet: [2] },
+      { definitionOfDoneMet: [] },
       { definitionOfDoneMet: null },
     ]);
     expect(definitionOfDoneMet).toEqual([2]);

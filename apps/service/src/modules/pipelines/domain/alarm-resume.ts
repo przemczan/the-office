@@ -1,5 +1,5 @@
 import { nextMove } from "./pipeline-walk.js";
-import type { AgentStage, Stage } from "./stage.js";
+import { type AgentStage, isPublishStage, type Stage } from "./stage.js";
 import type { StageRun } from "./stage-run.js";
 
 /**
@@ -64,7 +64,7 @@ export function walkAhead(
   const last = runs.at(-1);
   if (last && !last.outcome) return { kind: "stopping" };
   const lastStage = last && stages.find(({ key }) => key === last.stageKey);
-  if (isPublish(lastStage) && last?.outcome?.status === "done") {
+  if (isPublishStage(lastStage) && last?.outcome?.status === "done") {
     return { kind: "publish-finished", stage: lastStage };
   }
   const move = nextMove(stages, runs, definitionOfDone);
@@ -148,8 +148,4 @@ function agentResume(stage: AgentStage, session: SessionAhead): TaskResume {
 
 function noModelCall(kind: ResumeKind, stageName: string | undefined): TaskResume {
   return { kind, stageName, contextTokens: 0, briefTokens: 0, tokens: 0 };
-}
-
-function isPublish(stage: Stage | undefined): stage is Stage {
-  return stage?.kind === "script" && stage.command === "publish";
 }

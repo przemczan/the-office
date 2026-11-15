@@ -1,10 +1,12 @@
 import {
   conflictCarried,
   goesToResolve,
+  isResolveStage,
   RESOLVE_KEY,
+  withoutResolveStages,
   withResolveStages,
 } from "./resolve-stages.js";
-import type { Stage } from "./stage.js";
+import { isPublishStage, type Stage } from "./stage.js";
 import type {
   BudgetReached,
   CarriedFailure,
@@ -43,15 +45,18 @@ export type WalkQuestion =
   /** Publish shipped the work, but its after publishing line failed: escalated, never looped. */
   | { readonly kind: "after-publishing-failed"; readonly stage: Stage; readonly error: string }
   /**
-   * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
-   * `again`, the last Agent Stage (or the last Stage when there is none). `outOfReach` are those
-   * of `unmet` the last report says it can't verify, which another round can't address.
+   * The Definition of Done isn't reported met as the walk reaches `before`, the Publish Stage it
+   * checks ahead of, or, undefined, as every Stage of a Pipeline without one ended. One more round
+   * would run `again`, the last Agent Stage before it other than Resolve (or the Stage just before
+   * it when there is none). `outOfReach` are those of `unmet` the reports say they can't verify,
+   * which another round can't address.
    */
   | {
       readonly kind: "definition-of-done";
       readonly unmet: readonly string[];
       readonly outOfReach: readonly UnmetOutOfReach[];
       readonly again: Stage;
+      readonly before: Stage | undefined;
     };
 
 /** What the walk over a Task's Stages does next. */
@@ -107,6 +112,10 @@ interface Walk {
   readonly roundsUsed: Map<string, number>;
   /** Rounds the user allowed beyond each loop's own, by the same key. */
   readonly roundsAdded: Map<string, number>;
+  /** Every run of the Task, oldest first, of which `replayed` is a start. */
+  readonly runs: readonly StageRun[];
+  /** Whether the user answered the Definition of Done check before Publish "Call it met". */
+  calledMet: boolean;
 }
 
 /**
@@ -121,9 +130,9 @@ const DEFINITION_OF_DONE_ROUNDS = "definition of done";
 /**
  * The one walk over a Task's Stages (spec §2.3): a straight list whose only control flow is "on
  * failure go back to Stage X, at most N times", with the user asked when a Stage fails with no
- * retries left and when the Definition of Done isn't reported met at the end, and waiting at each
- * Gate for the user, who may send the work back to an earlier Stage without using a round. The
- * position, each loop's rounds, the user's answers and Gate actions are replayed from the Task's
+ * retries left and when the Definition of Done isn't reported met before Publish (or at the end of
+ * a Pipeline without one), and waiting at each Gate for the user, who may send the work back to an
+ * earlier Stage without using a round. The position, each loop's rounds, the user's answers and Gate actions are replayed from the Task's
  * Stage runs, oldest first, so they are kept nowhere else. A loop's rounds belong to the Stage that
  * owns it and count over the whole Task: going back again never resets them.
  */
@@ -139,6 +148,8 @@ export function nextMove(
     replayed: [],
     roundsUsed: new Map(),
     roundsAdded: new Map(),
+    runs,
+    calledMet: false,
   };
   for (const [index, run] of runs.entries()) {
     walk.replayed = runs.slice(0, index + 1);
@@ -159,32 +170,58 @@ export function nextMove(
 }
 
 /**
- * The numbers, from 1, of the Definition of Done statements Reported met: the report of the last
- * Agent Stage run that ended done (spec §2.3), so a later report takes back what it leaves out.
+ * The numbers, from 1, of the Definition of Done statements Reported met (spec §2.3): met once any
+ * Agent Stage run that ended done reported it, until a later report lists it as no longer met.
  * Script Stages report none. `runs` are the Task's, oldest first.
  */
 export function reportedMet(runs: readonly StageRun[]): readonly number[] {
-  return lastReport(runs)?.definitionOfDoneMet ?? [];
+  return reportedMetIn(runs.map(({ outcome }) => outcome));
+}
+
+/** `reportedMet` over the outcomes of the Task's runs, oldest first. */
+export function reportedMetIn(outcomes: readonly (StageOutcome | undefined)[]): readonly number[] {
+  return [...definitionOfDoneReports(outcomes).met].toSorted((one, other) => one - other);
 }
 
 /**
- * The statements Out of reach, by their numbers with why: from the same report as `reportedMet`,
- * so a later report takes back what it leaves out. Only statements not Reported met count.
+ * The statements Out of reach, by their numbers with the latest why, counted across reports as
+ * `reportedMet` is: a statement later reported met is no longer Out of reach.
  */
 export function reportedOutOfReach(runs: readonly StageRun[]): readonly OutOfReachStatement[] {
-  const report = lastReport(runs);
-  const met = new Set(report?.definitionOfDoneMet);
-  return (report?.definitionOfDoneOutOfReach ?? []).filter(({ statement }) => !met.has(statement));
+  return [...definitionOfDoneReports(runs.map(({ outcome }) => outcome)).outOfReach]
+    .map(([statement, why]) => ({ statement, why }))
+    .toSorted((one, other) => one.statement - other.statement);
 }
 
-/** The last Agent Stage run's done outcome with a Definition of Done report. */
-function lastReport(
-  runs: readonly StageRun[],
-): Extract<StageOutcome, { status: "done" }> | undefined {
-  const reports = runs.flatMap(({ outcome }) =>
-    outcome?.status === "done" && outcome.definitionOfDoneMet ? [outcome] : [],
-  );
-  return reports.at(-1);
+/** What every Agent Stage's report so far adds up to. */
+interface DefinitionOfDoneReports {
+  readonly met: ReadonlySet<number>;
+  /** The latest why, by the statement's number; never one in `met`. */
+  readonly outOfReach: ReadonlyMap<number, string>;
+}
+
+/**
+ * Folds the done Agent Stage runs' reports, oldest first: each adds what it reports met, takes back
+ * what it lists as no longer met, and records its Out of reach statements. Runs stored before
+ * reports counted across Stages fold the same way.
+ */
+function definitionOfDoneReports(
+  outcomes: readonly (StageOutcome | undefined)[],
+): DefinitionOfDoneReports {
+  const met = new Set<number>();
+  const outOfReach = new Map<number, string>();
+  for (const outcome of outcomes) {
+    if (outcome?.status !== "done" || !outcome.definitionOfDoneMet) continue;
+    for (const statement of outcome.definitionOfDoneMet) {
+      met.add(statement);
+      outOfReach.delete(statement);
+    }
+    for (const statement of outcome.definitionOfDoneNoLongerMet ?? []) met.delete(statement);
+    for (const { statement, why } of outcome.definitionOfDoneOutOfReach ?? []) {
+      if (!met.has(statement)) outOfReach.set(statement, why);
+    }
+  }
+  return { met, outOfReach };
 }
 
 /** The Definition of Done statements not Reported met. */
@@ -536,31 +573,71 @@ function afterResolveGaveUp(
 }
 
 /**
- * Moves the walk to the next Stage. Past the last one, the Definition of Done must be reported
- * met; otherwise the user is asked on the run, and their answer replayed.
+ * Moves the walk to the next Stage. Before it enters a Publish Stage, or past the last Stage of a
+ * Pipeline that checks none, the Definition of Done must be reported met (spec §2.3), so an unmet
+ * statement is asked about before anything is pushed or merged.
  */
 function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
   const index = walk.position.index + 1;
   walk.position = at(index);
-  const last = walk.stages.at(-1);
-  if (index < walk.stages.length || !last) return undefined;
+  // A Decision recorded where the walk checked before (on a Publish run, past the last Stage) is
+  // replayed where it is, whatever the check would find now.
+  if (decisionOf(run, "definition-of-done")) return checkDefinitionOfDone(walk, run);
+  const next = walk.stages[index];
+  if (next) {
+    // Resolve's Stages go back to a Publish the check already let through.
+    if (!isPublishStage(next) || walk.calledMet || isResolveStage({ key: run.stageKey })) {
+      return undefined;
+    }
+    // Runs that went on past a Publish unchecked ran before the check moved there.
+    if (run !== walk.runs.at(-1)) return undefined;
+    return checkDefinitionOfDone(walk, run);
+  }
+  if (checksBeforePublish(walk.stages)) return undefined;
+  return checkDefinitionOfDone(walk, run);
+}
+
+/**
+ * Whether the walk checks the Definition of Done before a Publish Stage rather than at the end: a
+ * Publish first in the Pipeline has no Stage before it to check after, so it is checked at the end.
+ * Resolve's Stages, which The Office puts before a Publish that conflicted, don't count.
+ */
+function checksBeforePublish(stages: readonly Stage[]): boolean {
+  return withoutResolveStages(stages).some((stage, index) => index > 0 && isPublishStage(stage));
+}
+
+/**
+ * The Definition of Done check at the walk's position, a Publish Stage or past the last Stage: with
+ * every statement reported met it goes on; otherwise the user is asked on the run, and their answer
+ * replayed.
+ */
+function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefined {
+  const { index } = walk.position;
+  const before = walk.stages[index];
   const unmet = unmetStatements(walk.definitionOfDone, walk.replayed);
-  if (unmet.length === 0) return undefined;
-  const again = walk.stages.findLast(({ kind }) => kind === "agent") ?? last;
+  // A Decision already on the run, open or answered, is kept even when nothing is unmet now.
+  if (unmet.length === 0 && !decisionOf(run, "definition-of-done")) return undefined;
+  const again = againStage(walk.stages, index);
   const outOfReach = outOfReachStatements(walk.definitionOfDone, walk.replayed);
-  const question = { kind: "definition-of-done", unmet, outOfReach, again } as const;
+  const question = { kind: "definition-of-done", unmet, outOfReach, again, before } as const;
   const waiting = waitingOn(run, "definition-of-done", question);
   if (waiting) return waiting;
   const answer = answerOf(run, "definition-of-done");
   switch (answer.kind) {
     case "mark-done":
+      if (before) {
+        walk.calledMet = true;
+        return undefined;
+      }
       return { move: "complete" };
     case "drop":
       return { move: "drop" };
     case "one-more-round": {
       const round = (walk.roundsUsed.get(DEFINITION_OF_DONE_ROUNDS) ?? 0) + 1;
       walk.roundsUsed.set(DEFINITION_OF_DONE_ROUNDS, round);
-      const error = definitionOfDoneCarried(unmet, outOfReach);
+      // A round answered before reports counted across Stages may find nothing unmet now.
+      const carried = unmet.length > 0 ? unmet : walk.definitionOfDone;
+      const error = definitionOfDoneCarried(carried, outOfReach);
       walk.position = {
         index: walk.stages.indexOf(again),
         carriedFailure: {
@@ -584,6 +661,19 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
         `Stage run ${run.id} was answered "${answer.kind}" at the Definition of Done.`,
       );
   }
+}
+
+/**
+ * The Stage one more round of the Definition of Done check runs: the last Agent Stage before the
+ * Stage at `index`, never Resolve, or the Stage just before it when there is none.
+ */
+function againStage(stages: readonly Stage[], index: number): Stage {
+  const earlier = stages.slice(0, index);
+  const again =
+    earlier.findLast((stage) => stage.kind === "agent" && stage.key !== RESOLVE_KEY) ??
+    earlier.at(-1);
+  if (!again) throw new Error("The Definition of Done was checked before any Stage ran.");
+  return again;
 }
 
 /**

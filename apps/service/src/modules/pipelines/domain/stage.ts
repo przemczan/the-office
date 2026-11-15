@@ -24,6 +24,11 @@ export type ScriptStageCommand = string;
 /** The command of a Publish Stage, kept from every Project command's keys. */
 export const PUBLISH_COMMAND = "publish";
 
+/** Whether `stage` is a Publish Stage: a Script Stage running `PUBLISH_COMMAND`. */
+export function isPublishStage(stage: Stage | undefined): stage is ScriptStage {
+  return stage?.kind === "script" && stage.command === PUBLISH_COMMAND;
+}
+
 /**
  * Where a Publish Stage takes the Task's branch (spec §2.3's proof-of-concept publish target): by
  * the Project's publishing mode, or pushed as a branch only, with no pull request and no merge.

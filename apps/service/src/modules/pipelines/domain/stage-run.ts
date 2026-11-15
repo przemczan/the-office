@@ -35,6 +35,12 @@ export type StageOutcome = (
        */
       readonly definitionOfDoneMet?: readonly number[];
       /**
+       * The statements an earlier Stage reported met that the work no longer meets, such as a
+       * regression found in review, which takes them back; none listed leaves it undefined, as do
+       * runs stored before reports counted across Stages.
+       */
+      readonly definitionOfDoneNoLongerMet?: readonly number[];
+      /**
        * The statements the Agent says it can't verify where it works, with why (Out of reach); none
        * listed leaves it undefined.
        */

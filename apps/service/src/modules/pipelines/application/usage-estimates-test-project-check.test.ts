@@ -21,6 +21,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import {
   addTestProject,
+  callingItMet,
   checkApi,
   cleanUpTestProject,
   git,
@@ -310,11 +311,11 @@ function implementStageOf(stages: readonly Stage[]): Stage[] {
   return [implement];
 }
 
-/** Waits for Done, marking the Task Done when the walk asks whether its Definition of Done is met. */
+/** Waits for Done, calling the Definition of Done met when the walk asks whether it is. */
 async function untilDone(api: Api, taskId: string): Promise<Task> {
   let task = await untilWalkStops(api, taskId, WALK_MS);
   for (const asked of await openDecisionsOn(api, taskId)) {
-    const markDone = asked.options.indexOf("Mark the Task Done");
+    const markDone = callingItMet(asked.options);
     if (markDone < 0) break;
     await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
     task = await untilWalkStops(api, taskId, WALK_MS);

@@ -290,7 +290,7 @@ export const taskStagesSchema = z.object({
   stages: z.array(taskStageSchema).nullable(),
   /**
    * The Definition of Done statements Reported met, by their numbers from 1: the walk's own rule over
-   * all the Task's runs, so a later run can take one back.
+   * all the Task's runs: met once any Agent Stage reported it, until a later report takes it back.
    */
   definitionOfDoneMet: z.array(z.int().positive()),
   /** Whether the user edited them for the Task: the Pipeline's label says so. */

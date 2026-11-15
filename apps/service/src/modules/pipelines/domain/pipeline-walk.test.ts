@@ -152,9 +152,36 @@ function answeredUsedUp(answer: WalkAnswer): StageRun[] {
   return ran;
 }
 
-/** Every Stage ran, the first reporting the whole Definition of Done met, the look ending `last`. */
+/** Every Stage ran, the first reporting nothing met, the look ending `last`. */
 function allRan(last: StageOutcome, ...decisions: StageRunDecision[]): StageRun[] {
-  return runs(["write", meeting(1, 2)], ["check", done], ["look", last, ...decisions]);
+  return runs(["write", meeting()], ["check", done], ["look", last, ...decisions]);
+}
+
+/** A report meeting `met` that takes back `noLongerMet`. */
+const takingBack = (met: number[], ...noLongerMet: number[]): StageOutcome => ({
+  status: "done",
+  summary: "Done.",
+  definitionOfDoneMet: met,
+  definitionOfDoneNoLongerMet: noLongerMet,
+});
+
+/** The Stages before Publish ran, the write meeting the first statement, the review ending `review`. */
+function reviewed(review: StageOutcome, ...decisions: StageRunDecision[]): readonly Ran[] {
+  return [
+    ["write", meeting(1)],
+    ["check", done],
+    ["review", review, ...decisions],
+  ];
+}
+
+/** Every Stage ran through Publish, as before the check moved before it, Publish carrying `decisions`. */
+function publishedUnchecked(...decisions: StageRunDecision[]): StageRun[] {
+  return runs(
+    ["write", meeting(1)],
+    ["check", done],
+    ["review", meeting()],
+    ["publish", done, ...decisions],
+  );
 }
 
 describe("nextMove", () => {
@@ -770,8 +797,15 @@ describe("nextMove", () => {
           unmet: ["The name shows"],
           outOfReach: [],
           again: stages[2],
+          before: undefined,
         },
       });
+    });
+
+    it("completes when an earlier report met what the last one leaves out", () => {
+      const ran = runs(["write", meeting(1)], ["check", done], ["look", meeting(2)]);
+
+      expect(nextMove(stages, ran, DEFINITION_OF_DONE)).toEqual({ move: "complete" });
     });
 
     it("completes when the user marks the Task Done anyway", () => {
@@ -826,7 +860,11 @@ describe("nextMove", () => {
 
     it("checks it after issues the user continued with at the last Stage too", () => {
       const accepted = decided("no-retries-left", { kind: "accept-issues" });
-      const metEarlier = allRan(failed("A finding."), accepted);
+      const metEarlier = runs(
+        ["write", meeting(1, 2)],
+        ["check", done],
+        ["look", failed("A finding."), accepted],
+      );
       const ran = runs(["write", meeting(1)], ["check", done], ["look", failed("A finding.")]);
       const last = ran[2];
       if (!last) throw new Error("The look never ran.");
@@ -840,6 +878,245 @@ describe("nextMove", () => {
         move: "ask",
         run: { stageKey: "look" },
         question: { kind: "definition-of-done", unmet: ["The name persists"] },
+      });
+    });
+  });
+
+  describe("before Publish", () => {
+    const publish = {
+      ...scriptStage("publish", { goBackTo: "write", rounds: 1 }),
+      command: "publish",
+    } as const;
+    const publishing = [agentStage("write"), scriptStage("check"), agentStage("review"), publish];
+
+    it("asks on the last run before the walk enters Publish, offering the last Agent Stage again", () => {
+      const ran = runs(...reviewed(meeting()));
+
+      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toEqual({
+        move: "ask",
+        run: ran[2],
+        question: {
+          kind: "definition-of-done",
+          unmet: ["The name persists"],
+          outOfReach: [],
+          again: publishing[2],
+          before: publish,
+        },
+      });
+    });
+
+    it("runs Publish when every statement is reported met, and completes after it unchecked", () => {
+      const met = runs(["write", meeting(1, 2)], ["check", done], ["review", meeting()]);
+
+      expect(nextMove(publishing, met, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: publish,
+      });
+      const published = [...met, ...runs(["publish", done])];
+      expect(nextMove(publishing, published, DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+    });
+
+    it("asks again when a later report takes a statement back", () => {
+      const ran = runs(["write", meeting(1, 2)], ["check", done], ["review", takingBack([], 2)]);
+
+      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { kind: "definition-of-done", unmet: ["The name persists"] },
+      });
+    });
+
+    it("publishes once the user calls it met, and completes with no second check", () => {
+      const calledMet = decided("definition-of-done", { kind: "mark-done" });
+      const ran = runs(...reviewed(meeting(), calledMet));
+
+      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: publish,
+      });
+      const published = runs(...reviewed(meeting(), calledMet), ["publish", done]);
+      expect(nextMove(publishing, published, DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+    });
+
+    it("doesn't ask again when Publish's loop comes back to it after the user called it met", () => {
+      const calledMet = decided("definition-of-done", { kind: "mark-done" });
+      const ran = runs(
+        ...reviewed(meeting(), calledMet),
+        ["publish", failed("The push was refused.")],
+        ["write", done],
+        ["check", done],
+        ["review", meeting()],
+      );
+
+      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: publish,
+      });
+    });
+
+    it("runs the last Agent Stage once more, then checks again as the walk next reaches Publish", () => {
+      const answer = { kind: "one-more-round", guidance: undefined } as const;
+      const once = reviewed(meeting(), decided("definition-of-done", answer));
+
+      expect(nextMove(publishing, runs(...once), DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: publishing[2],
+        carriedFailure: {
+          stageKey: "review",
+          error: "The Definition of Done isn't reported met:\n- The name persists",
+          round: 1,
+          rounds: 1,
+        },
+        sentBack: undefined,
+      });
+      const stillUnmet = runs(...once, ["review", meeting()]);
+      expect(nextMove(publishing, stillUnmet, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        run: stillUnmet[3],
+        question: { kind: "definition-of-done", before: publish },
+      });
+      const met = runs(...once, ["review", meeting(2)]);
+      expect(nextMove(publishing, met, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: publish,
+      });
+    });
+
+    it("runs the Stage just before Publish once more when no Agent Stage comes before it", () => {
+      const scripted = [scriptStage("check"), publish];
+      const answer = { kind: "one-more-round", guidance: undefined } as const;
+      const asked = runs(["check", done]);
+
+      expect(nextMove(scripted, asked, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { again: scripted[0], before: publish },
+      });
+      const ran = runs(["check", done, decided("definition-of-done", answer)]);
+      expect(nextMove(scripted, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: scripted[0],
+      });
+    });
+
+    it("checks a Pipeline whose first Stage is Publish at the end, as nothing runs before it", () => {
+      const publishOnly = [publish];
+      const ran = runs(["publish", done]);
+
+      expect(nextMove(publishOnly, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        run: ran[0],
+        question: { kind: "definition-of-done", again: publish, before: undefined },
+      });
+    });
+
+    it("still checks a Publish-first Pipeline at the end after Resolve's Stages went before it", () => {
+      const publishFirst = [
+        { ...scriptStage("publish"), command: "publish", afterConflict: "review" } as const,
+        agentStage("notes"),
+      ];
+      const conflicted: StageOutcome = {
+        status: "failed",
+        error: "office/task-1 no longer applies cleanly on main on origin.",
+        baseMoved: { conflictedFiles: ["a.ts"] },
+      };
+      const ran = continuedAtTheGate(
+        runs(
+          ["publish", conflicted],
+          [RESOLVE_KEY, done],
+          [RESOLVE_TEST_KEY, done],
+          [RESOLVE_GATE_KEY, done],
+          ["publish", done],
+          ["notes", meeting(1)],
+        ),
+        3,
+      );
+
+      expect(nextMove(publishFirst, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        run: ran.at(-1),
+        question: { kind: "definition-of-done", unmet: ["The name persists"], before: undefined },
+      });
+    });
+
+    it("keeps waiting on a Decision already open before Publish when nothing is unmet now", () => {
+      const ran = runs(...reviewed(meeting(1, 2), decided("definition-of-done")));
+
+      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toEqual({
+        move: "wait",
+        run: ran.at(-1),
+      });
+    });
+
+    it("drops the Task when the user drops it", () => {
+      const ran = runs(...reviewed(meeting(), decided("definition-of-done", { kind: "drop" })));
+
+      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toEqual({ move: "drop" });
+    });
+
+    it("doesn't check again as Resolve's Test goes back to Publish", () => {
+      const conflicted: StageOutcome = {
+        status: "failed",
+        error: "office/task-1 no longer applies cleanly on main on origin.",
+        baseMoved: { conflictedFiles: ["a.ts"] },
+      };
+      const ran = runs(
+        ["write", meeting(1, 2)],
+        ["check", done],
+        ["review", meeting()],
+        ["publish", conflicted],
+        [RESOLVE_KEY, takingBack([], 2)],
+        [RESOLVE_TEST_KEY, done],
+      );
+
+      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: publish,
+      });
+    });
+
+    describe("runs recorded before the check moved before Publish", () => {
+      it("go on past Publish when the check would ask before it now", () => {
+        expect(nextMove(publishing, publishedUnchecked(), DEFINITION_OF_DONE)).toEqual({
+          move: "complete",
+        });
+      });
+
+      it("wait on a Decision still open on the Publish run, and replay its answer", () => {
+        const open = publishedUnchecked(decided("definition-of-done"));
+        expect(nextMove(publishing, open, DEFINITION_OF_DONE)).toEqual({
+          move: "wait",
+          run: open[3],
+        });
+
+        const markedDone = publishedUnchecked(decided("definition-of-done", { kind: "mark-done" }));
+        expect(nextMove(publishing, markedDone, DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+      });
+
+      it("replay one more round as answered, passing over Resolve, with every statement when none is unmet now", () => {
+        const conflicted: StageOutcome = {
+          status: "failed",
+          error: "office/task-1 no longer applies cleanly on main on origin.",
+          baseMoved: { conflictedFiles: ["a.ts"] },
+        };
+        const answer = { kind: "one-more-round", guidance: undefined } as const;
+        const ran = runs(
+          ["write", meeting(1, 2)],
+          ["check", done],
+          ["review", meeting(1)],
+          ["publish", conflicted],
+          [RESOLVE_KEY, done],
+          [RESOLVE_TEST_KEY, done],
+          ["publish", done, decided("definition-of-done", answer)],
+        );
+
+        expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toMatchObject({
+          move: "run",
+          stage: publishing[2],
+          carriedFailure: {
+            stageKey: "review",
+            error:
+              "The Definition of Done isn't reported met:\n- The name shows\n- The name persists",
+          },
+        });
       });
     });
   });
@@ -1000,8 +1277,8 @@ describe("nextMove at a Gate", () => {
 });
 
 describe("unmetStatements", () => {
-  it("goes by the last report, which a Script Stage never gives", () => {
-    const ran = runs(["write", meeting(1)], ["look", meeting(1, 2)], ["check", done]);
+  it("counts every report so far, which a Script Stage never gives", () => {
+    const ran = runs(["write", meeting(1)], ["look", meeting(2)], ["check", done]);
 
     expect(unmetStatements(DEFINITION_OF_DONE, ran)).toEqual([]);
     expect(unmetStatements(DEFINITION_OF_DONE, ran.slice(0, 1))).toEqual(["The name persists"]);
@@ -1010,31 +1287,48 @@ describe("unmetStatements", () => {
 });
 
 describe("reportedMet", () => {
-  it("lets a later report take back what an earlier one said, down to nothing", () => {
-    const ran = runs(["write", meeting(1, 2)], ["look", meeting(2)], ["check", done]);
+  it("keeps a statement once any report met it, when later reports leave it out", () => {
+    const ran = runs(["write", meeting(2)], ["look", meeting(1)], ["check", done]);
 
-    expect(reportedMet(ran)).toEqual([2]);
-    expect(reportedMet([...ran, ...runs(["look", meeting()])])).toEqual([]);
+    expect(reportedMet(ran)).toEqual([1, 2]);
+    expect(reportedMet([...ran, ...runs(["look", meeting()])])).toEqual([1, 2]);
     expect(reportedMet([])).toEqual([]);
+  });
+
+  it("takes back only what a later report lists as no longer met, until a report meets it again", () => {
+    const ran = runs(["write", meeting(1, 2)], ["look", takingBack([], 2)]);
+
+    expect(reportedMet(ran)).toEqual([1]);
+    expect(reportedMet([...ran, ...runs(["write", meeting(2)])])).toEqual([1, 2]);
   });
 });
 
 describe("reportedOutOfReach", () => {
-  it("reads the last report, so a later one takes back what it leaves out", () => {
-    const ran = runs(
-      ["write", outOfReach([], 1, 2)],
-      ["look", outOfReach([1], 2)],
-      ["check", done],
-    );
+  it("adds up across reports, keeping the latest why", () => {
+    const onWindows: StageOutcome = {
+      status: "done",
+      summary: "Done.",
+      definitionOfDoneMet: [],
+      definitionOfDoneOutOfReach: [{ statement: 2, why: "Windows." }],
+    };
+    const ran = runs(["write", outOfReach([], 1, 2)], ["look", meeting()], ["look", onWindows]);
 
-    expect(reportedOutOfReach(ran)).toEqual([{ statement: 2, why: "Live." }]);
-    expect(reportedOutOfReach([...ran, ...runs(["look", meeting(1)])])).toEqual([]);
+    expect(reportedOutOfReach(ran)).toEqual([
+      { statement: 1, why: "Live." },
+      { statement: 2, why: "Windows." },
+    ]);
     expect(reportedOutOfReach([])).toEqual([]);
   });
 
+  it("drops a statement a later report meets", () => {
+    const ran = runs(["write", outOfReach([], 1, 2)], ["look", meeting(1)], ["check", done]);
+
+    expect(reportedOutOfReach(ran)).toEqual([{ statement: 2, why: "Live." }]);
+  });
+
   it("counts only statements not reported met", () => {
-    expect(reportedOutOfReach(runs(["look", outOfReach([1], 1, 2)]))).toEqual([
-      { statement: 2, why: "Live." },
-    ]);
+    expect(reportedOutOfReach(runs(["write", meeting(1)], ["look", outOfReach([], 1, 2)]))).toEqual(
+      [{ statement: 2, why: "Live." }],
+    );
   });
 });

@@ -20,6 +20,7 @@ describe("STAGE_RESULT_SCHEMA", () => {
       "summary",
       "handoverNote",
       "definitionOfDoneMet",
+      "definitionOfDoneNoLongerMet",
       "definitionOfDoneOutOfReach",
       "failureReason",
       "screenshots",
@@ -94,6 +95,48 @@ describe("readStageResult", () => {
       valid: false,
       problems:
         'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.',
+    });
+  });
+
+  it("keeps the statements a result takes back as no longer met", () => {
+    const result = {
+      status: "done",
+      summary: "Reviewed.",
+      handoverNote: "One regression.",
+      definitionOfDoneMet: [1],
+      definitionOfDoneNoLongerMet: [3],
+    };
+
+    expect(readStageResult(result, undefined, STATEMENTS)).toMatchObject({
+      valid: true,
+      outcome: { definitionOfDoneMet: [1], definitionOfDoneNoLongerMet: [3] },
+    });
+    expect(
+      readStageResult({ ...result, definitionOfDoneNoLongerMet: [] }, undefined, STATEMENTS),
+    ).toMatchObject({ valid: true, outcome: { definitionOfDoneMet: [1] } });
+  });
+
+  it("refuses a statement no longer met the Definition of Done doesn't have, or also met", () => {
+    const result = {
+      status: "done",
+      summary: "Reviewed.",
+      handoverNote: "One regression.",
+      definitionOfDoneMet: [1],
+    };
+
+    expect(
+      readStageResult({ ...result, definitionOfDoneNoLongerMet: [2, 4] }, undefined, STATEMENTS),
+    ).toEqual({
+      valid: false,
+      problems:
+        '"definitionOfDoneNoLongerMet" names statement 4, which the Definition of Done doesn\'t have: it has 3.',
+    });
+    expect(
+      readStageResult({ ...result, definitionOfDoneNoLongerMet: [1] }, undefined, STATEMENTS),
+    ).toEqual({
+      valid: false,
+      problems:
+        '"definitionOfDoneMet" and "definitionOfDoneNoLongerMet" both name statement 1: list a statement as met or as no longer met, not both.',
     });
   });
 });

@@ -304,7 +304,20 @@ export async function stageLines(
   return lines;
 }
 
-/** Waits until the Task leaves In progress after Publish, marking it Done when the Definition of Done check asks. */
+/**
+ * The option of a Definition of Done Decision that lets the Task finish: "Call it met and publish"
+ * when asked before Publish, "Mark the Task Done" at the end of a Pipeline without one; -1 for any
+ * other Decision.
+ */
+export function callingItMet(options: readonly string[]): number {
+  const before = options.indexOf("Call it met and publish");
+  return before >= 0 ? before : options.indexOf("Mark the Task Done");
+}
+
+/**
+ * Waits until the Task leaves In progress, calling its Definition of Done met when the check asks,
+ * before Publish or at the end.
+ */
 export async function untilDone(
   api: Api,
   taskId: string,
@@ -314,7 +327,7 @@ export async function untilDone(
   let task = await untilWalkStops(api, taskId, timeoutMs);
   for (const asked of await openDecisionsOn(api, taskId)) {
     await note(`Asked: ${asked.question} [${asked.options.join(" | ")}]`);
-    const markDone = asked.options.indexOf("Mark the Task Done");
+    const markDone = callingItMet(asked.options);
     if (!asked.question.includes("Definition of Done") || markDone < 0) break;
     await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
     task = await untilWalkStops(api, taskId, timeoutMs);

@@ -20,6 +20,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import {
   addTestProject,
+  callingItMet,
   checkApi,
   comparable,
   git,
@@ -390,12 +391,12 @@ async function waitingStage(api: Api, taskId: string): Promise<string> {
   return waiting.map(({ stage }) => stage.key).join(", ") || "no Gate";
 }
 
-/** Walks on after Publish, marking the Task Done when the Definition of Done check asks. */
+/** Walks on to Done, calling the Definition of Done met when its check asks, before Publish. */
 async function untilDone(api: Api, taskId: string, note: Note): Promise<Task> {
   let task = await untilWalkStops(api, taskId, WALK_MS);
   for (const asked of await openDecisionsOn(api, taskId)) {
     await note(`Asked: ${asked.question} [${asked.options.join(" | ")}]`);
-    const markDone = asked.options.indexOf("Mark the Task Done");
+    const markDone = callingItMet(asked.options);
     if (!asked.question.includes("Definition of Done") || markDone < 0) break;
     await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
     task = await untilWalkStops(api, taskId, WALK_MS);

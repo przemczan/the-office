@@ -10,6 +10,7 @@ import { taskChangesSchema, type Project, type TaskChanges } from "@the-office/c
 import { describe, expect, it } from "vitest";
 import {
   addTestProject,
+  callingItMet,
   checkApi,
   comparable,
   git,
@@ -176,9 +177,9 @@ describe.runIf(
         await api("POST", `/tasks/${taskId}/gate/continue`);
         task = await untilWalkStops(api, taskId, WALK_MS);
         for (const asked of await openDecisionsOn(api, taskId)) {
-          // The Definition of Done is checked after the last Stage, here after Publish.
-          await note(`Asked after Publish: ${asked.question} [${asked.options.join(" | ")}]`);
-          const markDone = asked.options.indexOf("Mark the Task Done");
+          // The Definition of Done is checked as the walk reaches Publish, here past the Gate.
+          await note(`Asked before Publish: ${asked.question} [${asked.options.join(" | ")}]`);
+          const markDone = callingItMet(asked.options);
           if (!asked.question.includes("Definition of Done") || markDone < 0) break;
           await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
           task = await untilWalkStops(api, taskId, WALK_MS);

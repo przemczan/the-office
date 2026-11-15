@@ -17,11 +17,13 @@ describe("walkDecision", () => {
       unmet: ["The name persists"],
       outOfReach: [],
       again: implement,
+      before: undefined,
     });
 
     expect(decision).toMatchObject({
       kind: "definition-of-done",
       draft: {
+        question: "The Pipeline ended, but the Definition of Done isn't reported met. What now?",
         options: ['Run "Implement" once more', "Mark the Task Done", "Drop the Task"],
         recommendation: {
           option: 0,
@@ -39,12 +41,46 @@ describe("walkDecision", () => {
     );
   });
 
+  it("asks before Publish, offering to call it met and publish", () => {
+    const publish: Stage = {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+      command: "publish",
+    };
+    const decision = walkDecision(aRun("implement", { status: "done", summary: "Done." }), {
+      kind: "definition-of-done",
+      unmet: ["It runs on Windows"],
+      outOfReach: [{ statement: "It runs on Windows", why: "Only the workstation runs Windows." }],
+      again: implement,
+      before: publish,
+    });
+
+    expect(decision.draft).toMatchObject({
+      question:
+        "The Stages before Publish ended, but the Definition of Done isn't reported met. What now?",
+      options: ['Run "Implement" once more', "Call it met and publish", "Drop the Task"],
+      recommendation: {
+        option: 1,
+        reason:
+          'Another round of "Implement" can\'t meet them: check those statements yourself first, then call it met.',
+      },
+    });
+    expect(decision.options).toEqual([
+      { kind: "one-more-round", guidance: undefined },
+      { kind: "mark-done" },
+      { kind: "drop" },
+    ]);
+  });
+
   it("lists what the Stage can address apart from what the user checks, still recommending one more round", () => {
     const decision = walkDecision(aRun("implement", { status: "done", summary: "Done." }), {
       kind: "definition-of-done",
       unmet: ["The name persists", "It runs on Windows"],
       outOfReach: [{ statement: "It runs on Windows", why: "Only the workstation runs Windows." }],
       again: implement,
+      before: undefined,
     });
 
     expect(decision.draft.context).toBe(
@@ -60,6 +96,7 @@ describe("walkDecision", () => {
       unmet: ["It runs on Windows"],
       outOfReach: [{ statement: "It runs on Windows", why: "Only the workstation runs Windows." }],
       again: implement,
+      before: undefined,
     });
 
     expect(decision.draft).toMatchObject({
@@ -304,7 +341,13 @@ describe("asksAConsultantFirst", () => {
     ).toBe(false);
     expect(
       asksAConsultantFirst(
-        { kind: "definition-of-done", unmet: ["It exports."], outOfReach: [], again: implement },
+        {
+          kind: "definition-of-done",
+          unmet: ["It exports."],
+          outOfReach: [],
+          again: implement,
+          before: undefined,
+        },
         [run],
       ),
     ).toBe(false);

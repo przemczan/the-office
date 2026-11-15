@@ -38,14 +38,14 @@ export interface WalkDecision {
 const CONTINUE_WITH_ISSUES = "Continue with the issues recorded";
 const DROP_THE_TASK = "Drop the Task";
 const MARK_DONE = "Mark the Task Done";
+const CALL_IT_MET = "Call it met and publish";
 const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more round.";
 
 /**
  * The Decision for what the walk asks (spec §2.3), The Office's: when a Stage fails with no
- * retries left or reaches its budget, the Pipeline ends with the Definition of Done not reported
- * met, The Office restarted during a Stage too often, or a conflict at Publish is left to the user. The Agent
- * asks its own with an Office tool, never
- * through the walk. The user always may answer in their own words (`walkAnswerOf`).
+ * retries left or reaches its budget, the Definition of Done isn't reported met before Publish or
+ * as a Pipeline without one ends, The Office restarted during a Stage too often, or a conflict at
+ * Publish is left to the user. The Agent asks its own with an Office tool, never through the walk. The user always may answer in their own words (`walkAnswerOf`).
  */
 export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecision {
   switch (question.kind) {
@@ -54,7 +54,7 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
     case "budget":
       return budgetDecision(question.stage, question.reached);
     case "definition-of-done":
-      return definitionOfDoneNotMet(question.unmet, question.outOfReach, question.again);
+      return definitionOfDoneNotMet(question);
     case "restart":
       return restartDecision(question.stage, run);
     case "base-moved":
@@ -300,16 +300,18 @@ function conflictWithNobodyToResolve(stage: Stage, error: string): WalkDecision 
 }
 
 /**
- * The Definition of Done not reported met: the statements `again` can address apart from those
- * Out of reach, which the user checks. With none to address, another round can't meet them, so
- * Mark it done is recommended.
+ * The Definition of Done not reported met, before Publish or at the end of a Pipeline without one:
+ * the statements `again` can address apart from those Out of reach, which the user checks. With
+ * none to address, another round can't meet them, so calling it met (or Done) is recommended.
  */
-function definitionOfDoneNotMet(
-  unmet: readonly string[],
-  outOfReach: readonly UnmetOutOfReach[],
-  again: Stage,
-): WalkDecision {
+function definitionOfDoneNotMet({
+  unmet,
+  outOfReach,
+  again,
+  before,
+}: Extract<WalkQuestion, { kind: "definition-of-done" }>): WalkDecision {
   const addressable = addressableStatements(unmet, outOfReach);
+  const markDone = before ? CALL_IT_MET : MARK_DONE;
   const context = notMetContext(unmet, addressable, outOfReach, again);
   const recommendation =
     addressable.length > 0
@@ -322,14 +324,16 @@ function definitionOfDoneNotMet(
         }
       : {
           option: 1,
-          reason: `Another round of "${again.name}" can't meet them: check those statements yourself first, then mark it done.`,
+          reason: `Another round of "${again.name}" can't meet them: check those statements yourself first, then ${before ? "call it met" : "mark it done"}.`,
         };
   return {
     kind: "definition-of-done",
     draft: {
-      question: "The Pipeline ended, but the Definition of Done isn't reported met. What now?",
+      question: before
+        ? `The Stages before ${before.name} ended, but the Definition of Done isn't reported met. What now?`
+        : "The Pipeline ended, but the Definition of Done isn't reported met. What now?",
       context: `${context}\n\n${GUIDANCE_HINT}`,
-      options: [`Run "${again.name}" once more`, MARK_DONE, DROP_THE_TASK],
+      options: [`Run "${again.name}" once more`, markDone, DROP_THE_TASK],
       recommendation,
     },
     options: [
