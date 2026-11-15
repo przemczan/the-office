@@ -5,6 +5,8 @@ import { Button, Checkbox, Dialog, Field, Input, RadioGroup } from "@the-office/
 import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { addTaskToInitiative, createTask, initiativeQueries, taskQueries } from "../../api/work.ts";
+import { attachAll, type PendingAttachment } from "../attachments/pending-attachment.ts";
+import { PendingAttachmentsField } from "../attachments/pending-attachments-field.tsx";
 import { MentionField } from "../mentions/mention-field.tsx";
 import { useMentions } from "../mentions/mention-picker.tsx";
 import { ProjectChip } from "../project-chip.tsx";
@@ -21,13 +23,14 @@ type NewTaskDraft = Omit<NewTask, "projectId" | "description"> & {
 };
 
 /**
- * The top bar's Create › Task: a title, a Description if the user wants, its Project and any Tags;
- * it starts in Backlog, in `projectId` unless another is chosen (else the first Project), and its
- * page opens. Given an Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in
- * the Initiative's first Project unless another is chosen (else `projectId`, the Project of the Idea
- * it was shaped from, until it has Tasks), and waiting for any of `canWaitFor`, the
- * Initiative's Tasks that can still hold it back, the user chooses; it starts in Shaping while the
- * Initiative does, and the user stays on the Initiative to add the next.
+ * The top bar's Create › Task: a title, a Description and Attachments if the user wants, its Project
+ * and any Tags; it starts in Backlog, in `projectId` unless another is chosen (else the first
+ * Project), and its page opens, the Attachments added to it in the order chosen. Given an
+ * Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in the Initiative's
+ * first Project unless another is chosen (else `projectId`, the Project of the Idea it was shaped
+ * from, until it has Tasks), and waiting for any of `canWaitFor`, the Initiative's Tasks that can
+ * still hold it back, the user chooses; it starts in Shaping while the Initiative does, and the user
+ * stays on the Initiative to add the next.
  */
 export function NewTaskDialog({
   projectId: startingProjectId = null,
@@ -58,16 +61,28 @@ export function NewTaskDialog({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const navigate = useNavigate();
+  const [pending, setPending] = useState<readonly PendingAttachment[]>([]);
+  // Once added, a failed Attachment is tried again without adding the Task twice.
+  const [added, setAdded] = useState<Task>();
   const creating = useMutation({
-    mutationFn: (newTask: NewTask) =>
-      initiative
-        ? addTaskToInitiative(initiative.id, { ...newTask, blockedBy: [...blockedBy] })
-        : createTask(newTask),
-    onSuccess: async (task) => {
-      await Promise.all([
+    mutationFn: async (newTask: NewTask) => {
+      const task =
+        added ??
+        (await (initiative
+          ? addTaskToInitiative(initiative.id, { ...newTask, blockedBy: [...blockedBy] })
+          : createTask(newTask)));
+      setAdded(task);
+      await attachAll({ kind: "task", taskId: task.id }, pending, () =>
+        setPending((left) => left.slice(1)),
+      );
+      return task;
+    },
+    onSettled: () =>
+      Promise.all([
         queryClient.invalidateQueries(taskQueries.list()),
         initiative && queryClient.invalidateQueries(initiativeQueries.list()),
-      ]);
+      ]),
+    onSuccess: async (task) => {
       showToast(`${task.title} is in ${TASK_STATE_NAMES[task.state]}.`);
       onClose();
       if (!initiative) await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
@@ -105,7 +120,14 @@ export function NewTaskDialog({
           creating.mutate({ ...draft, description: mentions.linked(draft.description), projectId });
         }}
       >
-        {creating.error && <RefusalAlert title="The Task can't be added" error={creating.error} />}
+        {creating.error && (
+          <RefusalAlert
+            title={
+              added ? "The Task is added, but not every Attachment yet" : "The Task can't be added"
+            }
+            error={creating.error}
+          />
+        )}
         <Input
           label="Title"
           value={draft.title}
@@ -120,6 +142,7 @@ export function NewTaskDialog({
           onChange={(description) => setDraft({ ...draft, description })}
           mentions={mentions}
         />
+        <PendingAttachmentsField pending={pending} onChange={setPending} />
         <Field label="Project">
           {projects.data?.length === 0 ? (
             <p className="dialog-hint">Add a Project first: a Task belongs to one.</p>
