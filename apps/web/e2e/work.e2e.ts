@@ -1800,6 +1800,45 @@ test(
   },
 );
 
+test("the user pastes a screenshot into New Task, and the Task's page shows the picture", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Pasted work", "PW");
+  await page.goto(`/projects/${project.id}`);
+  await createFromTopBar(page, "Task");
+  const dialog = page.getByRole("dialog", { name: "New Task" });
+  const title = dialog.getByLabel("Title");
+  await title.fill("The login button is cut off");
+  await expect(dialog).toContainText("An image on the clipboard can be pasted here too.");
+
+  // A screenshot tool's clipboard: one PNG, named as the browser names it, and no text.
+  await title.evaluate(
+    (field, base64) => {
+      const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+      const clipboard = new DataTransfer();
+      clipboard.items.add(new File([bytes], "image.png", { type: "image/png" }));
+      field.dispatchEvent(
+        new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }),
+      );
+    },
+    aPng([200, 60, 60]).toString("base64"),
+  );
+  const pasted = dialog.locator(".pending-attachments .attachment-open");
+  await expect(pasted).toHaveText(/^Pasted image \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}\.png$/);
+  await expect(title).toHaveValue("The login button is cut off");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-new-task-pasted-image.png") });
+
+  await dialog.getByRole("button", { name: "Add the Task" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/tasks\//);
+  await page.getByRole("tab", { name: "Attachments" }).click();
+  await expect(
+    page
+      .getByRole("region", { name: "Attachments", exact: true })
+      .getByRole("button", { name: /^View Pasted image / }),
+  ).toBeVisible();
+});
+
 test(
   "the board's filters narrow it by search, priority and Blocked, kept in its address until Clear",
   { tag: "@full" },

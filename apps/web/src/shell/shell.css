@@ -1446,13 +1446,13 @@ button.shell-strip-alarm:hover {
 }
 
 .attachment-chips,
-.capture-idea-attachments {
+.pending-attachments {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.capture-idea-attachments {
+.pending-attachments {
   flex-direction: column;
   align-items: flex-start;
 }
