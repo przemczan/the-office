@@ -72,13 +72,21 @@ export interface PlanningPipeline {
   readonly broken?: readonly string[];
 }
 
+/**
+ * Where a session on a Task with no worktree yet reads, as SessionPlaces gives it the Projects'
+ * checkouts in its place.
+ */
+export const NO_WORKTREE_YET =
+  "The Task has no worktree yet: The Office makes it when the Task starts. Until then you read each Project's checkout in your folder, as a chat does: at its base branch, or at the Task's Initiative's branch where it has one.";
+
 /** What a planning Brief is assembled from: the Task's record, with no model call. */
 export interface PlanningRecord {
   readonly task: Task;
   /** The Task's kept state changes, oldest first, which say who moved it to Planning. */
   readonly stateChanges: readonly StateChange[];
   readonly project: PlanningProject;
-  readonly worktree: { readonly path: string; readonly branch: string };
+  /** Undefined while the Task has none yet, as one planned in its Initiative's Thread. */
+  readonly worktree: { readonly path: string; readonly branch: string } | undefined;
   /** The records the Task is linked to: the Idea it was shaped from among them. */
   readonly links: TaskLinks;
   readonly attachments: readonly Attachment[];
@@ -123,7 +131,11 @@ export function planningBrief({
     taskWhoAskedSection(task, stateChanges, "planning"),
     readySection(task),
     descriptionSection(task.description),
-    `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${startsFrom?.branch ?? project.baseBranch}.`,
+    `## Where you work\n\n${
+      worktree
+        ? `The Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${startsFrom?.branch ?? project.baseBranch}.`
+        : NO_WORKTREE_YET
+    }`,
     originSection(links.idea, task.description),
     linkedRecordsSection(links),
     initiative && initiativeSection(initiative, task.id),

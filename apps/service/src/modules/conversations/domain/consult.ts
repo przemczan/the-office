@@ -304,8 +304,30 @@ export function backToTheCallerWords(why: string): string {
 
 /** Why a call made from a chat is back with its caller: who passed it on to the user, and why. */
 export function passedOnToTheUserWords(passerName: string, reason: string): string {
-  const trimmed = reason.trim();
-  return `${passerName} passed it on to the user: ${/[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`}`;
+  return `${passerName} passed it on to the user: ${sentence(reason)}`;
+}
+
+/**
+ * Why a Decision put to a Consultant waits on the user instead: their Consultation couldn't start
+ * or answer (spec §2.2). The Decision keeps it as passed on by them, which its card shows.
+ */
+export function couldNotAnswerWords(reason: string): string {
+  return `Couldn't answer: ${sentence(reason)}`;
+}
+
+/** Who couldn't answer and why, as the caller of a call made from a chat is answered. */
+export function consultantCouldNotAnswerWords(consultantName: string, reason: string): string {
+  return `${consultantName} couldn't answer: ${sentence(reason)}`;
+}
+
+/** The line the asker's Thread logs as the Decision it waits on goes to the user that way. */
+export function couldNotAnswerLine(consultantName: string, reason: string): string {
+  return `${consultantCouldNotAnswerWords(consultantName, reason)} The Decision waits on the user now.`;
+}
+
+function sentence(text: string): string {
+  const trimmed = text.trim();
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
 /**

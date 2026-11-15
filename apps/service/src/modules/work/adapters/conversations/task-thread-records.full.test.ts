@@ -149,6 +149,8 @@ describe("a planning Thread's session", () => {
       priority: "normal",
     });
     const task = taskSchema.parse(await created.json());
+    // As Make a plan makes it before the planning Thread opens.
+    await work.app.get(ProjectWorktrees).open(projectId, task.id);
 
     const setup = await work.app.get(TaskThreadSetups).of(planningRequest(task.id));
 

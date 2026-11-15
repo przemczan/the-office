@@ -1153,7 +1153,7 @@ describe("a Thread on a Task", () => {
 
   it("opens waiting for the user, then starts in the Task's worktree, read-only, on their first message", async () => {
     const taskId = randomUUID();
-    const worktree = taskSetup(taskId).folder;
+    const worktree = join(officeData, "worktrees", "admin-panel", taskId);
     await startWith(
       started(
         {

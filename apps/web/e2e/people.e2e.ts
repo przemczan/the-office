@@ -358,7 +358,7 @@ test(
       "Changes allowed in this Thread: the Caretaker can do anything on the workstation except read your secrets",
     );
     await expect(banner).toBeVisible();
-    await expect(chat.getByText("Changes allowed", { exact: true })).toBeVisible();
+    await expect(chat.getByText("Changes allowed by you", { exact: true })).toBeVisible();
     await expect(chat.getByRole("button", { name: "Allow changes", exact: true })).toHaveCount(0);
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-caretaker-changes-allowed-banner.png"),
@@ -366,7 +366,7 @@ test(
 
     await chat.getByRole("button", { name: "Switch off" }).click();
     await expect(banner).toHaveCount(0);
-    await expect(chat.getByText("Changes switched off", { exact: true })).toBeVisible();
+    await expect(chat.getByText("Changes switched off by you", { exact: true })).toBeVisible();
     await expect(chat.getByRole("button", { name: "Allow changes", exact: true })).toBeVisible();
   },
 );
@@ -1155,12 +1155,25 @@ function chatWith(page: Page, name: string) {
 /** The Thread the drawer shows, which the shell keeps for this browser tab. */
 async function chatThreadShown(page: Page): Promise<string> {
   const chat = await page.evaluate(() => sessionStorage.getItem("the-office.chat"));
-  return (JSON.parse(chat ?? "{}") as { threadId?: string }).threadId ?? "";
+  const { roleKey, tabs = [] } = JSON.parse(chat ?? "{}") as {
+    roleKey?: string;
+    tabs?: { roleKey: string; threadId?: string }[];
+  };
+  return tabs.find((tab) => tab.roleKey === roleKey)?.threadId ?? "";
 }
 
 /** New thread sits in the Thread list and in the open Thread's bar, beside ‹ Threads. */
 async function startNewThread(chat: Locator) {
+  const page = chat.page();
+  const started = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      /\/api\/chats\/[^/]+\/threads$/.test(response.url()),
+  );
   await chat.getByRole("button", { name: "New thread", exact: true }).click();
+  const { id } = (await (await started).json()) as { id: string };
+  // The Thread shown until then can look the same, and is replaced under the pointer.
+  await expect.poll(() => chatThreadShown(page)).toBe(id);
 }
 
 function contextLabel(page: Page) {
@@ -5514,6 +5527,60 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     await expect(menu).toHaveCount(0);
     await expect(page).toHaveURL(/\/work$/);
     await setChatOf(page, "developer", true);
+  });
+
+  test("keeps a tab for each person opened, to switch back to, close and open again", async ({
+    page,
+  }) => {
+    await page.goto("/work");
+    await chatButton(page).click();
+    await personPicker(page).getByRole("button", { name: /^Jan/ }).click();
+    const jan = chatWith(page, "Jan");
+    const tabs = page.getByRole("tablist", { name: "People open in the chat" });
+    await expect(tabs.getByRole("tab")).toHaveCount(1);
+    await expect(tabs.getByRole("tab", { name: /^Jan/ })).toHaveAttribute("aria-selected", "true");
+    // Earlier tests left Jan Threads: the user steps back to their list.
+    await jan.getByRole("button", { name: "Threads", exact: true }).click();
+    await expect(jan.getByRole("button", { name: "New thread", exact: true })).toBeVisible();
+
+    const menu = page.getByRole("menu", { name: "Chat with" });
+    await jan.getByRole("button", { name: /^Jan/ }).click();
+    await menu.getByRole("menuitemradio", { name: /^Marta/ }).click();
+    const marta = chatWith(page, "Marta");
+    await expect(marta).toBeVisible();
+    await expect(tabs.getByRole("tab")).toHaveCount(2);
+    await expect(tabs.getByRole("tab", { name: /^Marta/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await tabs.getByRole("tab", { name: /^Jan/ }).click();
+    await expect(jan.getByRole("button", { name: "New thread", exact: true })).toBeVisible();
+    await expect(menu).toHaveCount(0);
+    await jan.getByRole("button", { name: /^Jan/ }).click();
+    await menu.getByRole("menuitemradio", { name: /^Jan/ }).click();
+    await expect(tabs.getByRole("tab")).toHaveCount(2);
+
+    await tabs.getByRole("button", { name: /^Close the chat with Marta/ }).click();
+    await expect(tabs.getByRole("tab")).toHaveCount(1);
+    await expect(jan.getByRole("button", { name: "New thread", exact: true })).toBeVisible();
+
+    await jan.getByRole("button", { name: /^Jan/ }).click();
+    await menu.getByRole("menuitemradio", { name: /^Marta/ }).click();
+    await expect(marta).toBeVisible();
+    await expect(tabs.getByRole("tab")).toHaveCount(2);
+    await page.reload();
+    await expect(marta).toBeVisible();
+    await expect(tabs.getByRole("tab")).toHaveCount(2);
+    await motionSettled(page);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "chat-tabs.png") });
+
+    await tabs.getByRole("button", { name: /^Close the chat with Marta/ }).click();
+    await expect(jan).toBeVisible();
+    await expect(tabs.getByRole("tab", { name: /^Jan/ })).toBeFocused();
+    await tabs.getByRole("button", { name: /^Close the chat with Jan/ }).click();
+    await expect(personPicker(page)).toBeVisible();
+    await expect(tabs).toHaveCount(0);
   });
 
   test("stays on its Thread through links, the rail, Back, Forward and a reload", async ({

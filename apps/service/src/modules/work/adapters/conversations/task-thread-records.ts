@@ -37,6 +37,7 @@ import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../../ports/project-worktrees.js";
 import { StageResults } from "../../ports/stage-results.js";
+import { initiativeBranchReads } from "./initiative-branch-reads.js";
 
 /**
  * The Office tools of a planning session: it reads every record and Attachment, writes the Plan and
@@ -138,17 +139,22 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     task: Task,
     project: KnownProject,
   ): Promise<TaskThreadSetup> {
-    const worktree = await this.worktrees.find(task.projectId, task.id);
+    const [worktree, made] = await Promise.all([
+      this.worktrees.find(task.projectId, task.id),
+      this.worktrees.exists(task.projectId, task.id),
+    ]);
     const sessionRefusal = CLOSED_TASK_CONVERSATION_WORDS[task.state];
     return {
       projectId: task.projectId,
-      folder: worktree.path,
+      folder: made ? worktree.path : undefined,
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,
       projectSkillsOff: project.projectSkillsOff,
       instructions: ASKING_THREAD_INSTRUCTIONS,
       officeTools: ASKING_OFFICE_TOOLS,
-      brief: firstSession ? await this.record(roleKey, task, project, worktree) : undefined,
+      brief: firstSession
+        ? await this.record(roleKey, task, project, made ? worktree : undefined)
+        : undefined,
       asking: true,
       sessionRefusal,
     };
@@ -158,7 +164,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     roleKey: string,
     task: Task,
     project: KnownProject,
-    worktree: TaskWorktree,
+    worktree: TaskWorktree | undefined,
   ): Promise<string> {
     const [attachments, { lines, handoverNotes }, diffSummary] = await Promise.all([
       this.attachments.listOf({ kind: "task", taskId: task.id }),
@@ -190,17 +196,26 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   }
 
   private async planning(task: Task, project: KnownProject): Promise<TaskThreadSetup> {
-    const [worktree, links, attachments, pipelines, initiative, stateChanges] = await Promise.all([
-      this.worktrees.find(task.projectId, task.id),
-      this.taskRecords.linksOf(task),
-      this.attachments.listOf({ kind: "task", taskId: task.id }),
-      this.pipelines.listFor(task.projectId),
-      task.initiativeId === undefined ? undefined : this.initiatives.record(task.initiativeId),
-      this.tasks.stateChangesOf(task.id),
-    ]);
+    const [worktree, made, links, attachments, pipelines, initiative, stateChanges] =
+      await Promise.all([
+        this.worktrees.find(task.projectId, task.id),
+        this.worktrees.exists(task.projectId, task.id),
+        this.taskRecords.linksOf(task),
+        this.attachments.listOf({ kind: "task", taskId: task.id }),
+        this.pipelines.listFor(task.projectId),
+        task.initiativeId === undefined ? undefined : this.initiatives.record(task.initiativeId),
+        this.tasks.stateChangesOf(task.id),
+      ]);
     return {
       projectId: task.projectId,
-      folder: worktree.path,
+      // A Task planned in its Initiative's Thread has no worktree until it starts.
+      ...(made
+        ? { folder: worktree.path }
+        : {
+            folder: undefined,
+            branchReads:
+              initiative && initiativeBranchReads(initiative.initiative, initiative.tasks),
+          }),
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,
       projectSkillsOff: project.projectSkillsOff,
@@ -210,7 +225,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
         task,
         stateChanges,
         project,
-        worktree,
+        worktree: made ? worktree : undefined,
         links,
         attachments,
         pipelines,

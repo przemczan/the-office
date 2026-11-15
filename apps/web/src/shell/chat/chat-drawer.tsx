@@ -28,7 +28,9 @@ import {
   showChatDrawerWidth,
   useChatDrawerLayout,
 } from "./chat-drawer-width.ts";
-import { chatStanding, type ChatStanding } from "./chat-words.ts";
+import { StandingDot, StandingWords } from "./chat-standing.tsx";
+import { ChatTabs } from "./chat-tabs.tsx";
+import { chatStanding } from "./chat-words.ts";
 import { useChatPeople } from "./use-chat-people.ts";
 import { useChat, useChatOpenPage } from "./use-chat.tsx";
 import "./chat.css";
@@ -41,7 +43,16 @@ export function ChatDrawer(): ReactNode {
   const chat = useChat();
   const layout = useChatDrawerLayout();
   const frame = useRef<HTMLElement>(null);
-  const role = useQuery({ ...roleQueries.one(chat.roleKey ?? ""), enabled: !!chat.roleKey });
+  const queryClient = useQueryClient();
+  const role = useQuery({
+    ...roleQueries.one(chat.roleKey ?? ""),
+    enabled: !!chat.roleKey,
+    // A tab's person is in the hired people's list, so switching tabs never empties the drawer.
+    placeholderData: () =>
+      queryClient
+        .getQueryData(roleQueries.list().queryKey)
+        ?.find(({ key }) => key === chat.roleKey),
+  });
   useCloseOnEscape(chat.isOpen, chat.close, frame, "side-panel");
   const openedLast = useOpenedLast(frame);
   useDrawerFocus(chat.isOpen, frame);
@@ -69,6 +80,7 @@ export function ChatDrawer(): ReactNode {
       {person ? (
         <OpenMentionedDecisionContext value={setMentionedDecision}>
           <PersonHead role={person} />
+          <PersonTabs />
           <PersonChat key={person.key} role={person} />
         </OpenMentionedDecisionContext>
       ) : (
@@ -103,21 +115,6 @@ function useDrawerFocus(open: boolean, frame: RefObject<HTMLElement | null>): vo
 function CloseButton(): ReactNode {
   const chat = useChat();
   return <IconButton icon={<Icon name="x" size={16} />} label="Close (Esc)" onClick={chat.close} />;
-}
-
-function StandingWords({ standing }: { readonly standing: ChatStanding }): ReactNode {
-  return (
-    <span className={`chat-standing ${standing.kind}`}>
-      <StandingDot standing={standing} />
-      {standing.words}
-    </span>
-  );
-}
-
-function StandingDot({ standing: { kind } }: { readonly standing: ChatStanding }): ReactNode {
-  return kind === "answered" || kind === "answering" ? (
-    <span className={`chat-dot ${kind}`} />
-  ) : null;
 }
 
 /** With no chat open yet: the people with chat on, in one fixed order. */
@@ -189,6 +186,21 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
       </div>
       <CloseButton />
     </header>
+  );
+}
+
+/** The people open in the drawer, to switch between without the person switch. */
+function PersonTabs(): ReactNode {
+  const chat = useChat();
+  const people = useChatPeople();
+  return (
+    <ChatTabs
+      tabs={chat.tabs}
+      shown={chat.roleKey}
+      people={people}
+      onShow={(roleKey) => chat.open(roleKey)}
+      onClose={chat.closeTab}
+    />
   );
 }
 

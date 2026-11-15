@@ -24,7 +24,7 @@ import { NO_MASK, ProjectOutputMasks, type TextMask } from "../ports/project-out
 import { Briefs } from "./briefs.js";
 import { CallChains } from "./call-chains.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
-import { taskThreadRequest, TaskThreadSetups } from "./task-thread-setups.js";
+import { taskThreadRequest, TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 
 /** Where a Thread's session works and what it is given, which its home decides. */
 export interface SessionPlace {
@@ -85,7 +85,8 @@ type ReadingPlace = Pick<
 
 /**
  * A chat session, or one on an Initiative, reads every Project's base branch with the service's own
- * variables (spec §6); a session on a Task works in the Task's worktree. The module keeping Work
+ * variables (spec §6); a session on a Task works in the Task's worktree, or reads as a chat does
+ * while the Task has none yet. The module keeping Work
  * sets up what a session on a Task or an Initiative is given. The Caretaker's chat with changes
  * allowed works in the home folder instead (spec §2.4). A Consultation reads as its home does and
  * works with its Consultant's own tools, never its asker's; it never writes.
@@ -135,23 +136,16 @@ export class SessionPlaces {
     const setup = await this.taskThreads.of(taskThreadRequest(thread, taskId));
     if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
-      folder: setup.folder,
-      readableFolders: [],
+      ...(setup.folder === undefined
+        ? await this.checkoutsPlace(thread, setup)
+        : this.worktreePlace(setup, setup.folder)),
       environment: setup.environment,
-      project: {
-        id: setup.projectId,
-        folder: setup.folder,
-        useProjectSkills: setup.useProjectSkills,
-        projectSkillsOff: setup.projectSkillsOff,
-      },
       mask: await this.masks.outputMaskOf(setup.projectId),
       workstation: false,
       readsEngineTranscripts: false,
       refusalAdvice: undefined,
       brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },
-      // The module keeping Tasks made the worktree before it opened the Thread.
-      ready: () => Promise.resolve(),
       ...(thread.consultation
         ? await this.consultationTools(thread, held)
         : {
@@ -160,6 +154,53 @@ export class SessionPlaces {
             instructions: (person: SessionPerson) =>
               workThreadInstructions(person, setup.instructions),
           }),
+    };
+  }
+
+  private worktreePlace(
+    setup: TaskThreadSetup,
+    worktree: string,
+  ): Pick<SessionPlace, "folder" | "readableFolders" | "project" | "ready"> {
+    return {
+      folder: worktree,
+      readableFolders: [],
+      project: {
+        id: setup.projectId,
+        folder: worktree,
+        useProjectSkills: setup.useProjectSkills,
+        projectSkillsOff: setup.projectSkillsOff,
+      },
+      // The module keeping Tasks made the worktree before it opened the Thread.
+      ready: () => Promise.resolve(),
+    };
+  }
+
+  /**
+   * A Task with no worktree yet, such as one planned in its Initiative's Thread that a Consultation
+   * is asked on: its session reads the Projects' checkouts as a chat or the Initiative's Threads
+   * do, its Project's skills from that Project's checkout.
+   */
+  private async checkoutsPlace(
+    thread: Thread,
+    setup: TaskThreadSetup,
+  ): Promise<Pick<SessionPlace, "folder" | "readableFolders" | "project" | "ready">> {
+    const { folder, readableFolders, ready } =
+      setup.branchReads === undefined
+        ? this.basesPlace(thread)
+        : this.initiativeBranchPlace(thread, setup.branchReads);
+    const checkout = (await this.bases.list()).find(
+      ({ projectId }) => projectId === setup.projectId,
+    );
+    return {
+      folder,
+      readableFolders,
+      project: {
+        id: setup.projectId,
+        folder: checkout?.folder ?? folder,
+        useProjectSkills: setup.useProjectSkills,
+        projectSkillsOff: setup.projectSkillsOff,
+      },
+      ready,
     };
   }
 

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ANSWER_DECISION_TOOL, CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { NO_WORKTREE_YET } from "../../domain/planning.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
 import { StageResults } from "../../ports/stage-results.js";
 import { ProjectWorktreesForTests, StageResultsForTests } from "../../ports/work-ports.fixtures.js";
@@ -40,6 +41,8 @@ describe("a person's Thread on a Task's session", () => {
     });
     const worktrees = work.app.get(ProjectWorktrees) as ProjectWorktreesForTests;
     worktrees.changes.set(task.id, "2 files changed");
+    // As a person's Thread readies the Task as it opens.
+    await worktrees.open(task.projectId, task.id);
 
     const setup = await setups().of(aPersonsThread(task.id, "oscar"));
 
@@ -77,6 +80,28 @@ describe("a person's Thread on a Task's session", () => {
         "mark_planned",
       ]),
     );
+  });
+});
+
+describe("a Consultation on a Task in Planning with no worktree yet", () => {
+  it("reads the Projects' base checkouts instead, its Brief saying so", async () => {
+    const task = await aTaskIn("planning");
+
+    const setup = await setups().of({
+      taskId: task.id,
+      roleKey: "cto",
+      personsThread: false,
+      firstSession: true,
+    });
+
+    expect(setup).toMatchObject({
+      projectId: task.projectId,
+      folder: undefined,
+      branchReads: undefined,
+      sessionRefusal: undefined,
+    });
+    expect(setup.brief).toContain(NO_WORKTREE_YET);
+    expect(setup.brief).not.toContain(join("/worktrees", task.projectId, task.id));
   });
 });
 

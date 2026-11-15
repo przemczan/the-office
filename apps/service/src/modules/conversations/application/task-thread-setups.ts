@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { isPersonsThread, type Thread } from "../domain/thread.js";
 import type { PlanningThreadElsewhere } from "../domain/conversation-tabs.js";
+import type { InitiativeBranchReads } from "../ports/project-bases.js";
 
 /** A Thread on a Task, as the module keeping Tasks sets its session up. */
 export interface TaskThreadRequest {
@@ -27,8 +28,16 @@ export function taskThreadRequest(thread: Thread, taskId: string): TaskThreadReq
 export interface TaskThreadSetup {
   /** The Task's Project, whose Memory notes the person's sessions read. */
   readonly projectId: string;
-  /** The Task's worktree, which the session reads. */
-  readonly folder: string;
+  /**
+   * The Task's worktree, which the session reads; undefined while the Task has none yet, as one
+   * planned in its Initiative's Thread, when the session reads the Projects' checkouts instead.
+   */
+  readonly folder: string | undefined;
+  /**
+   * With no worktree, the Projects read at the Initiative's branch of the Task's Initiative, as its
+   * Threads read them; undefined, or left out, reads every base branch.
+   */
+  readonly branchReads?: InitiativeBranchReads | undefined;
   /** The Project's command environment. */
   readonly environment: Readonly<Record<string, string>>;
   /** Whether the session also gets the repository's own skills (spec §2.6). */

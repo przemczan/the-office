@@ -16,6 +16,7 @@ export interface ChatControls extends ChatPlace {
   open: ChatStore["open"];
   showThread: ChatStore["showThread"];
   showThreadList: ChatStore["showThreadList"];
+  closeTab: ChatStore["closeTab"];
   close: ChatStore["close"];
 }
 
@@ -35,8 +36,8 @@ export function ChatProvider({ children }: { readonly children: ReactNode }): Re
 export function useChat(): ChatControls {
   const store = useChatStore();
   const place = useSyncExternalStore(store.subscribe, store.place);
-  const { open, showThread, showThreadList, close } = store;
-  return { ...place, open, showThread, showThreadList, close };
+  const { open, showThread, showThreadList, closeTab, close } = store;
+  return { ...place, open, showThread, showThreadList, closeTab, close };
 }
 
 /** What the chat drawer's next message goes with, and leaving it out (spec §2.4). */

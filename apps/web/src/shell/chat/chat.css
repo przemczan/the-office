@@ -165,6 +165,64 @@
   color: var(--fg-1);
 }
 
+/* ---- the person tabs */
+/* Positioned so a tab's offset is from the row's start, for keeping the shown tab in view. */
+.chat-tabs {
+  position: relative;
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.chat-tab {
+  display: flex;
+  flex: none;
+  align-items: center;
+  max-width: 180px;
+  border-radius: var(--radius-md);
+  color: var(--fg-2);
+}
+
+.chat-tab:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
+
+.chat-tab:has([aria-selected="true"]) {
+  background: var(--surface-selected);
+  color: var(--fg-1);
+}
+
+.chat-tab-person {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: var(--control-h);
+  padding: 0 2px 0 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  font: 500 var(--text-xs) / 1 var(--font-sans);
+  color: inherit;
+  cursor: pointer;
+}
+
+.chat-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-tab .chat-dot {
+  width: 7px;
+  height: 7px;
+}
+
 /* ---- the person picker */
 .chat-people {
   display: grid;

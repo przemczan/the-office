@@ -5,7 +5,7 @@ export abstract class ProjectSkillFiles {
   /**
    * Each file that may be a Project skill or command, with its text: every
    * `.claude/skills/*\/SKILL.md` and `.claude/commands/**\/*.md`, at any depth, that git tracks
-   * or would track.
+   * or would track. None for a folder that isn't there, such as a checkout not made yet.
    */
   abstract files(folder: string): Promise<readonly ProjectSkillFile[]>;
 }

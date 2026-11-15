@@ -6,7 +6,7 @@ import {
 } from "../domain/session-instructions.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
@@ -109,6 +109,15 @@ let architectKey: string;
 /** Whether the asker is a Consultant too, whom a callee could call back. */
 let askerIsAConsultant: boolean;
 
+/** Whether the Tasks have their worktree yet; a Task planned in its Initiative's Thread has none. */
+let worktreeMade: boolean;
+
+/**
+ * Whose sessions, by Role key, fail reading their Project skills in a folder that isn't there, as
+ * running git there did ("spawn git ENOENT").
+ */
+let missingFolderFailsFor: string | undefined;
+
 let threads: ThreadService;
 
 let decisions: DecisionService;
@@ -142,7 +151,12 @@ function roleOf(roleKey: string): SessionRole {
 async function startWith(...scripts: SessionScript[]): Promise<void> {
   engine = new ScriptedEngine(scripts);
   const sessionSkills: Pick<SessionSkills, "prepare" | "rebuild" | "forget"> = {
-    prepare: ({ sessionId }) => Promise.resolve(noSkills(sessionId)),
+    prepare: async ({ sessionId, roleKey, project }) => {
+      if (roleKey === missingFolderFailsFor && project && !(await isFolder(project.folder))) {
+        throw new Error("spawn git ENOENT");
+      }
+      return noSkills(sessionId);
+    },
     rebuild: (sessionId) => Promise.resolve(noSkills(sessionId)),
     forget: () => Promise.resolve(),
   };
@@ -238,7 +252,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     planningThreadElsewhere: () => Promise.resolve(undefined),
     setUp: ({ taskId }) =>
       Promise.resolve({
-        folder: join(officeData, "worktrees", taskId),
+        folder: worktreeMade ? join(officeData, "worktrees", taskId) : undefined,
         environment: {},
         useProjectSkills: false,
         projectSkillsOff: [],
@@ -275,6 +289,13 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   threads = app.get(ThreadService);
   decisions = app.get(DecisionService);
   consultations = app.get(Consultations);
+}
+
+async function isFolder(path: string): Promise<boolean> {
+  return stat(path).then(
+    (found) => found.isDirectory(),
+    () => false,
+  );
 }
 
 function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"]>> {
@@ -399,6 +420,8 @@ function setUpEachTest(): void {
     devopsKey = `devops-${randomUUID()}`;
     architectKey = `architect-${randomUUID()}`;
     askerIsAConsultant = false;
+    worktreeMade = true;
+    missingFolderFailsFor = undefined;
   });
 
   afterEach(async () => {
@@ -484,6 +507,67 @@ describe("a consult of a hired Consultant", () => {
     const answer = askerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
       `Casey answered your Decision "${QUESTION}" with the option "Postgres".`,
+    );
+  });
+});
+
+describe("a consult on a Task with no worktree yet", () => {
+  it("is answered from the Projects' base checkouts, where the Consultant's skills are read", async () => {
+    worktreeMade = false;
+    missingFolderFailsFor = consultantKey;
+    await startWith(
+      started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER),
+      started(
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...aTurn("brief", "Done."),
+      ),
+    );
+    // As BaseCheckouts.refresh makes it, even with no Project checked out.
+    await mkdir(join(officeData, "bases"), { recursive: true });
+    const asker = await developerOnATask();
+
+    const consultation = await consultationOn(asker);
+    await settled(consultation.id);
+    const answered = await answeredIn(asker.id);
+
+    expect(answered).toMatchObject({ answer: { kind: "option", option: 1 } });
+    expect(engine.sessions[1]?.options.folder).toBe(join(officeData, "bases"));
+    expect(await threads.messages(consultation.id)).not.toContainEqual(
+      expect.objectContaining({ kind: "failure" }),
+    );
+  });
+});
+
+describe("a Consultation that couldn't answer", () => {
+  it("leaves the Decision to the user, saying why on its card and in the asker's Thread", async () => {
+    // The worktree's folder isn't there, so the Consultant's session never starts.
+    missingFolderFailsFor = consultantKey;
+    await startWith(started(...consults("CTO")));
+    const asker = await developerOnATask();
+
+    const consultation = await consultationOn(asker);
+    const decision = await vi.waitFor(
+      async () => {
+        const [waiting] = (await threads.read(asker.id)).openDecisions;
+        if (waiting?.putTo !== undefined) throw new Error("Still put to the Consultant.");
+        return waiting;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+
+    expect(decision).toMatchObject({
+      answer: undefined,
+      passedOn: [{ roleKey: consultantKey, reason: "Couldn't answer: spawn git ENOENT." }],
+    });
+    expect(await threads.messages(consultation.id)).toContainEqual(
+      expect.objectContaining({ kind: "failure", reason: "spawn git ENOENT" }),
+    );
+    expect(await threads.messages(asker.id)).toContainEqual(
+      expect.objectContaining({
+        kind: "consultation-line",
+        decisionId: decision?.id,
+        text: "Casey couldn't answer: spawn git ENOENT. The Decision waits on the user now.",
+      }),
     );
   });
 });
