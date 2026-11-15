@@ -5,7 +5,12 @@ import { windows } from "./windows.js";
 
 /** The system The Office runs on, for the user it runs as. The only reader of process.platform. */
 export function currentOperatingSystem(): OperatingSystem {
-  const user = { variables: process.env, homeDirectory: homedir(), userId: process.getuid?.() };
+  const user = {
+    variables: process.env,
+    homeDirectory: homedir(),
+    userId: process.getuid?.(),
+    groupId: process.getgid?.(),
+  };
   switch (process.platform) {
     case "win32":
       return windows(user);

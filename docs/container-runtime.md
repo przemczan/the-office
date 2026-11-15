@@ -65,7 +65,19 @@ The Office's compose override gives the checks' service two folders of the host,
 - the Task's worktree, read-write, also the working folder;
 - the repository's shared git folder (`<repository>/.git`, which the worktree's `.git` file leads to), **read-only**, so git in a check reads the history (`status`, `log`, `diff`, `rev-parse`) but can't commit, move a branch or write objects. Its path comes from git on the host (`rev-parse --path-format=absolute --git-common-dir`), never from the worktree's `.git` file. A main checkout's git folder is inside the worktree and isn't mounted twice.
 
-git refuses a repository owned by another user ("dubious ownership"). The service and the checks both run as root on The Office's machine, so it doesn't arise there; a run environment whose user differs from the folders' owner would need `safe.directory`.
+### A non-root Office
+
+An installed Office runs as a user of its own (`the-office` from the Debian/Ubuntu installer, uid 10001 in the container), while the checks keep the user devcontainer.json or the image names, root for most images ([spec §5.5 Defaults](spec/5.5-git-and-isolation.md#defaults), "Run environments with a non-root Office"):
+
+- **Files handed back.** After every check, passed, failed, timed out or stopped, The Office runs `find <worktree> \( ! -user U -o ! -group G \) -exec chown -h U:G {} +` as `0:0` in the checks' service, U:G being its own ids, so restoring the worktree, moving test output out, Agents' edits and removing the worktree work on what a root check wrote. Only files with the wrong owner change, so git rehashes no tracked file. A hand-back that fails ends the check as could-not-run and stops the run environment; the next check hands back what was left.
+- **git trusts the worktree.** git refuses a repository owned by another user ("dubious ownership"). The check's script adds `safe.directory=*` through `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`, after any the Project sets, which git honours from 2.35.2, the versions that check ownership. The git folder stays read-only.
+- **A root Office** (and Windows) runs no hand-back and adds nothing to the script.
+
+Not handled:
+
+- rootless Docker and userns-remap: root in the container isn't the host's root, so `chown` there can't give files to The Office's user;
+- a check user other than root (`remoteUser: node`, say) can't write a worktree it doesn't own, and nothing changes that;
+- a process a check left running (a server started in the background) may write files after the hand-back; the next check's hand-back covers them.
 
 ## Agents never reach it
 

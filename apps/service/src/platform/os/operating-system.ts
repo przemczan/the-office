@@ -57,6 +57,17 @@ export interface OperatingSystem {
    * folder holds afterwards starts that way too.
    */
   restrictToOwner(path: string, kind: "file" | "folder"): Promise<void>;
+  /**
+   * The user and group the files The Office makes belong to, by number: Linux's process ids;
+   * absent on Windows, where files carry no numeric owner.
+   */
+  readonly fileOwner?: FileOwner;
+}
+
+/** A file's owner by number, as `chown` takes it. */
+export interface FileOwner {
+  readonly userId: number;
+  readonly groupId: number;
 }
 
 /** OpenSSH's programs, each a full path or a name looked up on PATH. */
@@ -75,4 +86,6 @@ export interface UserEnvironment {
   readonly homeDirectory: string;
   /** The numeric user id on Linux; Windows has none. */
   readonly userId?: number | undefined;
+  /** The numeric group id on Linux; Windows has none. */
+  readonly groupId?: number | undefined;
 }

@@ -18,10 +18,12 @@ export const NO_MASK: StreamedOutputMask = {
   chunks: () => ({ next: (chunk) => chunk, end: () => new Uint8Array() }),
 };
 
-/** What a scripted check does: its output, its exit code, and when it ends. */
-export type ScriptedExecution = (
-  execution: Execution,
-) => Promise<{ readonly output?: string; readonly exitCode: number }>;
+/** What a scripted check does: its output, its exit code, and when and how it ends. */
+export type ScriptedExecution = (execution: Execution) => Promise<{
+  readonly output?: string;
+  readonly exitCode: number | undefined;
+  readonly endedBy?: ExecutionEnd["endedBy"];
+}>;
 
 /**
  * A container runtime in memory, for tests: it keeps the images built, each compose project's
@@ -76,7 +78,7 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     if (this.projects.get(project.name)?.state !== "running") {
       throw new ContainerRuntimeFailed(`The compose project ${project.name} isn't running.`);
     }
-    const { output, exitCode } = await this.onExec(execution);
+    const { output, exitCode, endedBy } = await this.onExec(execution);
     // As the runtime streams it: masked, chunk by chunk.
     const masked = execution.mask.chunks();
     const bytes = Buffer.from(output ?? "", "utf8");
@@ -84,7 +86,7 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
       outputFile,
       Buffer.concat([masked.next(bytes), masked.end()].map((chunk) => Buffer.from(chunk))),
     );
-    return { exitCode };
+    return { exitCode, ...(endedBy === undefined ? {} : { endedBy }) };
   }
 
   down(projectName: string): Promise<void> {

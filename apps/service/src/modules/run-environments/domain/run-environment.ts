@@ -251,6 +251,22 @@ export function commandVariables(environment: CommandEnvironment): Record<string
   return Object.fromEntries(environment.set.map(({ value }, index) => [carrierOf(index), value]));
 }
 
+/** How a check's script is written beyond its command and environment. */
+export interface CommandScriptOptions {
+  /**
+   * Whether git in the check trusts every repository, the worktree and the repository's git folder
+   * among them: on a non-root Office they belong to another user than the check's (spec §5.5
+   * Defaults, "Run environments with a non-root Office").
+   */
+  readonly trustRepositories: boolean;
+}
+
+/** The user and group, by number, a file is given to. */
+export interface FileOwnerIds {
+  readonly userId: number;
+  readonly groupId: number;
+}
+
 /**
  * The shell script a check runs as in the service: in the worktree, with the Project's environment
  * applied over the service's own, each `set` variable taken from its carrier, and the command line
@@ -260,6 +276,7 @@ export function commandScript(
   commandLine: string,
   folder: string,
   environment: CommandEnvironment,
+  { trustRepositories }: CommandScriptOptions = { trustRepositories: false },
 ): string {
   const carriers = environment.set.map((_, index) => carrierOf(index));
   return [
@@ -270,8 +287,36 @@ export function commandScript(
     ...(environment.prependPath.length > 0
       ? [`export PATH=${quoted(environment.prependPath.join(":"))}:"$PATH"`]
       : []),
+    ...(trustRepositories ? TRUST_REPOSITORIES_LINES : []),
     commandLine,
   ].join("\n");
+}
+
+/**
+ * git's command-scope config (git 2.31 on), added to any the Project's environment already holds:
+ * `safe.directory` given there is honoured from git 2.35.2, the versions that check ownership.
+ */
+const TRUST_REPOSITORIES_LINES: readonly string[] = [
+  "office_n=${GIT_CONFIG_COUNT:-0}",
+  `export "GIT_CONFIG_KEY_$office_n=safe.directory" "GIT_CONFIG_VALUE_$office_n=*"`,
+  "export GIT_CONFIG_COUNT=$((office_n + 1))",
+  "unset office_n",
+];
+
+/**
+ * The shell script, run as root in the checks' service, that gives back to `owner` every file and
+ * folder in the worktree another user or group owns. Only those, so git sees no tracked file's
+ * ctime change; `-h` changes a symlink itself, never what it points to. Busybox and GNU find both
+ * take numeric ids; an image with no find falls back to changing everything.
+ */
+export function handBackScript(worktree: string, { userId, groupId }: FileOwnerIds): string {
+  const folder = quoted(worktree);
+  const owner = `${userId}:${groupId}`;
+  return (
+    `if command -v find >/dev/null 2>&1; then ` +
+    `find ${folder} \\( ! -user ${userId} -o ! -group ${groupId} \\) -exec chown -h ${owner} {} +; ` +
+    `else chown -R -h ${owner} ${folder}; fi`
+  );
 }
 
 function quoted(text: string): string {

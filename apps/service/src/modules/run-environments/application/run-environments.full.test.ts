@@ -15,6 +15,7 @@ import {
   taskLabels,
   type TaskInWorktree,
 } from "../domain/run-environment.js";
+import { ContainerRuntimeFailed, type Execution } from "../ports/container-runtime.js";
 import type { RunEnvironmentCommand } from "./run-environments.js";
 import {
   runEnvironmentsTestbed,
@@ -298,6 +299,112 @@ describe("RunEnvironments.run", () => {
     await expect(waiting).rejects.toThrow("This operation was aborted");
     expect(onWaitOver).toHaveBeenCalledOnce();
     expect(runtime.steps.filter((step) => step.startsWith("up "))).toHaveLength(1);
+  });
+});
+
+/** The hand-backs among the executions: the checks here name no user, the hand-back root. */
+function handBacks(executions: readonly Execution[]): readonly Execution[] {
+  return executions.filter(({ user }) => user === "0:0");
+}
+
+describe("RunEnvironments.run on a non-root Office", () => {
+  const OWNER = { userId: 1000, groupId: 1000 };
+
+  beforeEach(async () => {
+    await rm(testbed.folder, { recursive: true, force: true });
+    testbed = await runEnvironmentsTestbed(
+      runtime,
+      { ...DEFAULT_RUN_ENVIRONMENT_OPTIONS, runEnvironmentsAtOnce: 1 },
+      OWNER,
+    );
+  });
+
+  it.each(["timeout", "stop"] as const)(
+    "gives the files back after a check that ended by %s, with no signal",
+    async (endedBy) => {
+      const task = await taskWithDefinition("task-1");
+      const stop = new AbortController();
+      const executions: Execution[] = [];
+      runtime.onExec = async (execution) => {
+        executions.push(execution);
+        return executions.length === 1 ? { exitCode: undefined, endedBy } : { exitCode: 0 };
+      };
+
+      const end = await testbed.environments.run(
+        task,
+        command(outputOf("check"), { signal: stop.signal }),
+      );
+
+      expect(end).toMatchObject({ exitCode: undefined, endedBy });
+      expect(executions).toHaveLength(2);
+      expect(handBacks(executions)).toHaveLength(1);
+      expect(executions[1]?.signal).toBeUndefined();
+    },
+  );
+
+  it.each([
+    {
+      how: "exits non-zero",
+      handBack: () => Promise.resolve({ exitCode: 1 }),
+      why: "It ended with the exit code 1.",
+    },
+    {
+      how: "times out",
+      handBack: () => Promise.resolve({ exitCode: undefined, endedBy: "timeout" as const }),
+      why: "It didn't end within 10 minutes.",
+    },
+    {
+      how: "can't run",
+      handBack: () => Promise.reject(new ContainerRuntimeFailed("The service app isn't running.")),
+      why: "The service app isn't running.",
+    },
+  ])(
+    "refuses the check, stops the run environment and frees its slot when the hand-back $how",
+    async ({ handBack, why }) => {
+      const first = await taskWithDefinition("task-1");
+      const second = await taskWithDefinition("task-2");
+      const executions: Execution[] = [];
+      runtime.onExec = async (execution) => {
+        executions.push(execution);
+        return executions.length === 2 ? handBack() : { exitCode: 0 };
+      };
+
+      await expect(
+        testbed.environments.run(first, command(outputOf("first"))),
+      ).rejects.toMatchObject({
+        reasons: ["The files the check wrote couldn't be given back to The Office's user.", why],
+        outputFile: outputOf("first"),
+      });
+      const firstName = composeProjectNameOf(testbed.folders.instance, "task-1");
+      expect(runtime.projects.get(firstName)?.state).toBe("stopped");
+
+      const onWaiting = vi.fn<() => void>();
+      await testbed.environments.run(second, command(outputOf("second"), { onWaiting }));
+      expect(onWaiting).not.toHaveBeenCalled();
+
+      // The next check of the Task starts it again and hands back what was left.
+      await testbed.environments.remove(second.taskId);
+      await expect(
+        testbed.environments.run(first, command(outputOf("again"))),
+      ).resolves.toMatchObject({ exitCode: 0 });
+      expect(runtime.projects.get(firstName)?.state).toBe("running");
+      expect(handBacks(executions)).toHaveLength(3);
+    },
+  );
+
+  it("attempts no hand-back when the check itself couldn't run", async () => {
+    const task = await taskWithDefinition("task-1");
+    const executions: Execution[] = [];
+    runtime.onExec = async (execution) => {
+      executions.push(execution);
+      return { exitCode: 0 };
+    };
+    runtime.failing.add("exec");
+
+    await expect(testbed.environments.run(task, command(outputOf("check")))).rejects.toMatchObject({
+      reasons: ["The check couldn't run in the run environment.", expect.any(String)],
+    });
+    expect(executions).toHaveLength(0);
   });
 });
 

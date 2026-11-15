@@ -7,12 +7,15 @@ import {
 } from "../adapters/scripted/scripted-container-runtime.fixtures.js";
 import { RunEnvironmentImageBuilt } from "../domain/run-environment-events.js";
 import {
+  commandScript,
   composeProjectNameOf,
   DEFAULT_RUN_ENVIRONMENT_OPTIONS,
+  handBackScript,
   IDLE_STOP_MS,
   officeLabels,
   type TaskInWorktree,
 } from "../domain/run-environment.js";
+import type { Execution } from "../ports/container-runtime.js";
 import type { RunEnvironmentCommand } from "./run-environments.js";
 import {
   runEnvironmentsTestbed,
@@ -157,5 +160,78 @@ describe("RunEnvironments.run", () => {
     expect(end.durationMs).toBeLessThan(IDLE_STOP_MS);
     const firstName = composeProjectNameOf(testbed.folders.instance, "task-1");
     expect(runtime.projects.get(firstName)?.state).toBe("stopped");
+  });
+});
+
+describe("RunEnvironments.run on a root Office", () => {
+  it("runs one command per check, as the definition's user, with today's script", async () => {
+    const task = taskIn(testbed, "task-1");
+    await writeFiles(task.worktree, {
+      ...DEFINITION,
+      ".devcontainer/devcontainer.json": `{ "dockerComposeFile": "compose.yaml", "service": "app", "remoteUser": "node" }`,
+    });
+    const executions: Execution[] = [];
+    runtime.onExec = async (execution) => {
+      executions.push(execution);
+      return { exitCode: 0 };
+    };
+
+    await testbed.environments.run(task, command(outputOf("check")));
+
+    expect(executions).toEqual([
+      {
+        service: "app",
+        user: "node",
+        script: commandScript("npm test", task.worktree, command("").environment),
+        variables: { OFFICE_VARIABLE_0: "1" },
+        mask: NO_MASK,
+        timeoutMs: 60_000,
+      },
+    ]);
+    expect(executions[0]?.script).not.toContain("safe.directory");
+  });
+});
+
+describe("RunEnvironments.run on a non-root Office", () => {
+  const OWNER = { userId: 1000, groupId: 1000 };
+
+  beforeEach(async () => {
+    await rm(testbed.folder, { recursive: true, force: true });
+    testbed = await runEnvironmentsTestbed(runtime, DEFAULT_RUN_ENVIRONMENT_OPTIONS, OWNER);
+  });
+
+  it("trusts the worktree in git, then gives the check's files back as root, keeping its result", async () => {
+    const task = await taskWithDefinition("task-1");
+    const stop = new AbortController();
+    const executions: Execution[] = [];
+    runtime.onExec = async (execution) => {
+      executions.push(execution);
+      return executions.length === 1
+        ? { output: "3 tests failed\n", exitCode: 1 }
+        : { exitCode: 0 };
+    };
+
+    const end = await testbed.environments.run(
+      task,
+      command(outputOf("check"), { signal: stop.signal }),
+    );
+
+    expect(end).toMatchObject({ exitCode: 1 });
+    expect(await readFile(outputOf("check"), "utf8")).toMatch(/3 tests failed\n$/);
+    expect(executions[0]?.script).toBe(
+      commandScript("npm test", task.worktree, command("").environment, {
+        trustRepositories: true,
+      }),
+    );
+    expect(executions[0]?.signal).toBe(stop.signal);
+    expect(executions[1]).toEqual({
+      service: "app",
+      user: "0:0",
+      script: handBackScript(task.worktree, OWNER),
+      variables: {},
+      mask: NO_MASK,
+      timeoutMs: 10 * 60 * 1000,
+    });
+    expect(executions).toHaveLength(2);
   });
 });
