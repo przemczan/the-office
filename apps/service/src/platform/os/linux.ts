@@ -19,10 +19,16 @@ const LINUX_PATH_LIMITS: PathLimits = {
   measure: (text) => Buffer.byteLength(text, "utf8"),
 };
 
-export function linux({ variables, homeDirectory, userId }: UserEnvironment): OperatingSystem {
+export function linux({
+  variables,
+  homeDirectory,
+  userId,
+  groupId,
+}: UserEnvironment): OperatingSystem {
   const config = configHome(variables["XDG_CONFIG_HOME"], homeDirectory);
   return {
     name: "Linux",
+    ...(userId === undefined || groupId === undefined ? {} : { fileOwner: { userId, groupId } }),
     defaultOfficeDataDirectory: posix.join(
       dataHome(variables["XDG_DATA_HOME"], homeDirectory),
       "the-office",

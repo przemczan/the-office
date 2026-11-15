@@ -6,6 +6,7 @@ import {
   composeOverrideOf,
   composeProjectNameOf,
   cpuLimitProblemOf,
+  handBackScript,
   type CpuLimit,
   type RunEnvironmentLimits,
   type TaskInWorktree,
@@ -252,5 +253,52 @@ describe("commandScript", () => {
       OFFICE_VARIABLE_0: "npm_s3cret",
       OFFICE_VARIABLE_1: "1",
     });
+  });
+
+  const environment = {
+    set: [{ name: "GIT_CONFIG_COUNT", value: "1" }],
+    unset: [],
+    prependPath: ["/opt/a"],
+  };
+
+  it("on a root Office, trusts no repository and writes the script as it always has", () => {
+    expect(commandScript("npm test", "/w", environment, { trustRepositories: false })).toBe(
+      [
+        "cd '/w' || exit 125",
+        'export GIT_CONFIG_COUNT="$OFFICE_VARIABLE_0"',
+        "unset OFFICE_VARIABLE_0",
+        `export PATH='/opt/a':"$PATH"`,
+        "npm test",
+      ].join("\n"),
+    );
+    expect(commandScript("npm test", "/w", environment)).toBe(
+      commandScript("npm test", "/w", environment, { trustRepositories: false }),
+    );
+  });
+
+  it("trusts every repository in git after the Project's environment, adding to its config", () => {
+    expect(commandScript("npm test", "/w", environment, { trustRepositories: true })).toBe(
+      [
+        "cd '/w' || exit 125",
+        'export GIT_CONFIG_COUNT="$OFFICE_VARIABLE_0"',
+        "unset OFFICE_VARIABLE_0",
+        `export PATH='/opt/a':"$PATH"`,
+        "office_n=${GIT_CONFIG_COUNT:-0}",
+        'export "GIT_CONFIG_KEY_$office_n=safe.directory" "GIT_CONFIG_VALUE_$office_n=*"',
+        "export GIT_CONFIG_COUNT=$((office_n + 1))",
+        "unset office_n",
+        "npm test",
+      ].join("\n"),
+    );
+  });
+});
+
+describe("handBackScript", () => {
+  it("gives the files another user or group owns, symlinks themselves, to the owner by number", () => {
+    expect(handBackScript(`/w/it's $HOME`, { userId: 1000, groupId: 1001 })).toBe(
+      "if command -v find >/dev/null 2>&1; then " +
+        `find '/w/it'\\''s $HOME' \\( ! -user 1000 -o ! -group 1001 \\) -exec chown -h 1000:1001 {} +; ` +
+        `else chown -R -h 1000:1001 '/w/it'\\''s $HOME'; fi`,
+    );
   });
 });

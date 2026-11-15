@@ -18,11 +18,13 @@ import {
   commandVariables,
   composeOverrideOf,
   composeProjectNameOf,
+  handBackScript,
   IDLE_STOP_MS,
   LABEL,
   officeLabels,
   taskLabels,
   type CommandEnvironment,
+  type FileOwnerIds,
   type TaskInWorktree,
 } from "../domain/run-environment.js";
 import {
@@ -39,12 +41,19 @@ import { HostCores } from "./host-cores.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
+import { ServiceOwner } from "./service-owner.js";
 
 /** The name of the compose file The Office puts over the repository's, in the Task's folder. */
 const OVERRIDE_FILE = "office-override.yaml";
 
 /** The states a Task's run environment is removed in (spec §5.5, "Lifecycle"). */
 const FINISHED_STATES: readonly string[] = ["done", "dropped"];
+
+/** Who the hand-back runs as in the checks' service: root, whatever user the image names. */
+const ROOT_USER = "0:0";
+
+/** How long giving a check's files back may take: a worktree's node_modules can be large. */
+const HAND_BACK_TIMEOUT_MS = 10 * 60 * 1000;
 
 /**
  * What a step that may wait for a slot is told, and how it can be stopped. A hook that fails is
@@ -117,6 +126,7 @@ export class RunEnvironments implements OnModuleInit {
     private readonly knownTasks: KnownTasks,
     private readonly settings: RunEnvironmentSettings,
     private readonly hostCores: HostCores,
+    private readonly serviceOwner: ServiceOwner,
     private readonly schedule: Schedule,
     private readonly busyWork: BusyWork,
     private readonly events: EventBus,
@@ -184,24 +194,30 @@ export class RunEnvironments implements OnModuleInit {
   }
 
   /**
-   * Runs the check in the service. A runtime failure, such as the service gone, stops the Task's
-   * run environment, freeing its slot, for the next check to start again.
+   * Runs the check in the service, then, on a non-root Office, gives the files it wrote back to
+   * The Office's user however it ended. A runtime failure, such as the service gone, or a hand-back
+   * that fails stops the Task's run environment, freeing its slot, for the next check to start
+   * again and hand back what was left.
    */
   private async execute(
     task: TaskInWorktree,
     environment: RunningEnvironment,
     command: RunEnvironmentCommand,
   ): Promise<CommandEnd> {
+    const { owner } = this.serviceOwner;
     const startedAt = this.schedule.now().getTime();
+    let end: ExecutionEnd;
     try {
-      const end = await this.runtime.exec(
+      end = await this.runtime.exec(
         environment.project,
         {
           service: environment.definition.service,
           ...(environment.definition.user === undefined
             ? {}
             : { user: environment.definition.user }),
-          script: commandScript(command.commandLine, task.worktree, command.environment),
+          script: commandScript(command.commandLine, task.worktree, command.environment, {
+            trustRepositories: owner !== undefined,
+          }),
           variables: commandVariables(command.environment),
           mask: command.mask,
           timeoutMs: command.timeoutMs,
@@ -209,18 +225,73 @@ export class RunEnvironments implements OnModuleInit {
         },
         command.outputFile,
       );
-      return { ...end, durationMs: this.schedule.now().getTime() - startedAt };
     } catch (error) {
       if (!(error instanceof ContainerRuntimeFailed)) throw error;
-      // Stopped, not just forgotten, so no service left running passes Run environments at once.
-      await this.stopNow(task.taskId).catch((stopError: unknown) => {
-        this.logger.warn(`The run environment of the Task ${task.taskId} didn't stop.`, stopError);
-      });
-      throw new RunEnvironmentRefused(
-        ["The check couldn't run in the run environment.", error.message],
+      throw await this.stoppedAsRefused(task.taskId, command.outputFile, [
+        "The check couldn't run in the run environment.",
+        error.message,
+      ]);
+    }
+    const durationMs = this.schedule.now().getTime() - startedAt;
+    if (owner !== undefined) {
+      const problem = await this.handBack(task, environment, owner, command);
+      if (problem !== undefined) {
+        throw await this.stoppedAsRefused(task.taskId, command.outputFile, [
+          "The files the check wrote couldn't be given back to The Office's user.",
+          problem,
+        ]);
+      }
+    }
+    return { ...end, durationMs };
+  }
+
+  /**
+   * Gives every file in the worktree another user owns back to The Office's (spec §5.5 Defaults,
+   * "Run environments with a non-root Office"), as root, silent when it works. No signal: a
+   * stopped check still hands back. Answers why it failed, or nothing.
+   */
+  private async handBack(
+    task: TaskInWorktree,
+    environment: RunningEnvironment,
+    owner: FileOwnerIds,
+    command: RunEnvironmentCommand,
+  ): Promise<string | undefined> {
+    try {
+      const { exitCode, endedBy } = await this.runtime.exec(
+        environment.project,
+        {
+          service: environment.definition.service,
+          user: ROOT_USER,
+          script: handBackScript(task.worktree, owner),
+          variables: {},
+          mask: command.mask,
+          timeoutMs: HAND_BACK_TIMEOUT_MS,
+        },
         command.outputFile,
       );
+      if (endedBy === "timeout")
+        return `It didn't end within ${HAND_BACK_TIMEOUT_MS / 60_000} minutes.`;
+      if (exitCode !== 0) return `It ended with the exit code ${exitCode}.`;
+      return undefined;
+    } catch (error) {
+      if (!(error instanceof ContainerRuntimeFailed)) throw error;
+      return error.message;
     }
+  }
+
+  /**
+   * Stops the Task's run environment, not just forgets it, so no service left running passes Run
+   * environments at once, and answers the refusal to throw.
+   */
+  private async stoppedAsRefused(
+    taskId: string,
+    outputFile: string,
+    reasons: readonly string[],
+  ): Promise<RunEnvironmentRefused> {
+    await this.stopNow(taskId).catch((stopError: unknown) => {
+      this.logger.warn(`The run environment of the Task ${taskId} didn't stop.`, stopError);
+    });
+    return new RunEnvironmentRefused(reasons, outputFile);
   }
 
   /** Removes the Task's run environment, its containers, network, volumes and files. */

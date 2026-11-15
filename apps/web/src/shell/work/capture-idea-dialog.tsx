@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Idea, NewIdea } from "@the-office/contracts";
-import { Button, Dialog, Field, IconButton, Icon } from "@the-office/ui";
+import { Button, Dialog } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { captureIdea, ideaQueries } from "../../api/work.ts";
-import { AttachmentPicker } from "../attachments/attachment-picker.tsx";
-import { attach, pendingName, type PendingAttachment } from "../attachments/pending-attachment.ts";
+import { attachAll, type PendingAttachment } from "../attachments/pending-attachment.ts";
+import { PendingAttachmentsField } from "../attachments/pending-attachments-field.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 import { IdeaFields } from "./idea-fields.tsx";
@@ -24,7 +24,6 @@ export function CaptureIdeaDialog({
   const formId = useId();
   const [draft, setDraft] = useState<NewIdea>({ title: "", notes: "", projectId });
   const [pending, setPending] = useState<readonly PendingAttachment[]>([]);
-  const [picking, setPicking] = useState(false);
   const queryClient = useQueryClient();
   const showToast = useToast();
   // Once captured, a failed Attachment is tried again without capturing the Idea twice.
@@ -33,11 +32,9 @@ export function CaptureIdeaDialog({
     mutationFn: async (newIdea: NewIdea) => {
       const idea = captured ?? (await captureIdea(newIdea));
       setCaptured(idea);
-      // One at a time and in order, so they list as they were chosen, each leaving once added.
-      for (const attachment of pending) {
-        await attach({ kind: "idea", ideaId: idea.id }, attachment);
-        setPending((left) => left.slice(1));
-      }
+      await attachAll({ kind: "idea", ideaId: idea.id }, pending, () =>
+        setPending((left) => left.slice(1)),
+      );
       return idea;
     },
     onSettled: () => queryClient.invalidateQueries(ideaQueries.list()),
@@ -79,38 +76,7 @@ export function CaptureIdeaDialog({
           />
         )}
         <IdeaFields draft={draft} onChange={setDraft} />
-        <Field label="Attachments" hint="Optional.">
-          <div className="capture-idea-attachments">
-            {pending.map((attachment, index) => (
-              <span key={`${index}-${pendingName(attachment)}`} className="attachment-chip">
-                <span className="attachment-open">
-                  <Icon name={attachment.kind === "link" ? "link" : "file"} size={14} />
-                  {pendingName(attachment)}
-                </span>
-                <IconButton
-                  size="xs"
-                  icon={<Icon name="x" size={12} />}
-                  label={`Remove ${pendingName(attachment)}`}
-                  onClick={() => setPending(pending.filter((_, at) => at !== index))}
-                />
-              </span>
-            ))}
-            {picking ? (
-              <AttachmentPicker onPick={(attachment) => setPending([...pending, attachment])} />
-            ) : (
-              <div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  iconLeft={<Icon name="paperclip" size={14} />}
-                  onClick={() => setPicking(true)}
-                >
-                  Add a file, screenshot or link
-                </Button>
-              </div>
-            )}
-          </div>
-        </Field>
+        <PendingAttachmentsField pending={pending} onChange={setPending} />
       </form>
     </Dialog>
   );
