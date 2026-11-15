@@ -11,13 +11,16 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
+import { type addFile, type createTask, taskQueries } from "../../api/work.ts";
 import { paste, screenshot } from "../attachments/pasted-files.fixtures.ts";
 import { buttonNamed, shownText, typed, until } from "../page.fixtures.tsx";
 import { ToastProvider } from "../toasts.tsx";
 import { NewTaskDialog } from "./new-task-dialog.tsx";
 
-const api = vi.hoisted(() => ({ createTask: vi.fn(), addFile: vi.fn() }));
+const api = vi.hoisted(() => ({
+  createTask: vi.fn<typeof createTask>(),
+  addFile: vi.fn<typeof addFile>(),
+}));
 vi.mock("../../api/work.ts", async (original) => ({
   ...(await original<typeof import("../../api/work.ts")>()),
   createTask: api.createTask,
@@ -79,7 +82,7 @@ describe("New Task", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", () => Promise.resolve(Response.json([])));
     api.createTask.mockResolvedValue(TASK as Task);
-    api.addFile.mockImplementation((_owner, file: File) =>
+    api.addFile.mockImplementation((_owner, file) =>
       Promise.resolve({ name: file.name } as Attachment),
     );
   });
@@ -103,7 +106,7 @@ describe("New Task", () => {
 
     await until(() => expect(api.addFile).toHaveBeenCalledTimes(2));
     expect(api.createTask).toHaveBeenCalledOnce();
-    expect(api.addFile.mock.calls.map(([owner, file]) => [owner, (file as File).name])).toEqual([
+    expect(api.addFile.mock.calls.map(([owner, file]) => [owner, file.name])).toEqual([
       [{ kind: "task", taskId: TASK.id }, "first.png"],
       [{ kind: "task", taskId: TASK.id }, "second.png"],
     ]);
@@ -129,7 +132,7 @@ describe("New Task", () => {
 
     await until(() => expect(api.addFile).toHaveBeenCalledTimes(3));
     expect(api.createTask).toHaveBeenCalledOnce();
-    expect((api.addFile.mock.calls[2]?.[1] as File).name).toBe("second.png");
+    expect(api.addFile.mock.calls[2]?.[1].name).toBe("second.png");
   });
 
   it("leaves a paste of text to the field, attaching nothing", async () => {

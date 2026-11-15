@@ -3,12 +3,13 @@ import type { Attachment, AttachmentOwner } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { addFile } from "../../api/work.ts";
 import { until } from "../page.fixtures.tsx";
 import { ToastProvider } from "../toasts.tsx";
 import { AddAttachmentDialog } from "./add-attachment-dialog.tsx";
 import { paste, screenshot } from "./pasted-files.fixtures.ts";
 
-const api = vi.hoisted(() => ({ addFile: vi.fn() }));
+const api = vi.hoisted(() => ({ addFile: vi.fn<typeof addFile>() }));
 vi.mock("../../api/work.ts", async (original) => ({
   ...(await original<typeof import("../../api/work.ts")>()),
   addFile: api.addFile,
@@ -43,7 +44,7 @@ function openAttach(): void {
 describe("Attach", () => {
   beforeEach(() => {
     closed = false;
-    api.addFile.mockImplementation((_owner, file: File) =>
+    api.addFile.mockImplementation((_owner, file) =>
       Promise.resolve({ name: file.name } as Attachment),
     );
   });
@@ -65,9 +66,7 @@ describe("Attach", () => {
     expect(api.addFile).toHaveBeenCalledOnce();
     const [owner, file] = api.addFile.mock.calls[0] ?? [];
     expect(owner).toEqual(OWNER);
-    expect((file as File).name).toMatch(
-      /^Pasted image \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}\.png$/,
-    );
+    expect(file?.name).toMatch(/^Pasted image \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}\.png$/);
   });
 
   it("attaches nothing from a paste of text", async () => {
