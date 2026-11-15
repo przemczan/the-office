@@ -1034,6 +1034,7 @@ office_installed() {
 USER_EXISTS=false
 DOCKER_REACHABLE=false
 REMOVE_DATA_DIR=false
+REMOVE_HOME=true
 DATA_DIR_PROBLEM=""
 REMOVING=()
 KEEPING=()
@@ -1092,7 +1093,15 @@ plan_purge() {
   fi
   if [[ -n $DATA_DIR_PROBLEM ]]; then KEEPING+=("the data folder${DATA_DIR:+ $DATA_DIR}: $DATA_DIR_PROBLEM"); fi
   if [[ -e $(root_path "$CONFIG_DIR") ]]; then REMOVING+=("$CONFIG_DIR"); fi
-  if [[ $USER_EXISTS == true ]]; then REMOVING+=("the user $SERVICE_USER and its home $SERVICE_HOME"); fi
+  [[ $USER_EXISTS == true ]] || return 0
+  # A kept data folder inside the home would go with it.
+  if [[ -n $DATA_DIR_PROBLEM && -n $DATA_DIR &&$DATA_DIR/ == "$SERVICE_HOME"/* ]]; then
+    REMOVE_HOME=false
+    REMOVING+=("the user $SERVICE_USER")
+    KEEPING+=("its home $SERVICE_HOME, which holds the kept data folder")
+  else
+    REMOVING+=("the user $SERVICE_USER and its home $SERVICE_HOME")
+  fi
 }
 
 # list_items <item>…: one line each, under a heading.
@@ -1188,7 +1197,11 @@ purge_data() {
   rm -rf "$(root_path "$CONFIG_DIR")"
   if [[ $USER_EXISTS == true ]]; then
     step "Removing the user $SERVICE_USER"
-    run userdel --remove "$SERVICE_USER"
+    if [[ $REMOVE_HOME == true ]]; then
+      run userdel --remove "$SERVICE_USER"
+    else
+      run userdel "$SERVICE_USER"
+    fi
   fi
 }
 

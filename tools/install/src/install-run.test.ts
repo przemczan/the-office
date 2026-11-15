@@ -449,6 +449,18 @@ describe("an uninstall", () => {
     );
   });
 
+  it("with --purge, keeps the user's home when it holds a kept data folder", () => {
+    appendFileSync(
+      machine.path("/etc/the-office/office.env"),
+      "OFFICE_DATA_DIR=/home/the-office/data\n",
+    );
+    mkdirSync(machine.path("/home/the-office/data"), { recursive: true });
+    machine.setState("owners", `${machine.path("/home/the-office/data")} alice\n`);
+    const printed = installed(["--uninstall", "--purge", "--yes"]);
+    assert.deepEqual(callsTo("userdel"), ["userdel the-office"]);
+    assert.match(printed, /^ {4}its home \/home\/the-office, which holds the kept data folder$/m);
+  });
+
   it("refuses without a terminal to confirm on and without --yes, changing nothing", () => {
     assert.match(
       refused(["--uninstall"]),

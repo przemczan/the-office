@@ -16,7 +16,7 @@ Commands below use the defaults: port `4310`, the data folder `/var/lib/the-offi
 - **System:** Debian 12 or 13, or Ubuntu 22.04 or 24.04, on x64 (amd64) or arm64, with systemd: a VM, bare metal, or an LXC guest. Anything else is refused before anything changes.
 - **Root:** the installer runs as root, through `sudo`.
 - **In an LXC guest** (Proxmox): Docker needs nesting turned on. On the Proxmox host run `pct set <id> --features nesting=1,keyctl=1` and restart the guest before you install.
-- **Network:** outbound HTTPS to `github.com` (the release), `deb.nodesource.com` (Node), `download.docker.com` (Docker) and `apt.postgresql.org` (PostgreSQL), and to whatever your Projects and engines reach.
+- **Network:** outbound HTTPS to `github.com` (the release), `deb.nodesource.com` (Node), `download.docker.com` (Docker) and `apt.postgresql.org` with `www.postgresql.org` (PostgreSQL and its signing key), and to whatever your Projects and engines reach.
 - **What it installs**, only where missing:
   - `git`, the ssh client, `curl`, `gnupg` and `ca-certificates`;
   - Node 22 (22.18 or later) from NodeSource;
@@ -83,7 +83,7 @@ curl -fsSL https://github.com/przemczan/the-office/releases/latest/download/inst
 | The release, unpacked, and the link to the one that runs | `/opt/the-office/releases/<version>/`, `/opt/the-office/current` |
 | The configuration, readable by root alone | `/etc/the-office/office.env` |
 | The systemd service, started now and at every boot | `the-office.service` (`/etc/systemd/system/the-office.service`) |
-| The database `the_office`, owned by the role `office` with a random password | PostgreSQL 18's own cluster, port 5432 |
+| The database `the_office`, owned by the role `office` with a random password | PostgreSQL 18's own cluster, on port 5432 unless another PostgreSQL already holds it (`DATABASE_URL` in `office.env` names the port) |
 | The Office data folder, owned by `the-office` | `/var/lib/the-office` |
 | The install log | `/var/log/the-office-install.log` |
 
@@ -244,6 +244,8 @@ sudo tar -C / --numeric-owner -czf the-office-data.tar.gz var/lib/the-office etc
 sudo systemctl start the-office
 ```
 
+When PostgreSQL 18 isn't on port 5432, add `-p <port>` to `pg_dump` here and to `dropdb`, `createdb` and `pg_restore` below.
+
 To restore, on the same machine or on a new one after the [install](#install-on-debianubuntu) with the same data folder:
 
 ```sh
@@ -352,7 +354,7 @@ curl -fsSL https://github.com/przemczan/the-office/releases/latest/download/inst
 
 After `--uninstall` alone, running the installer again brings the same Office back, with its users and work.
 
-`--purge` removes the data folder only when it is The Office's own: an absolute folder below a top-level one (not `/srv` or `/var/lib` themselves, nor inside `/etc`, `/usr` and the like), owned by `the-office`. Otherwise it keeps it and says why; remove it by hand if you mean to.
+`--purge` removes the data folder only when it is The Office's own: an absolute folder below a top-level one (not `/srv` or `/var/lib` themselves, nor inside `/etc`, `/usr` and the like), owned by `the-office`. Otherwise it keeps it and says why, along with the user's home when the folder is inside it; remove it by hand if you mean to.
 
 A bundled Grafana you started [by hand](#telemetry) stays: `sudo docker rm -f the-office-grafana`.
 
@@ -400,11 +402,11 @@ What `down` leaves:
 
   If another Office shares it, add `--filter label=office.instance=<id>` to each listing, where `<id>` is `printf %s /var/lib/the-office | sha256sum | cut -c1-12` for your data folder.
 
-- **The images** of The Office, Postgres and Grafana:
+- **The images** of The Office, Postgres and Grafana. `docker compose down --rmi all` (with `-v` or without) removes those the compose file names along with the containers; the images of earlier versions, left by updates, go by hand:
 
   ```sh
   docker image ls ghcr.io/przemczan/the-office
-  docker image rm ghcr.io/przemczan/the-office:1.4.0 postgres:18.6-trixie grafana/otel-lgtm:0.38.0
+  docker image rm ghcr.io/przemczan/the-office:1.3.0
   ```
 
 - **The data folder and the compose folder:**
