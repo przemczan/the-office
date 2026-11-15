@@ -547,6 +547,10 @@ _Avoid_: Redirect message, referral, forward
 The default person to talk to's read-only, Office-wide view in a chat: who is on what, what waits on the user and what is paused.
 _Avoid_: Dashboard, report, overview
 
+**Live view**:
+The main menu item showing The Office as an isometric pixel-art office, each person a figure doing what they are doing now: working, consulting, waiting on you, idle, joining or leaving.
+_Avoid_: Office map, visualisation, live office, dashboard
+
 **Proposal**:
 A new or changed Role card or Office setting drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
