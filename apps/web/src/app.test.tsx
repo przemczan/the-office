@@ -47,7 +47,8 @@ function answer(more: Answers): void {
 }
 
 function stubService(): void {
-  answers = {};
+  // First-run setup is the setup page's tests' (first-run-setup.test.tsx): closed here.
+  answers = { "GET /api/first-run-setup": () => ({ status: 200, body: { basics: "closed" } }) };
   vi.stubGlobal(
     "fetch",
     vi.fn<typeof fetch>(async (input, init) => {

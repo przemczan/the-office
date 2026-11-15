@@ -89,6 +89,32 @@ Removing the client in Settings › Signing in takes Continue with Google off th
 
 Not yet checked on real Google, only with Google's endpoints stubbed and its authorize page caught in the e2e test.
 
+## First run: the setup token
+
+The installer creates no user. The first person to open The Office creates their own account, and only with the **setup token**, so whoever reaches it first over the network can't claim it. The service's first start prints one to its standard output, with the address to open, so `journalctl -u the-office` or `docker logs` shows it:
+
+```text
+The Office waits for its first user. Open http://localhost:4310 and give it this setup token:
+
+    ABCD-EFGH-JKMN-PQRS-TUVW-XYZ2
+```
+
+A start with a token already waiting prints none, only how to get one, so a restart never replaces the one an installer printed. For a lost token, run on the host, in the checkout:
+
+```sh
+npm run setup-token
+```
+
+It prints a new token and where to open The Office, and ends any earlier token. `npm run --silent setup-token -- --quiet` prints the token alone, for an installer to read (or `node apps/service/dist/setup-token.js --quiet` after a build). It runs the database's migrations first, so it works before the first start. Once a user exists it makes no token and exits with 1, pointing to `npm run set-password`; other arguments exit with 2. The Office keeps only the token's hash, and the first user uses it up.
+
+After the first user, First-run setup walks through the basics, each skippable: the Office default engine and its login, Sign in with GitHub for git, and telemetry. Finishing or skipping the rest closes it for good. An automated install sets `OFFICE_SKIP_SETUP_BASICS=true` to leave the basics out; the setup token and the first user are still asked for.
+
+## Telemetry
+
+Telemetry is a setting, in First-run setup and in Settings › Telemetry: Off, Bundled Grafana (the bundled Grafana's OTLP endpoint at `http://127.0.0.1:4318`, with a 2-second export timeout), or Your own endpoint, an OTLP over HTTP base URL with optional headers (such as an API key) and an optional export timeout (10 seconds when left empty). The choice is saved as `telemetry.json` in the Office data directory, readable by its owner only, since headers can hold credentials; the browser is only ever sent a header's name. A change applies the next time The Office starts.
+
+When `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_HEADERS` is set in the environment, such as in `.env`, the environment wins: the exporters read the standard OTEL_* variables, `OTEL_SDK_DISABLED=true` turns telemetry off, and the card says so, read-only. With neither a variable nor a saved setting, or with a `telemetry.json` that can't be read, telemetry is off and The Office still starts.
+
 ## Setting a user's password on the host
 
 A user who lost their password gets back in through a command on the host, in the checkout:

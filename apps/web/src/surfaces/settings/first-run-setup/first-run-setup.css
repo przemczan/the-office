@@ -1,0 +1,128 @@
+/* ---- First-run setup: signed in, outside the shell, one column in the window's middle */
+.first-run-setup-page {
+  display: grid;
+  place-items: start center;
+  min-height: 100vh;
+  padding: max(48px, 10vh) var(--pad-page) 48px;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.first-run-setup-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-panel);
+  width: min(720px, 100%);
+  min-width: 0;
+}
+
+.first-run-setup-column h1 {
+  margin: 0;
+  font: var(--type-page-title);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+
+.first-run-setup-office {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: var(--type-section-title);
+  color: var(--fg-1);
+}
+
+.first-run-setup-lead {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--fg-2);
+}
+
+/* the three steps, the current one in the accent */
+.first-run-setup-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-run-setup-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+.first-run-setup-step-number {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font: var(--type-caption);
+}
+
+.first-run-setup-step[aria-current="step"] {
+  color: var(--fg-1);
+  font-weight: 600;
+}
+
+.first-run-setup-step[aria-current="step"] .first-run-setup-step-number {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--fg-on-accent);
+}
+
+.first-run-setup-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  min-width: 0;
+}
+
+.first-run-setup-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.first-run-setup-heading h2 {
+  margin: 0;
+  font: var(--type-section-title);
+  color: var(--fg-1);
+}
+
+.first-run-setup-position {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.first-run-setup-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+.first-run-setup-card-body code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.first-run-setup-link {
+  color: var(--accent);
+}
+
+/* Skip the rest on the left; Skip and Next (or Finish) on the right */
+.first-run-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.first-run-setup-actions-gap {
+  flex: 1;
+}

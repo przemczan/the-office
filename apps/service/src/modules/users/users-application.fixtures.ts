@@ -14,6 +14,7 @@ import {
 import { testDatabaseUrl } from "../../../test/test-database.js";
 import { ScryptPasswordHashing } from "./adapters/crypto/scrypt-password-hashing.js";
 import { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
+import { FirstRunSetup } from "./application/first-run-setup.js";
 import { PasswordHashing } from "./ports/password-hashing.js";
 import { UsersModule, type UsersModuleOptions } from "./users.module.js";
 
@@ -72,6 +73,11 @@ export async function startUsersApplication({
     requestAccess: "guarded",
   });
   return { ...started, schedule: started.app.get(Schedule) as ManualSchedule };
+}
+
+/** A new setup token, as `npm run setup-token` prints it, for a test that makes the first user. */
+export function newSetupToken(office: TestApplication): Promise<string> {
+  return office.app.get(FirstRunSetup).newToken();
 }
 
 export interface Sent {

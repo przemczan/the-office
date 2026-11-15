@@ -82,13 +82,32 @@ export type IdentitySignIn = z.infer<typeof identitySignInSchema>;
 export const identityAuthorizationSchema = z.object({ authorizeUrl: z.url() });
 export type IdentityAuthorization = z.infer<typeof identityAuthorizationSchema>;
 
-/** `POST /sign-in/first-user`: the first user's name, email and password. */
+/**
+ * `POST /sign-in/first-user`: the setup token printed on the host, then the first user's name,
+ * email and password. A missing, wrong or replaced token is refused with 403 (`setupTokenRefusalSchema`).
+ */
 export const firstUserSchema = z.object({
+  // Missing is refused as a wrong token is, with how to print one, not as a malformed request.
+  setupToken: z.string().default(""),
   name: z.string(),
   email: z.string(),
   password: z.string(),
 });
 export type FirstUser = z.infer<typeof firstUserSchema>;
+
+/** A first user refused for its setup token, with words saying how to print a new one. */
+export const setupTokenRefusalSchema = z.object({
+  statusCode: z.literal(403),
+  message: z.string(),
+});
+export type SetupTokenRefusal = z.infer<typeof setupTokenRefusalSchema>;
+
+/**
+ * `GET /first-run-setup`: whether First-run setup's basics (the engine, Sign in with GitHub and
+ * telemetry) are still open after the first user; `POST /first-run-setup/close` closes them for good.
+ */
+export const firstRunSetupSchema = z.object({ basics: z.enum(["open", "closed"]) });
+export type FirstRunSetup = z.infer<typeof firstRunSetupSchema>;
 
 /** `POST /sign-in/password`. */
 export const passwordSignInSchema = z.object({

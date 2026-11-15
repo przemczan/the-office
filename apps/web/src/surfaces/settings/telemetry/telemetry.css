@@ -1,0 +1,52 @@
+/* The Telemetry card: Settings › Telemetry and the First-run setup's Telemetry step. */
+.telemetry-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.telemetry-body,
+.telemetry-form,
+.telemetry-endpoint,
+.telemetry-headers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.telemetry-body {
+  gap: var(--gap-card);
+}
+
+.telemetry-subtitle {
+  font: var(--type-label);
+}
+
+.telemetry-header-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.telemetry-headers > button {
+  align-self: flex-start;
+}
+
+.telemetry-note {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--fg-2);
+}
+
+.telemetry-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.telemetry-actions-state {
+  flex: 1;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}

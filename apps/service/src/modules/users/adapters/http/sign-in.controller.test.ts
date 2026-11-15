@@ -1,16 +1,25 @@
 import { createHash } from "node:crypto";
-import { accountSchema, signInPageSchema, userRefusalSchema } from "@the-office/contracts";
+import {
+  accountSchema,
+  setupTokenRefusalSchema,
+  signInPageSchema,
+  userRefusalSchema,
+} from "@the-office/contracts";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { freshTestDatabase, type FreshTestDatabase } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { FirstUserExists } from "../../domain/user-refused.js";
 import { addUser } from "../../index.fixtures.js";
 import {
+  newSetupToken,
   send,
   setCookieOf,
   startUsersApplication,
+  type Answer,
   type UsersApplication,
 } from "../../users-application.fixtures.js";
+import { firstRunSetup } from "../postgres/first-run-setup.schema.js";
 import { signedInDevices, users } from "../postgres/users.schema.js";
 
 const FIRST_USER = {
@@ -39,18 +48,39 @@ describe("the first user", () => {
     await office.app.close();
   });
 
-  it("is asked for while no user exists, signed in once made, and refused after", async () => {
+  const createFirstUser = (body: unknown): Promise<Answer> =>
+    send(office.port, { method: "POST", path: "/api/sign-in/first-user", body });
+
+  it("is made only with the current setup token, which it uses up, and refused after", async () => {
     const before = await send(office.port, { path: "/api/sign-in" });
     expect(signInPageSchema.parse(before.body)).toEqual({
       firstRun: true,
       ways: [{ kind: "password" }, { kind: "passkey" }],
       unavailable: [],
     });
+    const replaced = await newSetupToken(office);
+    const token = await newSetupToken(office);
 
-    const refused = await send(office.port, {
-      method: "POST",
-      path: "/api/sign-in/first-user",
-      body: { name: " ", email: "ada", password: "short" },
+    for (const setupToken of [undefined, "", "ABCD-EFGH-JKMN-PQRS-TUVW-XYZ2", replaced]) {
+      const refused = await createFirstUser({ ...FIRST_USER, setupToken });
+      expect(refused.status).toBe(403);
+      expect(setupTokenRefusalSchema.parse(refused.body).message).toContain("npm run setup-token");
+    }
+    const wrongTokenAndFields = await createFirstUser({
+      setupToken: replaced,
+      name: " ",
+      email: "ada",
+      password: "short",
+    });
+    expect(wrongTokenAndFields.status).toBe(403);
+    const officeDatabase = office.app.get<symbol, Database>(DATABASE);
+    expect(await officeDatabase.select().from(users)).toEqual([]);
+
+    const refused = await createFirstUser({
+      setupToken: token,
+      name: " ",
+      email: "ada",
+      password: "short",
     });
     expect(refused.status).toBe(422);
     expect(userRefusalSchema.parse(refused.body).reasons).toEqual([
@@ -59,10 +89,10 @@ describe("the first user", () => {
       "A password has at least 12 characters.",
     ]);
 
-    const made = await send(office.port, {
-      method: "POST",
-      path: "/api/sign-in/first-user",
-      body: FIRST_USER,
+    // As typed from the printout: dashes and case don't matter.
+    const made = await createFirstUser({
+      ...FIRST_USER,
+      setupToken: token.replaceAll("-", "").toLowerCase(),
     });
     expect(made.status).toBe(201);
     expect(made.body).toEqual({ outcome: "signed-in" });
@@ -72,32 +102,39 @@ describe("the first user", () => {
       name: "Ada Lovelace",
       email: "Ada@Example.com",
     });
+    const [setup] = await officeDatabase.select().from(firstRunSetup);
+    expect(setup?.setupTokenHash).toBeNull();
 
     const after = await send(office.port, { path: "/api/sign-in" });
     expect(signInPageSchema.parse(after.body).firstRun).toBe(false);
-    const again = await send(office.port, {
-      method: "POST",
-      path: "/api/sign-in/first-user",
-      body: { ...FIRST_USER, email: "grace@example.com" },
+    const again = await createFirstUser({
+      ...FIRST_USER,
+      email: "grace@example.com",
+      setupToken: token,
     });
-    expect(again.status).toBe(409);
+    expect(again.status).toBe(403);
+    await expect(newSetupToken(office)).rejects.toThrow(FirstUserExists);
   });
 
   it("makes one first user of two asked for at once", async () => {
     const own = await freshTestDatabase();
     const racing = await startUsersApplication({ databaseUrl: own.url });
     try {
+      const setupToken = await newSetupToken(racing);
       const answers = await Promise.all(
         ["ada@example.com", "grace@example.com"].map((email) =>
           send(racing.port, {
             method: "POST",
             path: "/api/sign-in/first-user",
-            body: { ...FIRST_USER, email },
+            body: { ...FIRST_USER, email, setupToken },
           }),
         ),
       );
 
-      expect(answers.map(({ status }) => status).toSorted()).toEqual([201, 409]);
+      // The one that waited on the first finds the token used up, or the user made.
+      const [made, refused] = answers.map(({ status }) => status).toSorted();
+      expect(made).toBe(201);
+      expect([403, 409]).toContain(refused);
       const rows = await racing.app.get<symbol, Database>(DATABASE).select().from(users);
       expect(rows).toHaveLength(1);
     } finally {

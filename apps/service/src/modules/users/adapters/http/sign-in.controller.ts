@@ -55,12 +55,16 @@ export class SignInController {
 
   @Post("first-user")
   async createFirstUser(
-    @Body(new ContractPipe(firstUserSchema)) firstUser: FirstUserMessage,
+    @Body(new ContractPipe(firstUserSchema)) { setupToken, ...newUser }: FirstUserMessage,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<SignInOutcomeMessage> {
     const address = this.officeAddresses.addressOf(request);
-    const outcome = await this.firstUser.create(firstUser, signInRequestOf(request, address));
+    const outcome = await this.firstUser.create(
+      newUser,
+      setupToken,
+      signInRequestOf(request, address),
+    );
     return answerSignIn(outcome, address.secure, response);
   }
 

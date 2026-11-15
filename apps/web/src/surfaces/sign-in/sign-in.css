@@ -78,3 +78,24 @@
   font: var(--type-caption);
   color: var(--fg-2);
 }
+
+/* the setup token's field, with where to find the token under it */
+.sign-in-setup-token {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sign-in-hint {
+  margin: 0;
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+/* A command shows whole, wrapping at any width (UI rules, Layout). */
+.sign-in-hint code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+  color: var(--fg-1);
+}

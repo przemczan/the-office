@@ -121,6 +121,7 @@ describe("the first user", () => {
     });
     const { page } = await openSignInPage("/sign-in");
     await until(() => expect(formNamed(page, "Create the first user")).not.toBeNull());
+    typed(page, "Setup token", "office-setup-token");
     typed(page, "Name", " ");
     typed(page, "Email", "ada@example.com");
     typed(page, "Password", "short");
@@ -144,6 +145,7 @@ describe("the first user", () => {
     });
     const { page } = await openSignInPage("/sign-in");
     await until(() => expect(formNamed(page, "Create the first user")).not.toBeNull());
+    typed(page, "Setup token", "office-setup-token");
     typed(page, "Name", "Ada");
     typed(page, "Email", "ada@example.com");
     typed(page, "Password", "twelve chars or more");

@@ -19,7 +19,8 @@ import { useCopyText } from "../../../shell/copy-text.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 
-const SECTION_PATH = "/settings/office-identity";
+type ReturnFailureParameter =
+  typeof GITHUB_APP_REGISTRATION_FAILED_PARAMETER | typeof GITHUB_SIGN_IN_FAILED_PARAMETER;
 
 /** Sign in with GitHub: registering the GitHub App, then signing in and out through GitHub's page. */
 export function GitHubCard(): ReactNode {
@@ -35,13 +36,23 @@ export function GitHubCard(): ReactNode {
   );
 }
 
-/** Why registering or signing in failed, as GitHub's return to The Office said; dismissed by the user. */
+/**
+ * Why registering or signing in failed, as GitHub's return to The Office said; dismissed by the
+ * user. Read loosely, as Settings › Office identity and First-run setup's GitHub step both carry
+ * the parameters.
+ */
 function ReturnFailures(): ReactNode {
-  const search = useSearch({ from: SECTION_PATH });
-  const navigate = useNavigate({ from: SECTION_PATH });
-  const dismiss = (parameter: keyof typeof search) => (): void => {
-    const { [parameter]: _dismissed, ...rest } = search;
-    void navigate({ search: rest, replace: true });
+  const search = useSearch({ strict: false });
+  const navigate = useNavigate();
+  const dismiss = (parameter: ReturnFailureParameter) => (): void => {
+    void navigate({
+      to: ".",
+      search: (shown: Record<string, unknown>) => {
+        const { [parameter]: _dismissed, ...rest } = shown;
+        return rest;
+      },
+      replace: true,
+    });
   };
   const registrationFailed = search[GITHUB_APP_REGISTRATION_FAILED_PARAMETER];
   const signInFailed = search[GITHUB_SIGN_IN_FAILED_PARAMETER];

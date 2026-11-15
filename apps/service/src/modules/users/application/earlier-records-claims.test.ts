@@ -4,6 +4,7 @@ import { freshTestDatabase, type FreshTestDatabase } from "../../../../test/test
 import { EarlierRecords } from "../../../platform/earlier-records/earlier-records.js";
 import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
 import {
+  newSetupToken,
   send,
   startUsersApplication,
   type UsersApplication,
@@ -66,7 +67,7 @@ describe("earlier records", () => {
     const made = await send(started.port, {
       method: "POST",
       path: "/api/sign-in/first-user",
-      body: FIRST_USER,
+      body: { ...FIRST_USER, setupToken: await newSetupToken(started) },
     });
     expect(made.status).toBe(201);
     expect(claimed).toEqual([{ userId: expect.any(String), name: "Ann Lee" }]);
@@ -81,7 +82,7 @@ describe("earlier records", () => {
     const made = await send(started.port, {
       method: "POST",
       path: "/api/sign-in/first-user",
-      body: FIRST_USER,
+      body: { ...FIRST_USER, setupToken: await newSetupToken(started) },
     });
     expect(made.status).toBe(201);
     expect(claimed).toEqual([]);

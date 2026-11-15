@@ -549,6 +549,14 @@ _Avoid_: Person, member, admin, operator, login
 A user's own record and page: their name, email, password, authenticator, recovery codes, linked identities, passkeys and signed-in devices, opened from the top bar's user menu. Not an engine's account, which is the Claude account a Claude Code engine runs on.
 _Avoid_: Profile, login, user settings
 
+**Setup token**:
+The one-time token that unlocks creating the first user, so whoever reaches The Office first over the network can't claim it. The first start prints one on the host, and `npm run setup-token` prints a new one, which ends the old; the first user uses it up.
+_Avoid_: Setup code, install key, claim token, admin token
+
+**First-run setup**:
+The wizard of a new Office: the first user, with the setup token, then the basics, each skippable (the engine and its login, Sign in with GitHub, telemetry), until the first user finishes or skips them, which closes it for good.
+_Avoid_: Onboarding, Office setup (People's hiring setup), installer
+
 **One-time password**:
 The password The Office makes when a user adds an account for someone else, shown once to the adding user to pass on; it works for one sign-in, at which the new user sets their own password.
 _Avoid_: Temporary password, invite code, OTP

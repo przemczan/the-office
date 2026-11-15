@@ -212,6 +212,10 @@ describe("the whole app, signed out", () => {
         { method: "GET", path: "/api/settings/google-client" },
         { method: "PUT", path: "/api/settings/google-client" },
         { method: "DELETE", path: "/api/settings/google-client" },
+        { method: "GET", path: "/api/first-run-setup" },
+        { method: "POST", path: "/api/first-run-setup/close" },
+        { method: "GET", path: "/api/settings/telemetry" },
+        { method: "PUT", path: "/api/settings/telemetry" },
       ]),
     );
 

@@ -2,9 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   accountSchema,
   addedUserSchema,
+  firstRunSetupSchema,
   authenticatorSetupSchema,
   oneTimePasswordSchema,
   recoveryCodesSchema,
+  setupTokenRefusalSchema,
   signedInDeviceListSchema,
   signInOutcomeSchema,
   signInPageSchema,
@@ -39,6 +41,8 @@ import type { EventInvalidations } from "./event-stream-provider.tsx";
 export const ACCOUNT = ["account"] as const;
 /** The Office's users, as Settings › Users lists them. */
 export const USERS = ["users"] as const;
+/** Whether First-run setup's basics are still open after the first user. */
+export const FIRST_RUN_SETUP = ["first-run-setup"] as const;
 
 export const userQueries = {
   /** Whether The Office waits for its first user, and the ways to sign in at this address. */
@@ -69,6 +73,16 @@ export const userQueries = {
     queryOptions({
       queryKey: USERS,
       queryFn: ({ signal }) => getFromApi("/users", userListSchema, signal),
+    }),
+  /**
+   * Whether First-run setup's basics (the engine, Sign in with GitHub, telemetry) are still open:
+   * while they are, every signed-in page goes to `/setup`. Read once; closing them invalidates it.
+   */
+  firstRunSetup: () =>
+    queryOptions({
+      queryKey: FIRST_RUN_SETUP,
+      queryFn: ({ signal }) => getFromApi("/first-run-setup", firstRunSetupSchema, signal),
+      staleTime: Infinity,
     }),
 };
 
@@ -133,9 +147,23 @@ export function saveAppearance(appearance: Appearance): Promise<Account> {
   return sendToApi("PUT", "/account/appearance", appearance, accountSchema);
 }
 
-/** Creates the first user at first run and signs this browser in as them. */
+/**
+ * Creates the first user at first run, with the setup token printed on the host, and signs this
+ * browser in as them; a missing, wrong or replaced token is refused as `RefusedAs<SetupTokenRefusal>`
+ * (403), before any field is checked.
+ */
 export function createFirstUser(firstUser: FirstUser): Promise<SignInOutcome> {
-  return sendToApi("POST", "/sign-in/first-user", firstUser, signInOutcomeSchema);
+  return sendToApiRefusedAs(
+    "/sign-in/first-user",
+    firstUser,
+    signInOutcomeSchema,
+    setupTokenRefusalSchema,
+  );
+}
+
+/** Closes First-run setup's basics for good, done or skipped; `/setup` then goes home. */
+export function closeFirstRunSetup(): Promise<void> {
+  return sendToApiWithNoAnswer("POST", "/first-run-setup/close", {});
 }
 
 /**

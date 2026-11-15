@@ -1,9 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import type { FirstRunSetupState } from "../../domain/first-run-setup.js";
 import type { User } from "../../domain/user.js";
 import { UserRefused } from "../../domain/user-refused.js";
 import { UserRepository } from "../../ports/user-repository.js";
+import { firstRunSetup } from "./first-run-setup.schema.js";
+import { firstRunSetupRowOf } from "./postgres-first-run-setup-repository.js";
 import { earlierRecordsClaimed, users } from "./users.schema.js";
 
 type UserRow = typeof users.$inferSelect;
@@ -17,13 +20,17 @@ export class PostgresUserRepository extends UserRepository {
     super();
   }
 
-  addFirst(user: User): Promise<boolean> {
+  addFirst(user: User, setupAfterwards: FirstRunSetupState): Promise<boolean> {
     return this.database.transaction(async (transaction) => {
       // Held until the transaction ends: a second first user waits here, then finds this one.
       await transaction.execute(sql`LOCK TABLE ${users} IN SHARE ROW EXCLUSIVE MODE`);
       const [existing] = await transaction.select({ id: users.id }).from(users).limit(1);
       if (existing !== undefined) return false;
       await transaction.insert(users).values(toRow(user));
+      await transaction
+        .insert(firstRunSetup)
+        .values(firstRunSetupRowOf(setupAfterwards))
+        .onConflictDoUpdate({ target: firstRunSetup.id, set: setupAfterwards });
       return true;
     });
   }

@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
 import { InterruptedAnswers, SubAgentsAndProcesses } from "./modules/conversations/index.js";
 import { OfficeUpdates } from "./modules/office-updates/index.js";
+import { FirstRunSetup } from "./modules/users/index.js";
 import { RunEnvironments } from "./modules/run-environments/index.js";
 import {
   DroppedInitiativeTasks,
@@ -14,6 +15,7 @@ import {
   TaskArchiving,
   UsageWindowResumes,
 } from "./modules/work/index.js";
+import { addressToOpen } from "./platform/config/address-to-open.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
 import { configureHttp, HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
@@ -127,6 +129,25 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
     });
 }
 
+/**
+ * While The Office waits for its first user and no setup token waits, makes one and prints it with
+ * where to open The Office, straight to standard output, so journald and `docker logs` show it but
+ * no Logger record, exported by telemetry, ever holds it. A token made earlier, by the installer or
+ * an earlier start, is kept: the start then only says how to print a new one.
+ */
+async function announceSetupToken(app: INestApplication, config: OfficeConfig): Promise<void> {
+  const atStart = await app.get(FirstRunSetup).tokenAtStart();
+  if (atStart.kind === "made") {
+    process.stdout.write(
+      `\nThe Office waits for its first user. Open ${addressToOpen(config)} and give it this setup token:\n\n    ${atStart.token}\n\nRun \`npm run setup-token\` on this computer for a new one.\n\n`,
+    );
+  } else if (atStart.kind === "waiting") {
+    process.stdout.write(
+      "The Office waits for its first user, with the setup token printed earlier. Run `npm run setup-token` on this computer for a new one.\n",
+    );
+  }
+}
+
 async function start(
   telemetry: StartedTelemetry,
   webApp: WebAppSource,
@@ -138,6 +159,7 @@ async function start(
     AppModule.register(config, { directory: WEB_APP_DIRECTORY, source: webApp }, officeCheckout),
   );
   await serve(app, config, takeUpWhereTheOfficeStopped);
+  await announceSetupToken(app, config);
   closeOnShutdownSignal(app, telemetry);
   closeForUpdate(app, telemetry);
 }

@@ -43,11 +43,17 @@ import {
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
 import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";
+import { FirstRunSetupPage } from "./surfaces/settings/first-run-setup/first-run-setup-page.tsx";
+import {
+  firstRunSetupStepOf,
+  type FirstRunSetupStep,
+} from "./surfaces/settings/first-run-setup/first-run-setup-steps.ts";
 import { McpServersSection } from "./surfaces/settings/mcp-servers/mcp-servers-section.tsx";
 import { OfficeIdentitySection } from "./surfaces/settings/office-identity/office-identity-section.tsx";
 import { UpdatesSection } from "./surfaces/settings/updates/updates-section.tsx";
 import { DutiesSection } from "./surfaces/settings/duties/duties-section.tsx";
 import { SigningInSection } from "./surfaces/settings/signing-in/signing-in-section.tsx";
+import { TelemetrySection } from "./surfaces/settings/telemetry/telemetry-section.tsx";
 import { UsersSection } from "./surfaces/settings/users/users-section.tsx";
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
@@ -551,20 +557,24 @@ export interface OfficeIdentitySearch {
   readonly [GITHUB_SIGN_IN_FAILED_PARAMETER]?: string;
 }
 
+function officeIdentitySearchOf(search: Record<string, unknown>): OfficeIdentitySearch {
+  const registrationFailed = search[GITHUB_APP_REGISTRATION_FAILED_PARAMETER];
+  const signInFailed = search[GITHUB_SIGN_IN_FAILED_PARAMETER];
+  return {
+    ...(typeof registrationFailed === "string" && {
+      [GITHUB_APP_REGISTRATION_FAILED_PARAMETER]: registrationFailed,
+    }),
+    ...(typeof signInFailed === "string" && { [GITHUB_SIGN_IN_FAILED_PARAMETER]: signInFailed }),
+  };
+}
+
+// While First-run setup is open, `RootLayout` sends this page, GitHub's fixed return, to its GitHub
+// step with the same parameters.
 const settingsOfficeIdentityRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "office-identity",
   component: OfficeIdentitySection,
-  validateSearch: (search: Record<string, unknown>): OfficeIdentitySearch => {
-    const registrationFailed = search[GITHUB_APP_REGISTRATION_FAILED_PARAMETER];
-    const signInFailed = search[GITHUB_SIGN_IN_FAILED_PARAMETER];
-    return {
-      ...(typeof registrationFailed === "string" && {
-        [GITHUB_APP_REGISTRATION_FAILED_PARAMETER]: registrationFailed,
-      }),
-      ...(typeof signInFailed === "string" && { [GITHUB_SIGN_IN_FAILED_PARAMETER]: signInFailed }),
-    };
-  },
+  validateSearch: officeIdentitySearchOf,
   staticData: { title: "Settings" },
 });
 
@@ -610,6 +620,34 @@ const settingsSigningInRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsTelemetryRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "telemetry",
+  component: TelemetrySection,
+  staticData: { title: "Settings" },
+});
+
+/**
+ * First-run setup's step shown, the first when none, with GitHub's return parameters on its GitHub
+ * step.
+ */
+export interface FirstRunSetupSearch extends OfficeIdentitySearch {
+  readonly step?: FirstRunSetupStep;
+}
+
+// After the first user, signed in but outside the shell (`RootLayout`): the basics, each skippable.
+// Every signed-in page comes here while they are open, and here goes home once they are closed.
+const firstRunSetupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "setup",
+  component: FirstRunSetupPage,
+  validateSearch: (search: Record<string, unknown>): FirstRunSetupSearch => {
+    const step = firstRunSetupStepOf(search["step"]);
+    return { ...(step !== undefined && { step }), ...officeIdentitySearchOf(search) };
+  },
+  staticData: { title: "First-run setup" },
+});
+
 // Palette and density are each user's own since users came (spec §2.10): an old link lands there.
 const settingsAppearanceRoute = createRoute({
   getParentRoute: () => settingsRoute,
@@ -623,6 +661,7 @@ export const router = createRouter({
   routeTree: rootRoute.addChildren([
     signInRoute,
     signInCodeRoute,
+    firstRunSetupRoute,
     accountRoute.addChildren([
       accountHomeRoute,
       accountProfileRoute,
@@ -674,6 +713,7 @@ export const router = createRouter({
       settingsNotificationsRoute,
       settingsUsersRoute,
       settingsSigningInRoute,
+      settingsTelemetryRoute,
       settingsUpdatesRoute,
       settingsAppearanceRoute,
     ]),

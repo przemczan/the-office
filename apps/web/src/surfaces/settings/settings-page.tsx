@@ -16,6 +16,7 @@ const SECTIONS: readonly MenuSection[] = [
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
   { to: "/settings/office-instructions", icon: "scroll-text", label: "Office instructions" },
   { to: "/settings/notifications", icon: "bell", label: "Notifications" },
+  { to: "/settings/telemetry", icon: "activity", label: "Telemetry" },
   { to: "/settings/updates", icon: "refresh-cw", label: "Updates" },
 ];
 

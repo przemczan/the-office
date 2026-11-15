@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InvalidOfficeConfigError } from "./invalid-office-config-error.js";
-import { readDatabaseUrl, readOfficeConfig } from "./office-config.js";
+import { isOfficeOwnVariable, readDatabaseUrl, readOfficeConfig } from "./office-config.js";
 import {
   port,
   databaseUrl,
@@ -22,7 +22,34 @@ describe("readOfficeConfig", () => {
       databaseUrl,
       officeDataDirectory,
       gitHub: { webUrl: "https://github.com", apiUrl: "https://api.github.com" },
+      skipSetupBasics: false,
     });
+  });
+
+  it.each([
+    ["true", true],
+    ["false", false],
+    ["", false],
+  ])("reads OFFICE_SKIP_SETUP_BASICS=%j as %s", (value, skipSetupBasics) => {
+    const config = readOfficeConfig(
+      { OFFICE_PORT: port, DATABASE_URL: databaseUrl, OFFICE_SKIP_SETUP_BASICS: value },
+      platformDefaults(),
+    );
+
+    expect(config.skipSetupBasics).toBe(skipSetupBasics);
+  });
+
+  it("refuses OFFICE_SKIP_SETUP_BASICS other than true or false, and keeps it from Project commands", () => {
+    const error = readProblems({
+      OFFICE_PORT: port,
+      DATABASE_URL: databaseUrl,
+      OFFICE_SKIP_SETUP_BASICS: "yes",
+    });
+
+    expect(error.problems).toEqual([
+      { variable: "OFFICE_SKIP_SETUP_BASICS", problem: "must be true or false" },
+    ]);
+    expect(isOfficeOwnVariable("OFFICE_SKIP_SETUP_BASICS")).toBe(true);
   });
 
   it("reads the public address as its origin", () => {

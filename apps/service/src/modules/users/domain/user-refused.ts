@@ -58,3 +58,13 @@ export class LinkedIdentityNotFound extends Error {
     this.name = "LinkedIdentityNotFound";
   }
 }
+
+/** A first user asked for without the waiting setup token: missing, mistyped or replaced. */
+export class SetupTokenRefused extends Error {
+  constructor() {
+    super(
+      "This setup token doesn't unlock The Office: it is wrong or a newer one replaced it. To print a new one, run npm run setup-token on the computer The Office runs on.",
+    );
+    this.name = "SetupTokenRefused";
+  }
+}

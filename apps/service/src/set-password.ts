@@ -1,17 +1,8 @@
 import { stdin, stdout, stderr } from "node:process";
-import { Module, type DynamicModule } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import {
-  Authenticators,
-  CookieSignedInRequests,
-  Passwords,
-  UsersModule,
-} from "./modules/users/index.js";
+import { HostCommandModule } from "./host-command.module.js";
+import { Authenticators, Passwords } from "./modules/users/index.js";
 import { readDatabaseUrl } from "./platform/config/office-config.js";
-import { DatabaseModule } from "./platform/database/database.module.js";
-import { EventsModule } from "./platform/events/events.module.js";
-import { RequestAccessModule } from "./platform/http/request-access.module.js";
-import { WebEventForwarding } from "./platform/websocket/web-event-forwarding.js";
 import { setPasswordCommand, type SetPasswordConsole } from "./set-password-command.js";
 
 const CONTROL_C = "\u0003";
@@ -66,36 +57,9 @@ const terminal: SetPasswordConsole = {
   error: (line) => stderr.write(`${line}\n`),
 };
 
-/** The database, events and the users module, with no HTTP: what setting a password needs. */
-@Module({})
-class SetPasswordModule {
-  static register(databaseUrl: string): DynamicModule {
-    // Setting a password needs no identity provider.
-    const users = UsersModule.register({ imports: [], identityProviders: [] });
-    return {
-      module: SetPasswordModule,
-      // The users module maps its web events here; with no WebSocket, they go nowhere.
-      global: true,
-      providers: [WebEventForwarding],
-      exports: [WebEventForwarding],
-      imports: [
-        DatabaseModule.forRoot({ url: databaseUrl }),
-        EventsModule,
-        users,
-        // The users module's controllers ask for the addresses, though no request reaches them here.
-        RequestAccessModule.register({
-          publicAddress: undefined,
-          imports: [users],
-          signedInRequests: CookieSignedInRequests,
-        }),
-      ],
-    };
-  }
-}
-
 async function main(): Promise<number> {
   const app = await NestFactory.createApplicationContext(
-    SetPasswordModule.register(readDatabaseUrl(process.env)),
+    HostCommandModule.register(readDatabaseUrl(process.env)),
     {
       logger: ["error"],
     },

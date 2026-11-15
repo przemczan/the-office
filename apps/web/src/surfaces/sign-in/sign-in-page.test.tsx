@@ -43,7 +43,7 @@ describe("the sign-in page", () => {
     expect(Object.keys(SIGN_IN_WAYS)).toEqual(["password", "passkey", "github", "google"]);
   });
 
-  it("asks for the first user at first run, and signs them in", async () => {
+  it("asks for the first user at first run with the setup token, and signs them in", async () => {
     const sent = stubService({
       "GET /api/sign-in": signInPage({
         firstRun: true,
@@ -58,6 +58,8 @@ describe("the sign-in page", () => {
     await until(() => expect(page.querySelector("h1")?.textContent).toBe("Create the first user"));
     expect(formNamed(page, "Sign in with a password")).toBeNull();
     const form = formNamed(page, "Create the first user");
+    expect(form?.querySelector("code")?.textContent).toBe("npm run setup-token");
+    typed(page, "Setup token", " k3y-fr0m-the-h0st ");
     typed(page, "Name", "Ada Lovelace");
     typed(page, "Email", "ada@example.com");
     typed(page, "Password", "twelve chars or more");
@@ -65,10 +67,35 @@ describe("the sign-in page", () => {
 
     await until(() => expect(router.state.location.pathname).toBe("/work"));
     expect(sent.find(({ request }) => request === "POST /api/sign-in/first-user")?.body).toEqual({
+      setupToken: "k3y-fr0m-the-h0st",
       name: "Ada Lovelace",
       email: "ada@example.com",
       password: "twelve chars or more",
     });
+  });
+
+  it("shows why the setup token was refused, with how to print a new one, and stays", async () => {
+    const message =
+      "The setup token is wrong or was replaced. Run npm run setup-token on the host where The Office runs for a new one.";
+    stubService({
+      "GET /api/sign-in": signInPage({ firstRun: true, ways: [], unavailable: [] }),
+      "POST /api/sign-in/first-user": () => ({ status: 403, body: { statusCode: 403, message } }),
+    });
+    const { page, router } = await openSignInPage("/sign-in");
+    await until(() => expect(formNamed(page, "Create the first user")).not.toBeNull());
+
+    typed(page, "Setup token", "a wrong token");
+    typed(page, "Name", "Ada Lovelace");
+    typed(page, "Email", "ada@example.com");
+    typed(page, "Password", "twelve chars or more");
+    submitted(formNamed(page, "Create the first user"));
+
+    await until(() => expect(page.textContent).toContain("The setup token was refused"));
+    expect([...page.querySelectorAll(".refusal-reasons li")].map((li) => li.textContent)).toEqual([
+      message,
+    ]);
+    expect(router.state.location.pathname).toBe("/sign-in");
+    expect(formNamed(page, "Create the first user")).not.toBeNull();
   });
 
   it("goes on to setting a new user's own password after their one-time password, then signs in with their appearance", async () => {

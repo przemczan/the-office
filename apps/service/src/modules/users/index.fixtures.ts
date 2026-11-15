@@ -81,6 +81,7 @@ export async function turnOnAuthenticator(
 }
 
 export {
+  newSetupToken,
   send,
   setCookieOf,
   startUsersApplication,

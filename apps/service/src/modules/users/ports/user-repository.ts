@@ -1,12 +1,14 @@
+import type { FirstRunSetupState } from "../domain/first-run-setup.js";
 import type { User } from "../domain/user.js";
 
 /** Where users are kept, removed ones too. */
 export abstract class UserRepository {
   /**
    * Adds the first user, only while no user exists, removed ones included: the check and the
-   * insert hold every other add, so two first users at once make one. Says whether it was added.
+   * insert hold every other add, so two first users at once make one. First-run setup as it stands
+   * after the first user is saved in the same transaction. Says whether it was added.
    */
-  abstract addFirst(user: User): Promise<boolean>;
+  abstract addFirst(user: User, setupAfterwards: FirstRunSetupState): Promise<boolean>;
 
   /** Adds a user; throws UserRefused when a user not removed has the email. */
   abstract add(user: User): Promise<void>;

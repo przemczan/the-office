@@ -81,6 +81,7 @@ import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identit
 import { HealthModule } from "./platform/health/health.module.js";
 import { RequestAccessModule } from "./platform/http/request-access.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
+import { TelemetryHttpModule } from "./platform/telemetry/telemetry-http.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
 import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
@@ -102,6 +103,7 @@ export class AppModule {
     const users = UsersModule.register({
       imports: [github],
       identityProviders: [GitHubIdentityProvider, GoogleIdentityProvider],
+      skipSetupBasics: config.skipSetupBasics ?? false,
     });
     // One instance, so every git change on a repository goes through the same locks.
     const projects = ProjectsModule.register({
@@ -223,6 +225,7 @@ export class AppModule {
         runEnvironments,
         SkillsModule,
         TelemetryModule,
+        TelemetryHttpModule,
         users,
         WebAppModule.register(webApp),
         work,

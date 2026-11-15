@@ -166,3 +166,9 @@ export class GoogleClientRemoved extends DomainEvent {
     super();
   }
 }
+
+/** A setup token was made, ending any earlier one; the event never carries the token or its hash. */
+export class SetupTokenMade extends DomainEvent {}
+
+/** First-run setup's basics closed for good: finished, skipped or left out by the install. */
+export class FirstRunBasicsClosed extends DomainEvent {}

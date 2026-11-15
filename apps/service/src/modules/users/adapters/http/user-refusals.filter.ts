@@ -15,6 +15,7 @@ import {
   LinkedIdentityNotFound,
   PasskeyNotFound,
   PendingSignInEnded,
+  SetupTokenRefused,
   SignedInDeviceNotFound,
   UserIdNotFound,
   UserRefused,
@@ -29,7 +30,8 @@ type UsersRefusal =
   | UserIdNotFound
   | PasskeyNotFound
   | IdentityRefused
-  | LinkedIdentityNotFound;
+  | LinkedIdentityNotFound
+  | SetupTokenRefused;
 
 /** Answers the users module's own refusals as Nest answers its errors, with `message` for the web. */
 @Catch(
@@ -42,6 +44,7 @@ type UsersRefusal =
   PasskeyNotFound,
   IdentityRefused,
   LinkedIdentityNotFound,
+  SetupTokenRefused,
 )
 @Injectable()
 export class UserRefusalsFilter implements ExceptionFilter<UsersRefusal> {
@@ -75,7 +78,8 @@ function statusCodeOf(
     | UserIdNotFound
     | PasskeyNotFound
     | IdentityRefused
-    | LinkedIdentityNotFound,
+    | LinkedIdentityNotFound
+    | SetupTokenRefused,
 ): HttpStatus {
   // A first user made already, or a provider not set up or refusing to start, is a conflict.
   if (error instanceof FirstUserExists || error instanceof IdentityRefused) {
@@ -83,6 +87,7 @@ function statusCodeOf(
   }
   // Not signed in after all: the code page sends the user back to sign in.
   if (error instanceof PendingSignInEnded) return HttpStatus.UNAUTHORIZED;
+  if (error instanceof SetupTokenRefused) return HttpStatus.FORBIDDEN;
   return HttpStatus.NOT_FOUND;
 }
 

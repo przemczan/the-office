@@ -10,9 +10,13 @@ import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { BatchSpanProcessor } from "@opentelemetry/sdk-trace";
 import { createAddHookMessageChannel } from "import-in-the-middle";
-import { exportTimeoutMilliseconds } from "./export-timeout.js";
+import { rememberTelemetryInEffect } from "./telemetry-in-effect.js";
+import type { TelemetryInEffect } from "./telemetry-settings.js";
 
-/** The running OpenTelemetry SDK; shut down last, so it exports what the closing service logs. */
+/**
+ * The running OpenTelemetry SDK, or none when telemetry is off; shut down last, so it exports what
+ * the closing service logs.
+ */
 export interface StartedTelemetry {
   shutdown(): Promise<void>;
 }
@@ -22,14 +26,26 @@ const SERVICE_NAME = "the-office";
 // The SDK default is 60 s; a dashboard should show a request within seconds.
 const METRIC_EXPORT_INTERVAL_MILLISECONDS = 10_000;
 
+const STOPPED: StartedTelemetry = { shutdown: () => Promise.resolve() };
+
 /**
- * Starts OpenTelemetry with OTLP export of traces, metrics and logs to the endpoint in the standard
- * OTEL_EXPORTER_OTLP_ENDPOINT, the bundled Grafana or the user's own, with the headers in
- * OTEL_EXPORTER_OTLP_HEADERS; OTEL_SDK_DISABLED turns it off. Call it before the service's
- * modules are imported: the instrumentations patch the HTTP server, Express and pg as they load.
+ * Starts OpenTelemetry with OTLP export of traces, metrics and logs as `inEffect` says: nothing at
+ * all when it is off; to the endpoint, headers and timeout of the setting; or, when the environment
+ * sets it, as the standard OTEL_EXPORTER_OTLP_* variables say, which the exporters read themselves.
+ * Call it before the service's modules are imported: the instrumentations patch the HTTP server,
+ * Express and pg as they load.
  */
-export async function startTelemetry(): Promise<StartedTelemetry> {
-  const exportTimeout = exportTimeoutMilliseconds(process.env);
+export async function startTelemetry(inEffect: TelemetryInEffect): Promise<StartedTelemetry> {
+  rememberTelemetryInEffect(inEffect);
+  if (inEffect.kind === "off") return STOPPED;
+  const exportTimeout = inEffect.timeoutMilliseconds;
+  const target = (signal: string) =>
+    inEffect.kind === "export"
+      ? {
+          url: `${inEffect.endpoint.replace(/\/+$/, "")}/v1/${signal}`,
+          headers: Object.fromEntries(inEffect.headers.map(({ name, value }) => [name, value])),
+        }
+      : {};
 
   // ESM imports reach the instrumentations only through a loader hook. This one intercepts just the
   // modules an instrumentation asked for, instead of wrapping every module the service imports.
@@ -40,13 +56,13 @@ export async function startTelemetry(): Promise<StartedTelemetry> {
     serviceName: SERVICE_NAME,
     spanProcessors: [
       new BatchSpanProcessor({
-        exporter: new OTLPTraceExporter({ timeoutMillis: exportTimeout }),
+        exporter: new OTLPTraceExporter({ ...target("traces"), timeoutMillis: exportTimeout }),
         exportTimeoutMillis: exportTimeout,
       }),
     ],
     metricReaders: [
       new PeriodicExportingMetricReader({
-        exporter: new OTLPMetricExporter({ timeoutMillis: exportTimeout }),
+        exporter: new OTLPMetricExporter({ ...target("metrics"), timeoutMillis: exportTimeout }),
         // The reader refuses an export timeout longer than its interval.
         exportIntervalMillis: Math.max(METRIC_EXPORT_INTERVAL_MILLISECONDS, exportTimeout),
         exportTimeoutMillis: exportTimeout,
@@ -54,7 +70,7 @@ export async function startTelemetry(): Promise<StartedTelemetry> {
     ],
     logRecordProcessors: [
       new BatchLogRecordProcessor({
-        exporter: new OTLPLogExporter({ timeoutMillis: exportTimeout }),
+        exporter: new OTLPLogExporter({ ...target("logs"), timeoutMillis: exportTimeout }),
         exportTimeoutMillis: exportTimeout,
       }),
     ],

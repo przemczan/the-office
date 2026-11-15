@@ -45,7 +45,7 @@ const officeCheckout = createOfficeCheckout(officeCheckoutFolder);
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: ["ignore", openSync(SERVICE_LOG, "w"), "inherit"],
   env: {
-    ...E2E_ENVIRONMENT,
+    ...withoutTelemetryVariables(E2E_ENVIRONMENT),
     ...gitHostVariables(),
     ...fakeGitHubVariables(),
     ...hostKeyVariables(),
@@ -65,6 +65,18 @@ service.on("exit", (code) => {
   process.exit(code ?? 1);
 });
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => service.kill(signal));
+
+/**
+ * The environment without OTEL_ variables, which would set telemetry instead of Settings ›
+ * Telemetry: the end-to-end Office's telemetry is its setting's, off until a test chooses one.
+ */
+function withoutTelemetryVariables(
+  environment: Readonly<Record<string, string | undefined>>,
+): Record<string, string | undefined> {
+  return Object.fromEntries(
+    Object.entries(environment).filter(([name]) => !name.toUpperCase().startsWith("OTEL_")),
+  );
+}
 
 async function recreateDatabase(server: URL, name: string): Promise<void> {
   const client = new Client({ connectionString: server.href, connectionTimeoutMillis: 5_000 });

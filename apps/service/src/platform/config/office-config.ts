@@ -21,6 +21,11 @@ export interface OfficeConfig {
    * through the user's reverse proxy (spec §5.1 Defaults); absent when it has none.
    */
   readonly publicAddress?: string;
+  /**
+   * `OFFICE_SKIP_SETUP_BASICS`: an automated install leaves out First-run setup's basics (spec
+   * §2.10), never the setup token or the first user. Off when absent.
+   */
+  readonly skipSetupBasics?: boolean;
 }
 
 /** Values that depend on the operating system, supplied by the platform layer. */
@@ -34,6 +39,7 @@ const REQUIRED = "is required";
 const PORT_RANGE = "must be a port number from 1 to 65535";
 const HOST_ADDRESS = "must be an IP address, such as 127.0.0.1 or 0.0.0.0";
 const WEB_ADDRESS = "must be an http:// or https:// URL";
+const TRUE_OR_FALSE = "must be true or false";
 const PUBLIC_ADDRESS =
   "must be an https:// address with no path, such as https://office.example.com";
 // Loopback unless the user opens The Office to the LAN (spec §5.1).
@@ -104,6 +110,13 @@ const environmentSchema = z.object({
       .transform((address) => new URL(address).origin)
       .optional(),
   ),
+  OFFICE_SKIP_SETUP_BASICS: z.preprocess(
+    blankAsUnset,
+    z
+      .enum(["true", "false"], { error: TRUE_OR_FALSE })
+      .default("false")
+      .transform((value) => value === "true"),
+  ),
 });
 
 /**
@@ -124,6 +137,7 @@ export function readOfficeConfig(
     databaseUrl: result.data.DATABASE_URL,
     officeDataDirectory: result.data.OFFICE_DATA_DIR ?? defaults.officeDataDirectory(),
     gitHub: { webUrl: result.data.OFFICE_GITHUB_URL, apiUrl: result.data.OFFICE_GITHUB_API_URL },
+    skipSetupBasics: result.data.OFFICE_SKIP_SETUP_BASICS,
     ...(result.data.OFFICE_UPDATE_FOLDER && {
       officeUpdateFolder: result.data.OFFICE_UPDATE_FOLDER,
     }),
