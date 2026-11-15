@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
 import { GitProjectSkillFiles } from "./git-project-skill-files.js";
@@ -50,5 +51,9 @@ describe("GitProjectSkillFiles", () => {
     await checkout.write("node_modules/x/.claude/skills/x/SKILL.md", projectSkillMd("x", "X."));
 
     await expect(files.files(checkout.path)).resolves.toEqual([]);
+  });
+
+  it("finds none in a folder that isn't there, such as a worktree not made yet", async () => {
+    await expect(files.files(join(checkout.path, "not-made-yet"))).resolves.toEqual([]);
   });
 });

@@ -131,6 +131,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 ### adapters/conversations/
 
 - `fire-alarm-for-threads.ts`: FireAlarmForThreads
+- `initiative-branch-reads.ts`: initiativeBranchReads
 - `initiative-proposals.ts`: InitiativeProposals
 - `initiative-thread-records.ts`: SHAPING_OFFICE_TOOLS, SHAPING_THREAD_INSTRUCTIONS, INITIATIVE_PLANNING_THREAD_INSTRUCTIONS, INITIATIVE_PLANNING_OFFICE_TOOLS, InitiativeThreadRecords
 - `mentioned-work-records.ts`: MentionedWorkRecords
@@ -298,7 +299,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `pdf-text.ts`: pdfTextOf
 - `pipeline-commands.ts`: PipelineCommands, TaskPipelineChoice, TaskPipelineProject, taskPipelineProblems, brokenPipelineWords, missingCommands, missingCommandsWords
 - `planning-changes.ts`: proposePlan, savePlan, confirmPlan, proposeDefinitionOfDone, saveDefinitionOfDone, confirmDefinitionOfDone, proposePipeline, confirmPipeline, markingPlannedProblems, markPlanned, acceptInAutoMode
-- `planning.ts`: PLANNING_THREAD_TITLE, makeAPlanOpening, PLANNING_AFTER_RESTART_OPENING, PLANNING_INSTRUCTIONS, PlanningProject, ProjectCommandsInBrief, PlanningPipeline, PlanningRecord, InitiativeBranchStart, planningBrief, planSections, attachmentsSection, defaultPipelineWords, ProjectPipelinesInBrief, pipelineGroups, pipelineLibraryLines, commandLines
+- `planning.ts`: PLANNING_THREAD_TITLE, makeAPlanOpening, PLANNING_AFTER_RESTART_OPENING, PLANNING_INSTRUCTIONS, PlanningProject, ProjectCommandsInBrief, PlanningPipeline, NO_WORKTREE_YET, PlanningRecord, InitiativeBranchStart, planningBrief, planSections, attachmentsSection, defaultPipelineWords, ProjectPipelinesInBrief, pipelineGroups, pipelineLibraryLines, commandLines
 - `project-filter.ts`: ProjectFilter, isInProjectFilter
 - `publishing-task.ts`: PublishingProject, PublishingGrounds, PUBLISHING_TASK_NEVER_PLANNED, publishingTaskTitle, publishingModeWords, publishingTaskPlan, publishingTaskDefinitionOfDone, publishingTaskFiles, createPublishingTask, publishingCandidates, projectsToPublish, swapPublishingPipeline, lastPublishedBy, unfinishedPublishingTask, doneTasksIn
 - `queue-events.ts`: TaskQueued, LeavingQueue, TaskLeftQueue, TaskQueueReasonsChanged, TaskMovedUpInQueue

@@ -12,13 +12,16 @@ import {
   consultationOpening,
   consultationTitle,
   consultDecision,
+  consultantCouldNotAnswerWords,
+  couldNotAnswerLine,
+  couldNotAnswerWords,
   passedOnTo,
   passedOnToTheUserWords,
   THE_OFFICE,
   type Consult,
   type ConsultantPerson,
 } from "../domain/consult.js";
-import { TurnEnded } from "../domain/conversation-events.js";
+import { MessagesLogged, TurnEnded } from "../domain/conversation-events.js";
 import { answerWords, type Decision, type DecisionAnswer } from "../domain/decision.js";
 import type { Thread } from "../domain/thread.js";
 import {
@@ -76,6 +79,7 @@ export class Consultations implements OnModuleInit {
     // The Consultation opens once the Agent's turn has ended, so the Consultant's answer finds the
     // Agent ready to take it.
     this.events.subscribe(TurnEnded, ({ thread }) => this.openFor(thread));
+    this.events.subscribe(MessagesLogged, (logged) => this.afterFailure(logged));
     this.fireAlarm.whenSounded(() => this.stopForFireAlarm());
     this.fireAlarm.whenAllClear((taskIds) => this.goOnAfterAllClear(taskIds));
   }
@@ -278,8 +282,28 @@ export class Consultations implements OnModuleInit {
       this.logger.warn(
         `Consultation for Decision ${decision.id} did not start; the user is asked: ${String(error)}`,
       );
-      await this.putToUser(asker.id, decision, consultantKey);
+      await this.putToUser(asker.id, decision, consultantKey, messageOf(error));
     }
+  }
+
+  /**
+   * A Consultation whose session failed or never started leaves its Decision to the user, as one
+   * that can't open does, so it never waits on a Consultant who isn't answering. The fire alarm's
+   * stop is no failure: the Consultant is asked again at the all clear.
+   */
+  async afterFailure({ thread, messages }: MessagesLogged): Promise<void> {
+    if (!thread.consultation) return;
+    const failure = messages.find(
+      (message) => message.kind === "failure" && message.reason !== STOPPED_BY_THE_FIRE_ALARM,
+    );
+    if (failure?.kind !== "failure") return;
+    const { decisionId, askerThreadId } = thread.consultation;
+    const decision = await this.repository.decision(decisionId);
+    if (!decision || decision.answer || decision.putTo !== thread.roleKey) return;
+    this.logger.warn(
+      `Consultation ${thread.id} couldn't answer Decision ${decision.id}; the user is asked: ${failure.reason}`,
+    );
+    await this.putToUser(askerThreadId, decision, thread.roleKey, failure.reason);
   }
 
   /** The Consultation opened for the Decision with the Consultant it is put to now, if any. */
@@ -362,23 +386,32 @@ export class Consultations implements OnModuleInit {
   }
 
   /**
-   * The Decision is the user's instead: on a Task it waits on them, which tells them it needs them;
-   * from a chat, which has no Needs you, The Office answers the caller so they ask the user.
+   * The Decision is the user's instead, with why: on a Task it waits on them, which tells them it
+   * needs them, its card saying why and the asker's Thread logging it; from a chat, which has no
+   * Needs you, The Office answers the caller so they ask the user.
    */
   private async putToUser(
     askerThreadId: string,
     decision: Decision,
     consultantKey: string,
+    reason: string,
   ): Promise<void> {
+    const name = await this.nameOf(consultantKey);
     if (decision.taskId === undefined) {
-      const name = await this.nameOf(consultantKey);
-      await this.backToTheCaller(decision.id, `${name} can't take this call now.`);
+      await this.backToTheCaller(decision.id, consultantCouldNotAnswerWords(name, reason));
       return;
     }
     const { event } = await this.repository.update(askerThreadId, (latest) =>
-      putDecisionToUser(latest, decision.id, new Date()),
+      putDecisionToUser(
+        latest,
+        decision.id,
+        { consultantKey, why: couldNotAnswerWords(reason) },
+        new Date(),
+      ),
     );
-    if (event) await this.events.publish(event);
+    if (!event) return;
+    await this.events.publish(event);
+    await this.logLine(askerThreadId, decision.id, couldNotAnswerLine(name, reason));
   }
 
   private async backToTheCaller(decisionId: string, why: string): Promise<void> {
@@ -422,4 +455,8 @@ function consultationHome(
 /** Whether a call from `asker` naming `taskId` is on no Task: from a chat, or an Initiative's Thread naming none. */
 function callsOnNoTask({ home }: Thread, taskId: string | undefined): boolean {
   return home.kind === "chat" || (home.kind === "initiative" && taskId === undefined);
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

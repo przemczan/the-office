@@ -1,5 +1,5 @@
 import type { Attachment } from "./attachment.js";
-import { attachmentsSection, planSections } from "./planning.js";
+import { attachmentsSection, NO_WORKTREE_YET, planSections } from "./planning.js";
 import type { Task } from "./task.js";
 import { descriptionSection } from "./task-description.js";
 
@@ -14,7 +14,8 @@ export const ASKING_INSTRUCTIONS =
 export interface AskingRecord {
   readonly task: Task;
   readonly projectName: string;
-  readonly worktree: { readonly path: string; readonly branch: string };
+  /** Undefined while the Task has none yet. */
+  readonly worktree: { readonly path: string; readonly branch: string } | undefined;
   readonly attachments: readonly Attachment[];
   /** Each Stage run's result, as a line. */
   readonly stageResults: readonly string[];
@@ -42,7 +43,11 @@ export function askingBrief({
     "The user wants to ask you about a Task, in your own Thread on it.",
     `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${projectName}.`,
     descriptionSection(task.description),
-    `## Where you read\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}.`,
+    `## Where you read\n\n${
+      worktree
+        ? `The Task's worktree, at ${worktree.path} on the branch ${worktree.branch}.`
+        : NO_WORKTREE_YET
+    }`,
     ...planSections(task),
     attachmentsSection(attachments),
     stageResults.length === 0 ? undefined : `## Stage results\n\n${stageResults.join("\n")}`,

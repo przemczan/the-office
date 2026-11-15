@@ -8,14 +8,13 @@ import {
 import {
   CALLING_RULE,
   InitiativeThreadSetups,
-  type InitiativeBranchReads,
   type InitiativeThreadRequest,
   type InitiativeThreadSetup,
   type InitiativeThreadSource,
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
-import { initiativeProjectIds, pipelineIn, type Initiative } from "../../domain/initiative.js";
+import { initiativeProjectIds, type Initiative } from "../../domain/initiative.js";
 import {
   INITIATIVE_PLANNING_INSTRUCTIONS,
   initiativePlanningBrief,
@@ -23,7 +22,6 @@ import {
 } from "../../domain/initiative-planning.js";
 import { initiativeRecordText } from "../../domain/record-words.js";
 import { SHAPING_INSTRUCTIONS, shapingBrief, type ShapingProject } from "../../domain/shaping.js";
-import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task } from "../../domain/task.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
@@ -43,6 +41,7 @@ import {
   WRITE_TASK_DESCRIPTION,
   WRITE_TASK_TITLE,
 } from "../office-tools/shaping-office-tools.js";
+import { initiativeBranchReads } from "./initiative-branch-reads.js";
 
 /**
  * The Office tools of a shaping session: it reads every record and Attachment and changes its own
@@ -196,25 +195,4 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       commands: project.commands,
     };
   }
-}
-
-/**
- * The Projects an active Initiative is read at its branch in (spec §2.4): those it spans now that
- * have a Pipeline and its branch; one it stopped spanning, or with None, is read at its base.
- * Undefined while it is shaping, or on None in every Project, so it reads base branches.
- */
-function initiativeBranchReads(
-  initiative: Initiative,
-  tasks: readonly Task[],
-): InitiativeBranchReads | undefined {
-  const { state, shortName, branches } = initiative;
-  if (state !== "active" || shortName === undefined) return undefined;
-  const branched = new Set(branches.map(({ projectId }) => projectId));
-  return {
-    shortName,
-    branch: initiativeBranchOf(shortName),
-    projectIds: initiativeProjectIds(tasks).filter(
-      (projectId) => branched.has(projectId) && pipelineIn(initiative, projectId) !== undefined,
-    ),
-  };
 }

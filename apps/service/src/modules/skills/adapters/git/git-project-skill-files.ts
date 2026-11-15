@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { Injectable } from "@nestjs/common";
@@ -25,6 +25,8 @@ export class GitProjectSkillFiles extends ProjectSkillFiles {
   }
 
   async files(folder: string): Promise<readonly ProjectSkillFile[]> {
+    // git run in a missing folder fails as "spawn git ENOENT", as if git itself were missing.
+    if (!(await isFolder(folder))) return [];
     const { configArguments, variables, release } = await this.identity.forGitCommand(
       undefined,
       process.env,
@@ -61,4 +63,11 @@ export class GitProjectSkillFiles extends ProjectSkillFiles {
     );
     return files.flat();
   }
+}
+
+async function isFolder(path: string): Promise<boolean> {
+  return stat(path).then(
+    (found) => found.isDirectory(),
+    () => false,
+  );
 }

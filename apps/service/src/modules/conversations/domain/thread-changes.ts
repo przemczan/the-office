@@ -1035,17 +1035,23 @@ export function reopenDecision(
 
 /**
  * The Consultant can't answer the Decision put to them, such as when nobody fills their Role any
- * more: it waits on the user instead, as a missing person falls back to the user (spec §2.2). The
- * event is the one that tells the user a Decision waits.
+ * more or their session failed: it waits on the user instead, as a missing person falls back to
+ * the user (spec §2.2), kept as passed on by them with `why`, which its card shows. Nothing once it
+ * no longer waits on that Consultant. The event is the one that tells the user a Decision waits.
  */
 export function putDecisionToUser(
   thread: Thread,
   decisionId: string,
+  { consultantKey, why }: { readonly consultantKey: string; readonly why: string },
   reopenedAt: Date,
 ): ThreadChange<DecisionReopened> | undefined {
   const open = openDecisionOf(thread, decisionId);
-  if (open?.putTo === undefined) return undefined;
-  const decision: Decision = { ...open, putTo: undefined };
+  if (open === undefined || open.putTo !== consultantKey) return undefined;
+  const decision: Decision = {
+    ...open,
+    putTo: undefined,
+    passedOn: [...open.passedOn, { roleKey: consultantKey, reason: why, passedOnAt: reopenedAt }],
+  };
   const waiting = withDecision(thread, decision);
   return {
     thread: waiting,
