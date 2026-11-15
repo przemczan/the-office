@@ -18,18 +18,24 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { MemoryService } from "../../application/memory-service.js";
+import { MemoryTaskTitles } from "../../application/memory-task-titles.js";
 import type { MemoryNote } from "../../domain/memory-note.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
 
 @Controller("roles/:key/memory")
 @UseFilters(RoleRefusalsFilter)
 export class MemoryController {
-  constructor(private readonly memory: MemoryService) {}
+  constructor(
+    private readonly memory: MemoryService,
+    private readonly taskTitles: MemoryTaskTitles,
+  ) {}
 
+  /** The notes, each written on a Task named by its title, all the Tasks read at once. */
   @Get()
   async read(@Param("key") key: string): Promise<MemoryResponse> {
     const { inUse, notes } = await this.memory.read(key);
-    return { inUse, notes: notes.map(toNoteResponse) };
+    const titles = await this.taskTitles.titlesOf([...new Set(notes.flatMap(taskIdOf))]);
+    return { inUse, notes: notes.map((note) => toNoteResponse(note, titles)) };
   }
 
   @Post()
@@ -60,15 +66,28 @@ export class MemoryController {
   }
 }
 
-function toNoteResponse(note: MemoryNote): MemoryNoteResponse {
+function toNoteResponse(
+  note: MemoryNote,
+  taskTitles: ReadonlyMap<string, string> = new Map(),
+): MemoryNoteResponse {
+  const { source } = note;
   return {
     id: note.id,
     projectId: note.projectId,
     text: note.text,
     source:
-      note.source.kind === "user"
-        ? { kind: "user", user: note.source.user && { ...note.source.user } }
-        : { kind: "agent", threadId: note.source.threadId, taskId: note.source.taskId },
+      source.kind === "user"
+        ? { kind: "user", user: source.user && { ...source.user } }
+        : {
+            kind: "agent",
+            threadId: source.threadId,
+            taskId: source.taskId,
+            taskTitle: source.taskId === undefined ? undefined : taskTitles.get(source.taskId),
+          },
     writtenAt: note.writtenAt.toISOString(),
   };
+}
+
+function taskIdOf({ source }: MemoryNote): string[] {
+  return source.kind === "agent" && source.taskId !== undefined ? [source.taskId] : [];
 }

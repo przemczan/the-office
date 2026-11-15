@@ -68,6 +68,7 @@ beforeAll(async () => {
     ],
   }));
   app.get(WorkRecords).provide({
+    taskSubjects: () => Promise.resolve(new Map()),
     taskRecord: () => Promise.resolve(undefined),
     taskTitle: (taskId) =>
       Promise.resolve(

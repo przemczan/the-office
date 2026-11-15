@@ -277,6 +277,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   });
   // As the Work module gives its records: every Task is any Initiative's here.
   app.get(WorkRecords).provide({
+    taskSubjects: () => Promise.resolve(new Map()),
     taskRecord: () => Promise.resolve(undefined),
     taskTitle: () => Promise.resolve("Build the export"),
     taskAttachmentIds: () => Promise.resolve([]),
@@ -595,7 +596,9 @@ async function aChatWith(roleKey: string, said: string): Promise<Thread> {
 async function consultationInChatOf(roleKey: string): Promise<Thread> {
   return vi.waitFor(
     async () => {
-      const found = (await threads.listInChat(roleKey)).find(({ consultation }) => consultation);
+      const found = (
+        await app.get(ThreadRepository).listIn({ kind: "chat", roleKey: roleKey })
+      ).find(({ consultation }) => consultation);
       if (!found) throw new Error("No Consultation yet.");
       return found;
     },

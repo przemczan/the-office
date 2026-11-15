@@ -78,7 +78,16 @@ export const threads = pgTable(
     /** Set for a Consultation: the Decision it answers and the Agent who asked it. */
     consultation: jsonb("consultation").$type<Consultation>(),
   },
-  (table) => [index("threads_home").on(table.homeKind, table.homeId)],
+  (table) => [
+    index("threads_home").on(table.homeKind, table.homeId),
+    // A person's chat and their Threads on Tasks are read a page at a time, the newest first.
+    index("threads_person_newest").on(
+      table.homeKind,
+      table.roleKey,
+      table.startedAt.desc(),
+      table.id.desc(),
+    ),
+  ],
 );
 
 /** The Office's log of each Thread; `position` orders it. */

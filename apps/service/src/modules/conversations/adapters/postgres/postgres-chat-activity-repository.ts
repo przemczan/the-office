@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { ChatThreadActivity } from "../../domain/chat-activity.js";
@@ -42,6 +42,11 @@ export class PostgresChatActivityRepository extends ChatActivityRepository {
   async chatThread(threadId: string): Promise<ChatThreadActivity | undefined> {
     const [thread] = await this.read(and(eq(threads.homeKind, "chat"), eq(threads.id, threadId)));
     return thread;
+  }
+
+  chatThreadsAmong(threadIds: readonly string[]): Promise<readonly ChatThreadActivity[]> {
+    if (threadIds.length === 0) return Promise.resolve([]);
+    return this.read(and(eq(threads.homeKind, "chat"), inArray(threads.id, [...threadIds])));
   }
 
   /** Each scalar reads back from the log's end by its index, so a long log costs nothing here. */

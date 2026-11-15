@@ -29,6 +29,7 @@ export type {
   ProjectCascadeLevels,
 } from "./domain/engine-cascade.js";
 export { MemoryService } from "./application/memory-service.js";
+export { MemoryTaskTitles, type MemoryTaskTitleSource } from "./application/memory-task-titles.js";
 export { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./domain/role-events.js";
 export {
   hardSwitchInEffect,

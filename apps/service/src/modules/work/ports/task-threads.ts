@@ -18,6 +18,13 @@ export interface PersonsTaskThread {
   readonly roleKey: string;
 }
 
+/** A Thread on a Task with the person, by its title: their part in the Task. */
+export interface TaskThreadTitle {
+  readonly taskId: string;
+  /** Undefined before its first message. */
+  readonly title: string | undefined;
+}
+
 /** The Threads on Tasks, which the Conversations module keeps; the composition root binds it. */
 export abstract class TaskThreads {
   /**
@@ -31,6 +38,9 @@ export abstract class TaskThreads {
 
   /** The person's own Thread on a Task, by its id; undefined for any other Thread. */
   abstract personsThreadOnTask(threadId: string): Promise<PersonsTaskThread | undefined>;
+
+  /** The title of each of the person's Threads on a Task, by the key of their Role. */
+  abstract titlesOnTasksWith(roleKey: string): Promise<readonly TaskThreadTitle[]>;
 
   /**
    * Has the person start again on `opening` in the Thread, its session continued or replaced under

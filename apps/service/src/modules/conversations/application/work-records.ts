@@ -8,6 +8,8 @@ export interface WorkRecordSource {
   taskRecord(taskId: string): Promise<string | undefined>;
   /** The Task's title, which a Link card's note links to it by. */
   taskTitle(taskId: string): Promise<string | undefined>;
+  /** The title and Project of each of the Tasks there is, by its id, which name a list's Threads. */
+  taskSubjects(taskIds: readonly string[]): Promise<ReadonlyMap<string, TaskSubject>>;
   /** The ids of the Task's Attachments, which a Decision on it may name. */
   taskAttachmentIds(taskId: string): Promise<readonly string[]>;
   /**
@@ -24,6 +26,12 @@ export interface WorkRecordSource {
   /** The Tasks in the Project, archived ones too, and the Initiatives spanning it, by their ids. */
   projectWork(projectId: string): Promise<ProjectWork>;
   ideaRecord(ideaId: string): Promise<string | undefined>;
+}
+
+/** What names a Thread on a Task in a list: the Task's title and its Project. */
+export interface TaskSubject {
+  readonly title: string;
+  readonly projectId: string;
 }
 
 /** The ids of a Project's Tasks and of the Initiatives spanning it. */
@@ -53,6 +61,10 @@ export class WorkRecords implements WorkRecordSource {
 
   taskTitle(taskId: string): Promise<string | undefined> {
     return this.registered().taskTitle(taskId);
+  }
+
+  taskSubjects(taskIds: readonly string[]): Promise<ReadonlyMap<string, TaskSubject>> {
+    return this.registered().taskSubjects(taskIds);
   }
 
   taskAttachmentIds(taskId: string): Promise<readonly string[]> {

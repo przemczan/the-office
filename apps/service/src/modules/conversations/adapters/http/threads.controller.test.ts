@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
 import {
+  chatThreadPageSchema,
   decisionListSchema,
   messageListSchema,
   proposalSchema,
-  threadListSchema,
+  taskThreadPageSchema,
   threadRefusalSchema,
   threadSchema,
   threadWebEventSchema,
 } from "@the-office/contracts";
-import { describe, expect, it, afterEach, beforeEach } from "vitest";
+import type { Pool } from "pg";
+import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
+import { DATABASE_POOL } from "../../../../platform/database/database-pool.js";
 import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
 import { BusyWorkModule } from "../../../office-updates/index.js";
 import { DecisionService } from "../../application/decision-service.js";
@@ -49,12 +52,14 @@ import { InitiativeThreadSetups } from "../../application/initiative-thread-setu
 import { TaskConversations } from "../../application/task-conversations.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
+import { ThreadSummaries } from "../../application/thread-summaries.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { MentionedRecords } from "../../application/mentioned-records.js";
 import { openPageRecordProviders } from "../../application/open-page-records.fixtures.js";
 import { WorkRecords } from "../../application/work-records.js";
+import { NO_WORK_RECORDS, taskSubjectsAs } from "../../application/work-records.fixtures.js";
 import { ProjectBases } from "../../ports/project-bases.js";
 import { noProjectBases } from "../../ports/project-bases.fixtures.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
@@ -252,6 +257,7 @@ function setUpEachTest(): void {
         SessionPlaces,
         CallChains,
         ThreadContexts,
+        ThreadSummaries,
         AllowChanges,
         ThreadRunner,
         FireAlarmInThreads,
@@ -335,8 +341,10 @@ describe("a person's chat", () => {
         override: null,
       },
     });
-    const listed = threadListSchema.parse(await (await get(`/chats/${roleKey}/threads`)).json());
-    expect(listed.map(({ id }) => id)).toEqual([second.id, first.id]);
+    const listed = chatThreadPageSchema.parse(
+      await (await get(`/chats/${roleKey}/threads`)).json(),
+    );
+    expect(listed.rows.map(({ id }) => id)).toEqual([second.id, first.id]);
     expect(threadSchema.parse(await (await get(`/threads/${first.id}`)).json())).toEqual(first);
     expect(
       messageListSchema.parse(await (await get(`/threads/${first.id}/messages`)).json()),
@@ -359,6 +367,137 @@ describe("a person's chat", () => {
     ]);
     expect(nobody.status).toBe(404);
     expect(published).toEqual([]);
+  });
+});
+
+/** `count` Threads of the person's at `home`, each with a session, a minute apart. */
+async function threadsOf(
+  roleKey: string,
+  home: () => Thread["home"],
+  count: number,
+): Promise<readonly Thread[]> {
+  const threads = Array.from({ length: count }, (_, minute) =>
+    aThread({
+      id: randomUUID(),
+      home: home(),
+      roleKey,
+      title: `Thread ${minute}`,
+      startedAt: new Date(Date.UTC(2026, 9, 25, 9, minute)),
+      session: {
+        id: randomUUID(),
+        roleKey,
+        cardVersion: 1,
+        officeInstructionsVersion: 0,
+        engineId: "claude-code",
+        startedAt: new Date(),
+        lastCallAt: new Date(),
+        contextTokens: 34_000,
+        startContextTokens: 33_000,
+        full: false,
+        changesAllowed: false,
+      },
+    }),
+  );
+  for (const thread of threads) await app.get(ThreadRepository).add(thread);
+  return threads;
+}
+
+function onATask(): Thread["home"] {
+  return { kind: "task", taskId: randomUUID() };
+}
+
+/** What builds a Brief or reads a Thread's log, which no list may do. */
+function spyOnBriefsAndLogs() {
+  return [
+    vi.spyOn(app.get(Briefs), "forThread"),
+    vi.spyOn(app.get(Briefs), "forTaskThread"),
+    vi.spyOn(app.get(TaskThreadSetups), "of"),
+    vi.spyOn(app.get(ThreadRepository), "messages"),
+  ];
+}
+
+/** How many queries the database is sent while `read` runs. */
+async function queriesWhile(read: () => Promise<unknown>): Promise<number> {
+  const pool = app.get<Pool>(DATABASE_POOL, { strict: false });
+  const query = vi.spyOn(pool, "query");
+  await read();
+  const count = query.mock.calls.length;
+  query.mockRestore();
+  return count;
+}
+
+describe("a person's lists of Threads", () => {
+  it("pages the chat, newest first, 30 at a time with the total, building no Brief", async () => {
+    const roleKey = aPerson("Jan", true);
+    const threads = await threadsOf(roleKey, () => ({ kind: "chat", roleKey }), 32);
+    const spies = spyOnBriefsAndLogs();
+
+    const first = chatThreadPageSchema.parse(await (await get(`/chats/${roleKey}/threads`)).json());
+    const next = await get(`/chats/${roleKey}/threads?after=${first.next ?? ""}`);
+    const second = chatThreadPageSchema.parse(await next.json());
+
+    const newestFirst = threads.toReversed().map(({ id }) => id);
+    expect(first.rows.map(({ id }) => id)).toEqual(newestFirst.slice(0, 30));
+    expect(second.rows.map(({ id }) => id)).toEqual(newestFirst.slice(30));
+    expect([first.total, second.total, second.next]).toEqual([32, 32, null]);
+    expect(first.rows[0]).toMatchObject({
+      title: "Thread 31",
+      context: { move: "resume", reason: "cache-warm", cacheWarm: true, contextTokens: 34_000 },
+      answered: false,
+      lastMovedAt: threads.at(-1)?.startedAt.toISOString(),
+    });
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("pages the Threads on Tasks with each Task's title and Project, building no Brief", async () => {
+    const roleKey = aPerson("Jan", false);
+    app.get(WorkRecords).provide({
+      ...NO_WORK_RECORDS,
+      taskSubjects: taskSubjectsAs("Fix the login", "admin-panel"),
+    });
+    const threads = await threadsOf(roleKey, onATask, 31);
+    const spies = spyOnBriefsAndLogs();
+
+    const page = taskThreadPageSchema.parse(
+      await (await get(`/roles/${roleKey}/task-threads`)).json(),
+    );
+
+    const newest = threads.at(-1);
+    expect(page.rows).toHaveLength(30);
+    expect([page.total, page.next === null]).toEqual([31, false]);
+    expect(page.rows[0]).toMatchObject({
+      id: newest?.id,
+      task: { title: "Fix the login", projectId: "admin-panel" },
+      context: { move: "resume", reason: "cache-warm", cacheWarm: true },
+      answered: null,
+    });
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("reads a page with as many queries however many Threads the person has", async () => {
+    const roleKey = aPerson("Jan", true);
+    app.get(WorkRecords).provide({
+      ...NO_WORK_RECORDS,
+      taskSubjects: taskSubjectsAs("Fix the login", "admin-panel"),
+    });
+    const lists = [`/chats/${roleKey}/threads`, `/roles/${roleKey}/task-threads`];
+    const readBoth = () => Promise.all(lists.map(async (path) => (await get(path)).json()));
+    await threadsOf(roleKey, () => ({ kind: "chat", roleKey }), 3);
+    await threadsOf(roleKey, onATask, 3);
+    const few = await queriesWhile(readBoth);
+
+    await threadsOf(roleKey, () => ({ kind: "chat", roleKey }), 60);
+    await threadsOf(roleKey, onATask, 60);
+    const many = await queriesWhile(readBoth);
+
+    expect(few).toBeGreaterThan(0);
+    expect(many).toBe(few);
+  });
+
+  it("refuses a cursor no page gave", async () => {
+    const roleKey = aPerson("Jan", true);
+
+    expect((await get(`/chats/${roleKey}/threads?after=not-a-cursor`)).status).toBe(400);
   });
 });
 

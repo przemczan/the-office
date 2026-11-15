@@ -18,7 +18,7 @@ import {
 import type { ThreadStarted } from "../domain/conversation-events.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
-import { ThreadRepository } from "../ports/thread-repository.js";
+import { ThreadRepository, type TaskThreadTitle } from "../ports/thread-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
 
 /** A Thread The Office opens on an Initiative, and what it asks the person first. */
@@ -123,14 +123,6 @@ export class ThreadService {
     return this.runner.open(thread.id, opening);
   }
 
-  /**
-   * The Threads of the person's chat, the newest first. They stay readable after Chat is switched
-   * off (spec §2.2).
-   */
-  listInChat(roleKey: string): Promise<readonly Thread[]> {
-    return this.repository.listIn({ kind: "chat", roleKey });
-  }
-
   /** The Threads on a Task, the newest first; none for a Task The Office doesn't know. */
   listOnTask(taskId: string): Promise<readonly Thread[]> {
     return this.repository.listIn({ kind: "task", taskId });
@@ -141,9 +133,12 @@ export class ThreadService {
     return this.repository.listIn({ kind: "initiative", initiativeId });
   }
 
-  /** The Threads with the person on every Task, the newest first: their part in those Tasks. */
-  listOnTasksWith(roleKey: string): Promise<readonly Thread[]> {
-    return this.repository.listOnTasksWith(roleKey);
+  /**
+   * The title of each of the person's Threads on a Task, by its Task, the newest first: their part
+   * in those Tasks, which their Work tab shows.
+   */
+  titlesOnTasksWith(roleKey: string): Promise<readonly TaskThreadTitle[]> {
+    return this.repository.titlesOnTasksWith(roleKey);
   }
 
   /**

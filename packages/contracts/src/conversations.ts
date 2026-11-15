@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { openPageSchema } from "./open-page.js";
+import { pageSchemaOf } from "./paging.js";
 import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
@@ -173,8 +174,50 @@ export type TaskConversation = z.infer<typeof taskConversationSchema>;
 export const firstBriefSchema = z.object({ tokens: z.number().int().nonnegative() });
 export type FirstBrief = z.infer<typeof firstBriefSchema>;
 
-/** GET /chats/:roleKey/threads: the newest started first. */
+/** GET /tasks/:taskId/threads and GET /initiatives/:initiativeId/threads: the newest started first. */
 export const threadListSchema = z.array(threadSchema);
+
+/**
+ * A Thread as a list's row shows it: its context's move without the Brief, which only the Thread's
+ * own reading (`threadSchema`) estimates, so a list builds no Brief.
+ */
+export const threadSummarySchema = threadSchema
+  .pick({
+    id: true,
+    home: true,
+    roleKey: true,
+    title: true,
+    state: true,
+    tokens: true,
+    startedAt: true,
+    consultation: true,
+    answered: true,
+    lastMovedAt: true,
+  })
+  .extend({
+    context: threadContextSchema.pick({
+      move: true,
+      reason: true,
+      cacheWarm: true,
+      cacheWarmUntil: true,
+      contextTokens: true,
+    }),
+  });
+export type ThreadSummary = z.infer<typeof threadSummarySchema>;
+
+/** GET /chats/:roleKey/threads?after=: a page of the person's chat, the newest started first. */
+export const chatThreadPageSchema = pageSchemaOf(threadSummarySchema);
+export type ChatThreadPage = z.infer<typeof chatThreadPageSchema>;
+
+/** A person's Thread on a Task, named with its Task and that Task's Project. */
+export const taskThreadSummarySchema = threadSummarySchema.extend({
+  task: z.object({ id: z.string(), title: z.string(), projectId: z.string() }),
+});
+export type TaskThreadSummary = z.infer<typeof taskThreadSummarySchema>;
+
+/** GET /roles/:roleKey/task-threads?after=: a page of the person's Threads on Tasks, newest first. */
+export const taskThreadPageSchema = pageSchemaOf(taskThreadSummarySchema);
+export type TaskThreadPage = z.infer<typeof taskThreadPageSchema>;
 
 /** PUT /threads/:id/seen: the newest message of the chat Thread the web has shown. */
 export const threadSeenSchema = z.object({ messageId: z.uuid() });

@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { MemoryNote, Task } from "@the-office/contracts";
+import type { MemoryNote } from "@the-office/contracts";
 import { Alert, Button, Dialog, Select, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { addMemoryNote, clearMemory, deleteMemoryNote, roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
 import { useChat } from "../../shell/chat/use-chat.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
@@ -23,7 +22,6 @@ export function MemoryTab(): ReactNode {
   const role = useQuery(roleQueries.one(roleKey));
   const memory = useQuery(roleQueries.memory(roleKey));
   const projects = useQuery(projectQueries.list());
-  const tasks = useQuery(taskQueries.list());
   const [deleting, setDeleting] = useState<MemoryNote | "all">();
   if (!role.data || !memory.data || !projects.data) return null;
   const { name } = role.data.card;
@@ -62,12 +60,7 @@ export function MemoryTab(): ReactNode {
                     <p className="memory-note-text">{note.text}</p>
                     <div className="memory-note-meta">
                       <span>{dayAndClockOf(note.writtenAt)}</span>
-                      <NoteSource
-                        roleKey={roleKey}
-                        note={note}
-                        personName={name}
-                        tasks={tasks.data}
-                      />
+                      <NoteSource roleKey={roleKey} note={note} personName={name} />
                       <Button size="sm" variant="secondary" onClick={() => setDeleting(note)}>
                         Delete
                       </Button>
@@ -102,12 +95,10 @@ function NoteSource({
   roleKey,
   note,
   personName,
-  tasks,
 }: {
   readonly roleKey: string;
   readonly note: MemoryNote;
   readonly personName: string;
-  readonly tasks: readonly Task[] | undefined;
 }): ReactNode {
   const chat = useChat();
   const nameOfUser = useUserName();
@@ -124,7 +115,6 @@ function NoteSource({
       </button>
     );
   }
-  const task = tasks?.find(({ id }) => id === source.taskId);
   return (
     <Link
       to="/tasks/$taskId"
@@ -132,7 +122,7 @@ function NoteSource({
       search={{ taskThread: source.threadId }}
       className="memory-note-link"
     >
-      Written by {personName} on {task ? task.title : "a Task"}
+      Written by {personName} on {source.taskTitle ?? "a Task"}
     </Link>
   );
 }

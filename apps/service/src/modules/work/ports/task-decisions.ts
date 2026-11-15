@@ -10,6 +10,8 @@ export abstract class TaskDecisions {
    * planning Thread, one per Task at most.
    */
   abstract openInThread(threadId: string): Promise<readonly OpenTaskDecision[]>;
+  /** The ids of the Tasks a Decision waiting on the user is open on, each once. */
+  abstract tasksWithOpenDecisions(): Promise<readonly string[]>;
   /** The Decisions on the Task waiting on the user, in any of its Threads, the first asked first. */
   abstract waitingOnTheUserOn(taskId: string): Promise<readonly DecisionWaitingOnTheUser[]>;
 }

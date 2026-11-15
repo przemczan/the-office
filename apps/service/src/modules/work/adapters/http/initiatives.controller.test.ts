@@ -615,6 +615,7 @@ function libraryWithout(library: PipelineLibrary, retired: ReadonlySet<string>):
   return {
     list: () => library.list(),
     listFor: (projectId) => library.listFor(projectId),
+    every: () => library.every(),
     find: async (id) => (retired.has(id) ? undefined : library.find(id)),
     read: async (id) => (retired.has(id) ? undefined : library.read(id)),
     commandsNamedBy: async (id) => (retired.has(id) ? undefined : library.commandsNamedBy(id)),

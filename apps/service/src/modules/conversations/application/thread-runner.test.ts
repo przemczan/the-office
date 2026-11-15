@@ -373,6 +373,7 @@ async function startOn(
   });
   // As the Work module gives its records.
   app.get(WorkRecords).provide({
+    taskSubjects: () => Promise.resolve(new Map()),
     taskRecord: (taskId) => Promise.resolve(workRecords.get(taskId)),
     taskTitle: (taskId) => Promise.resolve(initiativeTasks.get(taskId)?.title),
     taskAttachmentIds: () => Promise.resolve([]),

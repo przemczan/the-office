@@ -2,6 +2,7 @@ import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { engineIdSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
+import { pageQuerySchema, pageSchemaOf } from "./paging.js";
 import type { ProjectFilter } from "./project-filter.js";
 import { userRefSchema } from "./users.js";
 
@@ -164,14 +165,19 @@ export const archivedInitiativesQuerySchema = z.object({
   query: z.string().default(""),
   state: archiveStateFilterSchema.default("all"),
   page: z.coerce.number().int().min(1).default(1),
-  project: z
+  project: projectFilterParamSchema(),
+});
+
+/** The Project filter as a query's `project` parameters, one per Project; none is every Project. */
+function projectFilterParamSchema() {
+  return z
     .union([z.string(), z.array(z.string())])
     .optional()
     .transform((project): ProjectFilter => {
       const projectIds = typeof project === "string" ? [project] : (project ?? []);
       return projectIds.length === 0 ? "all" : projectIds;
-    }),
-});
+    });
+}
 export type ArchivedInitiativesQuery = z.infer<typeof archivedInitiativesQuerySchema>;
 
 /** An archived Initiative with its final count: its Tasks done of those it kept (not Dropped). */
@@ -351,6 +357,42 @@ export type Task = z.infer<typeof taskSchema>;
 
 /** Every Task, in the board's order: by priority, then by manual order. */
 export const taskListSchema = z.array(taskSchema);
+
+/** The groups of a person's Work tab, as the user asks about their Tasks. */
+export const workFilterSchema = z.enum([
+  "all",
+  "not-started",
+  "in-progress",
+  "waiting-on-you",
+  "done",
+  "dropped",
+]);
+export type WorkFilter = z.infer<typeof workFilterSchema>;
+
+/**
+ * The query of GET /roles/:roleKey/tasks: the Work filter, the Projects the Project filter shows as
+ * one `project` each (every Project when none is named), and the page's cursor.
+ */
+export const personTasksQuerySchema = pageQuerySchema.extend({
+  filter: workFilterSchema.default("all"),
+  project: projectFilterParamSchema(),
+});
+export type PersonTasksQuery = z.infer<typeof personTasksQuerySchema>;
+
+/** A Task the person has a part in, and that part in a few words ("Created it · Implement"). */
+export const personTaskSchema = z.object({ task: taskSchema, part: z.string() });
+export type PersonTask = z.infer<typeof personTaskSchema>;
+
+/**
+ * GET /roles/:roleKey/tasks: a page of the person's Tasks in the filter, the newest created first.
+ * `counts` are how many each Work filter holds in the Projects the Project filter shows, and
+ * `elsewhere` how many of the person's Tasks it hides.
+ */
+export const personTaskPageSchema = pageSchemaOf(personTaskSchema).extend({
+  counts: z.record(workFilterSchema, z.number().int().nonnegative()),
+  elsewhere: z.number().int().nonnegative(),
+});
+export type PersonTaskPage = z.infer<typeof personTaskPageSchema>;
 
 /**
  * A Project's onboarding, read from its Onboard Task: onboarding until the Task is done, then

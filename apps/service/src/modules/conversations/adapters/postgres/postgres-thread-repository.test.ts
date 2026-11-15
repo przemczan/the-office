@@ -14,10 +14,46 @@ import {
 
 setUpEachTest();
 
+/** Two Threads a minute, from `AT`. */
+function twoAMinute(index: number): Date {
+  return new Date(AT.getTime() + Math.floor(index / 2) * 60_000);
+}
+
+/** Where the next read goes on from: after the last Thread read. */
+function endOf(threads: readonly Thread[]): { readonly at: Date; readonly id: string } | undefined {
+  const last = threads.at(-1);
+  return last && { at: last.startedAt, id: last.id };
+}
+
 /** A time on a day only this file's range test logs messages on. */
 const at = (time: string) => new Date(`2031-03-04T${time}:00.000Z`);
 
 describe("PostgresThreadRepository", () => {
+  it("reads a person's chat newest first from where a page ends, each Thread once, with the total", async () => {
+    const roleKey = `role-${randomUUID()}`;
+    const chat = Array.from({ length: 7 }, (_, minute) =>
+      aThreadOfItsOwn(roleKey, { startedAt: twoAMinute(minute) }),
+    );
+    for (const thread of chat) await repository.add(thread);
+    await repository.add(aThreadOfItsOwn(`role-${randomUUID()}`));
+
+    const first = await repository.personsThreads(roleKey, "chat", undefined, 3);
+    const second = await repository.personsThreads(roleKey, "chat", endOf(first.threads), 3);
+    const last = await repository.personsThreads(roleKey, "chat", endOf(second.threads), 3);
+
+    // Two started at the same time are ordered by id, and the cursor takes them apart.
+    const newestFirst = chat.toSorted(
+      (one, other) =>
+        other.startedAt.getTime() - one.startedAt.getTime() || (other.id > one.id ? 1 : -1),
+    );
+    expect([first, second, last].map(({ threads }) => threads.map(({ id }) => id))).toEqual([
+      newestFirst.slice(0, 3).map(({ id }) => id),
+      newestFirst.slice(3, 6).map(({ id }) => id),
+      newestFirst.slice(6).map(({ id }) => id),
+    ]);
+    expect([first.total, second.total, last.total]).toEqual([7, 7, 7]);
+  });
+
   it("keeps a Thread with its session and tokens, and lists a home's newest first", async () => {
     const roleKey = `role-${randomUUID()}`;
     const older = aThreadOfItsOwn(roleKey, { startedAt: new Date("2026-10-25T09:00:00.000Z") });

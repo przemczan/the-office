@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { ChangesAllowedRepository } from "../../ports/changes-allowed-repository.js";
 import { changesAllowed } from "./changes-allowed.schema.js";
@@ -31,5 +31,14 @@ export class PostgresChangesAllowedRepository extends ChangesAllowedRepository {
       .from(changesAllowed)
       .where(eq(changesAllowed.threadId, threadId));
     return rows.length > 0;
+  }
+
+  async allowedAmong(threadIds: readonly string[]): Promise<ReadonlySet<string>> {
+    if (threadIds.length === 0) return new Set();
+    const rows = await this.database
+      .select({ threadId: changesAllowed.threadId })
+      .from(changesAllowed)
+      .where(inArray(changesAllowed.threadId, [...threadIds]));
+    return new Set(rows.map(({ threadId }) => threadId));
   }
 }

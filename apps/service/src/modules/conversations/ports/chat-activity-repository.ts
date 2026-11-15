@@ -16,4 +16,7 @@ export abstract class ChatActivityRepository {
 
   /** The chat Thread, as the record reads it; undefined for any other Thread. */
   abstract chatThread(threadId: string): Promise<ChatThreadActivity | undefined>;
+
+  /** Those of the Threads in a chat, as the record reads them, in one read. */
+  abstract chatThreadsAmong(threadIds: readonly string[]): Promise<readonly ChatThreadActivity[]>;
 }

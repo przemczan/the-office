@@ -528,9 +528,9 @@ describe("a call from a chat during the fire alarm", () => {
     await app.get(ThreadRunner).send(opened.id, "Ask the CTO to set that up.", ANN_LEE);
     const consultation = await vi.waitFor(
       async () => {
-        const found = (await threads.listInChat(consultantKey)).find(
-          (thread) => thread.consultation,
-        );
+        const found = (
+          await app.get(ThreadRepository).listIn({ kind: "chat", roleKey: consultantKey })
+        ).find((thread) => thread.consultation);
         if (!found) throw new Error("No Consultation yet.");
         return found;
       },
@@ -549,7 +549,9 @@ describe("a call from a chat during the fire alarm", () => {
     );
     expect((await threads.read(consultation.id)).state).toBe("answering");
     expect(
-      (await threads.listInChat(consultantKey)).filter((thread) => thread.consultation),
+      (await app.get(ThreadRepository).listIn({ kind: "chat", roleKey: consultantKey })).filter(
+        (thread) => thread.consultation,
+      ),
     ).toHaveLength(1);
   });
 });

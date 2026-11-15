@@ -213,6 +213,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     });
   }
   app.get(WorkRecords).provide({
+    taskSubjects: () => Promise.resolve(new Map()),
     taskRecord: () => Promise.resolve(undefined),
     taskTitle: (id) => Promise.resolve(id === taskId ? "Speed up the mobile build" : undefined),
     taskAttachmentIds: () => Promise.resolve([]),

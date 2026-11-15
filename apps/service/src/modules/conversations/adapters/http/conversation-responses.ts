@@ -11,10 +11,13 @@ import {
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
   type Thread as ThreadResponse,
+  type ThreadSummary as ThreadSummaryResponse,
   type TaskConversation,
+  type TaskThreadSummary as TaskThreadSummaryResponse,
 } from "@the-office/contracts";
 import type { ThreadActivity } from "../../application/chat-activity.js";
 import type { ThreadReading } from "../../application/thread-contexts.js";
+import type { TaskThreadSummary, ThreadSummary } from "../../application/thread-summaries.js";
 import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
@@ -57,6 +60,43 @@ export function toThreadResponse(
     changesAllowed: changesAllowed ?? null,
     answered: activity?.answered ?? null,
     lastMovedAt: activity?.lastMovedAt.toISOString() ?? null,
+  };
+}
+
+/** A list's row: its context's move, with no Brief's estimate and nothing to choose instead. */
+export function toThreadSummaryResponse({
+  thread,
+  context,
+  activity,
+}: ThreadSummary): ThreadSummaryResponse {
+  return {
+    id: thread.id,
+    home: thread.home,
+    roleKey: thread.roleKey,
+    title: thread.title ?? null,
+    state: thread.state,
+    tokens: tokensSoFar(thread),
+    context: {
+      move: context.move,
+      reason: context.reason,
+      cacheWarm: context.cacheWarm,
+      cacheWarmUntil: context.cacheWarmUntil?.toISOString() ?? null,
+      contextTokens: context.contextTokens,
+    },
+    startedAt: thread.startedAt.toISOString(),
+    consultation: thread.consultation
+      ? { ...thread.consultation, askerRoleKey: thread.consultation.askerRoleKey ?? null }
+      : null,
+    answered: activity?.answered ?? null,
+    lastMovedAt: activity?.lastMovedAt.toISOString() ?? null,
+  };
+}
+
+export function toTaskThreadSummaryResponse(summary: TaskThreadSummary): TaskThreadSummaryResponse {
+  const { taskId, task } = summary;
+  return {
+    ...toThreadSummaryResponse(summary),
+    task: { id: taskId, title: task.title, projectId: task.projectId },
   };
 }
 

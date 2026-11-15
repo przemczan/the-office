@@ -1,14 +1,23 @@
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
-import type { Attachment, Decision, DecisionAnswer, Role, Thread } from "@the-office/contracts";
+import type {
+  Attachment,
+  Decision,
+  DecisionAnswer,
+  Role,
+  Thread,
+  ThreadSummary,
+} from "@the-office/contracts";
 import { Badge, Button, Icon, IconButton } from "@the-office/ui";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
+import { rowsOf } from "../../api/pages.ts";
 import { roleQueries } from "../../api/people.ts";
 import { attachmentQueries } from "../../api/work.ts";
 import { useCopyRecordLink } from "../copy-record-link.ts";
@@ -239,12 +248,17 @@ function LinkToConsultation({
   readonly decision: Decision;
   readonly consultantKey: string;
 }): ReactNode {
-  const { data: threads } = useQuery(
-    decision.taskId === null
-      ? threadQueries.inChat(consultantKey)
-      : threadQueries.onTask(decision.taskId),
-  );
-  const consultation = threads?.find(
+  const onNoTask = decision.taskId === null;
+  // A Consultation opens as the Decision is put, so while it waits it is among the chat's newest.
+  const inChat = useInfiniteQuery({ ...threadQueries.inChat(consultantKey), enabled: onNoTask });
+  const onTask = useQuery({
+    ...threadQueries.onTask(decision.taskId ?? ""),
+    enabled: !onNoTask,
+  });
+  const threads: readonly Pick<ThreadSummary, "id" | "roleKey" | "consultation">[] = onNoTask
+    ? rowsOf(inChat.data)
+    : (onTask.data ?? []);
+  const consultation = threads.find(
     (thread) => thread.consultation?.decisionId === decision.id && thread.roleKey === consultantKey,
   );
   if (!consultation) return null;

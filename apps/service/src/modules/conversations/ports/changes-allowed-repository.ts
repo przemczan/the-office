@@ -8,4 +8,7 @@ export abstract class ChangesAllowedRepository {
 
   /** Whether changes are allowed in the Thread. */
   abstract isAllowed(threadId: string): Promise<boolean>;
+
+  /** Those of the Threads changes are allowed in, by their ids. */
+  abstract allowedAmong(threadIds: readonly string[]): Promise<ReadonlySet<string>>;
 }

@@ -31,6 +31,7 @@ import {
   taskListSchema,
   taskSchema,
   taskStagesSchema,
+  chatThreadPageSchema,
   threadListSchema,
   decisionListSchema,
   dutyListSchema,
@@ -1521,6 +1522,9 @@ test(
           data: { title, projectId, priority: "normal" },
         });
         expect(created.status()).toBe(201);
+        // A new Task has no Pipeline until one is chosen: Full's Stages are the Developer's part.
+        const { id } = taskSchema.parse(await created.json());
+        await page.request.put(`/api/tasks/${id}/pipeline`, { data: { pipelineId: "full" } });
       }
 
       await page.goto("/people/developer");
@@ -5471,9 +5475,9 @@ async function seeEveryChat(): Promise<void> {
 
 async function plannersNewestThread(page: Page): Promise<{ id: string; title: string }> {
   const response = await page.request.get("/api/chats/planner/threads");
-  const [thread] = (await response.json()) as { id: string; title: string }[];
-  if (!thread) throw new Error("Jan has no Thread.");
-  return thread;
+  const [thread] = chatThreadPageSchema.parse(await response.json()).rows;
+  if (!thread?.title) throw new Error("Jan has no Thread with a title.");
+  return { id: thread.id, title: thread.title };
 }
 
 /** The Role card's Chat switch, as Save on the person's page sets it. */
@@ -6808,9 +6812,9 @@ test(
       await call.scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-call-from-a-chat.png") });
 
-      const [consultation] = threadListSchema
+      const [consultation] = chatThreadPageSchema
         .parse(await (await page.request.get("/api/chats/devops/threads")).json())
-        .filter((thread) => thread.consultation?.askerThreadId === chatId);
+        .rows.filter((thread) => thread.consultation?.askerThreadId === chatId);
       if (!consultation) throw new Error("No Consultation opened in Nina's chat.");
       expect(consultation.title).toBe("Consultation · Jan and Nina");
       await page.goto(`/now?chat=devops&thread=${consultation.id}`);

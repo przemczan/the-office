@@ -1124,6 +1124,7 @@ describe("Office tools on a Stage", () => {
     const request = anAskingStage(aPerson("Ada"));
     const [screenshot, report, ofAnotherTask] = [randomUUID(), randomUUID(), randomUUID()];
     app.get(WorkRecords).provide({
+      taskSubjects: () => Promise.resolve(new Map()),
       taskRecord: () => Promise.resolve(undefined),
       taskTitle: () => Promise.resolve(undefined),
       taskAttachmentIds: (taskId) =>

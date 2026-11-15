@@ -306,7 +306,10 @@ describe("a call made from a chat", () => {
       aThread(CALLERS_CHAT, { kind: "chat", roleKey: "planner" }),
     );
     queryClient.setQueryData(threadQueries.one(CONSULTATION).queryKey, consultation);
-    queryClient.setQueryData(threadQueries.inChat("reviewer").queryKey, [consultation]);
+    queryClient.setQueryData(threadQueries.inChat("reviewer").queryKey, {
+      pages: [{ rows: [consultation], next: null, total: 1 }],
+      pageParams: [undefined],
+    });
     const router = createRouter({
       routeTree: createRootRoute({
         component: () => <DecisionInThread decision={decision} personName="Angela" />,

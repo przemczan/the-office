@@ -1,6 +1,6 @@
 # People surface: map
 
-**Owns:** the People grid (the built-in Caretaker pinned first with a "Built in" mark, `people-order.ts`) and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), with its Avatar block (`avatar-block.tsx`, the shell's `ImageRow`, without its buttons for someone let go), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too.
+**Owns:** the People grid (the built-in Caretaker pinned first with a "Built in" mark, `people-order.ts`) and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), with its Avatar block (`avatar-block.tsx`, the shell's `ImageRow`, without its buttons for someone let go), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too. Its Conversations tab and Work tab read the service a page at a time with "Show more" (`ShowMore`, `api/pages.ts`), their headings and filter counts the service's totals: the chat's Threads and the Threads on Tasks as summaries (`threadQueries.inChat`, `onTasksWith`, each row on a Task named with its Task and Project by the service), and the person's Tasks with their part, filtered and counted by the service (`taskQueries.ofPerson`, `GET /roles/:roleKey/tasks`, under the Tasks' key and read again as Threads start or rename); `person-tasks.ts` keeps only the Work filters' words. The Memory tab names a note written on a Task by the `taskTitle` the service gives with it ("Written by <name> on <Task title>", or "a Task" once the Task is gone), loading no Task itself.
 
 Duties (`shell/duty-words.ts`, from `dutyQueries.list()`): the Role card view's Identity group shows the duties the person holds, or None with a link to Settings › Duties (none for someone let go; the Caretaker holds none and is the one to talk to while Default person to talk to is unheld); they are set in Settings, not on the card or in its form. People reads the list once and gives each tile a `PlainMark` "N duties" naming each on hover and focus.
 
@@ -32,7 +32,7 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `people-order.ts`: inGridOrder, isNobodyHired
 - `people-page.tsx`: PeoplePage
 - `person-page.tsx`: PersonPage
-- `person-tasks.ts`: PersonTask, personTasks, WorkFilter, WORK_FILTERS, inFilter
+- `person-tasks.ts`: WORK_FILTERS
 - `role-card-form.tsx`: RoleCardEditPage, HireFromScratchPage
 - `role-card-layout.tsx`: ROLE_CARD_GROUPS, RoleCardGroup, RoleCardValue, FixedForTheCaretaker, PersonBlock
 - `role-card-mcp-server-fields.tsx`: McpServerFields
@@ -41,4 +41,4 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `role-mcp-servers.ts`: assignedMcpServersOf, mcpServerAssignments, sessionToolsOf, mcpToolSettingOf, withMcpToolSetting, withoutServerToolSettings
 - `session-skills.ts`: sessionSkillsOf
 - `work-tab.tsx`: WorkTab
-- Tests: memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, person-tasks.full.test.ts, role-mcp-servers.full.test.ts
+- Tests: memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, role-mcp-servers.full.test.ts

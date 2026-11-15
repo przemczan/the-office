@@ -69,6 +69,7 @@ import { TaskConversations } from "./application/task-conversations.js";
 import { TaskTokens } from "./application/task-tokens.js";
 import { TaskThreadSetups } from "./application/task-thread-setups.js";
 import { ThreadContexts } from "./application/thread-contexts.js";
+import { ThreadSummaries } from "./application/thread-summaries.js";
 import { ThreadHistory } from "./application/thread-history.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
@@ -147,6 +148,7 @@ export class ConversationsModule {
         SessionPlaces,
         CallChains,
         ThreadContexts,
+        ThreadSummaries,
         TaskConversations,
         ThreadRunner,
         InterruptedAnswers,

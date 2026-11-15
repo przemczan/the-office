@@ -9,15 +9,20 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseFilters,
 } from "@nestjs/common";
 import {
   contextOverrideChoiceSchema,
   newMessageSchema,
+  pageQuerySchema,
   recordLinksIn,
   threadSeenSchema,
   threadTitleSchema,
   type ChatActivity as ChatActivityResponse,
+  type ChatThreadPage,
+  type PageQuery,
+  type TaskThreadPage,
   type RecordLink,
   type ContextOverrideChoice,
   type Message as MessageResponse,
@@ -30,6 +35,7 @@ import {
   type TaskConversation as TaskConversationResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { pageRequested, toPageResponse } from "../../../../platform/http/page-cursors.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { ChatActivity } from "../../application/chat-activity.js";
@@ -40,6 +46,7 @@ import { TaskConversations } from "../../application/task-conversations.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
+import { ThreadSummaries } from "../../application/thread-summaries.js";
 import type { Mention } from "../../domain/mention.js";
 import type { Thread } from "../../domain/thread.js";
 import {
@@ -47,7 +54,9 @@ import {
   toMessageResponse,
   toPeopleWorkingResponse,
   toTaskConversationResponse,
+  toTaskThreadSummaryResponse,
   toThreadResponse,
+  toThreadSummaryResponse,
 } from "./conversation-responses.js";
 import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
 
@@ -57,6 +66,7 @@ export class ThreadsController {
   constructor(
     private readonly threads: ThreadService,
     private readonly contexts: ThreadContexts,
+    private readonly summaries: ThreadSummaries,
     private readonly runner: ThreadRunner,
     private readonly decisions: DecisionService,
     private readonly proposals: ProposalService,
@@ -78,10 +88,17 @@ export class ThreadsController {
     return toPeopleWorkingResponse(await this.taskConversations.peopleWorking());
   }
 
+  /**
+   * A page of the person's chat, the newest started first. Its Threads stay readable after Chat is
+   * switched off (spec §2.2).
+   */
   @Get("chats/:roleKey/threads")
-  async listInChat(@Param("roleKey") roleKey: string): Promise<ThreadResponse[]> {
-    const threads = await this.threads.listInChat(roleKey);
-    return Promise.all(threads.map((thread) => this.toResponse(thread)));
+  async listInChat(
+    @Param("roleKey") roleKey: string,
+    @Query(new ContractPipe(pageQuerySchema)) { after }: PageQuery,
+  ): Promise<ChatThreadPage> {
+    const page = await this.summaries.inChat(roleKey, pageRequested(after));
+    return toPageResponse(page, toThreadSummaryResponse);
   }
 
   /** A fresh Thread in the person's chat. */
@@ -130,11 +147,14 @@ export class ThreadsController {
     return Promise.all(threads.map((thread) => this.toResponse(thread)));
   }
 
-  /** The person's Threads on Tasks, the newest first: a person's Work tab lists those Tasks. */
+  /** A page of the person's Threads on every Task, the newest started first, each with its Task. */
   @Get("roles/:roleKey/task-threads")
-  async listOnTasksWith(@Param("roleKey") roleKey: string): Promise<ThreadResponse[]> {
-    const threads = await this.threads.listOnTasksWith(roleKey);
-    return Promise.all(threads.map((thread) => this.toResponse(thread)));
+  async listOnTasksWith(
+    @Param("roleKey") roleKey: string,
+    @Query(new ContractPipe(pageQuerySchema)) { after }: PageQuery,
+  ): Promise<TaskThreadPage> {
+    const page = await this.summaries.onTasksWith(roleKey, pageRequested(after));
+    return toPageResponse(page, toTaskThreadSummaryResponse);
   }
 
   @Get("threads/:id")

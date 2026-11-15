@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import {
   chatActivityOfPeople,
   hasAnswered,
+  type ChatThreadActivity,
   type PersonChatActivity,
 } from "../domain/chat-activity.js";
 import { ThreadSeen } from "../domain/conversation-events.js";
@@ -38,7 +39,14 @@ export class ChatActivity {
   async inThread({ id, home }: Thread): Promise<ThreadActivity | undefined> {
     if (home.kind !== "chat") return undefined;
     const thread = await this.repository.chatThread(id);
-    return thread && { answered: hasAnswered(thread), lastMovedAt: thread.lastMovedAt };
+    return thread && activityOf(thread);
+  }
+
+  /** `inThread` for each of a list's Threads in a chat, by its id, in one read. */
+  async inThreads(threads: readonly Thread[]): Promise<ReadonlyMap<string, ThreadActivity>> {
+    const inChats = threads.filter(({ home }) => home.kind === "chat").map(({ id }) => id);
+    const read = await this.repository.chatThreadsAmong(inChats);
+    return new Map(read.map((thread) => [thread.threadId, activityOf(thread)]));
   }
 
   /**
@@ -58,4 +66,8 @@ export class ChatActivity {
     if (mark === "moved") await this.events.publish(new ThreadSeen(thread, seenAt));
     return thread;
   }
+}
+
+function activityOf(thread: ChatThreadActivity): ThreadActivity {
+  return { answered: hasAnswered(thread), lastMovedAt: thread.lastMovedAt };
 }
