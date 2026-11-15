@@ -18,7 +18,12 @@ folder=$work/compose
 data=$work/data
 
 compose() {
-  docker compose --project-directory "$folder" "$@"
+  docker compose --project-directory "$folder" --file "$folder/docker-compose.yml" "$@"
+}
+# Sets the .env line of `name` to `value`, as a user editing the stamped file would.
+set_env() {
+  grep --quiet "^$1=" "$folder/.env" || fail "the-office.env has no $1= line."
+  sed --in-place "s|^$1=.*|$1=$2|" "$folder/.env"
 }
 fail() {
   echo "The compose check failed: $*" >&2
@@ -45,16 +50,14 @@ container_of() {
 echo "Setting up the Compose install in $folder"
 mkdir -p "$folder"
 cp dist/release/docker-compose.yml "$folder/docker-compose.yml"
-{
-  cat dist/release/the-office.env
-  echo "OFFICE_IMAGE=$image"
-  echo "OFFICE_DATA_DIR=$data"
-  echo "OFFICE_PORT=$port"
-  echo "POSTGRES_PORT=55433"
-  echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
-  echo "DOCKER_GID=$(stat -c %g /var/run/docker.sock)"
-} >"$folder/.env"
+cp dist/release/the-office.env "$folder/.env"
 grep --quiet "^OFFICE_VERSION=$version$" "$folder/.env" || fail "the-office.env isn't stamped with $version."
+set_env OFFICE_DATA_DIR "$data"
+set_env OFFICE_PORT "$port"
+set_env POSTGRES_PORT 55433
+set_env POSTGRES_PASSWORD "$(openssl rand -hex 24)"
+set_env DOCKER_GID "$(stat -c %g /var/run/docker.sock)"
+echo "OFFICE_IMAGE=$image" >>"$folder/.env"
 
 compose config --quiet
 compose up --detach --wait || fail "docker compose up didn't bring the install up healthy."
@@ -87,7 +90,7 @@ echo "Moving The Office to $update_version as the Office updater does"
 docker tag "$image:$version" "$image:$update_version"
 office_before=$(container_of office)
 postgres_before=$(container_of postgres)
-sed --in-place "s/^OFFICE_VERSION=.*/OFFICE_VERSION=$update_version/" "$folder/.env"
+set_env OFFICE_VERSION "$update_version"
 compose up --detach --no-deps --wait office || fail "The Office didn't come up healthy at $update_version."
 office_after=$(container_of office)
 [[ $office_after != "$office_before" ]] || fail "docker compose up --no-deps office didn't recreate The Office."
