@@ -315,6 +315,26 @@ describe("MessageList's kinds", () => {
     );
   });
 
+  it("shows a message that ran a skill as a skill command: its mark, the skill and its input", () => {
+    const log = shownLog([
+      {
+        ...written("a", "/review-pr  the login form", "delivered"),
+        skillCommand: { skill: "review-pr" },
+      } as Message,
+      { ...written("b", "/tidy", "delivered"), skillCommand: { skill: "tidy" } } as Message,
+      written("c", "/not-a-skill here", "delivered"),
+    ]);
+    const shown = [...log.querySelectorAll(".message-text")].map((text) => [
+      text.querySelector(".skill-command-head")?.textContent,
+      text.querySelector(".markdown-text")?.textContent,
+    ]);
+    expect(shown).toEqual([
+      ["Skill command/review-pr", "the login form"],
+      ["Skill command/tidy", undefined],
+      [undefined, "/not-a-skill here"],
+    ]);
+  });
+
   it("names the user who allowed changes", () => {
     const [allowed] = EVERY_KIND["changes-allowed"];
     const log = shownLog([

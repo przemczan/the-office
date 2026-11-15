@@ -33,6 +33,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | `permissions.read-fence-off` added (task 33 step 1), the same on both |
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | every check but the slow one, with the read fence off and `claudeMdExcludes` in the Office's options (task 33 step 2); `permissions.file-tool-fence` and `skills.plugin-folder-reads` retired, `permissions.hook-sees-every-call` re-recorded |
 | Ubuntu 24.04 x64 (linux), the Office's own machine | 2026-11-06 | `skills.overrides-library` added and recorded, no model call; not run on Windows yet |
+| (pending) | | `skills.skill-command` added (skill commands), not yet run on either platform: it needs a signed-in machine |
 
 | Windows 11 (win32), the workstation | 2026-10-31 | the OpenAI-compatible API engine live on Strata (task 35 step 9): five contract scenarios, then a chat and a Stage on the Test Project (task 35's check); see [the OpenAI-compatible API](#the-openai-compatible-api) |
 | Windows 11 (win32), the workstation | 2026-11-01 | MCP servers live on the Agent SDK engine, Haiku (task 36 step 8, `mcp-servers/application/mcp-tools-test-project-check`): the fake stdio server, its secret Server value overridden on the Test Project. An Allowed tool ran under `permissionPrompts: 'none'` with no prompt; one at Consult Devops was held, waited on Devops in a Consultation, ran after the user's Allow once in the resumed session. The binary listed the MCP tools as deferred, so Haiku loaded them with ToolSearch first. The private MCP config file was written at the start and at the resume, and none was left; no command line held the value; the server's process tree ended. 35 s, 162k tokens (mostly cache reads) |
@@ -114,6 +115,13 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 - **Run:** a session skill whose text holds ``!`git --version` ``, invoked through the Skill tool, once with the Office's options and once with `disableSkillShellExecution` false.
 - **Observed:** with the Office's options the skill loads with `[shell command execution disabled by policy]` in place of the command, which never runs. With the setting off, the engine checks the command against the permission rules itself: under `permissionPrompts: 'none'` it is refused ("This command requires approval") and the Skill call fails. The `PreToolUse` hook sees neither.
 - **Meaning:** a skill's load-time commands bypass the Office rules hook, which §6 relies on for every command, so §5.6 turns them off; the Agent runs what a skill asks for through its tools.
+
+### skills.skill-command
+
+- **Run:** a session with `echo` and `manual` (`disable-model-invocation: true`), each telling the model to reply with a marker followed by `$ARGUMENTS`. Before any model call, the listing (`getContextUsage().skills`) and `supportedCommands()`. Then, in the streaming input as The Office sends a user's skill command (plain text `/<listed name> <input>`): a plain message with `/office:echo fig-29` queued right behind it with priority `next`, before the first answer; into the idle session `/office:echo kiwi-17` and `/echo plum-23`; and `/office:manual pear-31`. For each command: whether a turn ended, whether the reply holds the marker (the skill ran) and the input, and whether the skill's text reached the turn with `$ARGUMENTS` replaced; for the queued one, whether the first turn's `user_message_uuids` name it and in which turn it ran.
+- **Observed:** not recorded yet on either platform (`expectations.json` holds an empty entry, so a run reports it `unrecorded`). It needs a signed-in machine: from an Agent's session the check finds no sign-in.
+- **Expected, to confirm:** the full name `/office:echo` runs the skill with the input as `$ARGUMENTS`; the bare `/echo` is not the name the session knows it by; `manual` is in `supportedCommands()` but not in the listing, and runs as a command. Whether the queued command runs in the first turn or the next is the open question The Office's queueing of a skill command rests on.
+- **Meaning:** The Office sends a skill command as `/office:<name> <input>`, the name the listing and `supportedCommands()` give, and offers a user-only skill as a command though the model never sees it.
 
 ### skills.allowlist-suffix
 

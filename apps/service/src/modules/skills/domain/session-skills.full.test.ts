@@ -8,6 +8,7 @@ import {
   sessionSkillRecord,
   skillOverridesOf,
   suffixMatches,
+  userOnlySkillNames,
   type ProjectSkillName,
   type SessionSkill,
 } from "./session-skills.js";
@@ -71,6 +72,23 @@ describe("projectSkillNamesFrom", () => {
         file("apps/api/.claude/skills/deploy/SKILL.md"),
       ]),
     ).toEqual([{ key: "deploy", listedAs: "deploy" }]);
+  });
+
+  it("flags a skill or command at the top that only the user runs, not a nested one", () => {
+    const userOnly = "---\ndisable-model-invocation: true\n---\nShip it.\n";
+    expect(
+      projectSkillNamesFrom([
+        file(".claude/skills/deploy/SKILL.md", userOnly),
+        file(".claude/commands/ship.md", userOnly),
+        file("apps/web/.claude/skills/release/SKILL.md", userOnly),
+        file(".claude/skills/plain/SKILL.md", "---\ndisable-model-invocation: false\n---\n"),
+      ]),
+    ).toEqual([
+      { key: "deploy", listedAs: "deploy", userOnly: true },
+      { key: "plain", listedAs: "plain" },
+      release,
+      { key: "ship", listedAs: "ship", userOnly: true },
+    ]);
   });
 });
 
@@ -192,6 +210,37 @@ describe("sessionSkillRecord", () => {
 
     expect(allowedSkillNames(record)).toEqual(["office:review"]);
     expect(skillOverridesOf(record)).toEqual({});
+  });
+});
+
+describe("userOnlySkillNames", () => {
+  it("names the library's and the Project's skills only the user runs, which aren't expected", () => {
+    const tdd: SessionSkill = { name: "tdd", version: 1, filesHash: "c".repeat(64) };
+    const record = sessionSkillRecord(
+      "s-1",
+      [review, tdd],
+      "admin-panel",
+      [{ ...deploy, userOnly: true }, ship],
+      allOn,
+      preparedAt,
+    );
+
+    expect(userOnlySkillNames(record, new Set(["tdd"]))).toEqual(["deploy", "office:tdd"]);
+    expect(expectedSkillNames(record, new Set(["tdd"]))).toEqual(["office:review", "ship"]);
+    expect(allowedSkillNames(record)).toEqual(["office:review", "office:tdd", "deploy", "ship"]);
+  });
+
+  it("names none the Project turned off", () => {
+    const record = sessionSkillRecord(
+      "s-1",
+      [],
+      "admin-panel",
+      [{ ...deploy, userOnly: true }],
+      allOff,
+      preparedAt,
+    );
+
+    expect(userOnlySkillNames(record, new Set())).toEqual([]);
   });
 });
 

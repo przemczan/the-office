@@ -73,3 +73,14 @@ export function frontmatterText(skillMd: SkillMd, key: string): string | undefin
   const value = skillMd.frontmatter[key];
   return typeof value === "string" ? value : undefined;
 }
+
+/** A frontmatter flag as the engine reads it: on for `true` or the text `"true"`, else off. */
+export function frontmatterFlag(skillMd: SkillMd, key: string): boolean {
+  const value = skillMd.frontmatter[key];
+  return value === true || value === "true";
+}
+
+/** Whether only the user runs the skill, as a skill command: `disable-model-invocation: true`. */
+export function isUserOnly(skillMd: SkillMd | string): boolean {
+  return typeof skillMd !== "string" && frontmatterFlag(skillMd, "disable-model-invocation");
+}

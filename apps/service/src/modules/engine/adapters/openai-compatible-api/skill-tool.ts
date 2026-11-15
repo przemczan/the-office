@@ -9,7 +9,8 @@ import {
   type ToolOutput,
 } from "./built-in-tool.js";
 import { fileProblem } from "./file-problems.js";
-import type { ListedSkill } from "./listed-skills.js";
+import type { SkillCommand } from "../../ports/engine-session.js";
+import { modelListing, type ListedSkill } from "./listed-skills.js";
 import { markdownFile } from "./markdown-file.js";
 
 const skillInput = z.object({
@@ -22,20 +23,41 @@ const ARGUMENTS_PLACEHOLDER = "$ARGUMENTS";
 
 /**
  * Claude Code's Skill: its description lists the session's skills, and a call loads one by the
- * name listed, its body read as it is now, with the folder its relative paths start from.
+ * name listed, its body read as it is now, with the folder its relative paths start from. A skill
+ * only the user runs is neither listed nor loaded.
  */
 export function skillTool(skills: readonly ListedSkill[]): BuiltInTool {
   const byName = new Map(skills.map((skill) => [skill.name, skill]));
   return builtInTool({
     name: SKILL_TOOL,
-    description: skillToolDescription(skills),
+    description: skillToolDescription(modelListing(skills)),
     input: skillInput,
     run: async ({ skill, args }) => {
       const listed = byName.get(skillNameOf(skill));
       if (listed === undefined) return failure(`Unknown skill: ${skill}`);
+      if (listed.userOnly) {
+        return failure(
+          `Skill ${listed.name} can't be used with the ${SKILL_TOOL} tool: only the user runs it, as /${listed.name}.`,
+        );
+      }
       return loaded(listed, args);
     },
   });
+}
+
+/**
+ * What a skill command sends the model, as Claude Code expands one: the skill loaded as the Skill
+ * tool loads it, with the command's input as its arguments, whether or not the model may use it.
+ * Undefined for a skill the session doesn't list or can't read, whose command is sent as written.
+ */
+export async function skillCommandText(
+  skills: readonly ListedSkill[],
+  { skill, input }: SkillCommand,
+): Promise<string | undefined> {
+  const listed = skills.find(({ name }) => name === skillNameOf(skill));
+  if (listed === undefined) return undefined;
+  const output = await loaded(listed, input);
+  return output.isError ? undefined : output.text;
 }
 
 function skillToolDescription(skills: readonly ListedSkill[]): string {

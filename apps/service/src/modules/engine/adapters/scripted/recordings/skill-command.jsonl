@@ -1,0 +1,10 @@
+{"step":"start","brief":{"id":"3f1d2c4e-8a7b-4c9d-9e0f-1a2b3c4d5e6f","text":"Reply with the single word: ready"}}
+{"step":"send","message":{"id":"7c6b5a49-3827-4615-9504-a3b2c1d0e9f8","text":"/office:note-word tangerine","skillCommand":{"skill":"office:note-word","input":"tangerine"}},"priority":"later"}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
+{"step":"event","event":{"kind":"text","text":"ready","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["3f1d2c4e-8a7b-4c9d-9e0f-1a2b3c4d5e6f"],"usage":{"input":4,"output":3,"cacheRead":51505,"cacheCreation":1177},"sessionCostUsd":0.00089355,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01SkillCommandNoteCall01","tool":"note","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01SkillCommandNoteCall01","text":"Noted.","isError":false}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["7c6b5a49-3827-4615-9504-a3b2c1d0e9f8"],"usage":{"input":4,"output":57,"cacheRead":51548,"cacheCreation":1199},"sessionCostUsd":0.00091208,"output":null,"errors":[]}}
+{"step":"end"}

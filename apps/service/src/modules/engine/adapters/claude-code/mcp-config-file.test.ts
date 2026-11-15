@@ -67,7 +67,7 @@ describe("McpConfigFile", () => {
       engine: FIRST_CLAUDE_CODE_ENGINE,
       model: "claude-haiku-5-5",
       effort: "medium",
-      skills: { folder: skillsFolder, names: [], expected: [], overrides: {} },
+      skills: { folder: skillsFolder, names: [], expected: [], userOnly: [], overrides: {} },
       profile: { edit: true, run: { kind: "anything" }, web: true, mcpTools: {} },
       officeTools: [],
       mcpServers: [],

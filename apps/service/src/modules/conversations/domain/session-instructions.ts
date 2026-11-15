@@ -519,6 +519,14 @@ export function briefedMessage(
 }
 
 /**
+ * The Brief of a session that starts on a skill command (spec §2.4): the command follows as its
+ * own message, as written, with no heading, so the Brief ends saying it comes and who sends it.
+ */
+export function briefBeforeSkillCommand(brief: string, writtenBy: UserRef): string {
+  return `${brief}\n\n${userWordsOpening(writtenBy)}'s skill command follows as the next message.`;
+}
+
+/**
  * A user's message into a running or resumed session: as written after one from the same user, or
  * under a heading naming them when another user wrote the one before it, or nobody did, so the
  * person knows who writes now. `previous` is who wrote the Thread's user message before it.

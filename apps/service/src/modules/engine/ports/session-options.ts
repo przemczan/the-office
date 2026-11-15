@@ -14,6 +14,11 @@ export interface SessionSkills {
   readonly names: readonly string[];
   /** What the session must list at its start, no more and no less, by the names it lists them by. */
   readonly expected: readonly string[];
+  /**
+   * The skills only the user runs, as skill commands (`disable-model-invocation: true`), by the
+   * names the session lists them by; never in `expected`, as the model isn't offered them.
+   */
+  readonly userOnly: readonly string[];
   /** The engine's per-skill listing overrides: each Project skill turned off. */
   readonly overrides: Readonly<Record<string, "off">>;
 }

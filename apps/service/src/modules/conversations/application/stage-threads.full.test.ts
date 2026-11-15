@@ -47,6 +47,7 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionSkills } from "../../skills/index.js";
+import { skillCommandsProvider } from "./skill-commands.fixtures.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { Consultations } from "./consultations.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
@@ -146,6 +147,7 @@ async function startOn(
       folder: join(officeData, "sessions", sessionId, "skills"),
       names: [],
       expected: [],
+      userOnly: [],
       overrides: {},
       versions: [],
       suffixMatches: [],
@@ -183,6 +185,7 @@ async function startOn(
       { provide: ProjectBases, useValue: bases },
       { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
+      skillCommandsProvider(),
       { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },

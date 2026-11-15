@@ -337,6 +337,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       folder: plugin,
       names: ["office:tdd", "lint-all", "ops:deploy"],
       expected: ["lint", "office:tdd", "ops:deploy"],
+      userOnly: [],
       overrides: {},
     });
 
@@ -360,6 +361,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
             folder: plugin,
             names: ["office:tdd"],
             expected: ["office:tdd"],
+            userOnly: [],
             overrides: { "lint-all": "off", "ops:deploy": "off" },
           },
         }),
@@ -411,6 +413,85 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
         { isError: true, text: "Unknown skill: review" },
       ]);
       expect(events.some((event) => event.kind === "tool-refused")).toBe(false);
+    });
+
+    describe("only the user runs", () => {
+      beforeEach(async () => {
+        await writeTextFile(
+          join(plugin, "skills", "release", "SKILL.md"),
+          "---\nname: release\ndescription: Releases.\ndisable-model-invocation: true\n---\nRelease $ARGUMENTS now.\n",
+        );
+        await writeTextFile(
+          join(folder, ".claude", "commands", "ship.md"),
+          "---\ndisable-model-invocation: true\n---\nShip it.\n",
+        );
+      });
+
+      it("starts without them in the model's listing, and its Skill tool refuses them", async () => {
+        fake.script(toolCall("Skill", { skill: "office:release" }), textReply(["Ok."], USAGE));
+
+        const { events } = await oneTurn(options({ skills: skillsWithUserOnly(plugin) }));
+
+        const skill = fake.requests[0]?.body as RecordedBody;
+        const description = skill.tools.find((tool) => tool.function.name === "Skill")?.function
+          .description;
+        expect(description).toContain(
+          "Available skills:\n- lint: Lints the code.\n- office:tdd: Test first.\n- ops:deploy: Deploys",
+        );
+        expect(description).not.toContain("release");
+        expect(description).not.toContain("ship");
+        expect(events.filter((event) => event.kind === "tool-result")).toMatchObject([
+          { isError: true, text: expect.stringContaining("only the user runs it") },
+        ]);
+      });
+
+      it("runs a skill command as Claude Code expands it, a user-only skill too", async () => {
+        fake.script(
+          textReply(["Briefed."], USAGE),
+          textReply(["Released."], USAGE),
+          textReply(["Tested."], USAGE),
+          textReply(["Shipped."], USAGE),
+          textReply(["Unknown."], USAGE),
+        );
+        const started = await engineOn().start({
+          id: randomUUID(),
+          options: options({ skills: skillsWithUserOnly(plugin) }),
+          brief: { id: "brief", text: "Begin." },
+        });
+        session = started;
+        const events = started.events[Symbol.asyncIterator]();
+        await untilTurnEnds(events);
+        const lastUserMessage = async (
+          id: string,
+          skill: string,
+          input: string,
+        ): Promise<unknown> => {
+          started.send(
+            { id, text: `/${skill} ${input}`.trim(), skillCommand: { skill, input } },
+            "later",
+          );
+          const { turn } = await untilTurnEnds(events);
+          expect(turn.consumedMessageIds).toEqual([id]);
+          return lastRequestBody().messages.at(-1);
+        };
+
+        expect(await lastUserMessage("c-1", "office:release", "v2")).toEqual({
+          role: "user",
+          content: `Base directory for this skill: ${join(plugin, "skills", "release")}\n\nRelease v2 now.`,
+        });
+        expect(await lastUserMessage("c-2", "office:tdd", "")).toEqual({
+          role: "user",
+          content: `Base directory for this skill: ${join(plugin, "skills", "tdd")}\n\nWrite the test, then .`,
+        });
+        expect(await lastUserMessage("c-3", "ship", "to staging")).toEqual({
+          role: "user",
+          content: "Ship it.\n\nARGUMENTS: to staging",
+        });
+        expect(await lastUserMessage("c-4", "review", "the diff")).toEqual({
+          role: "user",
+          content: "/review the diff",
+        });
+      });
     });
   });
 
@@ -1125,6 +1206,16 @@ async function withProcessEnded(
 }
 
 /** What a Process wrote, joined from its output events. */
+function skillsWithUserOnly(plugin: string): SessionSkills {
+  return {
+    folder: plugin,
+    names: ["office:release", "office:tdd", "lint-all", "ops:deploy", "ship"],
+    expected: ["lint", "office:tdd", "ops:deploy"],
+    userOnly: ["office:release", "ship"],
+    overrides: {},
+  };
+}
+
 function outputOf(events: readonly SessionEvent[], callId: string): string {
   return events
     .flatMap((event) =>

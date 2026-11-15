@@ -88,6 +88,7 @@ const SETTINGS: SessionSettings = {
     folder: "/office/sessions/s/skills",
     names: ["office:review"],
     expected: ["office:review"],
+    userOnly: [],
     overrides: {},
   },
   profile: { edit: true, run: { kind: "anything" }, web: false, mcpTools: {} },

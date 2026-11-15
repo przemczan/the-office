@@ -1,0 +1,72 @@
+/* The "/" list over a Thread's composer (in `mention-picker`'s frame) and the commands' notes. */
+
+.command-picker li {
+  align-items: flex-start;
+}
+
+.command-picker li svg {
+  margin-top: 2px;
+}
+
+.command-picker-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.command-picker-name,
+.command-help-name {
+  font-family: var(--font-mono);
+}
+
+.command-picker-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* /help's list, in a composer note */
+.command-note {
+  align-items: flex-start;
+}
+
+.command-note > svg {
+  margin-top: 2px;
+}
+
+.command-help-list {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  gap: 4px 12px;
+  margin: 6px 0 0;
+}
+
+.command-help-row {
+  display: contents;
+}
+
+.command-help-list dt,
+.command-help-list dd {
+  margin: 0;
+}
+
+.command-help-list .mention-picker-kind {
+  white-space: nowrap;
+}
+
+/* Where a skill is assigned, a skill named like an Office command */
+.skill-command-clash {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--warning-fg);
+}
+
+.skill-command-clash svg {
+  flex: none;
+  margin-top: 1px;
+}

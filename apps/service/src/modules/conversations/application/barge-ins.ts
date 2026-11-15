@@ -52,6 +52,14 @@ export class BargeIns {
     return true;
   }
 
+  /**
+   * A message the caller sent with priority `later`, such as a skill command after a new
+   * session's Brief: until a turn takes it, the turn running ends with one to follow.
+   */
+  sentAfterTurn(messageId: string): void {
+    if (!this.ended) this.sent.add(messageId);
+  }
+
   /** The message that starts a turn has been sent: the held messages follow it. */
   turnStarted(): void {
     this.turnRunning = true;

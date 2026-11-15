@@ -26,6 +26,17 @@ export function frontmatterText(file: MarkdownFile, key: string): string | undef
   return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 }
 
+/** A frontmatter flag as Claude Code reads it: on for `true` or the text `"true"`, else off. */
+export function frontmatterFlag(file: MarkdownFile, key: string): boolean {
+  const value = file.frontmatter[key];
+  return value === true || value === "true";
+}
+
+/** Whether only the user runs the skill or command, as a skill command (`disable-model-invocation`). */
+export function isUserOnly(file: MarkdownFile): boolean {
+  return frontmatterFlag(file, "disable-model-invocation");
+}
+
 function parsedMapping(yaml: string): Record<string, unknown> | undefined {
   try {
     const value: unknown = parse(yaml);

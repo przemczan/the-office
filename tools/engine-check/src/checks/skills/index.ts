@@ -8,6 +8,7 @@ import { pluginDetectionCheck } from "./plugin-detection.ts";
 import { projectNamesCheck } from "./project-names.ts";
 import { resumeCheck } from "./resume.ts";
 import { shellExecutionCheck } from "./shell-execution.ts";
+import { skillCommandCheck } from "./skill-command.ts";
 import { startBeforeBriefCheck } from "./start-before-brief.ts";
 import { startCheck } from "./start-check.ts";
 import { userScopeCheck } from "./user-scope.ts";
@@ -26,4 +27,5 @@ export const skillsChecks: readonly Check[] = [
   denyRuleCheck,
   shellExecutionCheck,
   frontmatterYamlCheck,
+  skillCommandCheck,
 ];

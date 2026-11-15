@@ -84,6 +84,7 @@ function aThread(context: Partial<ThreadContext>): Thread {
     stageThread: true,
     consultation: null,
     changesAllowed: null,
+    skillCommands: [],
     answered: null,
     lastMovedAt: null,
   };

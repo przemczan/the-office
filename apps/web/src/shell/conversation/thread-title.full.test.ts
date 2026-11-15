@@ -26,6 +26,7 @@ function aThread(fields: Partial<Thread>): Thread {
     stageThread: false,
     consultation: null,
     changesAllowed: null,
+    skillCommands: [],
     answered: null,
     lastMovedAt: null,
     ...fields,

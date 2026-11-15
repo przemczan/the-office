@@ -1,5 +1,7 @@
+import { messageCommand, type OfficeCommandName, type SkillCommand } from "@the-office/contracts";
 import { Button, Icon, IconButton } from "@the-office/ui";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCommands } from "../commands/command-picker.tsx";
 import { useMentions } from "../mentions/mention-picker.tsx";
 import { MessageField } from "./message-field.tsx";
 
@@ -12,7 +14,8 @@ export interface PrefilledNote {
 /**
  * Writes the next message, with the keys every message field has; `@` mentions a Task, an open
  * Decision or an Idea, which the person then reads. A Handover note a Link card gave starts the
- * draft, for the user to edit or leave out (spec §2.2).
+ * draft, for the user to edit or leave out (spec §2.2). Given `onOfficeCommand`, "/" lists the
+ * commands, and an Office command is carried out here rather than sent (spec §2.4).
  */
 export function Composer({
   placeholder,
@@ -25,6 +28,10 @@ export function Composer({
   onLeaveNoteOut,
   onDrafting,
   onDraftChange,
+  skillCommands = [],
+  onOfficeCommand,
+  commandNote,
+  onCloseCommandNote,
 }: {
   readonly placeholder: string;
   /** A message can't be sent now; a draft can still be written. */
@@ -48,18 +55,48 @@ export function Composer({
   readonly onDrafting?: (drafting: boolean) => void;
   /** Hears the draft itself, for a composer that may go and come back. */
   readonly onDraftChange?: ((draft: string) => void) | undefined;
+  /** The Thread's skill commands, listed after the Office commands. */
+  readonly skillCommands?: readonly SkillCommand[];
+  /**
+   * Carries out an Office command written as the message, which is then cleared and never sent.
+   * Without it, as in a Stage Thread, "/" is ordinary text and every message is sent.
+   */
+  readonly onOfficeCommand?: ((name: OfficeCommandName) => void) | undefined;
+  /** What an Office command answered, above the composer, until Esc or the next message. */
+  readonly commandNote?: ReactNode;
+  readonly onCloseCommandNote?: (() => void) | undefined;
 }): ReactNode {
   const [draft, setDraft] = useState(startingDraft ?? prefilledNote?.text ?? "");
   const [noteKept, setNoteKept] = useState(prefilledNote !== undefined);
   const note = noteKept ? prefilledNote : undefined;
   const [sending, setSending] = useState(false);
   const mentions = useMentions(draft, setDraft);
+  const commands = useCommands(
+    draft,
+    setDraft,
+    onOfficeCommand === undefined ? undefined : skillCommands,
+  );
+  const officeCommand =
+    onOfficeCommand === undefined
+      ? undefined
+      : messageCommand(
+          draft,
+          skillCommands.map(({ name }) => name),
+        );
   const drafting = draft.trim() !== "";
   useEffect(() => onDrafting?.(drafting), [drafting, onDrafting]);
   useEffect(() => onDraftChange?.(draft), [draft, onDraftChange]);
-  const canSend = !busy && !sending && drafting;
+  // An Office command never reaches the person, so nothing they are doing holds it back.
+  const runsOfficeCommand = officeCommand?.kind === "office";
+  const canSend = !sending && drafting && (runsOfficeCommand || !busy);
   const send = async (): Promise<void> => {
     if (!canSend) return;
+    onCloseCommandNote?.();
+    if (officeCommand?.kind === "office") {
+      setDraft("");
+      onOfficeCommand?.(officeCommand.name);
+      return;
+    }
     setSending(true);
     try {
       await onSend(mentions.linked(draft), note !== undefined);
@@ -77,8 +114,20 @@ export function Composer({
     setNoteKept(false);
     onLeaveNoteOut?.();
   };
+  const onKeyDownFirst = (event: KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    if (commands.onKeyDownFirst(event) || mentions.onKeyDownFirst(event)) return true;
+    if (event.key !== "Escape" || commandNote === undefined || onCloseCommandNote === undefined) {
+      return false;
+    }
+    // The note is the innermost thing open: Esc closes it, not the chat around it.
+    event.stopPropagation();
+    event.preventDefault();
+    onCloseCommandNote();
+    return true;
+  };
   return (
     <>
+      {commandNote}
       {note && (
         <p className="composer-note" role="note">
           <Icon name="sticky-note" size={14} />
@@ -91,7 +140,7 @@ export function Composer({
         </p>
       )}
       <div className="composer">
-        {mentions.picker}
+        {commands.picker || mentions.picker}
         <MessageField
           label="Message"
           rows={note ? 4 : 2}
@@ -99,10 +148,10 @@ export function Composer({
           value={draft}
           onChange={setDraft}
           canSend={canSend}
-          busyReason={busy ? busyHint : undefined}
+          busyReason={busy && !runsOfficeCommand ? busyHint : undefined}
           onSend={() => void send()}
           autoFocus={autoFocus}
-          onKeyDownFirst={mentions.onKeyDownFirst}
+          onKeyDownFirst={onKeyDownFirst}
           onCaret={mentions.onCaret}
         />
         <IconButton
@@ -113,7 +162,7 @@ export function Composer({
         />
         <IconButton
           icon={<Icon name="arrow-up" size={16} />}
-          label={busy ? busyHint : "Send (Enter)"}
+          label={busy && !runsOfficeCommand ? busyHint : "Send (Enter)"}
           variant="primary"
           disabled={!canSend}
           onClick={() => void send()}

@@ -53,19 +53,29 @@ export class StreamEvents {
   }
 }
 
-/** A message to the session as the engine's input takes it; a brief goes without a priority. */
+/**
+ * A message to the session as the engine's input takes it; a brief goes without a priority. A
+ * skill command goes as the user types one, `/<skill> <input>`, which the engine expands itself,
+ * with any priority, like any message.
+ */
 export function userMessage(
   message: UserMessage,
   priority: MessagePriority | undefined,
 ): SDKUserMessage {
   return {
     type: "user",
-    message: { role: "user", content: message.text },
+    message: { role: "user", content: inputText(message) },
     parent_tool_use_id: null,
     // A UUID, as the port asks of message ids.
     uuid: message.id as SDKUserMessage["uuid"] & string,
     ...(priority !== undefined && { priority }),
   };
+}
+
+function inputText({ text, skillCommand }: UserMessage): string {
+  if (skillCommand === undefined) return text;
+  const { skill, input } = skillCommand;
+  return input === "" ? `/${skill}` : `/${skill} ${input}`;
 }
 
 export function isInit(message: SDKMessage): message is SDKSystemMessage {

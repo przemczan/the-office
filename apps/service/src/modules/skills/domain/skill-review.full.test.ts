@@ -61,7 +61,7 @@ describe("reviewOf", () => {
       "Its frontmatter changes which tools are allowed while the skill is in use; The Office's rules still decide each call.",
       "Its frontmatter runs the skill in a subagent.",
       "Its frontmatter adds when_to_use, which every session that has the skill lists besides its description.",
-      "Its frontmatter keeps the model from using it, so a session that has it is refused at its start.",
+      "Its frontmatter keeps the model from using it: only the user runs it, as a skill command (/<name>).",
     ]);
   });
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Message, MessageDelivery } from "@the-office/contracts";
-import { Avatar, Icon, TextButton } from "@the-office/ui";
+import { Avatar, Badge, Icon, TextButton } from "@the-office/ui";
 import {
   useCallback,
   useEffect,
@@ -294,9 +294,13 @@ function Turn({
     >
       {messages.map((message) => (
         <div key={message.id}>
-          <div className="message-text">
-            <MarkdownText text={message.text} />
-          </div>
+          {message.kind === "user" && message.skillCommand ? (
+            <SkillCommandText skill={message.skillCommand.skill} text={message.text} />
+          ) : (
+            <div className="message-text">
+              <MarkdownText text={message.text} />
+            </div>
+          )}
           {message.kind === "user" && message.openPage && (
             <p className="message-open-page">
               With <OpenPageChip page={message.openPage} /> open
@@ -313,6 +317,36 @@ function Turn({
       ))}
     </TurnFrame>
   );
+}
+
+/**
+ * A message that ran a skill ("/<skill> [input]", spec §2.4): marked as a skill command, with the
+ * skill's name and what was written after it.
+ */
+function SkillCommandText({
+  skill,
+  text,
+}: {
+  readonly skill: string;
+  readonly text: string;
+}): ReactNode {
+  const input = skillCommandInput(text);
+  return (
+    <div className="message-text skill-command-message">
+      <p className="skill-command-head">
+        <Badge tone="accent" size="sm">
+          Skill command
+        </Badge>
+        <span className="skill-command-name">/{skill}</span>
+      </p>
+      {input !== "" && <MarkdownText text={input} />}
+    </div>
+  );
+}
+
+/** What follows a command's first word, its input. */
+function skillCommandInput(text: string): string {
+  return /^\s*\S+\s*([\s\S]*)$/.exec(text)?.[1]?.trim() ?? "";
 }
 
 function TurnAuthor({

@@ -6,6 +6,19 @@ export interface UserMessage {
   /** A UUID the caller chooses, which the turn that takes the message names. */
   readonly id: string;
   readonly text: string;
+  /**
+   * Set when the user sent a skill command ("/<skill> [input]"): the engine runs the skill, by the
+   * name the session lists it as (`office:<name>`), with the input as its arguments, instead of
+   * taking `text` as a message.
+   */
+  readonly skillCommand?: SkillCommand;
+}
+
+/** A skill the user runs in the session, as Claude Code's slash commands run one. */
+export interface SkillCommand {
+  /** The name the session lists the skill as. */
+  readonly skill: string;
+  readonly input: string;
 }
 
 /**

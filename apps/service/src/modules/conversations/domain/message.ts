@@ -133,6 +133,11 @@ interface UserMessage {
   readonly handoverNoteFrom?: string;
   /** The page open beside the chat drawer as the user sent it (spec §2.4), kept for the log. */
   readonly openPage?: OpenPage;
+  /**
+   * Set when the message is a skill command ("/<skill> [input]", spec §2.4): it ran the library
+   * skill named, and `text` stays the message as written.
+   */
+  readonly skillCommand?: { readonly skill: string };
 }
 
 /**

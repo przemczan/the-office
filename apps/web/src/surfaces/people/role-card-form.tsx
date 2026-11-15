@@ -39,6 +39,7 @@ import {
   roleQueries,
 } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
+import { SkillCommandClash } from "../../shell/commands/command-notes.tsx";
 import { EngineModelFields } from "../../shell/engine-model-fields.tsx";
 import { EFFORT_LABELS } from "../../shell/engine-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
@@ -552,7 +553,12 @@ function SkillFields({
             disabled={skill.everyone}
             onChange={(on) => toggle(skill.name, on)}
             label={skill.name}
-            description={<span className="role-card-skill-note">{skillNote(skill)}</span>}
+            description={
+              <>
+                <span className="role-card-skill-note">{skillNote(skill)}</span>
+                <SkillCommandClash skillName={skill.name} />
+              </>
+            }
           />
         ))}
       </div>

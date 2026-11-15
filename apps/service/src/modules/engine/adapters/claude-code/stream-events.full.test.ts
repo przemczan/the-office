@@ -12,6 +12,12 @@ const assistant = (content: unknown[]): SDKMessage =>
     message: { id: "m1", content, usage: USAGE },
   }) as unknown as SDKMessage;
 
+const releaseCommand = (input: string) => ({
+  id: "7b0c0c9e-1b1a-4c55-9d43-31f1d7a5b0aa",
+  text: "release it",
+  skillCommand: { skill: "office:release", input },
+});
+
 describe("StreamEvents", () => {
   it("gives a message's events, then the context it read and the running turn's tokens", () => {
     const events = new StreamEvents([]).of(assistant([{ type: "text", text: "hi" }]));
@@ -95,5 +101,16 @@ describe("userMessage", () => {
       priority: "next",
     });
     expect(userMessage(message, undefined)).not.toHaveProperty("priority");
+  });
+
+  it("writes a skill command as the user types it, whatever its priority", () => {
+    expect(userMessage(releaseCommand("v2 now"), "later")).toMatchObject({
+      message: { role: "user", content: "/office:release v2 now" },
+      priority: "later",
+    });
+    expect(userMessage(releaseCommand(""), "next")).toMatchObject({
+      message: { role: "user", content: "/office:release" },
+      priority: "next",
+    });
   });
 });

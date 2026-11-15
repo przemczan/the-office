@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import {
   contextOverrideChoiceSchema,
+  messageCommand,
   newMessageSchema,
   pageQuerySchema,
   recordLinksIn,
@@ -44,7 +45,7 @@ import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { TaskConversations } from "../../application/task-conversations.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
-import { ThreadRunner } from "../../application/thread-runner.js";
+import { ThreadRunner, type SkillCommandSent } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { ThreadSummaries } from "../../application/thread-summaries.js";
 import type { Mention } from "../../domain/mention.js";
@@ -241,7 +242,12 @@ export class ThreadsController {
   ): Promise<ThreadResponse> {
     const mentions = recordLinksIn(text).map(toMention);
     return this.toResponse(
-      await this.runner.send(id, text, userOf(signedIn), { mentions, handoverNoteFrom, openPage }),
+      await this.runner.send(id, text, userOf(signedIn), {
+        mentions,
+        handoverNoteFrom,
+        openPage,
+        skillCommandAmong: (names) => skillCommandIn(text, names),
+      }),
     );
   }
 
@@ -252,6 +258,12 @@ export class ThreadsController {
     ]);
     return toThreadResponse(thread, reading, activity);
   }
+}
+
+/** The skill command the message is among `names`, as the web reads it too (spec §2.4). */
+function skillCommandIn(text: string, names: readonly string[]): SkillCommandSent | undefined {
+  const command = messageCommand(text, names);
+  return command?.kind === "skill" ? { name: command.name, input: command.input } : undefined;
 }
 
 function toMention(link: RecordLink): Mention {

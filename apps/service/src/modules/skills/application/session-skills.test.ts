@@ -136,6 +136,44 @@ describe("SessionSkills", () => {
     );
   });
 
+  it("names the skills only the user runs apart, leaving them out of what it expects", async () => {
+    const [tdd, release] = [aName("tdd"), aName("release")];
+    await anOnSkill(tdd);
+    await library.upload({
+      fileName: `${release}.md`,
+      content: new TextEncoder().encode(
+        `---\nname: ${release}\ndescription: Releases.\ndisable-model-invocation: true\n---\nRelease.\n`,
+      ),
+    });
+    await library.turnOn(release);
+    await checkout.write(
+      ".claude/commands/ship.md",
+      "---\ndisable-model-invocation: true\n---\nShip it.\n",
+    );
+    checkout.commit();
+    const sessionId = randomUUID();
+
+    const prepared = await sessionSkills.prepare({
+      sessionId,
+      roleKey: await aRoleWith(tdd, release),
+      project: {
+        id: "admin-panel",
+        folder: checkout.path,
+        useProjectSkills: true,
+        projectSkillsOff: [],
+      },
+    });
+
+    expect(prepared.names).toEqual([
+      ...[`office:${release}`, `office:${tdd}`].toSorted(),
+      "deploy",
+      "ship",
+    ]);
+    expect(prepared.expected).toEqual(["deploy", `office:${tdd}`]);
+    expect(prepared.userOnly).toEqual([`office:${release}`, "ship"]);
+    await expect(sessionSkills.rebuild(sessionId)).resolves.toEqual(prepared);
+  });
+
   it("turns the Project's skills off, by bare name, when the Project doesn't use them", async () => {
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
@@ -511,6 +549,7 @@ async function firstTurnTokens(
         folder: skills.folder,
         names: skills.names,
         expected: skills.expected,
+        userOnly: skills.userOnly,
         overrides: skills.overrides,
       },
       profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },

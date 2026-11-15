@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EngineSessions } from "../../engine/index.js";
 import { Duties, EngineCascade, RoleCards } from "../../people/index.js";
+import { SkillCommands, type SkillCommand } from "../../skills/index.js";
 import type { Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Thread } from "../domain/thread.js";
@@ -23,6 +24,8 @@ export interface ThreadReading {
   readonly contextReported: boolean;
   /** Undefined for a Thread with no Allow changes switch: any but the Caretaker's chat. */
   readonly changesAllowed: boolean | undefined;
+  /** The skill commands of the session that takes the next message; none in a Stage Thread. */
+  readonly skillCommands: readonly SkillCommand[];
 }
 
 /**
@@ -40,16 +43,36 @@ export class ThreadContexts {
     private readonly allowChanges: AllowChanges,
     private readonly engine: EngineSessions,
     private readonly duties: Duties,
+    private readonly skillCommands: SkillCommands,
   ) {}
 
-  /** The Thread's context, whether its session reports it, and whether changes are allowed in it. */
+  /**
+   * The Thread's context, whether its session reports it, whether changes are allowed in it, and
+   * the skill commands its next message may be.
+   */
   async read(thread: Thread): Promise<ThreadReading> {
     const changesAllowed = await this.allowChanges.inThread(thread);
     const [context, contextReported] = await Promise.all([
       this.of(thread, new Date(), changesAllowed),
       thread.session ? this.engine.reportsContext(thread.session.engineId) : true,
     ]);
-    return { context, contextReported, changesAllowed };
+    const skillCommands = await this.skillCommandsOf(thread, context);
+    return { context, contextReported, changesAllowed, skillCommands };
+  }
+
+  /**
+   * The library skills of the session that takes the next message: the running or resumed
+   * session's as it recorded them, or what a new session of the Thread's person would get.
+   */
+  private async skillCommandsOf(
+    thread: Thread,
+    context: ContextDecision,
+  ): Promise<readonly SkillCommand[]> {
+    if (thread.stageThread) return [];
+    const goesOn = thread.state === "answering" || context.move === "resume";
+    return thread.session && goesOn
+      ? this.skillCommands.ofSession(thread.session.id)
+      : this.skillCommands.forRole(thread.roleKey);
   }
 
   async of(

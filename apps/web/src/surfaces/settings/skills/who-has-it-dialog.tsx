@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { Role, Skill } from "@the-office/contracts";
-import { Button, Checkbox, Dialog, Switch } from "@the-office/ui";
+import { officeCommandClash, type Role, type Skill } from "@the-office/contracts";
+import { Alert, Button, Checkbox, Dialog, Switch } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleQueries } from "../../../api/people.ts";
 import { assignSkill, changeSkillEveryone, skillQueries } from "../../../api/skills.ts";
+import { officeCommandClashWords } from "../../../shell/commands/command-words.ts";
 import { personName } from "../../../shell/person-name.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
@@ -72,6 +73,9 @@ function WhoHasItForm({
     >
       <div className="skill-form">
         {saving.error && <RefusalAlert title="That didn't work" error={saving.error} />}
+        {officeCommandClash(skill.name) && (
+          <Alert tone="warning">{officeCommandClashWords(skill.name)}</Alert>
+        )}
         <Switch
           checked={everyone}
           onChange={setEveryone}

@@ -1,5 +1,5 @@
 import type { Skill } from "./skill.js";
-import { frontmatterText, readSkillMd } from "./skill-md.js";
+import { frontmatterText, isUserOnly, readSkillMd } from "./skill-md.js";
 
 /** The plugin a session's library skills are in, so the engine lists each as `office:<name>`. */
 export const SESSION_PLUGIN = "office";
@@ -28,6 +28,11 @@ export interface ProjectSkillName {
    * only once a file below it is read.
    */
   readonly listedAs: string | undefined;
+  /**
+   * Set at the repository's top when only the user runs it, as a skill command
+   * (`disable-model-invocation: true`): the listing the model sees leaves it out.
+   */
+  readonly userOnly?: true;
 }
 
 /** A file of the checkout that may be a Project skill or command. */
@@ -60,14 +65,19 @@ export function projectSkillNameOf({ path, text }: ProjectSkillFile): ProjectSki
     if (skill[1] !== undefined) return { key: folder, listedAs: undefined };
     const skillMd = readSkillMd(text);
     const named = typeof skillMd === "string" ? undefined : frontmatterText(skillMd, "name");
-    return { key: folder, listedAs: named?.trim() || folder };
+    return withUserOnly({ key: folder, listedAs: named?.trim() || folder }, text);
   }
   const command = COMMAND_PATH.exec(path);
   if (command?.[2]) {
     const key = command[2].split("/").join(":");
-    return { key, listedAs: command[1] === undefined ? key : undefined };
+    if (command[1] !== undefined) return { key, listedAs: undefined };
+    return withUserOnly({ key, listedAs: key }, text);
   }
   return undefined;
+}
+
+function withUserOnly(skill: ProjectSkillName, text: string): ProjectSkillName {
+  return isUserOnly(readSkillMd(text)) ? { ...skill, userOnly: true } : skill;
 }
 
 /**
@@ -144,12 +154,34 @@ export function allowedSkillNames(record: SessionSkillRecord): string[] {
 
 /**
  * What the session must list at its start, no more and no less: the library's skills and the
- * Project's at the repository's top, by the names the listing gives them.
+ * Project's at the repository's top, by the names the listing gives them, but for those only the
+ * user runs, which the model's listing leaves out. `userOnlyLibrary` names the library's by name.
  */
-export function expectedSkillNames(record: SessionSkillRecord): string[] {
+export function expectedSkillNames(
+  record: SessionSkillRecord,
+  userOnlyLibrary: ReadonlySet<string> = new Set(),
+): string[] {
+  const userOnly = new Set(userOnlySkillNames(record, userOnlyLibrary));
+  return [...libraryNames(record), ...record.projectSkills.flatMap((skill) => skill.listedAs ?? [])]
+    .filter((name) => !userOnly.has(name))
+    .toSorted();
+}
+
+/**
+ * The skills only the user runs, as skill commands, by the names the session lists them by: the
+ * library's named in `userOnlyLibrary` and the Project's at the repository's top flagged so.
+ */
+export function userOnlySkillNames(
+  record: SessionSkillRecord,
+  userOnlyLibrary: ReadonlySet<string>,
+): string[] {
   return [
-    ...libraryNames(record),
-    ...record.projectSkills.flatMap((skill) => skill.listedAs ?? []),
+    ...record.skills
+      .filter((skill) => userOnlyLibrary.has(skill.name))
+      .map((skill) => `${SESSION_PLUGIN}:${skill.name}`),
+    ...record.projectSkills.flatMap((skill) =>
+      skill.userOnly && skill.listedAs !== undefined ? [skill.listedAs] : [],
+    ),
   ].toSorted();
 }
 

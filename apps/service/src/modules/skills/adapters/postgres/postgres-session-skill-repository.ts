@@ -51,7 +51,9 @@ function toRow(record: SessionSkillRecord): SessionSkillRow {
     sessionId: record.sessionId,
     skills: record.skills.map(({ name, version, filesHash }) => ({ name, version, filesHash })),
     projectId: record.projectId ?? null,
-    projectSkills: record.projectSkills.map(({ key, listedAs }) => ({ key, listedAs })),
+    projectSkills: record.projectSkills.map(({ key, listedAs, userOnly }) =>
+      userOnly ? { key, listedAs, userOnly } : { key, listedAs },
+    ),
     projectSkillsOff: [...record.projectSkillsOff],
     preparedAt: record.preparedAt,
   };

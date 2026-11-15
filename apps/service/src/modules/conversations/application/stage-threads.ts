@@ -635,6 +635,7 @@ export class StageThreads {
         folder: skills.folder,
         names: skills.names,
         expected: skills.expected,
+        userOnly: skills.userOnly,
         overrides: skills.overrides,
       },
       profile: {

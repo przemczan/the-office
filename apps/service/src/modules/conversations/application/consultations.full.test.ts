@@ -28,6 +28,7 @@ import { BusyWorkModule } from "../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
+import { skillCommandsProvider } from "./skill-commands.fixtures.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { consultationOfficeTools } from "../domain/session-instructions.js";
@@ -176,6 +177,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: ProjectBases, useValue: bases },
       { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
+      skillCommandsProvider(),
       { provide: SessionMcpServers, useValue: sessionMcpServersStandIn().service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
@@ -252,6 +254,7 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
     folder: join(officeData, "sessions", sessionId, "skills"),
     names: [],
     expected: [],
+    userOnly: [],
     overrides: {},
     versions: [],
     suffixMatches: [],

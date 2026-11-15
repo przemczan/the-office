@@ -83,7 +83,16 @@ export const PLACEHOLDERS: Readonly<Record<keyof RecordedPlaces, string>> = {
 const absent = <Schema extends z.ZodType>(schema: Schema) =>
   schema.nullable().transform((value) => value ?? undefined);
 
-const userMessage = z.object({ id: z.string(), text: z.string() });
+/** A message as the caller sent it, a skill command's skill and input kept (none when absent). */
+const userMessage = z
+  .object({
+    id: z.string(),
+    text: z.string(),
+    skillCommand: z.object({ skill: z.string(), input: z.string() }).nullish(),
+  })
+  .transform(({ skillCommand, ...message }) =>
+    skillCommand ? { ...message, skillCommand } : message,
+  );
 
 const tokenUsage = z.object({
   input: z.number(),

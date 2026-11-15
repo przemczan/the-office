@@ -41,7 +41,13 @@ export async function startCheckProblems(
 ): Promise<string[]> {
   const reload = await engine.reloadPlugins({ holdOnCacheImpact: true });
   const usage = await engine.getContextUsage({ detail: "summary" });
-  const listed = usage.skills?.skillFrontmatter.map((skill) => skill.name) ?? [];
+  // The model's listing: a skill only the user runs is never expected, and isn't held against
+  // the session should the engine list it anyway.
+  const userOnly = new Set(skills?.userOnly ?? []);
+  const listed =
+    usage.skills?.skillFrontmatter
+      .map((skill) => skill.name)
+      .filter((name) => !userOnly.has(name)) ?? [];
   return [
     ...(reload.held === true
       ? ["The engine held the plugin reload, which would have changed the cached prompt."]

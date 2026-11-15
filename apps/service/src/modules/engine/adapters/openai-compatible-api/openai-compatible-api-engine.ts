@@ -29,7 +29,7 @@ import { ReadFiles } from "./built-in-tool.js";
 import { ChatCompletionsClient } from "./chat-completions-client.js";
 import type { ChatMessage } from "./chat-completions.js";
 import { ConversationFile } from "./conversation-file.js";
-import { listedSkills } from "./listed-skills.js";
+import { listedSkills, modelListing } from "./listed-skills.js";
 import { projectInstructions } from "./project-instructions.js";
 import { SessionTools } from "./session-tools.js";
 import { systemPrompt } from "./system-prompt.js";
@@ -129,7 +129,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     const skills = await listedSkills(options.folder, options.skills);
     const problems = listingProblems(
       options.skills?.expected ?? [],
-      skills.map(({ name }) => name),
+      modelListing(skills).map(({ name }) => name),
     );
     if (problems.length > 0) throw new SessionSkillsDiffer(id, problems);
     const { paths, agentShells, processTrees } = this.operatingSystem;
@@ -185,6 +185,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         backgroundCommands,
         mcpConnections,
         mcpServersNotStarted,
+        skills,
         answersInSchema: options.outputSchema !== undefined,
         conversationFile,
         kept,

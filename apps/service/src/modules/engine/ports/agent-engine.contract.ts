@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,6 +45,7 @@ export const CONTRACT_SCENARIOS = [
   "background-stop",
   "usage-window-used-up",
   "failed-after-allowed",
+  "skill-command",
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
@@ -148,6 +149,38 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
         expect(notes.calls).toEqual([{ input: { word: "tangerine" }, sessionId: session.id }]);
         expect(log.resultOf(call)).toMatchObject({ text: NOTED, isError: false });
         await expectCommandsJudgedAsTheSessionsShell(notes.judges[0]);
+        await session.end();
+      }),
+      under.timeoutMs,
+    );
+
+    it.runIf(can.officeTools)(
+      "runs a skill command, one only the user runs, with its input, as its own turn after the brief's",
+      scenario("skill-command", async (engine, options) => {
+        const notes = noteTool();
+        const brief = message("Reply with the single word: ready");
+        const session = await engine.start({
+          id: randomUUID(),
+          options: {
+            ...options,
+            officeTools: [notes.tool],
+            skills: await userOnlySkill(options.folder, notes.tool.name),
+          },
+          brief,
+        });
+        const log = new EventLog(session);
+        const command: UserMessage = {
+          id: randomUUID(),
+          text: `/${NOTE_WORD_SKILL} tangerine`,
+          skillCommand: { skill: NOTE_WORD_SKILL, input: "tangerine" },
+        };
+        session.send(command, "later");
+
+        expect((await log.nextTurn()).consumedMessageIds).toEqual([brief.id]);
+        const ran = await log.nextTurn();
+        expect(ran.consumedMessageIds).toEqual([command.id]);
+        expect(ran.outcome).toBe("completed");
+        expect(notes.calls).toEqual([{ input: { word: "tangerine" }, sessionId: session.id }]);
         await session.end();
       }),
       under.timeoutMs,
@@ -665,6 +698,33 @@ async function replyingSession(
   await new EventLog(session).nextTurn();
   await afterTurn(session);
   await session.end();
+}
+
+/** The skill `skill-command` runs, as the session lists it. */
+const NOTE_WORD_SKILL = "office:note-word";
+
+/**
+ * A session plugin in `folder` holding one skill only the user runs, which has the Agent call
+ * `tool` with the command's input.
+ */
+async function userOnlySkill(folder: string, tool: string): Promise<SessionOptions["skills"]> {
+  const plugin = join(folder, "session-skills");
+  const skill = join(plugin, "skills", "note-word");
+  await mkdir(join(plugin, ".claude-plugin"), { recursive: true });
+  await writeFile(join(plugin, ".claude-plugin", "plugin.json"), '{"name":"office"}\n');
+  await mkdir(skill, { recursive: true });
+  await writeFile(
+    join(skill, "SKILL.md"),
+    "---\nname: note-word\ndescription: Notes a word.\ndisable-model-invocation: true\n---\n\n" +
+      `Call the ${tool} tool once with the word $ARGUMENTS, then reply with the single word: done\n`,
+  );
+  return {
+    folder: plugin,
+    names: [NOTE_WORD_SKILL],
+    expected: [],
+    userOnly: [NOTE_WORD_SKILL],
+    overrides: {},
+  };
 }
 
 /** An Office tool that keeps what it is called with. */

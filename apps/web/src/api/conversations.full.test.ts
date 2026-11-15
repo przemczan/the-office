@@ -36,6 +36,7 @@ function aStageThread(id: string, tokens: TokenTotals): Thread {
     stageThread: true,
     consultation: null,
     changesAllowed: null,
+    skillCommands: [],
     answered: null,
     lastMovedAt: null,
   };

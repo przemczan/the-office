@@ -13,6 +13,8 @@ export interface SkillFixture {
   readonly name: string;
   readonly description: string;
   readonly body: string;
+  /** Further frontmatter lines after `name` and `description`, by key, written as given. */
+  readonly frontmatter?: Readonly<Record<string, string>>;
   /** Supporting files beside `SKILL.md`, by path relative to the skill folder. */
   readonly files?: Readonly<Record<string, string>>;
 }
@@ -123,7 +125,10 @@ export async function writeProjectCommand(
 }
 
 export async function writeSkill(folder: string, skill: SkillFixture): Promise<void> {
-  const frontmatter = `---\nname: ${skill.name}\ndescription: ${skill.description}\n---\n`;
+  const extra = Object.entries(skill.frontmatter ?? {})
+    .map(([key, value]) => `${key}: ${value}\n`)
+    .join("");
+  const frontmatter = `---\nname: ${skill.name}\ndescription: ${skill.description}\n${extra}---\n`;
   await writeFileWithFolders(join(folder, "SKILL.md"), `${frontmatter}\n${skill.body}\n`);
   for (const [path, content] of Object.entries(skill.files ?? {})) {
     await writeFileWithFolders(join(folder, path), content);

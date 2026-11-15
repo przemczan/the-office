@@ -108,7 +108,7 @@
 - `update-skill-dialog.tsx`: UpdateSkillDialog
 - `upload-version-dialog.tsx`: UploadVersionDialog
 - `who-has-it-dialog.tsx`: WhoHasItDialog
-- Tests: skills-section.full.test.tsx
+- Tests: skills-section.full.test.tsx, who-has-it-dialog.full.test.tsx
 
 ### telemetry/
 

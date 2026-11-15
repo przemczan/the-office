@@ -15,6 +15,25 @@ describe("startCheckProblems", () => {
     ]);
   });
 
+  it("starts a session with a skill only the user runs, listed by the engine or not", async () => {
+    const withUserOnly = {
+      ...skills,
+      names: [...skills.names, "office:release"],
+      userOnly: ["office:release"],
+    };
+
+    await expect(
+      startCheckProblems(anEngine({ listed: ["office:tdd", "deploy"] }), withUserOnly, paths),
+    ).resolves.toEqual([]);
+    await expect(
+      startCheckProblems(
+        anEngine({ listed: ["office:tdd", "deploy", "office:release"] }),
+        withUserOnly,
+        paths,
+      ),
+    ).resolves.toEqual([]);
+  });
+
   it("refuses when its plugin isn't loaded from its folder, or the engine reports errors", async () => {
     const engine = anEngine({
       plugins: [{ name: "office", path: join(folder, "elsewhere") }],

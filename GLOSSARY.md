@@ -495,8 +495,16 @@ _Avoid_: Permission flag, guard, gate (for this)
 A packaged set of instructions and files from The Office's library that a person may use when the work calls for it.
 _Avoid_: Plugin, tool, ability
 
+**Skill command**:
+A message the user sends as "/<skill> [input]", "/" its first character, which runs that Skill of the session's in it with the input, as Claude Code's slash commands do; it reaches the engine as such, with no user-message heading, and shows in the Thread as a skill command. A Skill marked `disable-model-invocation: true` runs only this way.
+_Avoid_: Slash command, skill invocation, macro
+
+**Office command**:
+A command typed in a Thread's message box as "/<name>" that The Office carries out itself, never reaching the engine: /clear (Start fresh for the next message) and /help (the commands the Thread offers). Its name wins over a Skill of the same name.
+_Avoid_: Slash command, built-in command, system command
+
 **Skill use**:
-One Skill tool call in a session, on any engine, counted for the Skill that session got from The Office under that name; each Skill shows its uses in the last 7 days wherever Skills are listed.
+One Skill tool call or skill command in a session, on any engine, counted for the Skill that session got from The Office under that name; each Skill shows its uses in the last 7 days wherever Skills are listed.
 _Avoid_: Invocation, run, call count
 
 **Source**:

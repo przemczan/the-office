@@ -272,7 +272,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
     const folder = await mkdtemp(join(tmpdir(), "office-start-check-"));
     try {
       const skillsFolder = await aSessionPlugin(join(folder, "skills"), ["alpha"]);
-      const skills = { folder: skillsFolder, names: ["office:alpha"], overrides: {} };
+      const skills = { folder: skillsFolder, names: ["office:alpha"], userOnly: [], overrides: {} };
       const engine = liveEngine();
 
       await expect(

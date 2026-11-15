@@ -385,6 +385,7 @@ describe("ScriptedEngine", () => {
       folder: join(tmpdir(), "office-session", "skills"),
       names: ["office:tdd"],
       expected: ["office:tdd"],
+      userOnly: [],
       overrides: {},
     };
     const start = (engine: ScriptedEngine) =>
@@ -489,6 +490,44 @@ describe("RecordingEngine", () => {
 
     expect(reported.slice(0, 2)).toEqual([withoutWhy, withWhy]);
     expect(await readRecording(file)).toEqual([notStarted]);
+  });
+
+  it("keeps a skill command's skill and input, for a test to see what its caller sent", async () => {
+    const command = {
+      id: "command",
+      text: "/office:release v2",
+      skillCommand: { skill: "office:release", input: "v2" },
+    };
+    const script: SessionScript = [
+      { step: "start", brief: { id: "brief", text: "Begin." } },
+      { step: "send", message: command, priority: "later" },
+      { step: "event", event: TURN_ENDED },
+      { step: "event", event: { ...TURN_ENDED, consumedMessageIds: ["command"] } },
+      { step: "end" },
+    ];
+    const replayed = new ScriptedEngine([script]);
+    const recording = new RecordingEngine(replayed);
+    const session = await recording.start({
+      id: randomUUID(),
+      options: options(),
+      brief: { id: "brief", text: "Begin." },
+    });
+    session.send(command, "later");
+    let turnsEnded = 0;
+    for await (const event of session.events) {
+      if (event.kind === "turn-ended" && ++turnsEnded === 2) break;
+    }
+    await session.end();
+    const file = join(folder, "recording.jsonl");
+
+    await recording.save(file);
+
+    expect(replayed.sessions[0]?.received).toContainEqual({
+      step: "send",
+      message: command,
+      priority: "later",
+    });
+    expect(await readRecording(file)).toEqual([script]);
   });
 });
 

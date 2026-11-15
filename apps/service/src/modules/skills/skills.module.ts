@@ -26,6 +26,7 @@ import { YauzlZipReader } from "./adapters/zip/yauzl-zip-reader.js";
 import { ProjectSkills } from "./application/project-skills.js";
 import { RoleSkills } from "./application/role-skills.js";
 import { SessionSkills } from "./application/session-skills.js";
+import { SkillCommands } from "./application/skill-commands.js";
 import { SkillLibrary } from "./application/skill-library.js";
 import { SkillSources } from "./application/skill-sources.js";
 import { SKILL_UPDATE_CHECK, SkillUpdates } from "./application/skill-updates.js";
@@ -58,12 +59,21 @@ import { ZipReader } from "./ports/zip-reader.js";
     SkillUpdates,
     SkillUses,
     SessionSkills,
+    SkillCommands,
     ProjectSkills,
     RoleSkills,
     SkillWebEvents,
     SkillsEarlierRecords,
   ],
-  exports: [SkillLibrary, SkillSources, SkillUpdates, SessionSkills, ProjectSkills, RoleSkills],
+  exports: [
+    SkillLibrary,
+    SkillSources,
+    SkillUpdates,
+    SessionSkills,
+    SkillCommands,
+    ProjectSkills,
+    RoleSkills,
+  ],
 })
 export class SkillsModule implements NestModule, OnApplicationBootstrap {
   private readonly logger = new Logger(SkillsModule.name);

@@ -161,14 +161,14 @@ async function oneTurnInTheProject(engine: Pick<SessionSettings, "engineId" | "m
 
 function settingsOn(
   engine: Pick<SessionSettings, "engineId" | "model">,
-  { folder, names, expected, overrides }: PreparedSkills,
+  { folder, names, expected, userOnly, overrides }: PreparedSkills,
 ): SessionSettings {
   return {
     ...engine,
     folder: checkout.path,
     environment: {},
     effort: "low",
-    skills: { folder, names, expected, overrides },
+    skills: { folder, names, expected, userOnly, overrides },
     profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },
     officeTools: [],
     mcpServers: [],

@@ -4,7 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { Logger, type INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ANSWER_DECISION_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import { ANSWER_DECISION_TOOL, messageCommand, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
@@ -34,6 +34,7 @@ import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../peo
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
+import { skillCommandsProvider, SkillCommandsStandIn } from "./skill-commands.fixtures.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import {
@@ -87,7 +88,7 @@ import { TaskTokens } from "./task-tokens.js";
 import { ThreadContexts } from "./thread-contexts.js";
 import { AllowChanges } from "./allow-changes.js";
 import { StageThreads } from "./stage-threads.js";
-import { ThreadRunner } from "./thread-runner.js";
+import { ThreadRunner, type SentWith } from "./thread-runner.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { openPageRecordProviders } from "./open-page-records.fixtures.js";
 import { WorkRecords } from "./work-records.js";
@@ -179,6 +180,8 @@ let prepared: Parameters<SessionSkills["prepare"]>[0][];
 let mcpServers: SessionMcpServersStandIn;
 let mcpServersOnStart: PreparedMcpServers;
 let mcpServersOnResume: PreparedMcpServers;
+/** The skill commands Skills gives each session and each Role's new session here. */
+let skillCommands: SkillCommandsStandIn;
 
 /** A server a session runs, and one of the Role's it is told it doesn't get. */
 const WITH_MCP_SERVERS: PreparedMcpServers = {
@@ -248,6 +251,7 @@ async function startOn(
   forgotten = [];
   prepared = [];
   mcpServers = sessionMcpServersStandIn(mcpServersOnStart, mcpServersOnResume);
+  skillCommands = new SkillCommandsStandIn();
   // The library is shared by every test file, so the sessions here get no skills of it.
   const sessionSkills: Pick<SessionSkills, "prepare" | "rebuild" | "forget"> = {
     prepare: (request) => {
@@ -295,6 +299,7 @@ async function startOn(
       { provide: ProjectBases, useValue: bases },
       { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
+      skillCommandsProvider(skillCommands),
       { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       { provide: OfficeInstructionsRepository, useClass: OfficeInstructionsRepositoryForTests },
@@ -422,6 +427,7 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
     folder: join(officeData, "sessions", sessionId, "skills"),
     names: [],
     expected: [],
+    userOnly: [],
     overrides: {},
     versions: [],
     suffixMatches: [],
@@ -730,6 +736,175 @@ describe("a Thread more than one user writes in", () => {
       ["And the build too.", BEN_ITO],
       ["Thanks.", ANN_LEE],
     ]);
+  });
+});
+
+/** What the session was sent, each with its priority. */
+function sentCommands() {
+  return (engine.sessions[0]?.received ?? []).flatMap((step) =>
+    step.step === "send" ? [{ message: step.message, priority: step.priority }] : [],
+  );
+}
+
+/** The message as the threads controller reads it for a skill command. */
+function asCommand(text: string): Pick<SentWith, "skillCommandAmong"> {
+  return {
+    skillCommandAmong: (names) => {
+      const command = messageCommand(text, names);
+      return command?.kind === "skill" ? { name: command.name, input: command.input } : undefined;
+    },
+  };
+}
+
+describe("a skill command", () => {
+  const RELEASE_NOTES = { name: "release-notes", description: "Writes the release notes." };
+  const COMMAND = "/release-notes since v1.2 [@Export CSV](/tasks/x)";
+
+  it("starts a new session on its Brief, then sends the command as written as the next turn", async () => {
+    await startWith(
+      started(
+        sent("command"),
+        ...aTurn("brief", "Briefed."),
+        ...aTurn("command", "Notes written."),
+      ),
+    );
+    skillCommands.ofRoles.set(roleKey, [RELEASE_NOTES]);
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    const chat = await threads.startInChat(roleKey);
+
+    await runner.send(chat.id, COMMAND, ANN_LEE, {
+      mentions: [{ kind: "task", taskId }],
+      ...asCommand(COMMAND),
+    });
+    const log = await answered(chat.id, 4);
+
+    const brief = engine.sessions[0]?.received[0];
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    expect(text).toContain("## Records the user mentioned\n\nExport CSV (Task)");
+    expect(text).not.toContain("/release-notes");
+    expect(text).not.toContain("## The message from");
+    expect(text.endsWith("\n\nThe user Ann Lee's skill command follows as the next message.")).toBe(
+      true,
+    );
+    expect(sentCommands()).toEqual([
+      {
+        message: {
+          id: expect.any(String) as string,
+          text: COMMAND,
+          skillCommand: {
+            skill: "office:release-notes",
+            input: "since v1.2 [@Export CSV](/tasks/x)",
+          },
+        },
+        priority: "later",
+      },
+    ]);
+    expect(drafts(log).filter(({ kind }) => kind !== "context")).toEqual([
+      {
+        kind: "user",
+        text: COMMAND,
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+        skillCommand: { skill: "release-notes" },
+      },
+      { kind: "person", roleKey, text: "Briefed." },
+      { kind: "person", roleKey, text: "Notes written." },
+    ]);
+  });
+
+  it("goes into the running session as written, with no heading, records or Open page", async () => {
+    await startWith(
+      started(...aTurn("brief", "Hello."), sent("command"), ...aTurn("command", "Notes written.")),
+    );
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Hello.", ANN_LEE);
+    await answered(chat.id, 3);
+    const session = (await threads.read(chat.id)).session;
+    if (!session) throw new Error("The Thread has no session.");
+    skillCommands.ofSessions.set(session.id, [RELEASE_NOTES]);
+
+    await runner.send(chat.id, COMMAND, BEN_ITO, {
+      mentions: [{ kind: "task", taskId }],
+      openPage: { kind: "task", taskId },
+      ...asCommand(COMMAND),
+    });
+    const log = await answered(chat.id, 5);
+
+    expect(engine.sessions).toHaveLength(1);
+    expect(sentCommands()).toEqual([
+      {
+        message: {
+          id: expect.any(String) as string,
+          text: COMMAND,
+          skillCommand: {
+            skill: "office:release-notes",
+            input: "since v1.2 [@Export CSV](/tasks/x)",
+          },
+        },
+        priority: "later",
+      },
+    ]);
+    expect(drafts(log)[3]).toMatchObject({
+      kind: "user",
+      text: COMMAND,
+      writtenBy: BEN_ITO,
+      skillCommand: { skill: "release-notes" },
+    });
+  });
+
+  it("is refused while the person answers, logging nothing", async () => {
+    const ANSWERS = "the person answers";
+    await startWith(started({ step: "wait", mark: ANSWERS }, ...aTurn("brief", "Hello.")));
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Hello.", ANN_LEE);
+    const session = (await threads.read(chat.id)).session;
+    if (!session) throw new Error("The Thread has no session.");
+    skillCommands.ofSessions.set(session.id, [RELEASE_NOTES]);
+
+    await expect(runner.send(chat.id, COMMAND, ANN_LEE, asCommand(COMMAND))).rejects.toMatchObject({
+      reasons: [`${PLANNER.name} is answering; send the skill command once they finish.`],
+    });
+    expect(await deliveries(chat.id)).toEqual([["Hello.", "delivered"]]);
+    await vi.waitFor(() => expect(engine.sessions).toHaveLength(1));
+    engine.sessions[0]?.reach(ANSWERS);
+    await answered(chat.id, 3);
+  });
+
+  it("is an ordinary message when its first word names no skill command of the session", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    skillCommands.ofRoles.set(roleKey, [RELEASE_NOTES]);
+    const chat = await threads.startInChat(roleKey);
+
+    await runner.send(chat.id, "/deploy now", ANN_LEE, asCommand("/deploy now"));
+    const log = await answered(chat.id, 3);
+
+    const brief = engine.sessions[0]?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toMatch(
+      /\n\n## The message from the user Ann Lee\n\n\/deploy now$/,
+    );
+    expect(drafts(log)[1]).not.toHaveProperty("skillCommand");
+  });
+
+  it("offers on the Thread a new session's commands, then those of the session it continues", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const later = { name: "triage", description: "Triages the issues." };
+    skillCommands.ofRoles.set(roleKey, [RELEASE_NOTES]);
+    const chat = await threads.startInChat(roleKey);
+    const contexts = app.get(ThreadContexts);
+
+    expect((await contexts.read(await threads.read(chat.id))).skillCommands).toEqual([
+      RELEASE_NOTES,
+    ]);
+    await runner.send(chat.id, "Hello.", ANN_LEE);
+    await answered(chat.id, 3);
+    const thread = await threads.read(chat.id);
+    if (!thread.session) throw new Error("The Thread has no session.");
+    skillCommands.ofSessions.set(thread.session.id, [later]);
+
+    expect((await contexts.read(thread)).skillCommands).toEqual([later]);
   });
 });
 

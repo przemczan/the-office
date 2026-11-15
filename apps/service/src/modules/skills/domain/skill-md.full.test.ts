@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { readSkillMd, writtenSkillMd } from "./skill-md.js";
+import { frontmatterFlag, isUserOnly, readSkillMd, writtenSkillMd } from "./skill-md.js";
+
+function flagged(value: string): boolean {
+  return isUserOnly(readSkillMd(`---\nname: ship\ndisable-model-invocation: ${value}\n---\nGo.\n`));
+}
+
+describe("isUserOnly", () => {
+  it("reads disable-model-invocation as on for true or the text true, else off", () => {
+    expect(flagged("true")).toBe(true);
+    expect(flagged('"true"')).toBe(true);
+    expect(flagged("false")).toBe(false);
+    expect(flagged("yes")).toBe(false);
+    expect(isUserOnly(readSkillMd("---\nname: ship\n---\nGo.\n"))).toBe(false);
+    expect(isUserOnly("SKILL.md's frontmatter is not YAML.")).toBe(false);
+  });
+
+  it("reads any flag by its key", () => {
+    const skillMd = readSkillMd("---\nuser-invocable: true\n---\n");
+    expect(typeof skillMd !== "string" && frontmatterFlag(skillMd, "user-invocable")).toBe(true);
+  });
+});
 
 describe("readSkillMd", () => {
   it("reads the frontmatter and the instructions after it", () => {

@@ -1,4 +1,5 @@
 export * from "./api.js";
+export * from "./commands.js";
 export * from "./conversations.js";
 export * from "./engines.js";
 export * from "./events.js";

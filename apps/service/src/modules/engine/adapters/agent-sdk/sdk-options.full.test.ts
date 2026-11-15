@@ -108,6 +108,7 @@ describe("sdkOptions", () => {
           folder: "/office/sessions/s/skills",
           names: ["office:review", "deploy"],
           expected: ["deploy", "office:review"],
+          userOnly: [],
           overrides: { lint: "off" },
         },
       },

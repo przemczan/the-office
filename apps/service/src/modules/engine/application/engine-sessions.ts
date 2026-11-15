@@ -3,7 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown, SkillCalled } from "../domain/engine-events.js";
-import { calledSkill } from "../domain/skill-calls.js";
+import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
 import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
 import { withLeftOutLanguageServers } from "../domain/language-servers.js";
@@ -327,7 +327,10 @@ interface SessionWatch {
   readonly turnEnded: (usage: TokenUsage) => Promise<void>;
   /** A turn was refused for a used-up usage window: it answers the turn with its reset settled. */
   readonly refused: (ended: TurnEndedEvent) => Promise<TurnEndedEvent>;
-  /** The session's Agent or a subagent called the Skill tool for `skill`. */
+  /**
+   * The session's Agent or a subagent called the Skill tool for `skill`, or the user sent a skill
+   * command running it.
+   */
   readonly skillCalled: (skill: string) => Promise<void>;
   readonly failed: (error: unknown) => Promise<void>;
   /** The session's events have closed or failed: it runs no more. */
@@ -357,8 +360,14 @@ class WatchedSession implements EngineSession {
     return this.reported;
   }
 
+  /**
+   * A skill command is a use of its skill as a Skill call is (spec §2.6), announced by the name the
+   * session lists it as, as the call would name it; the engine reports no Skill call for it.
+   */
   send(message: UserMessage, priority: MessagePriority): void {
     this.spans.messageSent(message.id);
+    const commanded = message.skillCommand && skillNameOf(message.skillCommand.skill);
+    if (commanded) void this.watch.skillCalled(commanded);
     this.session.send(message, priority);
   }
 

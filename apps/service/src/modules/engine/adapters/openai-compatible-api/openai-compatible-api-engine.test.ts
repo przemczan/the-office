@@ -67,6 +67,12 @@ function contractAnswers(scenario: ContractScenario): ScriptedAnswer[] {
       ];
     case "context-usage":
       return [textReply(["ready"], USAGE)];
+    case "skill-command":
+      return [
+        textReply(["ready"], USAGE),
+        toolCall("mcp__office__note", { word: "tangerine" }),
+        textReply(["done"], USAGE),
+      ];
     case "mcp-tool":
       return [
         toolCall("mcp__fake__environment-variable", { name: "FAKE_SERVER_VALUE" }),

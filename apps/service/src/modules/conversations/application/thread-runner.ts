@@ -12,7 +12,7 @@ import {
 } from "../../people/index.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { BargeIns } from "./barge-ins.js";
-import { SessionSkills } from "../../skills/index.js";
+import { SessionSkills, SkillCommands } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
 import {
   answerGivenBy,
@@ -23,6 +23,7 @@ import {
   type GivenAnswer,
 } from "../domain/decision.js";
 import {
+  briefBeforeSkillCommand,
   briefedMessage,
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
@@ -103,6 +104,16 @@ type ContextUsage = Awaited<ReturnType<EngineSession["readContextUsage"]>>;
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
 type SessionEvent = EngineSession["events"] extends AsyncIterable<infer Event> ? Event : never;
 type TurnEndedEvent = Extract<SessionEvent, { kind: "turn-ended" }>;
+type UserMessage = Parameters<EngineSession["send"]>[0];
+
+/** A skill command the user sent (spec §2.4): the library skill, by its name, and its input. */
+export interface SkillCommandSent {
+  readonly name: string;
+  readonly input: string;
+}
+
+/** The plugin a session's library skills are in, so it lists each as `office:<name>`. */
+const SESSION_SKILLS_PLUGIN = "office";
 
 /**
  * How long a session's process stays up after its last turn, waiting for the next message, and
@@ -113,9 +124,14 @@ const IDLE_MS = 10 * 60 * 1000;
 /** A message the person answers, and where and with what the session that answers it runs. */
 interface Answer {
   /** What a resumed session is sent, by the id its turn names it by. */
-  readonly said: { readonly id: string; readonly text: string };
-  /** What a new session is started with: the Brief, then `said`. */
+  readonly said: UserMessage;
+  /** What a new session is started with: the Brief, then `said`, unless it is a skill command. */
   readonly briefed: string;
+  /**
+   * A skill command a new session takes as its own turn after its Brief's (spec §2.4); a running
+   * or resumed session takes it as `said`.
+   */
+  readonly commandAfterBrief?: UserMessage;
   readonly decision: ContextDecision;
   readonly role: SessionRole;
   /** The text of the Office instructions' version the session runs with. */
@@ -137,6 +153,13 @@ export interface SentWith {
   readonly handoverNoteFrom?: string;
   /** The page open beside the chat drawer as it was sent (spec §2.4). */
   readonly openPage?: OpenPage;
+  /**
+   * Reads the message as a skill command among the names the session that takes it offers, as
+   * the contracts' `messageCommand` reads it; without it, the message is never one.
+   */
+  readonly skillCommandAmong?: (
+    skillCommandNames: readonly string[],
+  ) => SkillCommandSent | undefined;
 }
 
 /** The records the session is given with a message, read as it is sent. */
@@ -156,6 +179,8 @@ interface Taken {
   readonly id: string;
   readonly text: string;
   readonly writtenBy: UserRef | undefined;
+  /** Reads the user's message as a skill command, against the next session's skill commands. */
+  readonly skillCommandAmong?: SentWith["skillCommandAmong"];
 }
 
 const NO_RECORDS: GivenRecords = {
@@ -220,6 +245,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly work: WorkRecords,
     private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
     private readonly schedule: Schedule,
+    private readonly skillCommands: SkillCommands,
   ) {}
 
   /**
@@ -248,6 +274,18 @@ export class ThreadRunner implements OnModuleDestroy {
     // Only the chat drawer sends one: a Task's or an Initiative's Threads are about their record.
     const openPage = thread.home.kind === "chat" ? sent.openPage : undefined;
     if (thread.state === "answering") {
+      // A skill command runs as a turn of its own, never landing inside the one running.
+      const session = thread.session;
+      const command = await this.skillCommandIn(text, sent.skillCommandAmong, () =>
+        session
+          ? this.skillCommands.ofSession(session.id)
+          : this.skillCommands.forRole(current.roleKey),
+      );
+      if (command) {
+        throw new ThreadRefused([
+          `${current.card.name} is answering; send the skill command once they finish.`,
+        ]);
+      }
       return this.bargeIn(thread, current, { text, writtenBy, mentions, openPage });
     }
     const said: Message = {
@@ -270,11 +308,29 @@ export class ThreadRunner implements OnModuleDestroy {
     return this.take(
       thread,
       current,
-      { id: said.id, text, writtenBy },
-      (latest, opening) => beginAnswer(latest, { ...opening, said }),
+      { id: said.id, text, writtenBy, skillCommandAmong: sent.skillCommandAmong },
+      (latest, opening, command) =>
+        beginAnswer(latest, {
+          ...opening,
+          said: command ? { ...said, skillCommand: { skill: command.name } } : said,
+        }),
       [],
       given,
     );
+  }
+
+  /**
+   * The skill command the message is, among those `offered` (spec §2.4): only when its first word
+   * names one of them. An Office command never reaches the service, so one is a message.
+   */
+  private async skillCommandIn(
+    text: string,
+    skillCommandAmong: SentWith["skillCommandAmong"],
+    offered: () => Promise<readonly { readonly name: string }[]>,
+  ): Promise<SkillCommandSent | undefined> {
+    // Only a message starting with "/" reads what the session offers.
+    if (!skillCommandAmong || !text.startsWith("/")) return undefined;
+    return skillCommandAmong((await offered()).map(({ name }) => name));
   }
 
   /**
@@ -544,7 +600,11 @@ export class ThreadRunner implements OnModuleDestroy {
     thread: Thread,
     current: SessionRole,
     said: Taken,
-    begin: (latest: Thread, opening: Opening) => ThreadChange<Event>,
+    begin: (
+      latest: Thread,
+      opening: Opening,
+      command: SkillCommandSent | undefined,
+    ) => ThreadChange<Event>,
     answers: readonly Decision[] = [],
     given: GivenRecords = NO_RECORDS,
   ): Promise<Thread> {
@@ -553,6 +613,23 @@ export class ThreadRunner implements OnModuleDestroy {
     const place = { ...opened, brief: briefWithOpenPageRecord(brief, given.openPage) };
     const { newSession, ...move } = await this.moveFor(thread, current, place, new Date());
     const { decision } = move;
+    const goingOn = thread.session;
+    const command = said.skillCommandAmong
+      ? await this.skillCommandIn(said.text, said.skillCommandAmong, () =>
+          newSession || !goingOn
+            ? this.skillCommands.forRole(current.roleKey)
+            : this.skillCommands.ofSession(goingOn.id),
+        )
+      : undefined;
+    if (command && said.writtenBy) {
+      return this.takeSkillCommand(thread, current, said, said.writtenBy, command, {
+        begin,
+        place,
+        newSession,
+        move,
+        answers,
+      });
+    }
     // Read before the message is logged, so the log holds only the messages before it.
     const openPage = newSession ? undefined : await given.ofRunningSession();
     const text =
@@ -560,12 +637,16 @@ export class ThreadRunner implements OnModuleDestroy {
         ? said.text
         : messageFromUser(said.text, said.writtenBy, await this.previousWriter(thread.id));
     const answering = await this.change(thread.id, (latest) =>
-      begin(latest, {
-        personName: current.card.name,
-        decision,
-        newSession,
-        brief: place.brief.text,
-      }),
+      begin(
+        latest,
+        {
+          personName: current.card.name,
+          decision,
+          newSession,
+          brief: place.brief.text,
+        },
+        undefined,
+      ),
     );
     const withRecords = withOpenPageRecord(withMentionedRecords(text, given.mentioned), openPage);
     // Held until the answer's turn starts, so a message never starts a turn of its own.
@@ -582,6 +663,75 @@ export class ThreadRunner implements OnModuleDestroy {
       place,
       answers,
     });
+    return answering;
+  }
+
+  /**
+   * The person takes the user's skill command (spec §2.4): logged as written, it goes to the
+   * session as the skill to run with its input, with no heading, Mentions or Open page around it.
+   * A new session gets its Brief first, those records in it, and takes the command as the turn
+   * after the Brief's.
+   */
+  private async takeSkillCommand<Event extends DomainEvent>(
+    thread: Thread,
+    current: SessionRole,
+    said: Taken,
+    writtenBy: UserRef,
+    command: SkillCommandSent,
+    {
+      begin,
+      place,
+      newSession,
+      move,
+      answers,
+    }: {
+      readonly begin: (
+        latest: Thread,
+        opening: Opening,
+        command: SkillCommandSent | undefined,
+      ) => ThreadChange<Event>;
+      readonly place: SessionPlace;
+      readonly newSession: ThreadSession | undefined;
+      readonly move: Omit<Awaited<ReturnType<ThreadRunner["moveFor"]>>, "newSession">;
+      readonly answers: readonly Decision[];
+    },
+  ): Promise<Thread> {
+    const answering = await this.change(thread.id, (latest) =>
+      begin(
+        latest,
+        {
+          personName: current.card.name,
+          decision: move.decision,
+          newSession,
+          brief: place.brief.text,
+        },
+        command,
+      ),
+    );
+    const commandMessage: UserMessage = {
+      id: said.id,
+      text: said.text,
+      skillCommand: { skill: `${SESSION_SKILLS_PLUGIN}:${command.name}`, input: command.input },
+    };
+    const bargeIns = new BargeIns(
+      (message) => this.live.get(thread.id)?.session.send(message, "next"),
+      false,
+    );
+    this.bargeIns.set(thread.id, bargeIns);
+    this.answerInBackground(
+      answering,
+      newSession
+        ? {
+            said: { id: randomUUID(), text: "" },
+            briefed: briefBeforeSkillCommand(place.brief.text, writtenBy),
+            commandAfterBrief: commandMessage,
+            ...move,
+            replaced: thread.session,
+            place,
+            answers,
+          }
+        : { said: commandMessage, briefed: "", ...move, replaced: undefined, place, answers },
+    );
     return answering;
   }
 
@@ -768,7 +918,17 @@ export class ThreadRunner implements OnModuleDestroy {
   private async openSession(
     thread: Thread,
     session: ThreadSession,
-    { said, briefed, decision, role, officeInstructions, model, replaced, place }: Answer,
+    {
+      said,
+      briefed,
+      commandAfterBrief,
+      decision,
+      role,
+      officeInstructions,
+      model,
+      replaced,
+      place,
+    }: Answer,
     start: SessionStartWatch,
   ): Promise<void> {
     await this.endLive(thread.id);
@@ -793,7 +953,13 @@ export class ThreadRunner implements OnModuleDestroy {
       );
       start.at("waiting for the engine's first event");
       this.watch(thread, role, place, opened, start);
-      opened.send({ ...said, text: withLeftOutServers(said.text, servers.leftOut) }, "later");
+      // A skill command goes as written: the left-out servers wait for the next message.
+      opened.send(
+        said.skillCommand
+          ? said
+          : { ...said, text: withLeftOutServers(said.text, servers.leftOut) },
+        "later",
+      );
       this.bargeIns.get(thread.id)?.turnStarted();
       return;
     }
@@ -830,6 +996,11 @@ export class ThreadRunner implements OnModuleDestroy {
     }
     start.at("waiting for the engine's first event");
     this.watch(thread, role, place, opened, start);
+    if (commandAfterBrief) {
+      // Its own turn after the Brief's, which keeps the Thread answering until it lands.
+      opened.send(commandAfterBrief, "later");
+      this.bargeIns.get(thread.id)?.sentAfterTurn(commandAfterBrief.id);
+    }
     this.bargeIns.get(thread.id)?.turnStarted();
     // Only once the new session runs: until then the Thread may go back to the one it replaces.
     if (replaced) {
@@ -861,6 +1032,7 @@ export class ThreadRunner implements OnModuleDestroy {
         folder: skills.folder,
         names: skills.names,
         expected: skills.expected,
+        userOnly: skills.userOnly,
         overrides: skills.overrides,
       },
       // Only reads (spec §6): the card's profile, narrowed, but in the Caretaker's Thread with

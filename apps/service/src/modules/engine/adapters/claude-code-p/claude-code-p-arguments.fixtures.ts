@@ -23,6 +23,7 @@ export const SKILLS = {
   folder: "/office/sessions/session-1/skills",
   names: ["office:tdd", "deploy"],
   expected: ["deploy", "office:tdd"],
+  userOnly: [],
   overrides: { lint: "off" },
 } as const;
 

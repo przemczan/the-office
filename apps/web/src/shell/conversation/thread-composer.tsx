@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type NewMessage, type OpenPage, type Thread } from "@the-office/contracts";
+import {
+  type NewMessage,
+  type OfficeCommandName,
+  type OpenPage,
+  type Thread,
+} from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import { useCallback, useState, type ReactNode } from "react";
-import { sendMessage, threadQueries } from "../../api/conversations.ts";
+import { chooseContextOverride, sendMessage, threadQueries } from "../../api/conversations.ts";
+import { CommandHelp, CommandNote } from "../commands/command-notes.tsx";
 import { roleQueries } from "../../api/people.ts";
 import { AlarmNote } from "../fire-alarm/alarm-note.tsx";
 import { OpenPageChip } from "../open-page-chip.tsx";
@@ -79,10 +85,12 @@ export function ThreadComposer({
       await queryClient.invalidateQueries(threadQueries.messages(answering.id));
     },
   });
+  const commands = useOfficeCommands(thread);
   const closed = !takesMessages(thread);
   return (
     <>
       {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
+      {commands.error && <RefusalAlert title="That didn't change" error={commands.error} />}
       {readOnlyReason === undefined && !thread.stageThread && (
         // A Stage's session is held at its safe point instead.
         <AlarmNote threadId={threadId} personName={personName} />
@@ -124,12 +132,73 @@ export function ThreadComposer({
             })
           }
           onLeaveNoteOut={() => handoverNotes.clear(threadId)}
+          // A Stage's session is the Pipeline's: "/" stays ordinary text there.
+          {...(thread.stageThread
+            ? {}
+            : {
+                skillCommands: thread.skillCommands,
+                onOfficeCommand: commands.run,
+                commandNote: commands.note,
+                onCloseCommandNote: commands.closeNote,
+              })}
         />
       ) : (
         <ReadOnlyNote reason={readOnlyReason} />
       )}
     </>
   );
+}
+
+type ShownCommandNote = "help" | "starts-fresh" | "nothing-to-clear";
+
+/**
+ * The Office commands of a Thread's message box (spec §2.4), carried out here and never sent: /clear
+ * chooses Start fresh for the next message, where the context bar offers it, and /help lists the
+ * commands. Each answers in a note above the composer, which isn't logged.
+ */
+function useOfficeCommands(thread: Thread): {
+  readonly run: (name: OfficeCommandName) => void;
+  readonly note: ReactNode;
+  readonly closeNote: () => void;
+  readonly error: Error | null;
+} {
+  const queryClient = useQueryClient();
+  const [shown, setShown] = useState<ShownCommandNote>();
+  const choosing = useMutation({
+    mutationFn: () => chooseContextOverride(thread.id, "start-fresh"),
+    onSuccess: (chosen) => {
+      queryClient.setQueryData(threadQueries.one(chosen.id).queryKey, chosen);
+      setShown("starts-fresh");
+    },
+  });
+  const { context } = thread;
+  const startsFreshOffered =
+    context.override === "start-fresh" ||
+    context.alternatives.some(({ override }) => override === "start-fresh");
+  const run = (name: OfficeCommandName): void => {
+    choosing.reset();
+    if (name === "help") setShown("help");
+    else if (startsFreshOffered) choosing.mutate();
+    else setShown("nothing-to-clear");
+  };
+  const closeNote = (): void => setShown(undefined);
+  const note = shown && (
+    <CommandNote label={shown === "help" ? "Commands" : "Clear"} onClose={closeNote}>
+      {shown === "help" ? (
+        <CommandHelp skillCommands={thread.skillCommands} />
+      ) : (
+        clearWords(shown, thread)
+      )}
+    </CommandNote>
+  );
+  return { run, note, closeNote, error: choosing.error };
+}
+
+function clearWords(shown: "starts-fresh" | "nothing-to-clear", { context }: Thread): string {
+  if (shown === "starts-fresh") return "Your next message starts a fresh session.";
+  return context.reason === "new-thread"
+    ? "There's no session to start fresh yet: your next message starts one."
+    : "Your next message starts a fresh session already.";
 }
 
 /** The record the next message goes with, as the chat drawer's composer says it. */

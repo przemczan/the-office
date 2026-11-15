@@ -1206,6 +1206,7 @@
       }
     }
   },
+  "skills.skill-command": {},
   "skills.start-before-brief": {
     "win32": {
       "initBeforeAnyMessage": false,

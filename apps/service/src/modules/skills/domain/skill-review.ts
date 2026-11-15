@@ -1,6 +1,6 @@
 import { sortedByPath, type SkillFile } from "./skill-files.js";
 import { skillMdOf } from "./skill-draft.js";
-import { frontmatterText } from "./skill-md.js";
+import { frontmatterFlag, frontmatterText } from "./skill-md.js";
 import { longDescriptionWarning } from "./skill.js";
 
 /** A file as Review shows it. */
@@ -58,7 +58,7 @@ const SESSION_KEYS: Readonly<Record<string, string>> = {
   "when-to-use":
     "adds when-to-use, which every session that has the skill lists besides its description",
   "disable-model-invocation":
-    "keeps the model from using it, so a session that has it is refused at its start",
+    "keeps the model from using it: only the user runs it, as a skill command (/<name>)",
 };
 
 /** Commands a skill's text asks the engine to run as it loads, as the engine finds them. */
@@ -77,7 +77,7 @@ export function reviewOf(files: readonly SkillFile[]): SkillReview {
   const keys = Object.keys(skillMd.frontmatter);
   for (const key of keys) {
     const effect = SESSION_KEYS[key];
-    const turnedOff = key === "disable-model-invocation" && !skillMd.frontmatter[key];
+    const turnedOff = key === "disable-model-invocation" && !frontmatterFlag(skillMd, key);
     if (effect && !turnedOff) warnings.push(`Its frontmatter ${effect}.`);
   }
   const unknown = keys.filter((key) => !INERT_KEYS.has(key) && !(key in SESSION_KEYS));

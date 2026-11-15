@@ -1,9 +1,16 @@
 import { decisionSchema, proposalStatusSchema, proposedChangeSchema } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { decideContext } from "../../domain/context-policy.js";
+import { aContinuation } from "../../domain/context-policy.fixtures.js";
 import { aDecision } from "../../domain/decision.fixtures.js";
+import { aThread } from "../../domain/thread.fixtures.js";
 import type { InitiativeEdit, Proposal, ProposedChange } from "../../domain/proposal.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
-import { toDecisionResponse, toProposalResponse } from "./conversation-responses.js";
+import {
+  toDecisionResponse,
+  toProposalResponse,
+  toThreadResponse,
+} from "./conversation-responses.js";
 
 function aProposalOf(edit: InitiativeEdit): Proposal {
   return aProposalChanging({ kind: "initiative", initiativeId: "initiative-1", edit });
@@ -19,6 +26,28 @@ function aProposalChanging(change: ProposedChange): Proposal {
     status: { kind: "open" },
   };
 }
+
+describe("toThreadResponse", () => {
+  it("offers the Thread's skill commands but one an Office command's name takes", () => {
+    const response = toThreadResponse(
+      aThread(),
+      {
+        context: decideContext(aContinuation(5, 12_000)),
+        contextReported: true,
+        changesAllowed: undefined,
+        skillCommands: [
+          { name: "help", description: "Helps with the release." },
+          { name: "release-notes", description: "Writes the release notes." },
+        ],
+      },
+      undefined,
+    );
+
+    expect(response.skillCommands).toEqual([
+      { name: "release-notes", description: "Writes the release notes." },
+    ]);
+  });
+});
 
 describe("toProposalResponse", () => {
   it("answers a new Task drafted before it could have a Description as having none", () => {

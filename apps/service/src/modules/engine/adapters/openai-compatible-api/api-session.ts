@@ -27,6 +27,8 @@ import type {
   ToolMessage,
 } from "./chat-completions.js";
 import type { Completion } from "./completion-assembly.js";
+import type { ListedSkill } from "./listed-skills.js";
+import { skillCommandText } from "./skill-tool.js";
 import type { ConversationFile } from "./conversation-file.js";
 import type { SessionTools } from "./session-tools.js";
 import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
@@ -50,6 +52,8 @@ export interface ApiSessionParts {
   readonly mcpConnections: McpServerConnections;
   /** The servers that failed to start as the session opened, reported before anything else. */
   readonly mcpServersNotStarted: readonly McpServerNotStartedEvent[];
+  /** What the session lists, those only the user runs among them, which skill commands run. */
+  readonly skills: readonly ListedSkill[];
   /** Whether each turn ends in output given through StructuredOutput. */
   readonly answersInSchema: boolean;
   /** Where the conversation is kept after each turn, so the session resumes from it. */
@@ -193,7 +197,7 @@ export class ApiSession implements EngineSession {
 
   private async turn(messages: readonly UserMessage[], signal: AbortSignal): Promise<void> {
     this.landNotices();
-    const consumed = this.take(messages);
+    const consumed = await this.take(messages);
     let usage = NO_TOKENS;
     let output: { readonly value: unknown } | undefined;
     let reminders = 0;
@@ -226,7 +230,7 @@ export class ApiSession implements EngineSession {
           signal.throwIfAborted();
         }
         this.landNotices();
-        consumed.push(...this.take(this.takeWaiting("next")));
+        consumed.push(...(await this.take(this.takeWaiting("next"))));
       }
     } catch (error) {
       // Before the session's end too: the kept conversation must answer every call it holds.
@@ -243,11 +247,20 @@ export class ApiSession implements EngineSession {
     this.turnEnded("completed", consumed, usage, [], output?.value);
   }
 
-  /** Adds messages to the conversation, returning their ids. */
-  private take(messages: readonly UserMessage[]): string[] {
-    this.conversation.push(
-      ...messages.map((message) => ({ role: "user", content: message.text }) as const),
+  /**
+   * Adds messages to the conversation, returning their ids. A skill command is sent as its skill
+   * loaded with the command's input (Claude Code's expansion), or as written for a skill the
+   * session doesn't list.
+   */
+  private async take(messages: readonly UserMessage[]): Promise<string[]> {
+    const contents = await Promise.all(
+      messages.map(async ({ text, skillCommand }) =>
+        skillCommand === undefined
+          ? text
+          : ((await skillCommandText(this.parts.skills, skillCommand)) ?? text),
+      ),
     );
+    this.conversation.push(...contents.map((content) => ({ role: "user", content }) as const));
     return messages.map((message) => message.id);
   }
 

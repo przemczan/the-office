@@ -53,6 +53,7 @@ import {
 } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
+import { skillCommandsProvider } from "./skill-commands.fixtures.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DutyProposals } from "../adapters/proposals/duty-proposals.js";
@@ -202,6 +203,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: ProjectBases, useValue: bases },
       { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
+      skillCommandsProvider(),
       { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       { provide: SessionMcpServers, useValue: sessionMcpServersStandIn().service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
@@ -342,6 +344,7 @@ function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"
     folder: join(officeData, "sessions", sessionId, "skills"),
     names: [],
     expected: [],
+    userOnly: [],
     overrides: {},
     versions: [],
     suffixMatches: [],

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { skillCommandSchema } from "./commands.js";
 import { webEventSchema } from "./events.js";
 import { openPageSchema } from "./open-page.js";
 import { pageSchemaOf } from "./paging.js";
@@ -132,6 +133,11 @@ export const threadSchema = z.object({
   answered: z.boolean().nullable(),
   /** Its newest message's time, or when it started while it has none. Null outside a chat. */
   lastMovedAt: z.iso.datetime().nullable(),
+  /**
+   * The skill commands the session that takes the next message offers: its library skills but
+   * those an Office command's name takes. Empty in a Stage Thread, which takes no commands.
+   */
+  skillCommands: z.array(skillCommandSchema),
 });
 export type Thread = z.infer<typeof threadSchema>;
 
@@ -717,6 +723,11 @@ export const messageSchema = z.discriminatedUnion("kind", [
     handoverNoteFrom: z.string().nullable(),
     /** The page open beside the chat drawer as the user sent it, if any. */
     openPage: openPageSchema.nullable(),
+    /**
+     * Set when the message is a skill command ("/<skill> [input]"): it ran the skill, by its
+     * library name, and `text` is the message as written. Absent on an ordinary message.
+     */
+    skillCommand: z.object({ skill: z.string() }).optional(),
   }),
   z.object({ ...messageFields, kind: z.literal("person"), roleKey: z.string(), text: z.string() }),
   /** A few lines the person wrote for whoever continues, when The Office asked for them. */

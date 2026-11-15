@@ -103,6 +103,7 @@ const SETTINGS: SessionSettings = {
     folder: "/office/sessions/s/skills",
     names: ["office:review"],
     expected: ["office:review"],
+    userOnly: [],
     overrides: {},
   },
   profile: { edit: true, run: { kind: "anything" }, web: false, mcpTools: {} },
@@ -528,6 +529,41 @@ describe("EngineSessions", () => {
       { engineId: FIRST_CLAUDE_CODE_ENGINE.id, skill: "deploy" },
     ]);
     expect(calls[0]?.calledAt).toBeInstanceOf(Date);
+  });
+
+  it("announces a skill command sent as a use of its skill, by the name the session lists it as", async () => {
+    const { sessions, published } = setUp([
+      [
+        { step: "start", brief: { id: "brief", text: "Begin." } },
+        turnEnded("brief", 0.01),
+        { step: "send", message: { id: "command", text: "/office:release v2" }, priority: "later" },
+        { step: "send", message: { id: "plain", text: "/review" }, priority: "later" },
+        turnEnded("command", 0.01),
+        turnEnded("plain", 0.01),
+        { step: "end" },
+      ],
+    ]);
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    session.send(
+      {
+        id: randomUUID(),
+        text: "/office:release v2",
+        skillCommand: { skill: "office:release", input: "v2" },
+      },
+      "later",
+    );
+    session.send(message("/review"), "later");
+    await turns(session, 3);
+    await session.end();
+
+    const calls = published.filter((event) => event instanceof SkillCalled);
+    expect(calls.map(({ sessionId, skill }) => ({ sessionId, skill }))).toEqual([
+      { sessionId: "s-1", skill: "office:release" },
+    ]);
   });
 
   it("announces the engine down when a session's stream dies, and its reader learns why", async () => {

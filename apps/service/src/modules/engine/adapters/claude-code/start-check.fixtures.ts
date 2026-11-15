@@ -51,6 +51,7 @@ export function setUpEachTest(): void {
       folder,
       names: ["office:tdd", "deploy"],
       expected: ["deploy", "office:tdd"],
+      userOnly: [],
       overrides: {},
     };
   });

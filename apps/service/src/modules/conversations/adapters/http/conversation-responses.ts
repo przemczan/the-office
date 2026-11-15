@@ -1,4 +1,5 @@
 import {
+  officeCommandClash,
   projectPipelineFieldsSchema,
   stageSchema,
   type ChatActivity as ChatActivityResponse,
@@ -30,7 +31,7 @@ import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 export function toThreadResponse(
   thread: Thread,
-  { context, contextReported, changesAllowed }: ThreadReading,
+  { context, contextReported, changesAllowed, skillCommands }: ThreadReading,
   activity: ThreadActivity | undefined,
 ): ThreadResponse {
   return {
@@ -60,6 +61,10 @@ export function toThreadResponse(
     changesAllowed: changesAllowed ?? null,
     answered: activity?.answered ?? null,
     lastMovedAt: activity?.lastMovedAt.toISOString() ?? null,
+    // A skill an Office command's name takes can't run as a command (spec §2.4).
+    skillCommands: skillCommands
+      .filter(({ name }) => !officeCommandClash(name))
+      .map(({ name, description }) => ({ name, description })),
   };
 }
 

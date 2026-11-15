@@ -7,13 +7,15 @@ import {
   sessionSkillRecord,
   skillOverridesOf,
   suffixMatches,
+  userOnlySkillNames,
   type ProjectSkillUse,
   type SessionSkill,
   type SessionSkillRecord,
 } from "../domain/session-skills.js";
 import { skillsOfRole } from "../domain/role-skills.js";
 import { SessionSkillsNotFound } from "../domain/session-skills-not-found.js";
-import type { SkillFile } from "../domain/skill-files.js";
+import { SKILL_MD, type SkillFile } from "../domain/skill-files.js";
+import { isUserOnly, readSkillMd } from "../domain/skill-md.js";
 import { SkillVersionNotKept } from "../domain/skill-version-missing.js";
 import { LibraryFolder } from "../ports/library-folder.js";
 import { ProjectSkillFiles } from "../ports/project-skill-files.js";
@@ -28,8 +30,10 @@ export interface PreparedSkills {
   readonly folder: string;
   /** The engine's allowlist. */
   readonly names: readonly string[];
-  /** What the session must list at its start, no more and no less. */
+  /** What the session must list at its start, no more and no less: none only the user runs. */
   readonly expected: readonly string[];
+  /** The skills only the user runs, as skill commands (`disable-model-invocation: true`). */
+  readonly userOnly: readonly string[];
   /** The engine's `skillOverrides` setting. */
   readonly overrides: Readonly<Record<string, "off">>;
   /** The library skills it got, at their versions. */
@@ -185,10 +189,14 @@ export class SessionSkills {
       record.sessionId,
       skills.map(({ skill, files }) => ({ name: skill.name, files })),
     );
+    const userOnlyLibrary = new Set(
+      skills.filter(({ files }) => isUserOnly(skillMdText(files))).map(({ skill }) => skill.name),
+    );
     return {
       folder,
       names: allowedSkillNames(record),
-      expected: expectedSkillNames(record),
+      expected: expectedSkillNames(record, userOnlyLibrary),
+      userOnly: userOnlySkillNames(record, userOnlyLibrary),
       overrides: skillOverridesOf(record),
       versions: record.skills,
       suffixMatches: suffixMatches(record),
@@ -200,6 +208,11 @@ export class SessionSkills {
 interface SessionSkillFiles {
   readonly skill: SessionSkill;
   readonly files: readonly SkillFile[];
+}
+
+function skillMdText(files: readonly SkillFile[]): ReturnType<typeof readSkillMd> {
+  const skillMd = files.find((file) => file.path === SKILL_MD);
+  return skillMd ? readSkillMd(new TextDecoder().decode(skillMd.content)) : "No SKILL.md.";
 }
 
 async function filesOrNotKept(
