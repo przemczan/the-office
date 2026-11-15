@@ -2,6 +2,7 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   WorkRecords,
   type ProjectWork,
+  type TaskSubject,
   type WorkRecordSource,
 } from "../../../conversations/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
@@ -51,6 +52,11 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
       if (error instanceof TaskNotFound) return undefined;
       throw error;
     }
+  }
+
+  async taskSubjects(taskIds: readonly string[]): Promise<ReadonlyMap<string, TaskSubject>> {
+    const tasks = await this.tasks.findAll(taskIds);
+    return new Map(tasks.map(({ id, title, projectId }) => [id, { title, projectId }]));
   }
 
   async taskAttachmentIds(taskId: string): Promise<readonly string[]> {

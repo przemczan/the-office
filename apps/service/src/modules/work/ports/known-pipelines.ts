@@ -14,6 +14,9 @@ export abstract class KnownPipelines {
   /** The Project's own Pipelines, then the office-wide ones: what a Task of the Project chooses from. */
   abstract listFor(projectId: string): Promise<readonly PlanningPipeline[]>;
 
+  /** The office-wide Pipelines and every Project's Project Pipelines, built: any a Task follows. */
+  abstract every(): Promise<readonly KnownPipeline[]>;
+
   /** An office-wide Pipeline; never a Project Pipeline. */
   abstract find(id: string): Promise<KnownPipeline | undefined>;
 

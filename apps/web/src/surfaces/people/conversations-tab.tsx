@@ -1,35 +1,43 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { countedTokens, type Project, type Task, type Thread } from "@the-office/contracts";
+import {
+  countedTokens,
+  type Project,
+  type TaskThreadSummary,
+  type ThreadSummary,
+} from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
+import { rowsOf, totalOf } from "../../api/pages.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
 import { useChat } from "../../shell/chat/use-chat.tsx";
 import { contextLabel, tokensShort } from "../../shell/conversation/context-words.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
+import { ShowMore } from "../../shell/show-more.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { PersonBlock } from "./role-card-layout.tsx";
 
 /**
  * The person's chat Threads, each opening in the chat, and their Threads on Tasks, each opening on
- * its Task's page (prototypes/app/people.js). Consultations come in tier 2.
+ * its Task's page (prototypes/app/people.js), each list a page at a time with its whole count in
+ * its heading. Consultations come in tier 2.
  */
 export function ConversationsTab(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey/conversations" });
   const role = useQuery(roleQueries.one(roleKey));
-  const threads = useQuery(threadQueries.inChat(roleKey));
+  const threads = useInfiniteQuery(threadQueries.inChat(roleKey));
   const chat = useChat();
   if (!role.data || !threads.data) return null;
   const { name, capabilities } = role.data.card;
+  const shown = rowsOf(threads.data);
   return (
     <div className="person-columns">
       <div className="person-column">
         <PersonBlock
           icon="message-circle"
-          title={`Chat threads · ${threads.data.length}`}
+          title={`Chat threads · ${totalOf(threads.data)}`}
           actions={
             capabilities.chat &&
             !role.data.letGoAt && (
@@ -45,17 +53,20 @@ export function ConversationsTab(): ReactNode {
               earlier Threads stay readable.
             </p>
           )}
-          {threads.data.length > 0 ? (
-            <ul className="person-threads">
-              {threads.data.map((thread) => (
-                <ThreadRow
-                  key={thread.id}
-                  thread={thread}
-                  personName={name}
-                  onOpen={() => chat.open(roleKey, thread.id)}
-                />
-              ))}
-            </ul>
+          {shown.length > 0 ? (
+            <>
+              <ul className="person-threads">
+                {shown.map((thread) => (
+                  <ThreadRow
+                    key={thread.id}
+                    thread={thread}
+                    personName={name}
+                    onOpen={() => chat.open(roleKey, thread.id)}
+                  />
+                ))}
+              </ul>
+              <ShowMore list={threads} />
+            </>
           ) : (
             capabilities.chat && <p className="person-note">No threads yet.</p>
           )}
@@ -70,24 +81,21 @@ export function ConversationsTab(): ReactNode {
 
 /** The person's Threads on Tasks, the newest first, each named with its Task and Project. */
 function ThreadsOnTasks({ roleKey }: { readonly roleKey: string }): ReactNode {
-  const threads = useQuery(threadQueries.onTasksWith(roleKey));
-  const tasks = useQuery(taskQueries.list());
+  const threads = useInfiniteQuery(threadQueries.onTasksWith(roleKey));
   const projects = useQuery(projectQueries.list());
-  if (!threads.data || !tasks.data) return null;
-  const onTasks = threads.data.flatMap((thread) => {
-    const task = tasks.data.find(
-      ({ id }) => thread.home.kind === "task" && thread.home.taskId === id,
-    );
-    return task ? [{ thread, task }] : [];
-  });
+  if (!threads.data) return null;
+  const onTasks = rowsOf(threads.data);
   return (
-    <PersonBlock icon="square-check-big" title={`Threads on Tasks · ${onTasks.length}`}>
+    <PersonBlock icon="square-check-big" title={`Threads on Tasks · ${totalOf(threads.data)}`}>
       {onTasks.length > 0 ? (
-        <ul className="person-threads">
-          {onTasks.map(({ thread, task }) => (
-            <TaskThreadRow key={thread.id} thread={thread} task={task} projects={projects.data} />
-          ))}
-        </ul>
+        <>
+          <ul className="person-threads">
+            {onTasks.map((thread) => (
+              <TaskThreadRow key={thread.id} thread={thread} projects={projects.data} />
+            ))}
+          </ul>
+          <ShowMore list={threads} />
+        </>
       ) : (
         <p className="person-note">None yet.</p>
       )}
@@ -97,13 +105,12 @@ function ThreadsOnTasks({ roleKey }: { readonly roleKey: string }): ReactNode {
 
 function TaskThreadRow({
   thread,
-  task,
   projects,
 }: {
-  readonly thread: Thread;
-  readonly task: Task;
+  readonly thread: TaskThreadSummary;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
+  const { task } = thread;
   const project = projects?.find(({ id }) => id === task.projectId);
   return (
     <li>
@@ -131,7 +138,7 @@ function ThreadRow({
   personName,
   onOpen,
 }: {
-  readonly thread: Thread;
+  readonly thread: ThreadSummary;
   readonly personName: string;
   readonly onOpen: () => void;
 }): ReactNode {

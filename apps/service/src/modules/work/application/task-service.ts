@@ -122,6 +122,11 @@ export class TaskService {
     return this.repository.find(id);
   }
 
+  /** Those of the Tasks there are, archived ones too, by their ids, in one read. */
+  async findAll(ids: readonly string[]): Promise<readonly Task[]> {
+    return ids.length === 0 ? [] : this.repository.findAll(ids);
+  }
+
   /** The Task's kept state changes, oldest first, each with who or what made it. */
   async stateChangesOf(taskId: string): Promise<readonly StateChange[]> {
     return this.repository.stateChangesOf(taskId);

@@ -13,6 +13,11 @@ import {
 
 setUpEachTest();
 
+function taskIdOf({ home }: Thread): string {
+  if (home.kind !== "task") throw new Error("Not on a Task.");
+  return home.taskId;
+}
+
 describe("PostgresThreadRepository", () => {
   it("lists the person's Threads on every Task, the newest first, and not their chat's", async () => {
     const roleKey = `role-${randomUUID()}`;
@@ -34,7 +39,14 @@ describe("PostgresThreadRepository", () => {
       await repository.add(thread);
     }
 
-    await expect(repository.listOnTasksWith(roleKey)).resolves.toEqual([newer, older]);
+    await expect(repository.personsThreads(roleKey, "task", undefined, 30)).resolves.toEqual({
+      threads: [newer, older],
+      total: 2,
+    });
+    await expect(repository.titlesOnTasksWith(roleKey)).resolves.toEqual([
+      { taskId: taskIdOf(newer), title: newer.title },
+      { taskId: taskIdOf(older), title: older.title },
+    ]);
   });
 
   it("keeps a Thread on an Initiative in its home, apart from the person's Threads on Tasks", async () => {
@@ -44,7 +56,10 @@ describe("PostgresThreadRepository", () => {
     await repository.add(shaping);
 
     await expect(repository.listIn(home)).resolves.toEqual([shaping]);
-    await expect(repository.listOnTasksWith(roleKey)).resolves.toEqual([]);
+    await expect(repository.personsThreads(roleKey, "task", undefined, 30)).resolves.toEqual({
+      threads: [],
+      total: 0,
+    });
   });
 
   it("finds a Thread by the engine session it has now", async () => {

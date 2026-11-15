@@ -39,6 +39,8 @@ import {
   RoleOverrideChecks,
   type RoleOverrideSave,
 } from "../../application/role-override-checks.js";
+import { MemoryService } from "../../application/memory-service.js";
+import { MemoryTaskTitles } from "../../application/memory-task-titles.js";
 import { RoleOverrideMoves } from "../../application/role-override-moves.js";
 import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
@@ -772,5 +774,48 @@ describe("POST /api/roles/:key/memory", () => {
       "Ann prefers small PRs.": { kind: "user", user: ANN_LEE },
       "Ben wants the changelog kept.": { kind: "user", user: BEN_ITO },
     });
+  });
+});
+
+describe("GET /api/roles/:key/memory", () => {
+  it("names the Task each note was written on, all in one read, and none once it is gone", async () => {
+    await hire("planner", "Jan");
+    const [kept, gone] = [randomUUID(), randomUUID()];
+    const asked: (readonly string[])[] = [];
+    app.get(MemoryTaskTitles).provide({
+      titlesOf: (taskIds) => {
+        asked.push(taskIds);
+        return Promise.resolve(new Map([[kept, "Fix the login redirect"]]));
+      },
+    });
+    const threadId = randomUUID();
+    for (const [text, taskId] of [
+      ["Keeps the redirect's query.", kept],
+      ["Ask before dropping a column.", gone],
+      ["Prefers short answers.", undefined],
+    ] as const) {
+      await app.get(MemoryService).write({
+        roleKey: "planner",
+        projectId: undefined,
+        text,
+        source: { kind: "agent", threadId, taskId },
+      });
+    }
+
+    const { notes } = memorySchema.parse(await get("/roles/planner/memory"));
+
+    const sources = new Map(notes.map(({ text, source }) => [text, source]));
+    expect(Object.fromEntries(sources)).toEqual({
+      "Keeps the redirect's query.": {
+        kind: "agent",
+        threadId,
+        taskId: kept,
+        taskTitle: "Fix the login redirect",
+      },
+      "Ask before dropping a column.": { kind: "agent", threadId, taskId: gone },
+      "Prefers short answers.": { kind: "agent", threadId },
+    });
+    expect(asked).toHaveLength(1);
+    expect(new Set(asked[0])).toEqual(new Set([kept, gone]));
   });
 });

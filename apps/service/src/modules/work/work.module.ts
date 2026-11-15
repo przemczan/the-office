@@ -29,12 +29,14 @@ import { InitiativesController } from "./adapters/http/initiatives.controller.js
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
 import { OnboardingsController } from "./adapters/http/onboardings.controller.js";
 import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
+import { PersonTasksController } from "./adapters/http/person-tasks.controller.js";
 import { UsageEstimatesController } from "./adapters/http/usage-estimates.controller.js";
 import { UsageSettingsController } from "./adapters/http/usage-settings.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
 import { FireAlarmForThreads } from "./adapters/conversations/fire-alarm-for-threads.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
+import { MemoryTaskTitleSourceFromWork } from "./adapters/people/memory-task-title-source.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { TaskThreadRecords } from "./adapters/conversations/task-thread-records.js";
 import { ProjectProposals } from "./adapters/conversations/project-proposals.js";
@@ -92,6 +94,7 @@ import { InitiativeArchiving } from "./application/initiative-archiving.js";
 import { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.js";
 import { PlanningAfterRestart } from "./application/planning-after-restart.js";
 import { TaskService } from "./application/task-service.js";
+import { PersonTasks } from "./application/person-tasks.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
 import { PdfPages } from "./ports/pdf-pages.js";
@@ -211,6 +214,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         OnboardingsController,
         SearchController,
         SavedViewsController,
+        PersonTasksController,
         UsageEstimatesController,
         UsageSettingsController,
         FireAlarmController,
@@ -256,6 +260,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeService,
         InitiativeBranching,
         TaskService,
+        PersonTasks,
         TaskArchiving,
         InitiativeArchiving,
         DroppedInitiativeTasks,
@@ -295,6 +300,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskThreadRecords,
         InitiativeThreadRecords,
         MentionedWorkRecords,
+        MemoryTaskTitleSourceFromWork,
         OfficeLimitProposals,
         InitiativeProposals,
         ProjectProposals,

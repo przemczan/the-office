@@ -98,11 +98,6 @@
   background: var(--surface);
 }
 
-.board-card.edge-running,
-.board-card.edge-done {
-  --edge: var(--success);
-}
-
 .board-card.edge-decision,
 .board-card.edge-paused {
   --edge: var(--warning);

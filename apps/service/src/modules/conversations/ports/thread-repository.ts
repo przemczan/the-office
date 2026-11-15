@@ -24,6 +24,27 @@ export interface LoggedMessagesRange {
   readonly threadId?: string;
 }
 
+/** Where a person's Threads are listed: in their chat, or on any Task. */
+export type PersonsThreads = Extract<Home["kind"], "chat" | "task">;
+
+/** Where a list read newest first goes on: after the row started at `at` with this id. */
+export interface NewestFirstAfter {
+  readonly at: Date;
+  readonly id: string;
+}
+
+/** Some of a person's Threads, and how many they have in all. */
+export interface PersonsThreadsRead {
+  readonly threads: readonly Thread[];
+  readonly total: number;
+}
+
+/** A Thread on a Task's title, undefined before its first message. */
+export interface TaskThreadTitle {
+  readonly taskId: string;
+  readonly title: string | undefined;
+}
+
 /** A message in The Office's log, with the Thread it was logged in. */
 export interface LoggedMessage {
   readonly thread: Thread;
@@ -48,8 +69,20 @@ export abstract class ThreadRepository {
   /** The home's Threads, the newest started first. */
   abstract listIn(home: Home): Promise<readonly Thread[]>;
 
-  /** The Threads on any Task with the person, by their Role's key, the newest started first. */
-  abstract listOnTasksWith(roleKey: string): Promise<readonly Thread[]>;
+  /**
+   * The person's Threads in their chat or on any Task, by their Role's key, the newest started
+   * first, `limit` at most, those started after `after` (by time, then id) only when given, read by
+   * the index on the person's Threads whatever their number; with how many they have in all.
+   */
+  abstract personsThreads(
+    roleKey: string,
+    where: PersonsThreads,
+    after: NewestFirstAfter | undefined,
+    limit: number,
+  ): Promise<PersonsThreadsRead>;
+
+  /** The title of each of the person's Threads on a Task, by its Task, the newest started first. */
+  abstract titlesOnTasksWith(roleKey: string): Promise<readonly TaskThreadTitle[]>;
 
   /**
    * Applies `change` to the Thread as stored, holding it against other changes until the Thread and

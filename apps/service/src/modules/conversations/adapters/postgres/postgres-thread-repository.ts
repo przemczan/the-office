@@ -15,6 +15,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Decision } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
@@ -30,6 +31,10 @@ import {
   ThreadRepository,
   type LoggedMessage,
   type LoggedMessagesRange,
+  type NewestFirstAfter,
+  type PersonsThreads,
+  type PersonsThreadsRead,
+  type TaskThreadTitle,
   type ThreadUpdate,
 } from "../../ports/thread-repository.js";
 import {
@@ -87,13 +92,33 @@ export class PostgresThreadRepository extends ThreadRepository {
     return withOpenDecisions(this.database, rows);
   }
 
-  async listOnTasksWith(roleKey: string): Promise<readonly Thread[]> {
+  async personsThreads(
+    roleKey: string,
+    where: PersonsThreads,
+    after: NewestFirstAfter | undefined,
+    limit: number,
+  ): Promise<PersonsThreadsRead> {
+    // A chat's Threads are its person's own, so both lists are the person's Threads of one kind.
+    const persons = and(eq(threads.homeKind, where), eq(threads.roleKey, roleKey));
+    const [rows, [counted]] = await Promise.all([
+      this.database
+        .select()
+        .from(threads)
+        .where(and(persons, afterCursor(after, threads.startedAt, threads.id)))
+        .orderBy(...newestFirst(threads.startedAt, threads.id))
+        .limit(limit),
+      this.database.select({ total: count() }).from(threads).where(persons),
+    ]);
+    return { threads: await withOpenDecisions(this.database, rows), total: counted?.total ?? 0 };
+  }
+
+  async titlesOnTasksWith(roleKey: string): Promise<readonly TaskThreadTitle[]> {
     const rows = await this.database
-      .select()
+      .select({ taskId: threads.homeId, title: threads.title })
       .from(threads)
       .where(and(eq(threads.homeKind, "task"), eq(threads.roleKey, roleKey)))
-      .orderBy(desc(threads.startedAt), desc(threads.id));
-    return withOpenDecisions(this.database, rows);
+      .orderBy(...newestFirst(threads.startedAt, threads.id));
+    return rows.map(({ taskId, title }) => ({ taskId, title: title ?? undefined }));
   }
 
   async update<Event extends DomainEvent>(

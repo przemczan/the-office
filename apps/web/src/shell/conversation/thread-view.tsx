@@ -1,8 +1,8 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OpenPage, Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { homeThreadsQuery, renameThread, threadQueries } from "../../api/conversations.ts";
+import { homeThreadsKey, renameThread, threadQueries } from "../../api/conversations.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { AllowChangesBar } from "./allow-changes.tsx";
 import { ContextBar } from "./context-bar.tsx";
@@ -121,7 +121,7 @@ export function ThreadTitle({
     mutationFn: () => renameThread(thread.id, title),
     onSuccess: async (renamed) => {
       queryClient.setQueryData(threadQueries.one(renamed.id).queryKey, renamed);
-      await queryClient.invalidateQueries({ queryKey: homeThreadsKey(renamed) });
+      await queryClient.invalidateQueries({ queryKey: homeThreadsKey(renamed.home) });
       setEditing(false);
     },
   });
@@ -169,9 +169,4 @@ export function ThreadTitle({
       {renaming.error && <RefusalAlert title="The title wasn't saved" error={renaming.error} />}
     </form>
   );
-}
-
-/** The list of the Thread's home, which shows its title too. */
-function homeThreadsKey({ home }: Thread): QueryKey {
-  return homeThreadsQuery(home).queryKey;
 }

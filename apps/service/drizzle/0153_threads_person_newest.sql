@@ -1,0 +1,1 @@
+CREATE INDEX "threads_person_newest" ON "threads" USING btree ("home_kind","role_key","started_at" DESC NULLS LAST,"id" DESC NULLS LAST);

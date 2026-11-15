@@ -13,7 +13,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
+import { TASKS } from "../../api/work.ts";
 import { ChatProvider } from "../../shell/chat/use-chat.tsx";
 import { ThreadDraftsProvider } from "../../shell/conversation/thread-drafts.tsx";
 import { ToastProvider } from "../../shell/toasts.tsx";
@@ -39,7 +39,10 @@ function aNote(id: string, user: MemoryNote["source"]): MemoryNote {
   return { id, text: `Note ${id}`, source: user, writtenAt: "2026-11-10T10:00:00.000Z" };
 }
 
-async function shownMemory(memory: Memory): Promise<HTMLElement> {
+/** The Memory tab as it shows `memory`, with the queries it made. */
+async function shownMemory(
+  memory: Memory,
+): Promise<{ readonly page: HTMLElement; readonly queryClient: QueryClient }> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
@@ -47,7 +50,6 @@ async function shownMemory(memory: Memory): Promise<HTMLElement> {
   queryClient.setQueryData(roleQueries.one("developer").queryKey, DEVELOPER);
   queryClient.setQueryData(roleQueries.memory("developer").queryKey, memory);
   queryClient.setQueryData(projectQueries.list().queryKey, []);
-  queryClient.setQueryData(taskQueries.list().queryKey, []);
   const rootRoute = createRootRoute({
     component: () => (
       <ThreadDraftsProvider>
@@ -79,12 +81,12 @@ async function shownMemory(memory: Memory): Promise<HTMLElement> {
     );
     await router.load();
   });
-  return page;
+  return { page, queryClient };
 }
 
 describe("MemoryTab", () => {
   it("names the user who added a note: you, or another user by name", async () => {
-    const page = await shownMemory({
+    const { page } = await shownMemory({
       inUse: true,
       notes: [
         aNote("a", { kind: "user", user: BY_YOU }),
@@ -97,5 +99,29 @@ describe("MemoryTab", () => {
       ({ textContent }) => textContent,
     );
     expect(sources).toEqual(["Added by you", "Added by Ann Lee", "Added by you"]);
+  });
+
+  it("names the Task a note was written on by the title the service gives, reading no Tasks", async () => {
+    const { page, queryClient } = await shownMemory({
+      inUse: true,
+      notes: [
+        aNote("a", {
+          kind: "agent",
+          threadId: "a-thread",
+          taskId: "a-task",
+          taskTitle: "Fix the login redirect",
+        }),
+        aNote("b", { kind: "agent", threadId: "a-thread", taskId: "a-gone-task" }),
+      ],
+    });
+
+    const sources = [...page.querySelectorAll(".memory-note-link")].map(
+      ({ textContent }) => textContent,
+    );
+    expect(sources).toEqual([
+      "Written by Jim on Fix the login redirect",
+      "Written by Jim on a Task",
+    ]);
+    expect(queryClient.getQueryCache().findAll({ queryKey: TASKS })).toEqual([]);
   });
 });

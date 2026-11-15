@@ -8,7 +8,7 @@ import {
   WorkRecords,
 } from "../../conversations/index.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
-import { DUTIES } from "../../people/index.js";
+import { DUTIES, MemoryTaskTitles } from "../../people/index.js";
 import { TaskBases, type NewProject, type TaskBaseLookup } from "../../projects/index.js";
 import type { AccountWindowsReading, UsedUpWindowReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
@@ -53,6 +53,7 @@ import { TaskDecisions } from "./task-decisions.js";
 import {
   TaskThreads,
   type PersonsTaskThread,
+  type TaskThreadTitle,
   type TaskThreadOpening,
   type TaskThreadStarting,
 } from "./task-threads.js";
@@ -450,6 +451,7 @@ export interface AskedAgain {
  * Keeps each Thread opened on a Task, waiting for the user, and each started with an opening,
  * without a session; or fails, once `failure` is set. The persons' Threads a test sets in
  * `personsThreads` are known by id, and each asked again is kept, but those in `failingAskAgain`.
+ * A person's Thread titles are those a test sets in `titles`, by their Role's key.
  */
 @Injectable()
 export class TaskThreadsForTests extends TaskThreads {
@@ -458,7 +460,12 @@ export class TaskThreadsForTests extends TaskThreads {
   readonly personsThreads = new Map<string, PersonsTaskThread>();
   readonly askedAgain: AskedAgain[] = [];
   readonly failingAskAgain = new Set<string>();
+  readonly titles = new Map<string, readonly TaskThreadTitle[]>();
   failure: Error | undefined;
+
+  async titlesOnTasksWith(roleKey: string): Promise<readonly TaskThreadTitle[]> {
+    return this.titles.get(roleKey) ?? [];
+  }
 
   async personsThreadOnTask(threadId: string): Promise<PersonsTaskThread | undefined> {
     return this.personsThreads.get(threadId);
@@ -515,6 +522,10 @@ export class TaskDecisionsForTests extends TaskDecisions {
 
   async openOn(taskId: string): Promise<number> {
     return this.open.get(taskId) ?? 0;
+  }
+
+  async tasksWithOpenDecisions(): Promise<readonly string[]> {
+    return [...this.open].flatMap(([taskId, count]) => (count > 0 ? [taskId] : []));
   }
 
   async openInThread(threadId: string): Promise<readonly OpenTaskDecision[]> {
@@ -663,6 +674,7 @@ const PORTS = [
   TaskThreadSetups,
   InitiativeThreadSetups,
   WorkRecords,
+  MemoryTaskTitles,
   ProposalAppliers,
   FireAlarmInThreads,
   TaskBasesForTests,

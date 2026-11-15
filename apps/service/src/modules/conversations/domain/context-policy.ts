@@ -188,6 +188,27 @@ export function decideContext(
   };
 }
 
+/** The move a list's row shows: what `decideContext` decides, without what a Brief would take. */
+export type ContextMoveSummary = Pick<
+  ContextDecision,
+  "move" | "reason" | "cacheWarm" | "cacheWarmUntil" | "contextTokens"
+>;
+
+/**
+ * `decideContext` for a list's row, which builds no Brief: no move depends on the Brief's size,
+ * only what the user may choose instead does, and a row shows none of that.
+ */
+export function summarizeContext(
+  continuation: Omit<Continuation, "briefTokens">,
+  settings: ContextPolicySettings = DEFAULT_CONTEXT_POLICY_SETTINGS,
+): ContextMoveSummary {
+  const { move, reason, cacheWarm, cacheWarmUntil, contextTokens } = decideContext(
+    { ...continuation, briefTokens: 0 },
+    settings,
+  );
+  return { move, reason, cacheWarm, cacheWarmUntil, contextTokens };
+}
+
 function choose(
   { override, sessionDefault, declared }: Continuation,
   addedContextTokens: number,

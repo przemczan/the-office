@@ -172,6 +172,12 @@ export class DecisionService {
       }));
   }
 
+  /** The ids of the Tasks a Decision waiting on the user is open on, each once. */
+  async tasksWithOpenDecisions(): Promise<readonly string[]> {
+    const open = await this.repository.openDecisions();
+    return [...new Set(open.filter(isOnTask).map(({ taskId }) => taskId))];
+  }
+
   /** How many Decisions on the Task wait on the user, in any of its Threads. */
   async openOn(taskId: string): Promise<number> {
     const open = await this.repository.openDecisions();

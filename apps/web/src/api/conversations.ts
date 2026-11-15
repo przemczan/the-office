@@ -1,6 +1,12 @@
-import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  type InfiniteData,
+  type QueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 import {
   chatActivitySchema,
+  chatThreadPageSchema,
   decisionListSchema,
   fireAlarmLiftsSchema,
   messageListSchema,
@@ -14,6 +20,7 @@ import {
   subAgentMessagesSchema,
   subAgentsAndProcessesSchema,
   taskConversationSchema,
+  taskThreadPageSchema,
   threadListSchema,
   threadSchema,
   threadWebEventSchema,
@@ -27,13 +34,17 @@ import {
   type Proposal,
   type ProposalApplication,
   type SizeThreshold,
+  type ChatThreadPage,
   type SubAgentMessages,
+  type TaskThreadPage,
   type Thread,
+  type ThreadSummary,
   type ThreadWebEvent,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendToApi } from "./api-client.ts";
+import { changeRows, pagedQueryOptions, rowsOf } from "./pages.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
-import { FIRE_ALARM, TASKS } from "./work.ts";
+import { FIRE_ALARM, PERSON_TASKS, TASKS } from "./work.ts";
 
 const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
@@ -54,13 +65,16 @@ export const threadQueries = {
       queryKey: [...THREADS, "people-working"],
       queryFn: ({ signal }) => getFromApi("/people-working", peopleWorkingSchema, signal),
     }),
-  /** The person's chat, the newest Thread first. */
+  /**
+   * The person's chat, the newest Thread first, a page at a time; each row a summary, which
+   * `one` reads in full for the Thread that opens.
+   */
   inChat: (roleKey: string) =>
-    queryOptions({
-      queryKey: [...THREADS, "chat", roleKey],
-      queryFn: ({ signal }) =>
-        getFromApi(`/chats/${encodeURIComponent(roleKey)}/threads`, threadListSchema, signal),
-    }),
+    pagedQueryOptions(
+      [...THREADS, "chat", roleKey],
+      `/chats/${encodeURIComponent(roleKey)}/threads`,
+      chatThreadPageSchema,
+    ),
   /** The Threads on a Task, the newest first. */
   onTask: (taskId: string) =>
     queryOptions({
@@ -100,13 +114,13 @@ export const threadQueries = {
           signal,
         ),
     }),
-  /** The person's Threads on every Task, the newest first. */
+  /** The person's Threads on every Task, the newest first, a page at a time, each with its Task. */
   onTasksWith: (roleKey: string) =>
-    queryOptions({
-      queryKey: [...THREADS, "on-tasks", roleKey],
-      queryFn: ({ signal }) =>
-        getFromApi(`/roles/${encodeURIComponent(roleKey)}/task-threads`, threadListSchema, signal),
-    }),
+    pagedQueryOptions(
+      [...THREADS, "on-tasks", roleKey],
+      `/roles/${encodeURIComponent(roleKey)}/task-threads`,
+      taskThreadPageSchema,
+    ),
   one: (id: string) =>
     queryOptions({
       queryKey: [...THREADS, id],
@@ -348,8 +362,9 @@ export const threadEventInvalidations: Readonly<
     EventInvalidations[string]
   >
 > = {
-  "thread.started": () => [THREADS],
-  "thread.renamed": () => [THREADS],
+  // A person's Work tab names their Tasks by their Threads' titles.
+  "thread.started": () => [THREADS, PERSON_TASKS],
+  "thread.renamed": () => [THREADS, PERSON_TASKS],
   "thread.seen": () => [THREADS],
   "thread.messages-logged": () => [THREADS],
   "thread.turn-ended": () => [THREADS],
@@ -376,48 +391,90 @@ export const threadEventCacheUpdates: Readonly<
     const counted = threadWebEventSchema.parse(event);
     if (counted.type !== "thread.tokens-counted") return;
     const { tokens } = counted;
-    changeThread(queryClient, counted.threadId, counted.home, (thread) => ({ ...thread, tokens }));
+    changeThread(queryClient, counted.threadId, counted.home, {
+      thread: (thread) => ({ ...thread, tokens }),
+      summary: (summary) => ({ ...summary, tokens }),
+    });
   },
   "thread.context-read": (event, queryClient) => {
     const read = threadWebEventSchema.parse(event);
     if (read.type !== "thread.context-read") return;
     const { contextTokens, contextWindow } = read;
-    changeThread(queryClient, read.threadId, read.home, (thread) => ({
-      ...thread,
-      context: { ...thread.context, contextTokens, contextWindow },
-    }));
+    changeThread(queryClient, read.threadId, read.home, {
+      thread: (thread) => ({
+        ...thread,
+        context: { ...thread.context, contextTokens, contextWindow },
+      }),
+      summary: (summary) => ({ ...summary, context: { ...summary.context, contextTokens } }),
+    });
   },
 };
+
+/** A change to a Thread, as it reads in full and as a list's row shows it. */
+interface ThreadChange {
+  readonly thread: (thread: Thread) => Thread;
+  readonly summary: (summary: ThreadSummary) => ThreadSummary;
+}
 
 function changeThread(
   queryClient: QueryClient,
   threadId: string,
   home: Home,
-  change: (thread: Thread) => Thread,
+  change: ThreadChange,
 ): void {
   queryClient.setQueryData(
     threadQueries.one(threadId).queryKey,
-    (thread) => thread && change(thread),
+    (thread) => thread && change.thread(thread),
   );
   // A list without the Thread stays as it is, so nothing showing it renders again.
-  const inList = (threads: Thread[] | undefined): Thread[] | undefined =>
-    threads?.some(({ id }) => id === threadId)
-      ? threads.map((thread) => (thread.id === threadId ? change(thread) : thread))
-      : threads;
-  queryClient.setQueryData(homeThreadsQuery(home).queryKey, inList);
-  // Every person's list of their Threads on Tasks, since the event doesn't name whose it is.
-  queryClient.setQueriesData<Thread[]>({ queryKey: [...THREADS, "on-tasks"] }, inList);
-}
-
-/** The Threads of the home, the newest first. */
-export function homeThreadsQuery(home: Home) {
+  const changedIn = <Row extends { readonly id: string }>(
+    rows: Row[] | undefined,
+    toRow: (row: Row) => Row,
+  ): Row[] | undefined =>
+    rows?.some(({ id }) => id === threadId)
+      ? rows.map((row) => (row.id === threadId ? toRow(row) : row))
+      : rows;
+  const inPages = <Page extends ChatThreadPage | TaskThreadPage>(
+    toRow: (row: Page["rows"][number]) => Page["rows"][number],
+  ) => {
+    return (pages: InfiniteData<Page> | undefined): InfiniteData<Page> | undefined =>
+      rowsOf(pages).some(({ id }) => id === threadId)
+        ? changeRows(pages, (rows) => changedIn(rows, toRow) ?? rows)
+        : pages;
+  };
   switch (home.kind) {
     case "chat":
-      return threadQueries.inChat(home.roleKey);
+      queryClient.setQueryData(
+        threadQueries.inChat(home.roleKey).queryKey,
+        inPages<ChatThreadPage>(change.summary),
+      );
+      break;
     case "task":
-      return threadQueries.onTask(home.taskId);
+      queryClient.setQueryData(threadQueries.onTask(home.taskId).queryKey, (threads) =>
+        changedIn(threads, change.thread),
+      );
+      // Every person's list of their Threads on Tasks, since the event doesn't name whose it is.
+      queryClient.setQueriesData<InfiniteData<TaskThreadPage>>(
+        { queryKey: [...THREADS, "on-tasks"] },
+        inPages<TaskThreadPage>((row) => ({ ...row, ...change.summary(row) })),
+      );
+      break;
     case "initiative":
-      return threadQueries.onInitiative(home.initiativeId);
+      queryClient.setQueryData(threadQueries.onInitiative(home.initiativeId).queryKey, (threads) =>
+        changedIn(threads, change.thread),
+      );
+  }
+}
+
+/** The key of the list of the home's Threads, the newest first. */
+export function homeThreadsKey(home: Home): QueryKey {
+  switch (home.kind) {
+    case "chat":
+      return threadQueries.inChat(home.roleKey).queryKey;
+    case "task":
+      return threadQueries.onTask(home.taskId).queryKey;
+    case "initiative":
+      return threadQueries.onInitiative(home.initiativeId).queryKey;
   }
 }
 

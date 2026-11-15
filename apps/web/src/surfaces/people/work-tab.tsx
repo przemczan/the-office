@@ -1,50 +1,35 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { Project } from "@the-office/contracts";
+import type { PersonTask, Project, WorkFilter } from "@the-office/contracts";
 import { DataTable, type DataTableColumn } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { decisionQueries, threadQueries } from "../../api/conversations.ts";
-import { dutyQueries } from "../../api/people.ts";
-import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
+import { rowsOf } from "../../api/pages.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
-import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
+import { ShowMore } from "../../shell/show-more.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
-import {
-  inFilter,
-  personTasks,
-  WORK_FILTERS,
-  type PersonTask,
-  type WorkFilter,
-} from "./person-tasks.ts";
+import { WORK_FILTERS } from "./person-tasks.ts";
 
 /**
  * The Tasks the person has a part in, by how they stand (prototypes/app/people.js), in the Projects
- * the filter shows.
+ * the filter shows: a page at a time, filtered and counted by the service.
  */
 export function WorkTab(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey/work" });
-  const tasks = useQuery(taskQueries.list());
-  const pipelines = useEveryPipeline();
   const projects = useQuery(projectQueries.list());
-  const threads = useQuery(threadQueries.onTasksWith(roleKey));
-  const openDecisions = useQuery(decisionQueries.open());
-  const duties = useQuery(dutyQueries.list());
   const projectFilter = useProjectFilter();
-  const [filter, setFilter] = useState<WorkFilter>(WORK_FILTERS[0]);
-  if (!tasks.data || !pipelines || !threads.data || !openDecisions.data || !duties.data) {
-    return null;
-  }
-  const heldDuties = new Set(
-    duties.data.filter(({ holder }) => holder?.roleKey === roleKey).map(({ key }) => key),
-  );
-  const { shown: theirs, elsewhere } = narrowed(
-    personTasks(roleKey, tasks.data, pipelines, threads.data, heldDuties),
-    ({ task }) => projectFilter.shows([task.projectId]),
-  );
+  const [filter, setFilter] = useState<WorkFilter>("all");
+  // Another filter keeps the Tasks shown until its own are read, so the tab doesn't blink.
+  const tasks = useInfiniteQuery({
+    ...taskQueries.ofPerson(roleKey, filter, projectFilter.filter),
+    placeholderData: keepPreviousData,
+  });
+  // The newest page read has the counts as they are now.
+  const counted = tasks.data?.pages.at(-1);
+  if (!counted) return null;
   return (
     <div className="person-work">
       <div className="person-work-filters" role="group" aria-label="Show">
@@ -53,27 +38,21 @@ export function WorkTab(): ReactNode {
             key={candidate.key}
             type="button"
             className="person-work-filter"
-            aria-pressed={candidate.key === filter.key}
-            onClick={() => setFilter(candidate)}
+            aria-pressed={candidate.key === filter}
+            onClick={() => setFilter(candidate.key)}
           >
             {candidate.label}{" "}
-            <span className="person-work-count">
-              {
-                theirs.filter((personTask) => inFilter(candidate, personTask, openDecisions.data))
-                  .length
-              }
-            </span>
+            <span className="person-work-count">{counted.counts[candidate.key]}</span>
           </button>
         ))}
       </div>
-      <InOtherProjectsNote count={elsewhere} one="Task" many="Tasks" />
+      <InOtherProjectsNote count={counted.elsewhere} one="Task" many="Tasks" />
       <DataTable
         columns={columnsFor(projects.data)}
-        rows={theirs
-          .filter((personTask) => inFilter(filter, personTask, openDecisions.data))
-          .map((personTask) => ({ id: personTask.task.id, ...personTask }))}
+        rows={rowsOf(tasks.data).map((personTask) => ({ id: personTask.task.id, ...personTask }))}
         empty="No Tasks here. Try another filter."
       />
+      <ShowMore list={tasks} />
     </div>
   );
 }

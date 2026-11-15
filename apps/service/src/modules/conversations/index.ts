@@ -40,6 +40,7 @@ export {
 export {
   WorkRecords,
   type ProjectWork,
+  type TaskSubject,
   type WorkRecordSource,
 } from "./application/work-records.js";
 export { ConversationsModule } from "./conversations.module.js";

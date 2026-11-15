@@ -1,5 +1,7 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Neighbours } from "../domain/manual-order.js";
+import type { WorkFilter } from "../domain/person-tasks.js";
+import type { ProjectFilter } from "../domain/project-filter.js";
 import type { StateChange } from "../domain/state-change.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
@@ -18,6 +20,34 @@ export interface NeighbourIds {
 }
 
 /**
+ * Which of a person's Tasks to read: those they created, those with a Thread with them and those
+ * whose Pipeline has a Stage of theirs, by what other modules say of them, never archived ones.
+ */
+export interface PersonsTasksQuery {
+  readonly roleKey: string;
+  /** The Tasks with a Thread with the person. */
+  readonly withThreads: readonly string[];
+  /** The Pipelines with a Stage the person works. */
+  readonly pipelineIds: readonly string[];
+  /** The Tasks a Decision waiting on the user is open on, for Waiting on you. */
+  readonly withOpenDecisions: readonly string[];
+  readonly filter: WorkFilter;
+  readonly projects: ProjectFilter;
+  /** Only those created after the Task created at `at` with this id, the newest first. */
+  readonly after: { readonly at: Date; readonly id: string } | undefined;
+  readonly limit: number;
+}
+
+/** Some of the person's Tasks in the filter, with each filter's count and how many it hides. */
+export interface PersonsTasksRead {
+  readonly tasks: readonly Task[];
+  /** In the Projects the Project filter shows. */
+  readonly counts: Readonly<Record<WorkFilter, number>>;
+  /** The person's Tasks the Project filter hides. */
+  readonly elsewhere: number;
+}
+
+/**
  * Where Tasks are kept. Whatever writes an order key holds the board's manual order until it is
  * saved, so two writes at once never take the same key.
  */
@@ -31,6 +61,15 @@ export abstract class TaskRepository {
 
   /** Every Task, in no particular order. */
   abstract list(): Promise<readonly Task[]>;
+
+  /** Those of the Tasks there are, by their ids, in no particular order. */
+  abstract findAll(ids: readonly string[]): Promise<readonly Task[]>;
+
+  /**
+   * The person's Tasks in the filter, the newest created first, `limit` at most, filtered and
+   * counted in the query, whatever the number of Tasks.
+   */
+  abstract personsTasks(query: PersonsTasksQuery): Promise<PersonsTasksRead>;
 
   /** The Task's kept state changes, oldest first; none for a Task The Office doesn't know. */
   abstract stateChangesOf(taskId: string): Promise<readonly StateChange[]>;

@@ -12,6 +12,7 @@ export * from "./office-actions.js";
 export * from "./office-identity.js";
 export * from "./office-updates.js";
 export * from "./open-page.js";
+export * from "./paging.js";
 export * from "./passkeys.js";
 export * from "./people.js";
 export * from "./pipelines.js";

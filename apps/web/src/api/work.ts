@@ -14,6 +14,7 @@ import {
   initiativeSchema,
   initiativePauseAnswerSchema,
   fireAlarmSchema,
+  personTaskPageSchema,
   officeWideLimitSchema,
   archivePeriodSchema,
   projectOnboardingListSchema,
@@ -65,6 +66,7 @@ import {
   type TaskUsageEstimateList,
   type UsageSettings,
   type WebEvent,
+  type WorkFilter,
   type WorkWebEvent,
   workWebEventSchema,
 } from "@the-office/contracts";
@@ -78,12 +80,15 @@ import {
   SignedOut,
 } from "./api-client.ts";
 import { attachmentCopiesOf } from "./attachment-copies.ts";
+import { pagedQueryOptions } from "./pages.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
 import { RUN_ENVIRONMENTS } from "./projects.ts";
 
 const IDEAS = ["ideas"] as const;
 const INITIATIVES = ["initiatives"] as const;
 export const TASKS = ["tasks"] as const;
+/** The Tasks of people's Work tabs: under the Tasks' key, and read again as Threads start or rename. */
+export const PERSON_TASKS = [...TASKS, "person"] as const;
 const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
 const ARCHIVE_PERIOD = ["settings", "archive-period"] as const;
@@ -258,6 +263,19 @@ export const taskQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`/tasks?query=${encodeURIComponent(query)}`, taskListSchema, signal),
     }),
+  /**
+   * The person's Tasks on their Work tab, in the Work filter and the Project filter's Projects, a
+   * page at a time, filtered and counted by the service.
+   */
+  ofPerson: (roleKey: string, filter: WorkFilter, projects: ProjectFilter) => {
+    const search = new URLSearchParams({ filter });
+    if (projects !== "all") for (const id of projects) search.append("project", id);
+    return pagedQueryOptions(
+      [...PERSON_TASKS, roleKey, { filter, projects }],
+      `/roles/${encodeURIComponent(roleKey)}/tasks?${search.toString()}`,
+      personTaskPageSchema,
+    );
+  },
   one: (id: string) =>
     queryOptions({
       queryKey: [...TASKS, id],

@@ -307,6 +307,8 @@ export const memoryNoteSourceSchema = z.discriminatedUnion("kind", [
     kind: z.literal("agent"),
     threadId: z.string(),
     taskId: z.string().optional(),
+    /** The title of the Task it was written on, as it is now; absent once that Task is gone. */
+    taskTitle: z.string().optional(),
   }),
 ]);
 

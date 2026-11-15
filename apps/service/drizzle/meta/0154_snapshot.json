@@ -1,6 +1,6 @@
 {
-  "id": "1349d20e-6fa6-4929-b49a-491d2721809f",
-  "prevId": "4c0f697c-dbd2-4d37-ba3c-b9158f28dacf",
+  "id": "4c0f697c-dbd2-4d37-ba3c-b9158f28dacf",
+  "prevId": "a6438fe6-cccb-4948-b911-ad3104f447e3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1021,6 +1021,39 @@
               "expression": "home_id",
               "isExpression": false,
               "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "threads_person_newest": {
+          "name": "threads_person_newest",
+          "columns": [
+            {
+              "expression": "home_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "role_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             }
           ],
@@ -3640,55 +3673,6 @@
         "skills_update_of_installed": {
           "name": "skills_update_of_installed",
           "value": "\"skills\".\"update_commit\" IS NULL OR \"skills\".\"source\" = 'installed'"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.first_run_setup": {
-      "name": "first_run_setup",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "smallint",
-          "primaryKey": true,
-          "notNull": true,
-          "default": 1
-        },
-        "setup_token_hash": {
-          "name": "setup_token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "setup_token_made_at": {
-          "name": "setup_token_made_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "basics_opened_at": {
-          "name": "basics_opened_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "basics_closed_at": {
-          "name": "basics_closed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "first_run_setup_one_row": {
-          "name": "first_run_setup_one_row",
-          "value": "\"first_run_setup\".\"id\" = 1"
         }
       },
       "isRLSEnabled": false

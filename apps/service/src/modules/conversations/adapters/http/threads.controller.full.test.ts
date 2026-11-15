@@ -11,6 +11,7 @@ import {
   sizeThresholdSchema,
   firstBriefSchema,
   taskConversationSchema,
+  taskThreadPageSchema,
   threadListSchema,
   threadRefusalSchema,
   threadSchema,
@@ -60,12 +61,14 @@ import { InitiativeThreadSetups } from "../../application/initiative-thread-setu
 import { TaskConversations } from "../../application/task-conversations.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
+import { ThreadSummaries } from "../../application/thread-summaries.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { MentionedRecords } from "../../application/mentioned-records.js";
 import { openPageRecordProviders } from "../../application/open-page-records.fixtures.js";
 import { WorkRecords } from "../../application/work-records.js";
+import { NO_WORK_RECORDS, taskSubjectsAs } from "../../application/work-records.fixtures.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import { ProjectBases } from "../../ports/project-bases.js";
 import { noProjectBases } from "../../ports/project-bases.fixtures.js";
@@ -253,6 +256,7 @@ function setUpEachTest(): void {
         SessionPlaces,
         CallChains,
         ThreadContexts,
+        ThreadSummaries,
         AllowChanges,
         ThreadRunner,
         FireAlarmInThreads,
@@ -481,21 +485,35 @@ describe("a Task's conversation", () => {
   it("lists a person's Threads on every Task, for their Work tab", async () => {
     const roleKey = aPerson("Jan", false);
     const repository = app.get(ThreadRepository);
+    const taskId = randomUUID();
     const planning = aThread({
       id: randomUUID(),
-      home: { kind: "task", taskId: randomUUID() },
+      home: { kind: "task", taskId },
       roleKey,
       title: "Planning",
     });
     await repository.add(planning);
     await repository.add(aThread({ id: randomUUID(), home: { kind: "chat", roleKey }, roleKey }));
+    app.get(WorkRecords).provide({
+      ...NO_WORK_RECORDS,
+      taskSubjects: taskSubjectsAs("Fix the login", "admin-panel"),
+    });
 
     const listed = await get(`/roles/${roleKey}/task-threads`);
 
     expect(listed.status).toBe(200);
-    expect(threadListSchema.parse(await listed.json())).toEqual([
-      expect.objectContaining({ id: planning.id, home: planning.home, title: "Planning" }),
-    ]);
+    expect(taskThreadPageSchema.parse(await listed.json())).toEqual({
+      rows: [
+        expect.objectContaining({
+          id: planning.id,
+          home: planning.home,
+          title: "Planning",
+          task: { id: taskId, title: "Fix the login", projectId: "admin-panel" },
+        }),
+      ],
+      next: null,
+      total: 1,
+    });
   });
 });
 

@@ -76,6 +76,18 @@ export class PipelineLibrary {
     return this.repository.list();
   }
 
+  /** The office-wide Pipelines, then every Project's Project Pipelines, each built. */
+  async every(): Promise<readonly ReadPipeline[]> {
+    const [officeWide, projectPipelines] = await Promise.all([
+      this.list(),
+      this.projectPipelines(),
+    ]);
+    return [
+      ...officeWide.map((pipeline) => ({ ...pipeline, broken: [] })),
+      ...projectPipelines.map(readOf),
+    ];
+  }
+
   /** An office-wide Pipeline; never a Project Pipeline. */
   async find(id: string): Promise<Pipeline | undefined> {
     return this.repository.find(id);

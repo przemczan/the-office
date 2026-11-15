@@ -20,6 +20,7 @@ import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
 import { Duties } from "./application/duties.js";
 import { DutyChangeChecks } from "./application/duty-change-checks.js";
 import { MemoryService } from "./application/memory-service.js";
+import { MemoryTaskTitles } from "./application/memory-task-titles.js";
 import { OfficeSetup } from "./application/office-setup.js";
 import { PersonAvatars } from "./application/person-avatars.js";
 import { RoleCards } from "./application/role-cards.js";
@@ -57,6 +58,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleOverrideChecks,
     RoleOverrideMoves,
     MemoryService,
+    MemoryTaskTitles,
     RoleCards,
     RoleWebEvents,
     PeopleOfficeTools,
@@ -68,6 +70,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleService,
     RoleOverrideChecks,
     MemoryService,
+    MemoryTaskTitles,
     PersonRecords,
     Duties,
     DutyRepository,

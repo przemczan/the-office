@@ -106,11 +106,9 @@ export function whatMovesNow(
   };
 }
 
-/** An Active card's edge, as a Task card's: amber while one waits on the user, green while one runs. */
-export function activeEdge({ waitingOnYou, inProgress }: WhatMovesNow): string | undefined {
-  if (waitingOnYou > 0) return "edge-decision";
-  if (inProgress > 0) return "edge-running";
-  return undefined;
+/** An Active card's edge, as a Task card's: amber while one waits on the user, else the normal border. */
+export function activeEdge({ waitingOnYou }: WhatMovesNow): string | undefined {
+  return waitingOnYou > 0 ? "edge-decision" : undefined;
 }
 
 /** What an Active card says in place of "0 of 0 Tasks done". */

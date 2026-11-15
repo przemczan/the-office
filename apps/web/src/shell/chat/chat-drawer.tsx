@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Decision, Role, Thread } from "@the-office/contracts";
+import type { ChatActivity, Decision, Role, ThreadSummary } from "@the-office/contracts";
 import {
   Button,
   EmptyState,
@@ -12,12 +12,14 @@ import {
 } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { markThreadSeen, startChatThread, threadQueries } from "../../api/conversations.ts";
+import { rowsOf, totalOf } from "../../api/pages.ts";
 import { roleQueries } from "../../api/people.ts";
 import { MentionedDecisionWindow } from "../conversation/decision-on-task.tsx";
 import { ThreadView } from "../conversation/thread-view.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
 import { OpenMentionedDecisionContext } from "../record-mention.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { ShowMore } from "../show-more.tsx";
 import { dayAndClockOf } from "../time.ts";
 import { useClosedFromOutside } from "../use-closed-from-outside.ts";
 import { useTabVisible } from "../use-tab-visible.ts";
@@ -252,10 +254,15 @@ function PersonSwitchMenu({
   );
 }
 
-/** One column: the open Thread fills the drawer, and the Thread list is a step back from it. */
+/**
+ * One column: the open Thread fills the drawer, and the Thread list, read a page at a time, is a
+ * step back from it. The open Thread is read in full by its id, so one past the pages read opens
+ * as well.
+ */
 function PersonChat({ role }: { readonly role: Role }): ReactNode {
   const chat = useChat();
-  const threads = useQuery(threadQueries.inChat(role.key));
+  const threads = useInfiniteQuery(threadQueries.inChat(role.key));
+  const activity = useQuery(threadQueries.chatActivity());
   const queryClient = useQueryClient();
   const starting = useMutation({
     mutationFn: () => startChatThread(role.key),
@@ -265,11 +272,11 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
       chat.showThread(thread.id);
     },
   });
-  const list = threads.data ?? [];
-  const shown = list.find(({ id }) => id === chat.threadId) ?? list[0];
-  const showingList = chat.onThreadList || shown === undefined;
+  const list = rowsOf(threads.data);
+  const current = chat.threadId ?? list[0]?.id;
+  const showingList = chat.onThreadList || current === undefined;
   // From here on the drawer stays on this Thread, whatever starts in the chat meanwhile.
-  const shownId = showingList ? undefined : shown.id;
+  const shownId = showingList ? undefined : current;
   useEffect(() => {
     if (shownId !== undefined && chat.threadId === undefined) chat.showThread(shownId);
   }, [shownId, chat]);
@@ -285,7 +292,7 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
       New thread
     </Button>
   );
-  if (showingList) {
+  if (shownId === undefined) {
     return (
       <div className="chat-threads">
         {refusal}
@@ -297,12 +304,16 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
             action={newThread}
           />
         ) : (
-          <ThreadList
-            threads={list}
-            current={shown?.id}
-            newThread={newThread}
-            onOpen={chat.showThread}
-          />
+          <>
+            <ThreadList
+              threads={list}
+              total={totalOf(threads.data)}
+              current={current}
+              newThread={newThread}
+              onOpen={chat.showThread}
+            />
+            <ShowMore list={threads} />
+          </>
         )}
       </div>
     );
@@ -311,10 +322,10 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
     <div className="chat-main">
       {refusal && <div className="chat-main-refusal">{refusal}</div>}
       <ShownThread
-        key={shown.id}
-        thread={shown}
+        key={shownId}
+        threadId={shownId}
         personName={role.card.name}
-        othersAnswered={list.some(({ id, answered }) => id !== shown.id && answered === true)}
+        othersAnswered={answeredElsewhere(activity.data, role.key, shownId)}
         newThread={
           <IconButton
             icon={<Icon name="plus" size={14} />}
@@ -330,13 +341,26 @@ function PersonChat({ role }: { readonly role: Role }): ReactNode {
   );
 }
 
+/** Whether another of the person's chat Threads has an answer the user hasn't seen. */
+function answeredElsewhere(
+  activity: ChatActivity | undefined,
+  roleKey: string,
+  threadId: string,
+): boolean {
+  const theirs = activity?.find((person) => person.roleKey === roleKey);
+  return theirs?.answered.some((answered) => answered.threadId !== threadId) ?? false;
+}
+
 function ThreadList({
   threads,
+  total,
   current,
   newThread,
   onOpen,
 }: {
-  readonly threads: readonly Thread[];
+  readonly threads: readonly ThreadSummary[];
+  /** Every Thread in the chat, of which `threads` are the pages read so far. */
+  readonly total: number;
   readonly current: string | undefined;
   readonly newThread: ReactNode;
   readonly onOpen: (threadId: string) => void;
@@ -344,7 +368,7 @@ function ThreadList({
   return (
     <>
       {newThread}
-      <div className="chat-threads-count">Threads · {threads.length}</div>
+      <div className="chat-threads-count">Threads · {total}</div>
       {threads.map((thread) => (
         <ThreadItem
           key={thread.id}
@@ -362,7 +386,7 @@ function ThreadItem({
   active,
   onOpen,
 }: {
-  readonly thread: Thread;
+  readonly thread: ThreadSummary;
   readonly active: boolean;
   readonly onOpen: () => void;
 }): ReactNode {
@@ -406,12 +430,12 @@ function ThreadItem({
 }
 
 function ShownThread({
-  thread,
+  threadId,
   personName,
   othersAnswered,
   newThread,
 }: {
-  readonly thread: Thread;
+  readonly threadId: string;
   readonly personName: string;
   readonly othersAnswered: boolean;
   /** Starts another Thread with the same person, beside the way back to the list. */
@@ -419,10 +443,10 @@ function ShownThread({
 }): ReactNode {
   const chat = useChat();
   const openPage = useChatOpenPage();
-  useReportingSeen(thread.id);
+  useReportingSeen(threadId);
   return (
     <ThreadView
-      threadId={thread.id}
+      threadId={threadId}
       personName={personName}
       openPage={openPage.page}
       onLeaveOutOpenPage={openPage.leaveOut}

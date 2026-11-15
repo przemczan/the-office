@@ -131,7 +131,12 @@ function oneDecimal(value: number): string {
   return value.toFixed(1).replace(/\.0$/, "");
 }
 
-type LabelContext = Pick<ThreadContext, "move" | "reason" | "contextTokens" | "briefTokens">;
+/**
+ * What a label reads: a list's row has no Brief's estimate (`ThreadSummary`), so its label leaves
+ * the Brief out.
+ */
+type LabelContext = Pick<ThreadContext, "move" | "reason" | "contextTokens"> &
+  Partial<Pick<ThreadContext, "briefTokens">>;
 
 /**
  * What a move and its reason read as, after the move's own word. `sized` false leaves the size out,
@@ -145,7 +150,9 @@ export function contextDetail(
   const parts = [reasonWords(reason, sized ? contextTokens : undefined, personName)];
   if (sized && move === "resume" && reason !== "cache-expired")
     parts.push(`${tokensShort(contextTokens)} context`);
-  if (move !== "resume" && briefTokens !== null) parts.push(`brief ~${tokensShort(briefTokens)}`);
+  if (move !== "resume" && briefTokens !== null && briefTokens !== undefined) {
+    parts.push(`brief ~${tokensShort(briefTokens)}`);
+  }
   return parts.join(" · ");
 }
 

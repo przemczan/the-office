@@ -22,11 +22,10 @@ import { QueuedCardMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { WorkingMark, type PersonWorking } from "./working-mark.tsx";
 
+/** Only the states that need the user's eye colour the edge; the rest keep the normal border. */
 const EDGES: Partial<Record<TaskState, string>> = {
-  "in-progress": "edge-running",
   "waiting-on-you": "edge-decision",
   paused: "edge-paused",
-  done: "edge-done",
   dropped: "edge-failed",
 };
 

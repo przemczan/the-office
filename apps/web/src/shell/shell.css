@@ -1793,3 +1793,10 @@ a.person-tag:hover .person-tag-name {
   font: var(--type-caption);
   color: var(--fg-3);
 }
+
+/* ---- "Show more" under a list read a page at a time (show-more.tsx) */
+.show-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}

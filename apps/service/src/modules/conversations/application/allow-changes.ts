@@ -29,6 +29,18 @@ export class AllowChanges {
     return hasTheSwitch(thread) ? this.changesAllowed.isAllowed(thread.id) : undefined;
   }
 
+  /** `inThread` for each of a list's Threads, by its id, in one read. */
+  async inThreads(threads: readonly Thread[]): Promise<ReadonlyMap<string, boolean | undefined>> {
+    const switched = threads.filter(hasTheSwitch);
+    const allowed = await this.changesAllowed.allowedAmong(switched.map(({ id }) => id));
+    return new Map(
+      threads.map((thread) => [
+        thread.id,
+        hasTheSwitch(thread) ? allowed.has(thread.id) : undefined,
+      ]),
+    );
+  }
+
   /**
    * Allows changes in the Caretaker's Thread. Refused in any other Thread, and while the Caretaker
    * is answering, whose session runs under the rules it started with.

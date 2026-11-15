@@ -1,5 +1,5 @@
 {
-  "id": "4c0f697c-dbd2-4d37-ba3c-b9158f28dacf",
+  "id": "a6438fe6-cccb-4948-b911-ad3104f447e3",
   "prevId": "fa99ea4c-ff11-4bcc-98b9-ad5ae24d21f5",
   "version": "7",
   "dialect": "postgresql",
@@ -1021,6 +1021,39 @@
               "expression": "home_id",
               "isExpression": false,
               "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "threads_person_newest": {
+          "name": "threads_person_newest",
+          "columns": [
+            {
+              "expression": "home_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "role_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
               "nulls": "last"
             }
           ],
@@ -5343,19 +5376,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "commit_message": {
-          "name": "commit_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "commit_message_published_at": {
-          "name": "commit_message_published_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "pipeline_id": {
           "name": "pipeline_id",
