@@ -8,6 +8,7 @@ import type {
 import { Alert, Button, Card, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
+  cancelOfficeRestart,
   cancelOfficeUpdate,
   checkForUpdates,
   OFFICE_UPDATE_LOG_URL,
@@ -19,6 +20,7 @@ import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { dayOf, momentWords } from "../../../shell/time.ts";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
+import { useRestartScheduling } from "./restart-scheduling.ts";
 import { installNote, installWords, lastResultWords, waitingWords } from "./updates-words.ts";
 import "./updates.css";
 
@@ -26,6 +28,7 @@ import "./updates.css";
  * Settings › Updates (spec §5.1 Defaults, "Updating The Office"): how The Office was installed
  * and the version it runs, Check for updates, and Update, which waits for the work going on and then
  * has the launcher or the Office updater install the newest commit or release and start The Office
+ * again; and Restart The Office, which waits the same way, then has the launcher or Docker start it
  * again.
  */
 export function UpdatesSection(): ReactNode {
@@ -37,6 +40,7 @@ export function UpdatesSection(): ReactNode {
         <p className="settings-note">{installNote(officeUpdate.data.install)}</p>
       )}
       {officeUpdate.data && <VersionCard officeUpdate={officeUpdate.data} />}
+      {officeUpdate.data && <RestartCard officeUpdate={officeUpdate.data} />}
       {officeUpdate.data?.scheduled && <ScheduledCard officeUpdate={officeUpdate.data} />}
       {officeUpdate.data?.lastResult && <LastResultCard officeUpdate={officeUpdate.data} />}
       <SettingsProblem title="The Office's version can't be read" error={officeUpdate.error} />
@@ -143,20 +147,68 @@ function VersionCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }):
   );
 }
 
+/** Restart The Office, refused with the reason while nothing would start it again. */
+function RestartCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }): ReactNode {
+  const scheduling = useRestartScheduling();
+  const { restart, scheduled } = officeUpdate;
+  return (
+    <Card title={<SettingsCardTitle icon="rotate-cw">Restart</SettingsCardTitle>}>
+      <div className="updates-card-body">
+        <div className="updates-row">
+          <span className="settings-note">Waits for the work going on, as an update does.</span>
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Icon name="rotate-cw" size={14} />}
+            loading={scheduling.isPending}
+            disabled={restart.refusal !== undefined || scheduled !== undefined}
+            title={restart.refusal}
+            onClick={() => scheduling.mutate()}
+          >
+            Restart The Office
+          </Button>
+        </div>
+        {restart.refusal && !scheduled && (
+          <Alert tone="warning" title="Restart is refused">
+            {restart.refusal}
+          </Alert>
+        )}
+        {scheduling.error && (
+          <RefusalAlert title="The restart wasn't scheduled" error={scheduling.error} />
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/** A scheduled update or restart, with what it waits for and Cancel. */
 function ScheduledCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }): ReactNode {
   const queryClient = useQueryClient();
+  const scheduled = officeUpdate.scheduled;
+  const restart = scheduled?.kind === "restart";
   const cancelling = useMutation({
-    mutationFn: cancelOfficeUpdate,
+    mutationFn: restart ? cancelOfficeRestart : cancelOfficeUpdate,
     onSettled: () => queryClient.invalidateQueries(officeUpdateQueries.officeUpdate()),
   });
-  const scheduled = officeUpdate.scheduled;
   if (!scheduled) return null;
+  const waitsFor = restart ? "What the restart waits for" : "What the update waits for";
   return (
-    <Card title={<SettingsCardTitle icon="clock">Update scheduled</SettingsCardTitle>}>
+    <Card
+      title={
+        <SettingsCardTitle icon="clock">
+          {restart ? "Restart scheduled" : "Update scheduled"}
+        </SettingsCardTitle>
+      }
+    >
       <div className="updates-card-body">
         <div className="updates-row">
           <span>
-            To <TargetWords target={scheduled.target} />. {waitingWords(scheduled.busy.length)}
+            {scheduled.kind === "update" && (
+              <>
+                To <TargetWords target={scheduled.target} />.{" "}
+              </>
+            )}
+            {waitingWords(scheduled.busy.length, scheduled.kind)}
           </span>
           <Button
             variant="secondary"
@@ -168,7 +220,7 @@ function ScheduledCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }
           </Button>
         </div>
         {scheduled.busy.length > 0 && (
-          <ul className="updates-busy" aria-label="What the update waits for">
+          <ul className="updates-busy" aria-label={waitsFor}>
             {scheduled.busy.map((item, index) => (
               <li key={`${item.label}-${index}`}>{item.label}</li>
             ))}
@@ -178,7 +230,10 @@ function ScheduledCard({ officeUpdate }: { readonly officeUpdate: OfficeUpdate }
           Meanwhile, new Starts join the queue and each Task waits before its next Stage.
         </p>
         {cancelling.error && (
-          <RefusalAlert title="The update wasn't cancelled" error={cancelling.error} />
+          <RefusalAlert
+            title={restart ? "The restart wasn't cancelled" : "The update wasn't cancelled"}
+            error={cancelling.error}
+          />
         )}
       </div>
     </Card>

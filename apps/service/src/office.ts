@@ -3,7 +3,7 @@ import { Logger, type DynamicModule, type INestApplication } from "@nestjs/commo
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
 import { InterruptedAnswers, SubAgentsAndProcesses } from "./modules/conversations/index.js";
-import { OfficeUpdates } from "./modules/office-updates/index.js";
+import { ScheduledExits } from "./modules/office-updates/index.js";
 import { FirstRunSetup } from "./modules/users/index.js";
 import { RunEnvironments } from "./modules/run-environments/index.js";
 import {
@@ -31,8 +31,11 @@ const WEB_APP_DIRECTORY = fileURLToPath(new URL("../../web/", import.meta.url));
 
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM"] as const;
 
-/** What the service exits with to have its launcher update it (tools/office-launcher). */
-const UPDATE_EXIT_CODE = 75;
+/**
+ * What the service exits with to have its launcher update or restart it (tools/office-launcher);
+ * not zero, so a container's `on-failure` restart policy starts it again too.
+ */
+const SCHEDULED_EXIT_CODE = 75;
 
 const logger = new Logger("Office");
 
@@ -88,15 +91,16 @@ function closeOnShutdownSignal(app: INestApplication, telemetry: StartedTelemetr
 }
 
 /**
- * Closes the service, then telemetry, once a scheduled Office update finds nothing busy, and exits
- * with the code that has the launcher install the update and start the service again.
+ * Closes the service, then telemetry, once a scheduled Office update or restart finds nothing busy,
+ * and exits with the code that has the launcher install the update, if any, and start the service
+ * again; Docker's restart policy starts a container again.
  */
-function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): void {
-  app.get(OfficeUpdates).onReadyToUpdate(() => {
+function closeForScheduledExit(app: INestApplication, telemetry: StartedTelemetry): void {
+  app.get(ScheduledExits).onReadyToExit(() => {
     void app
       .close()
       .finally(() => telemetry.shutdown())
-      .finally(() => process.exit(UPDATE_EXIT_CODE));
+      .finally(() => process.exit(SCHEDULED_EXIT_CODE));
   });
 }
 
@@ -172,7 +176,7 @@ async function start(
   await serve(app, config, takeUpWhereTheOfficeStopped);
   await announceSetupToken(app, config);
   closeOnShutdownSignal(app, telemetry);
-  closeForUpdate(app, telemetry);
+  closeForScheduledExit(app, telemetry);
 }
 
 function describeStartFailure(error: unknown): string {

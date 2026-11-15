@@ -26,7 +26,7 @@ const DOWN = notification("n3", "office.down.engine", "Claude is down: refused."
 const NOTHING = {
   reconnecting: false,
   notifications: [],
-  updateWaitingFor: undefined,
+  scheduled: undefined,
   desktopAsk: false,
 };
 
@@ -40,7 +40,7 @@ describe("officeMessages", () => {
     const messages = officeMessages({
       reconnecting: true,
       notifications: [RESET, DONE, DOWN],
-      updateWaitingFor: 2,
+      scheduled: { kind: "update", waitingFor: 2 },
       desktopAsk: true,
     });
 
@@ -56,7 +56,7 @@ describe("officeMessages", () => {
   });
 
   it("counts no more than the first when it is alone", () => {
-    const messages = officeMessages({ ...NOTHING, updateWaitingFor: 0 });
+    const messages = officeMessages({ ...NOTHING, scheduled: { kind: "update", waitingFor: 0 } });
 
     expect(messages?.first).toEqual({ kind: "update-scheduled", waitingFor: 0 });
     expect(messages?.more).toBe(0);
@@ -95,5 +95,17 @@ describe("officeMessageWords", () => {
       tone: "info",
     });
     expect(officeMessageWords({ kind: "update-scheduled", waitingFor: 0 }).detail).toBeUndefined();
+  });
+
+  it("says what a scheduled restart waits for", () => {
+    expect(
+      officeMessages({ ...NOTHING, scheduled: { kind: "restart", waitingFor: 2 } })?.first,
+    ).toEqual({ kind: "restart-scheduled", waitingFor: 2 });
+    expect(officeMessageWords({ kind: "restart-scheduled", waitingFor: 2 })).toMatchObject({
+      shortLine: "Restart scheduled",
+      line: "A restart of The Office is scheduled, waiting for 2 things to finish.",
+      detail: "Waiting for 2 things",
+      tone: "info",
+    });
   });
 });

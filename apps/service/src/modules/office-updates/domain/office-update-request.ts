@@ -20,3 +20,11 @@ export type OfficeUpdateRequest =
       /** The image's repository, without a tag; the updater pulls `<image>:<version>`. */
       readonly image: string;
     };
+
+/** Asks the launcher to start the service again as it is, installing nothing. */
+export interface RestartRequest {
+  readonly kind: "restart";
+}
+
+/** What the service may leave in `request.json` for the launcher or the Office updater. */
+export type LauncherRequest = OfficeUpdateRequest | RestartRequest;

@@ -11,7 +11,7 @@ import type { EventInvalidations } from "./event-stream-provider.tsx";
 const OFFICE_UPDATE = ["office-update"] as const;
 
 export const officeUpdateQueries = {
-  /** The version The Office runs, what the last check found, and a scheduled update. */
+  /** The version The Office runs, what the last check found, and a scheduled update or restart. */
   officeUpdate: () =>
     queryOptions({
       queryKey: OFFICE_UPDATE,
@@ -31,6 +31,15 @@ export function scheduleOfficeUpdate(): Promise<void> {
 
 export function cancelOfficeUpdate(): Promise<void> {
   return deleteFromApi("/office-update/schedule");
+}
+
+/** Schedules a restart of The Office, which waits for the work going on; refused with the reason. */
+export function scheduleOfficeRestart(): Promise<void> {
+  return sendToApiWithNoAnswer("POST", "/office-restart/schedule", {});
+}
+
+export function cancelOfficeRestart(): Promise<void> {
+  return deleteFromApi("/office-restart/schedule");
 }
 
 /** Where the launcher's log of the last update opens, as plain text. */

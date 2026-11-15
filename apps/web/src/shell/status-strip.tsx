@@ -171,8 +171,8 @@ function AlarmFigure({ alarm }: { readonly alarm: FireAlarmOnNow }): ReactNode {
 
 /**
  * Gathers what The Office tells the user into the slot: the web reconnecting, the Office's own
- * Notifications until they clear, an Office update while one is scheduled, and the desktop ask
- * until the user answers, after which the browser keeps the answer.
+ * Notifications until they clear, an Office update or restart while one is scheduled, and the
+ * desktop ask until the user answers, after which the browser keeps the answer.
  */
 function OfficeMessagesSlot(): ReactNode {
   const reconnecting = useEventStreamStatus() === "reconnecting";
@@ -183,7 +183,7 @@ function OfficeMessagesSlot(): ReactNode {
   const messages = officeMessages({
     reconnecting,
     notifications,
-    updateWaitingFor: scheduled ? scheduled.busy.length : undefined,
+    scheduled: scheduled && { kind: scheduled.kind, waitingFor: scheduled.busy.length },
     desktopAsk: permission === "default",
   });
   if (!messages) return null;

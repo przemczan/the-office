@@ -24,7 +24,7 @@ const conditions: StartConditions = {
   officeWideLimit: 3,
   project: { name: "Admin panel", projectLimit: 2 },
   usage: NO_USAGE_AT_START,
-  officeUpdateHold: undefined,
+  scheduledExitWait: undefined,
 };
 
 /** A Task already started elsewhere, by default on another Project and another person. */

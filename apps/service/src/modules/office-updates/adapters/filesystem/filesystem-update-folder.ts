@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { officeUpdateResultSchema } from "@the-office/contracts";
-import type { OfficeUpdateRequest } from "../../domain/office-update-request.js";
+import type { LauncherRequest } from "../../domain/office-update-request.js";
 import type { OfficeUpdateResult } from "../../domain/office-update-result.js";
 import { UpdateFolder } from "../../ports/update-folder.js";
 
@@ -29,7 +29,7 @@ export class FilesystemUpdateFolder extends UpdateFolder {
     return this.folder;
   }
 
-  async writeRequest(request: OfficeUpdateRequest): Promise<void> {
+  async writeRequest(request: LauncherRequest): Promise<void> {
     await mkdir(this.fileIn(""), { recursive: true });
     await writeFile(this.fileIn(REQUEST_FILE), `${JSON.stringify(request)}\n`);
   }

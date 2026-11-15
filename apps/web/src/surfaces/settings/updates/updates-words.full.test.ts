@@ -42,5 +42,6 @@ describe("Settings › Updates' words", () => {
     expect(waitingWords(1)).toBe("Waiting for 1 thing:");
     expect(waitingWords(3)).toBe("Waiting for 3 things:");
     expect(waitingWords(0)).toBe("Nothing is busy, so The Office is restarting for it.");
+    expect(waitingWords(0, "restart")).toBe("Nothing is busy, so The Office is restarting.");
   });
 });

@@ -301,6 +301,10 @@ _Avoid_: Lift, reset, unpause
 Moving The Office itself to something newer, as its install allows: a checkout to the newest commit of its upstream, a release install or a container install to the newest Office release. Found by its daily check, scheduled by the user's Update in Settings › Updates, held until nothing is busy, then installed by the launcher (a checkout or a release install) or the Office updater (a container install), which goes back to the previous version when it fails. Not a Skill's Update.
 _Avoid_: Upgrade, self-update, release, deploy
 
+**Office restart**:
+The Office stopping and starting again as it is, installing nothing, for a setting that applies only at its next start. Scheduled by the user's Restart The Office in Settings › Updates (or on the Telemetry card), it holds work as an Office update does until nothing is busy; then the service exits and its launcher, or a container's Docker restart policy, starts it again. Offered only where one of them would.
+_Avoid_: Reboot, reload, relaunch
+
 **Office release**:
 A version of The Office cut from `main` by the Release workflow: the tag `v<version>`, its GitHub Release, a tarball for each Linux CPU and the container image, with the version Settings › Updates shows. Not an Office update, which moves an install to a newer version.
 _Avoid_: Build, distribution, package, update
@@ -314,7 +318,7 @@ The Office installed by `install.sh` on Debian/Ubuntu as a systemd service from 
 _Avoid_: Native install, bare-metal install
 
 **Launcher**:
-What `npm start` and a release install's unit run: it starts The Office's service, and when the service stops for an Office update, installs the update (a checkout's newest commit, or a release's tarball into `releases/` and the switch of `current`) and starts it again, going back to the previous version when the update fails.
+What `npm start` and a release install's unit run: it starts The Office's service, and when the service stops for an Office update, installs the update (a checkout's newest commit, or a release's tarball into `releases/` and the switch of `current`) and starts it again, going back to the previous version when the update fails; when it stops for an Office restart, starts it again as it is.
 _Avoid_: Supervisor, wrapper, runner
 
 **Office updater**:

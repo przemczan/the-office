@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { OFFICE_UPDATE_SCHEDULED, OfficeUpdateHold } from "../../office-updates/index.js";
+import { ScheduledExitHold } from "../../office-updates/index.js";
 import { EngineModels, usageWindowWords, type EngineId } from "../../engine/index.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type {
@@ -59,7 +59,7 @@ export class StartConditionsReader {
     private readonly startsSinceReading: StartsSinceReading,
     private readonly dailyCaps: DailyCaps,
     private readonly engineModels: EngineModels,
-    private readonly updateHold: OfficeUpdateHold,
+    private readonly exitHold: ScheduledExitHold,
     private readonly schedule: Schedule,
     private readonly initiatives: InitiativeRepository,
     private readonly initiativeBranches: ProjectInitiativeBranches,
@@ -89,7 +89,7 @@ export class StartConditionsReader {
     const now = this.schedule.now();
     const daily = await this.dailyCaps.of(usageSettings.caps, everyTask);
     const engineNames = new Map(engines.map(({ id, name }) => [id, name] as const));
-    const officeUpdateHold = this.updateHold.isScheduled() ? OFFICE_UPDATE_SCHEDULED : undefined;
+    const scheduledExitWait = this.exitHold.waitWords();
     return async (task) => {
       const [pipeline, project, usage] = await Promise.all([
         this.pipelineOf(task),
@@ -109,7 +109,7 @@ export class StartConditionsReader {
         officeWideLimit,
         project: project && { name: project.name, projectLimit: project.projectLimit },
         usage,
-        officeUpdateHold,
+        scheduledExitWait,
         initiativeBranch,
         brokenPipeline: pipeline && (await this.brokenPipeline(task, pipeline)),
       };

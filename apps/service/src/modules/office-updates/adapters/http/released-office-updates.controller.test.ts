@@ -8,10 +8,10 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
-import { OfficeUpdates } from "../../application/office-updates.js";
+import { ScheduledExits } from "../../application/scheduled-exits.js";
 import type { InstallKind } from "../../domain/install-kind.js";
 import type { OfficeContainerRead } from "../../domain/office-container.js";
-import { OfficeUpdateCancelled, OfficeUpdateFailed } from "../../domain/office-update-events.js";
+import { OfficeUpdateFailed, ScheduledExitCancelled } from "../../domain/office-update-events.js";
 import type { PublishedRelease } from "../../domain/published-release.js";
 import { NOT_INSTALLED } from "../../domain/update-refusal.js";
 import { OfficeUpdatesModule } from "../../office-updates.module.js";
@@ -71,6 +71,7 @@ class FakeContainer extends OfficeContainer {
         environmentFiles: [],
       },
       mounts: [],
+      restartPolicy: "unless-stopped",
     },
   };
   readonly started: UpdaterRequest[] = [];
@@ -197,7 +198,7 @@ describe("A release install's Settings › Updates", () => {
     releases.answer = [published("1.4.0")];
     await start("release");
     const ready = vi.fn<() => void>();
-    app.get(OfficeUpdates).onReadyToUpdate(ready);
+    app.get(ScheduledExits).onReadyToExit(ready);
 
     expect((await send("POST", "/schedule")).status).toBe(204);
 
@@ -210,12 +211,15 @@ describe("A release install's Settings › Updates", () => {
       checksumUrl: `${download}/the-office-1.4.0-linux-x64.tar.gz.sha256`,
     });
     expect(ready).toHaveBeenCalledOnce();
-    expect((await officeUpdate()).scheduled?.target).toEqual({
-      kind: "release",
-      version: "1.4.0",
-      name: "The Office 1.4.0",
-      publishedAt: "2026-11-14T10:00:00.000Z",
-      url: `https://github.com/${REPOSITORY}/releases/tag/v1.4.0`,
+    expect((await officeUpdate()).scheduled).toMatchObject({
+      kind: "update",
+      target: {
+        kind: "release",
+        version: "1.4.0",
+        name: "The Office 1.4.0",
+        publishedAt: "2026-11-14T10:00:00.000Z",
+        url: `https://github.com/${REPOSITORY}/releases/tag/v1.4.0`,
+      },
     });
   });
 
@@ -242,7 +246,7 @@ describe("A container's Settings › Updates", () => {
     releases.answer = [published("1.4.0")];
     await start("container");
     const ready = vi.fn<() => void>();
-    app.get(OfficeUpdates).onReadyToUpdate(ready);
+    app.get(ScheduledExits).onReadyToExit(ready);
 
     expect((await send("POST", "/schedule")).status).toBe(204);
 
@@ -264,7 +268,7 @@ describe("A container's Settings › Updates", () => {
     releases.answer = [published("1.4.0")];
     await start("container");
     const cancelled = vi.fn<() => void>();
-    app.get(EventBus).subscribe(OfficeUpdateCancelled, cancelled);
+    app.get(EventBus).subscribe(ScheduledExitCancelled, cancelled);
     expect((await send("POST", "/schedule")).status).toBe(204);
     const failed = {
       outcome: "failed",

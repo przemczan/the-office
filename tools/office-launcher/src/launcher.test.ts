@@ -7,7 +7,8 @@ import { afterEach, beforeEach, test } from "node:test";
 import { runLauncher, UPDATE_EXIT_CODE } from "./launcher.ts";
 import { LOG_FILE, REQUEST_FILE, RESULT_FILE, type UpdateResult } from "./update-folder.ts";
 
-// A service that asks for an update to TARGET on its first run, and ends on its second.
+// A service that asks for an update to TARGET (or for REQUEST, when set) on its first run, and
+// ends on its second.
 const FAKE_SERVICE = `
 const { appendFileSync, existsSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
@@ -16,7 +17,10 @@ const runs = join(folder, "runs.txt");
 const first = !existsSync(runs);
 appendFileSync(runs, "run\\n");
 if (first) {
-  writeFileSync(join(folder, "${REQUEST_FILE}"), JSON.stringify({ target: process.env.TARGET }));
+  writeFileSync(
+    join(folder, "${REQUEST_FILE}"),
+    process.env.REQUEST ?? JSON.stringify({ target: process.env.TARGET }),
+  );
   process.exit(${UPDATE_EXIT_CODE});
 }
 `;
@@ -59,7 +63,7 @@ function pushNewerCommit(buildFails: boolean): string {
   return newer;
 }
 
-function launch(target: string) {
+function launch(target: string, request?: object) {
   const lines: string[] = [];
   const exitCode = runLauncher({
     install: {
@@ -70,7 +74,11 @@ function launch(target: string) {
     },
     service: ["node", "-e", FAKE_SERVICE],
     serviceDirectory: () => checkout,
-    environment: { ...process.env, TARGET: target },
+    environment: {
+      ...process.env,
+      TARGET: target,
+      ...(request ? { REQUEST: JSON.stringify(request) } : {}),
+    },
     log: (line) => lines.push(line),
   });
   return { exitCode, lines };
@@ -145,4 +153,20 @@ test("a target the upstream doesn't have fails the update at the fast-forward", 
   assert.equal(git(checkout, "rev-parse", "HEAD"), older);
   const ended = result();
   assert.equal(ended.outcome === "failed" && ended.failedStep, "merge");
+});
+
+test("a restart request starts the service again, installing nothing and leaving no result or log", async () => {
+  const older = git(checkout, "rev-parse", "HEAD");
+  pushNewerCommit(false);
+
+  const { exitCode, lines } = launch("", { kind: "restart" });
+
+  assert.equal(await exitCode, 0);
+  assert.deepEqual(lines, ["Restarting The Office, as it asked."]);
+  assert.equal(runs(), 2);
+  assert.equal(git(checkout, "rev-parse", "HEAD"), older);
+  assert.equal(existsSync(join(checkout, "built.txt")), false);
+  assert.equal(existsSync(join(updateFolder, REQUEST_FILE)), false);
+  assert.equal(existsSync(join(updateFolder, RESULT_FILE)), false);
+  assert.equal(existsSync(join(updateFolder, LOG_FILE)), false);
 });

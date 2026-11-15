@@ -35,6 +35,7 @@ const inspectSchema = z
         Labels: z.record(z.string(), z.string()).nullable(),
       }),
       Mounts: z.array(z.object({ Source: z.string(), Destination: z.string() })).nullable(),
+      HostConfig: z.object({ RestartPolicy: z.object({ Name: z.string() }).nullish() }).nullish(),
     }),
   )
   .length(1);
@@ -60,6 +61,8 @@ export function officeContainerFrom(inspected: unknown): RunningOfficeContainer 
       source: Source,
       destination: Destination,
     })),
+    // Docker names no policy with an empty name.
+    restartPolicy: container.HostConfig?.RestartPolicy?.Name || "no",
   };
 }
 

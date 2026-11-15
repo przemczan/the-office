@@ -22,7 +22,7 @@ const conditions: StartConditions = {
   officeWideLimit: 3,
   project: { name: "Admin panel", projectLimit: 2 },
   usage: NO_USAGE_AT_START,
-  officeUpdateHold: undefined,
+  scheduledExitWait: undefined,
 };
 
 /** A Task already started elsewhere, by default on another Project and another person. */
@@ -189,12 +189,13 @@ describe("startReasons", () => {
     expect(startReasons(ready, conditions, held([], blockers))).toEqual(nothing);
   });
 
-  it("waits while an Office update is scheduled, with its reason", () => {
-    const updateScheduled = { ...conditions, officeUpdateHold: "An update is scheduled." };
+  it("waits while an Office update or restart is scheduled, with its reason", () => {
+    const wait = { reason: "A restart is scheduled.", short: "Office restart scheduled" };
+    const restartScheduled = { ...conditions, scheduledExitWait: wait };
 
-    expect(startReasons(ready, updateScheduled, held([]))).toEqual({
+    expect(startReasons(ready, restartScheduled, held([]))).toEqual({
       refusals: [],
-      waits: [{ reason: "An update is scheduled.", short: "Office update scheduled" }],
+      waits: [wait],
     });
   });
 

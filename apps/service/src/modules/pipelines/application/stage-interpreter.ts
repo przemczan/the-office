@@ -11,7 +11,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
-import { OfficeUpdateCancelled, OfficeUpdateHold } from "../../office-updates/index.js";
+import { ScheduledExitCancelled, ScheduledExitHold } from "../../office-updates/index.js";
 import {
   AlarmSounded,
   STARTED_STATES,
@@ -117,8 +117,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   /** The fire alarm's hard stop of the runs going on as it sounded, until it comes. */
   private hardStop: Wait | undefined;
   private stopping = false;
-  /** Tasks whose walk a scheduled Office update held at their next Stage, walked on once cancelled. */
-  private readonly heldForUpdate = new Set<string>();
+  /**
+   * Tasks whose walk a scheduled Office update or restart held at their next Stage, walked on once
+   * cancelled.
+   */
+  private readonly heldForExit = new Set<string>();
   /**
    * Started Publishing Tasks whose walk waits before their next Stage for a blocker to be Done or
    * Dropped (spec 2.1, "Publishing Tasks"), walked again as any Task ends or loses a blocker.
@@ -138,7 +141,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly telemetry: Telemetry,
     private readonly staffingHolds: StaffingHolds,
     private readonly schedule: Schedule,
-    private readonly updateHold: OfficeUpdateHold,
+    private readonly exitHold: ScheduledExitHold,
     private readonly branchStages: InitiativeBranchStages,
     private readonly roleFillings: RoleFillings,
     private readonly people: KnownPeople,
@@ -157,7 +160,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.events.subscribe(TaskStopped, ({ taskId, user }) =>
       this.interrupt(taskId, "stop", user && holdingUserOf(user)),
     );
-    this.events.subscribe(OfficeUpdateCancelled, () => this.walkHeldForUpdate());
+    this.events.subscribe(ScheduledExitCancelled, () => this.walkHeldForExit());
     this.events.subscribe(TaskStateChanged, async ({ taskId, from, to }) => {
       // A started Task dropped, alone or with its Initiative, has its running Stage stopped.
       if (to === "dropped" && STARTED_STATES.includes(from)) await this.interrupt(taskId, "stop");
@@ -365,9 +368,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     );
   }
 
-  private walkHeldForUpdate(): void {
-    for (const taskId of this.heldForUpdate) this.walkInBackground(taskId);
-    this.heldForUpdate.clear();
+  private walkHeldForExit(): void {
+    for (const taskId of this.heldForExit) this.walkInBackground(taskId);
+    this.heldForExit.clear();
   }
 
   /** Each walk held for a blocker reads its blockers again, and is held again if one is left. */
@@ -451,10 +454,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     }
     if (move.move !== "run") return { step: "halt", move, stages: staffed, runs };
     if (this.stopping) return { step: "over" };
-    // At the Stage boundary, until the update is cancelled or the service stops for it; a Gate does
-    // no work, so it still asks the user.
-    if (this.updateHold.isScheduled() && move.stage.kind !== "gate") {
-      this.heldForUpdate.add(taskId);
+    // At the Stage boundary, until the update or restart is cancelled or the service exits for it; a
+    // Gate does no work, so it still asks the user.
+    if (this.exitHold.isScheduled() && move.stage.kind !== "gate") {
+      this.heldForExit.add(taskId);
       return { step: "over" };
     }
     // A Task added to its Initiative meanwhile blocks it; a Gate waits too, as it shows the change.

@@ -63,8 +63,11 @@ export interface StartConditions {
   readonly project: StartingProject | undefined;
   /** What the Task is expected to use, against the caps of the engines it spends on. */
   readonly usage: UsageAtStart;
-  /** Why a scheduled Office update holds every Start, in the UI's words; undefined when none is. */
-  readonly officeUpdateHold: string | undefined;
+  /**
+   * Why a scheduled Office update or restart holds every Start, in the UI's words; undefined when
+   * none is.
+   */
+  readonly scheduledExitWait: { readonly reason: string; readonly short: string } | undefined;
   /** Undefined when the Task starts from the base branch, or from its Initiative's branch there. */
   readonly initiativeBranch?: InitiativeBranchProblem;
   /** The Task's Pipeline when it is a Broken Project Pipeline and its Stages weren't edited for it. */
@@ -140,9 +143,7 @@ export function startReasons(
       ...blockedProblems(blockers).map((reason) => ({ reason, short: "Blocked" })),
       ...(fireAlarmOn ? [{ reason: FIRE_ALARM_ON, short: "Fire alarm on" }] : []),
       ...(initiativePaused ? [{ reason: INITIATIVE_PAUSED, short: "Initiative paused" }] : []),
-      ...(conditions.officeUpdateHold
-        ? [{ reason: conditions.officeUpdateHold, short: "Office update scheduled" }]
-        : []),
+      ...(conditions.scheduledExitWait ? [conditions.scheduledExitWait] : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...projectLimitWaits(task, conditions.project, others),
       ...taskLimitWaits(stage, conditions.person, others),

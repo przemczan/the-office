@@ -16,29 +16,33 @@ import type {
   OfficeUpdateResult as OfficeUpdateResultResponse,
   OfficeUpdateTarget as OfficeUpdateTargetResponse,
 } from "@the-office/contracts";
+import { OfficeRestarts } from "../../application/office-restarts.js";
 import { OfficeUpdates, type OfficeUpdateView } from "../../application/office-updates.js";
 import { shortCommit, type OfficeCommit } from "../../domain/office-commit.js";
 import type { OfficeUpdateResult } from "../../domain/office-update-result.js";
 import type { OfficeUpdateTarget } from "../../domain/office-update-target.js";
 import type { PublishedRelease } from "../../domain/published-release.js";
-import { OfficeUpdateRefusalsFilter } from "./office-update-refusals.filter.js";
+import { ScheduledExitRefusalsFilter } from "./scheduled-exit-refusals.filter.js";
 
 /** Settings › Updates. */
 @Controller("office-update")
-@UseFilters(OfficeUpdateRefusalsFilter)
+@UseFilters(ScheduledExitRefusalsFilter)
 export class OfficeUpdatesController {
-  constructor(private readonly updates: OfficeUpdates) {}
+  constructor(
+    private readonly updates: OfficeUpdates,
+    private readonly restarts: OfficeRestarts,
+  ) {}
 
   @Get()
-  async read(): Promise<OfficeUpdate> {
-    return toOfficeUpdate(await this.updates.view());
+  read(): Promise<OfficeUpdate> {
+    return this.shown();
   }
 
   /** Checks the upstream or GitHub Releases now and answers what it found. */
   @Post("check")
   async check(): Promise<OfficeUpdate> {
     await this.updates.check();
-    return toOfficeUpdate(await this.updates.view());
+    return this.shown();
   }
 
   @Post("schedule")
@@ -61,18 +65,20 @@ export class OfficeUpdatesController {
     if (log === undefined) throw new NotFoundException("No Office update has left a log.");
     return log;
   }
+
+  private async shown(): Promise<OfficeUpdate> {
+    const [view, restartRefusal] = await Promise.all([
+      this.updates.view(),
+      this.restarts.refusal(),
+    ]);
+    return toOfficeUpdate(view, restartRefusal);
+  }
 }
 
-function toOfficeUpdate({
-  install,
-  version,
-  current,
-  check,
-  refusal,
-  checking,
-  scheduled,
-  lastResult,
-}: OfficeUpdateView): OfficeUpdate {
+function toOfficeUpdate(
+  { install, version, current, check, refusal, checking, scheduled, lastResult }: OfficeUpdateView,
+  restartRefusal: string | undefined,
+): OfficeUpdate {
   return {
     install,
     ...(version && { version }),
@@ -87,16 +93,23 @@ function toOfficeUpdate({
       },
     }),
     ...(refusal && { refusal }),
+    restart: { ...(restartRefusal && { refusal: restartRefusal }) },
     checking,
-    ...(scheduled && {
-      scheduled: {
-        target: toTarget(scheduled.target),
-        scheduledAt: scheduled.scheduledAt.toISOString(),
-        busy: scheduled.busy.map(({ kind, label }) => ({ kind, label })),
-      },
-    }),
+    ...(scheduled && { scheduled: toScheduled(scheduled) }),
     ...(lastResult && { lastResult: toResult(lastResult) }),
   };
+}
+
+function toScheduled(
+  scheduled: NonNullable<OfficeUpdateView["scheduled"]>,
+): NonNullable<OfficeUpdate["scheduled"]> {
+  const shared = {
+    scheduledAt: scheduled.scheduledAt.toISOString(),
+    busy: scheduled.busy.map(({ kind, label }) => ({ kind, label })),
+  };
+  return scheduled.kind === "update"
+    ? { kind: "update", target: toTarget(scheduled.target), ...shared }
+    : { kind: "restart", ...shared };
 }
 
 function toCommit({ commit, subject, committedAt }: OfficeCommit): OfficeCommitResponse {

@@ -1,4 +1,4 @@
-import type { TelemetrySettings } from "@the-office/contracts";
+import type { OfficeUpdate, TelemetrySettings } from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -293,5 +293,115 @@ describe("the Telemetry card", () => {
       act(() => radio(page, "Off").click());
       expect(page.textContent).not.toContain("Bundled Grafana:");
     });
+  });
+});
+
+const OFFICE_UPDATE: OfficeUpdate = {
+  install: "checkout",
+  current: {
+    commit: "0123456789abcdef0123456789abcdef01234567",
+    shortCommit: "0123456",
+    subject: "Add Settings › Updates",
+    committedAt: "2026-11-14T09:00:00.000Z",
+  },
+  restart: {},
+  checking: false,
+};
+
+const SAVED_NOT_RUNNING = bundled({ state: "running" });
+
+function restartNote(page: HTMLElement): string {
+  return page.querySelector(".telemetry-actions-state")?.textContent ?? "";
+}
+
+describe("the Telemetry card's Restart The Office", () => {
+  it("restarts The Office beside the note while what is saved isn't running", async () => {
+    let officeUpdate = OFFICE_UPDATE;
+    const sent = stubService({
+      "GET /api/settings/telemetry": () => ({ status: 200, body: SAVED_NOT_RUNNING }),
+      "GET /api/office-update": () => ({ status: 200, body: officeUpdate }),
+      "POST /api/office-restart/schedule": () => {
+        officeUpdate = {
+          ...OFFICE_UPDATE,
+          scheduled: { kind: "restart", scheduledAt: "2026-11-15T09:00:00.000Z", busy: [] },
+        };
+        return { status: 204 };
+      },
+    });
+    const { page } = await openPage("/telemetry", pages);
+    await until(() => expect(buttonNamed(page, "Restart The Office")).toBeDefined());
+
+    expect(restartNote(page)).toContain("Applies the next time The Office starts.");
+    expect(
+      page
+        .querySelector(".telemetry-actions-state")
+        ?.contains(buttonNamed(page, "Restart The Office") ?? null),
+    ).toBe(true);
+    act(() => buttonNamed(page, "Restart The Office")?.click());
+
+    await until(() => expect(restartNote(page)).toContain("A restart is scheduled."));
+    expect(sent.map(({ request }) => request)).toContain("POST /api/office-restart/schedule");
+    expect(sent.map(({ request }) => request)).not.toContain("PUT /api/settings/telemetry");
+    expect(page.querySelector(".telemetry-actions-state a")?.getAttribute("href")).toBe(
+      "/settings/updates",
+    );
+  });
+
+  it("offers no restart while what is saved runs", async () => {
+    const sent = stubService({
+      "GET /api/settings/telemetry": () => ({ status: 200, body: OFF }),
+      "GET /api/office-update": () => ({ status: 200, body: OFFICE_UPDATE }),
+    });
+    const { page } = await openPage("/telemetry", pages);
+    await until(() => expect(buttonNamed(page, "Save")).toBeDefined());
+
+    expect(buttonNamed(page, "Restart The Office")).toBeUndefined();
+    expect(sent.map(({ request }) => request)).not.toContain("GET /api/office-update");
+  });
+
+  it("says why The Office can't restart instead of the button", async () => {
+    const refusal =
+      "Nothing here would start The Office again: it runs without its launcher. Restart it where it runs.";
+    stubService({
+      "GET /api/settings/telemetry": () => ({ status: 200, body: SAVED_NOT_RUNNING }),
+      "GET /api/office-update": () => ({
+        status: 200,
+        body: { ...OFFICE_UPDATE, restart: { refusal } },
+      }),
+    });
+    const { page } = await openPage("/telemetry", pages);
+    await until(() => expect(restartNote(page)).toContain(refusal));
+
+    expect(buttonNamed(page, "Restart The Office")).toBeUndefined();
+  });
+
+  it("says a scheduled update applies it, with a link to Settings › Updates", async () => {
+    stubService({
+      "GET /api/settings/telemetry": () => ({ status: 200, body: SAVED_NOT_RUNNING }),
+      "GET /api/office-update": () => ({
+        status: 200,
+        body: {
+          ...OFFICE_UPDATE,
+          restart: { refusal: "An update is scheduled already; it starts The Office again too." },
+          scheduled: {
+            kind: "update",
+            target: { ...OFFICE_UPDATE.current, kind: "commit" },
+            scheduledAt: "2026-11-15T09:00:00.000Z",
+            busy: [],
+          },
+        },
+      }),
+    });
+    const { page } = await openPage("/telemetry", pages);
+    await until(() =>
+      expect(restartNote(page)).toContain(
+        "An update is scheduled; it applies this as The Office starts again.",
+      ),
+    );
+
+    expect(buttonNamed(page, "Restart The Office")).toBeUndefined();
+    expect(page.querySelector(".telemetry-actions-state a")?.textContent).toBe(
+      "Settings › Updates",
+    );
   });
 });

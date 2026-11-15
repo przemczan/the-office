@@ -20,10 +20,16 @@ export class OfficeUpdateScheduled extends DomainEvent {
   }
 }
 
-/** The user cancelled the scheduled update: what it held goes on. */
-export class OfficeUpdateCancelled extends DomainEvent {}
+/** The user scheduled an Office restart: new Starts queue and Tasks wait at their next Stage. */
+export class OfficeRestartScheduled extends DomainEvent {}
 
-/** The work going on now changed: an update scheduled waits for what is left. */
+/**
+ * The scheduled update or restart is off, cancelled by the user or ended by a failed Office
+ * updater: what it held goes on.
+ */
+export class ScheduledExitCancelled extends DomainEvent {}
+
+/** The work going on now changed: an update or restart scheduled waits for what is left. */
 export class BusyWorkChanged extends DomainEvent {
   constructor(readonly count: number) {
     super();

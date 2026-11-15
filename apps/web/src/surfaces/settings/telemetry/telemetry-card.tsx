@@ -18,7 +18,9 @@ import {
   RadioList,
   type RadioListOption,
 } from "@the-office/ui";
+import { Link } from "@tanstack/react-router";
 import { useId, useState, type ReactNode } from "react";
+import { officeUpdateQueries } from "../../../api/office-updates.ts";
 import {
   saveTelemetry,
   startBundledGrafana,
@@ -27,6 +29,7 @@ import {
 } from "../../../api/telemetry.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
+import { useRestartScheduling } from "../updates/restart-scheduling.ts";
 import "./telemetry.css";
 
 type Kind = TelemetryChoice["kind"];
@@ -56,8 +59,8 @@ const KIND_OPTIONS: readonly RadioListOption[] = [
  * own OTLP endpoint with its headers. A saved header's value never comes back: its row shows the
  * name, and an empty value keeps it. Read-only while the environment's OTEL_ variables set
  * telemetry. With Bundled Grafana saved, the bundled Grafana's state shows under the choice, read
- * again every few seconds while it starts. Settings › Telemetry and the First-run setup's
- * Telemetry step both show it.
+ * again every few seconds while it starts. While what is saved isn't running yet, Restart The Office
+ * applies it. Settings › Telemetry and the First-run setup's Telemetry step both show it.
  */
 export function TelemetryCard({
   onSaved,
@@ -246,22 +249,68 @@ function TelemetryForm({
       )}
       <p className="telemetry-note">{runningWords(settings.running)}</p>
       <div className="telemetry-actions">
-        <span className="telemetry-actions-state">
-          Applies the next time The Office starts.
-          {settings.appliesAtNextStart && (
-            <>
-              {" "}
-              <Badge tone="warning" size="sm">
-                Saved, not running yet
-              </Badge>
-            </>
-          )}
-        </span>
+        <div className="telemetry-actions-state">
+          <span>
+            Applies the next time The Office starts.
+            {settings.appliesAtNextStart && (
+              <>
+                {" "}
+                <Badge tone="warning" size="sm">
+                  Saved, not running yet
+                </Badge>
+              </>
+            )}
+          </span>
+          {settings.appliesAtNextStart && <RestartToApply />}
+        </div>
         <Button variant="primary" size="sm" type="submit" loading={saving.isPending}>
           Save
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Beside "Applies the next time The Office starts." while what is saved isn't running: Restart The
+ * Office, or the scheduled restart or update that will apply it, or why The Office can't restart.
+ */
+function RestartToApply(): ReactNode {
+  const officeUpdate = useQuery(officeUpdateQueries.officeUpdate()).data;
+  const scheduling = useRestartScheduling();
+  if (!officeUpdate) return null;
+  const { scheduled, restart } = officeUpdate;
+  if (scheduled) {
+    return (
+      <span className="telemetry-restart">
+        {scheduled.kind === "restart"
+          ? "A restart is scheduled."
+          : "An update is scheduled; it applies this as The Office starts again."}{" "}
+        <Link className="telemetry-link" to="/settings/updates">
+          Settings › Updates
+        </Link>
+      </span>
+    );
+  }
+  if (restart.refusal) return <span className="telemetry-restart">{restart.refusal}</span>;
+  return (
+    <span className="telemetry-restart">
+      <Button
+        variant="secondary"
+        size="sm"
+        type="button"
+        iconLeft={<Icon name="rotate-cw" size={14} />}
+        loading={scheduling.isPending}
+        onClick={() => scheduling.mutate()}
+      >
+        Restart The Office
+      </Button>
+      {scheduling.error && (
+        <span className="telemetry-restart-refusal">
+          <RefusalAlert title="The restart wasn't scheduled" error={scheduling.error} />
+        </span>
+      )}
+    </span>
   );
 }
 

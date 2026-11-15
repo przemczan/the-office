@@ -205,6 +205,8 @@ What The Office reads at its start, and how to apply a change:
 - **Compose install:** change only the values `.env` already has. The container gets only the variables `docker-compose.yml` lists, so a line you add to `.env` doesn't reach The Office. Never set them in the shell instead: a shell variable wins over `.env` for that one command, and the Office updater runs without it.
 - **A checkout:** [running-the-office.md](running-the-office.md#running-from-a-checkout).
 
+A setting changed in The Office itself that applies only at its next start, such as Settings › Telemetry, needs no command on the host: **Restart The Office** in Settings › Updates restarts it once the work going on has ended. That restart doesn't read `office.env` or the Compose install's `.env` again, so a change there still needs the command in the table.
+
 ### Telemetry
 
 Telemetry is set in Settings › Telemetry (or First-run setup): Off, Bundled Grafana, or Your own endpoint, an OTLP over HTTP address. A change of where telemetry goes applies at the next start. On a direct install or a checkout, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_HEADERS` in the configuration wins over the setting ([running-the-office.md](running-the-office.md#telemetry)).

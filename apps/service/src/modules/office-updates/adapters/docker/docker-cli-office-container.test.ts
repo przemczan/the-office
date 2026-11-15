@@ -29,6 +29,7 @@ const INSPECTED = [
       { Type: "bind", Source: "/var/run/docker.sock", Destination: "/var/run/docker.sock" },
       { Type: "bind", Source: "/srv/office-data", Destination: "/var/lib/the-office" },
     ],
+    HostConfig: { RestartPolicy: { Name: "unless-stopped", MaximumRetryCount: 0 } },
   },
 ];
 
@@ -44,7 +45,7 @@ describe("The Office's own container", () => {
     expect(containerIdFrom("25 1 8:1 / / rw - ext4 /dev/sda1 rw\n")).toBeUndefined();
   });
 
-  it("reads its image, mounts and the Compose project from the labels Compose sets", () => {
+  it("reads its image, mounts, restart policy and the Compose project from the labels Compose sets", () => {
     expect(officeContainerFrom(INSPECTED)).toEqual({
       id: ID,
       image: "ghcr.io/owner/the-office:1.3.0",
@@ -60,7 +61,14 @@ describe("The Office's own container", () => {
         { source: "/var/run/docker.sock", destination: "/var/run/docker.sock" },
         { source: "/srv/office-data", destination: "/var/lib/the-office" },
       ],
+      restartPolicy: "unless-stopped",
     });
+  });
+
+  it("reads Docker's empty restart policy as no", () => {
+    const [container] = INSPECTED;
+    const unnamed = [{ ...container, HostConfig: { RestartPolicy: { Name: "" } } }];
+    expect(officeContainerFrom(unnamed).restartPolicy).toBe("no");
   });
 
   it("has no Compose project when Compose's labels are missing", () => {

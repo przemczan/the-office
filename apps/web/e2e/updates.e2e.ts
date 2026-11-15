@@ -22,10 +22,11 @@ test.afterAll(async () => {
   await repository.remove();
 });
 
-// The e2e service's checkout is two commits behind its upstream (office-checkout.ts). An update
-// scheduled while nothing is busy would stop the service, so an environment check runs all along;
-// meanwhile other files' Starts queue, and Cancel releases them.
-test("Settings › Updates checks, schedules an update that waits for what is busy, and cancels it", async ({
+// The e2e service's checkout is two commits behind its upstream (office-checkout.ts), and runs with
+// the launcher's update folder, so it may restart. An update or a restart scheduled while nothing is
+// busy would stop the service, so an environment check runs all along; meanwhile other files'
+// Starts queue, and Cancel releases them.
+test("Settings › Updates checks, schedules an update and a restart that wait for what is busy, and cancels each", async ({
   page,
 }) => {
   const project = await slowProject(page);
@@ -69,6 +70,23 @@ test("Settings › Updates checks, schedules an update that waits for what is bu
     await page.keyboard.press("Escape");
   }
   await expect(available.getByRole("button", { name: "Update" })).toBeVisible();
+
+  // Restart The Office waits for the same environment check, then is cancelled too.
+  const restartButton = page.getByRole("button", { name: "Restart The Office" });
+  await restartButton.click();
+  const restartWaitsFor = page.getByRole("list", { name: "What the restart waits for" });
+  await expect(restartWaitsFor).toContainText(
+    `The environment check of the Project "${project.name}"`,
+  );
+  await expect(page.getByText("Restart scheduled", { exact: true }).first()).toBeVisible();
+  await expect(restartButton).toBeDisabled();
+  await slot.click();
+  await expect(officeMessages).toContainText("A restart of The Office is scheduled");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(restartWaitsFor).toBeHidden();
+  await expect(restartButton).toBeEnabled();
 });
 
 async function slowProject(page: Page): Promise<Project> {

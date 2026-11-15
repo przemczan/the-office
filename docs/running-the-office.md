@@ -1,6 +1,6 @@
 # Running The Office
 
-Running The Office from a checkout of the repository (for development, on Windows and macOS, and for contributors), and what holds for every install: how it is reached through a reverse proxy, how a user gets back in, telemetry, and how it updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Updating The Office").
+Running The Office from a checkout of the repository (for development, on Windows and macOS, and for contributors), and what holds for every install: how it is reached through a reverse proxy, how a user gets back in, telemetry, and how it restarts and updates itself ([spec §5.1 Defaults](spec/5.1-shape.md#defaults), "Restarting The Office" and "Updating The Office").
 
 **To install The Office on a Linux machine, use a release instead:** the direct install on Debian/Ubuntu or the Compose install, both in [installing.md](installing.md), which also covers their configuration, backups, updates and uninstalling.
 
@@ -27,9 +27,9 @@ In a checkout, `npm start` (at the root, or in `apps/service`) runs the launcher
 - reads `.env` at the root, as the service does;
 - starts the service (`node dist/main.js` in `apps/service`) as its child, with `OFFICE_UPDATE_FOLDER` set to `<office-data>/update`;
 - passes SIGTERM and SIGINT on to the service, and exits with the service's exit code;
-- updates The Office when the service exits with code 75, then starts the service again.
+- updates The Office when the service exits with code 75, then starts the service again; for an [Office restart](#restarting-the-office) it starts it again as it is.
 
-`npm run build` must have run before the first start. `npm run dev` doesn't use the launcher, so The Office it runs refuses Update.
+`npm run build` must have run before the first start. `npm run dev` doesn't use the launcher, so The Office it runs refuses Update and Restart.
 
 ## An example systemd unit
 
@@ -129,7 +129,7 @@ After the first user, First-run setup walks through the basics, each skippable (
 
 ## Telemetry
 
-Telemetry is a setting, in First-run setup and in Settings › Telemetry: Off, Bundled Grafana (the bundled Grafana's OTLP endpoint at `http://127.0.0.1:4318`, with a 2-second export timeout), or Your own endpoint, an OTLP over HTTP base URL with optional headers (such as an API key) and an optional export timeout (10 seconds when left empty). The choice is saved as `telemetry.json` in the Office data directory, readable by its owner only, since headers can hold credentials; the browser is only ever sent a header's name. A change of where telemetry goes applies the next time The Office starts.
+Telemetry is a setting, in First-run setup and in Settings › Telemetry: Off, Bundled Grafana (the bundled Grafana's OTLP endpoint at `http://127.0.0.1:4318`, with a 2-second export timeout), or Your own endpoint, an OTLP over HTTP base URL with optional headers (such as an API key) and an optional export timeout (10 seconds when left empty). The choice is saved as `telemetry.json` in the Office data directory, readable by its owner only, since headers can hold credentials; the browser is only ever sent a header's name. A change of where telemetry goes applies the next time The Office starts: the card offers **Restart The Office** for it ([Restarting The Office](#restarting-the-office)).
 
 The Office runs the bundled Grafana itself, in Docker, as its own Compose project `the-office-grafana`, from the compose file it writes to `grafana/compose.yaml` in the Office data directory: Grafana at `http://localhost:3300`, OTLP at `4317` (gRPC) and `4318` (HTTP), all on `127.0.0.1` only, its data in the volume `the-office-grafana_data`, and back after a reboot. It needs a Docker The Office can reach, as for run environments.
 
@@ -170,6 +170,14 @@ The note at the top of Settings › Updates says how The Office was installed, w
 | A container (the Compose install) | the image, `ENV OFFICE_INSTALL=container` | the Office updater |
 
 A copy of a release that its launcher didn't start from a `releases/` folder is refused Update: "This copy of The Office wasn't installed into a releases folder, so it can't update itself."
+
+## Restarting The Office
+
+Settings › Updates' Restart card, "Restart The Office", restarts The Office once nothing is busy, for a setting that applies only at its next start (the Telemetry card offers it beside "Applies the next time The Office starts."). It reads none of the host's config files again: after changing `office.env` or a Compose install's `.env`, restart on the host ([installing.md](installing.md#configuration)). A checkout's `.env` is read again, as the launcher passes it to each start of the service.
+
+1. Restart is offered only where something starts The Office again: its launcher (`npm start`, a direct install), on Windows too, or Docker for a container whose restart policy is `always`, `unless-stopped` or `on-failure` (the Compose install's is `unless-stopped`). Elsewhere it is off and says why: `npm run dev`, `node dist/main.js` by hand, a release copy its launcher didn't start from a `releases/` folder, a container with the policy `no`, or a container that can't reach Docker's socket to read its policy.
+2. Once scheduled, it holds work and waits as a scheduled update does ([below](#what-every-install-shares), step 3): new Starts join the queue with "A restart is scheduled.", Settings › Updates shows "Restart scheduled" with what it waits for and the status strip shows it; **Cancel** releases what it held until the restart is under way. Only one update or restart is scheduled at a time.
+3. When nothing is busy, the service exits with code 75. Under the launcher it first writes `{ "kind": "restart" }` as `update/request.json`; the launcher logs "Restarting The Office, as it asked." and starts the service again, writing no `result.json` or `log.txt`. A launcher from an older release, which runs until its unit's next start, logs the request as a failed update and starts the service again all the same. In a container the service reads its restart policy again first: when it no longer starts the container again (say, after `docker update --restart no`), the restart stays scheduled and the log says why; else Docker starts the container again (exit code 75 isn't 0, so `on-failure` does too).
 
 ## How an Office update works
 

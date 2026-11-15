@@ -37,4 +37,12 @@ describe("a request", () => {
     assert.deepEqual(parseRequest(container), container);
     assert.throws(() => parseRequest({ ...container, image: "" }), /image/);
   });
+
+  test("of a restart asks for nothing more", () => {
+    assert.deepEqual(parseRequest({ kind: "restart" }), { kind: "restart" });
+  });
+
+  test("of an unknown kind is refused", () => {
+    assert.throws(() => parseRequest({ ...release, kind: "reboot" }), /unknown kind, reboot/);
+  });
 });

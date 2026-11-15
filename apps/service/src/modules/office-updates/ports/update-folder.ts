@@ -1,4 +1,4 @@
-import type { OfficeUpdateRequest } from "../domain/office-update-request.js";
+import type { LauncherRequest } from "../domain/office-update-request.js";
 import type { OfficeUpdateResult } from "../domain/office-update-result.js";
 
 /**
@@ -15,8 +15,8 @@ export abstract class UpdateFolder {
   /** The folder's path; undefined when there is none. */
   abstract readonly path: string | undefined;
 
-  /** Asks the launcher or the Office updater for the update. */
-  abstract writeRequest(request: OfficeUpdateRequest): Promise<void>;
+  /** Asks the launcher or the Office updater for the update, or the launcher for a restart. */
+  abstract writeRequest(request: LauncherRequest): Promise<void>;
 
   /**
    * The result the launcher left of an update since the service last started, kept from then on as

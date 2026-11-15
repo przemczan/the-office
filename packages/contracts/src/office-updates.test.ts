@@ -10,6 +10,7 @@ const CHECKOUT = {
     committedAt: "2026-11-14T09:00:00.000Z",
   },
   checking: false,
+  restart: {},
 };
 
 describe("Settings › Updates' version", () => {
@@ -20,6 +21,23 @@ describe("Settings › Updates' version", () => {
   it("has none from a checkout, and never an empty one", () => {
     expect(officeUpdateSchema.parse(CHECKOUT).version).toBeUndefined();
     expect(officeUpdateSchema.safeParse({ ...CHECKOUT, version: "" }).success).toBe(false);
+  });
+});
+
+describe("Settings › Updates' restart", () => {
+  it("carries why Restart is refused, and a scheduled restart without a target", () => {
+    const parsed = officeUpdateSchema.parse({
+      ...CHECKOUT,
+      restart: { refusal: "Nothing here would start The Office again." },
+      scheduled: { kind: "restart", scheduledAt: "2026-11-15T10:00:00.000Z", busy: [] },
+    });
+
+    expect(parsed.restart.refusal).toBe("Nothing here would start The Office again.");
+    expect(parsed.scheduled).toEqual({
+      kind: "restart",
+      scheduledAt: "2026-11-15T10:00:00.000Z",
+      busy: [],
+    });
   });
 });
 
@@ -42,6 +60,7 @@ describe("Settings › Updates' releases", () => {
         releases: [{ ...release, notes: "## What's new" }],
       },
       scheduled: {
+        kind: "update",
         target: { kind: "release", ...release },
         scheduledAt: "2026-11-15T10:00:00.000Z",
         busy: [],
@@ -49,7 +68,7 @@ describe("Settings › Updates' releases", () => {
     });
 
     expect(parsed.check?.releases.map(({ notes }) => notes)).toEqual(["## What's new"]);
-    expect(parsed.scheduled?.target.kind).toBe("release");
+    expect(parsed.scheduled).toMatchObject({ kind: "update", target: { kind: "release" } });
   });
 
   it("refuses an install kind it doesn't know", () => {

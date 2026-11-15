@@ -1,7 +1,13 @@
 import type { OfficeUpdate } from "@the-office/contracts";
-import type { ReactNode } from "react";
+import { act, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { closePage, openPage, stubService, until } from "../../../shell/page.fixtures.tsx";
+import {
+  buttonNamed,
+  closePage,
+  openPage,
+  stubService,
+  until,
+} from "../../../shell/page.fixtures.tsx";
 import { PageHeadingProvider } from "../../../shell/page-heading.tsx";
 import { UpdatesSection } from "./updates-section.tsx";
 
@@ -21,6 +27,7 @@ const CHECKOUT: OfficeUpdate = {
     subject: "Add Settings › Updates",
     committedAt: "2026-11-14T09:00:00.000Z",
   },
+  restart: {},
   checking: false,
 };
 
@@ -115,6 +122,7 @@ describe("Settings › Updates for a release install", () => {
     const page = await opened({
       ...RELEASE,
       scheduled: {
+        kind: "update",
         target: {
           kind: "release",
           version: "1.5.0",
@@ -128,5 +136,106 @@ describe("Settings › Updates for a release install", () => {
     });
 
     await until(() => expect(page.textContent).toContain("To 1.5.0 · 14 Nov"));
+  });
+});
+
+const NO_LAUNCHER =
+  "Nothing here would start The Office again: it runs without its launcher. Restart it where it runs.";
+
+describe("Settings › Updates' Restart card", () => {
+  it("schedules a restart", async () => {
+    let current = CHECKOUT;
+    const sent = stubService({
+      "GET /api/office-update": () => ({ status: 200, body: current }),
+      "POST /api/office-restart/schedule": () => {
+        current = {
+          ...CHECKOUT,
+          restart: { refusal: "A restart is scheduled already." },
+          scheduled: { kind: "restart", scheduledAt: "2026-11-15T09:00:00.000Z", busy: [] },
+        };
+        return { status: 204 };
+      },
+    });
+    const { page } = await openPage("/settings/updates", pages);
+    await until(() => expect(buttonNamed(page, "Restart The Office")?.disabled).toBe(false));
+    expect(page.textContent).toContain("Waits for the work going on, as an update does.");
+
+    act(() => buttonNamed(page, "Restart The Office")?.click());
+
+    await until(() => expect(page.textContent).toContain("Restart scheduled"));
+    expect(sent.map(({ request }) => request)).toContain("POST /api/office-restart/schedule");
+    expect(page.textContent).toContain("Nothing is busy, so The Office is restarting.");
+    expect(buttonNamed(page, "Restart The Office")?.disabled).toBe(true);
+  });
+
+  it("disables Restart The Office with the reason it is refused", async () => {
+    const page = await opened({ ...CHECKOUT, restart: { refusal: NO_LAUNCHER } });
+
+    await until(() => expect(buttonNamed(page, "Restart The Office")).toBeDefined());
+    const button = buttonNamed(page, "Restart The Office");
+    expect(button?.disabled).toBe(true);
+    expect(button?.title).toBe(NO_LAUNCHER);
+    expect(page.textContent).toContain("Restart is refused");
+    expect(page.textContent).toContain(NO_LAUNCHER);
+  });
+
+  it("shows a scheduled restart with what it waits for, and cancels it", async () => {
+    let current: OfficeUpdate = {
+      ...CHECKOUT,
+      restart: { refusal: "A restart is scheduled already." },
+      scheduled: {
+        kind: "restart",
+        scheduledAt: "2026-11-15T09:00:00.000Z",
+        busy: [{ kind: "environment-check", label: 'The environment check of the Project "Up"' }],
+      },
+    };
+    const sent = stubService({
+      "GET /api/office-update": () => ({ status: 200, body: current }),
+      "DELETE /api/office-restart/schedule": () => {
+        current = CHECKOUT;
+        return { status: 204 };
+      },
+    });
+    const { page } = await openPage("/settings/updates", pages);
+    await until(() => expect(page.textContent).toContain("Restart scheduled"));
+
+    const waitsFor = page.querySelector('[aria-label="What the restart waits for"]');
+    expect(waitsFor?.textContent).toBe('The environment check of the Project "Up"');
+    expect(page.textContent).toContain("Waiting for 1 thing:");
+    expect(page.textContent).toContain("Meanwhile, new Starts join the queue");
+    expect(page.textContent).not.toContain("Restart is refused");
+
+    act(() => buttonNamed(page, "Cancel")?.click());
+
+    await until(() => expect(page.textContent).not.toContain("Restart scheduled"));
+    expect(sent.map(({ request }) => request)).toContain("DELETE /api/office-restart/schedule");
+    expect(buttonNamed(page, "Restart The Office")?.disabled).toBe(false);
+  });
+
+  it("shows a refused cancel's reason", async () => {
+    stubService({
+      "GET /api/office-update": () => ({
+        status: 200,
+        body: {
+          ...CHECKOUT,
+          scheduled: { kind: "restart", scheduledAt: "2026-11-15T09:00:00.000Z", busy: [] },
+        },
+      }),
+      "DELETE /api/office-restart/schedule": () => ({
+        status: 422,
+        body: {
+          statusCode: 422,
+          message: "The Office is restarting.",
+          reasons: ["The Office is restarting."],
+        },
+      }),
+    });
+    const { page } = await openPage("/settings/updates", pages);
+    await until(() => expect(buttonNamed(page, "Cancel")).toBeDefined());
+
+    act(() => buttonNamed(page, "Cancel")?.click());
+
+    await until(() => expect(page.textContent).toContain("The restart wasn't cancelled"));
+    expect(page.textContent).toContain("The Office is restarting.");
   });
 });

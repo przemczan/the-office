@@ -15,7 +15,7 @@ import {
   type TaskStage,
 } from "@the-office/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { BusyWork, OfficeUpdates } from "../../../office-updates/index.js";
+import { BusyWork, ScheduledExits } from "../../../office-updates/index.js";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -422,7 +422,7 @@ describe("An Office update, through the scripted engine", () => {
         const first = await office.readyTask(pipeline.id);
         const second = await office.readyTask(pipeline.id);
         const ready = vi.fn<() => void>();
-        office.app.get(OfficeUpdates).onReadyToUpdate(ready);
+        office.app.get(ScheduledExits).onReadyToExit(ready);
         const turn = office.holdTurn(first.id);
         office.engine.queue(DEVELOPER_SESSION);
 
@@ -435,7 +435,10 @@ describe("An Office update, through the scripted engine", () => {
 
         expect(queued.queued?.reasons).toEqual(["An update is scheduled."]);
         const scheduled = await officeUpdateOf(office);
-        expect(scheduled.scheduled?.target).toMatchObject({ kind: "commit", commit: newest });
+        expect(scheduled.scheduled).toMatchObject({
+          kind: "update",
+          target: { kind: "commit", commit: newest },
+        });
         expect(scheduled.scheduled?.busy).toEqual([
           { kind: "turn", label: `${DEVELOPER_NAME} in the Stage Build` },
         ]);

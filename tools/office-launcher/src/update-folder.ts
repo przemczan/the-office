@@ -1,6 +1,7 @@
 // The folder the launcher (or the Office updater) shares with the service: the request the service
-// writes before an update, and the result and log left for its next run (docs/running-the-office.md).
-// The service's office-updates module reads and writes the same files by convention.
+// writes before an update or a restart, and the result and log an update leaves for its next run
+// (docs/running-the-office.md). The service's office-updates module reads and writes the same files
+// by convention (its domain/office-update-request.ts holds the same request shapes).
 import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -58,6 +59,14 @@ export interface ContainerRequest {
 
 export type UpdateRequest = CommitRequest | ReleaseRequest | ContainerRequest;
 
+/** Asks the launcher to start the service again as it is, installing nothing. */
+export interface RestartRequest {
+  readonly kind: "restart";
+}
+
+/** What the service may leave in `request.json` for the launcher or the Office updater. */
+export type LauncherRequest = UpdateRequest | RestartRequest;
+
 const COMMIT = /^[0-9a-f]{40}$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
 const IMAGE = /^[a-z0-9][a-z0-9._/:-]*$/;
@@ -66,7 +75,7 @@ const IMAGE = /^[a-z0-9][a-z0-9._/:-]*$/;
  * The request the service wrote, which is taken, so a crash mid-update never repeats it; undefined
  * when there is none. Throws when it isn't a request the launcher carries out.
  */
-export function takeRequest(updateFolder: string): UpdateRequest | undefined {
+export function takeRequest(updateFolder: string): LauncherRequest | undefined {
   mkdirSync(updateFolder, { recursive: true });
   const requestPath = join(updateFolder, REQUEST_FILE);
   let text: string;
@@ -80,13 +89,14 @@ export function takeRequest(updateFolder: string): UpdateRequest | undefined {
 }
 
 /** A request as `request.json` holds it; one without `kind` asks for a commit, as before releases. */
-export function parseRequest(value: unknown, source = REQUEST_FILE): UpdateRequest {
+export function parseRequest(value: unknown, source = REQUEST_FILE): LauncherRequest {
   const fields = (typeof value === "object" && value !== null ? value : {}) as Record<
     string,
     unknown
   >;
   const kind = fields["kind"] ?? "commit";
   const invalid = (what: string) => new Error(`${source} ${what}.`);
+  if (kind === "restart") return { kind };
   if (kind === "commit") {
     const target = fields["target"];
     if (typeof target !== "string" || !COMMIT.test(target)) throw invalid("names no commit");

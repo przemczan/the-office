@@ -10,7 +10,7 @@ export const officeCommitSchema = z.object({
 });
 export type OfficeCommit = z.infer<typeof officeCommitSchema>;
 
-/** What keeps a scheduled Office update waiting, in the UI's words. */
+/** What keeps a scheduled Office update or restart waiting, in the UI's words. */
 export const busyItemSchema = z.object({
   kind: z.enum([
     "turn",
@@ -87,7 +87,10 @@ export const officeUpdateResultSchema = z.discriminatedUnion("outcome", [
 ]);
 export type OfficeUpdateResult = z.infer<typeof officeUpdateResultSchema>;
 
-/** Settings › Updates: the version The Office runs, what its last check found, and a scheduled update. */
+/**
+ * Settings › Updates: the version The Office runs, what its last check found, whether it can
+ * restart, and a scheduled update or restart.
+ */
 export const officeUpdateSchema = z.object({
   /** The Office release's version, as `1.2.3`; absent when The Office runs from a checkout. */
   version: z.string().min(1).optional(),
@@ -109,25 +112,39 @@ export const officeUpdateSchema = z.object({
     .optional(),
   /** Why Update is refused now; absent when it can go ahead. */
   refusal: z.string().optional(),
+  /** Restart The Office. */
+  restart: z.object({
+    /** Why Restart is refused now, such as nothing here starting The Office again; absent when it can be scheduled. */
+    refusal: z.string().optional(),
+  }),
   checking: z.boolean(),
+  /** The scheduled update or restart, one at a time, with what it waits for. */
   scheduled: z
-    .object({
-      target: officeUpdateTargetSchema,
-      scheduledAt: z.iso.datetime(),
-      busy: z.array(busyItemSchema),
-    })
+    .discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("update"),
+        target: officeUpdateTargetSchema,
+        scheduledAt: z.iso.datetime(),
+        busy: z.array(busyItemSchema),
+      }),
+      z.object({
+        kind: z.literal("restart"),
+        scheduledAt: z.iso.datetime(),
+        busy: z.array(busyItemSchema),
+      }),
+    ])
     .optional(),
   lastResult: officeUpdateResultSchema.optional(),
 });
 export type OfficeUpdate = z.infer<typeof officeUpdateSchema>;
 
 export const officeUpdateWebEventSchema = z.discriminatedUnion("type", [
-  /** A check ended, an update was scheduled or cancelled, or what it waits for changed. */
+  /** A check ended, an update or restart was scheduled or cancelled, or what it waits for changed. */
   webEventSchema.extend({ type: z.literal("office-update.changed") }),
 ]);
 export type OfficeUpdateWebEvent = z.infer<typeof officeUpdateWebEventSchema>;
 
-/** A refused schedule or cancel of an Office update, with its reasons. */
+/** A refused schedule or cancel of an Office update or restart, with its reasons. */
 export const officeUpdateRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),

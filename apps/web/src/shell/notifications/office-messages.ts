@@ -2,21 +2,23 @@ import type { Notification } from "@the-office/contracts";
 
 /**
  * What The Office tells the user in the status strip's one slot: that the web lost the service,
- * one of its own Notifications, an Office update waiting to run, or the ask for desktop
+ * one of its own Notifications, an Office update or restart waiting to run, or the ask for desktop
  * Notifications.
  */
 export type OfficeMessage =
   | { readonly kind: "reconnecting" }
   | { readonly kind: "notification"; readonly notification: Notification }
   | { readonly kind: "update-scheduled"; readonly waitingFor: number }
+  | { readonly kind: "restart-scheduled"; readonly waitingFor: number }
   | { readonly kind: "desktop-ask" };
 
 export interface OfficeMessageSources {
   readonly reconnecting: boolean;
   /** Every open Notification, oldest first as they are listed; only the Office's own are messages. */
   readonly notifications: readonly Notification[];
-  /** How many things a scheduled Office update waits for; undefined while none is scheduled. */
-  readonly updateWaitingFor: number | undefined;
+  /** A scheduled Office update or restart and how many things it waits for; undefined while none is. */
+  readonly scheduled:
+    { readonly kind: "update" | "restart"; readonly waitingFor: number } | undefined;
   /** The browser hasn't been asked for desktop Notifications yet. */
   readonly desktopAsk: boolean;
 }
@@ -29,13 +31,13 @@ export interface OfficeMessageList {
 }
 
 /**
- * Reconnecting first, then the Office's open Notifications newest first, then a scheduled update,
- * then the desktop ask; none when there is nothing to tell, and the slot is gone.
+ * Reconnecting first, then the Office's open Notifications newest first, then a scheduled update
+ * or restart, then the desktop ask; none when there is nothing to tell, and the slot is gone.
  */
 export function officeMessages({
   reconnecting,
   notifications,
-  updateWaitingFor,
+  scheduled,
   desktopAsk,
 }: OfficeMessageSources): OfficeMessageList | undefined {
   const all: OfficeMessage[] = [
@@ -44,9 +46,9 @@ export function officeMessages({
       .filter(({ kind }) => kind.startsWith("office."))
       .toReversed()
       .map((notification) => ({ kind: "notification", notification }) as const),
-    ...(updateWaitingFor === undefined
+    ...(scheduled === undefined
       ? []
-      : [{ kind: "update-scheduled", waitingFor: updateWaitingFor } as const]),
+      : [{ kind: `${scheduled.kind}-scheduled`, waitingFor: scheduled.waitingFor } as const]),
     ...(desktopAsk ? [{ kind: "desktop-ask" } as const] : []),
   ];
   const [first] = all;
@@ -111,6 +113,19 @@ export function officeMessageWords(message: OfficeMessage): OfficeMessageWords {
         detail: message.waitingFor === 0 ? undefined : `Waiting for ${things}`,
         tone: "info",
         icon: "refresh-cw",
+      };
+    }
+    case "restart-scheduled": {
+      const things = message.waitingFor === 1 ? "1 thing" : `${message.waitingFor} things`;
+      return {
+        shortLine: "Restart scheduled",
+        line:
+          message.waitingFor === 0
+            ? "A restart of The Office is scheduled."
+            : `A restart of The Office is scheduled, waiting for ${things} to finish.`,
+        detail: message.waitingFor === 0 ? undefined : `Waiting for ${things}`,
+        tone: "info",
+        icon: "rotate-cw",
       };
     }
     case "desktop-ask":

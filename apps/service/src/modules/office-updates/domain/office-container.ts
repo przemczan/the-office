@@ -24,6 +24,8 @@ export interface RunningOfficeContainer {
   /** Undefined when Docker Compose didn't start the container. */
   readonly compose: ComposeProject | undefined;
   readonly mounts: readonly ContainerMount[];
+  /** Docker's restart policy's name, such as `unless-stopped`; `no` when it has none. */
+  readonly restartPolicy: string;
 }
 
 /** What reading the container found: Docker unreachable, with why, or the container. */

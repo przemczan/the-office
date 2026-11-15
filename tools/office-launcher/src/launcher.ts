@@ -6,7 +6,10 @@ import { healthUrlOf, type HealthWait } from "./service-health.ts";
 import { runningService, stopService, type RunningService } from "./service-process.ts";
 import { failure, takeRequest, type UpdateResult } from "./update-folder.ts";
 
-/** The exit code the service ends with to have the launcher update it (EX_TEMPFAIL). */
+/**
+ * The exit code the service ends with to have the launcher carry out its request, an update or a
+ * restart (EX_TEMPFAIL).
+ */
 export const UPDATE_EXIT_CODE = 75;
 
 /** The variable telling the service where the launcher reads its update request. */
@@ -47,10 +50,10 @@ export interface LauncherOptions {
 
 /**
  * Runs the service until it ends, and gives its exit code. A service ending with
- * `UPDATE_EXIT_CODE` is updated and started again; a stop signal goes on to the service, and one
- * coming during an update lets the update finish, so the install is left whole, but runs nothing
- * after it. The launcher's own code is the one it was started with: a new version's applies from
- * its next start.
+ * `UPDATE_EXIT_CODE` is updated, or only restarted when it asked for that, and started again; a
+ * stop signal goes on to the service, and one coming during an update lets the update finish, so
+ * the install is left whole, but runs nothing after it. The launcher's own code is the one it was
+ * started with: a new version's applies from its next start.
  */
 export async function runLauncher(options: LauncherOptions): Promise<number> {
   let stopping = false;
@@ -105,7 +108,8 @@ function serviceEnvironment({ install, environment }: LauncherOptions): NodeJS.P
 /**
  * Carries out the update the service asked for, and gives the service an update started, if it
  * did. An update that throws, such as on a request the install can't carry out, is logged, and the
- * service starts as it is.
+ * service starts as it is. A restart request installs nothing and leaves no result or log: the
+ * service just starts again.
  */
 async function updateOnce(options: LauncherOptions): Promise<RunningService | undefined> {
   const { install, log } = options;
@@ -114,6 +118,10 @@ async function updateOnce(options: LauncherOptions): Promise<RunningService | un
     const request = takeRequest(install.updateFolder);
     if (!request) {
       log("The service asked for an update, but no request was written.");
+      return undefined;
+    }
+    if (request.kind === "restart") {
+      log("Restarting The Office, as it asked.");
       return undefined;
     }
     if (install.mode === "checkout" && request.kind === "commit") {

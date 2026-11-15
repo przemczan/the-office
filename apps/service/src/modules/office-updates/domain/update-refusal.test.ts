@@ -46,6 +46,7 @@ const composed: RunningOfficeContainer = {
   imageId: "sha256:1234",
   compose: project,
   mounts: [],
+  restartPolicy: "unless-stopped",
 };
 
 function container(running: RunningOfficeContainer | undefined): UpdateState {

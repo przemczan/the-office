@@ -12,6 +12,7 @@ import {
   BusyWorkModule,
   OfficeUpdates,
   OfficeUpdatesModule,
+  ScheduledExits,
 } from "../../office-updates/index.js";
 import { createOfficeCheckout, updateSystem } from "../../office-updates/index.fixtures.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
@@ -54,7 +55,7 @@ beforeEach(async () => {
     overrides: [updateSystem()],
   }));
   readyToUpdate = 0;
-  app.get(OfficeUpdates).onReadyToUpdate(() => void (readyToUpdate += 1));
+  app.get(ScheduledExits).onReadyToExit(() => void (readyToUpdate += 1));
   sessionId = randomUUID();
   thread = aThread({ id: randomUUID(), home: { kind: "initiative", initiativeId: randomUUID() } });
   await app.get(ThreadRepository).add(thread);

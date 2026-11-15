@@ -47,8 +47,24 @@
 
 .telemetry-actions-state {
   flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   font: var(--type-caption);
   color: var(--fg-3);
+}
+
+/* Restart The Office, or what will apply the saved choice instead, beside when it applies. */
+.telemetry-restart {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.telemetry-restart-refusal {
+  flex-basis: 100%;
 }
 
 .telemetry-grafana {

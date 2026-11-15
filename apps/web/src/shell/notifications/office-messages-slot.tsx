@@ -127,6 +127,7 @@ function MessageAction({
 }): ReactNode {
   const opensUpdates =
     message.kind === "update-scheduled" ||
+    message.kind === "restart-scheduled" ||
     (message.kind === "notification" && message.notification.pointsTo.kind === "office-update");
   if (opensUpdates) {
     return (

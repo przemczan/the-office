@@ -133,7 +133,10 @@ describe("Settings › Updates", () => {
     expect((await send("DELETE", "/schedule")).status).toBe(204);
     endBusy();
 
-    expect(scheduled.scheduled?.target).toMatchObject({ kind: "commit", commit: newest });
+    expect(scheduled.scheduled).toMatchObject({
+      kind: "update",
+      target: { kind: "commit", commit: newest },
+    });
     expect(scheduled.scheduled?.busy).toEqual([
       { kind: "clone", label: "The clone of a repository" },
     ]);

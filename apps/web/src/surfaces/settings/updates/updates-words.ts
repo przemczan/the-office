@@ -53,8 +53,12 @@ export function lastResultWords(result: OfficeUpdateResult): string {
     : `${failedAt}; it is back on ${versionWords(result.from)}.`;
 }
 
-/** "Waiting for 2 things", or that it goes ahead now. */
-export function waitingWords(busy: number): string {
-  if (busy === 0) return "Nothing is busy, so The Office is restarting for it.";
+/** "Waiting for 2 things", or that a scheduled update or restart goes ahead now. */
+export function waitingWords(busy: number, kind: "update" | "restart" = "update"): string {
+  if (busy === 0) {
+    return kind === "update"
+      ? "Nothing is busy, so The Office is restarting for it."
+      : "Nothing is busy, so The Office is restarting.";
+  }
   return busy === 1 ? "Waiting for 1 thing:" : `Waiting for ${busy} things:`;
 }

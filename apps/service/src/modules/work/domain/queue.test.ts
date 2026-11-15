@@ -20,7 +20,7 @@ function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartC
     officeWideLimit,
     project: ROOMY_PROJECT,
     usage: NO_USAGE_AT_START,
-    officeUpdateHold: undefined,
+    scheduledExitWait: undefined,
   };
 }
 
