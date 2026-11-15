@@ -112,7 +112,8 @@ describe("the first user", () => {
       email: "grace@example.com",
       setupToken: token,
     });
-    expect(again.status).toBe(403);
+    // A conflict, not a refused token: the page reads again and offers signing in.
+    expect(again.status).toBe(409);
     await expect(newSetupToken(office)).rejects.toThrow(FirstUserExists);
   });
 
@@ -131,10 +132,11 @@ describe("the first user", () => {
         ),
       );
 
-      // The one that waited on the first finds the token used up, or the user made.
+      // The one that waited on the first finds the user made, whether or not its token was still
+      // waiting when it was checked.
       const [made, refused] = answers.map(({ status }) => status).toSorted();
       expect(made).toBe(201);
-      expect([403, 409]).toContain(refused);
+      expect(refused).toBe(409);
       const rows = await racing.app.get<symbol, Database>(DATABASE).select().from(users);
       expect(rows).toHaveLength(1);
     } finally {

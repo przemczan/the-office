@@ -6,7 +6,7 @@ import { basicsOf } from "../domain/first-run-setup.js";
 import type { SignInRequest } from "../domain/signed-in-device.js";
 import { newUserProblems, userOf, type NewUser } from "../domain/user.js";
 import { FirstRunBasicsClosed, UserCreated } from "../domain/user-events.js";
-import { FirstUserExists, UserRefused } from "../domain/user-refused.js";
+import { FirstUserExists, SetupTokenRefused, UserRefused } from "../domain/user-refused.js";
 import { PasswordHashing } from "../ports/password-hashing.js";
 import { UserRepository } from "../ports/user-repository.js";
 import { EarlierRecordsClaims } from "./earlier-records-claims.js";
@@ -45,10 +45,9 @@ export class FirstUser {
     setupToken: string,
     request: SignInRequest,
   ): Promise<SignedInOutcome> {
-    await this.firstRunSetup.checkToken(setupToken);
+    await this.checkSetupToken(setupToken);
     const problems = newUserProblems(newUser);
     if (problems.length > 0) throw new UserRefused(problems);
-    if (!(await this.isAwaited())) throw new FirstUserExists();
     const now = this.schedule.now();
     const user = userOf(
       randomUUID(),
@@ -65,5 +64,20 @@ export class FirstUser {
     await this.earlierRecordsClaims.claimIfDue();
     // Just made, the user has no authenticator yet to ask a code of.
     return this.signIns.signIn(user, request);
+  }
+
+  /**
+   * A token refused because the first user used it up is FirstUserExists, so a page left open
+   * while someone else made the first user reads again and offers signing in.
+   */
+  private async checkSetupToken(setupToken: string): Promise<void> {
+    try {
+      await this.firstRunSetup.checkToken(setupToken);
+    } catch (error) {
+      if (error instanceof SetupTokenRefused && !(await this.isAwaited())) {
+        throw new FirstUserExists();
+      }
+      throw error;
+    }
   }
 }
