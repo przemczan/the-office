@@ -70,4 +70,5 @@ jobs:
           path: |
             dist/release/*.tar.gz
             dist/release/*.sha256
+            dist/release/install.sh
           retention-days: 7

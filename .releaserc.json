@@ -28,7 +28,11 @@
     [
       "@semantic-release/github",
       {
-        "assets": [{ "path": "dist/release/*.tar.gz" }, { "path": "dist/release/*.sha256" }],
+        "assets": [
+          { "path": "dist/release/*.tar.gz" },
+          { "path": "dist/release/*.sha256" },
+          { "path": "dist/release/install.sh" }
+        ],
         "successComment": false,
         "failComment": false,
         "releasedLabels": false,

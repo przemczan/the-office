@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # `prepare.sh <version> [--no-push]`, the Release workflow's prepare step (docs/releasing.md):
-# packs both tarballs, checks the x64 one and the amd64 image against a throwaway Postgres, then
-# pushes the image for both platforms as $IMAGE:<version>. --no-push, for the Dry run, stops
-# after the checks. Linux with Docker and buildx (QEMU for arm64), as on the Release runner.
+# packs both tarballs and stamps install.sh with the version and GITHUB_REPOSITORY, checks the x64
+# tarball and the amd64 image against a throwaway Postgres, then pushes the image for both
+# platforms as $IMAGE:<version>. --no-push, for the Dry run, stops after the checks.
+# Linux with Docker and buildx (QEMU for arm64), as on the Release runner.
 set -euo pipefail
 
 version=${1:?Give the version to release, such as 1.2.3.}
@@ -27,6 +28,18 @@ for arch in x64 arm64; do
   npm run pack-release -- --version "$version" --arch "$arch"
 done
 (cd dist/release && sha256sum --check ./*.sha256)
+echo "::endgroup::"
+
+echo "::group::Stamp install.sh with $version"
+repository=${GITHUB_REPOSITORY:-przemczan/the-office}
+sed -e "s|@OFFICE_VERSION@|$version|g" -e "s|@OFFICE_REPOSITORY@|$repository|g" \
+  tools/install/install.sh >dist/release/install.sh
+chmod 0755 dist/release/install.sh
+if grep -n '@OFFICE_[A-Z]*@' dist/release/install.sh; then
+  echo "dist/release/install.sh still holds a placeholder." >&2
+  exit 1
+fi
+bash -n dist/release/install.sh
 echo "::endgroup::"
 
 network=office-release-check
