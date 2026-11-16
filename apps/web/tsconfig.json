@@ -19,6 +19,7 @@
     "vitest.config.ts",
     "vitest.setup.ts",
     "playwright.config.ts",
-    "playwright.full.config.ts"
+    "playwright.full.config.ts",
+    "playwright.readme.config.ts"
   ]
 }

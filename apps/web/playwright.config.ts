@@ -10,6 +10,19 @@ const PORT = 4390;
 // Chromiums beside the service exhaust its CPU and memory and the tests time out.
 const WORKERS = Math.max(1, Math.floor(availableParallelism() / 2));
 
+/** The built web app and service, with the environment `serve-office.ts` reads besides its port. */
+export function officeServer(env: Readonly<Record<string, string>> = {}) {
+  return {
+    // Serves the built web app and service: npm run build first (npm run verify does).
+    command: "node e2e/serve-office.ts",
+    url: `http://127.0.0.1:${PORT}/api/health`,
+    env: { ...env, OFFICE_PORT: String(PORT) },
+    reuseExistingServer: false,
+    timeout: 60_000,
+    stdout: "ignore" as const,
+  };
+}
+
 // Every test, run by `npm run test:e2e:full` through playwright.full.config.ts.
 export const fullRun = defineConfig({
   testDir: "e2e",
@@ -50,15 +63,7 @@ export const fullRun = defineConfig({
       dependencies: ["queue"],
     },
   ],
-  webServer: {
-    // Serves the built web app and service: npm run build first (npm run verify does).
-    command: "node e2e/serve-office.ts",
-    url: `http://127.0.0.1:${PORT}/api/health`,
-    env: { OFFICE_PORT: String(PORT) },
-    reuseExistingServer: false,
-    timeout: 60_000,
-    stdout: "ignore",
-  },
+  webServer: officeServer(),
 });
 
 // The default run leaves out the tests tagged @full. It is set here, not as --grep-invert, which

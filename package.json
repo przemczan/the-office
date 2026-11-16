@@ -27,6 +27,7 @@
     "test:tools": "npm run test --workspace tools --if-present",
     "test:e2e": "npm run test:e2e --workspace @the-office/web",
     "test:e2e:full": "npm run test:e2e:full --workspace @the-office/web",
+    "readme-screenshots": "npm run readme-screenshots --workspace @the-office/web",
     "service-start-check": "npm run check --workspace @the-office/service-start-check",
     "engine-check": "npm run check --workspace @the-office/engine-check --",
     "check-commits": "npm run check --workspace @the-office/commit-check --",

@@ -8,6 +8,8 @@
 
 **Screenshots for a Task's review** go to the worktree's `.office/screenshots/` (`task-screenshots.ts`: `TASK_SCREENSHOTS` and `screenshotScenario`, Light and Dark at 1600, 900 and 390 wide, nothing scrolling sideways, the whole page with `fullPage`); the run's own stay in `e2e-results/screenshots/`.
 
+**The README's screenshots** (`npm run readme-screenshots`, after `npm run build`) are `docs/images/*.png`, made by `readme/readme.screenshots.ts` through `playwright.readme.config.ts`: its own `setup` and `readme` projects, matching `*.screenshots.ts`, which the default and full runs (`*.e2e.ts`) never pick up, and the same web server (`officeServer` in `playwright.config.ts`) with `OFFICE_E2E_ENGINE_SCRIPTS` naming `readme/sessions.jsonl`, the scripts `serve-office.ts` replays instead of `sessions.jsonl`. It builds a demo Office with made-up names only (the shared user renamed, four people hired, two Projects, Tasks in every state of the board, Done ones set in the database), walks one Task through Implement and Tests into a Review & fix the Reviewer works, and leaves three sessions mid-turn at a `wait` step nothing releases, so their people sit working in the Live view (a day ahead at noon UTC, under reduced motion). A change to what it opens changes `readme/sessions.jsonl` in the same order. **Trap:** the same one run at a time as the e2e run: it clears the same database, ports and folders.
+
 **Time of day:** the Live view's light follows the browser's time zone, so the Live view's other tests set `test.use({ timezoneId: "Etc/UTC" })`, a zone with no place that keeps noon's light: in the runner's own zone (Warsaw on the workstation) idle people would go home at night. A test of the hours sets `test.use({ timezoneId })` and `page.clock.setFixedTime` a day ahead, so the Office's hires are over an hour old and nobody shows as just joined (`live-view.e2e.ts`, "at night").
 
 **The default run and the full run:** `npm run test:e2e` (in `npm run verify`) is the default run: one e2e per surface that opens it and does its main action, and the critical flows (hiring, planning to Ready, a Task walked through its Pipeline with a Decision, a Gate and Publish, the Start queue and the fire alarm). A new test that is neither carries Playwright's `{ tag: "@full" }` (on the test or its `test.describe`) and runs only in the full run, `npm run test:e2e:full`. Both run the built app, so `npm run build` first. `playwright.config.ts` leaves `@full` out by its own `grepInvert`, since Playwright applies no CLI `--grep-invert` to a project others depend on (`chromium`, before `queue` and `updates`); `playwright.full.config.ts` is the same config without it. In `people.e2e.ts` the default run is a prefix of the sessions: every session-opening test after the Gate's is tagged, so the scripts `sessions.jsonl` holds for them are left unused at its end, and a session-opening test is tagged only when every one after it is too. Tagging a test that opens no session is safe only when no default test after it needs what it made.
@@ -52,3 +54,7 @@
 - `updates.e2e.ts`
 - `users.e2e.ts`
 - `work.e2e.ts`
+
+### readme/
+
+- `readme.screenshots.ts`

@@ -22,9 +22,12 @@ import {
 } from "./office-database.ts";
 import { hostKeyVariables } from "./ssh-host.ts";
 
-// The service on a scripted engine, which replays SESSIONS: the tests make no model call.
+// The service on a scripted engine, which replays SESSIONS: the tests make no model call. A config
+// of its own (the README's screenshots) names its own file by OFFICE_E2E_ENGINE_SCRIPTS.
 const SERVICE_MAIN = fileURLToPath(new URL("../../service/dist/e2e.js", import.meta.url));
-const SESSIONS = fileURLToPath(new URL("./sessions.jsonl", import.meta.url));
+const SESSIONS =
+  process.env["OFFICE_E2E_ENGINE_SCRIPTS"] ??
+  fileURLToPath(new URL("./sessions.jsonl", import.meta.url));
 // What the service logs, kept beside the run's artifacts: Playwright shows only its standard error,
 // where Nest writes errors alone, so a warning (a daily job that failed) is read here.
 const SERVICE_LOG = fileURLToPath(new URL("../e2e-results/service.log", import.meta.url));
