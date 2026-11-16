@@ -18,6 +18,15 @@ const SPARKLE_SECONDS = 3;
  */
 const DOOR_FIRST_DELAY = 0.3;
 const DOOR_DELAY_STEP = 1.1;
+/** At the fire alarm, seen live: everyone panics on the spot this long, then runs out. */
+export const PANIC_SECONDS = 2;
+/** Running out at the fire alarm: one by one in hire order, quicker than the door's usual turns. */
+const ALARM_FIRST_DELAY = 0.2;
+const ALARM_DELAY_STEP = 0.4;
+/** Running out at the fire alarm is twice the walk. */
+export const ALARM_SPEED = 2;
+/** Arms waving at the fire alarm, frames a second. */
+const PANIC_RATE = 4;
 
 /** Outside, past the door: where a hire comes from and someone let go or gone home goes to. */
 export const OUTSIDE: Placement = {
@@ -36,7 +45,8 @@ export const OUTSIDE: Placement = {
 
 /** The walk cycle's pose: facing the way the figure goes, mirrored when it goes along y. */
 export interface WalkPose {
-  pose: "walk-front" | "walk-back";
+  /** The walk cycle, or panicking on the spot at the fire alarm before running out. */
+  pose: "walk-front" | "walk-back" | "stand-front-panic";
   frame: number;
   mirrored: boolean;
 }
@@ -63,6 +73,10 @@ export interface Walker {
   hidden: boolean;
   /** Let go: walks out and is removed. */
   leaving: boolean;
+  /** The fire alarm sounded: panics on the spot until it sets off, then runs out. */
+  panic: boolean;
+  /** How many times the walk's speed it goes: 2 running out at the fire alarm, else 1. */
+  speed: number;
   readonly heading: { dx: number; dy: number };
   readonly walk: WalkPose;
 }
@@ -85,12 +99,14 @@ export interface WalkerEvents {
 export interface Walkers {
   /**
    * Sends everyone where their placement says: the first time, and whenever `animate` is false, by a
-   * jump; otherwise walking there. Moves through the door go one by one in hire order.
+   * jump; otherwise walking there. Moves through the door go one by one in hire order. With `alarm`
+   * (the fire alarm sounded, seen live) everyone on the floor sent out panics on the spot for
+   * `PANIC_SECONDS`, then runs out at twice the walk, one by one in hire order.
    */
   direct(
     people: readonly OfficePerson[],
     placements: ReadonlyMap<string, Placement>,
-    options: { readonly animate: boolean },
+    options: { readonly animate: boolean; readonly alarm?: boolean },
   ): void;
   /** Moves every walk on by `dt` seconds; answers the walkers that moved, in an array reused each step. */
   step(dt: number): readonly Walker[];
@@ -108,7 +124,7 @@ export interface Walkers {
   isOnTheMove(walker: Walker): boolean;
   /** At its place, not walking nor waiting to. */
   isSettled(walker: Walker): boolean;
-  /** The walk cycle's pose, written into `walker.walk`. */
+  /** The walk cycle's pose, or the fire alarm's panic, written into `walker.walk`. */
   poseOf(walker: Walker): WalkPose;
   depthOf(walker: Walker): number;
   doorOpen(): boolean;
@@ -153,6 +169,8 @@ function newWalker(person: OfficePerson, placement: Placement): Walker {
     delay: 0,
     hidden: placement.kind === "gone",
     leaving: false,
+    panic: false,
+    speed: 1,
     heading: { dx: -1, dy: 0 },
     walk: { pose: "walk-back", frame: 0, mirrored: false },
   };
@@ -170,7 +188,7 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
   const isAtPlace = (walker: Walker): boolean =>
     walker.x === walker.placement.spot.x && walker.y === walker.placement.spot.y;
   const isOnTheMove = (walker: Walker): boolean =>
-    walker.route !== null && (walker.delay <= 0 || !isAtPlace(walker));
+    walker.route !== null && (walker.delay <= 0 || walker.panic || !isAtPlace(walker));
   const isSettled = (walker: Walker): boolean => walker.target === null;
   /** On the floor at their place: what talks and turns chairs round. */
   const isPresent = (walker: Walker): boolean =>
@@ -188,6 +206,8 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
     walker.target = null;
     walker.route = null;
     walker.delay = 0;
+    walker.panic = false;
+    walker.speed = 1;
     walker.x = placement.spot.x;
     walker.y = placement.spot.y;
     walker.hidden = placement.kind === "gone";
@@ -245,12 +265,15 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
     walker.routeIndex = 1;
     walker.target = placement;
     walker.delay = delay;
+    walker.panic = false;
+    walker.speed = 1;
   }
 
   function arrive(walker: Walker, target: Placement): void {
     walker.route = null;
     walker.placement = target;
     walker.target = null;
+    walker.speed = 1;
     if (target.kind === "gone") walker.hidden = true;
     if (walker.leaving && target.kind === "gone") {
       remove(walker);
@@ -261,7 +284,7 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
   }
 
   function walkOn(walker: Walker, seconds: number): void {
-    let budget = WALK_SPEED * seconds;
+    let budget = WALK_SPEED * walker.speed * seconds;
     while (budget > 0 && walker.route && walker.target) {
       const next = walker.route[walker.routeIndex]!;
       const dx = next.x - walker.x;
@@ -288,7 +311,7 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
   }
 
   return {
-    direct(people, placements, { animate }) {
+    direct(people, placements, { animate, alarm = false }) {
       const motion = animate && directed;
       directed = true;
       const present = new Map(people.map((person) => [person.roleKey, person]));
@@ -303,6 +326,9 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
       const doorDelay = (): number => DOOR_FIRST_DELAY + DOOR_DELAY_STEP * doorMoves++;
       let pastimeMoves = 0;
       const pastimeDelay = (): number => DOOR_FIRST_DELAY + DOOR_DELAY_STEP * pastimeMoves++;
+      let alarmMoves = 0;
+      const alarmDelay = (): number =>
+        PANIC_SECONDS + ALARM_FIRST_DELAY + ALARM_DELAY_STEP * alarmMoves++;
       for (const walker of byKey.values()) {
         const person = present.get(walker.key);
         if (!person) {
@@ -327,6 +353,15 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
           continue;
         }
         const throughDoor = wanted.kind === "gone" || walker.hidden;
+        // At the fire alarm everyone on the floor stops where they are, panics, then runs out.
+        if (motion && alarm && wanted.kind === "gone" && !walker.hidden) {
+          move(walker, wanted, true, alarmDelay());
+          if (walker.route) {
+            walker.panic = true;
+            walker.speed = ALARM_SPEED;
+          }
+          continue;
+        }
         // A new turn of someone idle, never someone called to work, who sets off at once.
         const turnChange = current.doing !== null && wanted.doing !== null;
         let delay = 0;
@@ -344,8 +379,13 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
         if (!walker.route) continue;
         if (walker.delay > 0) {
           walker.delay -= seconds;
-          if (walker.delay > 0) continue;
+          if (walker.delay > 0) {
+            // Panicking on the spot: drawn each frame, its arms waving.
+            if (walker.panic) moved.push(walker);
+            continue;
+          }
           walker.delay = 0;
+          walker.panic = false;
           walker.hidden = false;
           moved.push(walker);
           events.onDepart?.(walker);
@@ -370,7 +410,13 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
     setFloor(next) {
       floor = next;
       for (const walker of byKey.values()) {
-        if (walker.target) move(walker, walker.target, true, walker.delay);
+        if (!walker.target) continue;
+        const { panic, speed } = walker;
+        move(walker, walker.target, true, walker.delay);
+        if (walker.route) {
+          walker.panic = panic;
+          walker.speed = speed;
+        }
       }
     },
 
@@ -381,6 +427,12 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
     isSettled,
 
     poseOf(walker) {
+      if (walker.panic) {
+        walker.walk.pose = "stand-front-panic";
+        walker.walk.frame = Math.floor(clock * PANIC_RATE) % 2;
+        walker.walk.mirrored = false;
+        return walker.walk;
+      }
       const { dx, dy } = walker.heading;
       const alongX = Math.abs(dx) >= Math.abs(dy);
       const front = alongX ? dx > 0 : dy > 0;

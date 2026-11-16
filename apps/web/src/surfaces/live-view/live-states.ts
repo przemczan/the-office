@@ -79,6 +79,28 @@ export function walksAtLightChange(previous: SeenLight | null, light: Light, now
   return (previous.light.phase === "night") !== (light.phase === "night");
 }
 
+/** Whether the fire alarm was on when the floor was last given it, and when. */
+export interface SeenAlarm {
+  readonly on: boolean;
+  readonly at: Date;
+}
+
+/**
+ * Whether the fire alarm's sounding or all clear walks people (out in a panic, or back in): only when
+ * it changes in front of the viewer, the floor given it less than 2 minutes before. The caller also
+ * checks the tab is visible, as a hidden tab still applies. Otherwise everyone is put out, or back,
+ * in place at once.
+ */
+export function walksAtAlarmChange(
+  previous: SeenAlarm | null,
+  alarmOn: boolean,
+  now: Date,
+): boolean {
+  if (previous === null) return false;
+  if (now.getTime() - previous.at.getTime() >= LIVE_LIGHT_GAP_MINUTES * MINUTE) return false;
+  return previous.on !== alarmOn;
+}
+
 export function lookStatesOf(
   people: readonly OfficePerson[],
   now: Date,
@@ -92,26 +114,19 @@ export function lookStatesOf(
 type Location =
   | { readonly kind: "desk"; readonly desk: Desk }
   | { readonly kind: "consult"; readonly consultantKey: string; readonly desk: Desk }
-  | { readonly kind: "meeting"; readonly seat: Seat; readonly seatIndex: number }
   | {
       readonly kind: "pastime";
-      readonly seat: PastimeSpot;
+      readonly seat: Seat;
       readonly exercise: Exercise;
     }
   | { readonly kind: "gone" };
 
-type PastimeSpot = Seat & { readonly kind: SpotPastime };
-
-function isPastimeSpot(seat: Seat): seat is PastimeSpot {
-  return seat.kind !== "meeting";
-}
-
 /** Each pastime's spots on the floor, taken one by one in their order; nobody shares a spot. */
 class FreeSpots {
-  private readonly free = new Map<SpotPastime, PastimeSpot[]>();
+  private readonly free = new Map<SpotPastime, Seat[]>();
 
   constructor(spots: readonly Seat[]) {
-    for (const spot of spots.filter(isPastimeSpot)) {
+    for (const spot of spots) {
       this.free.set(spot.kind, [...(this.free.get(spot.kind) ?? []), spot]);
     }
   }
@@ -143,31 +158,14 @@ function askersByConsultant(
 }
 
 /**
- * The meeting spot seats four, so it holds one meeting at a time: the first Consultant asked by two
- * or more, in seat 0, with up to three of them.
+ * The one asker who stands at each Consultant's desk: the first, in hire order. Anyone else asking
+ * the same Consultant waits at their own desk, so no two figures share one spot.
  */
-function meetingSeatsOf(askers: ReadonlyMap<string, readonly string[]>): Map<string, number> {
-  const seats = new Map<string, number>();
-  for (const [consultantKey, keys] of askers) {
-    if (keys.length < 2) continue;
-    [consultantKey, ...keys.slice(0, 3)].forEach((key, seat) => seats.set(key, seat));
-    break;
-  }
-  return seats;
-}
-
-/**
- * The one asker who stands at each Consultant's desk: the first, when the Consultant isn't at the
- * meeting spot. Anyone else asking waits at their own desk, so no two figures share one spot.
- */
-function deskVisitorsOf(
-  askers: ReadonlyMap<string, readonly string[]>,
-  meetingSeats: ReadonlyMap<string, number>,
-): Map<string, string> {
+function deskVisitorsOf(askers: ReadonlyMap<string, readonly string[]>): Map<string, string> {
   const visitors = new Map<string, string>();
   for (const [consultantKey, keys] of askers) {
     const first = keys[0];
-    if (first !== undefined && !meetingSeats.has(consultantKey)) visitors.set(first, consultantKey);
+    if (first !== undefined) visitors.set(first, consultantKey);
   }
   return visitors;
 }
@@ -178,20 +176,23 @@ function locationsOf(
   amenities: Amenities,
   lookStates: ReadonlyMap<string, LookState>,
   turnOf: (person: OfficePerson) => PastimeTurn,
+  alarmOn: boolean,
 ): Map<string, Location> {
   const askers = askersByConsultant(people, lookStates);
-  const meetingSeats = meetingSeatsOf(askers);
-  const deskVisitors = deskVisitorsOf(askers, meetingSeats);
+  const deskVisitors = deskVisitorsOf(askers);
   const freeSpots = new FreeSpots(amenities.pastimeSpots);
   const locations = new Map<string, Location>();
   for (const person of people) {
     const desk = deskOf(layout, person.roleKey);
     if (!desk) continue;
+    // The fire alarm empties the floor: everyone is out, their desk kept.
+    if (alarmOn) {
+      locations.set(person.roleKey, { kind: "gone" });
+      continue;
+    }
     const location = locationFor(desk, {
       layout,
-      amenities,
       lookState: lookStates.get(person.roleKey) ?? "idle",
-      meetingSeat: meetingSeats.get(person.roleKey),
       visitedConsultant: deskVisitors.get(person.roleKey),
       takePastimeSpot: () => freeSpots.take(turnOf(person)),
     });
@@ -202,9 +203,7 @@ function locationsOf(
 
 interface LocationContext {
   readonly layout: Layout;
-  readonly amenities: Amenities;
   readonly lookState: LookState;
-  readonly meetingSeat: number | undefined;
   /** The Consultant whose desk this person stands at, if they are its one visitor. */
   readonly visitedConsultant: string | undefined;
   /** A spot of this turn's pastime, or of the next in their order with one free; null for the desk. */
@@ -213,11 +212,6 @@ interface LocationContext {
 
 function locationFor(desk: Desk, context: LocationContext): Location {
   const atDesk: Location = { kind: "desk", desk };
-  const seatIndex = context.meetingSeat;
-  const meetingSeat =
-    seatIndex === undefined ? undefined : context.amenities.meetingSeats[seatIndex];
-  if (seatIndex !== undefined && meetingSeat)
-    return { kind: "meeting", seat: meetingSeat, seatIndex };
   switch (context.lookState) {
     case "consulting": {
       const consultantKey = context.visitedConsultant;
@@ -258,19 +252,14 @@ export function deskActivity(lookState: LookState, visitorCount: number): DeskAc
 }
 
 /**
- * Who talks with whom: a Consultant with those at their desk, everyone at the meeting spot, and
- * everyone on the sofa, two or more, from its left seat to its right.
+ * Who talks with whom: a Consultant with the one at their desk, and everyone on the sofa, two or
+ * more, from its left seat to its right.
  */
 function conversationsOf(
   locations: ReadonlyMap<string, Location>,
   visitors: ReadonlyMap<string, readonly string[]>,
 ): Map<string, readonly string[]> {
   const conversations = new Map<string, readonly string[]>();
-  const meeting = [...locations]
-    .filter(([, location]) => location.kind === "meeting")
-    .toSorted(([, a], [, b]) => meetingSeatIndex(a) - meetingSeatIndex(b))
-    .map(([roleKey]) => roleKey);
-  if (meeting.length > 1) for (const roleKey of meeting) conversations.set(roleKey, meeting);
   const sofa = [...locations]
     .filter(([, location]) => location.kind === "pastime" && location.seat.kind === "sofa")
     .toSorted(([, a], [, b]) => sofaSeatX(a) - sofaSeatX(b))
@@ -282,11 +271,6 @@ function conversationsOf(
     for (const roleKey of talk) conversations.set(roleKey, talk);
   }
   return conversations;
-}
-
-/** The meeting's turn order: the Consultant in seat 0 first. */
-function meetingSeatIndex(location: Location): number {
-  return location.kind === "meeting" ? location.seatIndex : 0;
 }
 
 function sofaSeatX(location: Location): number {
@@ -333,6 +317,8 @@ function pastimePoseOf(pastime: SpotPastime, exercise: Exercise): FigurePose {
       return "stand-back-read";
     case "plant":
       return "stand-back-water";
+    case "games":
+      return "sit-back-play";
   }
 }
 
@@ -349,15 +335,6 @@ function poseOf(location: Location, activity: DeskActivity | null): Pose {
     }
     case "consult":
       return { pose: "stand-back-talk", facing: "back", mirrored: false, z: 0 };
-    case "meeting": {
-      const front = location.seat.facing === "front";
-      return {
-        pose: front ? "sit-front" : "sit-back",
-        facing: location.seat.facing,
-        mirrored: true,
-        z: 0,
-      };
-    }
     case "pastime":
       return {
         pose: pastimePoseOf(location.seat.kind, location.exercise),
@@ -376,7 +353,6 @@ function spotOf(location: Location): Spot {
       return deskSpot(location.desk);
     case "consult":
       return consultSpot(location.desk);
-    case "meeting":
     case "pastime":
       return location.seat;
     case "gone":
@@ -389,7 +365,6 @@ function depthOf(location: Location, spot: Spot): number {
   switch (location.kind) {
     case "desk":
       return location.desk.depth + 0.1;
-    case "meeting":
     case "pastime":
       return location.seat.depth === null ? spot.x + spot.y : location.seat.depth + 0.1;
     default:
@@ -419,10 +394,11 @@ function doingOf(
 
 /**
  * Where each person is drawn and how, by Role key, straight from their look state: working, waiting
- * on you and napping at the desk; consulting at the Consultant's desk, or at the meeting spot when
- * two or more ask one Consultant; idle at a spot of this turn's pastime, in hire order, else of the
- * next in their own order with one free, else at the desk; gone home off the floor. People without a
- * desk on the layout are left out.
+ * on you and napping at the desk; consulting at the Consultant's desk, the first of two or more
+ * asking one Consultant, the rest at their own desks; idle at a spot of this turn's pastime, in hire
+ * order, else of the next in their own order with one free, else at the desk; gone home off the
+ * floor; while the fire alarm is on, everyone off the floor. People without a desk on the layout are
+ * left out.
  */
 export function placementsOf(
   people: readonly OfficePerson[],
@@ -430,10 +406,16 @@ export function placementsOf(
   amenities: Amenities,
   light: Light,
   now: Date,
+  alarmOn = false,
 ): ReadonlyMap<string, Placement> {
   const lookStates = lookStatesOf(people, now, light);
-  const locations = locationsOf(people, layout, amenities, lookStates, (person) =>
-    pastimeTurnOf(person, now, light),
+  const locations = locationsOf(
+    people,
+    layout,
+    amenities,
+    lookStates,
+    (person) => pastimeTurnOf(person, now, light),
+    alarmOn,
   );
   const visitors = visitorsByConsultant(locations);
   const conversations = conversationsOf(locations, visitors);
@@ -574,6 +556,8 @@ export function doingWords(doing: IdleDoing): string {
       return "browsing the bookshelf";
     case "plant":
       return "watering a plant";
+    case "games":
+      return "playing games";
     case "nap":
       return "napping at their desk";
     case "desk":
@@ -717,13 +701,23 @@ export function clockWords(minutes: number): string {
   return `${twoDigits(Math.floor(whole / 60))}:${twoDigits(whole % 60)}`;
 }
 
-/** The canvas's label: "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30." */
+/**
+ * The canvas's label: "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30."; while the
+ * fire alarm is on, "8 people: the fire alarm is on, everyone is out of the office. Day, 10:00."
+ */
 export function summaryWords(
   people: readonly OfficePerson[],
   light: Light,
   lookStates: ReadonlyMap<string, LookState>,
+  alarmOn = false,
 ): string {
   const total = people.length;
+  const when = `${PHASE_WORDS[light.phase]}, ${clockWords(light.minutes)}.`;
+  if (alarmOn) {
+    const head = `${total} ${total === 1 ? "person" : "people"}`;
+    const out = total === 0 ? "nobody is in the office" : "everyone is out of the office";
+    return `${head}: the fire alarm is on, ${out}. ${when}`;
+  }
   const counts = SUMMARY_COUNTS.map(({ states, words }) => ({
     count: people.filter((person) => states.includes(lookStates.get(person.roleKey) ?? "idle"))
       .length,
@@ -733,5 +727,5 @@ export function summaryWords(
     .map(({ count, words }) => `${count} ${words}`);
   const head = `${total} ${total === 1 ? "person" : "people"}`;
   const body = counts.length ? `${head}: ${counts.join(", ")}` : head;
-  return `${body}. ${PHASE_WORDS[light.phase]}, ${clockWords(light.minutes)}.`;
+  return `${body}. ${when}`;
 }

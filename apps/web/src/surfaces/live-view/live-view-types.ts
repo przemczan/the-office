@@ -124,7 +124,16 @@ export type Facing = "front" | "back";
  * is where they sit, stretching now and then, when every spot they would pick is taken.
  */
 export type Pastime =
-  "coffee" | "water" | "sofa" | "beanbag" | "exercise" | "bookshelf" | "plant" | "nap" | "desk";
+  | "coffee"
+  | "water"
+  | "sofa"
+  | "beanbag"
+  | "exercise"
+  | "bookshelf"
+  | "plant"
+  | "games"
+  | "nap"
+  | "desk";
 
 /** A pastime done at a spot of its own on the floor, rather than at the desk. */
 export type SpotPastime = Exclude<Pastime, "nap" | "desk">;
@@ -141,9 +150,9 @@ export interface IdleDoing {
   readonly chatting: boolean;
 }
 
-/** A seat at the meeting spot, or a pastime's spot: a seat, or a place to stand. */
+/** A pastime's spot: a seat, or a place to stand. */
 export interface Seat extends Spot {
-  readonly kind: "meeting" | SpotPastime;
+  readonly kind: SpotPastime;
   readonly tile: FloorPoint;
   readonly facing: Facing;
   readonly mirrored: boolean;
@@ -151,12 +160,13 @@ export interface Seat extends Spot {
   readonly depth: number | null;
   /** How high the seat lifts the figure, in art pixels. */
   readonly seatZ: number;
-  /** The meeting chairs' back, on the side away from the table. */
-  readonly chairBack?: "-y" | "+y";
 }
 
 export type AmenityKind =
-  | "meetingTable"
+  /** The entertainment area's big TV on its low stand, the games console under it. */
+  | "tvStand"
+  /** A floor pillow in front of the TV. */
+  | "floorPillow"
   | "plant"
   | "sofa"
   | "coffeeMachine"
@@ -175,16 +185,15 @@ export interface Amenity extends FloorPoint {
   readonly seats?: number;
   readonly width?: number;
   readonly seed?: number;
-  /** Which of the beanbags' colours, from 0. */
+  /** Which of the beanbags' or the floor pillows' colours, from 0. */
   readonly variant?: number;
 }
 
-/** The meeting spot, the chill area and the furniture along the back wall, with their seats. */
+/** The entertainment area, the chill area and the furniture along the back wall, with their seats. */
 export interface Amenities {
   readonly items: readonly Amenity[];
   /** Tiles furniture stands on, `[x, y]`; the exercise mat, flat on the floor, blocks none. */
   readonly blocked: readonly (readonly [number, number])[];
-  readonly meetingSeats: readonly Seat[];
   /** Every pastime's spots, each pastime's in the order they are taken. */
   readonly pastimeSpots: readonly Seat[];
 }
@@ -222,14 +231,25 @@ export type FigurePose =
   /** At a plant, back to us, a watering can in hand: frame 1 tips it, a drop or two falling. */
   | "stand-back-water"
   /** Idle at the desk, sitting back: frame 0 at rest, frame 1 stretches, arms up over the head. */
-  | "sit-back-stretch";
+  | "sit-back-stretch"
+  /** At the coffee machine, the mug raised to the mouth for a sip; one frame. */
+  | "stand-front-mug-sip"
+  /** At the water cooler, the paper cup raised to the mouth for a sip; one frame. */
+  | "stand-front-cup-sip"
+  /** The fire alarm: panicking on the spot, hands waving beside the head; two frames. */
+  | "stand-front-panic"
+  /** On a floor pillow, back to us, facing the TV with a controller in both hands: two frames of thumbs. */
+  | "sit-back-play";
+
+/** Which way a still figure's head is turned for a moment (design decision 3's glance). */
+export type HeadGlance = "ahead" | "left" | "right";
 
 /** What someone at their desk is doing, for the pose and what is drawn over them. */
 export type DeskActivity = "working" | "waiting" | "talking" | "asleep" | "idle";
 
 /** Where a figure is drawn and how, worked out from their look state and nobody's movement. */
 export interface Placement {
-  readonly kind: "desk" | "consult" | "meeting" | "pastime" | "gone";
+  readonly kind: "desk" | "consult" | "pastime" | "gone";
   readonly spot: Spot;
   readonly pose: FigurePose;
   readonly facing: Facing;
@@ -319,8 +339,11 @@ export interface OfficeStage {
   /**
    * Draws a snapshot: hires take a desk and walk in, those let go walk out leaving an empty one,
    * everyone else walks where their state puts them; under the still office every move is a jump.
+   * While `alarmOn` (the fire alarm) the floor is empty: sounded in front of the viewer, everyone
+   * panics, then runs out; at the all clear they walk back in (`walksAtAlarmChange`), else they are
+   * put out, or back, at once.
    */
-  apply(people: readonly OfficePerson[], now: Date): void;
+  apply(people: readonly OfficePerson[], now: Date, alarmOn: boolean): void;
   /**
    * The hour's light; given before the first `apply`, then each minute. With motion the tint fades
    * over 2 s, and people walk out or in only when night begins or ends in front of the viewer
