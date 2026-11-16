@@ -1,9 +1,10 @@
 /**
  * Variables a session must not inherit: an API key would switch billing off the subscription,
  * `CLAUDE_CONFIG_DIR` and `CLAUDE_CODE_PLUGIN_DIRS` change what loads, and a parent Claude Code
- * session's own variables would make the child a nested session the Office never runs.
+ * session's own variables would make the child a nested session the Office never runs. The same
+ * holds for Codex: `OPENAI_API_KEY` switches the account, and `CODEX_HOME` the account folder.
  */
-const DROPPED_PREFIXES = ["CLAUDE", "ANTHROPIC", "MCP_", "OTEL_"] as const;
+const DROPPED_PREFIXES = ["CLAUDE", "ANTHROPIC", "OPENAI", "CODEX", "MCP_", "OTEL_"] as const;
 
 export function sessionEnvironment(
   parent: NodeJS.ProcessEnv = process.env,

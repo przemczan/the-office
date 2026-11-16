@@ -6,6 +6,7 @@ What tier 1 takes on trust about the engine, checked against live sessions on th
 
 - **On every SDK bump, before the bump is merged,** on Windows and on Linux: `npm run engine-check`. It exits non-zero when any check differs from what is recorded for that platform, has nothing recorded, or fails. A difference is read, its entry here updated (and the spec amended with the user when it contradicts it), then recorded with `npm run engine-check -- --record`.
 - **Once per bump, also the slow checks:** `npm run engine-check -- --only engine.decision-wait --include-slow`, which waits an hour on purpose, and `npm run engine-check -- --only engine.long-office-tool --only fallback.long-office-tool --include-slow`, which each wait 11 minutes in an Office tool.
+- **On every Codex bump, before the bump is merged,** on Windows and on Linux: `npm run engine-check -- --only codex. --codex-home <folder>`, with a Codex folder signed in for the check (`ENGINE_CHECK_CODEX_HOME` when the option is left out). Without a signed-in folder the `codex.*` checks are skipped with the reason, so a plain `npm run engine-check` still passes. Regenerate the protocol with `codex app-server generate-ts --out <folder>` from the pinned binary and compare it with `tools/engine-check/src/codex/protocol.ts`.
 - **To re-check one area:** `--only <id prefix>`, for example `--only permissions.`; `npm run engine-check -- --help` lists the options.
 
 Every run writes `tools/engine-check/out/report-<platform>.json` with each session's messages and hook calls, and prints its tokens. A full run costs a few minutes and, on `claude-haiku-5-5`, about 15k output tokens and 2.7M cache-read tokens.
@@ -20,6 +21,8 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | `zod` (the SDK's peer) | 4.6.7 |
 | `@modelcontextprotocol/sdk` (the SDK's own, for the fallback's Office tool server) | 1.32.2 |
 | Model for the checks | `claude-haiku-5-5` |
+| `@openai/codex` | 0.169.0 (exact pin in `tools/engine-check/package.json`; the native binary of `@openai/codex-<platform>-<arch>` runs directly) |
+| Model for the Codex checks | `gpt-6-luna` at `low` effort (`CODEX_CHECK_MODEL` in `tools/engine-check/src/codex/options.ts`), the cheapest `model/list` shows: no `-mini` model is listed |
 
 ## Runs
 
@@ -34,6 +37,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | every check but the slow one, with the read fence off and `claudeMdExcludes` in the Office's options (task 33 step 2); `permissions.file-tool-fence` and `skills.plugin-folder-reads` retired, `permissions.hook-sees-every-call` re-recorded |
 | Ubuntu 24.04 x64 (linux), the Office's own machine | 2026-11-06 | `skills.overrides-library` added and recorded, no model call; not run on Windows yet |
 | (pending) | | `skills.skill-command` added (skill commands), not yet run on either platform: it needs a signed-in machine |
+| Ubuntu 24.04 x64 (linux), the Office's own machine | 2026-11-16 | the 9 `codex.*` checks added (Codex engine task) and recorded on `gpt-6-luna`, a ChatGPT sign-in (Free plan) in a folder made for the check; a second run matches. A full run takes about 3 minutes and about 80k input, 1k output and 390k cache-read tokens. Not run on Windows yet |
 
 | Windows 11 (win32), the workstation | 2026-10-31 | the OpenAI-compatible API engine live on Strata (task 35 step 9): five contract scenarios, then a chat and a Stage on the Test Project (task 35's check); see [the OpenAI-compatible API](#the-openai-compatible-api) |
 | Windows 11 (win32), the workstation | 2026-11-01 | MCP servers live on the Agent SDK engine, Haiku (task 36 step 8, `mcp-servers/application/mcp-tools-test-project-check`): the fake stdio server, its secret Server value overridden on the Test Project. An Allowed tool ran under `permissionPrompts: 'none'` with no prompt; one at Consult Devops was held, waited on Devops in a Consultation, ran after the user's Allow once in the resumed session. The binary listed the MCP tools as deferred, so Haiku loaded them with ToolSearch first. The private MCP config file was written at the start and at the resume, and none was left; no command line held the value; the server's process tree ended. 35 s, 162k tokens (mostly cache reads) |
@@ -82,6 +86,9 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 | `skills.project-names` | §5.6 | Project skills keyed by the bare name | Keyed by a skill's folder or a command's path under `commands/`; expected at start by their listed names, at the repository's top only |
 | `skills.frontmatter-yaml` | §2.6 Defaults | Uploads need YAML frontmatter | A plain value holding `: ` is read as the engine reads it |
 | `skills.shell-execution` | §5.6 | Not covered | `disableSkillShellExecution` true: a skill's commands bypass the hook when they run |
+| `codex.interrupt` (2026-11-16) | §5.4 | Not covered: "interrupt" means the running command stops with the turn | On the Codex engine `turn/interrupt` ends the turn but not its command; Stop also ends the session's app-server process |
+| `codex.start` (2026-11-16) | §5.4 | Not covered | A Codex thread marks its repository trusted and loads the Project's `.codex/config.toml` unless `thread/start` names it untrusted, which the Codex engine does |
+| `codex.approvals`, `codex.sandbox`, `codex.office-tool` (2026-11-16) | §5.4, §6 | Not covered | The Office rules reach the Codex engine as approval requests under `untrusted`; a request with a `reason` asks to leave the sandbox; MCP tool calls come as elicitations |
 | `permissions.read-fence-off` (2026-10-31) | §6 | `blockReadsOutsideWorkingDirectories` on fences the file tools; shell reads outside work only for profiles that allow commands | The setting is off: under it the engine refused commands the hook allowed. The hook alone fences Read, Grep and Glob; shell reads outside run wherever the profile allows the command; `claudeMdExcludes` names the instruction files above the session's folder, which load without the fence |
 
 ## Skills
@@ -393,6 +400,77 @@ Added 2026-11-13 (Task 3de35a58), not run live yet, as `engine.usage-window-refu
 
 - **Run:** as `engine.foreground-sub-agents`, on the `-p` route, the hook answering over `localhost`.
 - **Observed:** not yet recorded. The service's `-p` hook endpoint returns the same `updatedInput` as the SDK's hook, so a difference from `engine.foreground-sub-agents` is the binary's reading of an HTTP hook's output.
+
+## The Codex app-server
+
+The Codex engine's capabilities on the pinned `codex app-server` (spec §5.4 Defaults, the Codex engine), checked before the adapter is built. A `codex.*` check starts one app-server process per session, the native binary of the pinned `@openai/codex` (`codex/pinned-codex.ts`, found as the package's launcher finds it), speaking JSON-RPC over stdio, one message per line without a `"jsonrpc"` member (`codex/json-rpc.ts`):
+
+- the environment above without `OPENAI*` and `CODEX*` variables, then `CODEX_HOME` the folder `--codex-home` names, and `OFFICE_TOOL_TOKEN` when the session has Office tools;
+- `app-server` with `-c` overrides only, never a change to the folder's `config.toml`: `sandbox_workspace_write.exclude_slash_tmp` and `.exclude_tmpdir_env_var` true (the `workspace-write` sandbox otherwise lets commands write in `/tmp` and `$TMPDIR`), `sandbox_workspace_write.network_access` false, `check_for_update_on_startup` false, `web_search` `disabled`, `history.persistence` `none`; `config/read` lists them as the `sessionFlags` layer;
+- `initialize` (with `experimentalApi`), `initialized`, then `account/read`: a check is skipped when the run has no folder or the folder has no sign-in (`account` null);
+- `thread/start` or `thread/resume` with `cwd` the repository, `model` the check model, `approvalPolicy` the check's (`untrusted` unless it says otherwise), `sandbox: workspace-write`, and `config` with `model_reasoning_effort`, the repository's main checkout named `untrusted` under `projects` (see `codex.start`) and, when the session has Office tools, `mcp_servers.office` `{url, bearer_token_env_var: "OFFICE_TOOL_TOKEN"}`: an MCP server over Streamable HTTP on `127.0.0.1` in the check's process (`codex/office-tool-http-server.ts`), refusing a request without the session's token, serving the same handover-note tool as the `-p` route;
+- `turn/start` with the text and `effort`, and `outputSchema` where a check holds the answer to one; `turn/interrupt`, `turn/steer`, `account/rateLimits/read`, `model/list` and `config/read` where a check asks;
+- every notification and server request is recorded; `item/commandExecution/requestApproval`, `item/fileChange/requestApproval`, `item/permissions/requestApproval` and `mcpServer/elicitation/request` are answered by the check's decide function (accept unless it says otherwise) and recorded as approval calls in the report; any other server request is answered with an error;
+- tokens come from `thread/tokenUsage/updated`: each thread's last `total` less what it held before the process's first call, cached input counted as a cache read (`codex/token-usage.ts`);
+- after the check the runner deletes the threads it started (`thread/delete`, `thread/archive` if that fails) through a session of its own: no rollout is left under `sessions/`.
+
+Codex writes its own state into `CODEX_HOME` whenever it runs, without a model call: `state_5.sqlite`, `logs_2.sqlite`, `memories_1.sqlite`, `goals_1.sqlite`, `queue_1.sqlite`, `thread_history_1.sqlite`, `installation_id`, `models_cache.json`, `cache/`, `shell_snapshots/`, `skills/.system/`, `plugins/`, `tmp/arg0-<os>/`, and each thread's rollout under `sessions/`; signing in writes `auth.json`. Any `codex` command run without `CODEX_HOME`, `codex --version` included, makes `~/.codex/tmp/`. So the check reads the version from `initialize`'s user agent, and runs on a folder made for it (`/root/.codex-engine-check` on the Office's machine, signed in with `codex login --device-auth`), never someone's everyday Codex folder.
+
+Each check records facts that hold run to run. A check whose model skipped a step when a call before it was declined (the first `codex.approvals` run) or when the step needed a write beside the worktree (`codex.sandbox` under `on-request`) now gives each step a turn of its own.
+
+### codex.start
+
+- **Run:** a session and `thread/start` with the Office's options, in a repository holding its own `.codex/config.toml` (`model_verbosity = "high"`); `model/list`, and `config/read` with its layers before and after the thread starts. No model call.
+- **Observed:** the user agent names 0.169.0, `initialize`'s `codexHome` is the folder, the sign-in is `chatgpt` (Free plan), `gpt-6-luna` is listed with `low` effort. The layers are `sessionFlags` (the overrides), `user` (the folder's `config.toml`), `system` (`/etc/codex/config.toml`) and `project`, the repository's; nothing is read from `~/.codex`. The thread answers model `gpt-6-luna`, policy `untrusted`, sandbox `workspaceWrite`, effort `low`. With the repository named `untrusted` the `project` layer stays disabled and its setting never applies, and the folder's `config.toml` is left as it was. Without that (the first runs), a persisted thread wrote `[projects."<repository>"] trust_level = "trusted"` into the folder's `config.toml`, one entry per repository, keyed by a worktree's main checkout, and from then the repository's own settings applied; a `-c projects…` override did not stop it, `thread/start`'s `config` did.
+- **Meaning:** an engine's folder is its own: `CODEX_HOME` keeps everything of the account there. The adapter names each worktree's repository untrusted in `thread/start`, so a Project can't change its sessions' settings through `.codex/config.toml`, and the folder doesn't grow an entry per worktree.
+
+### codex.approvals
+
+- **Run:** under `untrusted` and under `on-request`, five turns on one thread, one call each: a command writing a file (accepted), a command writing another (declined), `cat README.md`, a file created with `apply_patch` (declined), another (accepted).
+- **Observed:** under `untrusted` every one came for approval, the read-only `cat` included, commands as `item/commandExecution/requestApproval` and file changes as `item/fileChange/requestApproval`, each after its item started and before it ran. A declined command or file change ends `declined`, its file isn't written, and it isn't retried; an accepted one ends `completed` and writes. Under `on-request` none came for approval: all five ran in the sandbox, the "declined" ones too. A command's first request carries no reason; the answers carry none back (`{decision: "accept" | "acceptForSession" | "decline" | "cancel"}`, with `availableDecisions` in the request). In the first run, with all five in one turn, the model stopped after the declined command.
+- **Meaning:** `untrusted` is the policy under which the Office rules judge every command and file change, as the hook does on Claude Code. A refusal reaches the model only as `declined`, so the brief has to tell the Agent what a declined call means.
+
+### codex.sandbox
+
+- **Run:** a probe script, `node sandbox-probe.mjs`, that writes in the repository, writes beside it in the check's temp folder, fetches `https://example.com` and, on Linux, reads whether it runs under `no_new_privs`; once under `never` (the sandbox alone), once under `untrusted` accepted, once under `untrusted` with the model asked to run it outside the sandbox, accepted.
+- **Observed (Linux):** under `never` and accepted under `untrusted` alike: the write in the repository lands, the one beside it fails with `EROFS`, the fetch fails with `EAI_AGAIN`, and it runs under `no_new_privs` (the bundled bubblewrap; Codex warns once that `bwrap` isn't on `PATH`). The escalated request carries a `reason` ("May I run … outside the sandbox"); accepted, the command runs unconfined: both writes land, the fetch reaches the network, no `no_new_privs`. An earlier run under `on-request`, the prompt allowing escalation, saw the model skip the write beside the worktree altogether. `command/exec` on the same policy agreed: without the two exclusions a command writes in `/tmp`.
+- **Meaning:** `workspace-write` with the exclusions keeps a command's writes to the worktree and cuts its network. The Office rules see an escalation as a request with a `reason`, and decline it unless the Role's profile allows commands beyond the worktree. Not yet run on Windows.
+
+### codex.office-tool
+
+- **Run:** a session with the Office tool server; one turn calling `handover_note` with a note (accepted), one with another note (declined).
+- **Observed:** the app-server's requests carry the token; none is refused. It sends `initialize`, `notifications/initialized`, `tools/list` and `tools/call`. Each call comes first as `mcpServer/elicitation/request` (`mode: "form"`, `_meta.codex_approval_kind: "mcp_tool_call"`, the tool's name and its arguments in `_meta.tool_params`), before the handler runs, even under `untrusted`. The accepted call reaches the handler with its note and completes; the declined one ends `failed` and never reaches the server.
+- **Meaning:** `officeTools` holds over MCP on `localhost`, and every MCP tool call comes to the Office rules with its arguments, so the adapter answers the elicitation from them: the Office's own tools are allowed by rule, a Role's MCP servers' tools judged as on Claude Code.
+
+### codex.output-schema
+
+- **Run:** a turn under `outputSchema` asking for `{answer: "OK"}`.
+- **Observed:** the turn completes, and its last agent message parses to exactly `{answer: "OK"}`.
+- **Meaning:** `outputSchema` holds: a Stage's answer is the turn's last agent message.
+
+### codex.usage-reading
+
+- **Run:** `account/rateLimits/read`, one turn, `account/rateLimits/read` again.
+- **Observed (ChatGPT Free):** one window, limit id `codex`, `primary` 43,200 minutes (30 days) with `usedPercent` and a `resetsAt` ahead, no `secondary`; the plan is given. `account/rateLimits/updated` comes during the turn with the same shape. `thread/tokenUsage/updated` gives `inputTokens` (cached included), `cachedInputTokens`, `cacheWriteInputTokens`, `outputTokens` (reasoning included), `reasoningOutputTokens`, `totalTokens` and `modelContextWindow`. No window was used up, so no refused turn was seen; the protocol marks one `codexErrorInfo: "usageLimitExceeded"`.
+- **Meaning:** `usageWindows` and `contextUsage` hold on a ChatGPT sign-in. Which windows there are follows the plan, so the record holds for the Free plan; a paid plan's windows are recorded when the check runs on one.
+
+### codex.interrupt
+
+- **Run:** a turn running the 30-second script of `engine.interrupt`, accepted; `turn/interrupt` 4 s after its command starts; then a turn on the same thread. Then the same command in a new session whose app-server is closed (its input ended) 4 s after the command starts.
+- **Observed:** the interrupted turn ends `interrupted` within seconds, and the next turn completes. **The command runs on to its end** and its item completes after the turn has ended. Closing the app-server ends it by itself within the grace period, and its command doesn't reach its end.
+- **Meaning:** `interrupt` holds for the turn but not for its command: on Stop the adapter also ends the session's app-server, which ends the command, and the next message resumes the thread (`codex.resume`).
+
+### codex.resume
+
+- **Run:** a turn asked to remember a word; the process closed; a new process, `thread/resume`, a turn asking for the word.
+- **Observed:** the same thread, both turns complete, the word is remembered, and the resumed turn's input comes from the cache.
+- **Meaning:** `resume` holds across processes on the same folder.
+
+### codex.barge-in
+
+- **Run:** the 30-second script's turn; `turn/steer` with `expectedTurnId` 4 s after its command starts, asking for another final word.
+- **Observed:** the steer is accepted, joins the same turn as a user message (no second turn starts), the command runs once and completes, and the final message reads the steer.
+- **Meaning:** `bargeIn` holds: `turn/steer` is priority `next`. `later` has no counterpart; the adapter holds it until the turn ends and starts a turn on it.
 
 ## The OpenAI-compatible API
 

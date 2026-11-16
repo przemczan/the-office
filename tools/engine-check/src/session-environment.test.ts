@@ -11,6 +11,8 @@ test("drops engine, API and telemetry variables in any case and keeps the rest",
     CLAUDE_CODE_PLUGIN_DIRS: "/plugins",
     MCP_CONNECTION_NONBLOCKING: "1",
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318",
+    OPENAI_API_KEY: "key",
+    CODEX_HOME: "/elsewhere",
     UNSET: undefined,
   });
   assert.deepEqual(environment, { PATH: "/bin" });

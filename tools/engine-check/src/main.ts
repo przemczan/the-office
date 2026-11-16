@@ -1,5 +1,6 @@
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Check, Platform } from "./check.ts";
@@ -12,7 +13,10 @@ import { checks } from "./checks/index.ts";
 import { loadExpectations, recordObservations } from "./expectations.ts";
 import { runCheck, sumTokens, type CheckOutcome } from "./run-checks.ts";
 
+const CODEX_HOME_VARIABLE = "ENGINE_CHECK_CODEX_HOME";
+
 const USAGE = `Usage: npm run engine-check -- [--only <id prefix>]... [--include-slow] [--record]
+                                [--codex-home <folder>]
 
 Runs the engine checks on this platform and compares each observation with the one recorded in
 expectations.json. Exits non-zero when a check differs, has no recorded result or fails; a check
@@ -21,6 +25,11 @@ that can't observe what it is for on this account now is skipped, with the reaso
   --only <prefix>   run only checks whose id starts with the prefix (repeatable)
   --include-slow    also run the slow checks, which are left out otherwise, even when --only names them
   --record          write this run's observations into expectations.json for this platform
+  --codex-home <folder>
+                    the Codex folder the codex.* checks run with as CODEX_HOME, signed in with
+                    CODEX_HOME=<folder> codex login; ${CODEX_HOME_VARIABLE} when omitted. Without
+                    a signed-in folder the codex.* checks are skipped. The check changes no setting
+                    there, and deletes the threads it started.
 
 Slow checks:
   engine.decision-wait  waits ${DECISION_WAIT_VARIABLE} (default ${DEFAULT_DECISION_WAIT_MINUTES}) before answering
@@ -39,6 +48,7 @@ async function main(): Promise<number> {
       only: { type: "string", multiple: true, default: [] },
       "include-slow": { type: "boolean", default: false },
       record: { type: "boolean", default: false },
+      "codex-home": { type: "string" },
       help: { type: "boolean", default: false },
     },
   });
@@ -53,11 +63,17 @@ async function main(): Promise<number> {
     return 1;
   }
 
+  const codexHome = codexHomeFolder(values["codex-home"] ?? process.env[CODEX_HOME_VARIABLE]);
+  if (codexHome !== undefined && !existsSync(codexHome)) {
+    process.stderr.write(`The Codex folder ${codexHome} does not exist.\n`);
+    return 1;
+  }
+  const runOptions = codexHome === undefined ? {} : { codexHome };
   const expectations = await loadExpectations(expectationsPath);
   const outcomes: CheckOutcome[] = [];
   for (const check of selected) {
     process.stdout.write(`${check.id}: ${check.title}\n`);
-    const outcome = await runCheck(check, expectations, platform);
+    const outcome = await runCheck(check, expectations, platform, runOptions);
     outcomes.push(outcome);
     process.stdout.write(describeOutcome(outcome));
   }
@@ -76,6 +92,14 @@ async function main(): Promise<number> {
     (outcome) => outcome.status !== "matches" && outcome.status !== "skipped",
   );
   return failed || (mismatched && !values.record) ? 1 : 0;
+}
+
+/** A relative folder is taken from where npm was run, not from the workspace npm runs the check in. */
+function codexHomeFolder(given: string | undefined): string | undefined {
+  if (given === undefined || given === "") {
+    return undefined;
+  }
+  return resolve(process.env["INIT_CWD"] ?? process.cwd(), given);
 }
 
 function currentPlatform(): Platform {
@@ -137,7 +161,7 @@ function describeSummary(
     "",
     `${count("matches")} match, ${count("differs")} differ, ${count("unrecorded")} unrecorded, ${count("skipped")} skipped, ${count("failed")} failed`,
     `Tokens: in ${input}, out ${output}, cache read ${cacheRead}, cache write ${cacheCreation}`,
-    `Report with every session's messages and hook calls: ${reportPath}`,
+    `Report with every session's messages, hook calls and approval calls: ${reportPath}`,
     ...(recorded ? [`Recorded observations into ${expectationsPath}`] : []),
     "",
   ].join("\n");

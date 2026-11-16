@@ -194,11 +194,11 @@ What a Ready Task's whole Pipeline is expected to use on each engine it uses, in
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
 **Usage window**:
-One of a Claude Code engine's limits on use over time, such as the 5-hour window, the 7-day window or a model's weekly window, each with a reset time. It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1-work.md#defaults)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
+One of an engine's limits on use over time, each with a reset time: on a Claude Code engine the 5-hour window, the 7-day window or a model's weekly window; on a Codex engine signed in with ChatGPT the windows its plan gives (one 30-day window on the Free plan). A Codex engine on an API key has none. It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1-work.md#defaults)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
 _Avoid_: Quota, rate limit, plan limit
 
 **Window cap**:
-A Claude Code engine's cap, one for each window, on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
+A Claude Code or Codex engine's cap, one for each of its windows, on how much of a Usage window (the 5-hour or the 7-day window on Claude Code) a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit, Project limits and Task limits count started Tasks), threshold
 
 **Daily cap**:
@@ -206,7 +206,7 @@ An engine's cap on the tokens, or the dollars, used on it in one day; a Start th
 _Avoid_: Budget, quota, daily limit
 
 **Model price**:
-What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines: one per Claude model, shared by every Claude Code engine, and one per engine and model on the OpenAI-compatible API; every cost in The Office is priced by it.
+What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines: one per Claude model, shared by every Claude Code engine, one per Codex model, shared by every Codex engine, and one per engine and model on the OpenAI-compatible API; every cost in The Office is priced by it.
 _Avoid_: Rate, pricing, price table
 
 **Reading source**:
@@ -436,7 +436,7 @@ The one text of general guidelines the user writes in Settings, which every pers
 _Avoid_: Global instructions, guidelines, house rules, agents.md
 
 **Engine**:
-What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch, or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
+What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
 _Avoid_: Provider, backend, account (as the thing picked), engine id
 
 **Office default**:

@@ -27,9 +27,9 @@ const MARGIN_MS = 5000;
  * Long enough to be still running when a check acts on the turn, short enough to finish if nothing
  * does. A script stands in for a test run: the engine refuses a standalone `sleep` before any hook.
  */
-const RUNNING_COMMAND = `node ${SCRIPT}`;
+export const RUNNING_COMMAND = `node ${SCRIPT}`;
 /** How long after the hook allows the command a check acts, by then the shell has started it. */
-const UNDER_WAY_MS = 4000;
+export const UNDER_WAY_MS = 4000;
 
 export const RUN_COMMAND_PROMPT =
   `Make these tool calls one at a time, waiting for each result, and do not retry a call: ` +
