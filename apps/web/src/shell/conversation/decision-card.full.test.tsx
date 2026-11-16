@@ -32,9 +32,17 @@ function aDecision(threadId: string): Decision {
   return {
     id: "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e",
     threadId,
-    kind: "question",
+    kind: "form",
     taskId: TASK.id,
     roleKey: "planner",
+    questions: [
+      {
+        kind: "choice",
+        question: "Which format?",
+        options: ["CSV", "JSON"],
+        recommendation: { option: 0, reason: "Spreadsheets open it." },
+      },
+    ],
     question: "Which format?",
     context: "",
     options: ["CSV", "JSON"],
@@ -43,6 +51,7 @@ function aDecision(threadId: string): Decision {
     askedAt: "2026-11-10T14:02:00.000Z",
     putTo: null,
     passedOn: [],
+    formAnswer: null,
     answer: null,
     answeredAt: null,
     answeredByUser: null,
@@ -171,6 +180,7 @@ describe("a Decision's header", () => {
     const page = await rendered({
       ...aDecision(TASK_THREAD),
       putTo: "reviewer",
+      formAnswer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
       answer: { kind: "option", option: 0 },
       answeredAt: "2026-11-10T14:30:00.000Z",
       answeredBy: "reviewer",
@@ -213,6 +223,7 @@ describe("a Decision's header", () => {
 function answered(fields: Partial<Decision> = {}): Decision {
   return {
     ...aDecision(TASK_THREAD),
+    formAnswer: { kind: "submitted", answers: [{ kind: "option", option: 1 }] },
     answer: { kind: "option", option: 1 },
     answeredAt: "2026-11-10T14:30:00.000Z",
     ...fields,
@@ -321,6 +332,13 @@ describe("a call made from a chat", () => {
     ...aDecision(CALLERS_CHAT),
     kind: "request",
     taskId: null,
+    questions: [
+      {
+        kind: "open",
+        question: "Set up the Project's commands.",
+        why: "Only Michael drafts them.",
+      },
+    ],
     question: "Set up the Project's commands.",
     options: [],
     recommendation: { option: 0, reason: "Only Michael drafts them." },
@@ -388,6 +406,10 @@ describe("a call made from a chat", () => {
   it("shows the callee's answer in words, and The Office's when it went back to the caller", async () => {
     const byCallee = await renderedInChat({
       ...call,
+      formAnswer: {
+        kind: "submitted",
+        answers: [{ kind: "words", text: "I drafted a Proposal." }],
+      },
       answer: { kind: "free-answer", text: "I drafted a Proposal." },
       answeredAt: "2026-11-12T14:30:00.000Z",
       answeredBy: "reviewer",
@@ -397,6 +419,10 @@ describe("a call made from a chat", () => {
 
     const byTheOffice = await renderedInChat({
       ...call,
+      formAnswer: {
+        kind: "submitted",
+        answers: [{ kind: "words", text: "So it is the user's now: ask them in your reply." }],
+      },
       answer: { kind: "free-answer", text: "So it is the user's now: ask them in your reply." },
       answeredAt: "2026-11-12T14:30:00.000Z",
       answeredByTheOffice: true,

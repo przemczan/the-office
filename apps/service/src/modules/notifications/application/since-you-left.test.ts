@@ -206,7 +206,7 @@ describe("The phone, with two users", () => {
         id: randomUUID(),
         taskId: randomUUID(),
         roleKey: "developer",
-        question: "Keep it?",
+        questions: [{ kind: "open", question: "Keep it?" }],
         askedAt: noon(3),
       },
     ] as unknown as ConstructorParameters<typeof DecisionOpened>;

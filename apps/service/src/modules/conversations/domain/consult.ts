@@ -1,4 +1,12 @@
-import { isApproval, type Decision, type DecisionAnswer, type DecisionDraft } from "./decision.js";
+import {
+  decisionSummary,
+  isApproval,
+  isTheOfficesOwn,
+  type Decision,
+  type DecisionAnswer,
+  type DecisionDraft,
+  type DecisionQuestion,
+} from "./decision.js";
 
 /** Who asks a Decision no person opened, such as a Pipeline's (spec §2.3). */
 export const THE_OFFICE = "The Office";
@@ -22,23 +30,19 @@ export function approvalQuestion(call: string): string {
 export const CALL_STEPS = 2;
 
 /**
- * What an Agent asks the person it consults: a question, approval of a call, or a request, asking
- * them to do something they can and the Agent can't (spec §2.2).
+ * What an Agent asks the person it consults: a form of questions, approval of a call, or a request,
+ * asking them to do something they can and the Agent can't (spec §2.2).
  */
 export type Consult =
   | {
-      readonly kind: "question";
+      readonly kind: "form";
       /**
        * Whom the Agent would consult, as its brief names them, such as Devops; undefined when it
        * asks the user, as a Hard switch set to Ask me says.
        */
       readonly person?: string;
-      readonly question: string;
       readonly context: string;
-      readonly options: readonly string[];
-      /** The recommended option, by its index in `options`. */
-      readonly recommended: number;
-      readonly why: string;
+      readonly questions: readonly DecisionQuestion[];
     }
   | {
       readonly kind: "approval";
@@ -178,41 +182,39 @@ export function consultDecision(consult: Consult, party: ConsultedParty): Decisi
       ? `For ${person}: nobody who can be consulted fills that Role, so you answer in their place.\n\n${consult.context}`
       : consult.context;
   switch (consult.kind) {
-    case "question":
-      return {
-        kind: "question",
-        question: consult.question,
-        context,
-        options: consult.options,
-        recommendation: { option: consult.recommended, reason: consult.why },
-      };
+    case "form":
+      return { kind: "form", context, questions: consult.questions };
     case "approval":
       return {
         kind: "approval",
-        question: approvalQuestion(consult.call),
         context,
-        options: APPROVAL_OPTIONS,
-        recommendation: { option: 0, reason: consult.why },
+        questions: [
+          {
+            kind: "choice",
+            question: approvalQuestion(consult.call),
+            options: APPROVAL_OPTIONS,
+            recommendation: { option: 0, reason: consult.why },
+          },
+        ],
       };
     case "request":
       return {
         kind: "request",
-        question: consult.request,
         context,
-        options: [],
-        recommendation: { option: 0, reason: consult.why },
+        questions: [{ kind: "open", question: consult.request, why: consult.why }],
       };
   }
 }
 
 /**
- * Every problem with a Consultant's answer. The Office's Decision, put to whoever is asked
- * first when a Stage runs out of tries, they
- * answer only in their own words, which send the Task back for one more round: its options stay
- * the user's (spec §2.3).
+ * Every problem with a Consultant's answer. The Office's Decision, put to whoever is asked first
+ * when a Stage runs out of tries, they answer only in their own words, the question's comment with
+ * no option picked, which send the Task back for one more round: its options stay the user's (spec
+ * §2.3).
  */
 export function consultantAnswerProblems(decision: Decision, answer: DecisionAnswer): string[] {
-  if (decision.roleKey !== undefined || answer.kind !== "option") return [];
+  if (!isTheOfficesOwn(decision) || answer.kind !== "submitted") return [];
+  if (answer.answers.every((given) => given.kind === "words")) return [];
   return [
     "Its options are the user's. Answer in your own words to send the Task back for one more round with them as its guidance, or pass it on to the user.",
   ];
@@ -232,26 +234,52 @@ export function consultationOpening(
   askerName: string,
   passers: readonly { readonly name: string; readonly reason: string }[] = [],
 ): string {
-  if (decision.roleKey === undefined) return officeConsultationOpening(decision);
+  if (isTheOfficesOwn(decision)) return officeConsultationOpening(decision);
   const passedOn = passers.map(({ name, reason }) => `${name} passed it on to you: ${reason}`);
   if (decision.kind === "request") return requestOpening(decision, askerName, passedOn);
-  const options = decision.options
-    .map(
-      (option, index) =>
-        `${index + 1}. ${option}${index === decision.recommendation.option ? " (recommended)" : ""}`,
-    )
-    .join("\n");
-  const howToAnswer = isApproval(decision)
-    ? "Answer with the answer_consultation tool: choose Allow once or Deny by its number, or pass it on when the call isn't yours to decide. It reaches them as their next message."
-    : "Answer with the answer_consultation tool: choose one of the options by its number, or give an answer in your own words. It reaches them as their next message.";
+  if (isApproval(decision)) return approvalOpening(decision, askerName, passedOn);
   return [
     `${askerName} asks for your answer${onItsTask(decision)}.`,
     ...passedOn,
-    `Question: ${decision.question}`,
     `What they found: ${decision.context}`,
-    `Their options:\n${options}`,
-    `Why they recommend the option they do: ${decision.recommendation.reason}`,
-    howToAnswer,
+    `Their questions:\n\n${decision.questions.map(questionForTheConsultant).join("\n\n")}`,
+    "Answer with the answer_consultation tool, as the user would answer the form: Submit gives `answers`, one per question in order, each an option by its number or an answer in your own words (a choice's words alone stand for picking none), with an optional comment, plus an optional `generalComment`; or set `askAgain` with only a `generalComment` saying what they should explain or change. It reaches them as their next message.",
+  ].join("\n\n");
+}
+
+/** One question of a form as a Consultant reads it: numbered, with its options and why. */
+function questionForTheConsultant(question: DecisionQuestion, index: number): string {
+  const heading = `Question ${index + 1}: ${question.question}`;
+  if (question.kind === "open") {
+    return [
+      heading,
+      "An open question: answer in your own words.",
+      ...(question.why ? [`Why they ask: ${question.why}`] : []),
+    ].join("\n");
+  }
+  const options = question.options.map(
+    (option, place) =>
+      `${place + 1}. ${option}${place === question.recommendation.option ? " (recommended)" : ""}`,
+  );
+  return [heading, ...options, `Why they recommend it: ${question.recommendation.reason}`].join(
+    "\n",
+  );
+}
+
+/** What the Consultant asked to approve a call is asked: the call, why, and their three answers. */
+function approvalOpening(
+  decision: Decision,
+  askerName: string,
+  passedOn: readonly string[],
+): string {
+  const [call] = decision.questions;
+  return [
+    `${askerName} asks for your answer${onItsTask(decision)}.`,
+    ...passedOn,
+    `Question: ${call?.question ?? ""}`,
+    `What they found: ${decision.context}`,
+    `Why they need it: ${call?.kind === "choice" ? call.recommendation.reason : ""}`,
+    "Answer with the answer_consultation tool: choose 1. Allow once or 2. Deny by its number, or pass it on when the call isn't yours to decide. It reaches them as their next message.",
   ].join("\n\n");
 }
 
@@ -264,11 +292,12 @@ function requestOpening(
   askerName: string,
   passedOn: readonly string[],
 ): string {
+  const [asked] = decision.questions;
   return [
-    `${askerName} asks you to: ${decision.question}`,
+    `${askerName} asks you to: ${asked?.question ?? ""}`,
     ...passedOn,
     `What they found: ${decision.context}`,
-    `Why they need it: ${decision.recommendation.reason}`,
+    `Why they need it: ${asked?.kind === "open" ? (asked.why ?? "") : ""}`,
     `Do it with your own tools${onItsTask(decision)}, then answer with the answer_consultation tool in your own words: what you did, such as a Proposal you drafted for the user to apply, or why you can't. It reaches them as their next message.`,
   ].join("\n\n");
 }
@@ -281,17 +310,22 @@ function onItsTask({ taskId }: Decision): string {
 export function consultationAskedLine(askerName: string, decision: Decision): string {
   switch (decision.kind) {
     case "request":
-      return `${askerName} asks you to: ${decision.question}`;
+      return `${askerName} asks you to: ${decisionSummary(decision)}`;
     case "approval":
-      return `${askerName} asks your approval: ${decision.question}`;
-    case "question":
-      return `${askerName} asks: ${decision.question}`;
+      return `${askerName} asks your approval: ${decisionSummary(decision)}`;
+    case "form":
+      return `${askerName} asks: ${decisionSummary(decision)}`;
   }
 }
 
-/** The visible line a Consultation logs once its callee answered (spec §2.4). */
+/**
+ * The visible line a Consultation logs once its callee answered (spec §2.4): the answer in words,
+ * on lines of its own when it answers a form question by question.
+ */
 export function consultationAnswerLine(askerName: string, answerWords: string): string {
-  return `Your answer to ${askerName}: ${answerWords}`;
+  return answerWords.includes("\n")
+    ? `Your answer to ${askerName}:\n\n${answerWords}`
+    : `Your answer to ${askerName}: ${answerWords}`;
 }
 
 /**
@@ -335,12 +369,15 @@ function sentence(text: string): string {
  * the user's options for them to know, and their two answers.
  */
 function officeConsultationOpening(decision: Decision): string {
-  const options = decision.options.map((option, index) => `${index + 1}. ${option}`).join("\n");
+  const [asked] = decision.questions;
+  const options = (asked?.kind === "choice" ? asked.options : [])
+    .map((option, index) => `${index + 1}. ${option}`)
+    .join("\n");
   return [
     `${THE_OFFICE} asks for your answer on this Task before the user's.`,
-    `Question: ${decision.question}`,
+    `Question: ${asked?.question ?? ""}`,
     `What happened: ${decision.context}`,
     `The user's options, which stay theirs:\n${options}`,
-    "Answer with the answer_consultation tool in your own words: they send the Task back for one more round, as its guidance. Or pass it on to the user when it isn't yours to decide, saying why.",
+    "Answer with the answer_consultation tool in your own words, as the question's `answer` with no option picked: they send the Task back for one more round, as its guidance. Or pass it on to the user when it isn't yours to decide, saying why.",
   ].join("\n\n");
 }

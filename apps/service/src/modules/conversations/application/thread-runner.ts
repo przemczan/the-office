@@ -424,7 +424,7 @@ export class ThreadRunner implements OnModuleDestroy {
     const thread = await this.threadOf(threadId);
     const open = openDecisionOf(thread, decisionId);
     if (!open) throw new ThreadRefused(["This Decision is answered already."]);
-    const problems = answerProblems(open, answer);
+    const problems = answerProblems(open, answer, answerGivenBy(answerer));
     if (problems.length > 0) throw new ThreadRefused(problems);
     const current = await this.personOf(thread);
     const messageId = randomUUID();

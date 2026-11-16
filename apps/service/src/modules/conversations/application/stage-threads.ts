@@ -18,7 +18,7 @@ import { ApprovalHolds } from "./approval-holds.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
-import type { Decision } from "../domain/decision.js";
+import { decisionSummary, onlyChoice, type Recommendation } from "../domain/decision.js";
 import type {
   Message,
   MessageDelivery,
@@ -162,11 +162,18 @@ export interface StageTurnContext {
   readonly window: number;
 }
 
-/** A Decision the person asked in a Stage Thread, with the id it is answered by. */
-export type AskedDecision = Pick<
-  Decision,
-  "id" | "question" | "context" | "options" | "recommendation"
->;
+/**
+ * A Decision the person asked in a Stage Thread, with the id it is answered by, as the Pipeline
+ * keeps it: the Decision in one line, and its options and recommendation when it is exactly one
+ * choice, none otherwise.
+ */
+export interface AskedDecision {
+  readonly id: string;
+  readonly question: string;
+  readonly context: string;
+  readonly options: readonly string[];
+  readonly recommendation: Recommendation;
+}
 
 /**
  * The user's messages a Stage's work carries into its session, from the Thread they were written
@@ -397,8 +404,14 @@ export class StageThreads {
       ({ roleKey, askedAt }) => roleKey !== undefined && askedAt >= began,
     );
     if (!asked) return undefined;
-    const { id, question, context, options, recommendation } = asked;
-    return { id, question, context, options, recommendation };
+    const choice = onlyChoice(asked);
+    return {
+      id: asked.id,
+      question: decisionSummary(asked),
+      context: asked.context,
+      options: choice?.options ?? [],
+      recommendation: choice?.recommendation ?? { option: 0, reason: "" },
+    };
   }
 
   private async previousThread(id: string | undefined): Promise<Thread | undefined> {

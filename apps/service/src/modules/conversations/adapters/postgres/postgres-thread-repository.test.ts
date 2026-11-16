@@ -1,16 +1,22 @@
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import type { DecisionAnswer, DecisionQuestion } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
 import type { Thread, ThreadSession } from "../../domain/thread.js";
-import { logMessages, openDecision } from "../../domain/thread-changes.js";
+import { logMessages, openDecision, recordDecisionAnswer } from "../../domain/thread-changes.js";
 import type { LoggedMessagesRange } from "../../ports/thread-repository.js";
 import { aUserMessage } from "../../domain/thread.fixtures.js";
+import { BEN_ITO } from "../../domain/user.fixtures.js";
 import {
+  app,
   repository,
   aThreadOfItsOwn,
   AT,
   setUpEachTest,
 } from "./postgres-thread-repository.fixtures.js";
+import { decisions, threadMessages } from "./threads.schema.js";
 
 setUpEachTest();
 
@@ -109,10 +115,14 @@ describe("PostgresThreadRepository", () => {
     await repository.add(thread);
     const call = {
       kind: "request" as const,
-      question: "Set up the Project's commands.",
       context: "The user asked for it.",
-      options: [],
-      recommendation: { option: 0, reason: "Only Devops drafts them." },
+      questions: [
+        {
+          kind: "open" as const,
+          question: "Set up the Project's commands.",
+          why: "Only Devops drafts them.",
+        },
+      ],
       putTo: "devops",
       askedAt: AT,
     };
@@ -143,10 +153,15 @@ describe("PostgresThreadRepository", () => {
     const { thread: waiting } = await repository.update(holding.id, (latest) =>
       openDecision(latest, {
         id: randomUUID(),
-        question: "Which Postgres version?",
         context: "The run environment needs one.",
-        options: ["16", "17"],
-        recommendation: { option: 1, reason: "The newest is supported longest." },
+        questions: [
+          {
+            kind: "choice",
+            question: "Which Postgres version?",
+            options: ["16", "17"],
+            recommendation: { option: 1, reason: "The newest is supported longest." },
+          },
+        ],
         putTo: "devops",
         askedAt: AT,
       }),
@@ -278,5 +293,252 @@ describe("PostgresThreadRepository", () => {
       message.kind === "user" ? message.text : "",
     );
     expect(texts.toSorted()).toEqual(["First.", "Second."]);
+  });
+});
+
+/** A form of two questions: a choice, then an open question. */
+const TWO_QUESTIONS: readonly DecisionQuestion[] = [
+  {
+    kind: "choice",
+    question: "Which Postgres version?",
+    options: ["16", "17"],
+    recommendation: { option: 1, reason: "The newest is supported longest." },
+  },
+  { kind: "open", question: "Which extensions does it need?" },
+];
+
+function database(): Database {
+  return app.get<Database>(DATABASE);
+}
+
+/** A Thread on a Task of its own, waiting on a form of `questions` its person opened. */
+async function waitingOn(questions: readonly DecisionQuestion[]) {
+  const thread = aThreadOfItsOwn(`role-${randomUUID()}`, {
+    home: { kind: "task", taskId: randomUUID() },
+  });
+  await repository.add(thread);
+  const { thread: waiting } = await repository.update(thread.id, (latest) =>
+    openDecision(latest, {
+      id: randomUUID(),
+      context: "The run environment needs one.",
+      questions,
+      askedAt: AT,
+    }),
+  );
+  const [opened] = waiting.openDecisions;
+  if (!opened) throw new Error("No Decision opened.");
+  return { thread, opened };
+}
+
+/** Ben answers the Decision the Thread waits on, as the Pipeline takes it. */
+async function answer(threadId: string, decisionId: string, given: DecisionAnswer) {
+  await repository.update(threadId, (latest) =>
+    recordDecisionAnswer(latest, {
+      decisionId,
+      answer: given,
+      messageId: randomUUID(),
+      answeredAt: AT,
+      user: BEN_ITO,
+    }),
+  );
+}
+
+/** The columns the release before the form reads, as kept. */
+async function oneQuestionColumns(id: string) {
+  const [row] = await database()
+    .select({
+      kind: decisions.kind,
+      question: decisions.question,
+      options: decisions.options,
+      recommendation: decisions.recommendation,
+      answer: decisions.answer,
+    })
+    .from(decisions)
+    .where(eq(decisions.id, id));
+  return row;
+}
+
+/** The answer line's body as kept. */
+async function keptAnswerLine(threadId: string) {
+  const rows = await database()
+    .select({ body: threadMessages.body })
+    .from(threadMessages)
+    .where(eq(threadMessages.threadId, threadId));
+  return rows.map(({ body }) => body).find((body) => body.kind === "decision-answer");
+}
+
+describe("PostgresThreadRepository's Decision forms", () => {
+  it("keeps a form of two questions answered by Submit, with comments and a general comment", async () => {
+    const { thread, opened } = await waitingOn(TWO_QUESTIONS);
+    const submitted: DecisionAnswer = {
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 0, comment: "The host runs 16." },
+        { kind: "words", text: "pgvector", comment: "Only for search." },
+      ],
+      generalComment: "Keep it small.",
+    };
+
+    await answer(thread.id, opened.id, submitted);
+
+    await expect(repository.decision(opened.id)).resolves.toEqual({
+      ...opened,
+      answer: { ...submitted, user: BEN_ITO, answeredAt: AT },
+    });
+    const line = (await repository.messages(thread.id)).find(
+      (message) => message.kind === "decision-answer",
+    );
+    expect(line).toMatchObject({ decisionId: opened.id, answer: submitted });
+    // The release before the form reads the first question, and the answer in words.
+    await expect(oneQuestionColumns(opened.id)).resolves.toEqual({
+      kind: "question",
+      question: "Which Postgres version?",
+      options: ["16", "17"],
+      recommendation: { option: 1, reason: "The newest is supported longest." },
+      answer: { kind: "free-answer", text: expect.stringContaining("pgvector"), user: BEN_ITO },
+    });
+    await expect(keptAnswerLine(thread.id)).resolves.toMatchObject({
+      answer: { kind: "free-answer", text: expect.stringContaining("Keep it small.") },
+      formAnswer: submitted,
+    });
+  });
+
+  it("keeps a form answered by Ask me again, its general comment as the answer in words", async () => {
+    const { thread, opened } = await waitingOn(TWO_QUESTIONS);
+    const askedAgain: DecisionAnswer = {
+      kind: "asked-again",
+      generalComment: "Ask about the budget first.",
+    };
+
+    await answer(thread.id, opened.id, askedAgain);
+
+    await expect(repository.decision(opened.id)).resolves.toEqual({
+      ...opened,
+      answer: { ...askedAgain, user: BEN_ITO, answeredAt: AT },
+    });
+    expect(
+      (await repository.messages(thread.id)).find((message) => message.kind === "decision-answer"),
+    ).toMatchObject({ answer: askedAgain });
+    await expect(oneQuestionColumns(opened.id)).resolves.toMatchObject({
+      answer: { kind: "free-answer", text: "Ask about the budget first.", user: BEN_ITO },
+    });
+  });
+
+  it("keeps a form of one choice as one question, its option as picked, for the release before", async () => {
+    const [choice] = TWO_QUESTIONS;
+    if (!choice) throw new Error("No question.");
+    const { thread, opened } = await waitingOn([choice]);
+
+    await answer(thread.id, opened.id, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 1 }],
+    });
+
+    await expect(oneQuestionColumns(opened.id)).resolves.toEqual({
+      kind: "question",
+      question: "Which Postgres version?",
+      options: ["16", "17"],
+      recommendation: { option: 1, reason: "The newest is supported longest." },
+      answer: { kind: "option", option: 1, user: BEN_ITO },
+    });
+    await expect(keptAnswerLine(thread.id)).resolves.toMatchObject({
+      answer: { kind: "option", option: 1 },
+    });
+  });
+
+  it("reads a Decision kept before the form as a form of one question, with its answer", async () => {
+    const thread = aThreadOfItsOwn(`role-${randomUUID()}`, {
+      home: { kind: "task", taskId: randomUUID() },
+    });
+    await repository.add(thread);
+    const kept = {
+      threadId: thread.id,
+      taskId: randomUUID(),
+      roleKey: "planner",
+      context: "The export is wide.",
+      askedAt: AT,
+      answeredAt: AT,
+    };
+    const question = randomUUID();
+    const request = randomUUID();
+    const answerLine = randomUUID();
+    await database()
+      .insert(decisions)
+      .values([
+        {
+          ...kept,
+          id: question,
+          kind: "question",
+          question: "Which columns?",
+          options: ["All", "Visible"],
+          recommendation: { option: 1, reason: "Fewer to read." },
+          answer: { kind: "option", option: 1, user: BEN_ITO },
+        },
+        {
+          ...kept,
+          id: request,
+          kind: "request",
+          question: "Set up the Project's commands.",
+          options: [],
+          recommendation: { option: 0, reason: "Only Devops drafts them." },
+          answer: { kind: "free-answer", text: "Done.", answeredBy: "devops" },
+        },
+      ]);
+    await database()
+      .insert(threadMessages)
+      .values({
+        id: answerLine,
+        threadId: thread.id,
+        at: AT,
+        body: {
+          kind: "decision-answer",
+          decisionId: question,
+          answer: { kind: "option", option: 1 },
+        },
+      });
+
+    await expect(repository.decision(question)).resolves.toMatchObject({
+      kind: "form",
+      questions: [
+        {
+          kind: "choice",
+          question: "Which columns?",
+          options: ["All", "Visible"],
+          recommendation: { option: 1, reason: "Fewer to read." },
+        },
+      ],
+      answer: {
+        kind: "submitted",
+        answers: [{ kind: "option", option: 1 }],
+        user: BEN_ITO,
+        answeredAt: AT,
+      },
+    });
+    await expect(repository.decision(request)).resolves.toMatchObject({
+      kind: "request",
+      questions: [
+        {
+          kind: "open",
+          question: "Set up the Project's commands.",
+          why: "Only Devops drafts them.",
+        },
+      ],
+      answer: {
+        kind: "submitted",
+        answers: [{ kind: "words", text: "Done." }],
+        answeredBy: "devops",
+        answeredAt: AT,
+      },
+    });
+    await expect(repository.messages(thread.id)).resolves.toEqual([
+      {
+        kind: "decision-answer",
+        id: answerLine,
+        threadId: thread.id,
+        at: AT,
+        decisionId: question,
+        answer: { kind: "submitted", answers: [{ kind: "option", option: 1 }] },
+      },
+    ]);
   });
 });

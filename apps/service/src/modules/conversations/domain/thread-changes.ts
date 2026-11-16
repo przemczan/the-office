@@ -4,6 +4,7 @@ import {
   answerProblems,
   attachmentProblems,
   decisionProblems,
+  decisionSummary,
   isApproval,
   type AnswerGivenBy,
   type Decision,
@@ -443,7 +444,7 @@ export function openDecision(
   if (problems.length > 0) throw new ThreadRefused(problems);
   const decision: Decision = {
     ...draft,
-    kind: draft.kind ?? "question",
+    kind: draft.kind ?? "form",
     attachmentIds: [...new Set(attachmentIds)],
     id,
     threadId: thread.id,
@@ -491,7 +492,7 @@ function decisionTaskOf(
       const [waiting] = openDecisions;
       if (waiting) {
         throw new ThreadRefused([
-          `Your call "${waiting.question}" still waits on its answer. End your turn: it comes as your next message.`,
+          `Your call "${decisionSummary(waiting)}" still waits on its answer. End your turn: it comes as your next message.`,
         ]);
       }
       return undefined;
@@ -505,7 +506,7 @@ function decisionTaskOf(
       const [waiting] = openDecisions;
       if (waiting) {
         throw new ThreadRefused([
-          `Your Decision "${waiting.question}" still waits on the user. End your turn: their answer comes as your next message.`,
+          `Your Decision "${decisionSummary(waiting)}" still waits on the user. End your turn: their answer comes as your next message.`,
         ]);
       }
       return home.taskId;
@@ -515,7 +516,7 @@ function decisionTaskOf(
       const waiting = openDecisions.find((decision) => decision.taskId === named);
       if (waiting) {
         throw new ThreadRefused([
-          `Your Decision "${waiting.question}" on this Task still waits on the user. Plan the Tasks that don't wait for it; its answer comes as a message.`,
+          `Your Decision "${decisionSummary(waiting)}" on this Task still waits on the user. Plan the Tasks that don't wait for it; its answer comes as a message.`,
         ]);
       }
       return named;
@@ -536,7 +537,7 @@ function callOnNoTask(openDecisions: readonly Decision[], putTo: string | undefi
   const waiting = openDecisions.find((decision) => decision.taskId === undefined);
   if (waiting) {
     throw new ThreadRefused([
-      `Your call "${waiting.question}" still waits on its answer. End your turn: it comes as your next message.`,
+      `Your call "${decisionSummary(waiting)}" still waits on its answer. End your turn: it comes as your next message.`,
     ]);
   }
   return undefined;
@@ -629,8 +630,8 @@ export function answerDecision(
   thread: Thread,
   answering: DecisionAnswering,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, answeredAt, waitingAnswerIds = [] } = answering;
-  const open = answerableDecision(thread, decisionId, answer);
+  const { decisionId, answeredAt, waitingAnswerIds = [] } = answering;
+  const open = answerableDecision(thread, answering);
   if (thread.state === "answering") {
     throw new ThreadRefused([
       `${answering.personName} is still answering. Answer once they finish.`,
@@ -660,8 +661,8 @@ export function keepAnswerForTurnEnd(
   recording: DecisionRecording,
   personName: string,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, answeredAt } = recording;
-  const open = answerableDecision(thread, decisionId, answer);
+  const { decisionId, answeredAt } = recording;
+  const open = answerableDecision(thread, recording);
   if (thread.home.kind !== "initiative" || thread.state !== "answering") {
     throw new ThreadRefused([`${personName} is still answering. Answer once they finish.`]);
   }
@@ -766,8 +767,8 @@ export function recordDecisionAnswer(
   thread: Thread,
   recording: DecisionRecording,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, answeredAt } = recording;
-  const open = answerableDecision(thread, decisionId, answer);
+  const { decisionId, answeredAt } = recording;
+  const open = answerableDecision(thread, recording);
   const decision = answered(open, recording);
   const without = withoutDecision(thread, decisionId);
   return {
@@ -801,10 +802,13 @@ export function closeDecision(
 }
 
 /** The Thread's open Decision, when it is the one answered and the answer is one. */
-function answerableDecision(thread: Thread, decisionId: string, answer: DecisionAnswer): Decision {
+function answerableDecision(
+  thread: Thread,
+  { decisionId, answer, byTheOffice }: DecisionRecording,
+): Decision {
   const open = openDecisionOf(thread, decisionId);
   if (!open) throw new ThreadRefused(["This Decision is answered already."]);
-  const problems = answerProblems(open, answer);
+  const problems = answerProblems(open, answer, { byTheOffice });
   if (problems.length > 0) throw new ThreadRefused(problems);
   return open;
 }
@@ -1136,7 +1140,7 @@ export function passDecisionOn(
   // passed on to the user (spec §2.3).
   if (!isApproval(open) && open.roleKey !== undefined) {
     throw new ThreadRefused([
-      "Only an approval is passed on. Answer the question with one of its options or in your own words.",
+      "Only an approval is passed on. Answer its questions, each with one of its options or in your own words, or ask them to ask again.",
     ]);
   }
   if (reason.trim() === "") throw new ThreadRefused(["Say why you pass it on."]);

@@ -316,12 +316,70 @@ export const DECISION_TOOLS: readonly string[] = [
   ANSWER_CONSULTATION_TOOL,
 ];
 
-/** How the user answers a Decision: one of its options, by its index, or a free answer. */
+/**
+ * A Decision's answer as one question, as it was given before the form: one of its options, by its
+ * index, or a free answer.
+ * @deprecated Read `decisionFormAnswerSchema`; removed by the Web Decision form card Task.
+ */
 export const decisionAnswerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("option"), option: z.number().int().nonnegative() }),
   z.object({ kind: z.literal("free-answer"), text: z.string() }),
 ]);
+/** @deprecated Read `DecisionFormAnswer`; removed by the Web Decision form card Task. */
 export type DecisionAnswer = z.infer<typeof decisionAnswerSchema>;
+
+/**
+ * One question of a Decision's form (spec §2.4): a choice, its options with the recommended one, by
+ * its index, and why; or an open question, answered in words, `why` saying why a request asks it.
+ */
+export const decisionQuestionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("choice"),
+    question: z.string(),
+    options: z.array(z.string()),
+    recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
+  }),
+  z.object({ kind: z.literal("open"), question: z.string(), why: z.string().optional() }),
+]);
+export type DecisionQuestion = z.infer<typeof decisionQuestionSchema>;
+
+/**
+ * The answer to one question: an option of a choice, by its index, or words, which answer an open
+ * question or a choice with no option picked; each with an optional comment.
+ */
+export const questionAnswerSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("option"),
+    option: z.number().int().nonnegative(),
+    comment: z.string().optional(),
+  }),
+  z.object({ kind: z.literal("words"), text: z.string(), comment: z.string().optional() }),
+]);
+export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
+
+/**
+ * How a Decision is sent: Submit, an answer to every question in order with an optional general
+ * comment, or Ask me again, the general comment alone.
+ */
+export const decisionFormAnswerSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("submitted"),
+    answers: z.array(questionAnswerSchema),
+    generalComment: z.string().optional(),
+  }),
+  z.object({ kind: z.literal("asked-again"), generalComment: z.string().optional() }),
+]);
+export type DecisionFormAnswer = z.infer<typeof decisionFormAnswerSchema>;
+
+/**
+ * POST /decisions/:id/answer: the form's answer, or, for a Decision of one question, an answer as
+ * one (an option or a free answer).
+ */
+export const decisionAnswerRequestSchema = z.discriminatedUnion("kind", [
+  ...decisionAnswerSchema.options,
+  ...decisionFormAnswerSchema.options,
+]);
+export type DecisionAnswerRequest = z.infer<typeof decisionAnswerRequestSchema>;
 
 /**
  * The person who answered a Decision for the user, when the user asked them to: by the key of their
@@ -336,17 +394,17 @@ export const atUsersRequestSchema = z.object({
 export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 
 /**
- * What a Decision asks (spec §2.2): a question with options, approval of a call past a Hard switch,
- * or a request, asking a person to do something, answered in their own words.
+ * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
+ * Hard switch, or a request, asking a person to do something: a form of one open question.
  */
-export const decisionKindSchema = z.enum(["question", "approval", "request"]);
+export const decisionKindSchema = z.enum(["form", "approval", "request"]);
 export type DecisionKind = z.infer<typeof decisionKindSchema>;
 
 /**
  * A question an Agent puts to the user in the Thread it works in on a Task, or The Office does
  * about a Task's Pipeline (a Stage that failed with no retries left, the Definition of Done not
  * met), or a call a person puts to another from a chat, shown there as a card. POST
- * /decisions/:id/answer takes a `decisionAnswerSchema`.
+ * /decisions/:id/answer takes a `decisionAnswerRequestSchema`.
  */
 export const decisionSchema = z.object({
   id: z.uuid(),
@@ -356,15 +414,24 @@ export const decisionSchema = z.object({
   taskId: z.string().nullable(),
   /** Who asked, by the key of the Role they fill; null when The Office asked. */
   roleKey: z.string().nullable(),
-  /** The question; for a request, what the asker asks to be done. */
-  question: z.string(),
   /** What the user needs to know to decide, as the Agent found it. */
   context: z.string(),
-  /** Two or more; none for a request. */
+  /** One or more, in the order asked. */
+  questions: z.array(decisionQuestionSchema),
+  /**
+   * The Decision in one line: its first question, and how many more it asks.
+   * @deprecated Read `questions`; removed by the Web Decision form card Task.
+   */
+  question: z.string(),
+  /**
+   * The first question's options; none for an open question.
+   * @deprecated Read `questions`; removed by the Web Decision form card Task.
+   */
   options: z.array(z.string()),
   /**
-   * The option the Agent recommends, by its index in `options`, and why; for a request, why the
-   * asker needs it, its `option` pointing at nothing.
+   * The first question's recommended option, by its index in `options`, and why; for an open
+   * question, its why, `option` pointing at nothing.
+   * @deprecated Read `questions`; removed by the Web Decision form card Task.
    */
   recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
   /**
@@ -382,7 +449,12 @@ export const decisionSchema = z.object({
   passedOn: z.array(
     z.object({ roleKey: z.string(), reason: z.string(), passedOnAt: z.iso.datetime() }),
   ),
-  /** Null while it waits on the user or the Consultant. */
+  /** Null while it waits on the user or the Consultant, and once closed unanswered. */
+  formAnswer: decisionFormAnswerSchema.nullable(),
+  /**
+   * The answer as one: a one-question form's option or words, any other in words.
+   * @deprecated Read `formAnswer`; removed by the Web Decision form card Task.
+   */
   answer: decisionAnswerSchema.nullable(),
   answeredAt: z.iso.datetime().nullable(),
   /** When it was closed unanswered, as its Task was dropped; null otherwise. */
@@ -811,6 +883,8 @@ export const messageSchema = z.discriminatedUnion("kind", [
   z.object({
     ...messageFields,
     kind: z.literal("decision-answer"),
+    formAnswer: decisionFormAnswerSchema,
+    /** @deprecated Read `formAnswer`; removed by the Web Decision form card Task. */
     answer: decisionAnswerSchema,
     atUsersRequest: atUsersRequestSchema.nullable(),
     decision: decisionSchema,

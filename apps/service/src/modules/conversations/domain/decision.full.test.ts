@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { APPROVAL_OPTIONS, approvalQuestion } from "./consult.js";
 import { DecisionAnswered, DecisionReopened } from "./conversation-events.js";
-import { answerProblems, answerWords, decisionProblems, type Decision } from "./decision.js";
+import {
+  decisionProblems,
+  decisionSummary,
+  formAnswerFromOne,
+  formAnswerWords,
+  formFromOne,
+  oneAnswerView,
+  oneOptionAnswer,
+  oneQuestionKind,
+  oneQuestionView,
+  oneWordsAnswer,
+  questionAnswerWords,
+  type Decision,
+  type DecisionAnswer,
+} from "./decision.js";
 import { decisionAnswerMessage } from "./session-instructions.js";
 import {
   answerDecision,
@@ -10,69 +24,208 @@ import {
   passDecisionOn,
 } from "./thread-changes.js";
 import { aThread } from "./thread.fixtures.js";
-import { aDecision, AT, TASK_HOME, SESSION, DRAFT, WARM, refusalOf } from "./decision.fixtures.js";
+import {
+  aDecision,
+  AT,
+  TASK_HOME,
+  SESSION,
+  DRAFT,
+  THREE_QUESTIONS,
+  WARM,
+  refusalOf,
+} from "./decision.fixtures.js";
 import { ANSWERED_BY_ANN_LEE } from "./user.fixtures.js";
 
 describe("what an Agent asks in a Decision", () => {
-  it("is a question with two or more named options, one of them recommended with a reason", () => {
+  it("is a choice with two or more named options, one of them recommended with a reason", () => {
     expect(decisionProblems(DRAFT)).toEqual([]);
-  });
-
-  it("is refused with every problem at once", () => {
-    expect(
-      decisionProblems({
-        question: " ",
-        context: "",
-        options: ["Yes"],
-        recommendation: { option: 3, reason: "" },
-      }),
-    ).toEqual([
-      "Write the question.",
-      "Give the user at least two options.",
-      "Recommend one of the options.",
-      "Say why you recommend it.",
-    ]);
-    expect(
-      decisionProblems({
-        ...DRAFT,
-        options: ["Every Project", "every project ", ""],
-      }),
-    ).toEqual(["Name every option.", "Give each option a name of its own."]);
   });
 });
 
-describe("the user's answer", () => {
-  const decision = aDecision();
+const FORM = aDecision({ questions: THREE_QUESTIONS });
+const SUBMITTED: DecisionAnswer = {
+  kind: "submitted",
+  answers: [
+    { kind: "option", option: 1, comment: " Archived ones too. " },
+    { kind: "words", text: " 2025 and 2026 " },
+    { kind: "words", text: "Whichever is quicker." },
+  ],
+  generalComment: " Thanks. ",
+};
+const APPROVAL = aDecision({
+  kind: "approval",
+  questions: [
+    {
+      kind: "choice",
+      question: approvalQuestion("Install ffmpeg."),
+      options: APPROVAL_OPTIONS,
+      recommendation: { option: 0, reason: "The Task converts videos." },
+    },
+  ],
+});
 
-  it("is one of the options or a free answer, in words", () => {
-    expect(answerProblems(decision, { kind: "option", option: 1 })).toEqual([]);
-    expect(answerProblems(decision, { kind: "option", option: 2 })).toEqual([
-      "Choose one of the Decision's options.",
-    ]);
-    expect(answerProblems(decision, { kind: "free-answer", text: "  " })).toEqual([
-      "Write your answer first.",
-    ]);
-    expect(answerWords(decision, { kind: "option", option: 1 })).toBe("Every Project");
-    expect(answerWords(decision, { kind: "free-answer", text: " Only this year's. " })).toBe(
-      "Only this year's.",
+describe("the answer in words", () => {
+  it("gives each question with its answer and comment, then the general comment", () => {
+    expect(formAnswerWords(FORM, SUBMITTED)).toBe(
+      [
+        "1. Should the export include archived Projects?",
+        "   Answer: Every Project",
+        "   Comment: Archived ones too.",
+        "2. Which years should it cover?",
+        "   Answer, in their own words: 2025 and 2026",
+        "3. Which format?",
+        "   Answer, in their own words: Whichever is quicker.",
+        "",
+        "General comment: Thanks.",
+      ].join("\n"),
+    );
+    expect(questionAnswerWords(THREE_QUESTIONS[0]!, { kind: "option", option: 0 })).toBe(
+      "Only active Projects",
     );
   });
 
-  it("reaches the asking session with the question and the user who answered", () => {
-    expect(
-      decisionAnswerMessage(decision, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE),
-    ).toBe(
-      'The user Ann Lee answered your Decision "Should the export include archived Projects?" with the option "Only active Projects".',
+  it("says it was asked again, with the general comment or none, and gives an approval's option", () => {
+    expect(formAnswerWords(FORM, { kind: "asked-again", generalComment: " Why? " })).toBe(
+      "Asked again: Why?",
+    );
+    expect(formAnswerWords(FORM, { kind: "asked-again" })).toBe("Asked again, with no comment.");
+    expect(formAnswerWords(APPROVAL, oneOptionAnswer(1))).toBe("Deny");
+  });
+
+  it("names the form in one line: its first question and how many more it asks", () => {
+    expect(decisionSummary(FORM)).toBe(
+      "Should the export include archived Projects? (and 2 more questions)",
+    );
+    expect(decisionSummary({ questions: THREE_QUESTIONS.slice(1) })).toBe(
+      "Which years should it cover? (and 1 more question)",
+    );
+    expect(decisionSummary(aDecision())).toBe("Should the export include archived Projects?");
+  });
+});
+
+describe("the answer the asking session gets", () => {
+  it("names who submitted, then every question with its answer and comment, and the general comment", () => {
+    expect(decisionAnswerMessage(FORM, SUBMITTED, ANSWERED_BY_ANN_LEE)).toBe(
+      `The user Ann Lee answered your Decision:\n\n${formAnswerWords(FORM, SUBMITTED)}`,
     );
     expect(
+      decisionAnswerMessage(aDecision(), oneOptionAnswer(0), {
+        kind: "consultant",
+        roleKey: "cto",
+        name: "Ada",
+      }),
+    ).toBe(
+      "Ada answered your Decision:\n\n1. Should the export include archived Projects?\n   Answer: Only active Projects",
+    );
+  });
+
+  it("says they asked again, with their general comment or that they gave none", () => {
+    expect(
       decisionAnswerMessage(
-        decision,
-        { kind: "free-answer", text: "Ask me next week." },
+        FORM,
+        { kind: "asked-again", generalComment: "Why not both formats?" },
         ANSWERED_BY_ANN_LEE,
       ),
     ).toBe(
-      'The user Ann Lee answered your Decision "Should the export include archived Projects?" in their own words:\n\nAsk me next week.',
+      "The user Ann Lee asked you to ask again, answering none of your Decision's questions:\n\nGeneral comment: Why not both formats?\n\nAnswer what they said, then open a new Decision for what you still need to ask.",
     );
+    expect(decisionAnswerMessage(FORM, { kind: "asked-again" }, ANSWERED_BY_ANN_LEE)).toBe(
+      "The user Ann Lee asked you to ask again, answering none of your Decision's questions:\n\nThey gave no comment.\n\nAnswer what they said, then open a new Decision for what you still need to ask.",
+    );
+  });
+
+  it("keeps an approval's one line, and words a request's answer", () => {
+    expect(decisionAnswerMessage(APPROVAL, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE)).toBe(
+      `The user Ann Lee answered your Decision "${approvalQuestion("Install ffmpeg.")}" with the option "Allow once".`,
+    );
+    const request = aDecision({
+      kind: "request",
+      questions: [{ kind: "open", question: "Set up the commands.", why: "Only Devops can." }],
+    });
+    expect(
+      decisionAnswerMessage(request, oneWordsAnswer("Drafted a Proposal."), {
+        kind: "consultant",
+        roleKey: "devops",
+        name: "Nina",
+      }),
+    ).toBe(
+      "Nina answered your request:\n\n1. Set up the commands.\n   Answer, in their own words: Drafted a Proposal.",
+    );
+  });
+});
+
+describe("the form as one question, for the previous release", () => {
+  it("reads a one-choice form back as it was written", () => {
+    const view = oneQuestionView(aDecision());
+    expect(view).toEqual({
+      question: "Should the export include archived Projects?",
+      options: ["Only active Projects", "Every Project"],
+      recommendation: { option: 0, reason: "Archived Projects have nothing to export." },
+    });
+    expect(formFromOne(oneQuestionKind("form"), view)).toEqual({
+      kind: "form",
+      questions: aDecision().questions,
+    });
+    expect(formFromOne(oneQuestionKind("approval"), oneQuestionView(APPROVAL))).toEqual({
+      kind: "approval",
+      questions: APPROVAL.questions,
+    });
+  });
+
+  it("reads a request back with its why, and a question with no options as an open one", () => {
+    const request = [
+      { kind: "open", question: "Set up the commands.", why: "Only Devops can." },
+    ] as const;
+    const view = oneQuestionView({ questions: request });
+    expect(view).toEqual({
+      question: "Set up the commands.",
+      options: [],
+      recommendation: { option: 0, reason: "Only Devops can." },
+    });
+    expect(formFromOne("request", view)).toEqual({ kind: "request", questions: request });
+    expect(formFromOne("question", { ...view, recommendation: { option: 0, reason: "" } })).toEqual(
+      {
+        kind: "form",
+        questions: [{ kind: "open", question: "Set up the commands." }],
+      },
+    );
+    expect(oneQuestionKind("form")).toBe("question");
+    expect(oneQuestionKind("request")).toBe("request");
+  });
+
+  it("gives a plain one-question answer as it was, and any other in words", () => {
+    const one = aDecision();
+    expect(oneAnswerView(one, oneOptionAnswer(1))).toEqual({ kind: "option", option: 1 });
+    expect(formAnswerFromOne({ kind: "option", option: 1 })).toEqual(oneOptionAnswer(1));
+    expect(oneAnswerView(one, oneWordsAnswer("Later."))).toEqual({
+      kind: "free-answer",
+      text: "Later.",
+    });
+    expect(formAnswerFromOne({ kind: "free-answer", text: "Later." })).toEqual(
+      oneWordsAnswer("Later."),
+    );
+    expect(oneAnswerView(FORM, SUBMITTED)).toEqual({
+      kind: "free-answer",
+      text: formAnswerWords(FORM, SUBMITTED),
+    });
+    const commented: DecisionAnswer = {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 1, comment: "Archived too." }],
+    };
+    expect(oneAnswerView(one, commented)).toEqual({
+      kind: "free-answer",
+      text: formAnswerWords(one, commented),
+    });
+    const emptyComments: DecisionAnswer = {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 1, comment: "" }],
+      generalComment: " ",
+    };
+    expect(oneAnswerView(one, emptyComments)).toEqual({ kind: "option", option: 1 });
+    expect(oneAnswerView(FORM, { kind: "asked-again", generalComment: " Why? " })).toEqual({
+      kind: "free-answer",
+      text: "Why?",
+    });
   });
 });
 
@@ -88,8 +241,8 @@ describe("opening a Decision", () => {
       'Your Decision "Should the export include archived Projects?" still waits on the user. End your turn: their answer comes as your next message.',
     ]);
     expect(
-      refusalOf(() => openDecision(aThread({ home: TASK_HOME }), { ...opening, options: [] })),
-    ).toEqual(["Give the user at least two options.", "Recommend one of the options."]);
+      refusalOf(() => openDecision(aThread({ home: TASK_HOME }), { ...opening, questions: [] })),
+    ).toEqual(["Ask at least one question."]);
   });
 
   it("names the Task's Attachments it is about, each once", () => {
@@ -128,7 +281,7 @@ describe("answering a Decision", () => {
     newSession: undefined,
     brief: "The record.",
     decisionId: "decision-1",
-    answer: { kind: "free-answer", text: "Only this year's." },
+    answer: oneWordsAnswer("Only this year's."),
     messageId: "message-1",
     answeredAt: AT,
   } as const;
@@ -138,7 +291,7 @@ describe("answering a Decision", () => {
 
     const decision: Decision = {
       ...open,
-      answer: { kind: "free-answer", text: "Only this year's.", answeredAt: AT },
+      answer: { ...oneWordsAnswer("Only this year's."), answeredAt: AT },
     };
     expect(answered.decision).toEqual(decision);
     expect(answered.thread).toMatchObject({ state: "answering", openDecisions: [] });
@@ -149,7 +302,7 @@ describe("answering a Decision", () => {
         threadId: waiting.id,
         at: AT,
         decisionId: "decision-1",
-        answer: { kind: "free-answer", text: "Only this year's." },
+        answer: oneWordsAnswer("Only this year's."),
       },
     ]);
     expect(answered.event).toEqual(new DecisionAnswered(answered.thread, decision, AT));
@@ -167,7 +320,7 @@ describe("answering a Decision", () => {
 describe("an answer that never reached a session", () => {
   const answered = aDecision({
     id: "decision-1",
-    answer: { kind: "option", option: 1, answeredAt: AT },
+    answer: { ...oneOptionAnswer(1), answeredAt: AT },
   });
   const failing = aThread({ home: TASK_HOME, state: "answering", session: SESSION });
 
@@ -206,10 +359,8 @@ describe("an answer that never reached a session", () => {
 
 describe("passing an approval on", () => {
   const approval = aDecision({
+    ...APPROVAL,
     id: "decision-1",
-    kind: "approval",
-    question: approvalQuestion("Install ffmpeg."),
-    options: [...APPROVAL_OPTIONS],
     putTo: "devops",
   });
   const waiting = aThread({ home: TASK_HOME, openDecisions: [approval] });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { aDecision } from "./decision.fixtures.js";
+import { oneOptionAnswer } from "./decision.js";
+import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
 import type { Message, MessageDraft } from "./message.js";
 import { aProposal, aProposedCard } from "./proposal.fixtures.js";
 import {
@@ -18,8 +19,9 @@ const TO = new Date("2026-11-12T23:59:59.999Z");
 
 const decision = aDecision({
   id: "decision-1",
-  answer: { kind: "option", option: 1, answeredAt: new Date("2026-11-06T10:00:00.000Z") },
+  answer: { ...oneOptionAnswer(1), answeredAt: new Date("2026-11-06T10:00:00.000Z") },
 });
+const form = aDecision({ id: "form-1", questions: THREE_QUESTIONS });
 const proposal = aProposal({
   id: "proposal-1",
   change: {
@@ -34,7 +36,7 @@ const proposal = aProposal({
 const RECORDS: HistoryRecords = {
   person: (roleKey) =>
     ({ developer: "Jim, the Developer", caretaker: "Jan, the Caretaker" })[roleKey] ?? roleKey,
-  decision: (id) => (id === decision.id ? decision : undefined),
+  decision: (id) => [decision, form].find((one) => one.id === id),
   proposal: (id) => (id === proposal.id ? proposal : undefined),
 };
 
@@ -151,19 +153,32 @@ describe("messageInHistory", () => {
           decisionId: decision.id,
         }),
       ).text,
-    ).toBe(`Decision: ${decision.question} Answered: Every Project`);
+    ).toBe(
+      "Decision: Should the export include archived Projects? Answered:\n\n1. Should the export include archived Projects?\n   Answer: Every Project",
+    );
     expect(
       words(
         aMessage("b", "06T09:06:00", {
           kind: "decision-answer",
           decisionId: decision.id,
-          answer: { kind: "option", option: 1 },
+          answer: oneOptionAnswer(1),
         }),
       ),
     ).toEqual({
       speaker: "the user",
-      text: `Answered the Decision "${decision.question}": Every Project`,
+      text: 'Answered the Decision "Should the export include archived Projects?":\n\n1. Should the export include archived Projects?\n   Answer: Every Project',
     });
+    expect(
+      words(
+        aMessage("b", "06T09:06:30", {
+          kind: "decision-answer",
+          decisionId: form.id,
+          answer: { kind: "asked-again", generalComment: "Explain the years." },
+        }),
+      ).text,
+    ).toBe(
+      'Asked again on the Decision "Should the export include archived Projects? (and 2 more questions)": Explain the years.',
+    );
     expect(
       words(
         aMessage("b", "06T09:07:00", {

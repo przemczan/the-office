@@ -97,6 +97,7 @@ export function decisionWaiting(decision: {
   readonly id: string;
   readonly taskId: string;
   readonly roleKey: string | undefined;
+  /** The Decision in one line: its first question, and how many more it asks. */
   readonly question: string;
 }): NotificationDraft {
   return {

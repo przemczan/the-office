@@ -2,7 +2,8 @@ import { decisionSchema, proposalStatusSchema, proposedChangeSchema } from "@the
 import { describe, expect, it } from "vitest";
 import { decideContext } from "../../domain/context-policy.js";
 import { aContinuation } from "../../domain/context-policy.fixtures.js";
-import { aDecision } from "../../domain/decision.fixtures.js";
+import { oneOptionAnswer, oneWordsAnswer } from "../../domain/decision.js";
+import { aDecision, THREE_QUESTIONS } from "../../domain/decision.fixtures.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import type { InitiativeEdit, Proposal, ProposedChange } from "../../domain/proposal.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
@@ -81,14 +82,64 @@ describe("toProposalResponse", () => {
   });
 });
 
+describe("a Decision as the web reads it", () => {
+  it("gives a form of several questions whole, and as one question for the web until it reads the form", () => {
+    const decision = aDecision({
+      questions: THREE_QUESTIONS,
+      answer: {
+        kind: "submitted",
+        answers: [
+          { kind: "option", option: 1, comment: "Archived ones too." },
+          { kind: "words", text: "This year." },
+          { kind: "option", option: 0 },
+        ],
+        generalComment: "Thanks.",
+        answeredAt: new Date("2026-11-06T11:00:00.000Z"),
+      },
+    });
+
+    const response = decisionSchema.parse(toDecisionResponse(decision));
+
+    expect(response).toMatchObject({
+      questions: THREE_QUESTIONS,
+      formAnswer: {
+        kind: "submitted",
+        answers: [
+          { kind: "option", option: 1, comment: "Archived ones too." },
+          { kind: "words", text: "This year." },
+          { kind: "option", option: 0 },
+        ],
+        generalComment: "Thanks.",
+      },
+      question: "Should the export include archived Projects? (and 2 more questions)",
+      options: ["Only active Projects", "Every Project"],
+      recommendation: { option: 0, reason: "Archived Projects have nothing to export." },
+      answer: { kind: "free-answer", text: expect.stringContaining("General comment: Thanks.") },
+    });
+  });
+
+  it("gives an open one's answer as null, and an open question's options as none", () => {
+    const decision = aDecision({ questions: [{ kind: "open", question: "Which years?" }] });
+
+    expect(decisionSchema.parse(toDecisionResponse(decision))).toMatchObject({
+      question: "Which years?",
+      options: [],
+      recommendation: { option: 0, reason: "" },
+      formAnswer: null,
+      answer: null,
+    });
+  });
+});
+
 describe("the user a record names, as the web reads it", () => {
   const answeredAt = new Date("2026-11-06T11:00:00.000Z");
 
   it("names the user who answered a Decision, any user, and none before users existed", () => {
-    const byBen = aDecision({ answer: { kind: "option", option: 1, answeredAt, user: BEN_ITO } });
-    const before = aDecision({ answer: { kind: "option", option: 0, answeredAt, user: null } });
+    const byBen = aDecision({ answer: { ...oneOptionAnswer(1), answeredAt, user: BEN_ITO } });
+    const before = aDecision({ answer: { ...oneOptionAnswer(0), answeredAt, user: null } });
 
     expect(decisionSchema.parse(toDecisionResponse(byBen))).toMatchObject({
+      formAnswer: oneOptionAnswer(1),
       answer: { kind: "option", option: 1 },
       answeredByUser: BEN_ITO,
       answeredBy: null,
@@ -100,7 +151,7 @@ describe("the user a record names, as the web reads it", () => {
   it("names the user who asked a person to answer for them, as the one who answered", () => {
     const atUsersRequest = { roleKey: "cto", threadId: crypto.randomUUID(), user: ANN_LEE };
     const decision = aDecision({
-      answer: { kind: "free-answer", text: "Every Project.", answeredAt, atUsersRequest },
+      answer: { ...oneWordsAnswer("Every Project."), answeredAt, atUsersRequest },
     });
 
     expect(decisionSchema.parse(toDecisionResponse(decision))).toMatchObject({

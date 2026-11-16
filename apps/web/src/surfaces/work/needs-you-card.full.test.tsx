@@ -42,9 +42,17 @@ function aDecision(id: string, question: string): Decision {
   return {
     id,
     threadId: PLANNING_THREAD,
-    kind: "question",
+    kind: "form",
     taskId: TASK.id,
     roleKey: "planner",
+    questions: [
+      {
+        kind: "choice",
+        question,
+        options: ["CSV", "JSON"],
+        recommendation: { option: 0, reason: "Spreadsheets open it." },
+      },
+    ],
     question,
     context: "",
     options: ["CSV", "JSON"],
@@ -53,6 +61,7 @@ function aDecision(id: string, question: string): Decision {
     askedAt: "2026-11-10T14:02:00.000Z",
     putTo: null,
     passedOn: [],
+    formAnswer: null,
     answer: null,
     answeredAt: null,
     answeredByUser: null,

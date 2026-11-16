@@ -4,6 +4,7 @@ import {
   stageSchema,
   type ChatActivity as ChatActivityResponse,
   type DecisionAnswer as DecisionAnswerResponse,
+  type DecisionFormAnswer as DecisionFormAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
   type NewProject as NewProjectResponse,
@@ -21,7 +22,13 @@ import type { ThreadReading } from "../../application/thread-contexts.js";
 import type { TaskThreadSummary, ThreadSummary } from "../../application/thread-summaries.js";
 import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
-import type { Decision, DecisionAnswer } from "../../domain/decision.js";
+import {
+  decisionSummary,
+  oneAnswerView,
+  oneQuestionView,
+  type Decision,
+  type DecisionAnswer,
+} from "../../domain/decision.js";
 import { hiredKeyOf } from "../../../people/index.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
@@ -188,11 +195,13 @@ export function toMessageResponse(
     }
     case "decision-answer": {
       const { decisionId, answer, atUsersRequest, ...line } = fields;
+      const decision = decisionOf(message.id, decisionId, decisions);
       return {
         ...line,
-        answer: toAnswerResponse(answer),
+        formAnswer: toFormAnswerResponse(answer),
+        answer: toAnswerResponse(decision, answer),
         atUsersRequest: atUsersRequest ? { ...atUsersRequest } : null,
-        decision: toDecisionResponse(decisionOf(message.id, decisionId, decisions)),
+        decision: toDecisionResponse(decision),
       };
     }
     case "proposal": {
@@ -395,12 +404,18 @@ function decisionOf(
   return decision;
 }
 
+/**
+ * The Decision with its form, and, for the web until it reads the form, as one question: its
+ * summary, the first question's options and recommendation, and the answer as one.
+ */
 export function toDecisionResponse({
   answer,
   askedAt,
   closedAt,
+  questions,
   ...decision
 }: Decision): DecisionResponse {
+  const one = oneQuestionView({ questions });
   return {
     ...decision,
     taskId: decision.taskId ?? null,
@@ -410,11 +425,22 @@ export function toDecisionResponse({
       ...passing,
       passedOnAt: passedOnAt.toISOString(),
     })),
-    options: [...decision.options],
-    recommendation: { ...decision.recommendation },
+    questions: questions.map((question) =>
+      question.kind === "choice"
+        ? {
+            ...question,
+            options: [...question.options],
+            recommendation: { ...question.recommendation },
+          }
+        : { ...question },
+    ),
+    question: decisionSummary({ questions }),
+    options: [...one.options],
+    recommendation: { ...one.recommendation },
     attachmentIds: [...decision.attachmentIds],
     askedAt: askedAt.toISOString(),
-    answer: answer ? toAnswerResponse(answer) : null,
+    formAnswer: answer ? toFormAnswerResponse(answer) : null,
+    answer: answer ? toAnswerResponse({ kind: decision.kind, questions }, answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
     closedAt: closedAt?.toISOString() ?? null,
     answeredByUser: answer?.user ?? null,
@@ -424,8 +450,31 @@ export function toDecisionResponse({
   };
 }
 
-function toAnswerResponse(answer: DecisionAnswer): DecisionAnswerResponse {
-  return answer.kind === "option"
-    ? { kind: "option", option: answer.option }
-    : { kind: "free-answer", text: answer.text };
+function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerResponse {
+  if (answer.kind === "asked-again") {
+    return {
+      kind: "asked-again",
+      ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
+    };
+  }
+  return {
+    kind: "submitted",
+    answers: answer.answers.map((given) => {
+      const comment = given.comment === undefined ? {} : { comment: given.comment };
+      return given.kind === "option"
+        ? { kind: "option", option: given.option, ...comment }
+        : { kind: "words", text: given.text, ...comment };
+    }),
+    ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
+  };
+}
+
+function toAnswerResponse(
+  decision: Pick<Decision, "kind" | "questions">,
+  answer: DecisionAnswer,
+): DecisionAnswerResponse {
+  const one = oneAnswerView(decision, answer);
+  return one.kind === "option"
+    ? { kind: "option", option: one.option }
+    : { kind: "free-answer", text: one.text };
 }

@@ -75,7 +75,12 @@ import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import { approvalQuestion, APPROVAL_OPTIONS } from "../domain/consult.js";
-import type { Decision, DecisionKind } from "../domain/decision.js";
+import {
+  oneOptionAnswer,
+  oneWordsAnswer,
+  type Decision,
+  type DecisionKind,
+} from "../domain/decision.js";
 import { openDecision } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases, type InitiativeBranchReads } from "../ports/project-bases.js";
@@ -1923,6 +1928,14 @@ const COLUMNS_QUESTION = "Which columns go into the export?";
 
 /** The person opens a Decision with The Office's tool, which answers at once. */
 function opensDecision(callId: string, question: string, options: string[]): Step[] {
+  return opensForm(callId, {
+    context: "Archived Projects have no worktree.",
+    questions: [{ question, options, recommended: 1, why: "It is what the export is for." }],
+  });
+}
+
+/** The person's session calls open_decision with `input`, as the Agent writes it. */
+function opensForm(callId: string, input: Record<string, unknown>): Step[] {
   return [
     {
       step: "event",
@@ -1931,13 +1944,7 @@ function opensDecision(callId: string, question: string, options: string[]): Ste
         callId,
         tool: OPEN_DECISION_TOOL,
         officeTool: true,
-        input: {
-          question,
-          context: "Archived Projects have no worktree.",
-          options,
-          recommended: 1,
-          why: "It is what the export is for.",
-        },
+        input,
         withinToolCall: undefined,
       },
     },
@@ -1947,6 +1954,20 @@ function opensDecision(callId: string, question: string, options: string[]): Ste
     },
   ];
 }
+
+/** A form of two questions, a choice and one answered in words, as the Agent asks it. */
+const TWO_QUESTIONS = {
+  context: "The export runs nightly.",
+  questions: [
+    {
+      question: EXPORT_QUESTION,
+      options: ["Only active Projects", "Every Project"],
+      recommended: 1,
+      why: "It is what the export is for.",
+    },
+    { question: COLUMNS_QUESTION },
+  ],
+};
 
 describe("a Thread on an Initiative", () => {
   it("opens on The Office's words reading every Project's base branch, briefed from the Initiative's record", async () => {
@@ -2199,15 +2220,20 @@ describe("a Decision", () => {
 
     const thread = await threads.read(opened.id);
     const decision = {
-      kind: "question",
+      kind: "form",
       id: expect.any(String),
       threadId: opened.id,
       taskId: opened.home.kind === "task" ? opened.home.taskId : "",
       roleKey,
-      question: EXPORT_QUESTION,
       context: "Archived Projects have no worktree.",
-      options: ["Only active Projects", "Every Project"],
-      recommendation: { option: 0, reason: "It is what the export is for." },
+      questions: [
+        {
+          kind: "choice",
+          question: EXPORT_QUESTION,
+          options: ["Only active Projects", "Every Project"],
+          recommendation: { option: 0, reason: "It is what the export is for." },
+        },
+      ],
       attachmentIds: [],
       askedAt: expect.any(Date),
       passedOn: [],
@@ -2237,17 +2263,17 @@ describe("a Decision", () => {
     const open = (await threads.read(opened.id)).openDecisions[0];
     if (!open) throw new Error("No Decision was opened.");
 
-    await decisions.answer(open.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+    await decisions.answer(open.id, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
     const log = await answered(opened.id, 7);
 
     const [session] = engine.sessions;
     expect(engine.sessions).toHaveLength(1);
     const answer = session?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `The user Ann Lee answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
+      `The user Ann Lee answered your Decision:\n\n1. ${EXPORT_QUESTION}\n   Answer: Only active Projects`,
     );
     expect(drafts(log).slice(-2)).toEqual([
-      { kind: "decision-answer", decisionId: open.id, answer: { kind: "option", option: 0 } },
+      { kind: "decision-answer", decisionId: open.id, answer: oneOptionAnswer(0) },
       { kind: "person", roleKey, text: "Only active ones, then." },
     ]);
     const thread = await threads.read(opened.id);
@@ -2255,7 +2281,7 @@ describe("a Decision", () => {
     await expect(decisions.listInThread(opened.id)).resolves.toEqual([
       {
         ...open,
-        answer: { kind: "option", option: 0, answeredAt: expect.any(Date), user: ANN_LEE },
+        answer: { ...oneOptionAnswer(0), answeredAt: expect.any(Date), user: ANN_LEE },
       },
     ]);
     await expect(decisions.listOpen()).resolves.not.toContainEqual(
@@ -2263,7 +2289,7 @@ describe("a Decision", () => {
     );
     await expect(decisions.openOn(open.taskId ?? "")).resolves.toBe(0);
     await expect(
-      decisions.answer(open.id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE),
+      decisions.answer(open.id, oneOptionAnswer(1), ANSWERED_BY_ANN_LEE),
     ).rejects.toThrow("This Decision is answered already.");
   });
 
@@ -2284,23 +2310,20 @@ describe("a Decision", () => {
     await answered(opened.id, 5);
     const first = (await threads.read(opened.id)).openDecisions[0];
     if (!first) throw new Error("No Decision was opened.");
-    await decisions.answer(first.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+    await decisions.answer(first.id, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
     await answered(opened.id, 9);
 
     // A follow-up is an ordinary message: the Decision stays open.
     await runner.send(opened.id, "What does visible mean?", ANN_LEE);
     await answered(opened.id, 11);
     const second = (await threads.read(opened.id)).openDecisions[0];
-    expect(second?.question).toBe(COLUMNS_QUESTION);
+    expect(second?.questions[0]?.question).toBe(COLUMNS_QUESTION);
     await cooled(opened.id, 80_000);
 
     await runner.answerDecision(
       opened.id,
       second?.id ?? "",
-      {
-        kind: "free-answer",
-        text: "The visible ones, plus the id.",
-      },
+      oneWordsAnswer("The visible ones, plus the id."),
       ANSWERED_BY_ANN_LEE,
     );
     const log = await answered(opened.id, 14);
@@ -2311,7 +2334,7 @@ describe("a Decision", () => {
     // The Decision answered now is the message's, not the Brief's.
     expect(
       text.endsWith(
-        `## Decisions the user answered\n\n- ${EXPORT_QUESTION}\n  Answer: Only active Projects\n\n## The user's message\n\nThe user Ann Lee answered your Decision "${COLUMNS_QUESTION}" in their own words:\n\nThe visible ones, plus the id.`,
+        `## Decisions the user answered\n\n- ${EXPORT_QUESTION}\n  Answer: Only active Projects\n\n## The user's message\n\nThe user Ann Lee answered your Decision:\n\n1. ${COLUMNS_QUESTION}\n   Answer, in their own words: The visible ones, plus the id.`,
       ),
     ).toBe(true);
     expect(text).not.toContain("## Your open Decision");
@@ -2325,7 +2348,7 @@ describe("a Decision", () => {
       {
         kind: "decision-answer",
         decisionId: second?.id,
-        answer: { kind: "free-answer", text: "The visible ones, plus the id." },
+        answer: oneWordsAnswer("The visible ones, plus the id."),
       },
       { kind: "person", roleKey, text: "Visible ones plus the id." },
     ]);
@@ -2348,7 +2371,7 @@ describe("a Decision", () => {
     const before = (await threads.read(opened.id)).session;
     await cooled(opened.id, 80_000);
 
-    await decisions.answer(open.id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
+    await decisions.answer(open.id, oneOptionAnswer(1), ANSWERED_BY_ANN_LEE);
     const failed = await waiting(opened.id);
 
     expect(failed.openDecisions[0]).toEqual(open);
@@ -2356,11 +2379,11 @@ describe("a Decision", () => {
     await expect(decisions.listOpen()).resolves.toContainEqual(open);
     const log = drafts(await threads.messages(opened.id));
     expect(log.slice(-2)).toEqual([
-      { kind: "decision-answer", decisionId: open.id, answer: { kind: "option", option: 1 } },
+      { kind: "decision-answer", decisionId: open.id, answer: oneOptionAnswer(1) },
       { kind: "failure", reason: expect.stringContaining("stray") },
     ]);
 
-    await decisions.answer(open.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+    await decisions.answer(open.id, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
     await vi.waitFor(async () => {
       const thread = await threads.read(opened.id);
       if (thread.state !== "waiting" || thread.openDecisions[0])
@@ -2368,13 +2391,92 @@ describe("a Decision", () => {
     });
     const brief = engine.sessions.at(-1)?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toContain(
-      `The user Ann Lee answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
+      `The user Ann Lee answered your Decision:\n\n1. ${EXPORT_QUESTION}\n   Answer: Only active Projects`,
     );
     expect(drafts(await threads.messages(opened.id)).at(-1)).toEqual({
       kind: "person",
       roleKey,
       text: "Only active ones, then.",
     });
+  });
+
+  it("asks several questions in one form, whose answer reaches the session with each question, comment and the general comment", async () => {
+    await startWith(
+      started(
+        ...opensForm("c-1", TWO_QUESTIONS),
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "Clear."),
+      ),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+
+    expect(open.questions).toEqual([
+      {
+        kind: "choice",
+        question: EXPORT_QUESTION,
+        options: ["Only active Projects", "Every Project"],
+        recommendation: { option: 0, reason: "It is what the export is for." },
+      },
+      { kind: "open", question: COLUMNS_QUESTION },
+    ]);
+    await decisions.answer(
+      open.id,
+      {
+        kind: "submitted",
+        answers: [
+          { kind: "option", option: 1, comment: "Archived ones too, for the audit." },
+          { kind: "words", text: "The visible ones." },
+        ],
+        generalComment: "Thanks.",
+      },
+      ANSWERED_BY_ANN_LEE,
+    );
+    await answered(opened.id, 7);
+
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      [
+        "The user Ann Lee answered your Decision:",
+        "",
+        `1. ${EXPORT_QUESTION}`,
+        "   Answer: Every Project",
+        "   Comment: Archived ones too, for the audit.",
+        `2. ${COLUMNS_QUESTION}`,
+        "   Answer, in their own words: The visible ones.",
+        "",
+        "General comment: Thanks.",
+      ].join("\n"),
+    );
+  });
+
+  it("refuses a form with problems, naming the question each is in", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const opened = await plannerAnswering();
+    await answered(opened.id, 3);
+    const session = (await threads.read(opened.id)).session?.id ?? "";
+    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL]);
+
+    const result = await tool?.run(
+      {
+        context: "The export runs nightly.",
+        questions: [
+          { question: EXPORT_QUESTION, options: ["Only active Projects", "Every Project"] },
+          { question: "", options: ["CSV"], recommended: 1, why: "Spreadsheets read it." },
+        ],
+      },
+      anOfficeToolCall(session),
+    );
+
+    expect(result?.isError).toBe(true);
+    expect(result?.text).toContain("Question 1: Recommend one of the options.");
+    expect(result?.text).toContain("Question 1: Say why you recommend it.");
+    expect(result?.text).toContain("Question 2: Write the question.");
+    expect(result?.text).toContain("Question 2: Give the user at least two options.");
+    expect((await threads.read(opened.id)).openDecisions).toEqual([]);
   });
 
   it("is refused to a session no Thread on a Task has, with the reason the person reads", async () => {
@@ -2385,11 +2487,15 @@ describe("a Decision", () => {
     const chatSession = (await threads.read(chat.id)).session?.id ?? "";
     const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL]);
     const input = {
-      question: EXPORT_QUESTION,
       context: "",
-      options: ["Only active Projects", "Every Project"],
-      recommended: 1,
-      why: "It is what the export is for.",
+      questions: [
+        {
+          question: EXPORT_QUESTION,
+          options: ["Only active Projects", "Every Project"],
+          recommended: 1,
+          why: "It is what the export is for.",
+        },
+      ],
     };
 
     await expect(tool?.run(input, anOfficeToolCall(chatSession))).resolves.toEqual({
@@ -2419,11 +2525,10 @@ function opensDecisionOn(
         tool: OPEN_DECISION_TOOL,
         officeTool: true,
         input: {
-          question,
           context: "The exports differ.",
-          options: ["CSV", "JSON"],
-          recommended: 1,
-          why: "Spreadsheets read it.",
+          questions: [
+            { question, options: ["CSV", "JSON"], recommended: 1, why: "Spreadsheets read it." },
+          ],
           taskId,
           attachments,
         },
@@ -2528,7 +2633,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
       { taskId: taskB, question: "Which columns?" },
     ]);
 
-    await decisions.answer(onA?.id ?? "", { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+    await decisions.answer(onA?.id ?? "", oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
 
     const working = await threads.read(opened.id);
     expect(working.state).toBe("answering");
@@ -2551,7 +2656,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     const handedOver = session?.received.find(({ step }) => step === "send");
     expect(handedOver?.step === "send" && handedOver.message.text).toBe(
-      `On the Task "Export API" (${taskA}): The user Ann Lee answered your Decision "Which format?" with the option "CSV".`,
+      `On the Task "Export API" (${taskA}): The user Ann Lee answered your Decision:\n\n1. Which format?\n   Answer: CSV`,
     );
     await answered(opened.id, 1);
     const delivered = (await threads.messages(opened.id)).find(
@@ -2559,7 +2664,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     expect(delivered).toMatchObject({ decisionId: onA?.id, delivery: "delivered" });
 
-    await decisions.answer(onB?.id ?? "", { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
+    await decisions.answer(onB?.id ?? "", oneOptionAnswer(1), ANSWERED_BY_ANN_LEE);
     await vi.waitFor(
       () => {
         const sends = session?.received.filter(({ step }) => step === "send") ?? [];
@@ -2569,7 +2674,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     const answeredAtOnce = session?.received.filter(({ step }) => step === "send")[1];
     expect(answeredAtOnce?.step === "send" && answeredAtOnce.message.text).toBe(
-      `On the Task "Export button" (${taskB}): The user Ann Lee answered your Decision "Which columns?" with the option "JSON".`,
+      `On the Task "Export button" (${taskB}): The user Ann Lee answered your Decision:\n\n1. Which columns?\n   Answer: JSON`,
     );
     await answered(opened.id, 1);
     expect((await threads.read(opened.id)).openDecisions).toEqual([]);
@@ -2594,6 +2699,15 @@ async function answersForTheUser(
   sessionId: string,
   input: { readonly decisionId: string; readonly option?: number; readonly answer?: string },
 ): Promise<{ readonly text: string; readonly isError: boolean } | undefined> {
+  const { decisionId, option, answer } = input;
+  return answerDecisionWith(sessionId, { decisionId, answers: [{ option, answer }] });
+}
+
+/** The person calls `answer_decision` with `input`, as their Agent writes it. */
+async function answerDecisionWith(
+  sessionId: string,
+  input: Record<string, unknown>,
+): Promise<{ readonly text: string; readonly isError: boolean } | undefined> {
   const [tool] = app.get(OfficeToolRegistry).named([ANSWER_DECISION_TOOL]);
   return tool?.run(input, anOfficeToolCall(sessionId));
 }
@@ -2610,15 +2724,25 @@ async function openedInThread(
   } = {},
 ): Promise<Decision> {
   const id = randomUUID();
+  const {
+    question = EXPORT_QUESTION,
+    options = ["Only active Projects", "Every Project"],
+    ...others
+  } = fields;
   await repository.update(threadId, (latest) =>
     openDecision(latest, {
-      question: EXPORT_QUESTION,
       context: "Archived Projects have no worktree.",
-      options: ["Only active Projects", "Every Project"],
-      recommendation: { option: 0, reason: "It is what the export is for." },
+      questions: [
+        {
+          kind: "choice",
+          question,
+          options,
+          recommendation: { option: 0, reason: "It is what the export is for." },
+        },
+      ],
       id,
       askedAt: new Date(),
-      ...fields,
+      ...others,
     }),
   );
   const decision = await repository.decision(id);
@@ -2667,33 +2791,124 @@ describe("a Decision answered for the user, at their request", () => {
     const log = await answered(opened.id, 7);
 
     expect(result).toEqual({
-      text: `You answered the Decision "${EXPORT_QUESTION}" for the user Ann Lee: "Every Project". The Office passes it on to whoever waits on it.`,
+      text: `You answered the Decision "${EXPORT_QUESTION}" for the user Ann Lee:\n\n1. ${EXPORT_QUESTION}\n   Answer: Every Project\n\nThe Office passes it on to whoever waits on it.`,
       isError: false,
     });
     const atUsersRequest = { roleKey, threadId: chat.id, user: ANN_LEE };
     const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `Jan answered your Decision "${EXPORT_QUESTION}" for the user Ann Lee, at their request, with the option "Every Project".`,
+      `Jan answered your Decision for the user Ann Lee, at their request:\n\n1. ${EXPORT_QUESTION}\n   Answer: Every Project`,
     );
     expect(drafts(log).slice(-2)).toEqual([
       {
         kind: "decision-answer",
         decisionId: open.id,
-        answer: { kind: "option", option: 1 },
+        answer: oneOptionAnswer(1),
         atUsersRequest,
       },
       { kind: "person", roleKey, text: "Every Project, then." },
     ]);
     const [stored] = await decisions.listInThread(opened.id);
     expect(stored?.answer).toEqual({
-      kind: "option",
-      option: 1,
+      ...oneOptionAnswer(1),
       answeredAt: expect.any(Date),
       atUsersRequest,
     });
     await expect(
       answersForTheUser(chat.sessionId, { decisionId: open.id, option: 1 }),
     ).resolves.toEqual({ text: "This Decision is answered already.", isError: true });
+  });
+
+  it("answers every question of a form for the user, with their comments", async () => {
+    await startWith(
+      started(
+        ...opensForm("c-1", TWO_QUESTIONS),
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "Every Project, then."),
+      ),
+      started(...aTurn("brief", "I'll answer it.")),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+    const chat = await aChatWithASession();
+
+    await expect(
+      answerDecisionWith(chat.sessionId, {
+        decisionId: open.id,
+        answers: [{ option: 2 }, { option: 1, answer: "The visible ones." }],
+      }),
+    ).resolves.toEqual({
+      text: "Question 2: Choose an option or answer in words, not both.",
+      isError: true,
+    });
+    const result = await answerDecisionWith(chat.sessionId, {
+      decisionId: open.id,
+      answers: [{ option: 2, comment: "For the audit." }, { answer: "The visible ones." }],
+      generalComment: "Thanks.",
+    });
+    await answered(opened.id, 7);
+
+    const words = [
+      `1. ${EXPORT_QUESTION}`,
+      "   Answer: Every Project",
+      "   Comment: For the audit.",
+      `2. ${COLUMNS_QUESTION}`,
+      "   Answer, in their own words: The visible ones.",
+      "",
+      "General comment: Thanks.",
+    ].join("\n");
+    expect(result).toEqual({
+      text: `You answered the Decision "${EXPORT_QUESTION} (and 1 more question)" for the user Ann Lee:\n\n${words}\n\nThe Office passes it on to whoever waits on it.`,
+      isError: false,
+    });
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `Jan answered your Decision for the user Ann Lee, at their request:\n\n${words}`,
+    );
+  });
+
+  it("asks again for the user, answering none of the questions", async () => {
+    await startWith(
+      started(
+        ...opensForm("c-1", TWO_QUESTIONS),
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "I'll ask about the audit."),
+      ),
+      started(...aTurn("brief", "I'll answer it.")),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+    const chat = await aChatWithASession();
+
+    const result = await answerDecisionWith(chat.sessionId, {
+      decisionId: open.id,
+      askAgain: true,
+      generalComment: "Ask about the audit first.",
+    });
+    await answered(opened.id, 7);
+
+    expect(result).toEqual({
+      text: `You asked again for the user Ann Lee, answering none of the questions of the Decision "${EXPORT_QUESTION} (and 1 more question)": Ask about the audit first.\n\nThe Office passes it on to whoever waits on it.`,
+      isError: false,
+    });
+    expect((await repository.decision(open.id))?.answer).toMatchObject({
+      kind: "asked-again",
+      generalComment: "Ask about the audit first.",
+    });
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      [
+        "Jan asked you to ask again for the user Ann Lee, at their request, answering none of your Decision's questions:",
+        "General comment: Ask about the audit first.",
+        "Answer what they said, then open a new Decision for what you still need to ask.",
+      ].join("\n\n"),
+    );
   });
 
   it("records as the user who asked the one who wrote the latest message in the person's Thread", async () => {
@@ -2716,11 +2931,11 @@ describe("a Decision answered for the user, at their request", () => {
     await answered(opened.id, 7);
 
     expect(result?.text).toBe(
-      `You answered the Decision "${EXPORT_QUESTION}" for the user Ben Ito: "Every Project". The Office passes it on to whoever waits on it.`,
+      `You answered the Decision "${EXPORT_QUESTION}" for the user Ben Ito:\n\n1. ${EXPORT_QUESTION}\n   Answer: Every Project\n\nThe Office passes it on to whoever waits on it.`,
     );
     const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `Jan answered your Decision "${EXPORT_QUESTION}" for the user Ben Ito, at their request, with the option "Every Project".`,
+      `Jan answered your Decision for the user Ben Ito, at their request:\n\n1. ${EXPORT_QUESTION}\n   Answer: Every Project`,
     );
     expect((await repository.decision(open.id))?.answer?.atUsersRequest).toEqual({
       roleKey,
@@ -2824,21 +3039,19 @@ describe("a Decision answered for the user, at their request", () => {
 
     const atUsersRequest = { roleKey, threadId: chat.id, user: ANN_LEE };
     expect((await repository.decision(inStage.id))?.answer).toEqual({
-      kind: "option",
-      option: 1,
+      ...oneOptionAnswer(1),
       answeredAt: expect.any(Date),
       atUsersRequest,
     });
     expect((await repository.decision(officesOwn.id))?.answer).toEqual({
-      kind: "free-answer",
-      text: "Retry the Stage.",
+      ...oneWordsAnswer("Retry the Stage."),
       answeredAt: expect.any(Date),
       atUsersRequest,
     });
     expect(drafts(await threads.messages(inStage.threadId))).toContainEqual({
       kind: "decision-answer",
       decisionId: inStage.id,
-      answer: { kind: "option", option: 1 },
+      answer: oneOptionAnswer(1),
       atUsersRequest,
     });
     expect(engine.sessions).toHaveLength(1);
@@ -2898,8 +3111,8 @@ describe("a Decision answered for the user, at their request", () => {
     const handedOver = engine.sessions[0]?.received.find(({ step }) => step === "send");
     expect(handedOver?.step === "send" && handedOver.message.text).toBe(
       [
-        `On the Task "Export button" (${taskB}): Jan answered your Decision "Which columns?" for the user Ann Lee, at their request, with the option "JSON".`,
-        `On the Task "Export API" (${taskA}): Jan answered your Decision "Which format?" for the user Ann Lee, at their request, with the option "CSV".`,
+        `On the Task "Export button" (${taskB}): Jan answered your Decision for the user Ann Lee, at their request:\n\n1. Which columns?\n   Answer: JSON`,
+        `On the Task "Export API" (${taskA}): Jan answered your Decision for the user Ann Lee, at their request:\n\n1. Which format?\n   Answer: CSV`,
       ].join("\n\n"),
     );
   });
@@ -2958,7 +3171,7 @@ describe("a message mentioning records", () => {
     expect(records).toHaveLength(5);
     expect(records[0]).toBe("Export CSV (Task) · Plan: write the exporter.");
     expect(records[1]).toBe("Dark mode (Idea) · Notes: for the night shift.");
-    expect(records[2]).toContain(`Question: ${EXPORT_QUESTION}`);
+    expect(records[2]).toContain(`Question 1: ${EXPORT_QUESTION}`);
     expect(records[2]).toContain("Not answered yet: it waits on the user.");
     expect(records[2]).toContain("Admin export (Task) · Plan: ask about archived Projects.");
     expect(records[3]).toBe("Offline sync (Initiative) · Outcome: writes survive.");

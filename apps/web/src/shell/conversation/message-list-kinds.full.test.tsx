@@ -24,7 +24,19 @@ vi.mock("./office-status-card.tsx", () => ({
 }));
 
 const at = "2026-11-04T10:00:00.000Z";
-const decision = { options: ["This", "That"], answeredByUser: null } as Decision;
+const decision = {
+  kind: "form",
+  questions: [
+    {
+      kind: "choice",
+      question: "Which one?",
+      options: ["This", "That"],
+      recommendation: { option: 0, reason: "" },
+    },
+  ],
+  options: ["This", "That"],
+  answeredByUser: null,
+} as Decision;
 const proposal = {} as Proposal;
 const contextLine: Extract<Message, { kind: "context" }> = {
   at,
@@ -98,6 +110,7 @@ const EVERY_KIND: {
       at,
       id: "10",
       kind: "decision-answer",
+      formAnswer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
       answer: { kind: "option", option: 0 },
       atUsersRequest: null,
       decision,

@@ -11,9 +11,17 @@ function decisionPutTo(putTo: string | null): Decision {
   return {
     id: crypto.randomUUID(),
     threadId: "thread",
-    kind: "question",
+    kind: "form",
     taskId: "task",
     roleKey: "planner",
+    questions: [
+      {
+        kind: "choice",
+        question: "Which one?",
+        options: ["This", "That"],
+        recommendation: { option: 0, reason: "It is smaller." },
+      },
+    ],
     question: "Which one?",
     context: "",
     options: ["This", "That"],
@@ -22,6 +30,7 @@ function decisionPutTo(putTo: string | null): Decision {
     putTo,
     passedOn: [],
     askedAt: "2026-11-04T10:00:00.000Z",
+    formAnswer: null,
     answer: null,
     answeredAt: null,
     answeredByUser: null,

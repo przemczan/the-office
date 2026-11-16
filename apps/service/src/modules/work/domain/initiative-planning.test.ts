@@ -205,6 +205,7 @@ describe("the Initiative's planning Thread", () => {
       "Without subagents, plan the Tasks one after another yourself",
       "mark_planned",
       "open a Decision on it with open_decision, giving its taskId",
+      "asking every question that Task has in that one Decision",
       "Leave that Task, and every Task that waits for it, and keep planning the rest",
       "End your turn only when every Task left waits for an answer, or all are planned",
       "Each answer comes as a message: carry on from it",

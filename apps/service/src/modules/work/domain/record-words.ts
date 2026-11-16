@@ -34,12 +34,15 @@ export interface AllStageResults {
 
 /**
  * A Decision on a Task waiting on the user, which Conversations keeps: by its id, which a person
- * answers it for the user by when they ask (spec §2.4), with its question and options.
+ * answers it for the user by when they ask (spec §2.4), with its questions in order, each with its
+ * options, none for a question answered in words.
  */
 export interface DecisionWaitingOnTheUser {
   readonly id: string;
-  readonly question: string;
-  readonly options: readonly string[];
+  readonly questions: readonly {
+    readonly question: string;
+    readonly options: readonly string[];
+  }[];
   /** Whether it asks approval of a call, which only the user gives. */
   readonly approval: boolean;
 }
@@ -168,11 +171,17 @@ function publishingTaskLines(task: Task, { initiative }: TaskLinks): string[] {
   ];
 }
 
-/** A Decision waiting on the user: its id and question, then its options numbered from 1. */
-function waitingDecisionLines({ id, question, options, approval }: DecisionWaitingOnTheUser) {
+/**
+ * A Decision waiting on the user: its id, then each question numbered from 1 with its options
+ * numbered from 1, as answer_decision takes them.
+ */
+function waitingDecisionLines({ id, questions, approval }: DecisionWaitingOnTheUser) {
   return [
-    `- ${question} (Decision ${id})${approval ? ": an approval of a call, which only the user gives, on its card" : ""}`,
-    ...options.map((option, index) => `  ${index + 1}. ${option}`),
+    `- Decision ${id}${approval ? ": an approval of a call, which only the user gives, on its card" : ""}`,
+    ...questions.flatMap(({ question, options }, index) => [
+      `  Question ${index + 1}: ${question}`,
+      ...options.map((option, number) => `    ${number + 1}. ${option}`),
+    ]),
   ];
 }
 

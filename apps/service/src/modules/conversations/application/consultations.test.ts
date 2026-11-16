@@ -37,6 +37,7 @@ import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-to
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import type { Thread } from "../domain/thread.js";
 import { startStageThread } from "../domain/thread-changes.js";
+import { oneOptionAnswer, oneWordsAnswer } from "../domain/decision.js";
 import { SESSION } from "../domain/decision.fixtures.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
@@ -368,11 +369,15 @@ function consults(person: string): Step[] {
   return [
     ...usesTool("c-1", CONSULT_TOOL, {
       person,
-      question: QUESTION,
       context: "The export reads every Project.",
-      options: OPTIONS,
-      recommended: 2,
-      why: "It is what the Projects use.",
+      questions: [
+        {
+          question: QUESTION,
+          options: OPTIONS,
+          recommended: 2,
+          why: "It is what the Projects use.",
+        },
+      ],
     }),
     ...aTurn("brief", "I asked."),
   ];
@@ -474,7 +479,7 @@ describe("a consult of a hired Consultant", () => {
     await startWith(
       started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER),
       started(
-        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
         ...aTurn("brief", "Done."),
       ),
     );
@@ -500,7 +505,7 @@ describe("a consult of a hired Consultant", () => {
     });
     expect(answeredAsker).toMatchObject({
       putTo: consultantKey,
-      answer: { kind: "option", option: 1, answeredBy: consultantKey },
+      answer: { ...oneOptionAnswer(1), answeredBy: consultantKey },
     });
     const [askerSession, consultantSession] = engine.sessions;
     const opening = consultantSession?.received[0];
@@ -512,12 +517,86 @@ describe("a consult of a hired Consultant", () => {
     expect(consultationLog).toContainEqual(
       expect.objectContaining({
         kind: "consultation-line",
-        text: "Your answer to Dana: Postgres",
+        text: `Your answer to Dana:\n\n1. ${QUESTION}\n   Answer: Postgres`,
       }),
     );
     const answer = askerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `Casey answered your Decision "${QUESTION}" with the option "Postgres".`,
+      `Casey answered your Decision:\n\n1. ${QUESTION}\n   Answer: Postgres`,
+    );
+  });
+  it("asks a form of two questions, which the Consultant answers question by question", async () => {
+    await startWith(
+      started(
+        ...usesTool("c-1", CONSULT_TOOL, {
+          person: "CTO",
+          context: "The export reads every Project.",
+          questions: [
+            {
+              question: QUESTION,
+              options: OPTIONS,
+              recommended: 2,
+              why: "It is what the Projects use.",
+            },
+            { question: "Which years should it cover?" },
+          ],
+        }),
+        ...aTurn("brief", "I asked."),
+        ...ASKER_TAKES_THE_ANSWER,
+      ),
+      started(
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, {
+          answers: [{ option: 2, comment: "It runs already." }, { answer: "This year." }],
+          generalComment: "Ask me about the format later.",
+        }),
+        ...aTurn("brief", "Done."),
+      ),
+    );
+    const asker = await developerOnATask();
+
+    const consultation = await consultationOn(asker);
+    await settled(consultation.id);
+    const answered = await answeredIn(asker.id);
+    await settled(asker.id);
+
+    const opening = engine.sessions[1]?.received[0];
+    const brief = opening?.step === "start" ? opening.brief.text : "";
+    expect(brief).toContain(QUESTION);
+    expect(brief).toContain("Which years should it cover?");
+    const [refused] =
+      engine.sessions[1]?.reportedEvents.filter((event) => event.kind === "tool-result") ?? [];
+    expect(refused).toMatchObject({
+      isError: true,
+      text: "Answer every question: this Decision asks 2.",
+    });
+    expect(answered.answer).toMatchObject({
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 1, comment: "It runs already." },
+        { kind: "words", text: "This year." },
+      ],
+      generalComment: "Ask me about the format later.",
+      answeredBy: consultantKey,
+    });
+    const words = [
+      `1. ${QUESTION}`,
+      "   Answer: Postgres",
+      "   Comment: It runs already.",
+      "2. Which years should it cover?",
+      "   Answer, in their own words: This year.",
+      "",
+      "General comment: Ask me about the format later.",
+    ].join("\n");
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `Casey answered your Decision:\n\n${words}`,
+    );
+    expect(await threads.messages(consultation.id)).toContainEqual(
+      expect.objectContaining({
+        kind: "consultation-line",
+        text: `Your answer to Dana:\n\n${words}`,
+      }),
     );
   });
 });
@@ -529,7 +608,7 @@ describe("a consult on a Task with no worktree yet", () => {
     await startWith(
       started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER),
       started(
-        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
         ...aTurn("brief", "Done."),
       ),
     );
@@ -541,7 +620,7 @@ describe("a consult on a Task with no worktree yet", () => {
     await settled(consultation.id);
     const answered = await answeredIn(asker.id);
 
-    expect(answered).toMatchObject({ answer: { kind: "option", option: 1 } });
+    expect(answered).toMatchObject({ answer: oneOptionAnswer(1) });
     expect(engine.sessions[1]?.options.folder).toBe(join(officeData, "bases"));
     expect(await threads.messages(consultation.id)).not.toContainEqual(
       expect.objectContaining({ kind: "failure" }),
@@ -652,7 +731,7 @@ describe("a call from a chat", () => {
       started(...requests("Devops"), ...ASKER_TAKES_THE_ANSWER),
       started(
         ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, {
-          answer: "I drafted a Proposal of the Project's commands.",
+          answers: [{ answer: "I drafted a Proposal of the Project's commands." }],
         }),
         ...aTurn("brief", "Done."),
       ),
@@ -674,8 +753,7 @@ describe("a call from a chat", () => {
       taskId: undefined,
       putTo: devopsKey,
       answer: {
-        kind: "free-answer",
-        text: "I drafted a Proposal of the Project's commands.",
+        ...oneWordsAnswer("I drafted a Proposal of the Project's commands."),
         answeredBy: devopsKey,
       },
     });
@@ -686,14 +764,14 @@ describe("a call from a chat", () => {
     );
     const answer = callerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `Riley answered your request "Set up the Project's commands." in their own words:\n\nI drafted a Proposal of the Project's commands.`,
+      `Riley answered your request:\n\n1. Set up the Project's commands.\n   Answer, in their own words: I drafted a Proposal of the Project's commands.`,
     );
     const lines = (await threads.messages(consultation.id))
       .filter((message) => message.kind === "consultation-line")
       .map((line) => line.kind === "consultation-line" && line.text);
     expect(lines).toEqual([
       "Dana asks you to: Set up the Project's commands.",
-      "Your answer to Dana: I drafted a Proposal of the Project's commands.",
+      "Your answer to Dana:\n\n1. Set up the Project's commands.\n   Answer, in their own words: I drafted a Proposal of the Project's commands.",
     ]);
   });
 
@@ -757,7 +835,12 @@ describe("a call from a chat", () => {
     const answered = await answeredIn(caller.id);
     await settled(caller.id);
 
-    expect(answered.answer).toMatchObject({ kind: "free-answer", byTheOffice: true });
+    expect(answered.answer).toMatchObject({
+      kind: "asked-again",
+      generalComment:
+        "Riley passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
+      byTheOffice: true,
+    });
     expect(await decisions.listOpen()).not.toContainEqual(
       expect.objectContaining({ id: answered.id }),
     );
@@ -846,19 +929,25 @@ describe("a call from a Consultation", () => {
       started(
         ...usesTool("c-2", CONSULT_TOOL, {
           person: "CTO",
-          question: QUESTION,
           context: "Before I draft the commands.",
-          options: OPTIONS,
-          recommended: 2,
-          why: "It is what the Projects use.",
+          questions: [
+            {
+              question: QUESTION,
+              options: OPTIONS,
+              recommended: 2,
+              why: "It is what the Projects use.",
+            },
+          ],
         }),
         ...aTurn("brief", "I asked the CTO."),
         { step: "send", message: { id: "cto-answer", text: "" }, priority: "later" },
-        ...usesTool("c-4", ANSWER_CONSULTATION_TOOL, { answer: "Drafted, for Postgres." }),
+        ...usesTool("c-4", ANSWER_CONSULTATION_TOOL, {
+          answers: [{ answer: "Drafted, for Postgres." }],
+        }),
         ...aTurn("cto-answer", "Done."),
       ),
       started(
-        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
         ...aTurn("brief", "Postgres."),
       ),
     );
@@ -874,7 +963,7 @@ describe("a call from a Consultation", () => {
       askerRoleKey: devopsKey,
     });
     expect(answered.answer).toMatchObject({
-      text: "Drafted, for Postgres.",
+      ...oneWordsAnswer("Drafted, for Postgres."),
       answeredBy: devopsKey,
     });
     const [, devopsSession, ctoSession] = engine.sessions;

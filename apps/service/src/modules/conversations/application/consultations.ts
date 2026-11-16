@@ -23,8 +23,8 @@ import {
 } from "../domain/consult.js";
 import { MessagesLogged, TurnEnded } from "../domain/conversation-events.js";
 import {
-  answerWords,
   CLOSED_DECISION_REFUSAL,
+  formAnswerWords,
   isOpen,
   type Decision,
   type DecisionAnswer,
@@ -144,7 +144,7 @@ export class Consultations implements OnModuleInit {
     await this.logLine(
       consultation.id,
       decision.id,
-      consultationAnswerLine(askerName, answerWords(decision, answer)),
+      consultationAnswerLine(askerName, formAnswerWords(decision, answer)),
     );
   }
 
@@ -424,7 +424,7 @@ export class Consultations implements OnModuleInit {
   private async backToTheCaller(decisionId: string, why: string): Promise<void> {
     await this.decisions.answer(
       decisionId,
-      { kind: "free-answer", text: backToTheCallerWords(why) },
+      { kind: "asked-again", generalComment: backToTheCallerWords(why) },
       { kind: "the-office" },
     );
   }

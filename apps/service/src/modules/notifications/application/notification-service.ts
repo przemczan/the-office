@@ -7,6 +7,7 @@ import {
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  decisionSummary,
   TurnEnded,
 } from "../../conversations/index.js";
 import {
@@ -139,11 +140,13 @@ export class NotificationService implements OnModuleInit {
     for (const eventClass of [DecisionOpened, DecisionReopened]) {
       // A Decision put to a Consultant waits on them, not on the user (spec §6), and a call made
       // from a chat, on no Task, goes back to its caller (spec §2.4): no Notification for either.
-      this.events.subscribe(eventClass, ({ decision: { taskId, ...decision } }) =>
-        decision.putTo || taskId === undefined
-          ? undefined
-          : this.raise(decisionWaiting({ ...decision, taskId })),
-      );
+      this.events.subscribe(eventClass, ({ decision }) => {
+        const { id, roleKey, taskId, putTo } = decision;
+        if (putTo || taskId === undefined) return undefined;
+        return this.raise(
+          decisionWaiting({ id, roleKey, taskId, question: decisionSummary(decision) }),
+        );
+      });
     }
     this.events.subscribe(DecisionAnswered, ({ decision: { id, taskId } }) =>
       taskId === undefined

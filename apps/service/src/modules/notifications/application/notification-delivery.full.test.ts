@@ -51,7 +51,11 @@ function decisionEvent(
 ): DecisionOpened {
   const [thread, asked] = [
     {},
-    { ...decision, roleKey: "developer", question: "Keep the query string?" },
+    {
+      ...decision,
+      roleKey: "developer",
+      questions: [{ kind: "open", question: "Keep the query string?" }],
+    },
   ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
   return new eventClass(thread, asked, new Date());
 }

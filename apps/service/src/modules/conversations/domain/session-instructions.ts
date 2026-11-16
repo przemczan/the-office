@@ -1,6 +1,13 @@
 import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import type { DutyKey } from "../../people/index.js";
-import { answerWords, type Answerer, type Decision, type DecisionAnswer } from "./decision.js";
+import {
+  decisionSummary,
+  formAnswerWords,
+  isApproval,
+  type Answerer,
+  type Decision,
+  type DecisionAnswer,
+} from "./decision.js";
 import { sameUser, userWords, userWordsOpening, type UserRef } from "./user.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
@@ -570,25 +577,49 @@ export function openingMessage(brief: string, opening: string): string {
 }
 
 /**
- * What the asking session is sent as its next message when its Decision is answered: the question,
- * with the chosen option or the answerer's own words, so a fresh session knows what was asked, and
- * who answered: the user by name, the Consultant, the person who answered for the user at their
- * request, or The Office.
+ * What the asking session is sent as its next message when its Decision is answered (spec §2.4):
+ * who answered (the user by name, the Consultant, the person who answered for the user at their
+ * request, or The Office), then every question with its answer and comment and the general
+ * comment, so a fresh session knows what was asked; or that they asked again, with the general
+ * comment, or that The Office sent a call from a chat back, saying why. An approval keeps its one
+ * line.
  */
 export function decisionAnswerMessage(
   decision: Decision,
   answer: DecisionAnswer,
   answerer: Answerer,
 ): string {
-  const words = answerWords(decision, answer);
-  const asked =
-    decision.kind === "request"
-      ? `your request "${decision.question}"`
-      : `your Decision "${decision.question}"`;
-  const answered = answeredWords(answerer, asked);
-  return answer.kind === "option"
-    ? `${answered} with the option "${words}".`
-    : `${answered} in their own words:\n\n${words}`;
+  if (answer.kind === "asked-again") {
+    const comment = answer.generalComment?.trim();
+    if (answerer.kind === "the-office") {
+      // A call from a chat sent back to its caller: the comment says why and what to do.
+      return `The Office sent your Decision back to you, answering none of its questions: ${comment ?? ""}`;
+    }
+    return [
+      `${askedAgainWords(answerer)}, answering none of your Decision's questions:`,
+      comment ? `General comment: ${comment}` : "They gave no comment.",
+      "Answer what they said, then open a new Decision for what you still need to ask.",
+    ].join("\n\n");
+  }
+  if (isApproval(decision)) {
+    const asked = `your Decision "${decisionSummary(decision)}"`;
+    return `${answeredWords(answerer, asked)} with the option "${formAnswerWords(decision, answer)}".`;
+  }
+  const asked = decision.kind === "request" ? "your request" : "your Decision";
+  return `${answeredWords(answerer, asked)}:\n\n${formAnswerWords(decision, answer)}`;
+}
+
+function askedAgainWords(answerer: Answerer): string {
+  switch (answerer.kind) {
+    case "user":
+      return `${userWordsOpening(answerer.user)} asked you to ask again`;
+    case "consultant":
+      return `${answerer.name} asked you to ask again`;
+    case "the-office":
+      return "The Office asked you to ask again";
+    case "at-users-request":
+      return `${answerer.name} asked you to ask again for ${userWords(answerer.user)}, at their request`;
+  }
 }
 
 function answeredWords(answerer: Answerer, asked: string): string {
@@ -600,7 +631,7 @@ function answeredWords(answerer: Answerer, asked: string): string {
     case "the-office":
       return `The Office answered ${asked}`;
     case "at-users-request":
-      return `${answerer.name} answered ${asked} for ${userWords(answerer.user)}, at their request,`;
+      return `${answerer.name} answered ${asked} for ${userWords(answerer.user)}, at their request`;
   }
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { decisionSummary } from "./decision.js";
 import { aDecision } from "./decision.fixtures.js";
 import {
   liveViewOf,
@@ -127,7 +128,7 @@ describe("what each person is doing now", () => {
           threadId: stage.id,
           home: stage.home,
           consultantRoleKey: "cto",
-          question: decision.question,
+          question: decisionSummary(decision),
           since: FIRST,
         },
       ],
@@ -177,7 +178,7 @@ describe("what each person is doing now", () => {
           threadId: stage.id,
           home: stage.home,
           byTheOffice: false,
-          question: decision.question,
+          question: decisionSummary(decision),
           since: FIRST,
         },
       ],

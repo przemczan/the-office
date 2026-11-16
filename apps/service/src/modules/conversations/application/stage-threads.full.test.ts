@@ -20,6 +20,7 @@ import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.j
 import { BusyWorkModule } from "../../office-updates/index.js";
 import { type PreparedMcpServers, SessionMcpServers } from "../../mcp-servers/index.js";
 import { TokensCounted, DecisionAnswered } from "../domain/conversation-events.js";
+import { oneOptionAnswer, oneWordsAnswer } from "../domain/decision.js";
 import { roleOfficeTools } from "../domain/session-instructions.js";
 import { NO_TOKENS, type TokenTotals, type Thread } from "../domain/thread.js";
 import {
@@ -333,10 +334,15 @@ async function anAnsweredDecision(taskId: string, roleKey: string): Promise<void
     openDecision(latest, {
       id: decisionId,
       askedAt: new Date(),
-      question: "Which page shows the rename?",
       context: "Both pages list devices.",
-      options: ["The device page", "The list"],
-      recommendation: { option: 0, reason: "It has the room." },
+      questions: [
+        {
+          kind: "choice",
+          question: "Which page shows the rename?",
+          options: ["The device page", "The list"],
+          recommendation: { option: 0, reason: "It has the room." },
+        },
+      ],
     }),
   );
   await repository.update(thread.id, (latest) =>
@@ -354,7 +360,7 @@ async function anAnsweredDecision(taskId: string, roleKey: string): Promise<void
       newSession: undefined,
       brief: "",
       decisionId,
-      answer: { kind: "option", option: 0 },
+      answer: oneOptionAnswer(0),
       messageId: randomUUID(),
       answeredAt: new Date(),
     }),
@@ -454,13 +460,14 @@ function anAskingStage(roleKey: string): StageThreadRequest {
   };
 }
 
-const WHICH_PAGE = {
+const WHICH_PAGE_QUESTION = {
   question: "Which page shows the rename?",
-  context: "Both pages list devices.",
   options: ["The device page", "The list"],
   recommended: 1,
   why: "It has the room.",
 };
+
+const WHICH_PAGE = { context: "Both pages list devices.", questions: [WHICH_PAGE_QUESTION] };
 
 /** The hooks every test of both files runs. */
 function onTheirOwnApp(): void {
@@ -1098,10 +1105,12 @@ describe("StageDecisions", () => {
     const opened = await repository.decision(id);
     await app
       .get(DecisionService)
-      .answer(id, { kind: "free-answer", text: "Mock the clock." }, ANSWERED_BY_ANN_LEE);
+      .answer(id, oneWordsAnswer("Mock the clock."), ANSWERED_BY_ANN_LEE);
 
     expect(opened).toMatchObject({ threadId: planning?.id, roleKey: undefined });
-    expect((await repository.decision(id))?.answer).toMatchObject({ kind: "free-answer" });
+    expect((await repository.decision(id))?.answer).toMatchObject(
+      oneWordsAnswer("Mock the clock."),
+    );
     // The Office's answers guide the walk, not the next Brief.
     expect(await repository.answeredOn(taskId)).toHaveLength(1);
   });
@@ -1184,14 +1193,15 @@ describe("Office tools on a Stage", () => {
     const id = (await threadOf(stageThread.threadId)).openDecisions[0]?.id ?? "";
     const answered = answeredEvents();
 
-    await app.get(DecisionService).answer(id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
+    await app.get(DecisionService).answer(id, oneOptionAnswer(1), ANSWERED_BY_ANN_LEE);
 
     expect(answered.map((event) => event.decision.id)).toEqual([id]);
     // Answered before the Stage's run keeps it: the Pipeline reads the answer as it would wait.
     await expect(stageThread.askedDecision()).resolves.toMatchObject({ id });
+    // The Agent's own form goes back in words, as its session gets them.
     await expect(app.get(StageDecisions).answerOf(id)).resolves.toEqual({
-      kind: "option",
-      option: 1,
+      kind: "free-answer",
+      text: "1. Which page shows the rename?\n   Answer: The list",
     });
     await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
@@ -1203,7 +1213,10 @@ describe("Office tools on a Stage", () => {
         ...aTurn({ status: "needs_decision", summary: "Asked." }),
       ),
       resumed(
-        ...callsOfficeTool("c-2", OPEN_DECISION_TOOL, { ...WHICH_PAGE, question: "Which label?" }),
+        ...callsOfficeTool("c-2", OPEN_DECISION_TOOL, {
+          ...WHICH_PAGE,
+          questions: [{ ...WHICH_PAGE_QUESTION, question: "Which label?" }],
+        }),
         ...aTurn({ status: "needs_decision", summary: "Asked again." }, "Going on."),
       ),
     );
@@ -1214,7 +1227,7 @@ describe("Office tools on a Stage", () => {
     await first.end({ handoverNote: undefined, closing: undefined });
     await app
       .get(DecisionService)
-      .answer(earlier?.id ?? "", { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
+      .answer(earlier?.id ?? "", oneOptionAnswer(1), ANSWERED_BY_ANN_LEE);
 
     const again = await stageThreads.open({
       ...request,
@@ -1264,11 +1277,15 @@ describe("Office tools on a Stage", () => {
 
     const result = await callInStage(stageThread.threadId, CONSULT_TOOL, {
       person: "Devops",
-      question: "May the build cache live in the Project's folder?",
       context: "It speeds the build up by a minute.",
-      options: ["Yes", "No"],
-      recommended: 1,
-      why: "It stays inside the worktree.",
+      questions: [
+        {
+          question: "May the build cache live in the Project's folder?",
+          options: ["Yes", "No"],
+          recommended: 1,
+          why: "It stays inside the worktree.",
+        },
+      ],
     });
 
     expect(result).toEqual({
@@ -1276,11 +1293,17 @@ describe("Office tools on a Stage", () => {
       isError: false,
     });
     expect((await threadOf(stageThread.threadId)).openDecisions[0]).toMatchObject({
-      question: "May the build cache live in the Project's folder?",
+      kind: "form",
       context:
         "For Devops: nobody who can be consulted fills that Role, so you answer in their place.\n\nIt speeds the build up by a minute.",
-      options: ["Yes", "No"],
-      recommendation: { option: 0, reason: "It stays inside the worktree." },
+      questions: [
+        {
+          kind: "choice",
+          question: "May the build cache live in the Project's folder?",
+          options: ["Yes", "No"],
+          recommendation: { option: 0, reason: "It stays inside the worktree." },
+        },
+      ],
     });
   });
 
@@ -1297,9 +1320,15 @@ describe("Office tools on a Stage", () => {
     });
 
     expect((await threadOf(stageThread.threadId)).openDecisions[0]).toMatchObject({
-      question: "Allow this call? Install ffmpeg on the machine.",
-      options: ["Allow once", "Deny"],
-      recommendation: { option: 0, reason: "Nothing else makes the thumbnails." },
+      kind: "approval",
+      questions: [
+        {
+          kind: "choice",
+          question: "Allow this call? Install ffmpeg on the machine.",
+          options: ["Allow once", "Deny"],
+          recommendation: { option: 0, reason: "Nothing else makes the thumbnails." },
+        },
+      ],
     });
   });
 
@@ -1319,25 +1348,37 @@ describe("Office tools on a Stage", () => {
       isError: false,
     });
     expect((await threadOf(stageThread.threadId)).openDecisions[0]).toMatchObject({
-      question: "Allow this call? Push the branch to a fork.",
+      kind: "approval",
       context: "The reviewer wants to try it.",
-      options: ["Allow once", "Deny"],
+      questions: [
+        {
+          kind: "choice",
+          question: "Allow this call? Push the branch to a fork.",
+          options: ["Allow once", "Deny"],
+        },
+      ],
     });
   });
 
-  it("refuse a consult with a question but no options, in words the Agent can act on", async () => {
+  it("refuse a consult with a question of one option, in words the Agent can act on", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const { stageThread } = await aStageRun(anAskingStage(aPerson("Ada")));
 
     const result = await callInStage(stageThread.threadId, CONSULT_TOOL, {
       person: "the CTO",
-      question: "Which queue?",
       context: "Two would do.",
-      why: "Either works.",
+      questions: [
+        {
+          question: "Which queue?",
+          options: ["The fast one"],
+          recommended: 1,
+          why: "Either works.",
+        },
+      ],
     });
 
     expect(result).toEqual({
-      text: "Give the user at least two options. Recommend one of the options.",
+      text: "Give the user at least two options.",
       isError: true,
     });
     expect((await threadOf(stageThread.threadId)).openDecisions[0]).toBeUndefined();

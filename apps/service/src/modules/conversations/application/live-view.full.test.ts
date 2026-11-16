@@ -209,10 +209,15 @@ describe("the Live view's read model", () => {
     const waiting = await changed(thread, (latest) =>
       openDecision(latest, {
         id: decisionId,
-        question: "Which Postgres version?",
         context: "The run environment needs one.",
-        options: ["16", "17"],
-        recommendation: { option: 1, reason: "The newest is supported longest." },
+        questions: [
+          {
+            kind: "choice",
+            question: "Which Postgres version?",
+            options: ["16", "17"],
+            recommendation: { option: 1, reason: "The newest is supported longest." },
+          },
+        ],
         askedAt: ASKED,
       }),
     );
@@ -239,10 +244,15 @@ describe("the Live view's read model", () => {
       openDecision(latest, {
         id: randomUUID(),
         taskId: randomUUID(),
-        question: "Which Project first?",
         context: "Both can start.",
-        options: ["Service", "Web"],
-        recommendation: { option: 1, reason: "The web reads the service." },
+        questions: [
+          {
+            kind: "choice",
+            question: "Which Project first?",
+            options: ["Service", "Web"],
+            recommendation: { option: 1, reason: "The web reads the service." },
+          },
+        ],
         askedAt: ASKED,
       }),
     );

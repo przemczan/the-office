@@ -8,6 +8,7 @@ import {
   type HardSwitchValue,
 } from "../../people/index.js";
 import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
+import { isApproval, onlyChoice } from "../domain/decision.js";
 import { heldCallRuling } from "../domain/held-call.js";
 import { mcpToolCallWords } from "../domain/mcp-tool-call.js";
 import type { Thread } from "../domain/thread.js";
@@ -137,9 +138,10 @@ export class HeldCalls implements OnModuleInit {
   private async spentApprovalIn(threadId: string, call: string): Promise<boolean> {
     const question = approvalQuestion(call);
     for (const decision of await this.threads.decisionsIn(threadId)) {
-      const chosen =
-        decision.answer?.kind === "option" ? decision.options[decision.answer.option] : undefined;
-      if (decision.question === question && chosen === APPROVAL_OPTIONS[0]) {
+      const choice = onlyChoice(decision);
+      const given = decision.answer?.kind === "submitted" ? decision.answer.answers[0] : undefined;
+      const chosen = given?.kind === "option" ? choice?.options[given.option] : undefined;
+      if (isApproval(decision) && choice?.question === question && chosen === APPROVAL_OPTIONS[0]) {
         if (await this.threads.spendApproval(decision.id)) return true;
       }
     }

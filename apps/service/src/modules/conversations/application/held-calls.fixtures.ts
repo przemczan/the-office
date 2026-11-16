@@ -1,7 +1,7 @@
 import type { ApprovalCall } from "../../engine/index.js";
 import type { HardSwitchValue, RoleCards } from "../../people/index.js";
-import { approvalQuestion } from "../domain/consult.js";
-import type { Decision, DecisionDraft } from "../domain/decision.js";
+import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
+import { oneOptionAnswer, type Decision, type DecisionDraft } from "../domain/decision.js";
 import { aDecision } from "../domain/decision.fixtures.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { aThread } from "../domain/thread.fixtures.js";
@@ -100,13 +100,19 @@ export function heldCallsWith({
   };
 }
 
-/** An approval of the call, answered with the option at `option`. */
-export function anApproval(option: number): Decision {
+/** An approval of `words` (the held call when left out), answered with the option at `option`. */
+export function anApproval(option: number, words: string = CALL): Decision {
   return aDecision({
     kind: "approval",
-    question: approvalQuestion(CALL),
-    options: ["Allow once", "Deny"],
-    answer: { kind: "option", option, answeredAt: new Date("2026-10-25T09:05:00.000Z") },
+    questions: [
+      {
+        kind: "choice",
+        question: approvalQuestion(words),
+        options: APPROVAL_OPTIONS,
+        recommendation: { option: 0, reason: "It needs doing." },
+      },
+    ],
+    answer: { ...oneOptionAnswer(option), answeredAt: new Date("2026-10-25T09:05:00.000Z") },
   });
 }
 

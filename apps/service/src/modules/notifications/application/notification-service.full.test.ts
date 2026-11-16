@@ -66,10 +66,10 @@ function decisionEvent(
   eventClass: typeof DecisionOpened | typeof DecisionAnswered | typeof DecisionClosed,
   decision: { readonly id: string; readonly taskId: string; readonly roleKey: string | undefined },
 ): DecisionOpened {
-  const [thread, asked] = [{}, { ...decision, question: "Keep the query string?" }] as unknown as [
-    DecisionEventParameters[0],
-    DecisionEventParameters[1],
-  ];
+  const [thread, asked] = [
+    {},
+    { ...decision, questions: [{ kind: "open", question: "Keep the query string?" }] },
+  ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
   return new eventClass(thread, asked, new Date());
 }
 

@@ -7,6 +7,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { RoleCards } from "../../people/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DecisionClosed } from "../domain/conversation-events.js";
+import { oneOptionAnswer } from "../domain/decision.js";
 import { DRAFT } from "../domain/decision.fixtures.js";
 import type { Thread } from "../domain/thread.js";
 import { openDecision } from "../domain/thread-changes.js";
@@ -105,11 +106,7 @@ describe("closing the Decisions of a dropped Task", () => {
     await decisions.closeOnDroppedTask(taskId);
 
     await expect(
-      decisions.answer(
-        decisionOf(waiting),
-        { kind: "option", option: 0 },
-        { kind: "user", user: null },
-      ),
+      decisions.answer(decisionOf(waiting), oneOptionAnswer(0), { kind: "user", user: null }),
     ).rejects.toMatchObject({ reasons: ["This Decision was closed: its Task was dropped."] });
   });
 
@@ -129,7 +126,7 @@ describe("closing the Decisions of a dropped Task", () => {
     const taskId = randomUUID();
     const waiting = await waitingOn(taskId);
     const id = decisionOf(waiting);
-    await decisions.answer(id, { kind: "option", option: 1 }, { kind: "user", user: null });
+    await decisions.answer(id, oneOptionAnswer(1), { kind: "user", user: null });
     const answered = await repository.decision(id);
 
     await decisions.closeOnDroppedTask(taskId);

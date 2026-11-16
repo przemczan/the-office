@@ -8,37 +8,78 @@ export function isApproval({ kind }: Pick<Decision, "kind">): boolean {
 
 /** The option an Agent recommends, by its place among the options, and why. */
 export interface Recommendation {
-  /** Its index in the Decision's options. */
+  /** Its index in the question's options. */
   readonly option: number;
   readonly reason: string;
 }
 
 /**
- * What a Decision asks (spec §2.2, §2.4): a question with options, approval of a call past a Hard
- * switch, or a request, a call asking someone to do something, answered in their own words.
+ * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
+ * Hard switch (one choice, Allow once or Deny), or a request, a call asking someone to do something:
+ * a form of one open question, answered in their own words.
  */
-export type DecisionKind = "question" | "approval" | "request";
+export type DecisionKind = "form" | "approval" | "request";
+
+/** A question answered by picking one of its options, the Agent's recommended one preselected. */
+export interface ChoiceQuestion {
+  readonly kind: "choice";
+  readonly question: string;
+  readonly options: readonly string[];
+  readonly recommendation: Recommendation;
+}
+
+/** A question answered in words; for a request, `why` says why the asker needs it done. */
+export interface OpenQuestion {
+  readonly kind: "open";
+  /** For a request, what the asker asks to be done. */
+  readonly question: string;
+  readonly why?: string | undefined;
+}
+
+/** One question of a Decision's form (spec §2.4). */
+export type DecisionQuestion = ChoiceQuestion | OpenQuestion;
 
 /** What the Agent asks, as it opens a Decision. */
 export interface DecisionDraft {
-  /** A question when left out. */
+  /** A form when left out. */
   readonly kind?: DecisionKind | undefined;
-  /** The question; for a request, what the asker asks to be done. */
-  readonly question: string;
   /** What the user needs to know to decide, as the Agent found it. */
   readonly context: string;
-  /** None for a request, which is answered in words. */
-  readonly options: readonly string[];
-  /** For a request, `reason` says why the asker needs it, and `option` points at nothing. */
-  readonly recommendation: Recommendation;
+  /** In the order asked. */
+  readonly questions: readonly DecisionQuestion[];
   /** The Task's Attachments it is about, of any kind, by their ids. */
   readonly attachmentIds?: readonly string[] | undefined;
 }
 
-/** How the user answers a Decision: one of its options, or a free answer in their own words. */
+/**
+ * The answer to one question: an option of a choice, by its index, or words, which answer an open
+ * question, or a choice with no option picked (its comment alone). Each takes an optional comment.
+ */
+export type QuestionAnswer =
+  | { readonly kind: "option"; readonly option: number; readonly comment?: string | undefined }
+  | { readonly kind: "words"; readonly text: string; readonly comment?: string | undefined };
+
+/**
+ * How a Decision is sent (spec §2.4): Submit, with an answer to every question in order and an
+ * optional general comment, or Ask me again, with the general comment alone.
+ */
 export type DecisionAnswer =
-  | { readonly kind: "option"; readonly option: number }
-  | { readonly kind: "free-answer"; readonly text: string };
+  | {
+      readonly kind: "submitted";
+      readonly answers: readonly QuestionAnswer[];
+      readonly generalComment?: string | undefined;
+    }
+  | { readonly kind: "asked-again"; readonly generalComment?: string | undefined };
+
+/** The answer that picks `option` of a Decision's one choice. */
+export function oneOptionAnswer(option: number): DecisionAnswer {
+  return { kind: "submitted", answers: [{ kind: "option", option }] };
+}
+
+/** The answer in `text` to a Decision's one question. */
+export function oneWordsAnswer(text: string): DecisionAnswer {
+  return { kind: "submitted", answers: [{ kind: "words", text }] };
+}
 
 /**
  * The person who answered a Decision for the user, when the user asked them to in a Thread of the
@@ -110,9 +151,9 @@ export interface PassedOn {
 }
 
 /**
- * A question an Agent puts to the user and waits on (spec §2.4), shown as a card in the Thread it
- * works in on a Task, or a call put to a person from a chat. Follow-ups are ordinary messages in
- * that Thread; the answer goes into the asking session as its next message.
+ * A form an Agent puts to the user and waits on (spec §2.4), shown as a card in the Thread it works
+ * in on a Task, or a call put to a person from a chat. Follow-ups are ordinary messages in that
+ * Thread; the whole answer goes into the asking session as its next message.
  */
 export interface Decision extends DecisionDraft {
   readonly kind: DecisionKind;
@@ -148,6 +189,11 @@ export function isOpen({ answer, closedAt }: Pick<Decision, "answer" | "closedAt
   return answer === undefined && closedAt === undefined;
 }
 
+/** Whether The Office asked it, such as a Stage out of tries: nobody is there to ask again. */
+export function isTheOfficesOwn({ roleKey }: Pick<Decision, "roleKey">): boolean {
+  return roleKey === undefined;
+}
+
 /** A Decision on a Task: every one but a call made from a chat. */
 export type DecisionOnTask = Decision & { readonly taskId: string };
 
@@ -155,24 +201,51 @@ export function isOnTask(decision: Decision): decision is DecisionOnTask {
   return decision.taskId !== undefined;
 }
 
-/** Every problem with what the Agent asks, in words it can act on. */
-export function decisionProblems(draft: DecisionDraft): string[] {
-  return draft.kind === "request" ? requestProblems(draft) : questionProblems(draft);
+/** The form's one choice, when it asks exactly that: an approval, or The Office's own Decisions. */
+export function onlyChoice({
+  questions,
+}: Pick<DecisionDraft, "questions">): ChoiceQuestion | undefined {
+  const [first, ...others] = questions;
+  return others.length === 0 && first?.kind === "choice" ? first : undefined;
 }
 
-function requestProblems({ question, options, recommendation }: DecisionDraft): string[] {
-  const problems: string[] = [];
-  if (question.trim() === "") problems.push("Say what you ask them to do.");
-  if (options.length > 0) {
-    problems.push("A request has no options: they answer in their own words.");
+/** The Decision in one line (spec §2.2): its first question, and how many more it asks. */
+export function decisionSummary({ questions }: Pick<DecisionDraft, "questions">): string {
+  const first = questions[0]?.question ?? "";
+  const more = questions.length - 1;
+  if (more <= 0) return first;
+  return `${first} (and ${more} more question${more === 1 ? "" : "s"})`;
+}
+
+/** Every problem with what the Agent asks, in words it can act on, naming the question. */
+export function decisionProblems(draft: DecisionDraft): string[] {
+  return draft.kind === "request" ? requestProblems(draft) : formProblems(draft);
+}
+
+function requestProblems({ questions }: DecisionDraft): string[] {
+  const [asked, ...others] = questions;
+  if (asked === undefined || others.length > 0) return ["A request asks one thing."];
+  if (asked.kind === "choice") {
+    return ["A request has no options: they answer in their own words."];
   }
-  if (recommendation.reason.trim() === "") problems.push("Say why you need it.");
+  const problems: string[] = [];
+  if (asked.question.trim() === "") problems.push("Say what you ask them to do.");
+  if ((asked.why ?? "").trim() === "") problems.push("Say why you need it.");
   return problems;
 }
 
-function questionProblems({ question, options, recommendation }: DecisionDraft): string[] {
+function formProblems({ questions }: DecisionDraft): string[] {
+  if (questions.length === 0) return ["Ask at least one question."];
+  return questions.flatMap((question, index) =>
+    questionProblems(question).map((problem) => numbered(questions.length, index, problem)),
+  );
+}
+
+function questionProblems(question: DecisionQuestion): string[] {
   const problems: string[] = [];
-  if (question.trim() === "") problems.push("Write the question.");
+  if (question.question.trim() === "") problems.push("Write the question.");
+  if (question.kind === "open") return problems;
+  const { options, recommendation } = question;
   if (options.length < 2) problems.push("Give the user at least two options.");
   if (options.some((option) => option.trim() === "")) problems.push("Name every option.");
   const named = options.map((option) => option.trim().toLowerCase());
@@ -182,6 +255,11 @@ function questionProblems({ question, options, recommendation }: DecisionDraft):
   }
   if (recommendation.reason.trim() === "") problems.push("Say why you recommend it.");
   return problems;
+}
+
+/** A problem with the question at `index`, named when the form asks several. */
+function numbered(count: number, index: number, problem: string): string {
+  return count > 1 ? `Question ${index + 1}: ${problem}` : problem;
 }
 
 /** What's wrong with the Attachments a Decision names, given those its Task has. */
@@ -197,16 +275,82 @@ export function attachmentProblems(
       ];
 }
 
-/** Every problem with the user's answer to an open Decision, in the UI's words. */
-export function answerProblems(decision: Decision, answer: DecisionAnswer): string[] {
+/**
+ * Every problem with the answer to an open Decision, in the UI's words, naming the question. The
+ * Office sending a call made from a chat back to its caller asks again on any Decision, an
+ * approval too, its general comment saying why (spec §2.4).
+ */
+export function answerProblems(
+  decision: Decision,
+  answer: DecisionAnswer,
+  { byTheOffice = false }: Pick<AnswerGivenBy, "byTheOffice"> = {},
+): string[] {
   if (decision.closedAt) return [CLOSED_DECISION_REFUSAL];
-  if (answer.kind === "free-answer") {
+  if (answer.kind === "asked-again") return byTheOffice ? [] : askAgainProblems(decision);
+  if (isApproval(decision)) return approvalAnswerProblems(decision, answer);
+  const { questions } = decision;
+  if (answer.answers.length !== questions.length) {
+    return [
+      questions.length === 1
+        ? "Answer the question first."
+        : `Answer every question: this Decision asks ${questions.length}.`,
+    ];
+  }
+  return questions.flatMap((question, index) =>
+    questionAnswerProblems(decision, question, answer.answers[index]!).map((problem) =>
+      numbered(questions.length, index, problem),
+    ),
+  );
+}
+
+function askAgainProblems(decision: Decision): string[] {
+  if (isApproval(decision)) {
+    return ["An approval has no Ask me again: answer Allow once or Deny."];
+  }
+  if (isTheOfficesOwn(decision)) {
+    return ["The Office's own Decisions have no Ask me again: nobody is there to ask again."];
+  }
+  return [];
+}
+
+function approvalAnswerProblems(
+  decision: Decision,
+  answer: Extract<DecisionAnswer, { kind: "submitted" }>,
+): string[] {
+  const [given, ...others] = answer.answers;
+  const choice = onlyChoice(decision);
+  if (
+    given?.kind !== "option" ||
+    others.length > 0 ||
+    choice?.options[given.option] === undefined
+  ) {
+    return ["Choose Allow once or Deny."];
+  }
+  if (isCommented(given.comment) || isCommented(answer.generalComment)) {
+    return ["An approval takes no comments: choose Allow once or Deny."];
+  }
+  return [];
+}
+
+/** Whether a comment says anything: a form's empty comment box gives none. */
+function isCommented(comment: string | undefined): boolean {
+  return (comment ?? "").trim() !== "";
+}
+
+function questionAnswerProblems(
+  decision: Decision,
+  question: DecisionQuestion,
+  answer: QuestionAnswer,
+): string[] {
+  if (answer.kind === "words") {
     return answer.text.trim() === "" ? ["Write your answer first."] : [];
   }
-  if (decision.kind === "request") {
-    return ["A request has no options: answer in your own words, saying what you did or why not."];
+  if (question.kind === "open") {
+    return decision.kind === "request"
+      ? ["A request has no options: answer in your own words, saying what you did or why not."]
+      : ["It is an open question: answer in your own words."];
   }
-  return Number.isInteger(answer.option) && decision.options[answer.option] !== undefined
+  return Number.isInteger(answer.option) && question.options[answer.option] !== undefined
     ? []
     : ["Choose one of the Decision's options."];
 }
@@ -242,7 +386,130 @@ export function answerForUserProblems(decision: Decision, caller: Thread): strin
   return [];
 }
 
-/** The answer in words: the chosen option's, or the user's own. */
-export function answerWords(decision: Decision, answer: DecisionAnswer): string {
-  return answer.kind === "option" ? (decision.options[answer.option] ?? "") : answer.text.trim();
+/** The answer to one question in words: the option picked, or the words given. */
+export function questionAnswerWords(question: DecisionQuestion, answer: QuestionAnswer): string {
+  if (answer.kind === "words") return answer.text.trim();
+  return question.kind === "choice" ? (question.options[answer.option] ?? "") : "";
+}
+
+/**
+ * The whole answer in words, as the asking session, Consultations, briefs and the Threads' history
+ * give it: each question in order with its answer and comment, then the general comment; asked
+ * again, the general comment alone. An approval's is the option picked.
+ */
+export function formAnswerWords(
+  decision: Pick<Decision, "kind" | "questions">,
+  answer: DecisionAnswer,
+): string {
+  if (answer.kind === "asked-again") {
+    const comment = answer.generalComment?.trim();
+    return comment ? `Asked again: ${comment}` : "Asked again, with no comment.";
+  }
+  const [first] = decision.questions;
+  if (isApproval(decision) && first !== undefined && answer.answers[0] !== undefined) {
+    return questionAnswerWords(first, answer.answers[0]);
+  }
+  const lines = decision.questions.map((question, index) =>
+    questionWithAnswer(index, question, answer.answers[index]),
+  );
+  const general = answer.generalComment?.trim();
+  return [lines.join("\n"), ...(general ? [`General comment: ${general}`] : [])].join("\n\n");
+}
+
+function questionWithAnswer(
+  index: number,
+  question: DecisionQuestion,
+  answer: QuestionAnswer | undefined,
+): string {
+  const lines = [`${index + 1}. ${question.question}`];
+  if (answer !== undefined) {
+    const words = questionAnswerWords(question, answer);
+    lines.push(
+      answer.kind === "option" ? `   Answer: ${words}` : `   Answer, in their own words: ${words}`,
+    );
+    const comment = answer.comment?.trim();
+    if (comment) lines.push(`   Comment: ${comment}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The Decision as one question, as it was stored and given before the form (the previous release
+ * reads it): its first question, a choice's options and recommendation, and an open question's why
+ * as the recommendation's reason.
+ */
+export interface OneQuestionView {
+  readonly question: string;
+  readonly options: readonly string[];
+  readonly recommendation: Recommendation;
+}
+
+export function oneQuestionView({ questions }: Pick<DecisionDraft, "questions">): OneQuestionView {
+  const first = questions[0];
+  if (first === undefined) return { question: "", options: [], recommendation: NO_RECOMMENDATION };
+  return first.kind === "choice"
+    ? { question: first.question, options: first.options, recommendation: first.recommendation }
+    : {
+        question: first.question,
+        options: [],
+        recommendation: { option: 0, reason: first.why ?? "" },
+      };
+}
+
+const NO_RECOMMENDATION: Recommendation = { option: 0, reason: "" };
+
+/** The kind a Decision recorded before the form read as: a question, now a form. */
+export type OneQuestionKind = "question" | "approval" | "request";
+
+/** A Decision recorded before the form, as a form of one question (spec §2.4). */
+export function formFromOne(
+  kind: OneQuestionKind,
+  { question, options, recommendation }: OneQuestionView,
+): { readonly kind: DecisionKind; readonly questions: readonly DecisionQuestion[] } {
+  if (kind === "request") {
+    return { kind, questions: [{ kind: "open", question, why: recommendation.reason }] };
+  }
+  const asked: DecisionQuestion =
+    options.length === 0
+      ? { kind: "open", question }
+      : { kind: "choice", question, options, recommendation };
+  return { kind: kind === "question" ? "form" : kind, questions: [asked] };
+}
+
+/** The kind as recorded before the form, which the previous release reads. */
+export function oneQuestionKind(kind: DecisionKind): OneQuestionKind {
+  return kind === "form" ? "question" : kind;
+}
+
+/** An answer as given before the form: an option, by its index, or words. */
+export type OneQuestionAnswer =
+  | { readonly kind: "option"; readonly option: number }
+  | { readonly kind: "free-answer"; readonly text: string };
+
+/**
+ * The answer as one, for the previous release to read: a one-question form's option or words, and
+ * any other answer in words, asked again as its general comment.
+ */
+export function oneAnswerView(
+  decision: Pick<Decision, "kind" | "questions">,
+  answer: DecisionAnswer,
+): OneQuestionAnswer {
+  if (answer.kind === "asked-again") {
+    return { kind: "free-answer", text: answer.generalComment?.trim() ?? "" };
+  }
+  const [given, ...others] = answer.answers;
+  if (given !== undefined && others.length === 0 && !isCommented(answer.generalComment)) {
+    if (given.kind === "option" && !isCommented(given.comment)) {
+      return { kind: "option", option: given.option };
+    }
+    if (given.kind === "words" && !isCommented(given.comment)) {
+      return { kind: "free-answer", text: given.text };
+    }
+  }
+  return { kind: "free-answer", text: formAnswerWords(decision, answer) };
+}
+
+/** An answer given before the form, as the form's answer to its one question. */
+export function formAnswerFromOne(answer: OneQuestionAnswer): DecisionAnswer {
+  return answer.kind === "option" ? oneOptionAnswer(answer.option) : oneWordsAnswer(answer.text);
 }

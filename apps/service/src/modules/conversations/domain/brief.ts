@@ -1,4 +1,11 @@
-import { answerWords, type Decision } from "./decision.js";
+import {
+  decisionSummary,
+  formAnswerWords,
+  questionAnswerWords,
+  type Decision,
+  type DecisionAnswer,
+  type DecisionQuestion,
+} from "./decision.js";
 import type { Message } from "./message.js";
 import { userWordsOpening } from "./user.js";
 
@@ -259,17 +266,55 @@ function memorySection({ lines, leftOut }: BriefMemory): string | undefined {
 
 function answeredSection(decisions: readonly Decision[]): string | undefined {
   const lines = decisions.flatMap((decision) =>
-    decision.answer
-      ? [`- ${decision.question}\n  Answer: ${answerWords(decision, decision.answer)}`]
-      : [],
+    decision.answer ? [answeredLines(decision, decision.answer)] : [],
   );
   if (lines.length === 0) return undefined;
   return `## Decisions the user answered\n\n${lines.join("\n")}`;
 }
 
-function openSection({ question, options }: Decision): string {
-  const listed = options.map((option) => `- ${option}`).join("\n");
-  return `## Your open Decision\n\nYou asked the user "${question}", with the options:\n\n${listed}\n\nThey haven't answered it yet: their answer comes as a message in this Thread.`;
+/**
+ * An answered Decision's lines: its question with the answer under it when it asked one, each
+ * question numbered with its answer when it asked several.
+ */
+function answeredLines(decision: Decision, answer: DecisionAnswer): string {
+  const [only, ...others] = decision.questions;
+  if (only === undefined || others.length > 0 || answer.kind === "asked-again") {
+    return `- ${decisionSummary(decision)}\n${indented(formAnswerWords(decision, answer))}`;
+  }
+  const lines: string[] = [];
+  const given = answer.answers[0];
+  if (given !== undefined) {
+    const words = questionAnswerWords(only, given);
+    lines.push(
+      given.kind === "option" ? `Answer: ${words}` : `Answer, in their own words: ${words}`,
+    );
+    const comment = given.comment?.trim();
+    if (comment) lines.push(`Comment: ${comment}`);
+  }
+  const general = answer.generalComment?.trim();
+  if (general) lines.push("", `General comment: ${general}`);
+  return `- ${only.question}\n${indented(lines.join("\n"))}`;
+}
+
+/** Every line of `text` under its Decision's line, blank lines kept blank. */
+function indented(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => (line === "" ? line : `  ${line}`))
+    .join("\n");
+}
+
+function openSection({ questions }: Decision): string {
+  const asked = questions.map(openQuestionLines).join("\n\n");
+  return `## Your open Decision\n\nYou asked the user:\n\n${asked}\n\nThey haven't answered it yet: their answer comes as a message in this Thread.`;
+}
+
+/** One question of the open Decision, numbered, with a choice's options. */
+function openQuestionLines(question: DecisionQuestion, index: number): string {
+  const heading = `${index + 1}. ${question.question}`;
+  if (question.kind === "open")
+    return `${heading}\n   An open question, answered in their own words.`;
+  return [heading, ...question.options.map((option) => `   - ${option}`)].join("\n");
 }
 
 const NO_REMOVED_IMAGES: ReadonlySet<string> = new Set();

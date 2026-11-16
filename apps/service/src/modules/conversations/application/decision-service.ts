@@ -6,6 +6,8 @@ import {
   answerForUserProblems,
   answerGivenBy,
   CLOSED_DECISION_REFUSAL,
+  decisionSummary,
+  formAnswerFromOne,
   isApproval,
   isOnTask,
   type Answerer,
@@ -13,6 +15,7 @@ import {
   type DecisionAnswer,
   type DecisionDraft,
   type DecisionOnTask,
+  type OneQuestionAnswer,
 } from "../domain/decision.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
 import { latestWriter } from "../domain/message.js";
@@ -141,6 +144,22 @@ export class DecisionService {
   }
 
   /**
+   * Answers the Decision as `answer` does, with an answer given as one, as before the form: an
+   * option or words, to a Decision of one question. Refused on a form of several questions, which
+   * needs an answer to each.
+   */
+  async answerAsOne(id: string, answer: OneQuestionAnswer, answerer: Answerer): Promise<Thread> {
+    const decision = await this.repository.decision(id);
+    if (!decision) throw new DecisionNotFound(id);
+    if (decision.questions.length > 1) {
+      throw new ThreadRefused([
+        `This Decision asks ${decision.questions.length} questions: answer each.`,
+      ]);
+    }
+    return this.answer(id, formAnswerFromOne(answer), answerer);
+  }
+
+  /**
    * The Task was dropped (spec §2.4): every Decision still open on it, waiting on the user or put
    * to a Consultant, in any of its Threads, is closed, so it leaves Needs you and can no longer be
    * answered. A Consultation's session isn't stopped here: the Task's Drop stops its work.
@@ -178,8 +197,10 @@ export class DecisionService {
   async waitingOnTheUserOn(taskId: string): Promise<
     readonly {
       readonly id: string;
-      readonly question: string;
-      readonly options: readonly string[];
+      readonly questions: readonly {
+        readonly question: string;
+        readonly options: readonly string[];
+      }[];
       readonly approval: boolean;
     }[]
   > {
@@ -188,8 +209,10 @@ export class DecisionService {
       .filter((decision) => decision.taskId === taskId)
       .map((decision) => ({
         id: decision.id,
-        question: decision.question,
-        options: decision.options,
+        questions: decision.questions.map((asked) => ({
+          question: asked.question,
+          options: asked.kind === "choice" ? asked.options : [],
+        })),
         approval: isApproval(decision),
       }));
   }
@@ -206,14 +229,17 @@ export class DecisionService {
     return open.filter((decision) => decision.taskId === taskId).length;
   }
 
-  /** The Decisions on Tasks the Thread waits on, the first asked first, by their Task and question. */
+  /**
+   * The Decisions on Tasks the Thread waits on, the first asked first, by their Task and the
+   * Decision in one line.
+   */
   async openInThread(
     threadId: string,
   ): Promise<readonly { readonly taskId: string; readonly question: string }[]> {
     const thread = await this.repository.find(threadId);
     return (thread?.openDecisions ?? [])
       .filter(isOnTask)
-      .map(({ taskId, question }) => ({ taskId, question }));
+      .map((decision) => ({ taskId: decision.taskId, question: decisionSummary(decision) }));
   }
 
   /** The Thread's Decisions, open and answered, which its log's cards show. */

@@ -14,7 +14,9 @@ import type { EngineId } from "../../../engine/index.js";
 import type {
   AnswerGivenBy,
   DecisionAnswer,
-  DecisionKind,
+  DecisionQuestion,
+  OneQuestionAnswer,
+  OneQuestionKind,
   PassedOn,
   Recommendation,
 } from "../../domain/decision.js";
@@ -31,6 +33,22 @@ import type { UserRef } from "../../domain/user.js";
 
 /** A Consultant's passing a Decision on, as kept. */
 export type SavedPassedOn = Omit<PassedOn, "passedOnAt"> & { readonly passedOnAt: string };
+
+/**
+ * A message as kept: a Decision's answer line keeps the answer as one (`answer`, which the release
+ * before the form reads) beside the form's answer (`formAnswer`, absent on lines kept before it).
+ */
+export type SavedMessage =
+  Exclude<MessageDraft, { readonly kind: "decision-answer" }> | SavedDecisionAnswerLine;
+
+/** A Decision's answer line as kept. */
+export type SavedDecisionAnswerLine = Omit<
+  Extract<MessageDraft, { readonly kind: "decision-answer" }>,
+  "answer"
+> & {
+  readonly answer: OneQuestionAnswer;
+  readonly formAnswer?: DecisionAnswer;
+};
 
 /** The engine session behind a Thread now, as kept. */
 export interface ThreadSessionRow {
@@ -100,7 +118,7 @@ export const threadMessages = pgTable(
       .references(() => threads.id, { onDelete: "cascade" }),
     position: bigserial("position", { mode: "number" }).notNull(),
     /** Its kind and fields; its id, Thread and time have columns. */
-    body: jsonb("body").$type<MessageDraft>().notNull(),
+    body: jsonb("body").$type<SavedMessage>().notNull(),
     at: timestamp("at", { withTimezone: true }).notNull(),
   },
   (table) => [
@@ -125,13 +143,17 @@ export const decisions = pgTable(
       .references(() => threads.id, { onDelete: "cascade" }),
     /** Null for a call made from a chat. */
     taskId: text("task_id"),
-    kind: text("kind").$type<DecisionKind>().notNull(),
+    /** The kind as one question: a form is kept as `question`, which the release before reads. */
+    kind: text("kind").$type<OneQuestionKind>().notNull(),
     /** Null when The Office asked. */
     roleKey: text("role_key"),
+    /** The first question, its options and recommendation: the form as one, for the release before. */
     question: text("question").notNull(),
     context: text("context").notNull(),
     options: jsonb("options").$type<readonly string[]>().notNull(),
     recommendation: jsonb("recommendation").$type<Recommendation>().notNull(),
+    /** The form's questions, in order; null on a Decision kept before the form, read as one. */
+    questions: jsonb("questions").$type<readonly DecisionQuestion[]>(),
     askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
     /** The Task's Attachments it is about; Work keeps them, so no foreign key holds them. */
     attachmentIds: jsonb("attachment_ids").$type<readonly string[]>().notNull().default([]),
@@ -139,7 +161,10 @@ export const decisions = pgTable(
     putTo: text("put_to"),
     /** The Consultants who passed it on, the first one first; `passedOnAt` as an ISO time. */
     passedOn: jsonb("passed_on").$type<readonly SavedPassedOn[]>().notNull().default([]),
-    answer: jsonb("answer").$type<DecisionAnswer & AnswerGivenBy>(),
+    /** The answer as one, for the release before, with who gave it. */
+    answer: jsonb("answer").$type<OneQuestionAnswer & AnswerGivenBy>(),
+    /** The form's answer; null while unanswered, and on a Decision answered before the form. */
+    formAnswer: jsonb("form_answer").$type<DecisionAnswer>(),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
     /** When it was closed unanswered, as its Task was dropped; null otherwise. */
     closedAt: timestamp("closed_at", { withTimezone: true }),

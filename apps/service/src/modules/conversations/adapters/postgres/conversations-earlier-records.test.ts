@@ -6,13 +6,12 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { freshTestDatabase, type FreshTestDatabase } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { EarlierRecords } from "../../../../platform/earlier-records/earlier-records.js";
-import type { MessageDraft } from "../../domain/message.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import { BEN_ITO } from "../../domain/user.fixtures.js";
 import { ConversationsEarlierRecords } from "./conversations-earlier-records.js";
 import { officeInstructionsVersions } from "./office-instructions.schema.js";
 import { PostgresThreadRepository } from "./postgres-thread-repository.js";
-import { decisions, proposals, threadMessages } from "./threads.schema.js";
+import { decisions, proposals, threadMessages, type SavedMessage } from "./threads.schema.js";
 
 // A claim changes every row lacking a user, so it runs on a database no other test file shares.
 let ownDatabase: FreshTestDatabase;
@@ -66,7 +65,8 @@ async function earlierRecords() {
   const thread = aThread({ id: randomUUID(), home: { kind: "chat", roleKey: "planner" } });
   await repository().add(thread);
   const asked = { roleKey: "cto", threadId: randomUUID() };
-  const bodies: MessageDraft[] = [
+  // Kept before the form: the answer lines hold the answer as one, with no `formAnswer`.
+  const bodies: SavedMessage[] = [
     { kind: "user", text: "Hello.", delivery: "delivered", writtenBy: null },
     { kind: "changes-allowed", allowed: true, by: null },
     {
@@ -146,6 +146,11 @@ async function recordsOf({ thread, decisionIds, proposalIds }: EarlierRecordsMad
 
 type EarlierRecordsMade = Awaited<ReturnType<typeof earlierRecords>>;
 
+/** A kept option, as the form's answer to its one question. */
+function picked(option: number) {
+  return { kind: "submitted", answers: [{ kind: "option", option }] };
+}
+
 describe("Conversations' claim on its records from before users existed", () => {
   it("names the first user in what a user did, once, leaving what an Agent did and Ben's own as they are", async () => {
     const made = await earlierRecords();
@@ -168,16 +173,20 @@ describe("Conversations' claim on its records from before users existed", () => 
       }),
     ).toEqual([FIRST_USER, FIRST_USER, FIRST_USER, undefined, "person", BEN_ITO]);
     expect(claimed.decisions).toEqual([
-      { kind: "option", option: 0, user: FIRST_USER, answeredAt: AT },
+      { ...picked(0), user: FIRST_USER, answeredAt: AT },
       {
-        kind: "option",
-        option: 1,
+        ...picked(1),
         atUsersRequest: { roleKey: "cto", threadId: expect.any(String), user: FIRST_USER },
         answeredAt: AT,
       },
-      { kind: "option", option: 0, answeredBy: "cto", answeredAt: AT },
-      { kind: "free-answer", text: "Retry.", byTheOffice: true, answeredAt: AT },
-      { kind: "option", option: 1, user: BEN_ITO, answeredAt: AT },
+      { ...picked(0), answeredBy: "cto", answeredAt: AT },
+      {
+        kind: "submitted",
+        answers: [{ kind: "words", text: "Retry." }],
+        byTheOffice: true,
+        answeredAt: AT,
+      },
+      { ...picked(1), user: BEN_ITO, answeredAt: AT },
     ]);
     expect(claimed.proposals).toEqual([
       { kind: "applied", at: AT, by: FIRST_USER },
