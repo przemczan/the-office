@@ -1,6 +1,7 @@
 import {
   ANSWER_DECISION_TOOL as CONTRACT_ANSWER_DECISION_TOOL,
   CONSULT_TOOL as CONTRACT_CONSULT_TOOL,
+  OPEN_DECISION_TOOL as CONTRACT_OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { oneOptionAnswer, oneWordsAnswer } from "./decision.js";
@@ -9,7 +10,9 @@ import {
   ANSWER_DECISION_TOOL,
   CHANGE_ROLE_TOOL,
   CALLING_RULE,
+  CHAT_DECISION_RULE,
   CONSULT_TOOL,
+  OPEN_DECISION_TOOL,
   CREATE_INITIATIVE_TOOL,
   consultationOfficeTools,
   caretakerChatInstructions,
@@ -196,6 +199,31 @@ describe("answer_decision", () => {
     expect(consultationOfficeTools(PLANNER, true)).not.toContain(ANSWER_DECISION_TOOL);
     expect(PERSON_READING_OFFICE_TOOLS).not.toContain(ANSWER_DECISION_TOOL);
     expect(ANSWER_DECISION_TOOL).toBe(CONTRACT_ANSWER_DECISION_TOOL);
+  });
+});
+
+describe("open_decision in a chat", () => {
+  it("is in every chat, the Caretaker's and the Office Manager's too, and in no Consultation", () => {
+    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(held)).toContain(OPEN_DECISION_TOOL);
+    }
+    expect(caretakerChatOfficeTools(CARETAKER)).toContain(OPEN_DECISION_TOOL);
+    expect(consultationOfficeTools(PLANNER, true)).not.toContain(OPEN_DECISION_TOOL);
+    expect(OPEN_DECISION_TOOL).toBe(CONTRACT_OPEN_DECISION_TOOL);
+  });
+
+  it("comes with the rule to ask everything in one form, right after the calling rule", () => {
+    const card = { name: "Ada", title: "Developer", responsibilities: "", instructions: "" };
+    const person = { card, officeInstructions: "" };
+
+    for (const instructions of [
+      chatInstructions(person, PLANNER),
+      chatInstructions(person, OFFICE_MANAGER),
+      caretakerChatInstructions(person, false),
+    ]) {
+      expect(instructions).toContain(`${CALLING_RULE}\n\n${CHAT_DECISION_RULE}`);
+    }
+    expect(consultationInstructions(person, true)).not.toContain(CHAT_DECISION_RULE);
   });
 });
 

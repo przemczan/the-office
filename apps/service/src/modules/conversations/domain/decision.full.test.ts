@@ -230,11 +230,15 @@ describe("the form as one question, for the previous release", () => {
 });
 
 describe("opening a Decision", () => {
-  it("is refused in a chat, while another waits, and with what is asked wrong", () => {
+  it("is refused in a Consultation, while another waits, and with what is asked wrong", () => {
     const opening = { ...DRAFT, id: "decision-2", askedAt: AT };
+    const consultation = aThread({
+      session: SESSION,
+      consultation: { decisionId: "asked", askerThreadId: "asker", askerRoleKey: "planner" },
+    });
 
-    expect(refusalOf(() => openDecision(aThread({ session: SESSION }), opening))).toEqual([
-      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+    expect(refusalOf(() => openDecision(consultation, opening))).toEqual([
+      "A Consultation opens no Decision of its own: answer in words.",
     ]);
     const waiting = aThread({ home: TASK_HOME, openDecisions: [aDecision()] });
     expect(refusalOf(() => openDecision(waiting, opening))).toEqual([

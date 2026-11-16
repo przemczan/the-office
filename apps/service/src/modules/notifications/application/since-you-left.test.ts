@@ -201,7 +201,7 @@ describe("The phone, with two users", () => {
     await schedule.advanceTo(noon(3));
     await active(aUser("Ben Ito"));
     const [thread, asked] = [
-      {},
+      { home: { kind: "task" } },
       {
         id: randomUUID(),
         taskId: randomUUID(),

@@ -45,7 +45,7 @@ export function withMentionedRecords(said: string, records: readonly MentionedRe
  */
 export function decisionRecordText(decision: Decision, taskRecord: string | undefined): string {
   const { context, taskId } = decision;
-  const where = taskId === undefined ? ", a call made from a chat," : ` on the Task ${taskId},`;
+  const where = taskId === undefined ? ", on no Task," : ` on the Task ${taskId},`;
   const asked =
     decision.kind === "request"
       ? requestLines(decision)

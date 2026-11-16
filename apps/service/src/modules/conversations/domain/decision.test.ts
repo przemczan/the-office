@@ -364,7 +364,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
   });
 });
 
-describe("a call made from a chat", () => {
+describe("a Decision in a person's chat", () => {
   const chat = aThread({ home: { kind: "chat", roleKey: "planner" }, session: SESSION });
   const request = {
     kind: "request" as const,
@@ -376,7 +376,7 @@ describe("a call made from a chat", () => {
     askedAt: AT,
   };
 
-  it("opens a Decision on no Task when it is put to a person, one at a time", () => {
+  it("opens a call on no Task when it is put to a person, one at a time", () => {
     const opened = openDecision(chat, { ...request, putTo: "devops" });
 
     expect(opened.decision).toMatchObject({ kind: "request", taskId: undefined, putTo: "devops" });
@@ -387,10 +387,40 @@ describe("a call made from a chat", () => {
     ]);
   });
 
-  it("is refused when it would wait on the user, as a chat has no Needs you", () => {
-    expect(refusalOf(() => openDecision(chat, request))).toEqual([
-      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+  it("opens a form waiting on the user on no Task, and refuses another, call or not", () => {
+    const opened = openDecision(chat, { ...DRAFT, id: "decision-1", askedAt: AT });
+
+    expect(opened.decision).toMatchObject({ kind: "form", taskId: undefined, putTo: undefined });
+    expect(opened.logged).toEqual([expect.objectContaining({ kind: "decision" })]);
+    const second = `Your Decision "${decisionSummary(DRAFT)}" still waits on its answer. End your turn: it comes as your next message.`;
+    expect(refusalOf(() => openDecision(opened.thread, { ...request, id: "decision-2" }))).toEqual([
+      second,
     ]);
+    expect(
+      refusalOf(() => openDecision(opened.thread, { ...request, id: "decision-2", putTo: "cto" })),
+    ).toEqual([second]);
+  });
+
+  it("is refused naming a Task", () => {
+    expect(refusalOf(() => openDecision(chat, { ...request, taskId: "task-1" }))).toEqual([
+      "A Decision in your chat is on no Task: leave taskId out, and ask about the Task in the form.",
+    ]);
+  });
+
+  it("is refused in a Consultation sitting in a chat unless it is a call", () => {
+    const consultation = aThread({
+      home: { kind: "chat", roleKey: "devops" },
+      session: SESSION,
+      consultation: { decisionId: "asked", askerThreadId: "asker", askerRoleKey: "planner" },
+    });
+
+    expect(refusalOf(() => openDecision(consultation, request))).toEqual([
+      "A Consultation opens no Decision of its own: answer in words.",
+    ]);
+    expect(openDecision(consultation, { ...request, putTo: "cto" }).decision).toMatchObject({
+      taskId: undefined,
+      putTo: "cto",
+    });
   });
 });
 

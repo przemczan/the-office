@@ -303,7 +303,7 @@ function decisionEvent(
   eventClass: typeof DecisionOpened | typeof DecisionClosed,
   decision: { readonly id: string; readonly taskId: string },
 ): DecisionOpened | DecisionClosed {
-  const [thread, asked] = [{}, decision] as unknown as [
+  const [thread, asked] = [{ home: { kind: "task" } }, decision] as unknown as [
     DecisionEventParameters[0],
     DecisionEventParameters[1],
   ];

@@ -52,9 +52,10 @@ export class DecisionService {
 
   /**
    * Opens a Decision in the Thread whose engine session is `sessionId`, on the Thread's Task, or in
-   * an Initiative's planning Thread on `taskId`, one of the Initiative's Tasks. Refused for a
-   * session no Thread has now, in a chat, while the Thread waits on another on the same Task, for a
-   * Task outside the Initiative, and with what is asked wrong, such as an Attachment that isn't the
+   * an Initiative's planning Thread on `taskId`, one of the Initiative's Tasks, or in a person's
+   * chat on no Task, where it waits on the user inline (spec §2.7). Refused for a session no Thread
+   * has now, while the Thread waits on another on the same Task (in a chat, on any), for a Task
+   * outside the Initiative, and with what is asked wrong, such as an Attachment that isn't the
    * Task's.
    */
   async open(
@@ -158,7 +159,7 @@ export class DecisionService {
 
   /**
    * Every Decision waiting on the user, the first asked first: what Waiting on you shows. Each is on
-   * a Task, as a call made from a chat never waits on the user (spec §2.4).
+   * a Task: a chat's Decision waits on the user inline in the chat, never here (spec §2.7).
    */
   async listOpen(): Promise<readonly DecisionOnTask[]> {
     return (await this.repository.openDecisions()).filter(isOnTask);

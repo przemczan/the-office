@@ -79,6 +79,7 @@ import {
   oneOptionAnswer,
   oneWordsAnswer,
   type Decision,
+  type DecisionAnswer,
   type DecisionKind,
 } from "../domain/decision.js";
 import { openDecision } from "../domain/thread-changes.js";
@@ -364,7 +365,9 @@ async function startOn(
   // As the Projects and People modules register theirs, and ProposalOfficeTools the Caretaker's
   // set-up; DecisionOfficeTools registers its own.
   for (const name of [
-    ...CHAT_OFFICE_TOOLS.filter((tool) => tool !== ANSWER_DECISION_TOOL),
+    ...CHAT_OFFICE_TOOLS.filter(
+      (tool) => tool !== ANSWER_DECISION_TOOL && tool !== OPEN_DECISION_TOOL,
+    ),
     PROPOSE_OFFICE_SETUP_TOOL,
   ]) {
     app.get(OfficeToolRegistry).register({
@@ -2479,7 +2482,7 @@ describe("a Decision", () => {
     expect((await threads.read(opened.id)).openDecisions).toEqual([]);
   });
 
-  it("is refused to a session no Thread on a Task has, with the reason the person reads", async () => {
+  it("is refused naming a Task in a chat, and to a session no Thread has, with the reason the person reads", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const chat = await threads.startInChat(roleKey);
     await runner.send(chat.id, "Hello.", ANN_LEE);
@@ -2498,8 +2501,10 @@ describe("a Decision", () => {
       ],
     };
 
-    await expect(tool?.run(input, anOfficeToolCall(chatSession))).resolves.toEqual({
-      text: "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+    await expect(
+      tool?.run({ ...input, taskId: randomUUID() }, anOfficeToolCall(chatSession)),
+    ).resolves.toEqual({
+      text: "A Decision in your chat is on no Task: leave taskId out, and ask about the Task in the form.",
       isError: true,
     });
     await expect(tool?.run(input, anOfficeToolCall(randomUUID()))).resolves.toEqual({
@@ -2564,6 +2569,71 @@ function holdsTheTurn(callId: string): Step[] {
     },
   ];
 }
+
+describe("a Decision in a chat", () => {
+  const OPENED = "the form is open";
+
+  it("waits on the user inline, refused while the person answers, and its answer reaches them in the form's words", async () => {
+    await startWith(
+      started(
+        ...opensForm("c-1", TWO_QUESTIONS),
+        { step: "wait", mark: OPENED },
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "Every Project, the visible columns."),
+      ),
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Plan the export with me.", ANN_LEE);
+    const open = await vi.waitFor(
+      async () => {
+        const [decision] = (await threads.read(thread.id)).openDecisions;
+        if (!decision) throw new Error("No Decision yet.");
+        return decision;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const userAnswer: DecisionAnswer = {
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 1, comment: "Archived ones too." },
+        { kind: "words", text: "The visible ones." },
+      ],
+      generalComment: "Ship it this week.",
+    };
+
+    expect(open).toMatchObject({ kind: "form", taskId: undefined, putTo: undefined });
+    await expect(decisions.answer(open.id, userAnswer, ANSWERED_BY_ANN_LEE)).rejects.toThrow(
+      "Jan is still answering. Answer once they finish.",
+    );
+    engine.sessions[0]?.reach(OPENED);
+    await answered(thread.id, 3);
+    await expect(decisions.listOpen()).resolves.not.toContainEqual(
+      expect.objectContaining({ id: open.id }),
+    );
+
+    await decisions.answer(open.id, userAnswer, ANSWERED_BY_ANN_LEE);
+    const log = await answered(thread.id, 5);
+
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    const text = answer?.step === "send" ? answer.message.text : "";
+    expect(text).toMatch(/^The user Ann Lee answered your Decision:/);
+    for (const part of [
+      `1. ${EXPORT_QUESTION}`,
+      "Every Project",
+      "Archived ones too.",
+      `2. ${COLUMNS_QUESTION}`,
+      "The visible ones.",
+      "Ship it this week.",
+    ]) {
+      expect(text).toContain(part);
+    }
+    expect(drafts(log).slice(-2)).toEqual([
+      { kind: "decision-answer", decisionId: open.id, answer: userAnswer },
+      { kind: "person", roleKey, text: "Every Project, the visible columns." },
+    ]);
+  });
+});
 
 describe("Decisions in an Initiative's planning Thread", () => {
   it("are several, one per Task; an answer given while the Planner works reaches it as the turn ends, one given while it waits at once", async () => {

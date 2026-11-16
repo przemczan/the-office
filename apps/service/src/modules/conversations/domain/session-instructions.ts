@@ -46,6 +46,7 @@ export function chatInstructions(person: SessionPerson, held: HeldDuties): strin
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title. When you and the user already know how it will be done and what must be true when it is, give it a Plan and a Definition of Done too, both or neither, for the user to confirm on the Task page.`,
     ...(held.includes("default-person-to-talk-to") ? [DEFAULT_PERSON_CALLING_RULE] : []),
     CALLING_RULE,
+    CHAT_DECISION_RULE,
     // Devops reached for Grep on the repository it onboarded, refused outside its folders (task
     // 33's run).
     ...(held.includes("onboards-projects") ? [READ_REPOSITORY_RULE] : []),
@@ -64,6 +65,18 @@ export const CONSULT_TOOL = "consult";
  * say the same.
  */
 export const CALLING_RULE = `Call another person of The Office with the ${CONSULT_TOOL} tool only when the user asks you to, such as "ask a colleague to set that up", or your authority says to consult them first. A request asks them to do what you can't; they work with their own tools and permissions, never yours, and answer in their own words. End your turn once you called: their answer comes as your next message, and you tell the user.`;
+
+/**
+ * The Office tool a person opens a Decision with (spec §2.4); the contracts name it too, and a test
+ * keeps the two the same.
+ */
+export const OPEN_DECISION_TOOL = "open_decision";
+
+/**
+ * When a person asks the user a Decision form in their chat (spec §2.4, §2.7): it shows inline
+ * there, and its answer comes as their next message. Follows `CALLING_RULE` in every chat.
+ */
+export const CHAT_DECISION_RULE = `When you need the user's choice, or several answers, before you go on, ask them with the ${OPEN_DECISION_TOOL} tool: everything in one form, which shows inline in this chat, then end your turn. Their answer comes as your next message. A simple question can still go in your reply.`;
 
 /**
  * The Default person to talk to calls someone only when the user asks (spec §2.2): otherwise they
@@ -113,6 +126,7 @@ export function caretakerChatInstructions(person: SessionPerson, changesAllowed:
     ENGINE_TRANSCRIPTS_RULE,
     OFFICE_SETUP_RULE,
     CALLING_RULE,
+    CHAT_DECISION_RULE,
   ].join("\n\n");
 }
 
@@ -224,11 +238,13 @@ export const ANSWER_DECISION_TOOL = "answer_decision";
 
 /**
  * The Office tools a chat session works with (spec §6): it reads every record and a Task's Stage
- * history, answers a Decision for the user when they ask, captures an Idea, creates a Task and
- * drafts a skill as a Proposal (Conversations' `propose_skill`), and changes no file.
+ * history, asks the user a Decision form inline in the chat, answers a Decision for the user when
+ * they ask, captures an Idea, creates a Task and drafts a skill as a Proposal (Conversations'
+ * `propose_skill`), and changes no file.
  */
 export const CHAT_OFFICE_TOOLS = [
   ...PERSON_READING_OFFICE_TOOLS,
+  OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,
   "capture_idea",
   "create_task",

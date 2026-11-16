@@ -82,19 +82,35 @@ export function DecisionCard({
  * you, then what became of it, whole. In an Initiative's planning Thread, where the Planner asks
  * about any of its Tasks, each names the Task it is on. One put to a Consultant links to their
  * Consultation; a call made from a chat has no Needs you, its Consultation in the callee's chat
- * (spec §2.4).
+ * (spec §2.4). One waiting on the user in a person's chat, never under Needs you, is the whole form
+ * inline, answered there; its answer reaches the person as their next message.
  */
 export function DecisionInThread({
   decision,
   personName,
+  answering,
 }: {
   readonly decision: Decision;
   readonly personName: string;
+  /** The Thread's person is answering, so the form inline in a chat waits. */
+  readonly answering: boolean;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
-  const home = useQuery(threadQueries.one(decision.threadId)).data?.home;
+  const thread = useQuery(threadQueries.one(decision.threadId)).data;
+  const home = thread?.home;
   const settled = decision.closedAt !== null || decision.formAnswer !== null;
   const count = decision.questions.length;
+  if (home?.kind === "chat" && !thread?.consultation && decision.putTo === null) {
+    return (
+      <DecisionCard
+        decision={decision}
+        personName={personName}
+        answering={answering}
+        followUps
+        where="inline"
+      />
+    );
+  }
   return (
     <DecisionFrame
       decision={decision}

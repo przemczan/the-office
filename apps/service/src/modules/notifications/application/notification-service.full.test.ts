@@ -19,6 +19,7 @@ import {
   DecisionAnswered,
   DecisionClosed,
   DecisionOpened,
+  DecisionReopened,
   TurnEnded,
 } from "../../conversations/index.js";
 import {
@@ -61,13 +62,18 @@ import {
 
 type DecisionEventParameters = ConstructorParameters<typeof DecisionOpened>;
 
-/** Only what Notifications reads of a Decision: who asks what, on which Task. */
+/** Only what Notifications reads of a Decision: who asks what, on which Task, in what home. */
 function decisionEvent(
-  eventClass: typeof DecisionOpened | typeof DecisionAnswered | typeof DecisionClosed,
-  decision: { readonly id: string; readonly taskId: string; readonly roleKey: string | undefined },
+  eventClass:
+    | typeof DecisionOpened
+    | typeof DecisionReopened
+    | typeof DecisionAnswered
+    | typeof DecisionClosed,
+  decision: { readonly id: string; readonly taskId?: string; readonly roleKey: string | undefined },
+  home: { readonly kind: "task" | "chat" } = { kind: "task" },
 ): DecisionOpened {
   const [thread, asked] = [
-    {},
+    { home },
     { ...decision, questions: [{ kind: "open", question: "Keep the query string?" }] },
   ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
   return new eventClass(thread, asked, new Date());
@@ -203,6 +209,15 @@ describe("NotificationService", () => {
 
     expect(cleared).toEqual([notification?.id]);
     expect((await openNotifications()).map(({ id }) => id)).not.toContain(notification?.id);
+  });
+
+  it("raises nothing for a chat's Decision, which waits on the user inline in the chat", async () => {
+    const decision = { id: randomUUID(), roleKey: "developer" };
+
+    await events.publish(decisionEvent(DecisionOpened, decision, { kind: "chat" }));
+    await events.publish(decisionEvent(DecisionReopened, decision, { kind: "chat" }));
+
+    expect(raised).toEqual([]);
   });
 
   it("clears a Decision's Notification as its Task's Drop closes it", async () => {

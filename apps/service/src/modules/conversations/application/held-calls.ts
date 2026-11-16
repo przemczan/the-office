@@ -44,7 +44,8 @@ type HeldCall = Omit<HeldCallRequest, "switchKey">;
  * same way (spec §6). The setting decides: Allowed runs, Never refuses, Ask me and Consult open an
  * approval for the call, of the Consultant a Consult names, or of the user. Nothing waits in the
  * tool call: the answer comes as the Agent's next message, and its repeat of the call then runs
- * once if the answer was "Allow once". In a chat no Decision opens, so such a call is refused.
+ * once if the answer was "Allow once". In a person's chat the user's approval waits inline there
+ * (spec §2.7); where no Decision opens, as in a Consultation, such a call is refused.
  */
 @Injectable()
 export class HeldCalls implements OnModuleInit {

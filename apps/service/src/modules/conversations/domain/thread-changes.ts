@@ -38,6 +38,7 @@ import { proposedChangeProblems, type Proposal, type ProposedChange } from "./pr
 import { ProposalRefused } from "./proposal-refused.js";
 import {
   addTokens,
+  isPersonsChat,
   NO_TOKENS,
   tokensSoFar,
   type Consultation,
@@ -419,9 +420,10 @@ export interface DecisionOpening extends DecisionDraft {
  * The person opens a Decision (spec §2.4): its card is logged, and the Thread waits on it until the
  * user answers. In a Thread on a Task it is on that Task, and refused while another Decision waits.
  * In an Initiative's planning Thread it names one of the Initiative's Tasks, several may be open,
- * and it is refused while another waits on the same Task. In a chat, which only talks, only a call
- * put to a person opens one, on no Task, as does a call from an Initiative's Thread naming none.
- * Refused with every problem of what is asked, in words the person acts on.
+ * and it is refused while another waits on the same Task. In a person's chat one opens on no Task,
+ * one at a time, waiting on the user inline there or put to a person; a Consultation in a chat and
+ * an Initiative's Thread naming no Task open only a call. Refused with every problem of what is
+ * asked, in words the person acts on.
  */
 export function openDecision(
   thread: Thread,
@@ -473,8 +475,9 @@ export function openDecision(
 }
 
 /**
- * The Task a Decision opened in the Thread is on, refused where none may be opened. In a chat only a
- * call put to a person opens one, on no Task (spec §2.4), and one at a time.
+ * The Task a Decision opened in the Thread is on, refused where none may be opened. A person's chat
+ * opens one on no Task, put to someone or waiting on the user inline there (spec §2.4, §2.7), one at
+ * a time; a Consultation sitting in a chat opens only a call, on no Task.
  */
 function decisionTaskOf(
   thread: Thread,
@@ -484,15 +487,19 @@ function decisionTaskOf(
   const { home, openDecisions } = thread;
   switch (home.kind) {
     case "chat": {
-      if (putTo === undefined || named !== undefined) {
+      if (named !== undefined) {
         throw new ThreadRefused([
-          "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+          "A Decision in your chat is on no Task: leave taskId out, and ask about the Task in the form.",
         ]);
+      }
+      if (!isPersonsChat(thread) && putTo === undefined) {
+        throw new ThreadRefused(["A Consultation opens no Decision of its own: answer in words."]);
       }
       const [waiting] = openDecisions;
       if (waiting) {
+        const what = waiting.putTo === undefined ? "Decision" : "call";
         throw new ThreadRefused([
-          `Your call "${decisionSummary(waiting)}" still waits on its answer. End your turn: it comes as your next message.`,
+          `Your ${what} "${decisionSummary(waiting)}" still waits on its answer. End your turn: it comes as your next message.`,
         ]);
       }
       return undefined;

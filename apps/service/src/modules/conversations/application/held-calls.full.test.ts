@@ -107,15 +107,14 @@ describe("a call of an MCP tool waiting on approval", () => {
     ).resolves.toContain("waits on the user");
   });
 
-  it("is refused in a chat in the Hard switch's words", async () => {
+  it("is refused where no Decision opens, in the refusal's words", async () => {
     const { heldCalls } = heldCallsWith({
       changeRoles: { kind: "never" },
-      openRefusal:
-        "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+      openRefusal: "A Consultation opens no Decision of its own: answer in words.",
     });
 
     await expect(heldCalls.holdMcpToolCall(SESSION, call({}))).resolves.toBe(
-      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+      "A Consultation opens no Decision of its own: answer in words.",
     );
   });
 

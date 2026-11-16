@@ -797,20 +797,29 @@ describe("a call from a chat", () => {
     expect(calleeSession?.options.readsEngineTranscripts).toBe(false);
   });
 
-  it("refuses a call naming nobody who can be called: the caller asks the user in their answer", async () => {
-    await startWith(started(...requests("Janitor"), ...aTurn("brief", "I'll ask the user.")));
+  it("waits on the user inline in the chat when it names nobody who can be called", async () => {
+    await startWith(started(...requests("Janitor"), ...aTurn("brief", "I asked the user.")));
     const caller = await aChatWith(askerKey, "Ask the janitor.");
 
     await settled(caller.id);
 
     expect(toolResultOf(engine.sessions[0], "c-1")).toMatchObject({
-      isError: true,
-      text: "Nobody who can be called fills that Role: ask the user in your answer instead.",
+      isError: false,
+      text: expect.stringContaining("The Office put your consult to the user in place of Janitor"),
     });
-    expect(await decisions.listInThread(caller.id)).toEqual([]);
+    const [waiting] = (await threads.read(caller.id)).openDecisions;
+    expect(waiting).toMatchObject({
+      kind: "request",
+      taskId: undefined,
+      putTo: undefined,
+      answer: undefined,
+    });
+    expect(await decisions.listOpen()).not.toContainEqual(
+      expect.objectContaining({ id: waiting?.id }),
+    );
   });
 
-  it("goes back to the caller as a line when the callee passes it on to the user", async () => {
+  it("waits on the user inline in the chat when the callee passes it on to the user", async () => {
     await startWith(
       started(
         ...usesTool("c-1", CONSULT_TOOL, {
@@ -821,7 +830,6 @@ describe("a call from a chat", () => {
           why: "No other way.",
         }),
         ...aTurn("brief", "I asked."),
-        ...ASKER_TAKES_THE_ANSWER,
       ),
       started(
         ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, {
@@ -832,24 +840,61 @@ describe("a call from a chat", () => {
     );
     const caller = await aChatWith(askerKey, "Ask Devops whether ffmpeg may be installed.");
 
-    const answered = await answeredIn(caller.id);
+    const waiting = await waitingOnTheUserIn(caller.id);
     await settled(caller.id);
 
-    expect(answered.answer).toMatchObject({
-      kind: "asked-again",
-      generalComment:
-        "Riley passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
-      byTheOffice: true,
+    expect(waiting).toMatchObject({
+      kind: "approval",
+      taskId: undefined,
+      answer: undefined,
+      passedOn: [{ roleKey: devopsKey, reason: "It changes the machine." }],
     });
     expect(await decisions.listOpen()).not.toContainEqual(
-      expect.objectContaining({ id: answered.id }),
+      expect.objectContaining({ id: waiting.id }),
     );
-    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
-    expect(answer?.step === "send" && answer.message.text).toContain(
-      "Riley passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
+    expect(engine.sessions[0]?.received.find((step) => step.step === "send")).toBeUndefined();
+  });
+
+  it("waits on the user inline in the chat when the callee's Consultation couldn't answer", async () => {
+    await startWith(
+      started(...requests("Devops")),
+      // The callee's session ends before its answer is finished: a failure.
+      started({
+        step: "event",
+        event: { kind: "text", text: "Let me", withinToolCall: undefined },
+      }),
     );
+    const caller = await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const waiting = await waitingOnTheUserIn(caller.id);
+
+    expect(waiting).toMatchObject({
+      taskId: undefined,
+      answer: undefined,
+      passedOn: [{ roleKey: devopsKey }],
+    });
+    expect(await threads.messages(caller.id)).toContainEqual(
+      expect.objectContaining({
+        kind: "consultation-line",
+        decisionId: waiting.id,
+        text: expect.stringContaining("The Decision waits on the user now."),
+      }),
+    );
+    expect(engine.sessions[0]?.received.find((step) => step.step === "send")).toBeUndefined();
   });
 });
+
+/** The Thread's Decision once it no longer waits on a Consultant but on the user. */
+async function waitingOnTheUserIn(threadId: string) {
+  return vi.waitFor(
+    async () => {
+      const [waiting] = (await threads.read(threadId)).openDecisions;
+      if (!waiting || waiting.putTo !== undefined) throw new Error("Not the user's yet.");
+      return waiting;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
 
 /** The asker's shaping Thread on a new Initiative, where they start on the user's ask at once. */
 function onAnInitiative(): Promise<Thread> {
@@ -909,7 +954,7 @@ describe("a call from an Initiative's Thread", () => {
     expect(consultation).toMatchObject({ home: { kind: "task", taskId }, roleKey: devopsKey });
   });
 
-  it("refuses one naming nobody who can be called and no Task, as a chat's call", async () => {
+  it("refuses one naming nobody who can be called and no Task, having nowhere to ask the user", async () => {
     await startWith(started(...requests("Janitor"), ...aTurn("brief", "I'll ask the user.")));
     const caller = await onAnInitiative();
 
@@ -970,6 +1015,43 @@ describe("a call from a Consultation", () => {
     expect(devopsSession?.options.officeTools.map(({ name }) => name)).toContain(CONSULT_TOOL);
     // The chain has asked two people: the CTO can call nobody else.
     expect(ctoSession?.options.officeTools.map(({ name }) => name)).not.toContain(CONSULT_TOOL);
+  });
+
+  it("gets The Office's answer when its call on no Task is passed on to the user", async () => {
+    await startWith(
+      started(...requests("Devops")),
+      started(
+        ...usesTool("c-2", CONSULT_TOOL, {
+          person: "CTO",
+          kind: "approval",
+          question: "Install ffmpeg on the machine.",
+          context: "Video exports need it.",
+          why: "No other way.",
+        }),
+        ...aTurn("brief", "I asked the CTO."),
+        { step: "send", message: { id: "office-answer", text: "" }, priority: "later" },
+        ...aTurn("office-answer", "I'll tell Dana."),
+      ),
+      started(
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, {
+          passOn: { why: "It changes the machine." },
+        }),
+        ...aTurn("brief", "Passed on."),
+      ),
+    );
+    await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const devopsConsultation = await consultationInChatOf(devopsKey);
+    const answered = await answeredIn(devopsConsultation.id);
+    await settled(devopsConsultation.id);
+
+    expect(answered).toMatchObject({ taskId: undefined, putTo: undefined });
+    expect(answered.answer).toMatchObject({
+      kind: "asked-again",
+      generalComment:
+        "Casey passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
+      byTheOffice: true,
+    });
   });
 
   it("refuses calling someone already in the chain, naming them", async () => {

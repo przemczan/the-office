@@ -919,9 +919,16 @@
 
 /* ---- a Decision: a card in the asking person's Thread (prototypes/app/conversation.js) */
 .message.decision-card {
+  min-width: 0;
   max-width: 100%;
   border: 1px solid var(--warning-border);
   background: var(--warning-subtle);
+  overflow-wrap: anywhere;
+}
+
+/* The whole form inline in a narrow chat drawer: its header wraps rather than scroll sideways. */
+.decision-card > .message-by {
+  flex-wrap: wrap;
 }
 
 /* The card a Decision's link opened the page at. */

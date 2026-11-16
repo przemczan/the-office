@@ -126,13 +126,19 @@ export abstract class ThreadRepository {
    */
   abstract spendApproval(decisionId: string): Promise<boolean>;
 
-  /** Every Decision waiting on the user, the first asked first. */
+  /**
+   * Every Decision on a Task waiting on the user under Needs you, the first asked first: never one
+   * in a chat, which waits inline there (spec §2.7).
+   */
   abstract openDecisions(): Promise<readonly Decision[]>;
 
   /** Every Decision on the Task still open, a Consultant's too, the first asked first. */
   abstract unansweredOn(taskId: string): Promise<readonly Decision[]>;
 
-  /** Every call made outside a Task still open, the first asked first. */
+  /**
+   * Every Decision made outside a Task still open, the first asked first: calls, and a chat's
+   * Decisions waiting on the user.
+   */
   abstract unansweredOnNoTask(): Promise<readonly Decision[]>;
 
   abstract proposal(id: string): Promise<Proposal | undefined>;

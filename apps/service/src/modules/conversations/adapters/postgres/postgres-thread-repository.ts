@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  ne,
   or,
   sql,
   type SQL,
@@ -297,12 +298,20 @@ export class PostgresThreadRepository extends ThreadRepository {
 
   async openDecisions(): Promise<readonly Decision[]> {
     const rows = await this.database
-      .select()
+      .select({ decision: decisions })
       .from(decisions)
-      // A call made from a chat never waits on the user: a chat has no Needs you (spec §2.4).
-      .where(and(unanswered, isNull(decisions.putTo), isNotNull(decisions.taskId)))
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
+      .where(
+        and(
+          unanswered,
+          isNull(decisions.putTo),
+          isNotNull(decisions.taskId),
+          // A chat's Decision waits on the user inline in the chat, never under Needs you (spec §2.7).
+          ne(threads.homeKind, "chat"),
+        ),
+      )
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
-    return rows.map(toDecision);
+    return rows.map(({ decision }) => toDecision(decision));
   }
 
   async unansweredOn(taskId: string): Promise<readonly Decision[]> {

@@ -50,7 +50,7 @@ function decisionEvent(
   decision: { readonly id: string; readonly taskId: string },
 ): DecisionOpened {
   const [thread, asked] = [
-    {},
+    { home: { kind: "task" } },
     {
       ...decision,
       roleKey: "developer",

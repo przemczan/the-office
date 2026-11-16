@@ -15,7 +15,10 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 // The cards read the service and the router; here only their place in the log matters.
-vi.mock("./decision-card.tsx", () => ({ DecisionInThread: (): ReactNode => "A Decision card" }));
+vi.mock("./decision-card.tsx", () => ({
+  DecisionInThread: ({ answering }: { readonly answering: boolean }): ReactNode =>
+    answering ? "A Decision card, waiting" : "A Decision card",
+}));
 vi.mock("./proposal-card.tsx", () => ({ ProposalCard: (): ReactNode => "A Proposal card" }));
 vi.mock("./link-card.tsx", () => ({ LinkCard: (): ReactNode => "A Link card" }));
 vi.mock("./idea-card.tsx", () => ({ IdeaCard: (): ReactNode => "An Idea card" }));
@@ -211,6 +214,12 @@ describe("MessageList's kinds", () => {
       expect(text.indexOf(words)).toBeLessThan(text.indexOf("After"));
     },
   );
+
+  it("tells a Decision card whether the person is answering now", () => {
+    const [card] = EVERY_KIND.decision;
+    expect(shownLog([card]).textContent).not.toContain("waiting");
+    expect(shownLog([card], { answering: true }).textContent).toContain("A Decision card, waiting");
+  });
 
   it("shows a turn's author once, and each of the user's messages its own delivery mark", () => {
     const log = shownLog([written("a", "First", "delivered"), written("b", "Second", "waiting")]);

@@ -16,6 +16,7 @@ import {
   AT,
   setUpEachTest,
 } from "./postgres-thread-repository.fixtures.js";
+import { PostgresThreadRepository } from "./postgres-thread-repository.js";
 import { decisions, threadMessages } from "./threads.schema.js";
 
 setUpEachTest();
@@ -142,6 +143,36 @@ describe("PostgresThreadRepository", () => {
         openDecision({ ...latest, openDecisions: [] }, { ...call, id: randomUUID() }),
       ),
     ).rejects.toThrow(/"decisions"/);
+  });
+
+  it("keeps a chat's Decision waiting on the user out of Needs you, read back after a restart", async () => {
+    const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
+    await repository.add(thread);
+    const form = {
+      context: "Two ways to go.",
+      questions: [
+        {
+          kind: "choice" as const,
+          question: "Which page first?",
+          options: ["Now", "Board"],
+          recommendation: { option: 0, reason: "It is seen most." },
+        },
+        { kind: "open" as const, question: "Anything else?" },
+      ],
+      askedAt: AT,
+    };
+
+    const { thread: waiting } = await repository.update(thread.id, (latest) =>
+      openDecision(latest, { ...form, id: randomUUID() }),
+    );
+    const [opened] = waiting.openDecisions;
+
+    expect(opened).toMatchObject({ kind: "form", taskId: undefined, putTo: undefined });
+    expect(await repository.openDecisions()).not.toContainEqual(opened);
+    const afterRestart = new PostgresThreadRepository(app.get<Database>(DATABASE));
+    await expect(afterRestart.find(thread.id)).resolves.toMatchObject({ openDecisions: [opened] });
+    await expect(afterRestart.decision(opened?.id ?? "")).resolves.toEqual(opened);
+    expect(await afterRestart.unansweredOnNoTask()).toContainEqual(opened);
   });
 
   it("reads the busy Threads: answering, or holding an open Decision", async () => {

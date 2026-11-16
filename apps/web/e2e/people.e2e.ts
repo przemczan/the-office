@@ -57,7 +57,7 @@ import {
   type TemporaryRepository,
 } from "./temporary-repository.ts";
 import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
-import { screenshotScenario } from "./task-screenshots.ts";
+import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 import { createFromTopBar } from "./top-bar.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -3124,7 +3124,115 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
   }
 });
 
-// After the test above: a Task's Done here would collapse with that one's, which it reads as a toast.
+// The engine replays the Office Manager's chat after the Gate's sessions: Marta asks a two-question
+// Decision and waits for its answer, which reaches her session as the user's next message.
+test("a person asks a Decision in their chat, answered there as a form, never in Needs you", async ({
+  page,
+}) => {
+  const DAY = "Which day should the weekly digest go out?";
+  const WHO = "Who else should get the digest?";
+  const openNeedsYouDecisions = async (): Promise<number> => {
+    const open = notificationListSchema.parse(
+      await (await page.request.get("/api/notifications")).json(),
+    );
+    return open.filter(({ kind }) => kind === "needs-you.decision").length;
+  };
+  const needsYouBefore = nowSchema.parse(await (await page.request.get("/api/now")).json()).needsYou
+    .length;
+  const notificationsBefore = await openNeedsYouDecisions();
+
+  await page.goto("/people");
+  await page.getByRole("button", { name: "Open the chat with Marta" }).click();
+  const marta = chatWith(page, "Marta");
+  await startNewThread(marta);
+  const threadId = await chatThreadShown(page);
+  await marta.getByRole("textbox", { name: "Message" }).fill("Set up the weekly digest.");
+  await marta.getByRole("textbox", { name: "Message" }).press("Enter");
+
+  await expect(marta.getByText("I asked how the digest should go out.")).toBeVisible();
+  const form = marta.getByRole("region", { name: `Decision: ${DAY} (and 1 more question)` });
+  await expect(form).toBeVisible();
+  await expect(form.getByRole("radiogroup", { name: DAY })).toBeVisible();
+  await expect(form).toContainText(WHO);
+  const openAnswer = form
+    .getByRole("group", { name: "Question 2" })
+    .getByRole("textbox", { name: /^Your answer/ });
+  await expect(openAnswer).toBeVisible();
+  await expect(form.getByRole("button", { name: "Submit" })).toBeVisible();
+  await expect(form.getByRole("button", { name: "Ask me again" })).toBeVisible();
+  await expect(form).not.toContainText("Needs you");
+
+  // Never in Needs you: not on Now, not counted in the tab, no Notification.
+  await page.goto(`/now?chat=office-manager&thread=${threadId}`);
+  await expect(form).toBeVisible();
+  await expect(page.locator(".shell-main").getByText(DAY)).toHaveCount(0);
+  const now = nowSchema.parse(await (await page.request.get("/api/now")).json());
+  expect(now.needsYou).toHaveLength(needsYouBefore);
+  await expect(page).toHaveTitle(
+    now.needsYou.length === 0 ? "The Office" : `(${now.needsYou.length}) The Office`,
+  );
+  expect(await openNeedsYouDecisions()).toBe(notificationsBefore);
+
+  const screenshots = async (name: string, card: Locator): Promise<void> => {
+    for (const colorScheme of ["light", "dark"] as const) {
+      await showPalette(page, colorScheme);
+      for (const width of [1600, 900, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        // The card's top in view, its first question on screen.
+        await card.evaluate((box) => box.scrollIntoView({ block: "start" }));
+        await motionSettled(page);
+        expect(await windowOverflow(page)).toBe(0);
+        // Neither the drawer nor its Thread scrolls sideways.
+        const sideways = await marta.evaluate((drawer) =>
+          [drawer, ...drawer.querySelectorAll(".message-list")].map(
+            (box) => box.scrollWidth - box.clientWidth,
+          ),
+        );
+        expect(sideways.every((overflow) => overflow <= 0)).toBe(true);
+        await page.screenshot({
+          path: path.join(TASK_SCREENSHOTS, `${name}-${colorScheme}-${width}.png`),
+        });
+      }
+    }
+    await showPalette(page, "light");
+    await page.setViewportSize({ width: 1600, height: 900 });
+  };
+  await screenshots("chat-decision-inline", form);
+
+  await form
+    .getByRole("radiogroup", { name: DAY })
+    .getByRole("radio", { name: /^Friday/ })
+    .check();
+  const firstQuestion = form.getByRole("group", { name: "Question 1" });
+  await firstQuestion.getByRole("button", { name: "Add a comment" }).click();
+  await firstQuestion.getByRole("textbox", { name: /^Comment/ }).fill("Fridays are quieter.");
+  await openAnswer.fill("The team leads.");
+  await form.getByRole("textbox", { name: "General comment" }).fill("Thanks, Marta.");
+  await form.getByRole("button", { name: "Submit" }).click();
+
+  await expect(
+    marta.getByText("The digest goes out on Fridays, to the team leads too."),
+  ).toBeVisible();
+  // The answered form stays in the chat, with each answer, its comment and the general comment.
+  const answered = marta.locator(".decision-card.settled");
+  await expect(answered.locator(".decision-answered")).toHaveText("Answered by you");
+  await expect(answered.locator(".decision-answer").first()).toContainText("Friday");
+  await expect(answered.locator(".decision-answer").first()).toContainText(
+    "Comment: Fridays are quieter.",
+  );
+  await expect(answered.locator(".decision-answer").nth(1)).toContainText("The team leads.");
+  await expect(answered.locator(".decision-general-comment")).toHaveText(
+    "General comment: Thanks, Marta.",
+  );
+  await expect(answered.getByRole("button", { name: "Submit" })).toHaveCount(0);
+  await screenshots("chat-decision-answered", answered);
+
+  await page.reload();
+  await expect(chatWith(page, "Marta").locator(".decision-card.settled")).toBeVisible();
+});
+
+// After the Gate's test above: a Task's Done here would collapse with that one's, which it reads as
+// a toast.
 test(
   "a Gate's card and window continue past it, and the window drops the Task",
   { tag: "@full" },

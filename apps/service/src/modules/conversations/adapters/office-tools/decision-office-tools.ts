@@ -54,7 +54,7 @@ export class DecisionOfficeTools implements OnModuleInit {
     this.registry.register({
       name: OPEN_DECISION_TOOL,
       description:
-        "Opens a Decision in this Thread when something is the user's to decide: ask everything you need in one Decision, as a form of one or more questions, each with its options and the one you recommend, or with none for a question they answer in their own words. The user answers each question, with an optional comment on each and a general comment, then Submits, or asks you again instead; they may ask you a follow-up first. It returns at once; then end your turn without asking the questions again. Their answer comes as your next message. In an Initiative's planning Thread, name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile.",
+        "Opens a Decision in this Thread when something is the user's to decide: ask everything you need in one Decision, as a form of one or more questions, each with its options and the one you recommend, or with none for a question they answer in their own words. The user answers each question, with an optional comment on each and a general comment, then Submits, or asks you again instead; they may ask you a follow-up first. It returns at once; then end your turn without asking the questions again. Their answer comes as your next message. In your chat it shows inline, and the user answers it there. In an Initiative's planning Thread, name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile.",
       input: z.object({
         context: z
           .string()
@@ -85,7 +85,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
-      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask questions, everything you need in one form, each with its options and the one you recommend, or with none for one they answer in words: they answer each, with an optional comment on each and a general comment, or ask you again; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat or from an Initiative's Thread on no Task. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, ask the user in your answer instead. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
+      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask questions, everything you need in one form, each with its options and the one you recommend, or with none for one they answer in words: they answer each, with an optional comment on each and a general comment, or ask you again; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat or from an Initiative's Thread on no Task. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, the user answers it inline in your chat. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
           .string()
@@ -223,6 +223,12 @@ export class DecisionOfficeTools implements OnModuleInit {
     try {
       const { decision, home } = await this.decisions.open(sessionId, draft, { taskId });
       const onTask = decision.taskId;
+      if (home.kind === "chat") {
+        return {
+          text: `The Decision is open inline in this chat, waiting on the user to answer it here. ${END_YOUR_TURN}`,
+          isError: false,
+        };
+      }
       if (home.kind !== "initiative" || onTask === undefined) {
         return {
           text: `The Decision is open in this Thread, waiting on the user. ${END_YOUR_TURN}`,

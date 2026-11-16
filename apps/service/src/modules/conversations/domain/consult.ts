@@ -329,14 +329,15 @@ export function consultationAnswerLine(askerName: string, answerWords: string): 
 }
 
 /**
- * What The Office answers a call made from a chat that fell back to the user, as a chat has no
- * Needs you (spec §2.4): the caller asks the user in their reply.
+ * What The Office answers a call on no Task that fell back to the user from a Consultation in a
+ * chat or an Initiative's Thread, which have nowhere to wait on the user (spec §2.4): the caller
+ * asks the user in their reply. A person's chat asks the user inline instead.
  */
 export function backToTheCallerWords(why: string): string {
   return `${why} So it is the user's now: ask them in your reply.`;
 }
 
-/** Why a call made from a chat is back with its caller: who passed it on to the user, and why. */
+/** Why a call on no Task is back with its caller: who passed it on to the user, and why. */
 export function passedOnToTheUserWords(passerName: string, reason: string): string {
   return `${passerName} passed it on to the user: ${sentence(reason)}`;
 }

@@ -61,8 +61,8 @@ function card(decision: Decision, props: Partial<DecisionCardProps> = {}): () =>
   );
 }
 
-function inThread(decision: Decision): () => ReactNode {
-  return () => <DecisionInThread decision={decision} personName="Angela" />;
+function inThread(decision: Decision, answering = false): () => ReactNode {
+  return () => <DecisionInThread decision={decision} personName="Angela" answering={answering} />;
 }
 
 const SENT = { id: TASK_THREAD } as Thread;
@@ -555,6 +555,113 @@ describe("a closed Decision", () => {
     expect(page.textContent).not.toContain("Waiting on");
     expect(page.textContent).not.toContain("Needs you");
     expect(page.textContent).not.toContain("Open the Consultation");
+  });
+});
+
+describe("a Decision waiting on the user in a chat", () => {
+  const inChat = aDecision({ threadId: CHAT_THREAD, taskId: null, questions: [FORMAT, FILE_NAME] });
+
+  it("is the whole form inline, answered there, with no way to Needs you", async () => {
+    const page = await rendered(inThread(inChat));
+
+    expect(page.querySelectorAll("[role='radiogroup']")).toHaveLength(1);
+    expect(buttonsNamed("Submit")).toHaveLength(1);
+    expect(buttonsNamed("Ask me again")).toHaveLength(1);
+    expect(page.textContent).toContain("A question first? Ask Angela below");
+    expect(page.textContent).not.toContain("Waits on you.");
+    expect(page.textContent).not.toContain("Needs you");
+    expect(page.querySelector("[aria-label='Copy link']")).toBeNull();
+
+    await click(radio("Which format?", "JSON"));
+    type(fieldLabelled("Your answer"), "usage.json");
+    await click(buttonNamed("Submit"));
+    await settle();
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 1 },
+        { kind: "words", text: "usage.json" },
+      ],
+    });
+  });
+
+  it("waits while the person answers, saying why", async () => {
+    const page = await rendered(inThread(inChat, true));
+
+    expect(buttonNamed("Submit").disabled).toBe(true);
+    expect(buttonNamed("Submit").title).toBe("Angela is still answering. Answer once they finish.");
+    expect(buttonNamed("Ask me again").disabled).toBe(true);
+    expect(page.textContent).toContain("Angela is still answering. Answer once they finish.");
+  });
+
+  it("is an approval's one click per option", async () => {
+    await rendered(
+      inThread(
+        aDecision({
+          threadId: CHAT_THREAD,
+          taskId: null,
+          kind: "approval",
+          questions: [
+            {
+              kind: "choice",
+              question: "Install ffmpeg on the machine",
+              options: ["Allow once", "Deny"],
+              recommendation: { option: 0, reason: "The thumbnails need it." },
+            },
+          ],
+        }),
+      ),
+    );
+
+    await click(buttonNamed("Allow once"));
+    await settle();
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 0 }],
+    });
+  });
+
+  it("shows the answered form once sent", async () => {
+    const page = await rendered(
+      inThread({
+        ...inChat,
+        formAnswer: {
+          kind: "submitted",
+          answers: [
+            { kind: "option", option: 0 },
+            { kind: "words", text: "usage.csv" },
+          ],
+        },
+        answeredAt: "2026-11-10T14:30:00.000Z",
+        answeredByUser: BY_YOU,
+      }),
+    );
+
+    expect(page.querySelector(".decision-card")?.classList.contains("settled")).toBe(true);
+    expect(
+      [...page.querySelectorAll(".decision-answer-words")].map(({ textContent }) => textContent),
+    ).toEqual(["CSV (recommended)", "usage.csv"]);
+    expect(outcome(page).textContent).toBe("Answered by you");
+    expect(buttonsNamed("Submit")).toHaveLength(0);
+  });
+
+  it("keeps a call put to a Consultant as the line waiting on them", async () => {
+    const page = await rendered(inThread({ ...inChat, putTo: "reviewer" }));
+
+    expect(page.querySelectorAll("[role='radiogroup']")).toHaveLength(0);
+    expect(page.querySelector(".decision-hint")?.textContent).toContain(
+      "Waiting on Michael in a Consultation.",
+    );
+  });
+
+  it("leaves a Task Thread's Decision the short line leading to Needs you", async () => {
+    const page = await rendered(inThread(aDecision(), true));
+
+    expect(page.querySelectorAll("[role='radiogroup']")).toHaveLength(0);
+    expect(page.querySelector(".decision-hint")?.textContent).toContain("Waits on you.");
+    expect(
+      [...page.querySelectorAll("a")].some((link) => link.textContent === "Answer it in Needs you"),
+    ).toBe(true);
   });
 });
 

@@ -29,7 +29,7 @@ import {
   type Decision,
   type DecisionAnswer,
 } from "../domain/decision.js";
-import type { Thread } from "../domain/thread.js";
+import { isPersonsChat, type Thread } from "../domain/thread.js";
 import {
   logMessages,
   passDecisionOn,
@@ -61,8 +61,8 @@ interface ConsultationAtWork {
  * outside a Task, in their own chat, in a fresh session of their own: their tools and permissions,
  * never the asker's. The Agent still waits on the Decision as it would on the user; on a Task the
  * user may answer it in the Consultant's place, which takes the Consultation over. A consult of
- * someone who isn't a hired Consultant goes to the user, and from a chat back to the caller, as a
- * chat has no Needs you. A Consultant may call someone themselves and pass an approval on, at most
+ * someone who isn't a hired Consultant goes to the user: under Needs you on a Task, inline in a
+ * person's chat, and back to the caller from anywhere else on no Task. A Consultant may call someone themselves and pass an approval on, at most
  * `CALL_STEPS` people down one chain and nobody twice. The fire alarm stops each Consultation
  * answering and opens none while it is on; the Decision still waits on its Consultant, who is asked
  * again once the all clear is given (spec §2.8).
@@ -92,10 +92,11 @@ export class Consultations implements OnModuleInit {
 
   /**
    * Puts the consult to the Consultant it names, or to the user when it names no hired Consultant
-   * or the asker is that person. Refused for someone already in the chain of calls, once it has
-   * asked `CALL_STEPS` people, and from a chat naming nobody who can be called, which has no Needs
-   * you: the caller asks the user in their answer. Returns the Consultant, undefined when the user
-   * is asked.
+   * or the asker is that person: on a Task under Needs you, and from a person's chat inline there
+   * (spec §2.7). Refused for someone already in the chain of calls, once it has asked `CALL_STEPS`
+   * people, and from a Consultation in a chat or an Initiative's Thread on no Task naming nobody
+   * who can be called, which has nowhere to ask the user: the caller asks the user in their answer.
+   * Returns the Consultant, undefined when the user is asked.
    */
   async put(
     sessionId: string,
@@ -112,8 +113,9 @@ export class Consultations implements OnModuleInit {
     if (consultant) {
       const problems = callProblems(await this.chains.ofCaller(asker), consultant);
       if (problems.length > 0) throw new ThreadRefused(problems);
-    } else if (callsOnNoTask(asker, taskId) && consult.person?.trim()) {
-      // Naming nobody, it asks the user directly, which a call on no Task refuses: it has no Needs you.
+    } else if (callsOnNoTask(asker, taskId) && !isPersonsChat(asker) && consult.person?.trim()) {
+      // Naming nobody, it asks the user directly, which a call on no Task outside a person's chat
+      // refuses: it has nowhere to wait on the user.
       throw new ThreadRefused([
         "Nobody who can be called fills that Role: ask the user in your answer instead.",
       ]);
@@ -153,8 +155,9 @@ export class Consultations implements OnModuleInit {
    * to the Consultant they name, who answers it in a Consultation of their own, or to the user
    * once the chain of calls has asked `CALL_STEPS` people or they name nobody who can be consulted.
    * Refused for someone already in the chain. The Office's Decision put to them goes on to the
-   * user (spec §2.3). From a chat, the user's turn goes back to the caller as an answer. Returns
-   * the next Consultant, undefined when the user is asked.
+   * user (spec §2.3), inline in the caller's chat for a call from a person's chat; from a
+   * Consultation in a chat or an Initiative's Thread on no Task, it goes back to the caller as an
+   * answer (`fallsBackToTheCaller`). Returns the next Consultant, undefined when the user is asked.
    */
   async passOn(
     sessionId: string,
@@ -182,7 +185,7 @@ export class Consultations implements OnModuleInit {
     if (event) await this.events.publish(event);
     if (to) {
       await this.openFor(asker);
-    } else if (decision.taskId === undefined) {
+    } else if (fallsBackToTheCaller(asker, decision)) {
       await this.backToTheCaller(
         decision.id,
         passedOnToTheUserWords(await this.nameOf(consultation.roleKey), reason),
@@ -228,7 +231,9 @@ export class Consultations implements OnModuleInit {
    * of a person someone fills, as nobody else could take the answer.
    */
   private async callersOutsideTasks(): Promise<readonly Thread[]> {
-    const calls = await this.repository.unansweredOnNoTask();
+    const calls = (await this.repository.unansweredOnNoTask()).filter(
+      ({ putTo }) => putTo !== undefined,
+    );
     const callers: Thread[] = [];
     for (const { threadId } of calls) {
       const thread = await this.repository.find(threadId);
@@ -274,8 +279,7 @@ export class Consultations implements OnModuleInit {
   /**
    * Opens the Consultation for the Decision the Thread's Agent, or The Office, put to a Consultant,
    * once for each Consultant it is put to; none while the fire alarm is on. A Consultation that
-   * can't start leaves the Decision to the user: on a Task as it waits on them, from a chat as an
-   * answer back to the caller.
+   * can't start leaves the Decision to the user (`putToUser`).
    */
   async openFor(asker: Thread): Promise<void> {
     const decision = putToAConsultant(asker);
@@ -393,9 +397,10 @@ export class Consultations implements OnModuleInit {
   }
 
   /**
-   * The Decision is the user's instead, with why: on a Task it waits on them, which tells them it
-   * needs them, its card saying why and the asker's Thread logging it; from a chat, which has no
-   * Needs you, The Office answers the caller so they ask the user.
+   * The Decision is the user's instead, with why: it waits on them, its card saying why and the
+   * asker's Thread logging it, under Needs you on a Task and inline in a person's chat (spec
+   * §2.7). From a Consultation in a chat or an Initiative's Thread on no Task, which have nowhere
+   * to wait on the user, The Office answers the caller so they ask the user.
    */
   private async putToUser(
     askerThreadId: string,
@@ -404,7 +409,9 @@ export class Consultations implements OnModuleInit {
     reason: string,
   ): Promise<void> {
     const name = await this.nameOf(consultantKey);
-    if (decision.taskId === undefined) {
+    const asker = await this.repository.find(askerThreadId);
+    if (!asker) return;
+    if (fallsBackToTheCaller(asker, decision)) {
       await this.backToTheCaller(decision.id, consultantCouldNotAnswerWords(name, reason));
       return;
     }
@@ -457,6 +464,15 @@ function consultationHome(
         ? { kind: "chat", roleKey: consultantKey }
         : { kind: "task", taskId: decision.taskId };
   }
+}
+
+/**
+ * Whether the user's turn at a Decision asked in `asker` goes back to the caller as The Office's
+ * answer: for a call on no Task from a Consultation in a chat or an Initiative's Thread, which have
+ * nowhere to wait on the user. On a Task it waits under Needs you, in a person's chat inline there.
+ */
+function fallsBackToTheCaller(asker: Thread, decision: Decision): boolean {
+  return decision.taskId === undefined && !isPersonsChat(asker);
 }
 
 /** Whether a call from `asker` naming `taskId` is on no Task: from a chat, or an Initiative's Thread naming none. */

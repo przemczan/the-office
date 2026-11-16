@@ -104,8 +104,9 @@ export interface AnswerGivenBy {
   readonly answeredBy?: string | undefined;
   readonly atUsersRequest?: AtUsersRequest | undefined;
   /**
-   * The Office answered a call made from a chat that fell back to the user, which a chat has no
-   * Needs you for: the answer tells the caller to ask the user in their reply (spec §2.4).
+   * The Office answered a call on no Task that fell back to the user from a Consultation in a chat
+   * or an Initiative's Thread, which have nowhere to wait on the user: the answer tells the caller
+   * to ask the user in their reply (spec §2.4).
    */
   readonly byTheOffice?: boolean | undefined;
 }
@@ -152,14 +153,14 @@ export interface PassedOn {
 
 /**
  * A form an Agent puts to the user and waits on (spec §2.4), shown as a card in the Thread it works
- * in on a Task, or a call put to a person from a chat. Follow-ups are ordinary messages in that
- * Thread; the whole answer goes into the asking session as its next message.
+ * in on a Task, or in a chat, inline there or as a call put to a person. Follow-ups are ordinary
+ * messages in that Thread; the whole answer goes into the asking session as its next message.
  */
 export interface Decision extends DecisionDraft {
   readonly kind: DecisionKind;
   readonly id: string;
   readonly threadId: string;
-  /** Undefined for a call made from a chat, which is on no Task. */
+  /** Undefined for a Decision in a chat, a call or not, which is on no Task. */
   readonly taskId: string | undefined;
   /**
    * Who asked, by the key of the Role they fill; undefined when The Office asked, as when a Stage
@@ -194,7 +195,7 @@ export function isTheOfficesOwn({ roleKey }: Pick<Decision, "roleKey">): boolean
   return roleKey === undefined;
 }
 
-/** A Decision on a Task: every one but a call made from a chat. */
+/** A Decision on a Task: every one but a chat's and a call on no Task. */
 export type DecisionOnTask = Decision & { readonly taskId: string };
 
 export function isOnTask(decision: Decision): decision is DecisionOnTask {

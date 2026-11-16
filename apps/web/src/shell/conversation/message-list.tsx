@@ -149,6 +149,7 @@ export function MessageList({
               group={piece}
               roleKey={roleKey}
               personName={personName}
+              answering={answering}
               stageThread={stageThread}
               handoverNoteReader={handoverNoteReader}
             />
@@ -338,12 +339,14 @@ function GroupItem({
   group,
   roleKey,
   personName,
+  answering,
   stageThread,
   handoverNoteReader,
 }: {
   readonly group: MessageGroup;
   readonly roleKey: string;
   readonly personName: string;
+  readonly answering: boolean;
   readonly stageThread: boolean;
   readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
@@ -364,6 +367,7 @@ function GroupItem({
         <MessageItem
           message={group.message}
           personName={personName}
+          answering={answering}
           handoverNoteReader={handoverNoteReader}
         />
       );
@@ -625,10 +629,13 @@ function ToolCallWords({ call: { tool, summary } }: { readonly call: ToolCall })
 function MessageItem({
   message,
   personName,
+  answering,
   handoverNoteReader,
 }: {
   readonly message: Extract<MessageGroup, { kind: "alone" }>["message"];
   readonly personName: string;
+  /** The person is answering now, which a Decision answered inline in a chat waits for. */
+  readonly answering: boolean;
   readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
   const nameOfUser = useUserName();
@@ -698,7 +705,13 @@ function MessageItem({
         </div>
       );
     case "decision":
-      return <DecisionInThread decision={message.decision} personName={personName} />;
+      return (
+        <DecisionInThread
+          decision={message.decision}
+          personName={personName}
+          answering={answering}
+        />
+      );
     case "decision-answer":
       return <DecisionAnswerItem message={message} />;
     case "proposal":
