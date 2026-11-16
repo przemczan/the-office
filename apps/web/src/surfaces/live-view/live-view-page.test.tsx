@@ -13,7 +13,7 @@ import {
 } from "../../shell/page.fixtures.tsx";
 import { PageHeadingProvider } from "../../shell/page-heading.tsx";
 import { LiveViewPage } from "./live-view-page.tsx";
-import type { OfficePerson, OfficeStage, OfficeStageOptions } from "./live-view-types.ts";
+import type { Light, OfficePerson, OfficeStage, OfficeStageOptions } from "./live-view-types.ts";
 import { officePerson } from "./live-view.fixtures.ts";
 
 // jsdom has no layout, so nothing ever resizes; the popover's placing only needs it to exist.
@@ -24,16 +24,36 @@ globalThis.ResizeObserver = class {
 };
 
 const stages = vi.hoisted(() => ({
-  made: [] as { options: OfficeStageOptions; applied: (readonly OfficePerson[])[] }[],
+  made: [] as {
+    options: OfficeStageOptions;
+    applied: (readonly OfficePerson[])[];
+    lit: { light: Light; now: Date }[];
+  }[],
+}));
+
+// The browser's time zone, stubbed: a zone with no place (`Etc/UTC`) keeps day light all day.
+const zone = vi.hoisted(() => ({ now: "Etc/UTC" as string | null }));
+vi.mock("./light.ts", async (original) => ({
+  ...(await original<typeof import("./light.ts")>()),
+  browserZone: () => zone.now,
 }));
 
 // The PixiJS stage never loads in jsdom: a fake one records what the page asks of it.
 vi.mock("./office-stage.ts", () => ({
   createOfficeStage: (_canvas: HTMLCanvasElement, options: OfficeStageOptions) => {
-    const made = { options, applied: [] as (readonly OfficePerson[])[] };
+    const made = {
+      options,
+      applied: [] as (readonly OfficePerson[])[],
+      lit: [] as { light: Light; now: Date }[],
+    };
     stages.made.push(made);
     const stage: OfficeStage = {
-      apply: (people) => void made.applied.push(people),
+      apply: (people) => {
+        // The page gives the stage its light before anyone is drawn.
+        if (made.lit.length === 0) throw new Error("The stage was given no light.");
+        made.applied.push(people);
+      },
+      setLight: (light, now) => void made.lit.push({ light, now }),
       frame: () => undefined,
       zoomStep: () => undefined,
       fit: () => undefined,
@@ -167,7 +187,21 @@ function nameplateOf(page: HTMLElement, name: string): HTMLElement | null {
   );
 }
 
+/** The time chip at the floor's top left, by its words. */
+function timeChipOf(page: HTMLElement): HTMLElement | null {
+  return page.querySelector<HTMLElement>(".live-time-chip");
+}
+
+/** What the time chip's tooltip says, as its accessible description. */
+function timeChipWords(page: HTMLElement): string | null | undefined {
+  const chip = timeChipOf(page);
+  return document.getElementById(chip?.getAttribute("aria-describedby") ?? "")?.textContent;
+}
+
 afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  zone.now = "Etc/UTC";
   closePage();
   stages.made.length = 0;
   queryClient = undefined;
@@ -286,6 +320,98 @@ describe("The Live view", () => {
     const plate = nameplateOf(page, "Jim");
     expect(plate?.hasAttribute("inert")).toBe(true);
     expect(buttonNamed(page, "Jim")).toBeUndefined();
+  });
+
+  it("says the time of day and where the sun is worked out from in the time chip", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-16T11:00:00.000Z"));
+    zone.now = "Europe/Warsaw";
+
+    const { page } = await openLiveView([JIM_WORKING]);
+
+    expect(timeChipOf(page)?.getAttribute("aria-label")).toBe("Day, 12:00");
+    expect(timeChipWords(page)).toMatch(
+      /^Sunrise 0\d:\d\d, sunset 1\d:\d\d in Europe\/Warsaw, worked out from this browser's time zone\. At night idle people have gone home\.$/,
+    );
+    expect(page.querySelector("canvas")?.getAttribute("aria-label")).toMatch(/\. Day, 12:00\.$/);
+  });
+
+  it("says day light all day for a time zone with no place to work the sun out from", async () => {
+    const { page } = await openLiveView([JIM_WORKING]);
+
+    expect(timeChipWords(page)).toBe(
+      "Day light all day: this browser's time zone (Etc/UTC) has no place to work the sun out from.",
+    );
+  });
+
+  it("says when the sun neither rises nor sets today", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-21T18:00:00.000Z"));
+    zone.now = "America/Resolute";
+
+    const { page } = await openLiveView([JIM_WORKING]);
+
+    expect(timeChipWords(page)).toBe("No sunrise or sunset today in America/Resolute.");
+  });
+
+  it("shows the time chip's words in a popover at a tap on a screen without hover", async () => {
+    const matchMedia = window.matchMedia;
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      ...matchMedia(query),
+      matches: query === "(hover: none)",
+    }));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // Noon on this machine's clock, as a zone with no place keeps the browser's own hours.
+    vi.setSystemTime(new Date(2026, 10, 16, 12, 0));
+
+    const { page } = await openLiveView([JIM_WORKING]);
+    act(() => buttonNamed(page, "Day, 12:00")?.click());
+
+    const popover = document.querySelector("[role='dialog'][aria-label='Day, 12:00']");
+    expect(popover?.textContent).toBe(
+      "Day light all day: this browser's time zone (Etc/UTC) has no place to work the sun out from.",
+    );
+  });
+
+  it("lists an idle person under Gone home at night, with no nameplate on the floor", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-16T21:30:00.000Z"));
+    zone.now = "Europe/Warsaw";
+    const pamIdle = officePerson("office-manager", { idleSince: "2026-11-16T15:00:00.000Z" });
+
+    const { page } = await openLiveView([pamIdle, JIM_WORKING]);
+    viewOf([pamIdle, JIM_WORKING]);
+
+    expect(timeChipOf(page)?.getAttribute("aria-label")).toBe("Night, 22:30");
+    expect(page.querySelector("canvas")?.getAttribute("aria-label")).toBe(
+      "2 people: 1 working, 1 gone home. Night, 22:30.",
+    );
+    expect(nameplateOf(page, "Pam")).toBeNull();
+    expect(nameplateOf(page, "Jim")).not.toBeNull();
+
+    act(() => buttonNamed(page, "List")?.click());
+
+    const goneHome = page.querySelector("[aria-label='Gone home']");
+    expect(goneHome && shownText(goneHome)).toContain("Gone home for the night: idle");
+    expect(goneHome && shownText(goneHome)).toContain("Chat with Pam");
+    expect(
+      buttonNamed(page, "Pam has gone home, so isn't on the floor")?.hasAttribute("disabled"),
+    ).toBe(true);
+  });
+
+  it("gives the stage the light again each minute", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(new Date("2026-11-16T11:00:00.000Z"));
+    zone.now = "Europe/Warsaw";
+
+    await openLiveView([JIM_WORKING]);
+    const lit = lastStage().lit.length;
+    expect(lastStage().lit.at(-1)?.light.minutes).toBe(12 * 60);
+
+    act(() => vi.advanceTimersByTime(60_000));
+
+    expect(lastStage().lit.length).toBe(lit + 1);
+    expect(lastStage().lit.at(-1)?.light.minutes).toBe(12 * 60 + 1);
   });
 
   it("draws the still office when the system asks for reduced motion", async () => {

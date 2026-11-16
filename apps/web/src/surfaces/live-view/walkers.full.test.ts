@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { amenitiesOf, layoutOffice } from "./floor-plan.ts";
-import { lightAt } from "./light.ts";
 import { placementsOf } from "./live-states.ts";
-import { officePerson, rosterOf } from "./live-view.fixtures.ts";
+import { DAY_LIGHT, officePerson, rosterOf } from "./live-view.fixtures.ts";
 import type { Placement } from "./live-view-types.ts";
 import { routeFloorOf } from "./routes.ts";
 import { createWalkers } from "./walkers.ts";
@@ -24,7 +23,7 @@ describe("walkers at scale", () => {
     const layout = layoutOffice(people);
     const amenities = amenitiesOf(layout);
     const walkers = createWalkers(routeFloorOf(layout, amenities));
-    const atDesks = placementsOf(people, layout, amenities, lightAt(NOW), NOW);
+    const atDesks = placementsOf(people, layout, amenities, DAY_LIGHT, NOW);
     walkers.direct(people, atDesks, { animate: true });
     const desks = people.map((person) => atDesks.get(person.roleKey)!);
     /** Everyone sent to someone else's desk, `shift` along: they all cross the floor at once. */

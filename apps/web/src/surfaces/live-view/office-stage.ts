@@ -2,15 +2,15 @@ import { Application, Culler, UPDATE_PRIORITY } from "pixi.js";
 import { forgetPaintedArt } from "./art/pixel-grid.ts";
 import { NAMEPLATE_BELOW_FEET, figureAnchor } from "./figure-hit.ts";
 import { addHire, amenitiesOf, layoutOffice, letGo } from "./floor-plan.ts";
-import { lightAt } from "./light.ts";
 import type {
   Amenities,
   CreateOfficeStage,
   Layout,
+  Light,
   OfficePerson,
   OfficeStage,
 } from "./live-view-types.ts";
-import { lookStatesOf, placementsOf } from "./live-states.ts";
+import { type SeenLight, lookStatesOf, placementsOf, walksAtLightChange } from "./live-states.ts";
 import {
   type ArtRect,
   type OfficeGeometry,
@@ -43,6 +43,8 @@ import { type Walkers, createWalkers } from "./walkers.ts";
 const RING_MS = 3000;
 /** The longest step the animation clock takes in one frame, so a stalled frame doesn't jump. */
 const MAX_FRAME_SECONDS = 0.25;
+/** How long the tint takes to ease from one hour's light to the next. */
+const TINT_FADE_SECONDS = 2;
 
 interface Floor {
   readonly layout: Layout;
@@ -93,6 +95,13 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   const markWalkersChanged = (): void => {
     walkersChanged = true;
   };
+  /** The hour's light, set by the page before the first `apply`; nothing is drawn without it. */
+  let shownLight: Light | null = null;
+  let seen: SeenLight | null = null;
+  /** The people last applied, drawn again when the light changes. */
+  let applied: readonly OfficePerson[] | null = null;
+  /** The tint easing from `from` to `to`, from the animation clock's `start`; null when still. */
+  let fade: { from: number; to: number; start: number } | null = null;
 
   /* ---------- Drawing ---------- */
 
@@ -104,6 +113,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     clock += seconds;
     lastTick = now;
     if (floor) walk(floor, seconds);
+    if (fade) easeTint(fade);
     scene.animate(clock, true);
     cull();
   };
@@ -130,6 +140,21 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       scene.build(on.scene);
       reportView();
     }
+  };
+  /** One step of the tint's fade, channel by channel; allocates nothing. */
+  const easeTint = (on: { from: number; to: number; start: number }): void => {
+    const progress = Math.min(1, (clock - on.start) / TINT_FADE_SECONDS);
+    if (progress >= 1) {
+      scene.setTint(on.to);
+      fade = null;
+      return;
+    }
+    const channel = (shift: number): number => {
+      const from = (on.from >> shift) & 0xff;
+      const to = (on.to >> shift) & 0xff;
+      return Math.round(from + (to - from) * progress) << shift;
+    };
+    scene.setTint(channel(16) | channel(8) | channel(0));
   };
   // Before the app's own render, which the ticker runs at a lower priority.
   app.ticker.add(onTick, undefined, UPDATE_PRIORITY.NORMAL);
@@ -168,12 +193,15 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       zoomPercent: zoomPercent(view),
       canZoomIn: canZoomIn(view),
       canZoomOut: canZoomOut(view),
-      anchors: scene.placed.map((figure) => ({
-        roleKey: figure.roleKey,
-        ...figureAnchor(view, figure.feet),
-        outside: figure.outside,
-        leaving: figure.leaving,
-      })),
+      // Someone gone home is not drawn, so has no nameplate.
+      anchors: scene.placed
+        .filter((figure) => !figure.gone)
+        .map((figure) => ({
+          roleKey: figure.roleKey,
+          ...figureAnchor(view, figure.feet),
+          outside: figure.outside,
+          leaving: figure.leaving,
+        })),
     });
   };
   /** Every change of view: clamped, the world placed again, drawn when still, and told to the page. */
@@ -211,9 +239,13 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
 
   /* ---------- The snapshot ---------- */
 
-  const apply = (people: readonly OfficePerson[], now: Date): void => {
+  const apply = (next: readonly OfficePerson[], now: Date): void => {
     if (destroyed) return;
-    const light = lightAt(now);
+    applied = next;
+    if (shownLight) applyAt(next, shownLight, now);
+  };
+
+  const applyAt = (people: readonly OfficePerson[], light: Light, now: Date): void => {
     const keys = new Set(people.map((person) => person.roleKey));
     const first = floor === null;
     if (!floor) floor = layOut(people);
@@ -236,21 +268,64 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       // The hire's desk blocks its tiles: walks in flight go round it.
       if (hired) floor.walkers.setFloor(routeFloorOf(floor.layout, floor.amenities));
     }
-    const placements = placementsOf(people, floor.layout, floor.amenities, light, now);
-    floor.walkers.direct(people, placements, { animate: !options.reducedMotion && !first });
-    floor.scene = {
-      layout: floor.layout,
-      amenities: floor.amenities,
-      geometry: floor.geometry,
+    place(floor, people, light, now, !options.reducedMotion && !first);
+    if (first || view.framing.kind === "office") setView(fitView(view, floor.bounds));
+    else setView(view);
+  };
+
+  /** Sends everyone where the snapshot and the light put them, and draws the office again. */
+  const place = (
+    on: Floor,
+    people: readonly OfficePerson[],
+    light: Light,
+    now: Date,
+    animate: boolean,
+  ): void => {
+    const placements = placementsOf(people, on.layout, on.amenities, light, now);
+    on.walkers.direct(people, placements, { animate });
+    on.scene = {
+      layout: on.layout,
+      amenities: on.amenities,
+      geometry: on.geometry,
       people: new Map(people.map((person) => [person.roleKey, person])),
       lookStates: lookStatesOf(people, now, light),
-      walkers: floor.walkers,
+      walkers: on.walkers,
       light,
     };
     walkersChanged = false;
-    scene.build(floor.scene);
-    if (first || view.framing.kind === "office") setView(fitView(view, floor.bounds));
-    else setView(view);
+    scene.build(on.scene);
+  };
+
+  /* ---------- The hour's light ---------- */
+
+  const setLight = (next: Light, now: Date): void => {
+    if (destroyed) return;
+    const previous = shownLight;
+    shownLight = next;
+    const walksOut = !options.reducedMotion && walksAtLightChange(seen, next, now);
+    seen = { light: next, at: now };
+    if (!floor) {
+      // `apply` came first and waited for the light.
+      if (applied) applyAt(applied, next, now);
+      return;
+    }
+    if (previous && !lightChanged(previous, next)) return;
+    const from = scene.shownTint();
+    if (from !== null && from !== next.tint && !options.reducedMotion && ticking()) {
+      fade = { from, to: next.tint, start: clock };
+    } else {
+      fade = null;
+      scene.setTint(next.tint);
+    }
+    // Night begins or ends, or the lamps come on: people go home or come back, desks change.
+    if (!previous || previous.phase !== next.phase || previous.lampsOn !== next.lampsOn) {
+      if (applied) place(floor, applied, next, now, walksOut);
+      reportView();
+    } else {
+      if (floor.scene) floor.scene = { ...floor.scene, light: next };
+      scene.showLight(next);
+    }
+    render();
   };
 
   const layOut = (people: readonly OfficePerson[]): Floor => {
@@ -320,6 +395,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
 
   const stage: OfficeStage = {
     apply,
+    setLight,
     frame,
     zoomStep: (direction) => zoomBy(direction),
     fit,
@@ -342,6 +418,19 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   };
   return stage;
 };
+
+/** Whether the floor looks different in `next`; the minutes alone change nothing drawn. */
+function lightChanged(previous: Light, next: Light): boolean {
+  return (
+    previous.phase !== next.phase ||
+    previous.tint !== next.tint ||
+    previous.sky !== next.sky ||
+    previous.lampsOn !== next.lampsOn ||
+    previous.glow !== next.glow ||
+    previous.sunPatch?.color !== next.sunPatch?.color ||
+    previous.sunPatch?.alpha !== next.sunPatch?.alpha
+  );
+}
 
 /** The canvas's CSS box: its parent's, which the canvas fills, so autoDensity's inline size doesn't feed back. */
 function boxOf(canvas: HTMLCanvasElement): { width: number; height: number } {

@@ -10,6 +10,7 @@ import type {
   Light,
   LookState,
   OfficePerson,
+  Phase,
   Placement,
   RecordTitles,
   Seat,
@@ -35,12 +36,37 @@ export function lookStateOf(person: OfficePerson, now: Date, light: Light): Look
   if (person.state !== "idle") return person.state;
   if (isNewHire(person, now)) return "joined";
   if (light.phase === "night") return "home";
-  return isAsleep(person, now) ? "asleep" : "idle";
+  return isAsleep(person, now, light) ? "asleep" : "idle";
 }
 
-function isAsleep(person: OfficePerson, now: Date): boolean {
+/**
+ * Idle 30 minutes, counted from dawn at the latest: those who walk back in at dawn go to the chill
+ * area first (design decision 12). The words still count from `idleSince`.
+ */
+function isAsleep(person: OfficePerson, now: Date, light: Light): boolean {
   if (person.idleSince === null) return false;
-  return now.getTime() - Date.parse(person.idleSince) >= ASLEEP_AFTER_MINUTES * MINUTE;
+  const idleFrom = Math.max(Date.parse(person.idleSince), light.dawnAt ?? -Infinity);
+  return now.getTime() - idleFrom >= ASLEEP_AFTER_MINUTES * MINUTE;
+}
+
+/** The light last given to the floor, and when. */
+export interface SeenLight {
+  readonly light: Light;
+  readonly at: Date;
+}
+
+/** Longer than this between two lights, the tab was hidden or the machine slept. */
+const LIVE_LIGHT_GAP_MINUTES = 2;
+
+/**
+ * Whether people walk out or in for this light: only when night begins or ends in front of the
+ * viewer. After a hidden tab or a sleeping machine they are put in place, so a whole office doesn't
+ * walk at once when the tab shows again.
+ */
+export function walksAtLightChange(previous: SeenLight | null, light: Light, now: Date): boolean {
+  if (previous === null) return false;
+  if (now.getTime() - previous.at.getTime() >= LIVE_LIGHT_GAP_MINUTES * MINUTE) return false;
+  return (previous.light.phase === "night") !== (light.phase === "night");
 }
 
 export function lookStatesOf(
@@ -446,7 +472,7 @@ export function stateWords(
     case "asleep":
       return `Asleep at their desk: idle for ${ASLEEP_AFTER_MINUTES} minutes or more`;
     case "home":
-      return "Gone home for the night";
+      return "Gone home for the night: idle";
     case "idle":
       return "Idle";
   }
@@ -531,7 +557,7 @@ const SUMMARY_COUNTS: readonly { readonly states: readonly LookState[]; readonly
     { states: ["home"], words: "gone home" },
   ];
 
-const PHASE_WORDS: Record<Light["phase"], string> = {
+export const PHASE_WORDS: Readonly<Record<Phase, string>> = {
   day: "Day",
   dusk: "Dusk",
   night: "Night",
@@ -542,16 +568,16 @@ function twoDigits(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-/** The time as HH:MM on a 24-hour clock, the same in every locale. */
-function clockWords(now: Date): string {
-  return `${twoDigits(now.getHours())}:${twoDigits(now.getMinutes())}`;
+/** Minutes after midnight as HH:MM on a 24-hour clock, the same in every locale. */
+export function clockWords(minutes: number): string {
+  const whole = ((Math.floor(minutes) % 1440) + 1440) % 1440;
+  return `${twoDigits(Math.floor(whole / 60))}:${twoDigits(whole % 60)}`;
 }
 
-/** The canvas's label: "8 people: 4 working, 1 consulting, 1 waiting on you. Day, 13:05." */
+/** The canvas's label: "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30." */
 export function summaryWords(
   people: readonly OfficePerson[],
   light: Light,
-  now: Date,
   lookStates: ReadonlyMap<string, LookState>,
 ): string {
   const total = people.length;
@@ -564,5 +590,5 @@ export function summaryWords(
     .map(({ count, words }) => `${count} ${words}`);
   const head = `${total} ${total === 1 ? "person" : "people"}`;
   const body = counts.length ? `${head}: ${counts.join(", ")}` : head;
-  return `${body}. ${PHASE_WORDS[light.phase]}, ${clockWords(now)}.`;
+  return `${body}. ${PHASE_WORDS[light.phase]}, ${clockWords(light.minutes)}.`;
 }

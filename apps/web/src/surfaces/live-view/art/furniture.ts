@@ -207,7 +207,7 @@ export function printerShape(): ArtShape {
   });
 }
 
-/** A desk lamp. Ported for a later Task: nothing draws it yet. */
+/** A desk lamp, on at dusk and night while someone sits at the desk; the stage paints its bulb, untinted. */
 export function lampShape(): ArtShape {
   return isoShape({ minX: -0.3, maxX: 0.3, minY: -0.3, maxY: 0.3, maxZ: 24 }, (pen) => {
     pen.box(-0.08, -0.08, DESK_H, 0.16, 0.16, 1, A.lampBody, A.lampBody, A.lampBody);
@@ -216,7 +216,7 @@ export function lampShape(): ArtShape {
   });
 }
 
-/** A pizza box on a desk. Ported for a later Task: nothing draws it yet. */
+/** A pizza box on the desk of some who work at night. */
 export function pizzaShape(): ArtShape {
   return isoShape({ minX: -0.3, maxX: 0.3, minY: -0.3, maxY: 0.3, maxZ: 14 }, (pen) => {
     pen.box(-0.2, -0.2, DESK_H, 0.4, 0.4, 2, A.pizzaTop, A.pizzaSide, A.pizzaSide);

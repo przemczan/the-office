@@ -78,7 +78,38 @@ function paintWindow(face: WallFace, from: number): void {
   face(from + 0.1, from + 1.3, 26.5, 27.5, A.frame);
 }
 
-/** The back and left walls, the whiteboard, the windows (glass lit by the sky's palette) and the exit sign. */
+/** Sunlight through each window: a patch on the floor in palette index 1, tinted by the hour. */
+export function paintSunPatches(pen: IsoPen, layout: Layout): void {
+  const { back, left } = windowsOf(layout);
+  for (const x of back) {
+    pen.grid.polygon(
+      [
+        pen.point(x + 0.1, 0.05),
+        pen.point(x + 1.3, 0.05),
+        pen.point(x + 1.9, 1.7),
+        pen.point(x + 0.7, 1.7),
+      ],
+      1,
+    );
+  }
+  for (const y of left) {
+    pen.grid.polygon(
+      [
+        pen.point(0.05, y + 0.1),
+        pen.point(0.05, y + 1.3),
+        pen.point(1.6, y + 1.9),
+        pen.point(1.6, y + 0.7),
+      ],
+      1,
+    );
+  }
+}
+
+/**
+ * The back and left walls, the whiteboard, the windows and the exit sign. The glass, its stars and
+ * the exit sign are painted again over this, untinted, by the sky's palette (`SKY_PALETTES`): the
+ * stage paints the same grid with only those indexes.
+ */
 export function paintWalls(pen: IsoPen, layout: Layout): void {
   const { width: W, depth: D } = layout;
   const T = 0.25;
@@ -108,11 +139,11 @@ export function paintWalls(pen: IsoPen, layout: Layout): void {
   pen.line([1.7, 0, 23], [2.8, 0, 23], A.ink);
   pen.line([2.95, 0, 20], [3.35, 0, 27], A.inkRed);
   pen.line([2.95, 0, 27], [3.35, 0, 20], A.inkRed);
-  // Windows: a frame, the glass in two bands, the bars and the sill; the glass is lit by the sky.
+  // Windows: a frame, the glass in two bands, the bars and the sill; the sky paints the glass.
   const { back, left } = windowsOf(layout);
   for (const x of back) paintWindow((a, b, z0, z1, index) => pen.faceY(0, a, b, z0, z1, index), x);
   for (const y of left) paintWindow((a, b, z0, z1, index) => pen.faceX(0, a, b, z0, z1, index), y);
-  // A few stars, which only show in the night sky's palette.
+  // A few stars, which show only in the night sky's palette (`glassStar` is the glass's own by day).
   back.forEach((x, i) => {
     pen.faceY(0, x + 0.25 + (i % 2) * 0.2, x + 0.3 + (i % 2) * 0.2, 33, 34, A.glassStar);
     pen.faceY(0, x + 0.95, x + 1.0, 30 + (i % 3), 31 + (i % 3), A.glassStar);

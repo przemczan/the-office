@@ -1,4 +1,4 @@
-import type { DeskGroup } from "../live-view-types.ts";
+import type { DeskGroup, Sky } from "../live-view-types.ts";
 import { type ArtShape, type PaintedArt, type Palette, paintedArt } from "./pixel-grid.ts";
 
 /* ---------- The art's palette: sprite data, so numbers, not CSS tokens ---------- */
@@ -131,6 +131,17 @@ export function artPalette(
   }
   return palette;
 }
+
+/** The windows' glass for each sky; night's stars are `glassStar`, the other skies hide them. */
+export const SKY_PALETTES: Readonly<
+  Record<Sky, Readonly<Record<"glass" | "glassHigh" | "glassStar", number>>>
+> = {
+  day: { glass: 0xbfe2fb, glassHigh: 0xe2f2fe, glassStar: 0xe2f2fe },
+  golden: { glass: 0xffd8a8, glassHigh: 0xffeccf, glassStar: 0xffeccf },
+  dusk: { glass: 0xf08f6c, glassHigh: 0x8c74b8, glassStar: 0x8c74b8 },
+  dawn: { glass: 0xf4b2b8, glassHigh: 0x9aa3d6, glassStar: 0x9aa3d6 },
+  night: { glass: 0x1d2748, glassHigh: 0x141c36, glassStar: 0xe9edff },
+};
 
 /** A shape painted with the art's own palette (palette key "art"). */
 export const paintedOfficeArt = (shapeKey: string, buildShape: () => ArtShape): PaintedArt =>

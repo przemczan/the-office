@@ -1,0 +1,10 @@
+{
+  "name": "@the-office/live-view-zones",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "zones": "node src/main.ts",
+    "typecheck": "tsc -p .",
+    "test": "node --test \"src/**/*.test.ts\""
+  }
+}

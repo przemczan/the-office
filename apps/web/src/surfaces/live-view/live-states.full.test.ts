@@ -1,7 +1,7 @@
 import type { LiveAgent, LiveConsulting, LiveWaitingOnYou } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { amenitiesOf, consultSpot, deskOf, deskSpot, layoutOffice } from "./floor-plan.ts";
-import { lightAt } from "./light.ts";
+import { DOOR_OUTSIDE } from "./floor-plan.ts";
 import {
   LIST_GROUPS,
   lookStateOf,
@@ -10,14 +10,15 @@ import {
   placementsOf,
   stateWords,
   summaryWords,
+  walksAtLightChange,
   workLinksOf,
 } from "./live-states.ts";
-import { officePerson, rosterOf } from "./live-view.fixtures.ts";
+import { DAY_LIGHT, NIGHT_LIGHT, officePerson, rosterOf } from "./live-view.fixtures.ts";
 import type { Light, OfficePerson, RecordTitles } from "./live-view-types.ts";
 
 const NOW = new Date(2026, 10, 15, 13, 5);
-const DAY = lightAt(NOW);
-const NIGHT: Light = { phase: "night", tint: 0x404080, lampsOn: true };
+const DAY = DAY_LIGHT;
+const NIGHT = NIGHT_LIGHT;
 
 const THREAD = "00000000-0000-4000-8000-000000000001";
 const OTHER_THREAD = "00000000-0000-4000-8000-000000000002";
@@ -119,7 +120,62 @@ describe("look states", () => {
 
   it("sends someone idle home only at night", () => {
     expect(lookStateOf(idleFor("developer", 5), NOW, NIGHT)).toBe("home");
+    expect(lookStateOf(idleFor("developer", 45), NOW, NIGHT)).toBe("home");
+    for (const phase of ["day", "dusk", "dawn"] as const) {
+      expect(lookStateOf(idleFor("developer", 5), NOW, { ...DAY, phase })).toBe("idle");
+    }
+  });
+
+  it("keeps the working, the consulting and those waiting on you at night", () => {
     expect(lookStateOf(working("developer"), NOW, NIGHT)).toBe("working");
+    expect(lookStateOf(consulting("developer", "cto"), NOW, NIGHT)).toBe("consulting");
+    const waitingPerson = officePerson("developer", {
+      state: "waiting-on-you",
+      waitingOnYou: [waiting({ kind: "task", taskId: "task-1" })],
+    });
+    expect(lookStateOf(waitingPerson, NOW, NIGHT)).toBe("waiting-on-you");
+  });
+
+  it("shows a hire as just joined even at night", () => {
+    const hire = officePerson("developer", { hiredAt: minutesAgo(10), idleSince: minutesAgo(10) });
+    expect(lookStateOf(hire, NOW, NIGHT)).toBe("joined");
+  });
+
+  it("counts the thirty minutes to asleep from dawn for those idle all night", () => {
+    const afterDawn = (minutes: number): Light => ({
+      ...DAY,
+      phase: "dawn",
+      dawnAt: NOW.getTime() - minutes * 60_000,
+    });
+    const idleAllNight = idleFor("developer", 600);
+    expect(lookStateOf(idleAllNight, NOW, afterDawn(29))).toBe("idle");
+    expect(lookStateOf(idleAllNight, NOW, afterDawn(30))).toBe("asleep");
+    // Someone who went idle after dawn counts from then, as by day.
+    expect(lookStateOf(idleFor("developer", 31), NOW, afterDawn(120))).toBe("asleep");
+  });
+});
+
+/** A light the floor was given that many minutes ago. */
+function seen(light: Light, minutesBefore: number) {
+  return { light, at: new Date(NOW.getTime() - minutesBefore * 60_000) };
+}
+
+describe("walks at a change of light", () => {
+  it("walks when night begins or ends in front of the viewer", () => {
+    expect(walksAtLightChange(seen({ ...DAY, phase: "dusk" }, 1), NIGHT, NOW)).toBe(true);
+    expect(walksAtLightChange(seen(NIGHT, 1), { ...DAY, phase: "dawn" }, NOW)).toBe(true);
+  });
+
+  it("doesn't walk when the phase changes elsewhere in the day", () => {
+    expect(walksAtLightChange(seen({ ...DAY, phase: "dawn" }, 1), DAY, NOW)).toBe(false);
+    expect(walksAtLightChange(seen(DAY, 1), { ...DAY, phase: "dusk" }, NOW)).toBe(false);
+    expect(walksAtLightChange(seen(NIGHT, 1), NIGHT, NOW)).toBe(false);
+  });
+
+  it("puts people in place after a hidden tab or a sleeping machine, or on the first light", () => {
+    expect(walksAtLightChange(seen({ ...DAY, phase: "dusk" }, 2), NIGHT, NOW)).toBe(false);
+    expect(walksAtLightChange(seen(DAY, 600), NIGHT, NOW)).toBe(false);
+    expect(walksAtLightChange(null, NIGHT, NOW)).toBe(false);
   });
 });
 
@@ -224,9 +280,18 @@ describe("placements", () => {
     });
   });
 
-  it("takes someone gone home off the floor", () => {
-    const { placements } = placed(eightWith(idleFor("developer", 5)), NIGHT);
-    expect(placements.get("developer")?.kind).toBe("gone");
+  it("takes someone gone home off the floor, out of the door, keeping their desk", () => {
+    const { layout, placements } = placed(eightWith(idleFor("developer", 5)), NIGHT);
+    expect(placements.get("developer")).toMatchObject({ kind: "gone", spot: DOOR_OUTSIDE });
+    expect(deskOf(layout, "developer")).toBeDefined();
+  });
+
+  it("brings someone at home back to their desk once they start work at night", () => {
+    const { layout, placements } = placed(eightWith(working("developer")), NIGHT);
+    expect(placements.get("developer")).toMatchObject({
+      kind: "desk",
+      spot: deskSpot(deskOf(layout, "developer")!),
+    });
   });
 });
 
@@ -357,12 +422,32 @@ describe("words and links", () => {
       idleFor("office-manager", 5),
       idleFor("cto", 45),
     );
-    expect(summaryWords(people, DAY, NOW, lookStatesOf(people, NOW, DAY))).toBe(
+    expect(summaryWords(people, DAY, lookStatesOf(people, NOW, DAY))).toBe(
       "8 people: 4 working, 1 consulting, 1 waiting on you, 1 idle, 1 asleep. Day, 13:05.",
     );
     const one = [working("developer")];
-    expect(summaryWords(one, DAY, NOW, lookStatesOf(one, NOW, DAY))).toBe(
+    expect(summaryWords(one, DAY, lookStatesOf(one, NOW, DAY))).toBe(
       "1 person: 1 working. Day, 13:05.",
+    );
+  });
+
+  it("counts those gone home and says it is night", () => {
+    const people = eightWith(
+      working("developer"),
+      working("reviewer"),
+      officePerson("caretaker", {
+        state: "waiting-on-you",
+        waitingOnYou: [waiting({ kind: "chat", roleKey: "caretaker" })],
+      }),
+    );
+    expect(summaryWords(people, NIGHT, lookStatesOf(people, NOW, NIGHT))).toBe(
+      "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30.",
+    );
+  });
+
+  it("says someone at home has gone home for the night", () => {
+    expect(stateWords(idleFor("developer", 5), "home", TITLES, NAMES)).toBe(
+      "Gone home for the night: idle",
     );
   });
 

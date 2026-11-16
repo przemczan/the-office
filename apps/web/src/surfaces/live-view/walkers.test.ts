@@ -9,17 +9,22 @@ import {
   layoutOffice,
   letGo,
 } from "./floor-plan.ts";
-import { lightAt } from "./light.ts";
 import { placementsOf } from "./live-states.ts";
-import { floorPeopleOf, officePerson, rosterOf } from "./live-view.fixtures.ts";
-import type { FloorPoint, Light, OfficePerson, Placement } from "./live-view-types.ts";
+import {
+  DAY_LIGHT,
+  NIGHT_LIGHT,
+  floorPeopleOf,
+  officePerson,
+  rosterOf,
+} from "./live-view.fixtures.ts";
+import type { FloorPoint, OfficePerson, Placement } from "./live-view-types.ts";
 import { blockedCrossings } from "./routes.fixtures.ts";
 import { routeBetween, routeFloorOf, routeLength } from "./routes.ts";
 import { OUTSIDE, WALK_SPEED, type Walker, createWalkers } from "./walkers.ts";
 
 const NOW = new Date(2026, 10, 15, 13, 5);
-const DAY = lightAt(NOW);
-const NIGHT: Light = { phase: "night", tint: 0x404080, lampsOn: true };
+const DAY = DAY_LIGHT;
+const NIGHT = NIGHT_LIGHT;
 const FRAME = 1 / 60;
 
 function minutesAgo(minutes: number): string {

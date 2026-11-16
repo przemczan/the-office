@@ -8,6 +8,8 @@ export interface FigureHitBox {
   /** Draw order: a higher depth is drawn in front. */
   readonly depth: number;
   readonly seated: boolean;
+  /** Gone out of the door (home for the night): not drawn, so never pressed. */
+  readonly gone?: boolean;
 }
 
 /** Where a figure's head and feet are on the canvas, in CSS pixels, to anchor its tooltip or popover. */
@@ -33,6 +35,7 @@ export function figureAt(
   const art = toArtPoint(view, point);
   const frontFirst = figures.toSorted((a, b) => b.depth - a.depth);
   for (const figure of frontFirst) {
+    if (figure.gone) continue;
     const height = figure.seated ? SEATED_HEIGHT : STANDING_HEIGHT;
     const { x, y } = figure.feet;
     if (

@@ -16,12 +16,54 @@ export interface OfficePerson extends LivePerson {
 export type LookState =
   "working" | "consulting" | "waiting-on-you" | "idle" | "asleep" | "joined" | "home";
 
-/** The hour's light: its phase, the tint it multiplies the art by and whether desk lamps are on. */
+/** The part of the day: night before civil dawn and after civil dusk (design decision 11). */
+export type Phase = "day" | "dusk" | "night" | "dawn";
+
+/** The sky in the windows, by the sun's height: a key of `SKY_PALETTES`. */
+export type Sky = "day" | "golden" | "dawn" | "dusk" | "night";
+
+/** A place on Earth, in degrees: north and east are positive. */
+export interface Place {
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
+/** Today in a time zone, with the sun's times in minutes after local midnight. */
+export interface SunDay extends Place {
+  readonly timeZone: string;
+  readonly date: { readonly year: number; readonly month: number; readonly day: number };
+  /** How far the zone is ahead of UTC today, in minutes. */
+  readonly offset: number;
+  readonly noon: number;
+  /** Set when the sun never sets ("day") or never rises ("night") today; the times are then null. */
+  readonly polar: "day" | "night" | null;
+  readonly sunrise: number | null;
+  readonly sunset: number | null;
+  /** When the sun is 6° below the horizon; sunrise and sunset in a white night. */
+  readonly civilDawn: number | null;
+  readonly civilDusk: number | null;
+}
+
+/** The hour's light, from the sun's height at the browser's time zone. */
 export interface Light {
-  readonly phase: "day" | "dusk" | "night" | "dawn";
+  readonly phase: Phase;
   /** `0xRRGGBB`, as a sprite's `tint`. */
   readonly tint: number;
+  /** Dark enough for desk lamps, at dusk too. */
   readonly lampsOn: boolean;
+  /** How strongly screens, lamps and signs glow, 0 to 1. */
+  readonly glow: number;
+  readonly sky: Sky;
+  /** Sunlight on the floor under the windows while the sun is above 2°. */
+  readonly sunPatch: { readonly color: number; readonly alpha: number } | null;
+  /** The sun's height, in degrees. */
+  readonly elevation: number;
+  /** Minutes after local midnight. */
+  readonly minutes: number;
+  /** Epoch ms of today's civil dawn; null in a polar day or night and without a place. */
+  readonly dawnAt: number | null;
+  /** Today's sun, or null when the browser's time zone has no place (noon's light all day). */
+  readonly sun: SunDay | null;
 }
 
 /** Who a desk's group is, from the Role card (design decision 5). */
@@ -229,6 +271,12 @@ export interface OfficeStage {
    * everyone else walks where their state puts them; under the still office every move is a jump.
    */
   apply(people: readonly OfficePerson[], now: Date): void;
+  /**
+   * The hour's light; given before the first `apply`, then each minute. With motion the tint fades
+   * over 2 s, and people walk out or in only when night begins or ends in front of the viewer
+   * (`walksAtLightChange`); otherwise they are put in place at once.
+   */
+  setLight(light: Light, now: Date): void;
   /** Frames a figure and rings it for a moment (Show on the floor). */
   frame(roleKey: string): void;
   zoomStep(direction: 1 | -1): void;

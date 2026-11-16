@@ -32,6 +32,12 @@ describe("the figure under the pointer", () => {
     expect(figureAt({ x: 10, y: 10 }, view, [back, front])).toBeNull();
   });
 
+  it("is never someone gone home, but whoever is behind them", () => {
+    const gone: FigureHitBox = { ...front, gone: true };
+    expect(figureAt({ x: 204, y: 190 }, view, [back, gone])).toBe("developer");
+    expect(figureAt({ x: 208, y: 210 }, view, [gone])).toBeNull();
+  });
+
   it("is found in a shorter box when seated", () => {
     const standing: FigureHitBox = { ...back, seated: false };
     const seated: FigureHitBox = { ...back, seated: true };

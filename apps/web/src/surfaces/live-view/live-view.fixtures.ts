@@ -1,5 +1,33 @@
 import type { TaskLimit } from "@the-office/contracts";
-import type { OfficePerson } from "./live-view-types.ts";
+import type { Light, OfficePerson } from "./live-view-types.ts";
+
+/** Midday light at 13:05, with no sun worked out: what tests of anything but the hours use. */
+export const DAY_LIGHT: Light = {
+  phase: "day",
+  tint: 0xffffff,
+  lampsOn: false,
+  glow: 0,
+  sky: "day",
+  sunPatch: { color: 0xfff1cf, alpha: 0.3 },
+  elevation: 60,
+  minutes: 13 * 60 + 5,
+  dawnAt: null,
+  sun: null,
+};
+
+/** Night at 22:30: dark, lamps on, everything glowing. */
+export const NIGHT_LIGHT: Light = {
+  phase: "night",
+  tint: 0x5060a0,
+  lampsOn: true,
+  glow: 1,
+  sky: "night",
+  sunPatch: null,
+  elevation: -30,
+  minutes: 22 * 60 + 30,
+  dawnAt: null,
+  sun: null,
+};
 
 interface RosterRole {
   readonly roleKey: string;

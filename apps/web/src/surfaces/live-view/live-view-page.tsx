@@ -17,13 +17,14 @@ import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { useNarrowPage } from "../../shell/use-narrow-page.ts";
-import { lightAt } from "./light.ts";
+import { browserZone, lightAt } from "./light.ts";
 import { lookStatesOf, summaryWords } from "./live-states.ts";
 import type { OfficePerson, OfficeStage, StageView } from "./live-view-types.ts";
 import { Nameplates, placeNameplate } from "./nameplate.tsx";
 import { officePeopleOf, personNamesOf, recordTitlesOf, shownPeopleOf } from "./office-people.ts";
 import { PeopleList } from "./people-list.tsx";
 import { directLinkOf } from "./press-words.ts";
+import { TimeChip } from "./time-chip.tsx";
 import { useNoHover, useReducedMotion } from "./use-reduced-motion.ts";
 import { workLinkOptions } from "./work-links.tsx";
 import "./live-view.css";
@@ -37,11 +38,13 @@ export function LiveViewPage(): ReactNode {
   const roles = useQuery(roleQueries.list());
   const tasks = useQuery(taskQueries.list());
   const initiatives = useQuery(initiativeQueries.list());
-  // Asleep and "New" turn on the minute.
+  // Asleep, "New" and the light turn on the minute.
   const now = useClock(MINUTE_MS);
   const narrow = useNarrowPage();
   const noHover = useNoHover();
   const navigate = useNavigate();
+  // The browser's time zone, read once per page open: where the sun is worked out for.
+  const [zone] = useState(browserZone);
 
   const people = useMemo(
     () => (snapshot.data && roles.data ? officePeopleOf(snapshot.data, roles.data) : NOBODY),
@@ -52,13 +55,13 @@ export function LiveViewPage(): ReactNode {
     [tasks.data, initiatives.data],
   );
   const names = useMemo(() => personNamesOf(people), [people]);
-  const light = useMemo(() => lightAt(now), [now]);
+  const light = useMemo(() => lightAt(now, zone), [now, zone]);
   const lookStates = useMemo(() => lookStatesOf(people, now, light), [people, now, light]);
   const shown = useMemo(
     () => shownPeopleOf(people, lookStates, titles),
     [people, lookStates, titles],
   );
-  const summary = summaryWords(people, light, now, lookStates);
+  const summary = summaryWords(people, light, lookStates);
   usePageHeading({
     title: "Live view",
     crumb: people.length === 1 ? "1 person" : `${people.length} people`,
@@ -93,6 +96,10 @@ export function LiveViewPage(): ReactNode {
     (roleKey, pointerType) => askToOpen(roleKey, pointerType === "touch" || noHover),
     () => setListOpen(true),
   );
+  // Before `apply`, so the stage has its light before it first draws anyone.
+  useEffect(() => {
+    floor.stage?.setLight(light, now);
+  }, [floor.stage, light, now]);
   useEffect(() => {
     floor.stage?.apply(people, now);
   }, [floor.stage, people, now]);
@@ -106,6 +113,7 @@ export function LiveViewPage(): ReactNode {
   return (
     <div className="live-view" data-list={listOpen && !narrow ? "open" : "closed"}>
       <div className="live-floor">
+        {!floor.failed && <TimeChip light={light} zone={zone} />}
         {error && (
           <div className="live-floor-alert">
             <Alert tone="danger" title={error.message} />

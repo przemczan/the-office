@@ -6925,66 +6925,71 @@ test(
   },
 );
 
-test("in the Live view a hire walks in through the door and someone let go walks out; under reduced motion a hire is simply there", async ({
-  page,
-}) => {
-  const { card: developer } = roleSchema.parse(
-    await (await page.request.get("/api/roles/developer")).json(),
-  );
-  const hire = async (name: string, title: string): Promise<string> => {
-    const hired = await page.request.post("/api/roles", {
-      data: { card: { ...developer, name, title, skills: [] } },
-    });
-    expect(hired.status()).toBe(201);
-    return roleSchema.parse(await hired.json()).key;
-  };
-  const nameplate = (name: string) => page.locator(".live-nameplate").filter({ hasText: name });
-  const placeOf = async (name: string): Promise<string | null> => {
-    const box = await nameplate(name).boundingBox();
-    return box ? `${Math.round(box.x)},${Math.round(box.y)}` : null;
-  };
-  /** Polls until two samples a few hundred milliseconds apart are the same. */
-  const settles = async (name: string): Promise<void> => {
-    let last: string | null = null;
-    await expect
-      .poll(
-        async () => {
-          const now = await placeOf(name);
-          const still = now !== null && now === last;
-          last = now;
-          return still;
-        },
-        { intervals: [400], timeout: 30_000 },
-      )
-      .toBe(true);
-  };
+test.describe("the Live view's comings and goings", () => {
+  // A zone with no place keeps noon's light, so nobody has gone home whatever the runner's clock says.
+  test.use({ timezoneId: "Etc/UTC" });
 
-  await page.goto("/live-view");
-  await expect(page.getByRole("img", { name: /\d+ (person|people): / })).toBeVisible();
-  await expect(page.locator(".live-nameplate").first()).toBeVisible();
+  test("in the Live view a hire walks in through the door and someone let go walks out; under reduced motion a hire is simply there", async ({
+    page,
+  }) => {
+    const { card: developer } = roleSchema.parse(
+      await (await page.request.get("/api/roles/developer")).json(),
+    );
+    const hire = async (name: string, title: string): Promise<string> => {
+      const hired = await page.request.post("/api/roles", {
+        data: { card: { ...developer, name, title, skills: [] } },
+      });
+      expect(hired.status()).toBe(201);
+      return roleSchema.parse(await hired.json()).key;
+    };
+    const nameplate = (name: string) => page.locator(".live-nameplate").filter({ hasText: name });
+    const placeOf = async (name: string): Promise<string | null> => {
+      const box = await nameplate(name).boundingBox();
+      return box ? `${Math.round(box.x)},${Math.round(box.y)}` : null;
+    };
+    /** Polls until two samples a few hundred milliseconds apart are the same. */
+    const settles = async (name: string): Promise<void> => {
+      let last: string | null = null;
+      await expect
+        .poll(
+          async () => {
+            const now = await placeOf(name);
+            const still = now !== null && now === last;
+            last = now;
+            return still;
+          },
+          { intervals: [400], timeout: 30_000 },
+        )
+        .toBe(true);
+    };
 
-  // A hire comes in through the door and walks to their new desk.
-  const walker = await hire("Wanda", "Courier");
-  await expect(nameplate("Wanda")).toBeVisible({ timeout: 15_000 });
-  const cameIn = await placeOf("Wanda");
-  await expect.poll(() => placeOf("Wanda")).not.toBe(cameIn);
-  await settles("Wanda");
+    await page.goto("/live-view");
+    await expect(page.getByRole("img", { name: /\d+ (person|people): / })).toBeVisible();
+    await expect(page.locator(".live-nameplate").first()).toBeVisible();
 
-  // Let go, they walk out at once and are gone.
-  const atDesk = await placeOf("Wanda");
-  expect((await page.request.post(`/api/roles/${walker}/let-go`)).status()).toBe(201);
-  await expect.poll(() => placeOf("Wanda")).not.toBe(atDesk);
-  await expect(nameplate("Wanda")).toHaveCount(0, { timeout: 30_000 });
+    // A hire comes in through the door and walks to their new desk.
+    const walker = await hire("Wanda", "Courier");
+    await expect(nameplate("Wanda")).toBeVisible({ timeout: 15_000 });
+    const cameIn = await placeOf("Wanda");
+    await expect.poll(() => placeOf("Wanda")).not.toBe(cameIn);
+    await settles("Wanda");
 
-  // Under reduced motion every move is a jump: a hire is at their desk the moment they show.
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await hire("Rory", "Stillwater");
-  await expect(nameplate("Rory")).toBeVisible({ timeout: 15_000 });
-  const placed = await placeOf("Rory");
-  // Watched over time on purpose: a walk would have moved it a tile in under half a second.
-  for (let sample = 0; sample < 4; sample++) {
-    await page.waitForTimeout(400);
-    expect(await placeOf("Rory")).toBe(placed);
-  }
-  await page.emulateMedia({ reducedMotion: "no-preference" });
+    // Let go, they walk out at once and are gone.
+    const atDesk = await placeOf("Wanda");
+    expect((await page.request.post(`/api/roles/${walker}/let-go`)).status()).toBe(201);
+    await expect.poll(() => placeOf("Wanda")).not.toBe(atDesk);
+    await expect(nameplate("Wanda")).toHaveCount(0, { timeout: 30_000 });
+
+    // Under reduced motion every move is a jump: a hire is at their desk the moment they show.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await hire("Rory", "Stillwater");
+    await expect(nameplate("Rory")).toBeVisible({ timeout: 15_000 });
+    const placed = await placeOf("Rory");
+    // Watched over time on purpose: a walk would have moved it a tile in under half a second.
+    for (let sample = 0; sample < 4; sample++) {
+      await page.waitForTimeout(400);
+      expect(await placeOf("Rory")).toBe(placed);
+    }
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+  });
 });

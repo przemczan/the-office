@@ -78,7 +78,8 @@ export function Nameplates({
     <div className="live-nameplates">
       {view.anchors.map((anchor) => {
         const entry = everyone.get(anchor.roleKey);
-        if (entry === undefined) return null;
+        // Someone gone home for the night isn't on the floor, so has no nameplate (the list keeps them).
+        if (entry === undefined || (entry.lookState === "home" && !anchor.leaving)) return null;
         const register: RefCallback<HTMLDivElement> = (element) => {
           if (!element) return;
           plates.set(anchor.roleKey, element);
