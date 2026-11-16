@@ -182,7 +182,8 @@ function visitorsByConsultant(locations: ReadonlyMap<string, Location>): Map<str
   return visitors;
 }
 
-function deskActivity(lookState: LookState, visitorCount: number): DeskActivity {
+/** What someone at their desk does, by their look state and how many stand at their desk asking. */
+export function deskActivity(lookState: LookState, visitorCount: number): DeskActivity {
   if (lookState === "waiting-on-you") return "waiting";
   if (visitorCount > 0) return "talking";
   if (lookState === "working") return "working";
@@ -230,10 +231,15 @@ const DESK_POSES: Record<DeskActivity, FigurePose> = {
   idle: "sit-back",
 };
 
+/** The pose at a desk: turned round to talk, else facing the monitors. */
+export function deskPoseOf(activity: DeskActivity): FigurePose {
+  return DESK_POSES[activity];
+}
+
 function poseOf(location: Location, activity: DeskActivity | null): Pose {
   switch (location.kind) {
     case "desk": {
-      const pose = DESK_POSES[activity ?? "idle"];
+      const pose = deskPoseOf(activity ?? "idle");
       return { pose, facing: pose === "sit-front" ? "front" : "back", mirrored: false, z: 0 };
     }
     case "consult":
@@ -319,6 +325,7 @@ export function placementsOf(
       ...poseOf(location, activity),
       depth: depthOf(location, spot),
       activity,
+      consultantKey: location.kind === "consult" ? location.consultantKey : null,
       conversation: conversations.get(roleKey) ?? null,
     });
   }

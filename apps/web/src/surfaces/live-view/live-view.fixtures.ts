@@ -139,3 +139,11 @@ export function officePerson(roleKey: string, overrides: Partial<OfficePerson> =
 export function rosterOf(count: number): OfficePerson[] {
   return ROSTER.slice(0, count).map((role) => officePerson(role.roleKey));
 }
+
+/** The floor plans the design was checked on: 3 people (one of them a Developer), 8 and 30. */
+export const FLOOR_SIZES = [3, 8, 30] as const;
+
+/** The people of one of the design's floor plans. */
+export function floorPeopleOf(count: number): OfficePerson[] {
+  return count === 3 ? [...rosterOf(2), officePerson("developer")] : rosterOf(count);
+}

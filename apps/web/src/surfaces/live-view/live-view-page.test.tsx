@@ -134,8 +134,8 @@ function lastStage() {
   return stage;
 }
 
-/** The stage reports where the figures are, so their nameplates show. */
-function viewOf(people: readonly OfficePerson[]): void {
+/** The stage reports where the figures are, so their nameplates show; `leaving` are walking out. */
+function viewOf(people: readonly OfficePerson[], leaving: readonly string[] = []): void {
   act(() =>
     lastStage().options.onView({
       scale: 3,
@@ -147,8 +147,23 @@ function viewOf(people: readonly OfficePerson[]): void {
         x: 100 * (index + 1),
         top: 40,
         bottom: 90,
+        outside: false,
+        leaving: leaving.includes(person.roleKey),
       })),
     }),
+  );
+}
+
+/** A nameplate's place, its middle under the figure's feet. */
+function transformAt(x: number, bottom: number): string {
+  return `translate(${x}px, ${bottom}px) translateX(-50%)`;
+}
+
+function nameplateOf(page: HTMLElement, name: string): HTMLElement | null {
+  return (
+    [...page.querySelectorAll<HTMLElement>(".live-nameplate")].find((plate) =>
+      plate.textContent?.includes(name),
+    ) ?? null
   );
 }
 
@@ -235,6 +250,42 @@ describe("The Live view", () => {
     expect(popover && shownText(popover)).toContain("A Stage of a Task");
     expect(popover && shownText(popover)).toContain("A chat");
     expect(buttonNamed(page, "Jim")?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("moves a nameplate with its walking figure, hidden while the figure is outside", async () => {
+    const { page } = await openLiveView([PAM_IDLE, JIM_WORKING]);
+    viewOf([PAM_IDLE, JIM_WORKING]);
+    const plate = nameplateOf(page, "Jim");
+    expect(plate?.style.transform).toBe(transformAt(200, 90));
+
+    lastStage().options.onFigureMove("developer", 150, 120, false);
+    expect(plate?.style.transform).toBe(transformAt(150, 120));
+    expect(plate?.style.visibility).toBe("");
+
+    lastStage().options.onFigureMove("developer", 10, 60, true);
+    expect(plate?.style.visibility).toBe("hidden");
+  });
+
+  it("keeps the name of someone let go on their way out, with nothing to open", async () => {
+    const { page } = await openLiveView([PAM_IDLE, JIM_WORKING]);
+    viewOf([PAM_IDLE, JIM_WORKING]);
+
+    act(() =>
+      liveViewEventCacheUpdates["live-view.changed"]?.(
+        {
+          type: "live-view.changed",
+          occurredAt: new Date().toISOString(),
+          liveView: snapshotOf([PAM_IDLE]),
+        } as never,
+        queryClient as QueryClient,
+      ),
+    );
+    await until(() => expect(lastStage().applied.at(-1)).toHaveLength(1));
+    viewOf([PAM_IDLE, JIM_WORKING], ["developer"]);
+
+    const plate = nameplateOf(page, "Jim");
+    expect(plate?.hasAttribute("inert")).toBe(true);
+    expect(buttonNamed(page, "Jim")).toBeUndefined();
   });
 
   it("draws the still office when the system asks for reduced motion", async () => {

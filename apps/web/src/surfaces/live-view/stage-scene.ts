@@ -1,4 +1,4 @@
-import { Container, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { paintedFigure, seedOf } from "./art/figures.ts";
 import { paintFloorLayer, paintWalls } from "./art/floor-art.ts";
 import {
@@ -19,16 +19,31 @@ import {
   sofaShape,
   waterCoolerShape,
 } from "./art/furniture.ts";
-import { DESK_H } from "./art/iso.ts";
-import { bubbleShape, paintedOverlay, signShape, tagShape, zShape } from "./art/overlays.ts";
-import { ART_COLORS, ART_PALETTE, avatarTone, paintedOfficeArt } from "./art/palettes.ts";
+import { DESK_H, isoX, isoY } from "./art/iso.ts";
+import {
+  bubbleShape,
+  paintedOverlay,
+  signShape,
+  sparkleShape,
+  tagShape,
+  zShape,
+} from "./art/overlays.ts";
+import {
+  ART_COLORS,
+  ART_PALETTE,
+  type AvatarTone,
+  avatarTone,
+  paintedOfficeArt,
+} from "./art/palettes.ts";
 import { type PaintedArt, PixelGrid, isoPen, paintGrid } from "./art/pixel-grid.ts";
 import type { FigureHitBox } from "./figure-hit.ts";
-import { AISLE_ROW, deskSpot, pushedInSpot } from "./floor-plan.ts";
+import { AISLE_ROW, deskOf, deskSpot, pushedInSpot } from "./floor-plan.ts";
 import type {
   Amenities,
   Amenity,
   Desk,
+  DeskActivity,
+  FigurePose,
   FloorPoint,
   Layout,
   Light,
@@ -36,19 +51,32 @@ import type {
   OfficePerson,
   Placement,
 } from "./live-view-types.ts";
-import { monitorsOf } from "./live-states.ts";
+import { deskActivity, deskPoseOf, monitorsOf } from "./live-states.ts";
 import { type OfficeGeometry, toArt } from "./office-geometry.ts";
 import { type StageTextures, artSprite, setArt, showArt } from "./stage-textures.ts";
+import type { Walker, Walkers } from "./walkers.ts";
 
-/** What one drawing of the office is made of: the floor plan and everyone's placement at the hour's light. */
+/** What one drawing of the office is made of: the floor plan, the people and their walkers, at the hour's light. */
 export interface SceneInput {
   readonly layout: Layout;
   readonly amenities: Amenities;
   readonly geometry: OfficeGeometry;
   readonly people: ReadonlyMap<string, OfficePerson>;
   readonly lookStates: ReadonlyMap<string, LookState>;
-  readonly placements: ReadonlyMap<string, Placement>;
+  readonly walkers: Walkers;
   readonly light: Light;
+}
+
+/** A figure on the floor for hit-testing and its nameplate, moved in place as it walks. */
+export interface PlacedFigure extends FigureHitBox {
+  /** Its feet, in art pixels. */
+  readonly feet: { x: number; y: number };
+  depth: number;
+  seated: boolean;
+  /** Let go and on the way out: drawn and named, but not pressed. */
+  readonly leaving: boolean;
+  /** Past the door, seen only through the doorway; its nameplate is hidden. */
+  outside: boolean;
 }
 
 /** Moves a sprite's look on with the animation clock `t` (seconds); `motion` false draws the still office. */
@@ -59,12 +87,35 @@ interface DeskLook {
   readonly laptop: boolean;
 }
 
+/** A figure's sprite and what it last showed, so a walking frame changes only what moved. */
+interface Actor {
+  readonly sprite: Sprite;
+  tone: AvatarTone;
+  place: PlacedFigure | null;
+  pose: FigurePose;
+  frame: number;
+}
+
 const SPEAKING_TURN_SECONDS = 1.8;
 const RING_GRID = { width: 27, height: 15, anchorX: 13, anchorY: 7 } as const;
+/** Outside the room past this x, a figure shows only through the doorway. */
+const INSIDE_FROM_X = 0.1;
+/** The doorway's opening on the left wall, in tiles along it and pixels up. */
+const DOORWAY = { from: AISLE_ROW + 0.16, to: AISLE_ROW + 0.84, height: 33 } as const;
+/**
+ * The door's sort depth. The doorway's figures are drawn just over it: the open door is a dark
+ * opening, and someone outside shows against it, clipped to it.
+ */
+const DOOR_DEPTH = AISLE_ROW + 0.3;
+const SPARKLES_PER_DESK = 4;
 
 /** Whose turn it is to speak in a conversation; in the still office everyone in it shows a bubble. */
-function isSpeaking(placement: Placement, roleKey: string, t: number, motion: boolean): boolean {
-  const talk = placement.conversation;
+function isSpeaking(
+  talk: readonly string[] | undefined,
+  roleKey: string,
+  t: number,
+  motion: boolean,
+): boolean {
   if (!talk || talk.length === 0) return false;
   if (!motion) return true;
   return talk[Math.floor(t / SPEAKING_TURN_SECONDS) % talk.length] === roleKey;
@@ -72,7 +123,8 @@ function isSpeaking(placement: Placement, roleKey: string, t: number, motion: bo
 
 /** The pose's frame at `t`: typing, the raised hand, sleep's breathing and talking, each at its own rate. */
 function frameOf(
-  placement: Placement,
+  pose: FigurePose,
+  activity: DeskActivity | null,
   roleKey: string,
   t: number,
   motion: boolean,
@@ -80,13 +132,13 @@ function frameOf(
 ): number {
   const tick = (rate: number, offset = 0): number => (motion ? Math.floor(t * rate + offset) : 0);
   const offset = (seedOf(roleKey) % 10) / 10;
-  switch (placement.pose) {
+  switch (pose) {
     case "sit-back-raise":
       return tick(1.6) % 2;
     case "sit-back-sleep":
       return tick(0.7, offset) % 2;
     case "sit-back":
-      return placement.activity === "working" ? tick(5, offset * 3) % 2 : 0;
+      return activity === "working" ? tick(5, offset * 3) % 2 : 0;
     case "sit-front":
     case "stand-back-talk":
       return speaking ? tick(3) % 2 : 0;
@@ -128,72 +180,94 @@ function amenityArt(item: Amenity): PaintedArt | null {
   }
 }
 
-/**
- * Puts a figure where its placement says, at once: its feet on the spot, lifted by the seat, turned
- * as the placement faces. This is the seam the movement Task replaces with walking there round the
- * furniture; nothing else in the stage moves a figure.
- */
-function moveFigure(actor: Sprite, placement: Placement, standAt: FloorPoint): void {
-  actor.position.set(standAt.x, standAt.y);
-  actor.scale.x = placement.mirrored ? -1 : 1;
-}
-
 const chairSeat = (): PaintedArt => paintedOfficeArt("chairSeat", chairSeatShape);
 const chairBack = (side: "+x" | "-x" | "+y" | "-y"): PaintedArt =>
   paintedOfficeArt(`chairBack:${side}`, () => chairBackShape(side));
+const doorArt = (open: boolean): PaintedArt =>
+  paintedOfficeArt(`door:${open ? 1 : 0}`, () => doorShape(open));
+const sparkleArt = (frame: number): PaintedArt =>
+  paintedOverlay(`sparkle:${frame}`, () => sparkleShape(frame));
+
+/** The pose someone settled at their place shows, and what they do at a desk. */
+function settledPose(
+  walker: Walker,
+  input: SceneInput,
+): { readonly pose: FigurePose; readonly activity: DeskActivity | null } {
+  const placement = walker.placement;
+  if (placement.kind !== "desk") return { pose: placement.pose, activity: null };
+  // A Consultant turns round only once the asker has arrived, so the activity is worked out from who
+  // stands at the desk now, not from the snapshot.
+  const lookState = walker.leaving ? "idle" : (input.lookStates.get(walker.key) ?? "idle");
+  const activity = deskActivity(lookState, input.walkers.visitorsOf(walker.key).length);
+  return { pose: deskPoseOf(activity), activity };
+}
 
 /**
  * The office's sprites: the still floor and walls as one texture, then desks, chairs, furniture and
- * figures sorted by depth, and the overlays (signs, Zs, bubbles, tags) over them all, untinted.
+ * figures sorted by depth, and the overlays (signs, Zs, bubbles, tags, sparkles) over them all,
+ * untinted. Built again whenever someone sets off or arrives; in between, `moveWalker` moves only
+ * the figures that walk.
  */
 export class OfficeScene {
   /** Placed and scaled by the stage: one unit is one art pixel. */
   readonly world = new Container();
   private readonly items = new Container({ sortableChildren: true });
   private readonly overlays = new Container({ sortableChildren: true });
+  /** Figures outside the room, clipped to the doorway, drawn over the open door. */
+  private readonly doorway = new Container();
+  private readonly doorwayMask = new Graphics();
   private floor: Sprite | null = null;
   private floorCanvas: HTMLCanvasElement | null = null;
   private floorWidth = -1;
+  private door: Sprite | null = null;
+  private doorOpen = false;
   private ringCanvas: HTMLCanvasElement | null = null;
   private ringSprite: Sprite | null = null;
   private ringKey: string | null = null;
   private animations: Animation[] = [];
   private readonly deskLooks = new Map<Desk, DeskLook>();
   /** Each figure on the floor by Role key, kept from one drawing to the next. */
-  private readonly actors = new Map<string, Sprite>();
+  private readonly actors = new Map<string, Actor>();
   private input: SceneInput | null = null;
-  /** Every figure on the floor, for hit-testing and the nameplates' anchors. */
+  /** Every figure that can be pressed, for hit-testing. */
   figures: readonly FigureHitBox[] = [];
+  /** Every figure drawn, for the nameplates' anchors. */
+  placed: readonly PlacedFigure[] = [];
 
   constructor(private readonly textures: StageTextures) {
+    this.doorway.addChild(this.doorwayMask);
+    this.doorway.mask = this.doorwayMask;
+    this.doorway.zIndex = DOOR_DEPTH + 0.001;
     this.world.addChild(this.items, this.overlays);
   }
 
-  /** Draws the office afresh from a snapshot's placements; the floor is painted again only when it grew. */
+  /** Draws the office afresh; the floor is painted again only when it grew. */
   build(input: SceneInput): void {
     this.input = input;
     this.paintFloor(input);
-    // Everything is drawn afresh but the figures, which stay to be moved.
-    const actors = new Set<Container>(this.actors.values());
-    for (const child of this.items.removeChildren()) if (!actors.has(child)) child.destroy();
+    // Everything is drawn afresh but the figures, which stay to be moved, and the doorway.
+    const kept = new Set<Container>([
+      this.doorway,
+      this.doorwayMask,
+      ...[...this.actors.values()].map((actor) => actor.sprite),
+    ]);
+    for (const child of this.items.removeChildren()) if (!kept.has(child)) child.destroy();
+    for (const child of this.doorway.removeChildren()) if (!kept.has(child)) child.destroy();
+    this.doorway.addChild(this.doorwayMask);
     for (const child of this.overlays.removeChildren()) child.destroy();
     this.ringSprite = null;
     this.animations = [];
-    const { geometry, light } = input;
+    const { geometry, light, walkers } = input;
     const at = (x: number, y: number, z = 0): FloorPoint => toArt(geometry, x, y, z);
     const add = (sprite: Sprite, depth: number): void => {
       sprite.zIndex = depth;
       this.items.addChild(sprite);
     };
-    add(
-      artSprite(
-        this.textures,
-        paintedOfficeArt("door:0", () => doorShape(false)),
-        at(0, AISLE_ROW),
-        light.tint,
-      ),
-      AISLE_ROW + 0.3,
-    );
+    this.items.addChild(this.doorway);
+    this.drawDoorway(geometry);
+    this.doorOpen = walkers.doorOpen();
+    this.door = artSprite(this.textures, doorArt(this.doorOpen), at(0, AISLE_ROW), light.tint);
+    add(this.door, DOOR_DEPTH);
     for (const desk of input.layout.desks) this.buildDesk(input, desk, add);
     for (const item of input.amenities.items) {
       const art = amenityArt(item);
@@ -217,31 +291,72 @@ export class OfficeScene {
         );
       }
     }
-    const figures: FigureHitBox[] = [];
-    for (const [roleKey, placement] of input.placements) {
-      const person = input.people.get(roleKey);
-      if (!person || placement.kind === "gone") continue;
-      this.buildFigure(input, roleKey, person, placement, add);
-      figures.push({
-        roleKey,
-        feet: at(placement.spot.x, placement.spot.y),
-        depth: placement.depth,
-        seated: placement.pose.startsWith("sit"),
-      });
+    const conversations = walkers.conversations();
+    const placed: PlacedFigure[] = [];
+    for (const walker of walkers.walkers()) {
+      if (walker.hidden) continue;
+      placed.push(this.buildFigure(input, walker, conversations.get(walker.key)));
     }
-    this.figures = figures;
-    const onFloor = new Set(figures.map((figure) => figure.roleKey));
+    this.placed = placed;
+    this.figures = placed.filter((figure) => !figure.leaving);
+    const drawn = new Set(placed.map((figure) => figure.roleKey));
     for (const [roleKey, actor] of this.actors) {
-      if (onFloor.has(roleKey)) continue;
-      actor.destroy();
+      if (drawn.has(roleKey)) continue;
+      actor.sprite.destroy();
       this.actors.delete(roleKey);
     }
+    this.buildSparkles(input);
     this.placeRing();
   }
 
   /** One frame of the in-place animation; under the still office, called once with `motion` false. */
   animate(t: number, motion: boolean): void {
     for (const animation of this.animations) animation(t, motion);
+  }
+
+  /**
+   * Moves a walking figure to where its walker is, in its walk cycle's frame; answers its place for
+   * the nameplate, or null when it isn't drawn. Allocates nothing but a changed frame's texture.
+   */
+  moveWalker(walker: Walker): PlacedFigure | null {
+    const input = this.input;
+    const actor = this.actors.get(walker.key);
+    if (!input || !actor?.place || !input.walkers.isOnTheMove(walker)) return null;
+    const { sprite, place } = actor;
+    const walk = input.walkers.poseOf(walker);
+    if (walk.pose !== actor.pose || walk.frame !== actor.frame) {
+      actor.pose = walk.pose;
+      actor.frame = walk.frame;
+      setArt(sprite, this.textures, paintedFigure(walker.key, actor.tone, walk.pose, walk.frame));
+    }
+    sprite.scale.x = walk.mirrored ? -1 : 1;
+    const { origin } = input.geometry;
+    const x = Math.round(origin.x + isoX(walker.x, walker.y));
+    const y = Math.round(origin.y + isoY(walker.x, walker.y));
+    sprite.position.set(x, y);
+    const depth = input.walkers.depthOf(walker);
+    sprite.zIndex = depth;
+    place.feet.x = x;
+    place.feet.y = y;
+    place.depth = depth;
+    place.seated = false;
+    const outside = walker.x < INSIDE_FROM_X;
+    if (outside !== place.outside) {
+      place.outside = outside;
+      (outside ? this.doorway : this.items).addChild(sprite);
+    }
+    if (this.ringSprite && this.ringKey === walker.key) {
+      this.ringSprite.position.set(x, y);
+      this.ringSprite.zIndex = depth - 0.001;
+    }
+    return place;
+  }
+
+  /** The door opens while someone walks through it. */
+  setDoorOpen(open: boolean): void {
+    if (!this.input || !this.door || open === this.doorOpen) return;
+    this.doorOpen = open;
+    showArt(this.door, this.textures, doorArt(open), toArt(this.input.geometry, 0, AISLE_ROW));
   }
 
   /** Rings a figure's feet (Show on the floor), or takes the ring away. */
@@ -277,12 +392,26 @@ export class OfficeScene {
     this.world.addChildAt(this.floor, 0);
   }
 
+  /** The doorway's opening in the left wall, which clips anyone outside the room. */
+  private drawDoorway(geometry: OfficeGeometry): void {
+    const corners = [
+      toArt(geometry, 0, DOORWAY.from, 0),
+      toArt(geometry, 0, DOORWAY.to, 0),
+      toArt(geometry, 0, DOORWAY.to, DOORWAY.height),
+      toArt(geometry, 0, DOORWAY.from, DOORWAY.height),
+    ];
+    this.doorwayMask
+      .clear()
+      .poly(corners.flatMap((corner) => [corner.x, corner.y]))
+      .fill(0xffffff);
+  }
+
   private buildDesk(
     input: SceneInput,
     desk: Desk,
     add: (sprite: Sprite, depth: number) => void,
   ): void {
-    const { geometry, light } = input;
+    const { geometry, light, walkers } = input;
     const at = (x: number, y: number, z = 0): FloorPoint => toArt(geometry, x, y, z);
     const roleKey = desk.roleKey;
     const person = roleKey ? input.people.get(roleKey) : undefined;
@@ -326,18 +455,36 @@ export class OfficeScene {
       this.overlays.addChild(tag);
     }
 
-    // The chair: pulled out while its person is in today, pushed in once they left or went home.
-    const placement = roleKey ? input.placements.get(roleKey) : undefined;
-    const sitting = placement?.kind === "desk";
-    const out = sitting || (person !== undefined && lookState !== "home");
-    const turned = sitting && placement.activity === "talking";
-    const spot = out ? deskSpot(desk) : pushedInSpot(desk);
-    const chairAt = at(spot.x, spot.y);
-    add(artSprite(this.textures, chairSeat(), chairAt, light.tint), desk.depth + 0.05);
-    add(
-      artSprite(this.textures, chairBack(turned ? "-x" : "+x"), chairAt, light.tint),
-      desk.depth + (turned ? 0.07 : 0.15),
-    );
+    // The chair: out while someone sits there or the desk is still theirs today; pushed in once they
+    // were let go or went home, as soon as they are a step away.
+    const sitterKey = roleKey ?? desk.formerKey;
+    const walker = sitterKey ? walkers.get(sitterKey) : undefined;
+    const atDesk = walker !== undefined && !walker.hidden && walker.placement.kind === "desk";
+    const sitting = atDesk && !walkers.isOnTheMove(walker);
+    const kept = sitting || (person !== undefined && lookState !== "home");
+    const turned = sitting && !walker.leaving && walkers.visitorsOf(walker.key).length > 0;
+    const seat = artSprite(this.textures, chairSeat(), at(0, 0), light.tint);
+    const back = artSprite(this.textures, chairBack(turned ? "-x" : "+x"), at(0, 0), light.tint);
+    const placeChair = (out: boolean): void => {
+      const spot = out ? deskSpot(desk) : pushedInSpot(desk);
+      const chairAt = at(spot.x, spot.y);
+      seat.position.set(chairAt.x, chairAt.y);
+      back.position.set(chairAt.x, chairAt.y);
+    };
+    add(seat, desk.depth + 0.05);
+    add(back, desk.depth + (turned ? 0.07 : 0.15));
+    placeChair(kept);
+    if (!kept && atDesk && walkers.isOnTheMove(walker)) {
+      const spot = deskSpot(desk);
+      let out = true;
+      placeChair(out);
+      this.animations.push(() => {
+        const near = Math.hypot(walker.x - spot.x, walker.y - spot.y) < 1;
+        if (near === out) return;
+        out = near;
+        placeChair(out);
+      });
+    }
     if (sitting && light.lampsOn) {
       add(
         artSprite(
@@ -357,58 +504,95 @@ export class OfficeScene {
     );
   }
 
+  private actorOf(walker: Walker): Actor {
+    let actor = this.actors.get(walker.key);
+    if (!actor) {
+      const sprite = new Sprite();
+      sprite.cullable = true;
+      actor = {
+        sprite,
+        tone: avatarTone(walker.person.name),
+        place: null,
+        pose: "stand-front",
+        frame: -1,
+      };
+      this.actors.set(walker.key, actor);
+    }
+    actor.tone = avatarTone(walker.person.name);
+    return actor;
+  }
+
   private buildFigure(
     input: SceneInput,
-    roleKey: string,
-    person: OfficePerson,
-    placement: Placement,
-    add: (sprite: Sprite, depth: number) => void,
-  ): void {
-    const { geometry, light } = input;
-    const tone = avatarTone(person.name);
-    const { spot, pose, mirrored, z } = placement;
-    const feet = toArt(geometry, spot.x, spot.y);
-    const head = feet.y - ((pose.startsWith("sit") ? 20 : 23) + z);
-
-    let actor = this.actors.get(roleKey);
-    if (!actor) {
-      actor = new Sprite();
-      actor.cullable = true;
-      this.actors.set(roleKey, actor);
-    }
-    const figure = actor;
+    walker: Walker,
+    talk: readonly string[] | undefined,
+  ): PlacedFigure {
+    const { geometry, light, walkers } = input;
+    const actor = this.actorOf(walker);
+    const figure = actor.sprite;
     figure.tint = light.tint;
-    setArt(figure, this.textures, paintedFigure(roleKey, tone, pose, 0));
-    moveFigure(figure, placement, toArt(geometry, spot.x, spot.y, z));
-    add(figure, placement.depth);
-    let shownFrame = 0;
+    const outside = walker.x < INSIDE_FROM_X;
+    (outside ? this.doorway : this.items).addChild(figure);
+    const feet = toArt(geometry, walker.x, walker.y);
+    const place: PlacedFigure = {
+      roleKey: walker.key,
+      feet: { x: feet.x, y: feet.y },
+      depth: walkers.depthOf(walker),
+      seated: false,
+      leaving: walker.leaving,
+      outside,
+    };
+    actor.place = place;
+    figure.zIndex = place.depth;
+    if (walkers.isOnTheMove(walker)) {
+      // Walking, or stopped mid-way for its turn at the door: `moveWalker` draws it in the walk
+      // cycle; nothing shows over a figure on the move.
+      actor.frame = -1;
+      this.moveWalker(walker);
+      return place;
+    }
+
+    const placement: Placement = walker.placement;
+    const { pose, activity } = settledPose(walker, input);
+    const { mirrored, z } = placement;
+    place.seated = pose.startsWith("sit");
+    const head = feet.y - ((place.seated ? 20 : 23) + z);
+    const standAt = toArt(geometry, walker.x, walker.y, z);
+    figure.position.set(standAt.x, standAt.y);
+    figure.scale.x = mirrored ? -1 : 1;
+    actor.pose = pose;
+    actor.frame = 0;
+    setArt(figure, this.textures, paintedFigure(walker.key, actor.tone, pose, 0));
     this.animations.push((t, motion) => {
       const frame = frameOf(
-        placement,
-        roleKey,
+        pose,
+        activity,
+        walker.key,
         t,
         motion,
-        isSpeaking(placement, roleKey, t, motion),
+        isSpeaking(talk, walker.key, t, motion),
       );
-      if (frame === shownFrame) return;
-      shownFrame = frame;
-      setArt(figure, this.textures, paintedFigure(roleKey, tone, pose, frame));
+      if (frame === actor.frame) return;
+      actor.frame = frame;
+      setArt(figure, this.textures, paintedFigure(walker.key, actor.tone, pose, frame));
     });
+    // Someone let go, or waiting to set off elsewhere, shows nothing over them.
+    if (walker.leaving || walker.target !== null) return place;
 
     const overlay = (art: PaintedArt, at: FloorPoint): Sprite => {
       const sprite = artSprite(this.textures, art, at, null);
-      sprite.zIndex = placement.depth;
+      sprite.zIndex = place.depth;
       this.overlays.addChild(sprite);
       return sprite;
     };
-    if (placement.activity === "waiting") {
+    if (activity === "waiting") {
       const sign = overlay(paintedOverlay("sign", signShape), { x: feet.x + 5, y: head - 4 });
       this.animations.push((t, motion) => {
         const bob = motion ? Math.floor(t * 2) % 2 : 0;
         sign.y = head - 4 - bob;
       });
     }
-    if (placement.activity === "asleep") {
+    if (activity === "asleep") {
       const zz = paintedOverlay("zz", zShape, true);
       for (let i = 0; i < 2; i++) {
         const sprite = overlay(zz, feet);
@@ -420,7 +604,7 @@ export class OfficeScene {
         });
       }
     }
-    if (placement.conversation) {
+    if (talk) {
       const facesRight = pose.includes("front") !== mirrored;
       const bubbleAt = { x: feet.x + (facesRight ? 4 : -4), y: head - 2 };
       const bubbleArt = (dots: number): PaintedArt =>
@@ -430,12 +614,45 @@ export class OfficeScene {
       const bubble = overlay(bubbleArt(3), bubbleAt);
       let shownDots = 3;
       this.animations.push((t, motion) => {
-        bubble.visible = isSpeaking(placement, roleKey, t, motion);
+        bubble.visible = isSpeaking(talk, walker.key, t, motion);
         const dots = motion ? (Math.floor(t * 3) % 3) + 1 : 3;
         if (dots === shownDots) return;
         shownDots = dots;
         showArt(bubble, this.textures, bubbleArt(dots), bubbleAt);
       });
+    }
+    return place;
+  }
+
+  /** A hire's new desk sparkles: four stars circling it, until the sparkle ends. */
+  private buildSparkles(input: SceneInput): void {
+    const { geometry, walkers, layout } = input;
+    for (const sparkle of walkers.sparkles()) {
+      const desk = deskOf(layout, sparkle.roleKey);
+      if (!desk) continue;
+      for (let i = 0; i < SPARKLES_PER_DESK; i++) {
+        const sprite = artSprite(this.textures, sparkleArt(0), { x: 0, y: 0 }, null);
+        sprite.zIndex = desk.depth + 1;
+        this.overlays.addChild(sprite);
+        let shownFrame = 0;
+        this.animations.push((t) => {
+          sprite.visible = walkers.time() < sparkle.until;
+          if (!sprite.visible) return;
+          const angle = t * 2 + (i * Math.PI) / 2;
+          const frame = Math.floor(t * 6 + i) % 2;
+          const point = toArt(
+            geometry,
+            desk.x + 0.5 + Math.cos(angle) * 0.7,
+            desk.y + 1 + Math.sin(angle) * 0.9,
+            22 + i * 3,
+          );
+          if (frame !== shownFrame) {
+            shownFrame = frame;
+            setArt(sprite, this.textures, sparkleArt(frame));
+          }
+          sprite.position.set(point.x, point.y);
+        });
+      }
     }
   }
 
@@ -445,8 +662,8 @@ export class OfficeScene {
       this.ringSprite.destroy();
       this.ringSprite = null;
     }
-    const placement = this.ringKey ? input?.placements.get(this.ringKey) : undefined;
-    if (!input || !placement || placement.kind === "gone") return;
+    const place = this.ringKey ? this.actors.get(this.ringKey)?.place : undefined;
+    if (!input || !place) return;
     if (!this.ringCanvas) {
       const { width, height, anchorX, anchorY } = RING_GRID;
       const grid = new PixelGrid(width, height);
@@ -459,9 +676,8 @@ export class OfficeScene {
       anchorX: RING_GRID.anchorX,
       anchorY: RING_GRID.anchorY,
     };
-    const feet = toArt(input.geometry, placement.spot.x, placement.spot.y);
-    this.ringSprite = artSprite(this.textures, ringArt, feet, null);
-    this.ringSprite.zIndex = placement.depth - 0.001;
+    this.ringSprite = artSprite(this.textures, ringArt, place.feet, null);
+    this.ringSprite.zIndex = place.depth - 0.001;
     this.items.addChild(this.ringSprite);
   }
 }

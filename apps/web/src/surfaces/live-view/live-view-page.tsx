@@ -20,7 +20,7 @@ import { useNarrowPage } from "../../shell/use-narrow-page.ts";
 import { lightAt } from "./light.ts";
 import { lookStatesOf, summaryWords } from "./live-states.ts";
 import type { OfficePerson, OfficeStage, StageView } from "./live-view-types.ts";
-import { Nameplates } from "./nameplate.tsx";
+import { Nameplates, placeNameplate } from "./nameplate.tsx";
 import { officePeopleOf, personNamesOf, recordTitlesOf, shownPeopleOf } from "./office-people.ts";
 import { PeopleList } from "./people-list.tsx";
 import { directLinkOf } from "./press-words.ts";
@@ -85,8 +85,11 @@ export function LiveViewPage(): ReactNode {
     else setPopoverKey((shownFor) => (shownFor === roleKey ? null : shownFor));
   };
   const canvas = useRef<HTMLCanvasElement>(null);
+  // Each nameplate's element by Role key: one Map for the page's life, which the stage writes through.
+  const [plates] = useState(() => new Map<string, HTMLElement>());
   const floor = useOfficeStage(
     canvas,
+    plates,
     (roleKey, pointerType) => askToOpen(roleKey, pointerType === "touch" || noHover),
     () => setListOpen(true),
   );
@@ -126,6 +129,7 @@ export function LiveViewPage(): ReactNode {
                   hoveredKey={floor.hoveredKey}
                   popoverKey={popoverKey}
                   onPopoverChange={changePopover}
+                  plates={plates}
                 />
               )
             }
@@ -167,10 +171,12 @@ interface OfficeFloor {
 
 /**
  * The PixiJS stage, loaded on its own so the page's first paint doesn't wait for it and a test's
- * DOM never loads it; made again when reduced motion changes, as the still office has no ticker.
+ * DOM never loads it; made again when reduced motion changes, as the still office has no ticker, so
+ * turning it on mid-walk puts everyone in place at once.
  */
 function useOfficeStage(
   canvas: RefObject<HTMLCanvasElement | null>,
+  plates: ReadonlyMap<string, HTMLElement>,
   onPress: (roleKey: string, pointerType: string) => void,
   onFailed: () => void,
 ): OfficeFloor {
@@ -195,6 +201,10 @@ function useOfficeStage(
           onView: setView,
           onHover: setHoveredKey,
           onPress: (roleKey, pointerType) => pressed(roleKey, pointerType),
+          onFigureMove: (roleKey, x, bottom, outside) => {
+            const plate = plates.get(roleKey);
+            if (plate) placeNameplate(plate, x, bottom, outside);
+          },
         });
         if (left) {
           started.destroy();
@@ -216,7 +226,7 @@ function useOfficeStage(
       setView(null);
       setHoveredKey(null);
     };
-  }, [canvas, reducedMotion]);
+  }, [canvas, plates, reducedMotion]);
 
   return {
     canvasKey: reducedMotion ? "still" : "moving",

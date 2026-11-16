@@ -8,7 +8,7 @@ import {
   letGo,
   walkableOf,
 } from "./floor-plan.ts";
-import { officePerson, rosterOf } from "./live-view.fixtures.ts";
+import { floorPeopleOf, officePerson, rosterOf } from "./live-view.fixtures.ts";
 import type { Desk, Layout } from "./live-view-types.ts";
 
 function groupColumns(layout: Layout): string[] {
@@ -27,8 +27,7 @@ describe("the floor plan", () => {
     [16, 16, 14],
     [30, 19, 18],
   ])("is %i people wide %i and deep %i", (count, width, depth) => {
-    const people = count === 3 ? [...rosterOf(2), officePerson("developer")] : rosterOf(count);
-    const layout = layoutOffice(people);
+    const layout = layoutOffice(floorPeopleOf(count));
     expect({ width: layout.width, depth: layout.depth }).toEqual({ width, depth });
   });
 

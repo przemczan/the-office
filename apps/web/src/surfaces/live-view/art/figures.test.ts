@@ -39,6 +39,23 @@ describe("figures", () => {
     }
   });
 
+  it.each(["walk-front", "walk-back"] as const)(
+    "draws %s in four frames: a step with each foot between two passing frames",
+    (pose) => {
+      const look = lookOf("developer");
+      const cells = (frame: number): number[] =>
+        Array.from(figureShape(look, pose, frame).grid.cells);
+      const [passing, leftStep, passingAgain, rightStep] = [0, 1, 2, 3].map(cells);
+      for (const frame of [0, 1, 2, 3]) expect(cells(frame)).toEqual(cells(frame));
+      expect(passingAgain).toEqual(passing);
+      expect(leftStep).not.toEqual(passing);
+      expect(rightStep).not.toEqual(passing);
+      expect(rightStep).not.toEqual(leftStep);
+      const otherWay = pose === "walk-front" ? "walk-back" : "walk-front";
+      expect(Array.from(figureShape(look, otherWay, 1).grid.cells)).not.toEqual(leftStep);
+    },
+  );
+
   it("spreads Role keys over several options of each part of the look", () => {
     const looks = Array.from({ length: 40 }, (_, i) => lookOf(`role-${i}`));
     const distinct = (field: keyof FigureLook): number =>

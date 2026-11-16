@@ -1,6 +1,6 @@
 import { Application, Culler, UPDATE_PRIORITY } from "pixi.js";
 import { forgetPaintedArt } from "./art/pixel-grid.ts";
-import { figureAnchor } from "./figure-hit.ts";
+import { NAMEPLATE_BELOW_FEET, figureAnchor } from "./figure-hit.ts";
 import { addHire, amenitiesOf, layoutOffice, letGo } from "./floor-plan.ts";
 import { lightAt } from "./light.ts";
 import type {
@@ -9,7 +9,6 @@ import type {
   Layout,
   OfficePerson,
   OfficeStage,
-  Placement,
 } from "./live-view-types.ts";
 import { lookStatesOf, placementsOf } from "./live-states.ts";
 import {
@@ -17,9 +16,9 @@ import {
   type OfficeGeometry,
   officeBounds,
   officeGeometryOf,
-  toArt,
 } from "./office-geometry.ts";
-import { OfficeScene } from "./stage-scene.ts";
+import { routeFloorOf } from "./routes.ts";
+import { OfficeScene, type SceneInput } from "./stage-scene.ts";
 import { attachStageInput } from "./stage-input.ts";
 import { StageTextures } from "./stage-textures.ts";
 import {
@@ -38,6 +37,7 @@ import {
   zoomPercent,
   zoomStep,
 } from "./view.ts";
+import { type Walkers, createWalkers } from "./walkers.ts";
 
 /** How long Show on the floor rings a figure. */
 const RING_MS = 3000;
@@ -51,13 +51,16 @@ interface Floor {
   bounds: ArtRect;
   /** The people the floor was last drawn for, by Role key. */
   people: ReadonlySet<string>;
-  placements: ReadonlyMap<string, Placement>;
+  readonly walkers: Walkers;
+  /** What the scene was last built from, to build it again when someone sets off or arrives. */
+  scene: SceneInput | null;
 }
 
 /**
- * The PixiJS floor (design decisions 2, 10, 13, 15 and 16): the office laid out once per page open,
- * hires and those let go changing only their own desk, pan and zoom by whole device pixels, one
- * ticker for the in-place animation while the page is visible and never under the still office.
+ * The PixiJS floor (design decisions 2, 8, 10, 12, 13, 15 and 16): the office laid out once per page
+ * open, hires and those let go changing only their own desk, people walking where the snapshot
+ * sends them, pan and zoom by whole device pixels, one ticker for the walks and the in-place
+ * animation while the page is visible and never under the still office, where every move is a jump.
  */
 export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   const app = new Application();
@@ -85,6 +88,11 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   let lastTick = 0;
   let ringTimer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
+  /** Someone set off, arrived or left: the scene is built again on the next frame. */
+  let walkersChanged = false;
+  const markWalkersChanged = (): void => {
+    walkersChanged = true;
+  };
 
   /* ---------- Drawing ---------- */
 
@@ -92,10 +100,36 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   const cull = (): void => Culler.shared.cull(app.stage, app.screen);
   const onTick = (): void => {
     const now = performance.now();
-    clock += Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - lastTick) / 1000));
+    const seconds = Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - lastTick) / 1000));
+    clock += seconds;
     lastTick = now;
+    if (floor) walk(floor, seconds);
     scene.animate(clock, true);
     cull();
+  };
+  /** Moves every walk on, the figures and their nameplates with it, and opens the door for them. */
+  const walk = (on: Floor, seconds: number): void => {
+    const moved = on.walkers.step(seconds);
+    if (moved.length > 0) {
+      const origin = artOrigin(view);
+      const scale = scaleOf(view);
+      for (const walker of moved) {
+        const place = scene.moveWalker(walker);
+        if (!place) continue;
+        options.onFigureMove(
+          walker.key,
+          origin.x + place.feet.x * scale,
+          origin.y + (place.feet.y + NAMEPLATE_BELOW_FEET) * scale,
+          place.outside,
+        );
+      }
+    }
+    scene.setDoorOpen(on.walkers.doorOpen());
+    if (walkersChanged && on.scene) {
+      walkersChanged = false;
+      scene.build(on.scene);
+      reportView();
+    }
   };
   // Before the app's own render, which the ticker runs at a lower priority.
   app.ticker.add(onTick, undefined, UPDATE_PRIORITY.NORMAL);
@@ -125,10 +159,8 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     scene.world.scale.set(scale);
   };
   const feetOf = (roleKey: string): Point | null => {
-    if (!floor) return null;
-    const placement = floor.placements.get(roleKey);
-    if (!placement || placement.kind === "gone") return null;
-    return toArt(floor.geometry, placement.spot.x, placement.spot.y);
+    const place = scene.figures.find((figure) => figure.roleKey === roleKey);
+    return place ? { x: place.feet.x, y: place.feet.y } : null;
   };
   const reportView = (): void => {
     options.onView({
@@ -136,9 +168,11 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       zoomPercent: zoomPercent(view),
       canZoomIn: canZoomIn(view),
       canZoomOut: canZoomOut(view),
-      anchors: scene.figures.map((figure) => ({
+      anchors: scene.placed.map((figure) => ({
         roleKey: figure.roleKey,
         ...figureAnchor(view, figure.feet),
+        outside: figure.outside,
+        leaving: figure.leaving,
       })),
     });
   };
@@ -182,22 +216,16 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     const light = lightAt(now);
     const keys = new Set(people.map((person) => person.roleKey));
     const first = floor === null;
-    if (!floor) {
-      const layout = layoutOffice(people);
-      const geometry = officeGeometryOf(layout);
-      floor = {
-        layout,
-        amenities: amenitiesOf(layout),
-        geometry,
-        bounds: officeBounds(layout, geometry),
-        people: keys,
-        placements: new Map(),
-      };
-    } else {
+    if (!floor) floor = layOut(people);
+    else {
       // A hire takes a desk and someone let go leaves theirs empty; nobody else moves.
       const widthBefore = floor.layout.width;
-      for (const person of people)
-        if (!floor.people.has(person.roleKey)) addHire(floor.layout, person);
+      let hired = false;
+      for (const person of people) {
+        if (floor.people.has(person.roleKey)) continue;
+        addHire(floor.layout, person);
+        hired = true;
+      }
       for (const roleKey of floor.people) if (!keys.has(roleKey)) letGo(floor.layout, roleKey);
       floor.people = keys;
       if (floor.layout.width !== widthBefore) {
@@ -205,19 +233,44 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
         floor.bounds = officeBounds(floor.layout, floor.geometry);
         floor.amenities = amenitiesOf(floor.layout);
       }
+      // The hire's desk blocks its tiles: walks in flight go round it.
+      if (hired) floor.walkers.setFloor(routeFloorOf(floor.layout, floor.amenities));
     }
-    floor.placements = placementsOf(people, floor.layout, floor.amenities, light, now);
-    scene.build({
+    const placements = placementsOf(people, floor.layout, floor.amenities, light, now);
+    floor.walkers.direct(people, placements, { animate: !options.reducedMotion && !first });
+    floor.scene = {
       layout: floor.layout,
       amenities: floor.amenities,
       geometry: floor.geometry,
       people: new Map(people.map((person) => [person.roleKey, person])),
       lookStates: lookStatesOf(people, now, light),
-      placements: floor.placements,
+      walkers: floor.walkers,
       light,
-    });
+    };
+    walkersChanged = false;
+    scene.build(floor.scene);
     if (first || view.framing.kind === "office") setView(fitView(view, floor.bounds));
     else setView(view);
+  };
+
+  const layOut = (people: readonly OfficePerson[]): Floor => {
+    const layout = layoutOffice(people);
+    const geometry = officeGeometryOf(layout);
+    const amenities = amenitiesOf(layout);
+    const walkers = createWalkers(routeFloorOf(layout, amenities), {
+      onArrive: markWalkersChanged,
+      onDepart: markWalkersChanged,
+      onGone: markWalkersChanged,
+    });
+    return {
+      layout,
+      amenities,
+      geometry,
+      bounds: officeBounds(layout, geometry),
+      people: new Set(people.map((person) => person.roleKey)),
+      walkers,
+      scene: null,
+    };
   };
 
   /* ---------- Show on the floor, zoom and fit ---------- */

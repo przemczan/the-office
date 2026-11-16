@@ -152,6 +152,8 @@ export interface Placement {
   readonly depth: number;
   /** At a desk: what they do there. */
   readonly activity: DeskActivity | null;
+  /** At a `consult` placement: the Consultant whose desk they stand at. */
+  readonly consultantKey: string | null;
   /** Everyone in the same talk, in turn order, this person included; null when not talking. */
   readonly conversation: readonly string[] | null;
 }
@@ -189,6 +191,10 @@ export interface FigureAnchor {
   readonly top: number;
   /** Just under its feet, where the nameplate goes. */
   readonly bottom: number;
+  /** Past the door, seen only through the doorway: its nameplate is hidden. */
+  readonly outside: boolean;
+  /** Let go and walking out: named, but nothing to open. */
+  readonly leaving: boolean;
 }
 
 /** What the page shows over the floor: the zoom and where each figure is. */
@@ -209,11 +215,19 @@ export interface OfficeStageOptions {
   readonly onHover: (roleKey: string | null) => void;
   /** A press on a figure; `pointerType` as the PointerEvent gives it, "touch" for a tap. */
   readonly onPress: (roleKey: string, pointerType: string) => void;
+  /**
+   * A walking figure moved: where its nameplate goes, in CSS pixels as `FigureAnchor`'s `x` and
+   * `bottom`. Called each frame for each figure on the move, so it writes to the DOM, not to state.
+   */
+  readonly onFigureMove: (roleKey: string, x: number, bottom: number, outside: boolean) => void;
 }
 
 /** The PixiJS floor, which the page loads only through a dynamic import. */
 export interface OfficeStage {
-  /** Draws a snapshot: hires take a desk, those let go leave an empty one, nobody else moves. */
+  /**
+   * Draws a snapshot: hires take a desk and walk in, those let go walk out leaving an empty one,
+   * everyone else walks where their state puts them; under the still office every move is a jump.
+   */
   apply(people: readonly OfficePerson[], now: Date): void;
   /** Frames a figure and rings it for a moment (Show on the floor). */
   frame(roleKey: string): void;

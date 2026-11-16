@@ -1,5 +1,5 @@
 import { Popover, Tooltip } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { type CSSProperties, type ReactNode, type RefCallback, useState } from "react";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { agentWords, isNewHire, type PersonNames } from "./live-states.ts";
 import type { FigureAnchor, RecordTitles, StageView } from "./live-view-types.ts";
@@ -21,6 +21,43 @@ export interface NameplatesProps {
   /** Whose popover is open. */
   readonly popoverKey: string | null;
   readonly onPopoverChange: (roleKey: string, open: boolean) => void;
+  /** Each nameplate's element by Role key, which the stage moves as its figure walks. */
+  readonly plates: Map<string, HTMLElement>;
+}
+
+/** Where a nameplate hangs: its middle under the figure's feet. */
+function nameplateTransform(x: number, bottom: number): string {
+  return `translate(${x}px, ${bottom}px) translateX(-50%)`;
+}
+
+/** Moves a nameplate with its walking figure, straight in the DOM; hidden while the figure is outside. */
+export function placeNameplate(
+  element: HTMLElement,
+  x: number,
+  bottom: number,
+  outside: boolean,
+): void {
+  element.style.transform = nameplateTransform(x, bottom);
+  element.style.visibility = outside ? "hidden" : "";
+}
+
+function byRoleKey(shown: readonly ShownPerson[]): Map<string, ShownPerson> {
+  return new Map(shown.map((entry) => [entry.person.roleKey, entry]));
+}
+
+/**
+ * Everyone shown since the page opened, by Role key, so someone let go keeps their nameplate on the
+ * way out: what was shown before, kept in state, with what is shown now over it.
+ */
+function useEveryoneShown(shown: readonly ShownPerson[]): ReadonlyMap<string, ShownPerson> {
+  const [before, setBefore] = useState<ReadonlyMap<string, ShownPerson>>(() => byRoleKey(shown));
+  const [seen, setSeen] = useState(shown);
+  const everyone = new Map([...before, ...byRoleKey(shown)]);
+  if (seen !== shown) {
+    setSeen(shown);
+    setBefore(everyone);
+  }
+  return everyone;
 }
 
 /** HTML over the canvas, so their words are crisp and follow the palette while the floor follows the hour. */
@@ -33,19 +70,40 @@ export function Nameplates({
   hoveredKey,
   popoverKey,
   onPopoverChange,
+  plates,
 }: NameplatesProps): ReactNode {
-  const byKey = new Map(shown.map((entry) => [entry.person.roleKey, entry]));
+  const everyone = useEveryoneShown(shown);
+  const compact = view.scale < COMPACT_BELOW_SCALE;
   return (
     <div className="live-nameplates">
       {view.anchors.map((anchor) => {
-        const entry = byKey.get(anchor.roleKey);
+        const entry = everyone.get(anchor.roleKey);
         if (entry === undefined) return null;
+        const register: RefCallback<HTMLDivElement> = (element) => {
+          if (!element) return;
+          plates.set(anchor.roleKey, element);
+          return () => {
+            if (plates.get(anchor.roleKey) === element) plates.delete(anchor.roleKey);
+          };
+        };
+        if (anchor.leaving) {
+          return (
+            <LeavingNameplate
+              key={anchor.roleKey}
+              shown={entry}
+              anchor={anchor}
+              compact={compact}
+              register={register}
+            />
+          );
+        }
         return (
           <Nameplate
             key={anchor.roleKey}
             shown={entry}
             anchor={anchor}
-            compact={view.scale < COMPACT_BELOW_SCALE}
+            register={register}
+            compact={compact}
             isNew={isNewHire(entry.person, now)}
             tooltip={<PersonTooltip shown={entry} titles={titles} names={names} />}
             hovered={hoveredKey === anchor.roleKey}
@@ -58,9 +116,40 @@ export function Nameplates({
   );
 }
 
+/** The nameplate's place, as the stage last reported it; the stage moves it while the figure walks. */
+function anchorStyle(anchor: FigureAnchor): CSSProperties {
+  return {
+    transform: nameplateTransform(anchor.x, anchor.bottom),
+    visibility: anchor.outside ? "hidden" : undefined,
+  };
+}
+
+/** Someone let go, on their way out: their name goes with them, with nothing to open. */
+function LeavingNameplate({
+  shown: { person },
+  anchor,
+  compact,
+  register,
+}: {
+  readonly shown: ShownPerson;
+  readonly anchor: FigureAnchor;
+  readonly compact: boolean;
+  readonly register: RefCallback<HTMLDivElement>;
+}): ReactNode {
+  return (
+    <div className="live-nameplate" ref={register} style={anchorStyle(anchor)} inert>
+      <span className={compact ? "live-nameplate-face compact" : "live-nameplate-face"}>
+        <PersonAvatar roleKey={person.roleKey} name={person.name} size="xs" />
+        <span className="live-nameplate-name">{person.name}</span>
+      </span>
+    </div>
+  );
+}
+
 function Nameplate({
   shown,
   anchor,
+  register,
   compact,
   isNew,
   tooltip,
@@ -70,6 +159,7 @@ function Nameplate({
 }: {
   readonly shown: ShownPerson;
   readonly anchor: FigureAnchor;
+  readonly register: RefCallback<HTMLDivElement>;
   readonly compact: boolean;
   readonly isNew: boolean;
   readonly tooltip: ReactNode;
@@ -82,10 +172,7 @@ function Nameplate({
   const tooltipOpen = popoverOpen ? false : hovered ? true : undefined;
   // Under the nameplate, so it never covers the figure it is about.
   return (
-    <div
-      className="live-nameplate"
-      style={{ transform: `translate(${anchor.x}px, ${anchor.bottom}px) translateX(-50%)` }}
-    >
+    <div className="live-nameplate" ref={register} style={anchorStyle(anchor)}>
       <Tooltip content={tooltip} open={tooltipOpen} side="bottom">
         <Popover
           label={person.name}

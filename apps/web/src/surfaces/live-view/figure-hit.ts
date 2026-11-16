@@ -21,6 +21,8 @@ const HALF_WIDTH = 8;
 const STANDING_HEIGHT = 26;
 const SEATED_HEIGHT = 22;
 const BELOW_FEET = 2;
+/** How far under the feet a nameplate hangs, in art pixels. */
+export const NAMEPLATE_BELOW_FEET = 4;
 
 /** The figure under a point of the canvas (CSS pixels), front-most first. Nameplates are HTML with their own events. */
 export function figureAt(
@@ -48,5 +50,5 @@ export function figureAt(
 export function figureAnchor(view: View, feet: Point): FigureAnchor {
   const at = toCanvas(view, feet);
   const scale = scaleOf(view);
-  return { x: at.x, top: at.y - 24 * scale, bottom: at.y + 4 * scale };
+  return { x: at.x, top: at.y - 24 * scale, bottom: at.y + NAMEPLATE_BELOW_FEET * scale };
 }
