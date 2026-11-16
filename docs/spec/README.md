@@ -15,7 +15,7 @@ The spec is one file per section, so a session reads only the sections its task 
 - [2.1 Work](2.1-work.md): Project, Idea, Initiative, Task and its states, Attachment.
 - [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, duties, the Office Manager, limits.
 - [2.3 Pipelines](2.3-pipelines.md): Stage kinds, loops, Gates, built-in Pipelines, Publish, the library.
-- [2.4 Conversations](2.4-conversations.md): Threads, Decisions, barge-in, consultation, mentions, chats only read.
+- [2.4 Conversations](2.4-conversations.md): Threads, Decisions (a form of one or more questions), barge-in, consultation, mentions, chats only read.
 - [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides.
 - [2.6 Skills](2.6-skills.md): the library, adding skills, Project skills, what a session gets.
 - [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults.
@@ -80,12 +80,14 @@ Where each default lives (the old §9):
 - The Context policy's size threshold counts what the conversation added: [2.5 Context policy](2.5-context-policy.md#defaults)
 - A chat Thread's Brief: [2.5 Context policy](2.5-context-policy.md#defaults)
 - A Decision is a card in the asking Agent's Thread: [2.4 Conversations](2.4-conversations.md#defaults)
+- Decisions in the shaping Thread: [2.1 Work](2.1-work.md#defaults)
 - Waiting on you while planning: [2.1 Work](2.1-work.md#defaults)
 - Plan as a Task with the Planner: [2.1 Work](2.1-work.md#defaults)
 - Open in editor: [4. UX direction](4-ux-direction.md#defaults)
 - Merge mode when the base moved: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The Changes tab after Publish shows what Publish shipped: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - No message from a person in tier 1: [2.7 Notifications](2.7-notifications.md#defaults)
+- A Decision in a chat isn't in Needs you: [2.7 Notifications](2.7-notifications.md#defaults)
 - A failed Task: [2.7 Notifications](2.7-notifications.md#defaults)
 - Since you left begins after five idle minutes: [2.7 Notifications](2.7-notifications.md#defaults)
 - Window nearly used at 90%: [2.7 Notifications](2.7-notifications.md#defaults)
