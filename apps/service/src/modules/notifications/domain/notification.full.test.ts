@@ -1,3 +1,4 @@
+import { NOTIFICATION_TIME } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROUTING } from "./notification-kinds.js";
 import {
@@ -12,11 +13,15 @@ import {
   taskDone,
   taskFailed,
   taskPaused,
+  taskPausedByUsageWindow,
+  TIME,
   windowMove,
   windowNearlyUsed,
   windowReset,
   windowUsedUp,
+  withTimeWorded,
   type NotificationDraft,
+  type WindowReading,
 } from "./notification.js";
 
 const CLAUDE_CODE = { id: "claude-code", name: "Claude Code" };
@@ -141,7 +146,7 @@ describe("the Notifications' content", () => {
       [
         windowNearlyUsed(CLAUDE_CODE, 91.4, defaultPerson),
         windowReset(CLAUDE_CODE, defaultPerson),
-        windowUsedUp(CLAUDE_CODE, usedUp, defaultPerson, new Date(2026, 9, 27, 12, 0)),
+        windowUsedUp(CLAUDE_CODE, usedUp, defaultPerson),
         engineDown(WORK_ACCOUNT, "connection refused", defaultPerson),
         officeUpdated("1.8.0", defaultPerson),
         officeUpdateFailed("install", "1.7.2", defaultPerson),
@@ -150,7 +155,7 @@ describe("the Notifications' content", () => {
     const expected = [
       "Claude Code: 91% of 5-hour window",
       "Claude Code's window reset",
-      "Claude Code used up until 14:20",
+      "Claude Code used up until {time}",
       "Work account is down",
       "Updated to 1.8.0",
       "Update failed, back on 1.7.2",
@@ -232,11 +237,89 @@ describe("handles", () => {
 });
 
 describe("windowMove", () => {
-  it("is nearly used when the window crosses 90%, and reset when it drops", () => {
-    expect(windowMove(85, 90)).toBe("nearly-used");
-    expect(windowMove(91, 95)).toBeUndefined();
-    expect(windowMove(95, 3)).toBe("reset");
-    expect(windowMove(20, 40)).toBeUndefined();
+  const resetsAt = new Date("2026-10-27T14:00:00Z");
+  const beforeReset = new Date("2026-10-27T12:00:00Z");
+  const of = (percentUsed: number, at: Date | undefined = resetsAt): WindowReading => ({
+    percentUsed,
+    resetsAt: at,
+  });
+
+  it("is nearly used when the window crosses 90%", () => {
+    expect(windowMove(of(85), of(90), beforeReset)).toBe("nearly-used");
+    expect(windowMove(of(91), of(95), beforeReset)).toBeUndefined();
+    expect(windowMove(of(20), of(40), beforeReset)).toBeUndefined();
+    // The first reading since a restart.
+    expect(windowMove(of(0, undefined), of(92), beforeReset)).toBe("nearly-used");
+  });
+
+  it("is no reset when the window reads lower before its reset time", () => {
+    expect(windowMove(of(95), of(3), beforeReset)).toBeUndefined();
+    expect(
+      windowMove(of(95), of(3, new Date("2026-10-27T14:20:00Z")), beforeReset),
+    ).toBeUndefined();
+    expect(windowMove(of(95), of(0, undefined), beforeReset)).toBeUndefined();
+    // Nor a crossing of nearly used, when it reads high again.
+    expect(windowMove(of(80), of(92), beforeReset)).toBe("nearly-used");
+    expect(windowMove(of(95, undefined), of(3), beforeReset)).toBeUndefined();
+  });
+
+  it("is a reset once a lower reading comes at or after the reset time", () => {
+    expect(windowMove(of(95), of(3), resetsAt)).toBe("reset");
+    expect(windowMove(of(95), of(0, undefined), new Date("2026-10-27T15:00:00Z"))).toBe("reset");
+  });
+
+  it("is a reset when the lower reading's window began at or after the last one's reset", () => {
+    const nextWindow = new Date("2026-10-27T19:00:00Z");
+    expect(windowMove(of(95), of(3, nextWindow), beforeReset)).toBe("reset");
+    // Within a minute's rounding of it.
+    const rounded = new Date(nextWindow.getTime() - 30_000);
+    expect(windowMove(of(95), of(3, rounded), beforeReset)).toBe("reset");
+    const tooEarly = new Date(nextWindow.getTime() - 2 * 60_000);
+    expect(windowMove(of(95), of(3, tooEarly), beforeReset)).toBeUndefined();
+  });
+
+  it("counts a new window from nothing, so a high first reading in it is nearly used", () => {
+    expect(windowMove(of(92), of(95, new Date("2026-10-27T19:00:00Z")), resetsAt)).toBe(
+      "nearly-used",
+    );
+  });
+});
+
+describe("the time a Notification names", () => {
+  const resetsAt = new Date(2026, 10, 17, 17, 10);
+  const usedUp = windowUsedUp(CLAUDE_CODE, { window: "5-hour window", resetsAt }, undefined);
+
+  it("keeps the instant, with a placeholder in its lines for each reader to word", () => {
+    expect(TIME).toBe(NOTIFICATION_TIME);
+    expect(usedUp).toMatchObject({
+      line: "Claude Code's 5-hour window is used up until {time}. Tasks on it are paused and wait.",
+      shortLine: "Claude Code used up until {time}",
+      at: resetsAt,
+    });
+    expect(raised(usedUp).at).toEqual(resetsAt);
+    expect(
+      taskPausedByUsageWindow("t1", "developer", {
+        engineName: "Claude Code",
+        window: "5-hour window",
+        resetsAt,
+      }),
+    ).toMatchObject({
+      line: "I paused: Claude Code's 5-hour window is used up. I'll go on at {time}.",
+      at: resetsAt,
+    });
+    expect(raised(taskDone("t1", undefined)).at).toBeUndefined();
+  });
+
+  it("is worded in the service's time zone for a channel with no browser, with the day on another", () => {
+    expect(withTimeWorded(raised(usedUp), new Date(2026, 10, 17, 9, 0))).toMatchObject({
+      line: "Claude Code's 5-hour window is used up until 17:10. Tasks on it are paused and wait.",
+      shortLine: "Claude Code used up until 17:10",
+    });
+    expect(withTimeWorded(raised(usedUp), new Date(2026, 10, 16, 9, 0)).shortLine).toBe(
+      "Claude Code used up until Tue 17 Nov 17:10",
+    );
+    const done = raised(taskDone("t1", undefined));
+    expect(withTimeWorded(done, new Date())).toBe(done);
   });
 });
 

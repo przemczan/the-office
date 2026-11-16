@@ -73,16 +73,25 @@ function decisionEvent(
   return new eventClass(thread, asked, new Date());
 }
 
-/** An engine's account's windows as the engine reads them, the 5-hour one this much used. */
+/**
+ * An engine's account's windows as the engine reads them, the 5-hour one this much used: in the
+ * window that resets at 14:00 of the test's day, or `window` windows after it.
+ */
 function reading(
   percentUsed: number,
   engine = { id: "claude-code", name: "Claude Code" },
+  window = 0,
 ): UsageWindowsChanged {
   return new UsageWindowsChanged(engine.id, engine.name, {
-    fiveHour: { percentUsed, resetsAt: new Date("2026-10-27T12:00:00Z") },
+    fiveHour: { percentUsed, resetsAt: windowResetsAt(window) },
     sevenDay: { percentUsed: 10, resetsAt: undefined },
     source: "rate-limit-headers",
   });
+}
+
+/** When the test's 5-hour window resets, or the one `window` windows after it. */
+function windowResetsAt(window = 0): Date {
+  return new Date(2001, 0, testDay, 14 + 5 * window);
 }
 
 function down(engineId: string, engineName: string): EngineDown {
@@ -294,7 +303,8 @@ describe("NotificationService", () => {
     expect(raised.map(({ notification }) => notification)).toEqual([
       expect.objectContaining({
         kind: "outcomes.task-paused",
-        line: "Paused: Claude Code's 5-hour window is used up. Resumes at 14:00.",
+        line: "Paused: Claude Code's 5-hour window is used up. Resumes at {time}.",
+        at: resetsAt,
         pointsTo: { kind: "task", taskId: refused },
       }),
     ]);
@@ -358,13 +368,37 @@ describe("NotificationService", () => {
   it("tells the 5-hour window nearly used at 90%, and its reset, which clears that", async () => {
     await events.publish(reading(89));
     await events.publish(reading(91));
-    await events.publish(reading(4));
+    await events.publish(reading(4, undefined, 1));
 
     expect(raised.map(({ notification }) => [notification.kind, notification.channels])).toEqual([
       ["office.window.nearly-used", ["in-app"]],
       ["office.window.reset", ["in-app"]],
     ]);
     expect(cleared).toContain(raised[0]?.notification.id);
+  });
+
+  it("tells no reset of a 5-hour window that reads lower before its reset time, nor clears its nearly used", async () => {
+    const engine = { id: "window-dip-account", name: "Dip account" };
+    await events.publish(reading(91, engine));
+    // A dip within the window that resets at 14:00, read at noon: neither a reset nor a crossing.
+    await events.publish(reading(60, engine));
+    await events.publish(reading(92, engine));
+
+    expect(raised.map(({ notification }) => notification.kind)).toEqual([
+      "office.window.nearly-used",
+    ]);
+    expect(cleared).toEqual([]);
+
+    // Once the clock reaches the reset time, a lower reading is the window's reset.
+    await schedule.advanceTo(windowResetsAt());
+    await events.publish(reading(3, engine));
+
+    expect(raised.map(({ notification }) => notification.kind)).toEqual([
+      "office.window.nearly-used",
+      "office.window.reset",
+    ]);
+    expect(cleared).toEqual([raised[0]?.notification.id]);
+    await reportActivity({ kind: "now" });
   });
 
   it("tells an engine's usage window used up in the office.window row, handled at its reset", async () => {
@@ -382,18 +416,25 @@ describe("NotificationService", () => {
       expect.objectContaining({
         kind: "office.window.used-up",
         roleKey: CARETAKER,
-        line: "Claude Code's 5-hour window is used up until 14:00. I've paused the Tasks on it, and the rest wait.",
+        line: "Claude Code's 5-hour window is used up until {time}. I've paused the Tasks on it, and the rest wait.",
+        shortLine: "Claude Code used up until {time}",
+        at: resetsAt,
         pointsTo: { kind: "office", engineId: "claude-code" },
         channels: ["in-app"],
       }),
       expect.objectContaining({
-        line: "Lab account's Opus weekly window is used up until 14:00. I've paused the Tasks on it, and the rest wait.",
+        line: "Lab account's Opus weekly window is used up until {time}. I've paused the Tasks on it, and the rest wait.",
       }),
     ]);
+    // Kept with the instant, which the web words in the browser's time zone.
+    const listed = await openNotifications();
+    expect(listed.find(({ id }) => id === raised[0]?.notification.id)?.at).toBe(
+      resetsAt.toISOString(),
+    );
 
     // A 5-hour reading going down doesn't tell a used-up window reset; its own reset does.
     await events.publish(reading(91));
-    await events.publish(reading(4));
+    await events.publish(reading(4, undefined, 1));
     expect(cleared).not.toContain(raised[0]?.notification.id);
     await events.publish(new UsageWindowReset("claude-code", "five-hour"));
 
@@ -408,7 +449,7 @@ describe("NotificationService", () => {
     await events.publish(reading(10, labAccount));
     await events.publish(reading(92, workAccount));
     await events.publish(reading(95, labAccount));
-    await events.publish(reading(4, workAccount));
+    await events.publish(reading(4, workAccount, 1));
 
     expect(raised.map(({ notification }) => notification.line)).toEqual([
       "We've used 90% of Work account's 5-hour window.",
@@ -430,8 +471,8 @@ describe("NotificationService", () => {
     await reportActivity({ kind: "now" });
 
     people.holders.set("default-person-to-talk-to", "receptionist");
-    await events.publish(reading(4));
-    await events.publish(reading(93));
+    await events.publish(reading(4, undefined, 1));
+    await events.publish(reading(93, undefined, 1));
     await events.publish(claudeCodeDown());
 
     expect(raised.map(({ notification }) => [notification.roleKey, notification.line])).toEqual([

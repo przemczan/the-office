@@ -412,10 +412,12 @@ test("the user captures an Idea from Now in a few keystrokes", async ({ page }) 
   await page.goto("/now");
 
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("menu").getByRole("button")).toHaveText(["Task", "Idea"]);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-create-menu.png") });
+  const create = page.getByRole("dialog", { name: "New Task" });
+  await expect(create.getByRole("tab")).toHaveText(["Task", "Idea"]);
+  await expect(create.getByRole("tab", { name: "Task" })).toHaveAttribute("aria-selected", "true");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-create.png") });
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await createFromTopBar(page, "Idea");
   await page.keyboard.type("Nightly dependency updates");
   await page.keyboard.press("Enter");
@@ -1319,7 +1321,7 @@ test(
 );
 
 test(
-  "a card names the current Stage in the words of the person working it, not on the card",
+  "a card names the current Stage before the avatars of the person working it, cut when narrow",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Stage worked now", "SW");
@@ -1365,8 +1367,18 @@ test(
     await moveThreadTo(page, stageThread, "answering", "Implementing");
     const mark = card.getByRole("img", { name: words });
     await expect(mark).toBeVisible();
-    // The card shows the avatars alone: the Stage's name is in the mark's words.
-    await expect(card).not.toContainText(stageName);
+    // The Stage's name shows just before the avatars, this long one cut with an ellipsis, and the
+    // live dot and avatars stay whole inside the row.
+    const label = mark.locator(".working-mark-stage");
+    await expect(label).toHaveText(stageName);
+    expect(await label.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    const labelBox = await label.boundingBox();
+    const avatarsBox = await mark.locator(".working-mark-avatars").boundingBox();
+    expect((labelBox?.x ?? 0) + (labelBox?.width ?? 0)).toBeLessThanOrEqual(avatarsBox?.x ?? 0);
+    const rowBox = await card.locator(".board-card-marks").boundingBox();
+    expect((avatarsBox?.x ?? 0) + (avatarsBox?.width ?? 0)).toBeLessThanOrEqual(
+      (rowBox?.x ?? 0) + (rowBox?.width ?? 0),
+    );
     // On the marks' one row, beside the Paused mark, at the right end.
     const pausedBox = await card.getByRole("img", { name: "Paused" }).boundingBox();
     const markBox = await mark.boundingBox();
@@ -1572,6 +1584,16 @@ test(
     await expect(workTab(page, "Tasks")).toHaveText("Tasks2");
     expect((await page.request.post(`/api/tasks/${ready.id}/drop`)).ok()).toBe(true);
     await expect(workTab(page, "Tasks")).toHaveText("Tasks1");
+
+    // The Task page and the Initiative page keep Work's tabs, their own tab chosen; a press goes
+    // to that tab's list.
+    await page.goto(`/tasks/${ready.id}`);
+    await expect(workTab(page, "Tasks")).toHaveAttribute("aria-selected", "true");
+    await expect(workTab(page, "Tasks")).toHaveText("Tasks1");
+    await page.goto(`/work/initiatives/${shaping}`);
+    await expect(workTab(page, "Initiatives")).toHaveAttribute("aria-selected", "true");
+    await workTab(page, "Ideas").click();
+    await expect(page).toHaveURL(/\/work\/ideas(\?|$)/);
   },
 );
 

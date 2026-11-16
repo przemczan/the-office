@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { amenitiesOf, consultSpot, deskOf, deskSpot, layoutOffice } from "./floor-plan.ts";
 import { DOOR_OUTSIDE } from "./floor-plan.ts";
 import {
+  DESK_DEPTHS,
   LIST_GROUPS,
   doingWords,
   doingsOf,
@@ -12,6 +13,7 @@ import {
   placementsOf,
   stateWords,
   summaryWords,
+  walksAtAlarmChange,
   walksAtLightChange,
   workLinksOf,
 } from "./live-states.ts";
@@ -233,6 +235,53 @@ describe("walks at a change of light", () => {
   });
 });
 
+/** The alarm as the floor was given it that many minutes ago. */
+function alarmSeen(on: boolean, minutesBefore: number) {
+  return { on, at: new Date(NOW.getTime() - minutesBefore * 60_000) };
+}
+
+describe("the fire alarm", () => {
+  it("puts everyone out while it is on, desks kept, and back at the all clear", () => {
+    const people = eightWith(working("developer"), idleFor("office-manager", 5), napping("cto"));
+    const layout = layoutOffice(people);
+    const amenities = amenitiesOf(layout);
+    const out = placementsOf(people, layout, amenities, DAY, NOW, true);
+    expect(out.size).toBe(people.length);
+    for (const placement of out.values())
+      expect(placement).toMatchObject({ kind: "gone", spot: DOOR_OUTSIDE, doing: null });
+    for (const person of people) expect(deskOf(layout, person.roleKey)).toBeDefined();
+    const back = placementsOf(people, layout, amenities, DAY, NOW, false);
+    expect(back).toEqual(placementsOf(people, layout, amenities, DAY, NOW));
+    expect(back.get("developer")?.kind).toBe("desk");
+  });
+
+  it("walks people only when it sounds or clears in front of the viewer", () => {
+    expect(walksAtAlarmChange(alarmSeen(false, 0), true, NOW)).toBe(true);
+    expect(walksAtAlarmChange(alarmSeen(true, 1), false, NOW)).toBe(true);
+    expect(walksAtAlarmChange(alarmSeen(true, 1), true, NOW)).toBe(false);
+    expect(walksAtAlarmChange(alarmSeen(false, 1), false, NOW)).toBe(false);
+  });
+
+  it("puts people in place after a hidden tab or a sleeping machine, or on the page's first look", () => {
+    expect(walksAtAlarmChange(alarmSeen(false, 2), true, NOW)).toBe(false);
+    expect(walksAtAlarmChange(alarmSeen(true, 600), false, NOW)).toBe(false);
+    expect(walksAtAlarmChange(null, true, NOW)).toBe(false);
+  });
+
+  it("says in the summary that the alarm is on and everyone is out", () => {
+    const people = eightWith(working("developer"), idleFor("office-manager", 5));
+    expect(summaryWords(people, DAY, lookStatesOf(people, NOW, DAY), true)).toBe(
+      "8 people: the fire alarm is on, everyone is out of the office. Day, 13:05.",
+    );
+    expect(summaryWords([], NIGHT, new Map(), true)).toBe(
+      "0 people: the fire alarm is on, nobody is in the office. Night, 22:30.",
+    );
+    expect(summaryWords(people, DAY, lookStatesOf(people, NOW, DAY), false)).toBe(
+      summaryWords(people, DAY, lookStatesOf(people, NOW, DAY)),
+    );
+  });
+});
+
 describe("placements", () => {
   it("seats the working, the waiting and the asleep at their desk", () => {
     const waitingPerson = officePerson("reviewer", {
@@ -249,7 +298,7 @@ describe("placements", () => {
       activity: "working",
       pose: "sit-back",
       facing: "back",
-      depth: developerDesk.depth + 0.1,
+      depth: developerDesk.depth + DESK_DEPTHS.sitter,
       conversation: null,
     });
     expect(placements.get("reviewer")).toMatchObject({
@@ -262,6 +311,18 @@ describe("placements", () => {
       activity: "asleep",
       pose: "sit-back-sleep",
     });
+  });
+
+  it("draws whoever sits at a desk over its screens, lamp, bulb and their glows", () => {
+    const { layout, placements } = placed(eightWith(working("developer")));
+    const desk = deskOf(layout, "developer")!;
+    const sitter = placements.get("developer")!.depth;
+    const glows = desk.depth + DESK_DEPTHS.lampGlow;
+    expect(desk.depth + DESK_DEPTHS.screenGlow).toBeLessThan(glows);
+    for (const under of [DESK_DEPTHS.screen, DESK_DEPTHS.lamp, DESK_DEPTHS.bulb, DESK_DEPTHS.seat])
+      expect(desk.depth + under).toBeLessThan(glows);
+    expect(glows).toBeLessThan(sitter);
+    expect(sitter).toBeLessThan(desk.depth + DESK_DEPTHS.chairBack);
   });
 
   it("puts someone idle at a spot of their pick", () => {
@@ -300,6 +361,7 @@ describe("placements", () => {
       beanbag: "sit-front-phone",
       bookshelf: "stand-back-read",
       plant: "stand-back-water",
+      games: "sit-back-play",
     };
     const exercises: Record<string, string> = {
       "jumping-jacks": "stand-front-jacks",
@@ -319,7 +381,7 @@ describe("placements", () => {
           turn.pastime === "exercise" ? exercises[turn.exercise] : expected[turn.pastime];
         expect(placement.pose).toBe(pose);
         posed.add(turn.pastime === "exercise" ? turn.exercise : turn.pastime);
-        if (posed.size === 8) return;
+        if (posed.size === 10) return;
       }
     }
     expect([...posed].toSorted()).toEqual(
@@ -424,6 +486,32 @@ describe("placements", () => {
     });
   });
 
+  it("sits someone playing games on a floor pillow, back to us, facing the TV", () => {
+    const others = rosterOf(8)
+      .filter((person) => person.roleKey !== "developer")
+      .map((person) => working(person.roleKey));
+    const gamer = idleFor(
+      "developer",
+      minutesWhen("developer", (turn) => turn.pastime === "games"),
+    );
+    const people = [...others, gamer];
+    const layout = layoutOffice(people);
+    const amenities = amenitiesOf(layout);
+    const placement = placementsOf(people, layout, amenities, DAY, NOW).get("developer")!;
+    const firstPillow = amenities.pastimeSpots.find((spot) => spot.kind === "games")!;
+    expect(placement).toMatchObject({
+      kind: "pastime",
+      spot: firstPillow,
+      pose: "sit-back-play",
+      facing: "back",
+      mirrored: true,
+      z: firstPillow.seatZ,
+      conversation: null,
+      doing: { pastime: "games", exercise: null, chatting: false },
+    });
+    expect(stateWords(gamer, "idle", TITLES, NAMES, placement.doing)).toBe("Idle: playing games");
+  });
+
   it("stands someone consulting at the Consultant's desk, the Consultant turned round to talk", () => {
     const { layout, placements } = placed(
       eightWith(consulting("developer", "cto"), working("cto")),
@@ -443,22 +531,25 @@ describe("placements", () => {
     });
   });
 
-  it("meets two asking one Consultant at the meeting spot, the Consultant in seat 0", () => {
-    const people = eightWith(
-      consulting("developer", "cto"),
-      consulting("reviewer", "cto"),
-      working("cto"),
+  it("has the first of two asking one Consultant at the desk, the other waiting at their own", () => {
+    const { layout, placements } = placed(
+      eightWith(consulting("developer", "cto"), consulting("reviewer", "cto"), working("cto")),
     );
-    const layout = layoutOffice(people);
-    const amenities = amenitiesOf(layout);
-    const placements = placementsOf(people, layout, amenities, DAY, NOW);
-    expect(placements.get("cto")).toMatchObject({
-      kind: "meeting",
-      spot: amenities.meetingSeats[0],
+    expect(placements.get("developer")).toMatchObject({
+      kind: "consult",
+      spot: consultSpot(deskOf(layout, "cto")!),
+      conversation: ["cto", "developer"],
     });
-    expect(placements.get("developer")?.spot).toBe(amenities.meetingSeats[1]);
-    expect(placements.get("reviewer")?.spot).toBe(amenities.meetingSeats[2]);
-    expect(placements.get("reviewer")?.conversation).toEqual(["cto", "developer", "reviewer"]);
+    expect(placements.get("reviewer")).toMatchObject({
+      kind: "desk",
+      spot: deskSpot(deskOf(layout, "reviewer")!),
+      conversation: null,
+    });
+    expect(placements.get("cto")).toMatchObject({
+      kind: "desk",
+      activity: "talking",
+      conversation: ["cto", "developer"],
+    });
   });
 
   it("leaves at their own desk whoever can't join a Consultant, so no two stand on one spot", () => {
@@ -470,12 +561,18 @@ describe("placements", () => {
       return working(person.roleKey);
     });
     const { layout, placements } = placed(people);
-    // The CTO meets the first three; the fourth waits at their own desk.
-    expect(placements.get("qa-engineer")).toMatchObject({
-      kind: "desk",
-      spot: deskSpot(deskOf(layout, "qa-engineer")!),
+    // The CTO has the first at the desk; the other three wait at their own desks.
+    for (const roleKey of ["reviewer", "technical-writer", "qa-engineer"]) {
+      expect(placements.get(roleKey)).toMatchObject({
+        kind: "desk",
+        spot: deskSpot(deskOf(layout, roleKey)!),
+      });
+    }
+    expect(placements.get("developer")).toMatchObject({
+      kind: "consult",
+      spot: consultSpot(deskOf(layout, "cto")!),
     });
-    // Devops, asked by two while the meeting spot is taken, has the first at the desk.
+    // Devops, asked by two, has the first at the desk too.
     expect(placements.get("frontend-developer")).toMatchObject({
       kind: "consult",
       spot: consultSpot(deskOf(layout, "devops")!),
@@ -690,6 +787,7 @@ describe("words and links", () => {
         doing({ pastime: "exercise", exercise: "push-ups" }),
         doing({ pastime: "bookshelf" }),
         doing({ pastime: "plant" }),
+        doing({ pastime: "games" }),
         doing({ pastime: "nap" }),
         doing({ pastime: "desk" }),
       ].map(doingWords),
@@ -704,6 +802,7 @@ describe("words and links", () => {
       "doing push-ups",
       "browsing the bookshelf",
       "watering a plant",
+      "playing games",
       "napping at their desk",
       "stretching at their desk",
     ]);

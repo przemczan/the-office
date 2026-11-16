@@ -34,6 +34,7 @@ import {
   tasksOfInitiative,
 } from "./initiative-words.ts";
 import { MissingRecord } from "./missing-record.tsx";
+import { WorkTabs } from "./work-tabs.tsx";
 import { OriginBlock } from "./origin-block.tsx";
 import { OutcomeBlock } from "./outcome-block.tsx";
 import { RecordFold } from "./record-fold.tsx";
@@ -66,10 +67,18 @@ export function InitiativePage(): ReactNode {
   });
   if (initiative.error) return <MissingRecord error={initiative.error} kind="Initiative" />;
   const record = initiative.data;
-  if (!record || !tasks.data) return null;
+  if (!record || !tasks.data) {
+    return (
+      <div className="task-page">
+        <WorkTabs shown="initiatives" />
+      </div>
+    );
+  }
   const initiativeTasks = tasksOfInitiative(record, tasks.data);
   return (
+    // The tabs stay inside the page's first element, which the conversation's fit watches.
     <div className="task-page">
+      <WorkTabs shown="initiatives" />
       <InitiativeHead
         initiative={record}
         initiativeTasks={initiativeTasks}

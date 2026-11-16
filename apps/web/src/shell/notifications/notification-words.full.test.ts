@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   aboutLine,
   blinkingTabTitle,
+  namedTimeWords,
+  notificationLineOf,
   personOf,
   serviceDown,
   tabTitle,
@@ -120,5 +122,41 @@ describe("aboutLine", () => {
       "Add a filter · Billing",
     );
     expect(aboutLine(undefined, projects)).toBeUndefined();
+  });
+});
+
+describe("notificationLineOf", () => {
+  // 16:10 UTC, 17:10 in Warsaw, on Tuesday 17 November 2026.
+  const at = "2026-11-17T16:10:00.000Z";
+  const line =
+    "Claude Code's 5-hour window is used up until {time}. Tasks on it are paused and wait.";
+
+  it("words the time a Notification names in the browser's time zone, by the clock on its day", () => {
+    const sameDay = new Date("2026-11-17T08:00:00.000Z");
+    expect(notificationLineOf(line, { at }, sameDay, "Europe/Warsaw")).toBe(
+      "Claude Code's 5-hour window is used up until 17:10. Tasks on it are paused and wait.",
+    );
+    expect(notificationLineOf(line, { at }, sameDay, "UTC")).toContain("until 16:10.");
+  });
+
+  it("gives the day too when it is on another day there", () => {
+    const dayBefore = new Date("2026-11-16T12:00:00.000Z");
+    expect(namedTimeWords(at, dayBefore, "Europe/Warsaw")).toBe("Tue 17 Nov 17:10");
+    // Past midnight in Tokyo, it is the next day there though the same in Warsaw.
+    expect(namedTimeWords(at, new Date("2026-11-17T08:00:00.000Z"), "Asia/Tokyo")).toBe(
+      "Wed 18 Nov 01:10",
+    );
+  });
+
+  it("uses the browser's own time zone unless told another", () => {
+    const local = new Date(at);
+    const clock = `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}`;
+    expect(namedTimeWords(at, local)).toBe(clock);
+  });
+
+  it("shows a line naming no time as stored, as one raised before Notifications kept it", () => {
+    expect(notificationLineOf("Claude Code used up until 14:20", {})).toBe(
+      "Claude Code used up until 14:20",
+    );
   });
 });

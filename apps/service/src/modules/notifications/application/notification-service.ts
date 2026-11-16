@@ -60,6 +60,7 @@ import {
   type Handling,
   type Notification,
   type NotificationDraft,
+  type WindowReading,
 } from "../domain/notification.js";
 import {
   collapsedOutcomes,
@@ -78,6 +79,9 @@ import { NotificationTimingRepository } from "../ports/notification-timing-repos
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { NotificationDelivery } from "./notification-delivery.js";
+
+/** Before an engine's first reading since a restart: nothing used, the window not begun. */
+const NO_READING: WindowReading = { percentUsed: 0, resetsAt: undefined };
 
 /** Where the user is in The Office, as the web reports it with their activity. */
 export type Page =
@@ -98,9 +102,9 @@ export type Page =
 export class NotificationService implements OnModuleInit {
   /**
    * Each engine's 5-hour window's last reading, by engine id, which its next is compared with;
-   * unknown after a restart.
+   * unknown after a restart. A lower reading before the window resets leaves the last one standing.
    */
-  private readonly windowPercents = new Map<string, number>();
+  private readonly windowReadings = new Map<string, WindowReading>();
 
   constructor(
     private readonly repository: NotificationRepository,
@@ -182,14 +186,7 @@ export class NotificationService implements OnModuleInit {
       // a Task handed back to the window by its Initiative's Resume was paused by the user.
       if (by === "usage-window" && usageWindow !== undefined && from !== "paused") {
         const window = usageWindowWords(usageWindow.window);
-        await this.raise(
-          taskPausedByUsageWindow(
-            taskId,
-            personRole,
-            { ...usageWindow, window },
-            this.schedule.now(),
-          ),
-        );
+        await this.raise(taskPausedByUsageWindow(taskId, personRole, { ...usageWindow, window }));
       }
       // The user sounded the alarm, or paused the whole Initiative, themselves; Now shows what the
       // alarm holds, and the Initiative shows it is paused.
@@ -220,11 +217,13 @@ export class NotificationService implements OnModuleInit {
   private subscribeToOffice(): void {
     this.events.subscribe(UsageWindowsChanged, async ({ engineId, engineName, windows }) => {
       const engine = { id: engineId, name: engineName };
-      const percent = windows.fiveHour.percentUsed;
-      const move = windowMove(this.windowPercents.get(engineId) ?? 0, percent);
-      this.windowPercents.set(engineId, percent);
+      const current = windows.fiveHour;
+      const previous = this.windowReadings.get(engineId) ?? NO_READING;
+      const move = windowMove(previous, current, this.schedule.now());
+      const dipped = move !== "reset" && current.percentUsed < previous.percentUsed;
+      if (!dipped) this.windowReadings.set(engineId, current);
       if (move === "nearly-used") {
-        await this.raise(windowNearlyUsed(engine, percent, await this.defaultPerson()));
+        await this.raise(windowNearlyUsed(engine, current.percentUsed, await this.defaultPerson()));
       }
       if (move === "reset") {
         await this.handle({ kind: "window-reset", engineId });
@@ -239,7 +238,6 @@ export class NotificationService implements OnModuleInit {
           { id: engineId, name: engineName },
           { window: usageWindowWords(window), resetsAt },
           await this.defaultPerson(),
-          this.schedule.now(),
         ),
       );
     });
@@ -252,7 +250,7 @@ export class NotificationService implements OnModuleInit {
       ),
     );
     this.events.subscribe(EngineRemoved, async ({ engineId }) => {
-      this.windowPercents.delete(engineId);
+      this.windowReadings.delete(engineId);
       await this.handle({ kind: "engine-removed", engineId });
     });
     // A newer update's result replaces what the last one's said.

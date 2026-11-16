@@ -3,6 +3,7 @@ import type { LiveAgent, LiveView, Role } from "@the-office/contracts";
 import { act, useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { liveViewEventCacheUpdates } from "../../api/live-view.ts";
+import { nowQueries } from "../../api/notifications.ts";
 import {
   buttonNamed,
   closePage,
@@ -34,6 +35,7 @@ const stages = vi.hoisted(() => ({
   made: [] as {
     options: OfficeStageOptions;
     applied: (readonly OfficePerson[])[];
+    alarms: boolean[];
     lit: { light: Light; now: Date }[];
   }[],
 }));
@@ -51,14 +53,16 @@ vi.mock("./office-stage.ts", () => ({
     const made = {
       options,
       applied: [] as (readonly OfficePerson[])[],
+      alarms: [] as boolean[],
       lit: [] as { light: Light; now: Date }[],
     };
     stages.made.push(made);
     const stage: OfficeStage = {
-      apply: (people) => {
+      apply: (people, _now, alarmOn) => {
         // The page gives the stage its light before anyone is drawn.
         if (made.lit.length === 0) throw new Error("The stage was given no light.");
         made.applied.push(people);
+        made.alarms.push(alarmOn);
       },
       setLight: (light, now) => void made.lit.push({ light, now }),
       frame: () => undefined,
@@ -239,6 +243,13 @@ afterEach(() => {
   queryClient = undefined;
 });
 
+/** The fire alarm on Now, as its sounded and all clear events leave it. */
+function alarmTo(fireAlarm: unknown): void {
+  act(() => {
+    (queryClient as QueryClient).setQueryData(nowQueries.now().queryKey, { fireAlarm } as never);
+  });
+}
+
 describe("The Live view", () => {
   it("labels the floor with its summary and lists everyone by what they are doing", async () => {
     const { page } = await openLiveView([PAM_IDLE, JIM_WORKING]);
@@ -256,6 +267,23 @@ describe("The Live view", () => {
     expect(working && shownText(working)).toContain("Working on a Stage of a Task");
     const idle = page.querySelector("[aria-label='Idle']");
     expect(idle && shownText(idle)).toContain("Chat with Pam");
+  });
+
+  it("empties the floor while the fire alarm is on, from the now query, and says so", async () => {
+    const { page } = await openLiveView([PAM_IDLE, JIM_WORKING]);
+    expect(lastStage().alarms.at(-1)).toBe(false);
+    alarmTo({ since: new Date().toISOString(), paused: [] });
+    await until(() => expect(lastStage().alarms.at(-1)).toBe(true));
+    expect(lastStage().applied.at(-1)).toHaveLength(2);
+    expect(page.querySelector("canvas")?.getAttribute("aria-label")).toMatch(
+      /^2 people: the fire alarm is on, everyone is out of the office\. Day, /,
+    );
+
+    alarmTo(null);
+    await until(() => expect(lastStage().alarms.at(-1)).toBe(false));
+    expect(page.querySelector("canvas")?.getAttribute("aria-label")).toMatch(
+      /^2 people: 1 working, 1 idle\. Day, /,
+    );
   });
 
   it("applies nothing to the stage until the snapshot and the Roles have both loaded", async () => {

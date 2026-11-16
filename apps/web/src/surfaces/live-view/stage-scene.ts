@@ -1,6 +1,7 @@
 import { Container, Graphics, Sprite, Texture } from "pixi.js";
 import { type FigureBounds, figureBoundsOf, paintedFigure } from "./art/figures.ts";
 import { seedOf } from "./seeded.ts";
+import { glanceOfSeed, sippingOfSeed } from "./glances.ts";
 import { paintFloorLayer, paintSunPatches, paintWalls } from "./art/floor-art.ts";
 import {
   beanbagShape,
@@ -12,19 +13,23 @@ import {
   deskShape,
   doorShape,
   exerciseMatShape,
+  floorPillowShape,
   lampShape,
-  meetingTableShape,
   monitorSlots,
   pizzaShape,
   plantShape,
   printerShape,
   screenShape,
   sofaShape,
+  tvScreenShape,
+  tvStandShape,
   waterCoolerShape,
 } from "./art/furniture.ts";
 import { DESK_H, isoX, isoY } from "./art/iso.ts";
 import {
+  alarmLightShape,
   bubbleShape,
+  exclaimShape,
   paintedOverlay,
   signShape,
   sparkleShape,
@@ -50,6 +55,7 @@ import type {
   DeskActivity,
   FigurePose,
   FloorPoint,
+  HeadGlance,
   Layout,
   Light,
   LookState,
@@ -57,7 +63,7 @@ import type {
   Placement,
   Sky,
 } from "./live-view-types.ts";
-import { deskActivity, deskPoseOf, monitorsOf } from "./live-states.ts";
+import { DESK_DEPTHS, deskActivity, deskPoseOf, monitorsOf } from "./live-states.ts";
 import { type OfficeGeometry, toArt } from "./office-geometry.ts";
 import { type StageTextures, artSprite, setArt, showArt } from "./stage-textures.ts";
 import type { Walker, Walkers } from "./walkers.ts";
@@ -71,6 +77,8 @@ export interface SceneInput {
   readonly lookStates: ReadonlyMap<string, LookState>;
   readonly walkers: Walkers;
   readonly light: Light;
+  /** The fire alarm is on: its light shows on the wall by the door. */
+  readonly alarmOn: boolean;
 }
 
 /** A figure on the floor for hit-testing and its nameplate, moved in place as it walks. */
@@ -88,8 +96,11 @@ export interface PlacedFigure extends FigureHitBox {
   readonly gone: boolean;
 }
 
-/** Moves a sprite's look on with the animation clock `t` (seconds); `motion` false draws the still office. */
-type Animation = (t: number, motion: boolean) => void;
+/**
+ * Moves a sprite's look on with the animation clock `t` (seconds); `motion` false draws the still
+ * office. `wallMs` is the wall clock, for what two browsers show alike (glances, sips).
+ */
+type Animation = (t: number, motion: boolean, wallMs: number) => void;
 
 interface DeskLook {
   readonly shown: number;
@@ -103,6 +114,7 @@ interface Actor {
   place: PlacedFigure | null;
   pose: FigurePose;
   frame: number;
+  glance: HeadGlance;
 }
 
 const SPEAKING_TURN_SECONDS = 1.8;
@@ -119,6 +131,29 @@ const DOOR_DEPTH = AISLE_ROW + 0.3;
 const SPARKLES_PER_DESK = 4;
 /** The desk lamp's bulb, in art pixels: three wide, one high, lit (untinted). */
 const BULB = { width: 3, height: 1 } as const;
+/**
+ * The fire alarm's light on the left wall, just in from the door: where its plate starts, in tiles
+ * along the wall, and its bottom, in pixels up.
+ */
+const ALARM_LIGHT = { y: AISLE_ROW + 1.3, z: 24 } as const;
+/** The fire alarm's light flashes on and off this many times a second. */
+const ALARM_FLASH_RATE = 2;
+/** Poses that move on their own, or lie, or sleep, or watch the TV: never a glance. */
+const NO_GLANCE: ReadonlySet<FigurePose> = new Set<FigurePose>([
+  "sit-back-sleep",
+  "sit-back-play",
+  "stand-front-jacks",
+  "stand-front-squat",
+  "lie-front-push-up",
+  "stand-front-panic",
+  "walk-front",
+  "walk-back",
+]);
+/** A cup in hand, and the pose with it raised to the mouth for a sip. */
+const SIP_POSES: Partial<Record<FigurePose, FigurePose>> = {
+  "stand-front-mug": "stand-front-mug-sip",
+  "stand-front-cup": "stand-front-cup-sip",
+};
 
 /** What glows in the dark (design decision 13): its colour and its rings, each a radius and an alpha. */
 const GLOWS = {
@@ -139,6 +174,14 @@ const GLOWS = {
     ],
   },
   led: { color: 0xff6a4a, rings: [[3, 0.12]] },
+  tv: {
+    color: 0x6fc3ff,
+    rings: [
+      [30, 0.05],
+      [20, 0.07],
+      [12, 0.08],
+    ],
+  },
   exitSign: { color: 0x2fbf71, rings: [[6, 0.1]] },
 } as const satisfies Record<
   string,
@@ -197,6 +240,10 @@ const STRETCH: Pulse = { period: 10, seconds: 1.5 };
 const EXERCISE_RATE = 2;
 /** Push-ups, frames a second: slower, up and down. */
 const PUSH_UP_RATE = 1;
+/** Thumbs on a games controller, frames a second. */
+const PLAY_RATE = 3;
+/** The game on the TV's screen, frames a second. */
+const GAME_RATE = 2;
 
 /**
  * The pose's frame at `t`: typing, the raised hand, sleep's breathing, talking and the pastimes, each
@@ -226,6 +273,8 @@ function frameOf(
       return pulse(WATERING);
     case "sit-back-stretch":
       return pulse(STRETCH);
+    case "sit-back-play":
+      return tick(PLAY_RATE, offset * 2) % 2;
     case "sit-back-raise":
       return tick(1.6) % 2;
     case "sit-back-sleep":
@@ -242,8 +291,12 @@ function frameOf(
 
 function amenityArt(item: Amenity): PaintedArt | null {
   switch (item.kind) {
-    case "meetingTable":
-      return paintedOfficeArt("meetingTable", meetingTableShape);
+    case "tvStand":
+      return paintedOfficeArt("tvStand", tvStandShape);
+    case "floorPillow": {
+      const variant = item.variant ?? 0;
+      return paintedOfficeArt(`floorPillow:${variant}`, () => floorPillowShape(variant));
+    }
     case "sofa": {
       const seats = item.seats ?? 3;
       return paintedOfficeArt(`sofa:${seats}`, () => sofaShape(seats));
@@ -278,10 +331,15 @@ function amenityArt(item: Amenity): PaintedArt | null {
 const chairSeat = (): PaintedArt => paintedOfficeArt("chairSeat", chairSeatShape);
 const chairBack = (side: "+x" | "-x" | "+y" | "-y"): PaintedArt =>
   paintedOfficeArt(`chairBack:${side}`, () => chairBackShape(side));
+const gameArt = (frame: number): PaintedArt =>
+  paintedOfficeArt(`tvScreen:${frame}`, () => tvScreenShape(frame));
 const doorArt = (open: boolean): PaintedArt =>
   paintedOfficeArt(`door:${open ? 1 : 0}`, () => doorShape(open));
 const sparkleArt = (frame: number): PaintedArt =>
   paintedOverlay(`sparkle:${frame}`, () => sparkleShape(frame));
+const alarmLightArt = (lit: boolean): PaintedArt =>
+  paintedOverlay(`alarm:${lit ? 1 : 0}`, () => alarmLightShape(lit));
+const exclaimArt = (): PaintedArt => paintedOverlay("exclaim", exclaimShape);
 
 /** The pose someone settled at their place shows, and what they do at a desk. */
 function settledPose(
@@ -299,11 +357,12 @@ function settledPose(
 
 /**
  * The office's sprites: the still floor and walls as one texture, the sky in the windows and the
- * sunlight on the floor, then desks, chairs, furniture and figures sorted by depth, the glows added
- * over them, and the overlays (signs, Zs, bubbles, tags, sparkles) over them all. Everything takes
- * the hour's tint but what gives off its own light (design decision 2): lit screens, the lamps'
- * bulbs, the sky, the exit sign, the coffee machine's LED, the "+N" tag and the overlays. Built again
- * whenever someone sets off or arrives; in between, `moveWalker` moves only the figures that walk.
+ * sunlight on the floor, then desks, chairs, furniture, glows and figures sorted by depth (each glow
+ * added to what is under it, just over what gives it off), and the overlays (signs, Zs, bubbles,
+ * tags, sparkles) over them all. Everything takes the hour's tint but what gives off its own light
+ * (design decision 2): lit screens, the lamps' bulbs, the sky, the exit sign, the coffee machine's
+ * LED, the "+N" tag and the overlays. Built again whenever someone sets off or arrives; in between,
+ * `moveWalker` moves only the figures that walk.
  */
 export class OfficeScene {
   /** Placed and scaled by the stage: one unit is one art pixel. */
@@ -311,8 +370,10 @@ export class OfficeScene {
   /** The floor and walls, the sky in the windows over them, and the sunlight on the floor. */
   private readonly backdrop = new Container();
   private readonly items = new Container({ sortableChildren: true });
-  /** Screens', lamps' and signs' glows, added to what is under them; hidden by day. */
-  private readonly glows = new Container();
+  /** Screens', lamps' and signs' glows, sorted in with the items; hidden by day. */
+  private glows: Sprite[] = [];
+  /** How strongly things glow now, from the hour's light. */
+  private glowAlpha = 0;
   private readonly overlays = new Container({ sortableChildren: true });
   /** Figures outside the room, clipped to the doorway, drawn over the open door. */
   private readonly doorway = new Container();
@@ -350,8 +411,7 @@ export class OfficeScene {
     this.doorway.addChild(this.doorwayMask);
     this.doorway.mask = this.doorwayMask;
     this.doorway.zIndex = DOOR_DEPTH + 0.001;
-    this.glows.blendMode = "add";
-    this.world.addChild(this.backdrop, this.items, this.glows, this.overlays);
+    this.world.addChild(this.backdrop, this.items, this.overlays);
   }
 
   /** Draws the office afresh; the floor is painted again only when it grew. */
@@ -370,7 +430,7 @@ export class OfficeScene {
     for (const child of this.doorway.removeChildren()) if (!kept.has(child)) child.destroy();
     this.doorway.addChild(this.doorwayMask);
     for (const child of this.overlays.removeChildren()) child.destroy();
-    for (const child of this.glows.removeChildren()) child.destroy();
+    this.glows = [];
     this.ringSprite = null;
     this.animations = [];
     const { geometry, walkers } = input;
@@ -386,7 +446,8 @@ export class OfficeScene {
       artSprite(this.textures, doorArt(this.doorOpen), at(0, AISLE_ROW), null),
     );
     add(this.door, DOOR_DEPTH);
-    this.addGlow("exitSign", at(0.05, AISLE_ROW + 0.5, 39));
+    this.addGlow("exitSign", at(0.05, AISLE_ROW + 0.5, 39), DOOR_DEPTH + 0.0005);
+    if (input.alarmOn) this.buildAlarmLight(at(0.05, ALARM_LIGHT.y, ALARM_LIGHT.z));
     for (const desk of input.layout.desks) this.buildDesk(input, desk, add);
     for (const item of input.amenities.items) {
       const art = amenityArt(item);
@@ -399,22 +460,11 @@ export class OfficeScene {
         const point = at(item.x + 0.62, item.y + 0.5, 21);
         led.position.set(point.x, point.y);
         add(led, item.depth + 0.001);
-        this.addGlow("led", at(item.x + 0.6, item.y + 0.5, 21));
+        this.addGlow("led", at(item.x + 0.6, item.y + 0.5, 21), item.depth + 0.002);
       }
-    }
-    for (const seat of input.amenities.meetingSeats) {
-      const depth = seat.depth ?? seat.x + seat.y;
-      add(
-        this.shaded(artSprite(this.textures, chairSeat(), at(seat.x, seat.y), null)),
-        depth + 0.05,
-      );
-      if (seat.chairBack) {
-        add(
-          this.shaded(
-            artSprite(this.textures, chairBack(seat.chairBack), at(seat.x, seat.y), null),
-          ),
-          depth + (seat.chairBack === "+y" ? 0.15 : 0.02),
-        );
+      if (item.kind === "tvStand" && this.isAnyonePlaying(walkers)) {
+        this.buildGame(at(item.x, item.y), item.depth + 0.001);
+        this.addGlow("tv", at(item.x + 1.1, item.y + 0.6, 12), item.depth + 0.002);
       }
     }
     const conversations = walkers.conversations();
@@ -453,8 +503,8 @@ export class OfficeScene {
         this.sun.alpha = light.sunPatch.alpha;
       }
     }
-    this.glows.alpha = light.glow;
-    this.glows.visible = light.glow > 0;
+    this.glowAlpha = light.glow;
+    for (const glow of this.glows) this.showGlow(glow);
   }
 
   /** The tint shown now; the stage eases it from one hour's to the next. Allocates nothing. */
@@ -469,8 +519,8 @@ export class OfficeScene {
   }
 
   /** One frame of the in-place animation; under the still office, called once with `motion` false. */
-  animate(t: number, motion: boolean): void {
-    for (const animation of this.animations) animation(t, motion);
+  animate(t: number, motion: boolean, wallMs: number): void {
+    for (const animation of this.animations) animation(t, motion, wallMs);
   }
 
   /**
@@ -483,9 +533,10 @@ export class OfficeScene {
     if (!input || !actor?.place || !input.walkers.isOnTheMove(walker)) return null;
     const { sprite, place } = actor;
     const walk = input.walkers.poseOf(walker);
-    if (walk.pose !== actor.pose || walk.frame !== actor.frame) {
+    if (walk.pose !== actor.pose || walk.frame !== actor.frame || actor.glance !== "ahead") {
       actor.pose = walk.pose;
       actor.frame = walk.frame;
+      actor.glance = "ahead";
       setArt(sprite, this.textures, paintedFigure(walker.key, actor.tone, walk.pose, walk.frame));
     }
     sprite.scale.x = walk.mirrored ? -1 : 1;
@@ -590,8 +641,8 @@ export class OfficeScene {
     return sprite;
   }
 
-  /** A glow at `at`, in the additive layer. */
-  private addGlow(kind: GlowKind, at: FloorPoint): void {
+  /** A glow at `at`, sorted at `depth` with the items, added to what is under it. */
+  private addGlow(kind: GlowKind, at: FloorPoint, depth: number): void {
     let art = this.glowArts.get(kind);
     if (!art) {
       art = paintGlow(kind);
@@ -599,7 +650,15 @@ export class OfficeScene {
     }
     const sprite = artSprite(this.textures, art, at, null);
     sprite.blendMode = "add";
-    this.glows.addChild(sprite);
+    sprite.zIndex = depth;
+    this.showGlow(sprite);
+    this.glows.push(sprite);
+    this.items.addChild(sprite);
+  }
+
+  private showGlow(sprite: Sprite): void {
+    sprite.alpha = this.glowAlpha;
+    sprite.visible = this.glowAlpha > 0;
   }
 
   /** The doorway's opening in the left wall, which clips anyone outside the room. */
@@ -653,8 +712,12 @@ export class OfficeScene {
     for (let i = 0; i < Math.min(lit, slots.length); i++) {
       const slot = slots[i] ?? 1;
       const screen = artSprite(this.textures, this.screenArt(slot, i * 2, laptop), deskAt, null);
-      add(screen, desk.depth + 0.001 + i * 0.0001);
-      this.addGlow("monitor", at(desk.x + 0.6, desk.y + slot, DESK_H + 6));
+      add(screen, desk.depth + DESK_DEPTHS.screen + i * 0.0001);
+      this.addGlow(
+        "monitor",
+        at(desk.x + 0.6, desk.y + slot, DESK_H + 6),
+        desk.depth + DESK_DEPTHS.screenGlow + i * 0.0001,
+      );
       const seed = seedOf(roleKey ?? "") % 6;
       let shownFrame = i * 2;
       this.animations.push((t, motion) => {
@@ -690,8 +753,8 @@ export class OfficeScene {
       seat.position.set(chairAt.x, chairAt.y);
       back.position.set(chairAt.x, chairAt.y);
     };
-    add(seat, desk.depth + 0.05);
-    add(back, desk.depth + (turned ? 0.07 : 0.15));
+    add(seat, desk.depth + DESK_DEPTHS.seat);
+    add(back, desk.depth + (turned ? DESK_DEPTHS.chairBackTurned : DESK_DEPTHS.chairBack));
     placeChair(kept);
     if (!kept && atDesk && walkers.isOnTheMove(walker)) {
       const spot = deskSpot(desk);
@@ -715,14 +778,15 @@ export class OfficeScene {
           null,
         ),
       );
-      add(lamp, desk.depth + 0.002);
+      add(lamp, desk.depth + DESK_DEPTHS.lamp);
       const bulbAt = at(desk.x + 0.62, desk.y + 0.25, DESK_H + 7);
       const bulb = new Sprite(Texture.WHITE);
       bulb.setSize(BULB.width, BULB.height);
       bulb.tint = ART_COLORS.bulb;
       bulb.position.set(Math.round(bulbAt.x) - 1, Math.round(bulbAt.y));
-      add(bulb, desk.depth + 0.0025);
-      this.addGlow("lamp", at(desk.x + 0.6, desk.y + 0.5, DESK_H));
+      add(bulb, desk.depth + DESK_DEPTHS.bulb);
+      const lampGlowAt = at(desk.x + 0.6, desk.y + 0.5, DESK_H);
+      this.addGlow("lamp", lampGlowAt, desk.depth + DESK_DEPTHS.lampGlow);
       const working = input.lookStates.get(walker.key) === "working";
       if (light.phase === "night" && working && seedOf(walker.key) % 2 === 0) {
         const pizza = artSprite(
@@ -731,9 +795,36 @@ export class OfficeScene {
           at(desk.x + 0.6, desk.y + 1.62),
           null,
         );
-        add(this.shaded(pizza), desk.depth + 0.003);
+        add(this.shaded(pizza), desk.depth + DESK_DEPTHS.pizza);
       }
     }
+  }
+
+  /**
+   * The TV is on while someone sits on a floor pillow playing: only once they have arrived, from the
+   * walkers, as a Consultant turns round only once the asker is there.
+   */
+  private isAnyonePlaying(walkers: Walkers): boolean {
+    for (const walker of walkers.walkers()) {
+      if (walker.hidden || walker.leaving || !walkers.isSettled(walker)) continue;
+      if (walker.placement.kind === "pastime" && walker.placement.doing?.pastime === "games")
+        return true;
+    }
+    return false;
+  }
+
+  /** The TV's lit screen with the game on it, untinted, its two frames moved on by the ticker. */
+  private buildGame(tvAt: FloorPoint, depth: number): void {
+    const screen = artSprite(this.textures, gameArt(0), tvAt, null);
+    screen.zIndex = depth;
+    this.items.addChild(screen);
+    let shownFrame = 0;
+    this.animations.push((t, motion) => {
+      const frame = motion ? Math.floor(t * GAME_RATE) % 2 : 0;
+      if (frame === shownFrame) return;
+      shownFrame = frame;
+      showArt(screen, this.textures, gameArt(frame), tvAt);
+    });
   }
 
   private screenArt(slot: number, frame: number, laptop: boolean): PaintedArt {
@@ -753,6 +844,7 @@ export class OfficeScene {
         place: null,
         pose: "stand-front",
         frame: -1,
+        glance: "ahead",
       };
       this.actors.set(walker.key, actor);
     }
@@ -787,6 +879,17 @@ export class OfficeScene {
       // cycle; nothing shows over a figure on the move.
       actor.frame = -1;
       this.moveWalker(walker);
+      // The fire alarm: a red "!" over everyone panicking on the spot.
+      if (walker.panic) {
+        const exclaim = artSprite(
+          this.textures,
+          exclaimArt(),
+          { x: place.feet.x, y: place.feet.y - place.bounds.head - 3 },
+          null,
+        );
+        exclaim.zIndex = place.depth;
+        this.overlays.addChild(exclaim);
+      }
       return place;
     }
 
@@ -800,19 +903,29 @@ export class OfficeScene {
     figure.scale.x = mirrored ? -1 : 1;
     actor.pose = pose;
     actor.frame = 0;
+    actor.glance = "ahead";
     setArt(figure, this.textures, paintedFigure(walker.key, actor.tone, pose, 0));
-    this.animations.push((t, motion) => {
-      const frame = frameOf(
-        pose,
-        activity,
-        walker.key,
-        t,
-        motion,
-        isSpeaking(talk, walker.key, t, motion),
-      );
-      if (frame === actor.frame) return;
+    // Now and then a still figure glances to one side, and one with a cup sips from it, by the wall
+    // clock and the Role key, so two browsers show the same; never in the still office.
+    const seed = seedOf(walker.key);
+    const glances = !NO_GLANCE.has(pose) && activity !== "asleep";
+    const sipPose = SIP_POSES[pose] ?? null;
+    this.animations.push((t, motion, wallMs) => {
+      const sipping = motion && sipPose !== null && sippingOfSeed(seed, wallMs);
+      const shownPose = sipping && sipPose !== null ? sipPose : pose;
+      const frame = sipping
+        ? 0
+        : frameOf(pose, activity, walker.key, t, motion, isSpeaking(talk, walker.key, t, motion));
+      const glance: HeadGlance = motion && glances ? glanceOfSeed(seed, wallMs) : "ahead";
+      if (frame === actor.frame && shownPose === actor.pose && glance === actor.glance) return;
+      actor.pose = shownPose;
       actor.frame = frame;
-      setArt(figure, this.textures, paintedFigure(walker.key, actor.tone, pose, frame));
+      actor.glance = glance;
+      setArt(
+        figure,
+        this.textures,
+        paintedFigure(walker.key, actor.tone, shownPose, frame, glance),
+      );
     });
     // Someone let go, or waiting to set off elsewhere, shows nothing over them.
     if (walker.leaving || walker.target !== null) return place;
@@ -860,6 +973,19 @@ export class OfficeScene {
       });
     }
     return place;
+  }
+
+  /** The fire alarm's light on the wall by the door, untinted: flashing, or lit in the still office. */
+  private buildAlarmLight(at: FloorPoint): void {
+    const light = artSprite(this.textures, alarmLightArt(true), at, null);
+    this.overlays.addChild(light);
+    let shownLit = true;
+    this.animations.push((t, motion) => {
+      const lit = !motion || Math.floor(t * ALARM_FLASH_RATE * 2) % 2 === 0;
+      if (lit === shownLit) return;
+      shownLit = lit;
+      showArt(light, this.textures, alarmLightArt(lit), at);
+    });
   }
 
   /** A hire's new desk sparkles: four stars circling it, until the sparkle ends. */
