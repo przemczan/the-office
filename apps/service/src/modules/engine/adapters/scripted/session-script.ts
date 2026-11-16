@@ -9,15 +9,41 @@ import type { SessionEvent } from "../../ports/session-events.js";
  * interrupt, read the usage windows, end) and what the session reported (an event).
  */
 export type ScriptStep =
-  | ({ readonly step: "start"; readonly brief: UserMessage } & SkillListing)
+  | ({ readonly step: "start"; readonly brief: RecordedMessage } & SkillListing)
   | ({ readonly step: "resume" } & SkillListing)
-  | { readonly step: "send"; readonly message: UserMessage; readonly priority: MessagePriority }
+  | { readonly step: "send"; readonly message: RecordedMessage; readonly priority: MessagePriority }
   | { readonly step: "interrupt" }
   | { readonly step: "read-usage-windows"; readonly windows: UsageWindows | undefined }
   | { readonly step: "read-context-usage"; readonly usage: ContextUsage }
   | { readonly step: "end" }
   | EventStep
   | WaitStep;
+
+/** An image of a message as a script keeps it: its name, media type and size, never its bytes. */
+export interface RecordedImage {
+  readonly name: string;
+  readonly mediaType: string;
+  /** In bytes. */
+  readonly size: number;
+}
+
+/** A message as a script keeps it, each image by what `RecordedImage` keeps. */
+export type RecordedMessage = Omit<UserMessage, "images"> & {
+  readonly images?: readonly RecordedImage[];
+};
+
+/** `message` as a script keeps it: a message without images as it is. */
+export function recordedMessage({ images, ...message }: UserMessage): RecordedMessage {
+  if (images === undefined || images.length === 0) return message;
+  return {
+    ...message,
+    images: images.map(({ name, mediaType, content }) => ({
+      name,
+      mediaType,
+      size: content.byteLength,
+    })),
+  };
+}
 
 export interface EventStep {
   readonly step: "event";
@@ -83,16 +109,24 @@ export const PLACEHOLDERS: Readonly<Record<keyof RecordedPlaces, string>> = {
 const absent = <Schema extends z.ZodType>(schema: Schema) =>
   schema.nullable().transform((value) => value ?? undefined);
 
-/** A message as the caller sent it, a skill command's skill and input kept (none when absent). */
+/**
+ * A message as the caller sent it, a skill command's skill and input kept and each image's name,
+ * media type and size (none when absent).
+ */
 const userMessage = z
   .object({
     id: z.string(),
     text: z.string(),
     skillCommand: z.object({ skill: z.string(), input: z.string() }).nullish(),
+    images: z
+      .array(z.object({ name: z.string(), mediaType: z.string(), size: z.number() }))
+      .nullish(),
   })
-  .transform(({ skillCommand, ...message }) =>
-    skillCommand ? { ...message, skillCommand } : message,
-  );
+  .transform(({ skillCommand, images, ...message }) => ({
+    ...message,
+    ...(skillCommand && { skillCommand }),
+    ...(images && images.length > 0 && { images }),
+  }));
 
 const tokenUsage = z.object({
   input: z.number(),

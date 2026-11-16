@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "../ports/message-image-rules.js";
+import { MessageImages } from "./message-images.js";
+import { ThreadImages } from "./thread-images.js";
 import { ANSWER_CONSULTATION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import {
@@ -185,6 +189,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
+      MessageImages,
+      ThreadImages,
+      { provide: MessageImageRules, useClass: ContractMessageImageRules },
       sessionMemoryProvider(),
       dutiesProvider(duties),
       TaskThreadSetups,

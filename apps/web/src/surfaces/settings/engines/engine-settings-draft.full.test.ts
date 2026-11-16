@@ -32,7 +32,7 @@ const STRATA: ApiEngine = {
   defaultModel: "qwen3",
   baseUrl: "http://127.0.0.1:8080/v1",
   keySet: true,
-  models: [{ id: "qwen3", contextWindow: 100_000 }],
+  models: [{ id: "qwen3", contextWindow: 100_000, seesImages: true }],
 };
 
 const MODEL_PRICES = [
@@ -72,7 +72,7 @@ describe("Settings › Engines' draft", () => {
           kind: "openai-compatible-api",
           defaultModel: "qwen3",
           baseUrl: "http://127.0.0.1:8080/v1",
-          models: [{ id: "qwen3", contextWindow: 100_000 }],
+          models: [{ id: "qwen3", contextWindow: 100_000, seesImages: true }],
         },
       ],
       officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
@@ -93,7 +93,11 @@ describe("Settings › Engines' draft", () => {
       ...draftOf(SAVED),
       apiEndpoints: [
         ...draftOf(SAVED).apiEndpoints,
-        { ...NEW_API_ENDPOINT, name: " Strata ", models: [{ id: " coder ", contextWindow: 0 }] },
+        {
+          ...NEW_API_ENDPOINT,
+          name: " Strata ",
+          models: [{ id: " coder ", contextWindow: 0, seesImages: false }],
+        },
         { ...NEW_API_ENDPOINT, name: "Local" },
         { ...NEW_API_ENDPOINT, name: "Claude Code" },
       ],
@@ -141,8 +145,8 @@ describe("Settings › Engines' draft", () => {
 
   it("keeps an endpoint's default model while it offers it, else takes its first", () => {
     const models = [
-      { id: " qwen3 ", contextWindow: 1 },
-      { id: "coder", contextWindow: 1 },
+      { id: " qwen3 ", contextWindow: 1, seesImages: false },
+      { id: "coder", contextWindow: 1, seesImages: false },
     ];
     const endpoint = { ...NEW_API_ENDPOINT, models };
 
@@ -176,7 +180,11 @@ describe("Settings › Engines' draft", () => {
       ...draftOf(SAVED),
       apiEndpoints: [
         ...draftOf(SAVED).apiEndpoints,
-        { ...NEW_API_ENDPOINT, name: "Local", models: [{ id: " coder ", contextWindow: 8_000 }] },
+        {
+          ...NEW_API_ENDPOINT,
+          name: "Local",
+          models: [{ id: " coder ", contextWindow: 8_000, seesImages: false }],
+        },
       ],
     };
 
@@ -190,6 +198,22 @@ describe("Settings › Engines' draft", () => {
         models: draft.apiEndpoints[1]?.models,
       },
     ]);
+  });
+
+  it("adds a model with Sees images off, and sends a model's Sees images as ticked, a change to save", () => {
+    expect(NEW_API_ENDPOINT.models).toEqual([{ id: "", contextWindow: 0, seesImages: false }]);
+    const [strata] = draftOf(SAVED).apiEndpoints;
+    const draft = {
+      ...draftOf(SAVED),
+      apiEndpoints: strata
+        ? [{ ...strata, models: strata.models.map((model) => ({ ...model, seesImages: false })) }]
+        : [],
+    };
+
+    expect(draftChanged(draft, SAVED)).toBe(true);
+    expect(engineSettingsEditOf(draft, SAVED)?.engines[1]).toMatchObject({
+      models: [{ id: "qwen3", contextWindow: 100_000, seesImages: false }],
+    });
   });
 
   it("sends every offered model with its price, and none while a price's fields don't read as one", () => {

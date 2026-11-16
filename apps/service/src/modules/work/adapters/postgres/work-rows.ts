@@ -379,11 +379,12 @@ export function toTask(row: TaskRow): Task {
 
 export function ownerColumns(
   owner: AttachmentOwner,
-): Pick<AttachmentRow, "ideaId" | "initiativeId" | "taskId"> {
+): Pick<AttachmentRow, "ideaId" | "initiativeId" | "taskId" | "threadId"> {
   return {
     ideaId: owner.kind === "idea" ? owner.ideaId : null,
     initiativeId: owner.kind === "initiative" ? owner.initiativeId : null,
     taskId: owner.kind === "task" ? owner.taskId : null,
+    threadId: owner.kind === "thread" ? owner.threadId : null,
   };
 }
 
@@ -434,6 +435,7 @@ export function toAttachment(row: AttachmentRow): Attachment {
 function ownerOf(row: AttachmentRow): AttachmentOwner {
   if (row.ideaId !== null) return { kind: "idea", ideaId: row.ideaId };
   if (row.initiativeId !== null) return { kind: "initiative", initiativeId: row.initiativeId };
+  if (row.threadId !== null) return { kind: "thread", threadId: row.threadId };
   return { kind: "task", taskId: present(row.taskId) };
 }
 

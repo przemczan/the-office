@@ -226,7 +226,7 @@ The Stage The Office adds before Publish when the Task's branch conflicts with t
 _Avoid_: Rebase, merge fix, conflict Stage
 
 **Attachment**:
-Anything attached to an Idea, an Initiative or a Task by the user or an Agent, such as a document, a screenshot, a file or a link; it can be a Task's result.
+Anything attached to an Idea, an Initiative, a Task or a message in a Thread by the user or an Agent, such as a document, a screenshot, a file or a link; it can be a Task's result. An image pasted into a message is kept as an Attachment of the Task or Initiative its Thread is on, else of the Thread.
 _Avoid_: Artifact, asset, output
 
 **Text file**:
@@ -259,7 +259,7 @@ _Avoid_: Task (for this), delegation, ticket
 
 **Mention**:
 A Task, Initiative, Idea or Decision named in a chat message or in a Task's Description, picked with `@` or pasted as the link to its page; in a chat message the Agent there is given its record with the message, and in a Description the link carries its id for an Agent to read it.
-_Avoid_: Reference, tag, attachment (an Attachment is added to a record, not named in a message)
+_Avoid_: Reference, tag, attachment (an image is attached to a message, but a record is mentioned in it, never attached)
 
 **Open page**:
 The Task, Initiative, Idea, person or Project whose page is open beside the chat drawer as the user sends a message there; the person answering is given its record with the message, unless the user leaves it out of that message.
@@ -458,6 +458,10 @@ _Avoid_: API engine, local engine, LLM provider
 **API endpoint**:
 A server on the OpenAI-compatible API, added in Settings → Engines as an Engine of its own: its name, base URL, key and models.
 _Avoid_: Provider, backend, model server, connection
+
+**Sees images**:
+An API endpoint model's setting, off by default: the model is given a message's images as pictures; otherwise the message names each image and its Attachment and says the model can't see pictures.
+_Avoid_: Vision, multimodal, image support
 
 **Search endpoint**:
 The web search service set Office-wide that WebSearch goes through for the OpenAI-compatible API (SearXNG).

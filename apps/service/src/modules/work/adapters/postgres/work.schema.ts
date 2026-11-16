@@ -261,6 +261,8 @@ export const attachments = pgTable(
     ideaId: uuid("idea_id").references(() => ideas.id),
     initiativeId: uuid("initiative_id").references(() => initiatives.id),
     taskId: uuid("task_id").references(() => tasks.id),
+    /** An image sent in a message of a Thread on no Task or Initiative; threads are Conversations'. */
+    threadId: uuid("thread_id"),
     kind: text("kind").$type<AttachmentKind>().notNull(),
     name: text("name").notNull(),
     url: text("url"),
@@ -280,9 +282,10 @@ export const attachments = pgTable(
     index("attachments_idea").on(table.ideaId),
     index("attachments_initiative").on(table.initiativeId),
     index("attachments_task").on(table.taskId),
+    index("attachments_thread").on(table.threadId),
     check(
       "attachments_one_owner",
-      sql`num_nonnulls(${table.ideaId}, ${table.initiativeId}, ${table.taskId}) = 1`,
+      sql`num_nonnulls(${table.ideaId}, ${table.initiativeId}, ${table.taskId}, ${table.threadId}) = 1`,
     ),
     check(
       "attachments_link_or_file",

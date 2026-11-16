@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "../ports/message-image-rules.js";
+import { MessageImages } from "./message-images.js";
+import { ThreadImages } from "./thread-images.js";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
@@ -74,6 +78,9 @@ beforeAll(async () => {
       InitiativeThreadSetups,
       sessionMemoryProvider(MEMORY, asked),
       Briefs,
+      MessageImages,
+      ThreadImages,
+      { provide: MessageImageRules, useClass: ContractMessageImageRules },
     ],
   }));
   app.get(InitiativeThreadSetups).provide({

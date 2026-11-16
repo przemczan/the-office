@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { AttachmentChips } from "./attachment-chips.tsx";
 import { roundName, type AttachmentRound } from "./attachment-rounds.ts";
 import { AttachmentViewer, type ViewedImage } from "./attachment-viewer.tsx";
-import { useAttachmentContentUrl } from "./use-attachment-content-url.ts";
+import { ImageThumbnail } from "./image-thumbnail.tsx";
 
 /**
  * Attachments by round: each round's images as thumbnails that open the viewer, then its other
@@ -91,32 +91,12 @@ function RoundContent({
       {images.length > 0 && (
         <div className="attachment-thumbnails">
           {images.map((image) => (
-            <Thumbnail key={image.id} image={image} onView={onView} />
+            <ImageThumbnail key={image.id} image={image} onView={() => onView(image)} />
           ))}
         </div>
       )}
       <AttachmentChips attachments={attachments.filter((attachment) => !isImage(attachment))} />
     </div>
-  );
-}
-
-function Thumbnail({
-  image,
-  onView,
-}: {
-  readonly image: Attachment;
-  readonly onView: (image: Attachment) => void;
-}): ReactNode {
-  const src = useAttachmentContentUrl(image.id);
-  return (
-    <button
-      type="button"
-      className="attachment-thumbnail"
-      aria-label={`View ${image.name}`}
-      onClick={() => onView(image)}
-    >
-      <img src={src} alt="" loading="lazy" />
-    </button>
   );
 }
 

@@ -39,7 +39,9 @@ export function eachTestOnAFakeServer(): void {
   });
 }
 
-export function endpoint(models = [{ id: "coder:q4", contextWindow: 100_000 }]): ApiEngine {
+export function endpoint(
+  models: ApiEngine["models"] = [{ id: "coder:q4", contextWindow: 100_000 }],
+): ApiEngine {
   return {
     id: "local",
     name: "Local",

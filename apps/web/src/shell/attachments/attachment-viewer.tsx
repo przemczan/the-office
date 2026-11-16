@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Attachment } from "@the-office/contracts";
 import { Button, Dialog, Icon } from "@the-office/ui";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { dayAndClockOf } from "../time.ts";
 import { useSignedInUserId } from "../use-user-name.ts";
@@ -9,11 +9,26 @@ import { authorName } from "../work/work-words.ts";
 import { AttachmentDownloadLink } from "./attachment-download-link.tsx";
 import { useAttachmentContentUrl } from "./use-attachment-content-url.ts";
 
+/**
+ * An image a message carried, which isn't an Attachment of a Task: its Attachment's id for its
+ * content, and who sent it when, in the words the log shows them.
+ */
+export interface MessageImageShown {
+  readonly kind: "message-image";
+  readonly id: string;
+  readonly name: string;
+  readonly writer: string;
+  readonly at: string;
+}
+
 /** An image the viewer steps to, with the round it came in when there are several. */
 export interface ViewedImage {
-  readonly image: Attachment;
+  readonly image: Attachment | MessageImageShown;
   readonly roundName: string | undefined;
 }
+
+/** What a removed image shows in place of its picture. */
+export const IMAGE_REMOVED = "Image removed";
 
 /**
  * One image at full size, stepping through `images` by Previous and Next or the ← → keys; Esc
@@ -34,6 +49,8 @@ export function AttachmentViewer({
   const signedInUserId = useSignedInUserId();
   const viewed = images[index];
   const original = useAttachmentContentUrl(viewed?.image.id ?? "");
+  // The address an image failed to load from.
+  const [failed, setFailed] = useState<string>();
   const hasPrevious = index > 0;
   const hasNext = index < images.length - 1;
   useEffect(() => {
@@ -48,6 +65,13 @@ export function AttachmentViewer({
   }, [index, hasPrevious, hasNext, onStep]);
   if (!viewed) return null;
   const { image, roundName } = viewed;
+  // Only a message's image can point at an Attachment removed since; one listed with its owner
+  // exists, so a picture that won't load still offers its original and download.
+  const removed = image.kind === "message-image" && failed === original;
+  const by =
+    image.kind === "message-image"
+      ? `Sent by ${image.writer}, ${dayAndClockOf(image.at)}`
+      : `Added by ${authorName(image.addedBy, roles, signedInUserId)}, ${dayAndClockOf(image.addedAt)}`;
   return (
     <Dialog
       size="extra-large"
@@ -77,20 +101,33 @@ export function AttachmentViewer({
       }
     >
       <figure className="attachment-viewer">
-        <img className="attachment-viewer-image" src={original} alt={image.name} />
+        {removed ? (
+          <p className="attachment-viewer-removed">
+            <Icon name="image-off" size={16} />
+            {IMAGE_REMOVED}
+          </p>
+        ) : (
+          <img
+            className="attachment-viewer-image"
+            src={original}
+            alt={image.name}
+            onError={() => setFailed(original)}
+          />
+        )}
         <figcaption className="attachment-viewer-caption">
           <span>
             {index + 1} of {images.length}
-            {roundName !== undefined && ` · ${roundName}`} · Added by{" "}
-            {authorName(image.addedBy, roles, signedInUserId)}, {dayAndClockOf(image.addedAt)}
+            {roundName !== undefined && ` · ${roundName}`} · {by}
           </span>
-          <span className="attachment-viewer-links">
-            <a href={original} target="_blank" rel="noopener noreferrer">
-              <Icon name="external-link" size={14} />
-              Open the original
-            </a>
-            <AttachmentDownloadLink file={image} />
-          </span>
+          {!removed && (
+            <span className="attachment-viewer-links">
+              <a href={original} target="_blank" rel="noopener noreferrer">
+                <Icon name="external-link" size={14} />
+                Open the original
+              </a>
+              <AttachmentDownloadLink file={image} />
+            </span>
+          )}
         </figcaption>
       </figure>
     </Dialog>

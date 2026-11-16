@@ -20,9 +20,18 @@ const toolCallSchema = z.object({
   function: z.object({ name: z.string(), arguments: z.string() }),
 });
 
+/** A user message's part: its text, or an image the model sees, kept whole as a data URL. */
+const userContentPartSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), text: z.string() }),
+  z.object({ type: z.literal("image_url"), image_url: z.object({ url: z.string() }) }),
+]);
+
 /** The system prompt is left out: a resumed session is given its options again and builds it anew. */
 const keptMessageSchema = z.discriminatedUnion("role", [
-  z.object({ role: z.literal("user"), content: z.string() }),
+  z.object({
+    role: z.literal("user"),
+    content: z.union([z.string(), z.array(userContentPartSchema)]),
+  }),
   z.object({
     role: z.literal("assistant"),
     content: z.string().nullable(),

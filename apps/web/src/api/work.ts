@@ -826,6 +826,8 @@ function ownerId(owner: AttachmentOwner): string {
       return owner.initiativeId;
     case "task":
       return owner.taskId;
+    case "thread":
+      return owner.threadId;
   }
 }
 
@@ -837,6 +839,8 @@ function ownerPath(owner: AttachmentOwner): `/${string}` {
       return initiativePath(owner.initiativeId);
     case "task":
       return taskPath(owner.taskId);
+    case "thread":
+      return `/threads/${encodeURIComponent(owner.threadId)}`;
   }
 }
 

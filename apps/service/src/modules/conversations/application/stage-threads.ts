@@ -23,6 +23,7 @@ import type {
   Message,
   MessageDelivery,
   MessageDraft,
+  MessageImage,
   StageWorkClosing,
 } from "../domain/message.js";
 import { SessionMemory } from "./session-memory.js";
@@ -70,6 +71,7 @@ import {
 } from "../domain/undelivered-messages.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { BargeIns } from "./barge-ins.js";
+import { ThreadImages, type MessageImageContent } from "./thread-images.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
 import { SessionStartWatch } from "./session-start-watch.js";
 import { SubAgentsAndProcesses, type FollowedSession } from "./sub-agents-and-processes.js";
@@ -232,6 +234,7 @@ export class StageThreads {
     private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
     private readonly duties: Duties,
     private readonly schedule: Schedule,
+    private readonly images: ThreadImages,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -244,6 +247,7 @@ export class StageThreads {
         : [];
     const carrying = {
       request: { ...request, work: workWithUndelivered(request.work, undelivered) },
+      images: await this.images.contents(undelivered.flatMap(({ images = [] }) => images)),
       carried: (carrierId: string): CarriedMessages | undefined =>
         previous && undelivered.length > 0
           ? { threadId: previous.id, messageIds: undelivered.map(({ id }) => id), carrierId }
@@ -331,15 +335,27 @@ export class StageThreads {
    * has taken it; the person reads who wrote it unless the same user wrote the one before in this
    * Stage's session. Refused once the Stage's session has ended.
    */
-  async bargeIn(threadId: string, text: string, writtenBy: UserRef): Promise<Thread> {
-    if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
+  async bargeIn(
+    threadId: string,
+    text: string,
+    writtenBy: UserRef,
+    images: readonly MessageImage[] = [],
+  ): Promise<Thread> {
+    if (text.trim() === "" && images.length === 0) {
+      throw new ThreadRefused(["Write a message first."]);
+    }
     const bargeIns = this.bargeIns.get(threadId);
     if (!bargeIns) throw new ThreadRefused([STAGE_ENDING]);
+    const contents = await this.images.contents(images);
     const id = randomUUID();
     const thread = await this.change(threadId, (latest) =>
-      bargeIn(latest, { id, text, writtenBy, at: new Date() }),
+      bargeIn(latest, { id, text, writtenBy, at: new Date(), images }),
     );
-    const said = { id, text: messageFromUser(text, writtenBy, bargeIns.writerBefore(writtenBy)) };
+    const said = {
+      id,
+      text: messageFromUser(text, writtenBy, bargeIns.writerBefore(writtenBy)),
+      ...(contents.length > 0 && { images: contents }),
+    };
     if (!bargeIns.take(said)) await this.mark(threadId, [said.id], "not-delivered");
     return thread;
   }
@@ -398,7 +414,7 @@ export class StageThreads {
    */
   private async continueIn(
     previous: Thread,
-    { request, carried }: Carrying,
+    { request, images, carried }: Carrying,
     { held, applying, move, brief }: StageSessionDecision,
     now: Date,
   ): Promise<StageThread> {
@@ -442,7 +458,14 @@ export class StageThreads {
       );
     });
     const work = { id: randomUUID(), text: request.work };
-    opened.send({ ...work, text: withLeftOutServers(work.text, leftOut) }, "later");
+    opened.send(
+      {
+        ...work,
+        text: withLeftOutServers(work.text, leftOut),
+        ...(images.length > 0 && { images }),
+      },
+      "later",
+    );
     return this.live(
       {
         threadId: previous.id,
@@ -465,7 +488,7 @@ export class StageThreads {
 
   /** A new Stage Thread, whose new session starts with the Brief and the Stage's work. */
   private async startIn(
-    { request, carried }: Carrying,
+    { request, images, carried }: Carrying,
     role: SessionRole,
     { held, applying, move, brief }: StageSessionDecision,
     now: Date,
@@ -540,6 +563,7 @@ export class StageThreads {
         brief: {
           id: briefId,
           text: withLeftOutServers(openingMessage(brief.text, request.work), servers.leftOut),
+          ...(images.length > 0 && { images }),
         },
       });
     });
@@ -953,6 +977,8 @@ interface StageSessionDecision {
 /** A Stage's request with its work carrying the user's undelivered messages, if any. */
 interface Carrying {
   readonly request: StageThreadRequest;
+  /** The images those messages carried, which go with the work. */
+  readonly images: readonly MessageImageContent[];
   readonly carried: (carrierId: string) => CarriedMessages | undefined;
 }
 

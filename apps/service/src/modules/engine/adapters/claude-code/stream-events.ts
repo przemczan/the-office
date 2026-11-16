@@ -56,7 +56,8 @@ export class StreamEvents {
 /**
  * A message to the session as the engine's input takes it; a brief goes without a priority. A
  * skill command goes as the user types one, `/<skill> <input>`, which the engine expands itself,
- * with any priority, like any message.
+ * with any priority, like any message. A message with images goes as content blocks: its text,
+ * then each image as a base64 image block.
  */
 export function userMessage(
   message: UserMessage,
@@ -64,12 +65,34 @@ export function userMessage(
 ): SDKUserMessage {
   return {
     type: "user",
-    message: { role: "user", content: inputText(message) },
+    message: { role: "user", content: inputContent(message) },
     parent_tool_use_id: null,
     // A UUID, as the port asks of message ids.
     uuid: message.id as SDKUserMessage["uuid"] & string,
     ...(priority !== undefined && { priority }),
   };
+}
+
+type InputContent = SDKUserMessage["message"]["content"];
+type ImageMediaType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+
+function inputContent(message: UserMessage): InputContent {
+  const text = inputText(message);
+  const images = message.images ?? [];
+  if (images.length === 0) return text;
+  return [
+    // The model API refuses an empty text block, as a message of images alone from the same user
+    // as the one before has.
+    ...(text === "" ? [] : [{ type: "text" as const, text }]),
+    ...images.map((image) => ({
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: image.mediaType as ImageMediaType,
+        data: Buffer.from(image.content).toString("base64"),
+      },
+    })),
+  ];
 }
 
 function inputText({ text, skillCommand }: UserMessage): string {

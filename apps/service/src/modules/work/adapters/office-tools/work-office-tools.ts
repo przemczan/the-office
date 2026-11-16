@@ -394,6 +394,8 @@ export class WorkOfficeTools implements OnModuleInit {
         const { id, name } = await this.initiatives.read(owner.initiativeId);
         return `Attached to Initiative ${id}: ${name}.`;
       }
+      case "thread":
+        return `Attached to a message in Thread ${owner.threadId}.`;
     }
   }
 }

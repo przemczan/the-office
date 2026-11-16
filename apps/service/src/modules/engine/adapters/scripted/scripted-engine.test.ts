@@ -529,6 +529,58 @@ describe("RecordingEngine", () => {
     });
     expect(await readRecording(file)).toEqual([script]);
   });
+
+  it("keeps each image's name, media type and size, never its bytes, and replays the message", async () => {
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10]);
+    const message = {
+      id: "message",
+      text: "What is wrong here?",
+      images: [
+        {
+          attachmentId: "0c6f5d1e-3a5b-4f0e-9a52-2d2f0e1c9b10",
+          name: "screen.png",
+          mediaType: "image/png",
+          content: bytes,
+        },
+      ],
+    };
+    const recorded = {
+      id: "message",
+      text: "What is wrong here?",
+      images: [{ name: "screen.png", mediaType: "image/png", size: 6 }],
+    };
+    const script: SessionScript = [
+      { step: "start", brief: { id: "brief", text: "Begin." } },
+      { step: "send", message: recorded, priority: "next" },
+      { step: "event", event: TURN_ENDED },
+      { step: "event", event: { ...TURN_ENDED, consumedMessageIds: ["message"] } },
+      { step: "end" },
+    ];
+    const replayed = new ScriptedEngine([script]);
+    const recording = new RecordingEngine(replayed);
+    const session = await recording.start({
+      id: randomUUID(),
+      options: options(),
+      brief: { id: "brief", text: "Begin." },
+    });
+    session.send(message, "next");
+    let turnsEnded = 0;
+    for await (const event of session.events) {
+      if (event.kind === "turn-ended" && ++turnsEnded === 2) break;
+    }
+    await session.end();
+    const file = join(folder, "recording.jsonl");
+
+    await recording.save(file);
+
+    expect(replayed.sessions[0]?.received).toContainEqual({
+      step: "send",
+      message: recorded,
+      priority: "next",
+    });
+    expect(await readRecording(file)).toEqual([script]);
+    expect(await readFile(file, "utf8")).not.toContain("attachmentId");
+  });
 });
 
 function output(text: string): ScriptStep {

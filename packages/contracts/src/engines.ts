@@ -14,10 +14,14 @@ export const engineCapabilitySchema = z.enum([
 ]);
 export type EngineCapability = z.infer<typeof engineCapabilitySchema>;
 
-/** A model an API endpoint serves, by its id there, with how many tokens its context holds. */
+/**
+ * A model an API endpoint serves, by its id there, with how many tokens its context holds and
+ * whether it sees images, which the user tells (Sees images, off until set).
+ */
 export const apiEndpointModelSchema = z.object({
   id: z.string(),
   contextWindow: z.int().positive(),
+  seesImages: z.boolean().default(false),
 });
 export type ApiEndpointModel = z.infer<typeof apiEndpointModelSchema>;
 

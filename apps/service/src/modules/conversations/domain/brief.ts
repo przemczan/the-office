@@ -129,12 +129,15 @@ export function newChatThreadBrief(projects: readonly BriefProject[], memory: Br
 export function freshChatThreadBrief({
   title,
   log,
+  removedImages = NO_REMOVED_IMAGES,
   projects,
   memory,
 }: {
   readonly title: string | undefined;
   /** The Thread's log so far, oldest first. */
   readonly log: readonly Message[];
+  /** The ids of the Attachments of images its messages carried that are gone since. */
+  readonly removedImages?: ReadonlySet<string>;
   readonly projects: readonly BriefProject[];
   readonly memory: BriefMemory;
 }): Brief {
@@ -143,7 +146,7 @@ export function freshChatThreadBrief({
     "You are continuing a Thread with the user in your chat, in a fresh session: the earlier session's context is gone, and this Brief is what you pick up from.",
     title === undefined ? undefined : `## The Thread\n\n${title}`,
     note && `## Your Handover note\n\n${note.text}`,
-    exchangesSection(log),
+    exchangesSection(log, removedImages),
     memorySection(memory),
     projectsSection(projects),
   ]);
@@ -157,11 +160,14 @@ export function freshChatThreadBrief({
 export function freshPersonsThreadBrief({
   title,
   log,
+  removedImages = NO_REMOVED_IMAGES,
   memory,
 }: {
   readonly title: string | undefined;
   /** The Thread's log so far, oldest first. */
   readonly log: readonly Message[];
+  /** The ids of the Attachments of images its messages carried that are gone since. */
+  readonly removedImages?: ReadonlySet<string>;
   readonly memory: BriefMemory;
 }): Brief {
   const note = log.findLast((message) => message.kind === "handover-note");
@@ -169,7 +175,7 @@ export function freshPersonsThreadBrief({
     "You are continuing your Thread on a Task with the user, in a fresh session: the earlier session's context is gone, and this Brief is what you pick up from. You read the Task's worktree and change nothing in it.",
     title === undefined ? undefined : `## The Thread\n\n${title}`,
     note && `## Your Handover note\n\n${note.text}`,
-    exchangesSection(log),
+    exchangesSection(log, removedImages),
     memorySection(memory),
   ]);
 }
@@ -266,6 +272,8 @@ function openSection({ question, options }: Decision): string {
   return `## Your open Decision\n\nYou asked the user "${question}", with the options:\n\n${listed}\n\nThey haven't answered it yet: their answer comes as a message in this Thread.`;
 }
 
+const NO_REMOVED_IMAGES: ReadonlySet<string> = new Set();
+
 function briefOf(sections: readonly (string | undefined)[]): Brief {
   const text = sections.filter((section) => section !== undefined).join("\n\n");
   return { text, tokens: estimatedTokens(text) };
@@ -293,12 +301,25 @@ function projectLine({ name, baseBranch, folder, initiativeBranch }: BriefProjec
  * The users' messages, each naming who wrote it, and the person's, the newest that fit under the
  * cap, oldest first.
  */
-function exchangesSection(log: readonly Message[]): string | undefined {
+function exchangesSection(
+  log: readonly Message[],
+  removedImages: ReadonlySet<string>,
+): string | undefined {
   const lines: string[] = [];
   let room = CHAT_EXCHANGES_TOKENS * CHARACTERS_PER_TOKEN;
+  let withImages = false;
   for (const message of log.toReversed()) {
     if (message.kind !== "user" && message.kind !== "person") continue;
-    const line = `${message.kind === "user" ? userWordsOpening(message.writtenBy) : "You"}: ${message.text}`;
+    const images = message.kind === "user" ? (message.images ?? []) : [];
+    const imageLines = images.map(({ attachmentId, name }) =>
+      removedImages.has(attachmentId)
+        ? "Image removed"
+        : `image ${name} · Attachment ${attachmentId}`,
+    );
+    const line = [
+      `${message.kind === "user" ? userWordsOpening(message.writtenBy) : "You"}: ${message.text}`,
+      ...imageLines,
+    ].join("\n");
     if (line.length > room) {
       // The newest message alone over the cap keeps its end, which the conversation went on from.
       if (lines.length === 0) lines.push(`…${line.slice(line.length - room + 1)}`);
@@ -306,7 +327,11 @@ function exchangesSection(log: readonly Message[]): string | undefined {
     }
     lines.push(line);
     room -= line.length;
+    withImages ||= images.some(({ attachmentId }) => !removedImages.has(attachmentId));
   }
   if (lines.length === 0) return undefined;
-  return `## The latest exchanges\n\n${lines.toReversed().join("\n\n")}`;
+  const reading = withImages
+    ? "\n\nRead an image the user sent with read_attachment, by its Attachment's id."
+    : "";
+  return `## The latest exchanges\n\n${lines.toReversed().join("\n\n")}${reading}`;
 }

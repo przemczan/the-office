@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { skillCommandSchema } from "./commands.js";
 import { webEventSchema } from "./events.js";
+import { messageImageSchema } from "./message-images.js";
 import { openPageSchema } from "./open-page.js";
 import { pageSchemaOf } from "./paging.js";
 import { dutyKeySchema, roleCardSchema } from "./people.js";
@@ -263,6 +264,8 @@ export const newMessageSchema = z.object({
   text: z.string(),
   handoverNoteFrom: z.string().min(1).optional(),
   openPage: openPageSchema.optional(),
+  /** The images it carries, by the Attachment ids POST /threads/:id/images answered. */
+  images: z.array(z.uuid()).optional(),
 });
 export type NewMessage = z.infer<typeof newMessageSchema>;
 
@@ -728,6 +731,8 @@ export const messageSchema = z.discriminatedUnion("kind", [
      * library name, and `text` is the message as written. Absent on an ordinary message.
      */
     skillCommand: z.object({ skill: z.string() }).optional(),
+    /** The images it carried, as they were when it was sent; an Attachment may be removed since. */
+    images: z.array(messageImageSchema),
   }),
   z.object({ ...messageFields, kind: z.literal("person"), roleKey: z.string(), text: z.string() }),
   /** A few lines the person wrote for whoever continues, when The Office asked for them. */

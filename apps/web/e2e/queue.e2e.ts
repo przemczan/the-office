@@ -39,7 +39,7 @@ const LOCAL_MODELS: ApiEngine = {
   defaultModel: "coder:q4",
   baseUrl: "http://127.0.0.1:8090/v1",
   keySet: false,
-  models: [{ id: "coder:q4", contextWindow: 100_000 }],
+  models: [{ id: "coder:q4", contextWindow: 100_000, seesImages: false }],
 };
 
 let repository: TemporaryRepository;

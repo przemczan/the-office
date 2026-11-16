@@ -1,4 +1,8 @@
 import { randomInt, randomUUID } from "node:crypto";
+import { ContractMessageImageRules } from "./contract-message-image-rules.js";
+import { MessageImageRules } from "../../ports/message-image-rules.js";
+import { MessageImages } from "../../application/message-images.js";
+import { ThreadImages } from "../../application/thread-images.js";
 import {
   chatActivitySchema,
   decisionListSchema,
@@ -249,6 +253,9 @@ function setUpEachTest(): void {
         ContextPolicySettingsService,
         ThreadService,
         Briefs,
+        MessageImages,
+        ThreadImages,
+        { provide: MessageImageRules, useClass: ContractMessageImageRules },
         sessionMemoryProvider(),
         dutiesProvider(),
         TaskThreadSetups,

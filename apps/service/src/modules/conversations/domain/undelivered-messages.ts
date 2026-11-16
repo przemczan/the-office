@@ -24,9 +24,12 @@ export function waitingMessageIds(log: readonly Message[]): string[] {
 /** The Stage's work with the user's undelivered messages after it, each quoted as written. */
 export function workWithUndelivered(work: string, messages: readonly UserMessage[]): string {
   if (messages.length === 0) return work;
-  const quoted = messages.map(({ text }) =>
-    text
-      .split("\n")
+  // The images themselves come with the work; each is named under its message.
+  const quoted = messages.map(({ text, images = [] }) =>
+    [
+      ...(text === "" ? [] : text.split("\n")),
+      ...images.map(({ attachmentId, name }) => `image ${name} · Attachment ${attachmentId}`),
+    ]
       .map((line) => `> ${line}`)
       .join("\n"),
   );

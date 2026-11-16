@@ -15,6 +15,7 @@ import {
 import {
   contextOverrideChoiceSchema,
   messageCommand,
+  messageImageUploadQuerySchema,
   newMessageSchema,
   pageQuerySchema,
   recordLinksIn,
@@ -27,6 +28,8 @@ import {
   type RecordLink,
   type ContextOverrideChoice,
   type Message as MessageResponse,
+  type MessageImage as MessageImageResponse,
+  type MessageImageUploadQuery,
   type NewMessage,
   type PeopleWorking as PeopleWorkingResponse,
   type Thread as ThreadResponse,
@@ -38,6 +41,7 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { pageRequested, toPageResponse } from "../../../../platform/http/page-cursors.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
+import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { AllowChanges } from "../../application/allow-changes.js";
 import { ChatActivity } from "../../application/chat-activity.js";
 import { DecisionService } from "../../application/decision-service.js";
@@ -46,6 +50,7 @@ import { ProposalService } from "../../application/proposal-service.js";
 import { TaskConversations } from "../../application/task-conversations.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { ThreadRunner, type SkillCommandSent } from "../../application/thread-runner.js";
+import { ThreadImages } from "../../application/thread-images.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { ThreadSummaries } from "../../application/thread-summaries.js";
 import type { Mention } from "../../domain/mention.js";
@@ -61,6 +66,9 @@ import {
 } from "./conversation-responses.js";
 import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
 
+/** The route the upload body is read on; ConversationsModule applies `uploadBody` to it. */
+export const THREAD_IMAGE_UPLOAD_ROUTE = "threads/:id/images";
+
 @Controller()
 @UseFilters(ThreadRefusalsFilter)
 export class ThreadsController {
@@ -75,6 +83,7 @@ export class ThreadsController {
     private readonly allowChanges: AllowChanges,
     private readonly chatActivity: ChatActivity,
     private readonly taskConversations: TaskConversations,
+    private readonly images: ThreadImages,
   ) {}
 
   /** Where each person's chat stands, for the Chat button and the person picker. */
@@ -237,7 +246,8 @@ export class ThreadsController {
   @HttpCode(HttpStatus.ACCEPTED)
   async send(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(newMessageSchema)) { text, handoverNoteFrom, openPage }: NewMessage,
+    @Body(new ContractPipe(newMessageSchema))
+    { text, handoverNoteFrom, openPage, images }: NewMessage,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ThreadResponse> {
     const mentions = recordLinksIn(text).map(toMention);
@@ -247,8 +257,26 @@ export class ThreadsController {
         handoverNoteFrom,
         openPage,
         skillCommandAmong: (names) => skillCommandIn(text, names),
+        images,
       }),
     );
+  }
+
+  /**
+   * An image the user pasted or dropped into the Thread's message box, kept for the message they
+   * send it with: the body is the image itself, as `application/octet-stream`.
+   */
+  @Post(THREAD_IMAGE_UPLOAD_ROUTE)
+  async keepImage(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query(new ContractPipe(messageImageUploadQuerySchema))
+    { fileName }: MessageImageUploadQuery,
+    @Body() body: unknown,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<MessageImageResponse> {
+    // Kept as the type its bytes are, not the `mediaType` the browser named.
+    const image = { name: fileName, content: uploadedBytes(body) };
+    return this.images.keep(id, image, userOf(signedIn));
   }
 
   private async toResponse(thread: Thread): Promise<ThreadResponse> {

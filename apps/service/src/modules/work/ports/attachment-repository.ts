@@ -16,6 +16,9 @@ export abstract class AttachmentRepository {
 
   abstract find(id: string): Promise<Attachment | undefined>;
 
+  /** Those of the ids there are, in no order. */
+  abstract findAll(ids: readonly string[]): Promise<readonly Attachment[]>;
+
   /** The owner's Attachments, in the order they were added. */
   abstract listOf(owner: AttachmentOwner): Promise<readonly Attachment[]>;
 

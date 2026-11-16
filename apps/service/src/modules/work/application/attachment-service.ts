@@ -145,6 +145,17 @@ export class AttachmentService {
     return attachment;
   }
 
+  /** Those of the ids there are, in no order. */
+  async findAll(ids: readonly string[]): Promise<readonly Attachment[]> {
+    return this.repository.findAll(ids);
+  }
+
+  /** A stored file's bytes, whole; a link is refused. */
+  async contentOf(id: string): Promise<Uint8Array> {
+    await this.readFile(id);
+    return wholeOf(await this.files.open(id));
+  }
+
   /** A link has no file: it opens at its address. */
   async open(id: string): Promise<OpenedFile> {
     const attachment = await this.readFile(id);
@@ -335,6 +346,9 @@ export class AttachmentService {
         return undefined;
       case "task":
         if (!(await this.tasks.find(owner.taskId))) throw new TaskNotFound(owner.taskId);
+        return undefined;
+      case "thread":
+        // Threads are Conversations': it stores a message's image only for a Thread it has.
         return undefined;
     }
   }

@@ -12,3 +12,5 @@ export { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
 // So other modules' tests remove an engine at a moment they choose.
 export { EngineSettingsService } from "./application/engine-settings-service.js";
 export { anOfficeToolCall } from "./ports/office-tool.fixtures.js";
+// So a check pastes a real picture into a Thread.
+export { aPlainPng } from "./adapters/claude-code/png.fixtures.js";

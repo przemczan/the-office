@@ -735,6 +735,8 @@ export const attachmentOwnerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("idea"), ideaId: z.uuid() }),
   z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
+  /** An image the user sent in a message of a Thread on no Task or Initiative, such as a chat. */
+  z.object({ kind: z.literal("thread"), threadId: z.uuid() }),
 ]);
 export type AttachmentOwner = z.infer<typeof attachmentOwnerSchema>;
 

@@ -1,5 +1,5 @@
 import type { ApiEndpointModel, ApiEngineEdit, EngineId } from "@the-office/contracts";
-import { Button, Icon, IconButton, Input } from "@the-office/ui";
+import { Button, Checkbox, Icon, IconButton, Input } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { modelLabel } from "../../../shell/engine-words.ts";
 import type { PricedModel } from "./engine-settings-draft.ts";
@@ -80,7 +80,10 @@ export function ApiEndpointModels({
   return (
     <div className="engine-tab">
       <PricesNote />
-      <p className="settings-note">Each model by its id on the server.</p>
+      <p className="settings-note">
+        Each model by its id on the server. Tick Sees images for a model that reads pictures: the
+        images pasted into a message reach it; any other is told of each image in words.
+      </p>
       {engineId === "" && (
         <p className="settings-note">
           Give the endpoint a name under Settings to price its models.
@@ -107,6 +110,13 @@ export function ApiEndpointModels({
                     changeModel(index, { ...model, contextWindow: Number(event.target.value) || 0 })
                   }
                 />
+                <div className="api-endpoint-model-sees-images">
+                  <Checkbox
+                    checked={model.seesImages}
+                    onChange={(seesImages) => changeModel(index, { ...model, seesImages })}
+                    label="Sees images"
+                  />
+                </div>
                 <IconButton
                   size="sm"
                   icon={<Icon name="x" size={14} />}
@@ -134,7 +144,10 @@ export function ApiEndpointModels({
           size="sm"
           iconLeft={<Icon name="plus" size={14} />}
           onClick={() =>
-            change({ ...edit, models: [...edit.models, { id: "", contextWindow: 0 }] })
+            change({
+              ...edit,
+              models: [...edit.models, { id: "", contextWindow: 0, seesImages: false }],
+            })
           }
         >
           Add a model

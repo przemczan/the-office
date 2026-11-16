@@ -164,6 +164,11 @@ export function toMessageResponse(
         ...fields,
         handoverNoteFrom: fields.handoverNoteFrom ?? null,
         openPage: fields.openPage ?? null,
+        images: (fields.images ?? []).map(({ attachmentId, name, mediaType }) => ({
+          attachmentId,
+          name,
+          mediaType,
+        })),
       };
     case "link-card": {
       const { to, taskId, ...card } = fields;

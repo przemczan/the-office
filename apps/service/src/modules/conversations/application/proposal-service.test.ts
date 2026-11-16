@@ -1,4 +1,8 @@
 import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
+import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "../ports/message-image-rules.js";
+import { MessageImages } from "./message-images.js";
+import { ThreadImages } from "./thread-images.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
   RoleNotFound,
@@ -180,6 +184,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
+      MessageImages,
+      ThreadImages,
+      { provide: MessageImageRules, useClass: ContractMessageImageRules },
       sessionMemoryProvider(),
       // People's own reads the Roles hired here, none under the Office Manager's fixed key.
       dutiesProvider(),

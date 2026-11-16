@@ -190,6 +190,13 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     };
   }
 
+  /** The options of a session on a model that sees images or doesn't. */
+  function onModel(seesImages: boolean): SessionOptions {
+    return options({
+      engine: endpoint([{ id: "coder:q4", contextWindow: 100_000, seesImages }]),
+    });
+  }
+
   async function oneTurn(
     sessionOptions: SessionOptions = options(),
     engine: OpenAiCompatibleApiEngine = engineOn(),
@@ -229,4 +236,74 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       await rm(elsewhere, { recursive: true, force: true });
     }
   });
+
+  describe("a message's images", () => {
+    const screenshot = {
+      attachmentId: "0c6f5d1e-3a5b-4f0e-9a52-2d2f0e1c9b10",
+      name: "screen.png",
+      mediaType: "image/png",
+      content: new Uint8Array([1, 2, 3]),
+    };
+    const brief = { id: "brief", text: "What is wrong here?", images: [screenshot] };
+
+    it("go as image parts on a model that sees images, and come back on resume", async () => {
+      const id = randomUUID();
+      fake.script(textReply(["A typo."], USAGE));
+      const first = await engineOn().start({ id, options: onModel(true), brief });
+      session = first;
+      await untilTurnEnds(first.events[Symbol.asyncIterator]());
+      const parts = [
+        { type: "text", text: "What is wrong here?" },
+        { type: "image_url", image_url: { url: "data:image/png;base64,AQID" } },
+      ];
+      expect(lastUserMessage()).toEqual({ role: "user", content: parts });
+      await first.end();
+
+      fake.script(textReply(["Fixed."], USAGE));
+      const resumed = await engineOn().resume(id, onModel(true));
+      session = resumed;
+      resumed.send({ id: "again", text: "Again." }, "next");
+      await untilTurnEnds(resumed.events[Symbol.asyncIterator]());
+
+      expect(lastRequestMessages().slice(1)).toEqual([
+        { role: "user", content: parts },
+        { role: "assistant", content: "A typo." },
+        { role: "user", content: "Again." },
+      ]);
+    });
+
+    it("are named in words on a model that doesn't see images", async () => {
+      fake.script(textReply(["I can't see it."], USAGE));
+
+      session = await engineOn().start({ id: randomUUID(), options: onModel(false), brief });
+      await untilTurnEnds(session.events[Symbol.asyncIterator]());
+
+      expect(lastUserMessage()).toEqual({
+        role: "user",
+        content:
+          "What is wrong here?\n\n[Image screen.png, Attachment 0c6f5d1e-3a5b-4f0e-9a52-2d2f0e1c9b10: this model can't see pictures; read_attachment gives its name and size only.]",
+      });
+    });
+
+    it("are named in words on a model kept before Sees images was asked", async () => {
+      fake.script(textReply(["I can't see it."], USAGE));
+      session = await engineOn().start({ id: randomUUID(), options: options(), brief });
+      await untilTurnEnds(session.events[Symbol.asyncIterator]());
+
+      expect(lastUserMessage()).toMatchObject({
+        content: expect.stringContaining("this model can't see pictures"),
+      });
+    });
+  });
 });
+
+function lastRequestMessages(): readonly { readonly role: string }[] {
+  const body = fake.requests.at(-1)?.body as { messages: { role: string }[] } | undefined;
+  return body?.messages ?? [];
+}
+
+function lastUserMessage(): unknown {
+  return lastRequestMessages()
+    .filter(({ role }) => role === "user")
+    .at(-1);
+}

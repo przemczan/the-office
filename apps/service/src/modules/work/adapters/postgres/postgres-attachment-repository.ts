@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, isNull, ne, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment, AttachmentOwner, StoredFileAttachment } from "../../domain/attachment.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
@@ -37,6 +37,15 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
   async find(id: string): Promise<Attachment | undefined> {
     const [row] = await this.database.select().from(attachments).where(eq(attachments.id, id));
     return row && toAttachment(row);
+  }
+
+  async findAll(ids: readonly string[]): Promise<readonly Attachment[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.database
+      .select()
+      .from(attachments)
+      .where(inArray(attachments.id, [...ids]));
+    return rows.map(toAttachment);
   }
 
   async listOf(owner: AttachmentOwner): Promise<readonly Attachment[]> {
@@ -93,5 +102,7 @@ function ownedBy(owner: AttachmentOwner): SQL {
       return eq(attachments.initiativeId, owner.initiativeId);
     case "task":
       return eq(attachments.taskId, owner.taskId);
+    case "thread":
+      return eq(attachments.threadId, owner.threadId);
   }
 }

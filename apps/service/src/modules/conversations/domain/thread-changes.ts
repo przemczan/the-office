@@ -25,7 +25,13 @@ import {
   TokensCounted,
   TurnEnded,
 } from "./conversation-events.js";
-import type { Message, MessageDelivery, MessageDraft, StageWorkClosing } from "./message.js";
+import type {
+  Message,
+  MessageDelivery,
+  MessageDraft,
+  MessageImage,
+  StageWorkClosing,
+} from "./message.js";
 import type { OpenPage } from "./open-page.js";
 import { proposedChangeProblems, type Proposal, type ProposedChange } from "./proposal.js";
 import { ProposalRefused } from "./proposal-refused.js";
@@ -334,6 +340,8 @@ export interface BargingIn extends Pick<Message, "id" | "at"> {
   readonly openPage?: OpenPage;
   /** Who answers, which a Thread other than a Stage Thread names when it refuses the message. */
   readonly personName?: string;
+  /** The images it carries, none when empty. */
+  readonly images?: readonly MessageImage[];
 }
 
 /**
@@ -343,7 +351,7 @@ export interface BargingIn extends Pick<Message, "id" | "at"> {
  */
 export function bargeIn(
   thread: Thread,
-  { id, text, at, writtenBy, openPage, personName }: BargingIn,
+  { id, text, at, writtenBy, openPage, personName, images = [] }: BargingIn,
 ): ThreadChange<MessagesLogged> {
   if (thread.state !== "answering") throw new ThreadRefused([finishedFirst(thread, personName)]);
   const said: Message = {
@@ -355,6 +363,7 @@ export function bargeIn(
     at,
     writtenBy,
     openPage,
+    ...(images.length > 0 && { images }),
   };
   const logged = logMessages(thread, [said], at);
   if (!logged) throw new Error("A barge-in always logs its message.");

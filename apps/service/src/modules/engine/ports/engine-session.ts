@@ -12,6 +12,18 @@ export interface UserMessage {
    * taking `text` as a message.
    */
   readonly skillCommand?: SkillCommand;
+  /** The images the user sent with the message, which the engine gives the model with its text. */
+  readonly images?: readonly MessageImageContent[];
+}
+
+/** An image of a user message, with its bytes. */
+export interface MessageImageContent {
+  /** The Attachment the image is kept as, which an engine whose model can't see pictures names. */
+  readonly attachmentId: string;
+  readonly name: string;
+  /** One of `MESSAGE_IMAGE_MEDIA_TYPES`. */
+  readonly mediaType: string;
+  readonly content: Uint8Array;
 }
 
 /** A skill the user runs in the session, as Claude Code's slash commands run one. */

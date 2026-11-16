@@ -2260,6 +2260,87 @@ test("the user has Jan make a plan in auto mode, and the Task is Ready without a
   expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
 });
 
+// The engine replays the next session in e2e/sessions.jsonl: Jan starts on the message with the
+// pasted screenshot and answers.
+test("the user pastes a screenshot into a Task's Thread, sends it, and opens it full size from the message", async ({
+  page,
+}) => {
+  const signInTask = taskSchema.parse(
+    await (await page.request.get(`/api/tasks/${signIn.taskUrl?.split("/").at(-1)}`)).json(),
+  );
+  const created = await page.request.post("/api/tasks", {
+    data: {
+      title: "The settings page is cut off on the right",
+      projectId: signInTask.projectId,
+      priority: "normal",
+    },
+  });
+  expect(created.status()).toBe(201);
+  const task = taskSchema.parse(await created.json());
+  await page.goto(`/tasks/${task.id}`);
+  await page.getByRole("button", { name: "Plan with Jan" }).click();
+  const conversation = page.getByRole("complementary", { name: "Conversation" });
+  const message = conversation.getByRole("textbox", { name: "Message" });
+  await message.fill("The page is cut off on the right, as in the screenshot.");
+
+  // A screenshot as the clipboard holds one: a PNG named only "image.png", pasted on the box.
+  const screenshot = await page.screenshot({ clip: { x: 0, y: 0, width: 320, height: 200 } });
+  await message.evaluate(
+    (box, bytes) => {
+      const clipboard = new DataTransfer();
+      clipboard.items.add(new File([new Uint8Array(bytes)], "image.png", { type: "image/png" }));
+      box.dispatchEvent(
+        new ClipboardEvent("paste", { clipboardData: clipboard, bubbles: true, cancelable: true }),
+      );
+    },
+    [...screenshot],
+  );
+  const pasted = /^Pasted image \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}\.png$/;
+  const pending = conversation.getByRole("list", { name: "Images to send" });
+  await expect(pending.getByRole("img", { name: pasted })).toBeVisible();
+  // A paste of files alone leaves the text as it was.
+  await expect(message).toHaveValue("The page is cut off on the right, as in the screenshot.");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-message-images-pending.png") });
+  await message.press("Enter");
+
+  // The message shows its image as a thumbnail, and the image is the Task's Attachment.
+  await expect(
+    conversation.getByText("The screenshot shows the page cut off on the right."),
+  ).toBeVisible();
+  await expect(pending).toHaveCount(0);
+  const thumbnail = conversation.getByRole("button", { name: /^View Pasted image / });
+  await expect(thumbnail).toBeVisible();
+  await expect(thumbnail.locator("img")).toHaveJSProperty("complete", true);
+  const attachments = (await (
+    await page.request.get(`/api/tasks/${task.id}/attachments`)
+  ).json()) as { kind: string; name: string; mediaType?: string; size?: number }[];
+  expect(attachments).toEqual([
+    expect.objectContaining({
+      kind: "image",
+      name: expect.stringMatching(pasted),
+      mediaType: "image/png",
+      size: screenshot.byteLength,
+    }),
+  ]);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-message-images-thumbnail.png"),
+  });
+
+  // Clicking it opens the viewer on the image at its full size.
+  await thumbnail.click();
+  const viewer = page.getByRole("dialog", { name: pasted });
+  const full = viewer.getByRole("img", { name: pasted });
+  await expect(full).toBeVisible();
+  await expect(full).toHaveJSProperty("naturalWidth", 320);
+  await expect(viewer).toContainText("1 of 1 · Sent by");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-message-images-viewer.png") });
+  await page.keyboard.press("Escape");
+  await expect(viewer).toHaveCount(0);
+
+  // Nothing of it is left to weigh on the next tests' Start.
+  expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
+});
+
 /**
  * On the Ready Task's page: it waits for a Backlog Task, so Start says why it can't start and the
  * board and the other Task show the dependency; it stops waiting, and Start is open again.

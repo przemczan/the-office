@@ -103,6 +103,44 @@ describe("userMessage", () => {
     expect(userMessage(message, undefined)).not.toHaveProperty("priority");
   });
 
+  it("writes a message with images as its text, then each image as a base64 block", () => {
+    const message = {
+      id: "7b0c0c9e-1b1a-4c55-9d43-31f1d7a5b0aa",
+      text: "what is wrong here?",
+      images: [
+        {
+          attachmentId: "0c6f5d1e-3a5b-4f0e-9a52-2d2f0e1c9b10",
+          name: "screen.png",
+          mediaType: "image/png",
+          content: new Uint8Array([1, 2, 3]),
+        },
+        {
+          attachmentId: "5f2a7c3b-8e1d-4c7a-b0f4-6a9e2d1c3b20",
+          name: "photo.jpg",
+          mediaType: "image/jpeg",
+          content: new Uint8Array([255, 216]),
+        },
+      ],
+    };
+
+    expect(userMessage(message, "later").message).toEqual({
+      role: "user",
+      content: [
+        { type: "text", text: "what is wrong here?" },
+        { type: "image", source: { type: "base64", media_type: "image/png", data: "AQID" } },
+        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "/9g=" } },
+      ],
+    });
+    expect(userMessage({ ...message, images: [] }, "later").message.content).toBe(
+      "what is wrong here?",
+    );
+    // The model API refuses an empty text block.
+    expect(userMessage({ ...message, text: "" }, "next").message.content).toEqual([
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "AQID" } },
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "/9g=" } },
+    ]);
+  });
+
   it("writes a skill command as the user types it, whatever its priority", () => {
     expect(userMessage(releaseCommand("v2 now"), "later")).toMatchObject({
       message: { role: "user", content: "/office:release v2 now" },

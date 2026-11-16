@@ -81,5 +81,9 @@ function response(settings: EngineSettings): EngineSettingsResponse {
 function engineResponse(engine: Engine): EngineResponse {
   if (engine.kind === "claude-code") return { ...engine };
   const { key, models, ...rest } = engine;
-  return { ...rest, keySet: key !== "", models: models.map((model) => ({ ...model })) };
+  return {
+    ...rest,
+    keySet: key !== "",
+    models: models.map((model) => ({ ...model, seesImages: model.seesImages ?? false })),
+  };
 }

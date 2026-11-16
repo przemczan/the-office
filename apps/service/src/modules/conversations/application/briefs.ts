@@ -12,6 +12,7 @@ import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { InitiativeThreadSetups, type InitiativeThreadSetup } from "./initiative-thread-setups.js";
 import { SessionMemory } from "./session-memory.js";
+import { ThreadImages } from "./thread-images.js";
 import { taskThreadRequest, TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 
 /** Assembles each new session's Brief from the record, with no model call (spec §2.5). */
@@ -23,6 +24,7 @@ export class Briefs {
     private readonly taskThreads: TaskThreadSetups,
     private readonly initiativeThreads: InitiativeThreadSetups,
     private readonly memory: SessionMemory,
+    private readonly images: ThreadImages,
   ) {}
 
   /** The Brief of the Thread's next session. Read before the message it answers is logged. */
@@ -61,7 +63,8 @@ export class Briefs {
     });
     if (setup.brief === undefined) {
       const log = await this.repository.messages(thread.id);
-      return freshPersonsThreadBrief({ title: thread.title, log, memory });
+      const removedImages = await this.images.removedIn(log);
+      return freshPersonsThreadBrief({ title: thread.title, log, removedImages, memory });
     }
     return taskThreadBrief({
       record: setup.brief,
@@ -111,6 +114,7 @@ export class Briefs {
     const memory = await this.memory.forBrief(thread.roleKey, { kind: "every-note", projects });
     if (thread.session === undefined) return newChatThreadBrief(projects, memory);
     const log = await this.repository.messages(thread.id);
-    return freshChatThreadBrief({ title: thread.title, log, projects, memory });
+    const removedImages = await this.images.removedIn(log);
+    return freshChatThreadBrief({ title: thread.title, log, removedImages, projects, memory });
   }
 }

@@ -111,7 +111,7 @@
 
 - `image-content.ts`: imageContent
 - `image-folder.ts`: ImageFolder
-- `image-rules.ts`: IMAGE_MEDIA_TYPES, ImageMediaType, IMAGE_SIZE_LIMIT, IMAGE_TOO_LARGE, ImageReading, readImage, mediaTypeOf
+- `image-rules.ts`: IMAGE_MEDIA_TYPES, ImageMediaType, IMAGE_SIZE_LIMIT, IMAGE_TOO_LARGE, ImageReading, readImage, mediaTypeOf, pictureMediaTypeOf
 - Tests: image-rules.full.test.ts
 
 ### locks/

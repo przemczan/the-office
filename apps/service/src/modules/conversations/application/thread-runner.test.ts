@@ -1,10 +1,21 @@
 import { randomInt, randomUUID } from "node:crypto";
+import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "../ports/message-image-rules.js";
+import { MessageImages } from "./message-images.js";
+import { FOREIGN_IMAGE_PROBLEM, ThreadImages } from "./thread-images.js";
+import { MessageImagesInMemory } from "./message-images.fixtures.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { Logger, type INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ANSWER_DECISION_TOOL, messageCommand, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import {
+  ANSWER_DECISION_TOOL,
+  MESSAGE_IMAGE_BYTES,
+  messageCommand,
+  OPEN_DECISION_TOOL,
+  SKILL_COMMAND_IMAGES_PROBLEM,
+} from "@the-office/contracts";
 import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
@@ -182,6 +193,8 @@ let mcpServersOnStart: PreparedMcpServers;
 let mcpServersOnResume: PreparedMcpServers;
 /** The skill commands Skills gives each session and each Role's new session here. */
 let skillCommands: SkillCommandsStandIn;
+/** The images the tests' messages carry, as Work keeps them. */
+let messageImages: MessageImagesInMemory;
 
 /** A server a session runs, and one of the Role's it is told it doesn't get. */
 const WITH_MCP_SERVERS: PreparedMcpServers = {
@@ -307,6 +320,9 @@ async function startOn(
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
+      MessageImages,
+      ThreadImages,
+      { provide: MessageImageRules, useClass: ContractMessageImageRules },
       sessionMemoryProvider(),
       dutiesProvider(duties),
       TaskThreadSetups,
@@ -389,6 +405,8 @@ async function startOn(
     projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
     ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
   });
+  messageImages = new MessageImagesInMemory();
+  app.get(MessageImages).provide(messageImages);
   threads = app.get(ThreadService);
   runner = app.get(ThreadRunner);
   repository = app.get(ThreadRepository);
@@ -1116,6 +1134,154 @@ describe("a message written while the person answers", () => {
       [PLAN_IT, "delivered"],
       ["Mind the archived Projects.", "delivered"],
     ]);
+  });
+});
+
+/** The image as the scripted engine records what it was given: its bytes by their size. */
+function given({ name, mediaType, size }: { name: string; mediaType: string; size: number }) {
+  return { name, mediaType, size };
+}
+
+/** The ids of the images. */
+function idsOf(images: readonly { attachmentId: string }[]): string[] {
+  return images.map(({ attachmentId }) => attachmentId);
+}
+
+describe("images in a message", () => {
+  const RELEASE_NOTES = { name: "release-notes", description: "Writes the release notes." };
+
+  it("go with the briefed first message of a new session, and the message keeps what they were", async () => {
+    await startWith(started(...aTurn("brief", "A red button.")));
+    const chat = await threads.startInChat(roleKey);
+    const image = await messageImages.keep({ kind: "thread", threadId: chat.id }, "button.png");
+
+    await runner.send(chat.id, "What is this?", ANN_LEE, { images: [image.attachmentId] });
+    const log = await answered(chat.id, 3);
+
+    const brief = engine.sessions[0]?.received[0];
+    expect(brief?.step === "start" && brief.brief.images).toEqual([given(image)]);
+    expect(drafts(log).find(({ kind }) => kind === "user")).toEqual({
+      kind: "user",
+      text: "What is this?",
+      delivery: "delivered",
+      writtenBy: ANN_LEE,
+      images: [{ attachmentId: image.attachmentId, name: "button.png", mediaType: "image/png" }],
+    });
+  });
+
+  it("go with the message into the running session", async () => {
+    await startWith(started(...aTurn("brief", "Hello."), sent("m-2"), ...aTurn("m-2", "Seen.")));
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Hello.", ANN_LEE);
+    await answered(chat.id, 3);
+    const image = await messageImages.keep({ kind: "thread", threadId: chat.id }, "chart.png");
+
+    await runner.send(chat.id, "", ANN_LEE, { images: [image.attachmentId] });
+    await answered(chat.id, 5);
+
+    expect(sentCommands()).toEqual([
+      {
+        message: { id: expect.any(String) as string, text: "", images: [given(image)] },
+        priority: "later",
+      },
+    ]);
+  });
+
+  it("go with a message written while the person answers", async () => {
+    await startWith(started(aBargeIn("barge-in"), ...aTurn(["brief", "barge-in"], "Both seen.")));
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Check the tests.", ANN_LEE);
+    const image = await messageImages.keep({ kind: "thread", threadId: chat.id }, "build.png");
+
+    await runner.send(chat.id, "The build too.", ANN_LEE, { images: [image.attachmentId] });
+    await answered(chat.id, 4);
+
+    const barged = (engine.sessions[0]?.received ?? []).find(
+      (request) => request.step === "send" && request.priority === "next",
+    );
+    expect(barged?.step === "send" && barged.message.images).toEqual([given(image)]);
+    expect(
+      (await threads.messages(chat.id)).filter(({ kind }) => kind === "user")[1],
+    ).toMatchObject({
+      delivery: "delivered",
+      images: [{ attachmentId: image.attachmentId, name: "build.png", mediaType: "image/png" }],
+    });
+  });
+
+  it("are kept on the Thread's Task, so a message there carries only the Task's", async () => {
+    await startWith(started(...aTurn("brief", "Seen.")));
+    const taskId = randomUUID();
+    const planning = await planningThread(taskId);
+    const ofTheTask = await messageImages.keep({ kind: "task", taskId }, "plan.png");
+    const ofAChat = await messageImages.keep({ kind: "thread", threadId: planning.id }, "chat.png");
+
+    await expect(
+      runner.send(planning.id, "This.", ANN_LEE, { images: [ofAChat.attachmentId] }),
+    ).rejects.toMatchObject({ reasons: [FOREIGN_IMAGE_PROBLEM] });
+    await runner.send(planning.id, "This.", ANN_LEE, { images: [ofTheTask.attachmentId] });
+    await answered(planning.id, 3);
+  });
+
+  it("are refused, logging nothing, from another Thread, past a message's count or size, or with a skill command", async () => {
+    await startWith();
+    skillCommands.ofRoles.set(roleKey, [RELEASE_NOTES]);
+    const chat = await threads.startInChat(roleKey);
+    const owner = { kind: "thread", threadId: chat.id } as const;
+    const elsewhere = await messageImages.keep(
+      { kind: "thread", threadId: randomUUID() },
+      "other.png",
+    );
+    const eleven = await Promise.all(
+      Array.from({ length: 11 }, (_, index) => messageImages.keep(owner, `${index}.png`)),
+    );
+    const large = await Promise.all(
+      Array.from({ length: 6 }, (_, index) =>
+        messageImages.keep(owner, `large-${index}.png`, MESSAGE_IMAGE_BYTES),
+      ),
+    );
+    const one = eleven[0]?.attachmentId ?? "";
+
+    await expect(
+      runner.send(chat.id, "Look.", ANN_LEE, { images: [elsewhere.attachmentId] }),
+    ).rejects.toMatchObject({ reasons: [FOREIGN_IMAGE_PROBLEM] });
+    await expect(
+      runner.send(chat.id, "Look.", ANN_LEE, { images: idsOf(eleven) }),
+    ).rejects.toMatchObject({ reasons: ["A message carries at most 10 images."] });
+    await expect(
+      runner.send(chat.id, "Look.", ANN_LEE, { images: idsOf(large) }),
+    ).rejects.toMatchObject({ reasons: ["A message's images may be at most 15 MB together."] });
+    await expect(
+      runner.send(chat.id, "/release-notes", ANN_LEE, {
+        images: [one],
+        ...asCommand("/release-notes"),
+      }),
+    ).rejects.toMatchObject({ reasons: [SKILL_COMMAND_IMAGES_PROBLEM] });
+    expect(await threads.messages(chat.id)).toEqual([]);
+  });
+
+  it("are listed in a fresh session's Brief to read by their Attachments, or as removed", async () => {
+    await startWith(started(...aTurn("brief", "Two charts.")), started(...aTurn("brief", "Yes.")));
+    const thread = await threads.startInChat(roleKey);
+    const owner = { kind: "thread", threadId: thread.id } as const;
+    const kept = await messageImages.keep(owner, "kept.png");
+    const removed = await messageImages.keep(owner, "removed.png");
+    await runner.send(thread.id, "Compare these.", ANN_LEE, {
+      images: [kept.attachmentId, removed.attachmentId],
+    });
+    await answered(thread.id, 3);
+    messageImages.remove(removed.attachmentId);
+    await cooled(thread.id, 80_000);
+
+    await runner.send(thread.id, "And now?", ANN_LEE);
+    await answered(thread.id, 6);
+
+    const brief = engine.sessions[1]?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toContain(
+      `The user Ann Lee: Compare these.\nimage kept.png · Attachment ${kept.attachmentId}\nImage removed\n\nYou: Two charts.`,
+    );
+    expect(brief?.step === "start" && brief.brief.text).toContain(
+      "Read an image the user sent with read_attachment, by its Attachment's id.",
+    );
   });
 });
 

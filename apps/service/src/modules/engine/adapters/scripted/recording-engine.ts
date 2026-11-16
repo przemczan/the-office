@@ -10,7 +10,7 @@ import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
-import { writeRecording, type ScriptStep } from "./session-script.js";
+import { recordedMessage, writeRecording, type ScriptStep } from "./session-script.js";
 
 /**
  * Records the sessions another engine runs, what their callers did and what they reported, for
@@ -28,9 +28,8 @@ export class RecordingEngine extends AgentEngine {
   }
 
   async start(session: NewSession): Promise<EngineSession> {
-    return this.record(session.options, { step: "start", brief: session.brief }, () =>
-      this.engine.start(session),
-    );
+    const brief = recordedMessage(session.brief);
+    return this.record(session.options, { step: "start", brief }, () => this.engine.start(session));
   }
 
   async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
@@ -82,7 +81,7 @@ class RecordingSession implements EngineSession {
   }
 
   send(message: UserMessage, priority: MessagePriority): void {
-    this.steps.push({ step: "send", message, priority });
+    this.steps.push({ step: "send", message: recordedMessage(message), priority });
     this.session.send(message, priority);
   }
 

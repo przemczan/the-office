@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "../ports/message-image-rules.js";
+import { MessageImages } from "./message-images.js";
+import { ThreadImages } from "./thread-images.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -178,6 +182,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
+      MessageImages,
+      ThreadImages,
+      { provide: MessageImageRules, useClass: ContractMessageImageRules },
       sessionMemoryProvider(),
       dutiesProvider(),
       TaskThreadSetups,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { userMessage } from "../claude-code/stream-events.js";
 import { StreamJson, type StreamMcpServer } from "./stream-json.js";
 import { FakeEngine, all } from "./stream-json.fixtures.js";
 
@@ -19,6 +20,39 @@ describe("StreamJson", () => {
 
     expect(await engine.input()).toEqual([
       { type: "user", message: { role: "user", content: "hello" } },
+    ]);
+  });
+
+  it("writes a message with images as its text and image blocks, on one line", async () => {
+    const engine = new FakeEngine();
+    const stream = new StreamJson(engine.asChild);
+    const message = {
+      id: "7b0c0c9e-1b1a-4c55-9d43-31f1d7a5b0aa",
+      text: "look",
+      images: [
+        {
+          attachmentId: "0c6f5d1e-3a5b-4f0e-9a52-2d2f0e1c9b10",
+          name: "screen.png",
+          mediaType: "image/png",
+          content: new Uint8Array([1, 2, 3]),
+        },
+      ],
+    };
+
+    stream.send(userMessage(message, "next"));
+
+    expect(await engine.input()).toMatchObject([
+      {
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            { type: "text", text: "look" },
+            { type: "image", source: { type: "base64", media_type: "image/png", data: "AQID" } },
+          ],
+        },
+        priority: "next",
+      },
     ]);
   });
 

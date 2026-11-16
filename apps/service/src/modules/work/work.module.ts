@@ -36,6 +36,7 @@ import { SearchController } from "./adapters/http/search.controller.js";
 import { FireAlarmForThreads } from "./adapters/conversations/fire-alarm-for-threads.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
+import { ThreadMessageImages } from "./adapters/conversations/thread-message-images.js";
 import { MemoryTaskTitleSourceFromWork } from "./adapters/people/memory-task-title-source.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { TaskThreadRecords } from "./adapters/conversations/task-thread-records.js";
@@ -136,7 +137,7 @@ import { WorktreeFiles } from "./ports/worktree-files.js";
 export interface WorkModuleOptions {
   /**
    * The modules that provide the ports below, Conversations' TaskThreadSetups,
-   * InitiativeThreadSetups, WorkRecords and ProposalAppliers, where Work sets up the sessions of
+   * InitiativeThreadSetups, WorkRecords, MessageImages and ProposalAppliers, where Work sets up the sessions of
    * Threads on its Tasks and Initiatives, gives the records mentioned in a chat and applies
    * Proposals of the Office-wide limit, of Initiatives and of Projects to onboard, and Projects'
    * TaskBases, where Work tells what each Task's branch starts from.
@@ -302,6 +303,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskThreadRecords,
         InitiativeThreadRecords,
         MentionedWorkRecords,
+        ThreadMessageImages,
         MemoryTaskTitleSourceFromWork,
         OfficeLimitProposals,
         InitiativeProposals,

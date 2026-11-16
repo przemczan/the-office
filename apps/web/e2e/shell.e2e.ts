@@ -449,7 +449,7 @@ test.describe("the usage figure", { tag: "@full" }, () => {
     defaultModel: "a-model",
     baseUrl: "https://models.example.test/v1",
     keySet: true,
-    models: [{ id: "a-model", contextWindow: 100_000 }],
+    models: [{ id: "a-model", contextWindow: 100_000, seesImages: false }],
   };
   const windowsOf = (engineId: string, fiveHour: number): Now["usageWindows"][number] => ({
     engineId,

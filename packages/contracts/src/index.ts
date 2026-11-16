@@ -8,6 +8,7 @@ export * from "./health.js";
 export * from "./images.js";
 export * from "./live-view.js";
 export * from "./mcp-servers.js";
+export * from "./message-images.js";
 export * from "./notifications.js";
 export * from "./office-action-list.js";
 export * from "./office-actions.js";

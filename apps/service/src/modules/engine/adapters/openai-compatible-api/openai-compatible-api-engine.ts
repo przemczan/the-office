@@ -51,6 +51,7 @@ interface EndpointModel {
   readonly endpoint: ApiEngine;
   readonly modelId: string;
   readonly contextWindow: number;
+  readonly seesImages: boolean;
 }
 
 /** What a session opens with beside its options. */
@@ -120,7 +121,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     id: string,
     options: SessionOptions,
     {
-      endpointModel: { endpoint, modelId, contextWindow },
+      endpointModel: { endpoint, modelId, contextWindow, seesImages },
       searchEndpoint,
       conversationFile,
       kept,
@@ -155,6 +156,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         client: new ChatCompletionsClient(endpoint),
         model: modelId,
         contextWindow,
+        seesImages,
         system: systemPrompt({
           folder: options.folder,
           operatingSystem: this.operatingSystem.name,
@@ -210,5 +212,10 @@ function endpointModel({ engine, model }: SessionOptions): EndpointModel {
       `the API endpoint ${engine.name} lists no model ${model} in Settings › Engines; pick another model on the Role card.`,
     );
   }
-  return { endpoint: engine, modelId: offered.id, contextWindow: offered.contextWindow };
+  return {
+    endpoint: engine,
+    modelId: offered.id,
+    contextWindow: offered.contextWindow,
+    seesImages: offered.seesImages ?? false,
+  };
 }

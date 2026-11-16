@@ -1,9 +1,12 @@
 import type { UserRef } from "../domain/user.js";
+import type { MessageImageContent } from "./thread-images.js";
 
 /** A message to the person, by the id the turn that takes it names it by. */
 export interface BargeInMessage {
   readonly id: string;
   readonly text: string;
+  /** The images the user's message carries. */
+  readonly images?: readonly MessageImageContent[];
 }
 
 /** What a turn's end meant for the user's messages. */

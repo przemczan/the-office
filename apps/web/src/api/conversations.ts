@@ -9,6 +9,7 @@ import {
   chatThreadPageSchema,
   decisionListSchema,
   fireAlarmLiftsSchema,
+  messageImageSchema,
   messageListSchema,
   officeInstructionsSchema,
   peopleWorkingSchema,
@@ -28,6 +29,7 @@ import {
   type DecisionAnswer,
   type FireAlarmLifts,
   type Home,
+  type MessageImage,
   type NewMessage,
   type OfficeInstructions,
   type ProcessOutput,
@@ -41,7 +43,7 @@ import {
   type ThreadSummary,
   type ThreadWebEvent,
 } from "@the-office/contracts";
-import { deleteFromApiReturning, getFromApi, sendToApi } from "./api-client.ts";
+import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import { changeRows, pagedQueryOptions, rowsOf } from "./pages.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
 import { FIRE_ALARM, PERSON_TASKS, TASKS } from "./work.ts";
@@ -295,6 +297,14 @@ export function openPersonsThread(taskId: string, roleKey: string): Promise<Thre
  */
 export function sendMessage(id: string, message: NewMessage): Promise<Thread> {
   return sendToApi("POST", `${threadPath(id)}/messages`, message, threadSchema);
+}
+
+/**
+ * Stores an image for the next message of the Thread, before the message itself is sent with the
+ * Attachment id it answers (`NewMessage.images`).
+ */
+export function uploadMessageImage(threadId: string, file: File): Promise<MessageImage> {
+  return sendFileToApi(`${threadPath(threadId)}/images`, file, messageImageSchema);
 }
 
 export function renameThread(id: string, title: string): Promise<Thread> {

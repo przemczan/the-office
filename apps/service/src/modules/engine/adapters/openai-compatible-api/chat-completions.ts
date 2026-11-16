@@ -20,9 +20,23 @@ export interface SystemMessage {
   readonly content: string;
 }
 
+export interface TextPart {
+  readonly type: "text";
+  readonly text: string;
+}
+
+/** An image the model sees, its `url` a `data:<media type>;base64,<bytes>` URL. */
+export interface ImagePart {
+  readonly type: "image_url";
+  readonly image_url: { readonly url: string };
+}
+
+export type UserContentPart = TextPart | ImagePart;
+
+/** A user message's content: its text, or its parts when it carries images the model sees. */
 export interface UserMessage {
   readonly role: "user";
-  readonly content: string;
+  readonly content: string | readonly UserContentPart[];
 }
 
 export interface AssistantMessage {

@@ -1,4 +1,9 @@
 import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
+import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "../ports/message-image-rules.js";
+import { MessageImages } from "./message-images.js";
+import { ThreadImages } from "./thread-images.js";
+import { MessageImagesInMemory } from "./message-images.fixtures.js";
 import { z } from "zod";
 import { OPEN_DECISION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
 import {
@@ -99,6 +104,9 @@ let officeData: string;
 
 let stageThreads: StageThreads;
 
+/** The images the tests' messages carry, as Work keeps them. */
+let messageImages: MessageImagesInMemory;
+
 let repository: ThreadRepository;
 
 /** The people of this test, by Role key, each under a key of its own. */
@@ -180,6 +188,9 @@ async function startOn(
       OfficeInstructions,
       ContextPolicySettingsService,
       Briefs,
+      MessageImages,
+      ThreadImages,
+      { provide: MessageImageRules, useClass: ContractMessageImageRules },
       sessionMemoryProvider(),
       dutiesProvider(),
       TaskThreadSetups,
@@ -211,6 +222,8 @@ async function startOn(
   }));
   stageThreads = app.get(StageThreads);
   repository = app.get(ThreadRepository);
+  messageImages = new MessageImagesInMemory();
+  app.get(MessageImages).provide(messageImages);
 }
 
 function aPerson(name: string): string {
@@ -609,6 +622,38 @@ describe("barge-in", () => {
     const steps = engine.sessions.flatMap(({ received }) => received.map(({ step }) => step));
     expect(steps.filter((step) => step !== "read-context-usage")).toEqual(["start", "send", "end"]);
   });
+
+  it("sends the images the user's message carries with it, kept on the Task", async () => {
+    await startWith(
+      started(
+        aBargeIn("barge-in"),
+        ...aTurn({ status: "done" }, "Matched the mock-up.", ["brief", "barge-in"]),
+      ),
+    );
+    const request = aStage({ roleKey: aPerson("Ada") });
+    const stageThread = await stageThreads.open(request);
+    const image = await messageImages.keep({ kind: "task", taskId: request.taskId }, "mock-up.png");
+
+    await app
+      .get(ThreadRunner)
+      .send(stageThread.threadId, "Like this.", ANN_LEE, { images: [image.attachmentId] });
+    await stageThread.nextTurn();
+
+    const barged = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(barged?.step === "send" && barged.message.images).toEqual([
+      { name: "mock-up.png", mediaType: "image/png", size: 4 },
+    ]);
+    expect(await userMessages(stageThread.threadId)).toEqual([
+      {
+        kind: "user",
+        text: "Like this.",
+        delivery: "delivered",
+        writtenBy: ANN_LEE,
+        images: [{ attachmentId: image.attachmentId, name: "mock-up.png", mediaType: "image/png" }],
+      },
+    ]);
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
 });
 
 describe("Stop", () => {
@@ -694,6 +739,43 @@ describe("Stop", () => {
     const begun = engine.sessions[1]?.received.find(({ step }) => step === "start");
     expect(begun).toMatchObject({
       brief: { text: expect.stringContaining("> Rename it on the list instead.") },
+    });
+    await again.nextTurn();
+    await again.end({ handoverNote: undefined, closing: undefined });
+  });
+
+  it("carries the images of a message that never landed into the Stage's next run", async () => {
+    await startWith(
+      started(aBargeIn("barge-in")),
+      started(...aTurn({ status: "done" }, "Matched the mock-up.", ["brief"])),
+    );
+    const ada = aPerson("Ada");
+    const since = new Date();
+    const request = aStage({ roleKey: ada });
+    const left = await stageThreads.open(request);
+    const image = await messageImages.keep({ kind: "task", taskId: request.taskId }, "mock-up.png");
+    const sent = { attachmentId: image.attachmentId, name: "mock-up.png", mediaType: "image/png" };
+    await stageThreads.bargeIn(left.threadId, "Like this.", ANN_LEE, [sent]);
+    await stageThreads.endLeftRunning(left.threadId, { kind: "failure", reason: "Lost." }, since);
+    await left.endSession();
+
+    const again = await stageThreads.open(
+      aStage({
+        ...request,
+        declared: undefined,
+        previousThreadId: left.threadId,
+        carryMessagesSince: since,
+      }),
+    );
+
+    const begun = engine.sessions[1]?.received.find(({ step }) => step === "start");
+    expect(begun).toMatchObject({
+      brief: {
+        text: expect.stringContaining(
+          `> Like this.\n> image mock-up.png · Attachment ${image.attachmentId}`,
+        ) as string,
+        images: [{ name: "mock-up.png", mediaType: "image/png", size: 4 }],
+      },
     });
     await again.nextTurn();
     await again.end({ handoverNote: undefined, closing: undefined });

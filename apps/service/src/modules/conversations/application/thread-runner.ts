@@ -58,6 +58,7 @@ import {
   type Message,
   type MessageDelivery,
   type MessageDraft,
+  type MessageImage,
 } from "../domain/message.js";
 import type { Thread, ThreadSession } from "../domain/thread.js";
 import type { UserRef } from "../domain/user.js";
@@ -96,6 +97,7 @@ import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { SessionStartWatch } from "./session-start-watch.js";
 import { StageThreads } from "./stage-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { ThreadImages } from "./thread-images.js";
 import { WorkRecords } from "./work-records.js";
 import type { TextMask } from "../ports/project-output-masks.js";
 
@@ -160,6 +162,8 @@ export interface SentWith {
   readonly skillCommandAmong?: (
     skillCommandNames: readonly string[],
   ) => SkillCommandSent | undefined;
+  /** The images it carries, by the ids of the Attachments `ThreadImages.keep` kept them as. */
+  readonly images?: readonly string[];
 }
 
 /** The records the session is given with a message, read as it is sent. */
@@ -181,6 +185,8 @@ interface Taken {
   readonly writtenBy: UserRef | undefined;
   /** Reads the user's message as a skill command, against the next session's skill commands. */
   readonly skillCommandAmong?: SentWith["skillCommandAmong"];
+  /** The images the user's message carries, which never go with a skill command. */
+  readonly images?: readonly MessageImage[];
 }
 
 const NO_RECORDS: GivenRecords = {
@@ -246,6 +252,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly subAgentsAndProcesses: SubAgentsAndProcesses,
     private readonly schedule: Schedule,
     private readonly skillCommands: SkillCommands,
+    private readonly threadImages: ThreadImages,
   ) {}
 
   /**
@@ -265,11 +272,14 @@ export class ThreadRunner implements OnModuleDestroy {
     sent: SentWith = {},
   ): Promise<Thread> {
     const thread = await this.threadOf(threadId);
+    const images = await this.threadImages.carried(thread, sent.images ?? []);
     if (thread.stageThread && thread.state === "answering") {
-      return this.stageThreads.bargeIn(threadId, text, writtenBy);
+      return this.stageThreads.bargeIn(threadId, text, writtenBy, images);
     }
     const current = await this.personOf(thread);
-    if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
+    if (text.trim() === "" && images.length === 0) {
+      throw new ThreadRefused(["Write a message first."]);
+    }
     const { mentions = [], handoverNoteFrom } = sent;
     // Only the chat drawer sends one: a Task's or an Initiative's Threads are about their record.
     const openPage = thread.home.kind === "chat" ? sent.openPage : undefined;
@@ -286,7 +296,7 @@ export class ThreadRunner implements OnModuleDestroy {
           `${current.card.name} is answering; send the skill command once they finish.`,
         ]);
       }
-      return this.bargeIn(thread, current, { text, writtenBy, mentions, openPage });
+      return this.bargeIn(thread, current, { text, writtenBy, mentions, openPage, images });
     }
     const said: Message = {
       kind: "user",
@@ -298,6 +308,7 @@ export class ThreadRunner implements OnModuleDestroy {
       writtenBy,
       handoverNoteFrom,
       openPage,
+      ...(images.length > 0 && { images }),
     };
     const ofBrief = openPageToGive({ openPage, mentions, log: [], newSession: true });
     const given: GivenRecords = {
@@ -308,7 +319,7 @@ export class ThreadRunner implements OnModuleDestroy {
     return this.take(
       thread,
       current,
-      { id: said.id, text, writtenBy, skillCommandAmong: sent.skillCommandAmong },
+      { id: said.id, text, writtenBy, skillCommandAmong: sent.skillCommandAmong, images },
       (latest, opening, command) =>
         beginAnswer(latest, {
           ...opening,
@@ -347,11 +358,13 @@ export class ThreadRunner implements OnModuleDestroy {
       writtenBy,
       mentions,
       openPage,
+      images,
     }: {
       readonly text: string;
       readonly writtenBy: UserRef;
       readonly mentions: readonly Mention[];
       readonly openPage: OpenPage | undefined;
+      readonly images: readonly MessageImage[];
     },
   ): Promise<Thread> {
     const bargeIns = this.bargeIns.get(thread.id);
@@ -360,11 +373,24 @@ export class ThreadRunner implements OnModuleDestroy {
     // Read before the message is logged, so the log holds only the messages before it.
     const page = await this.openPageOfRunningSession(thread.id, openPage, mentions);
     const fromUser = messageFromUser(text, writtenBy, await this.previousWriter(thread.id));
+    const contents = await this.threadImages.contents(images);
     const id = randomUUID();
     const logged = await this.change(thread.id, (latest) =>
-      bargeIn(latest, { id, text, writtenBy, openPage, personName: card.name, at: new Date() }),
+      bargeIn(latest, {
+        id,
+        text,
+        writtenBy,
+        openPage,
+        personName: card.name,
+        at: new Date(),
+        images,
+      }),
     );
-    const said = { id, text: withOpenPageRecord(withMentionedRecords(fromUser, mentioned), page) };
+    const said = {
+      id,
+      text: withOpenPageRecord(withMentionedRecords(fromUser, mentioned), page),
+      ...(contents.length > 0 && { images: contents }),
+    };
     if (!bargeIns.take(said)) await this.mark(thread.id, [id], "not-delivered");
     return logged;
   }
@@ -621,6 +647,9 @@ export class ThreadRunner implements OnModuleDestroy {
             : this.skillCommands.ofSession(goingOn.id),
         )
       : undefined;
+    if (command && said.images?.length) {
+      throw new ThreadRefused([this.threadImages.skillCommandProblem]);
+    }
     if (command && said.writtenBy) {
       return this.takeSkillCommand(thread, current, said, said.writtenBy, command, {
         begin,
@@ -632,6 +661,8 @@ export class ThreadRunner implements OnModuleDestroy {
     }
     // Read before the message is logged, so the log holds only the messages before it.
     const openPage = newSession ? undefined : await given.ofRunningSession();
+    const contents = await this.threadImages.contents(said.images ?? []);
+    const images = contents.length > 0 ? { images: contents } : {};
     const text =
       newSession || !said.writtenBy
         ? said.text
@@ -656,7 +687,7 @@ export class ThreadRunner implements OnModuleDestroy {
     );
     this.bargeIns.set(thread.id, bargeIns);
     this.answerInBackground(answering, {
-      said: { id: said.id, text: newSession ? said.text : withRecords },
+      said: { id: said.id, text: newSession ? said.text : withRecords, ...images },
       briefed: briefedMessage(place.brief.text, said.text, said.writtenBy),
       ...move,
       replaced: newSession ? thread.session : undefined,
@@ -988,7 +1019,12 @@ export class ThreadRunner implements OnModuleDestroy {
           { skills, mcpServers: servers.servers },
           place,
         ),
-        brief: { id: said.id, text: withLeftOutServers(briefed, servers.leftOut) },
+        // A new session takes the message's images with the Brief its text is in.
+        brief: {
+          id: said.id,
+          text: withLeftOutServers(briefed, servers.leftOut),
+          ...(said.images && { images: said.images }),
+        },
       });
     } catch (error) {
       await this.forget(session.id);

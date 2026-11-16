@@ -45,6 +45,8 @@ export function usePastedFiles(onFiles: (files: readonly File[]) => void): void 
   const handOver = useEffectEvent(onFiles);
   useEffect(() => {
     const onPaste = (event: ClipboardEvent): void => {
+      // A message box took the paste for its own message (`Composer`).
+      if (event.defaultPrevented) return;
       const files = pastedFiles(event.clipboardData);
       if (files.length === 0) return;
       event.preventDefault();

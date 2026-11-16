@@ -47,7 +47,7 @@ const AN_API_ENGINE: EngineSettings = {
       defaultModel: "qwen",
       baseUrl: "http://127.0.0.1:8080/v1",
       keySet: false,
-      models: [{ id: "qwen", contextWindow: 32_000 }],
+      models: [{ id: "qwen", contextWindow: 32_000, seesImages: false }],
     },
   ],
   officeDefault: { engineId: "local", model: "qwen" },

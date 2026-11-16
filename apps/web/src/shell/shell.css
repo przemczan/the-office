@@ -1567,6 +1567,17 @@ button.shell-strip-alarm:hover {
   cursor: zoom-in;
 }
 
+.attachment-thumbnail-removed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-style: dashed;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  cursor: default;
+}
+
 .attachment-thumbnail:hover,
 .attachment-thumbnail:focus-visible {
   border-color: var(--border-strong, var(--fg-3));
@@ -1602,6 +1613,19 @@ button.shell-strip-alarm:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface-sunken);
+}
+
+.attachment-viewer-removed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 200px;
+  margin: 0;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-sunken);
+  color: var(--fg-3);
 }
 
 .dialog-frame.maximized .attachment-viewer-image {

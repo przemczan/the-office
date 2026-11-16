@@ -19,6 +19,7 @@ export function MessageField({
   autoFocus,
   onKeyDownFirst,
   onCaret,
+  above,
 }: {
   readonly label: string;
   readonly placeholder: string;
@@ -35,6 +36,8 @@ export function MessageField({
   readonly onKeyDownFirst?: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
   /** The field, each time its text or caret changes. */
   readonly onCaret?: (field: HTMLTextAreaElement) => void;
+  /** What sits right over the field, inside it, such as the images the message carries. */
+  readonly above?: ReactNode;
 }): ReactNode {
   const [triedWhileBusy, setTriedWhileBusy] = useState(false);
   // Once it can send again the explanation has done its job; the next busy spell starts quiet.
@@ -49,6 +52,7 @@ export function MessageField({
   };
   return (
     <div className="message-field">
+      {above}
       <Textarea
         aria-label={label}
         rows={rows}

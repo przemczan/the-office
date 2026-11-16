@@ -3,6 +3,7 @@ import { Injectable, Module } from "@nestjs/common";
 import {
   FireAlarmInThreads,
   InitiativeThreadSetups,
+  MessageImages,
   ProposalAppliers,
   TaskThreadSetups,
   WorkRecords,
@@ -682,6 +683,7 @@ const PORTS = [
   TaskThreadSetups,
   InitiativeThreadSetups,
   WorkRecords,
+  MessageImages,
   MemoryTaskTitles,
   ProposalAppliers,
   FireAlarmInThreads,

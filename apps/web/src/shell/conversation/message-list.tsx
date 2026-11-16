@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Message, MessageDelivery } from "@the-office/contracts";
+import type { Message, MessageDelivery, MessageImage } from "@the-office/contracts";
 import { Avatar, Badge, Icon, TextButton } from "@the-office/ui";
 import {
   Fragment,
@@ -12,6 +12,8 @@ import {
   type ReactNode,
 } from "react";
 import { roleQueries } from "../../api/people.ts";
+import { AttachmentViewer, type ViewedImage } from "../attachments/attachment-viewer.tsx";
+import { ImageThumbnail } from "../attachments/image-thumbnail.tsx";
 import { OpenPageChip } from "../open-page-chip.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
 import { roleFirstName, roleName } from "../person-name.ts";
@@ -404,6 +406,9 @@ function Turn({
               <MarkdownText text={message.text} />
             </div>
           )}
+          {message.kind === "user" && message.images.length > 0 && (
+            <SentImages images={message.images} writer={writer} at={message.at} />
+          )}
           {message.kind === "user" && message.openPage && (
             <p className="message-open-page">
               With <OpenPageChip page={message.openPage} /> open
@@ -419,6 +424,46 @@ function Turn({
         </div>
       ))}
     </TurnFrame>
+  );
+}
+
+/**
+ * The images a user message carried, as thumbnails opening the viewer, which steps through them;
+ * one removed since shows so in its place.
+ */
+function SentImages({
+  images,
+  writer,
+  at,
+}: {
+  readonly images: readonly MessageImage[];
+  readonly writer: string;
+  readonly at: string;
+}): ReactNode {
+  const [viewing, setViewing] = useState<number>();
+  const viewed: ViewedImage[] = images.map(({ attachmentId, name }) => ({
+    image: { kind: "message-image", id: attachmentId, name, writer, at },
+    roundName: undefined,
+  }));
+  return (
+    <div className="message-images attachment-thumbnails">
+      {images.map((image, index) => (
+        <ImageThumbnail
+          key={image.attachmentId}
+          image={{ id: image.attachmentId, name: image.name }}
+          mayBeRemoved
+          onView={() => setViewing(index)}
+        />
+      ))}
+      {viewing !== undefined && (
+        <AttachmentViewer
+          images={viewed}
+          index={viewing}
+          onStep={setViewing}
+          onClose={() => setViewing(undefined)}
+        />
+      )}
+    </div>
   );
 }
 

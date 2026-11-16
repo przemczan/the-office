@@ -1,9 +1,19 @@
 import { messageCommand, type OfficeCommandName, type SkillCommand } from "@the-office/contracts";
 import { Button, Icon, IconButton } from "@the-office/ui";
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { pastedFiles } from "../attachments/pasted-files.ts";
 import { useCommands } from "../commands/command-picker.tsx";
 import { useMentions } from "../mentions/mention-picker.tsx";
 import { MessageField } from "./message-field.tsx";
+import { useMessageImages, type UploadMessageImages } from "./message-images.ts";
+import { PendingMessageImages } from "./pending-message-images.tsx";
 
 /** A Handover note a Link card prefilled, and its writer as every surface names a person. */
 export interface PrefilledNote {
@@ -15,7 +25,8 @@ export interface PrefilledNote {
  * Writes the next message, with the keys every message field has; `@` mentions a Task, an open
  * Decision or an Idea, which the person then reads. A Handover note a Link card gave starts the
  * draft, for the user to edit or leave out (spec §2.2). Given `onOfficeCommand`, "/" lists the
- * commands, and an Office command is carried out here rather than sent (spec §2.4).
+ * commands, and an Office command is carried out here rather than sent (spec §2.4). Images pasted
+ * or dropped into the box wait over the field until Send, which uploads them through `onSend`.
  */
 export function Composer({
   placeholder,
@@ -46,10 +57,16 @@ export function Composer({
   readonly startingDraft?: string;
   readonly autoFocus?: boolean;
   /**
-   * Resolves once the message is taken; the draft is kept when it rejects. `fromNote` says the
-   * message started from the prefilled Handover note.
+   * Resolves once the message is taken; the draft and its images are kept when it rejects.
+   * `fromNote` says the message started from the prefilled Handover note. `uploadImages` uploads
+   * the images waiting in the box to the Thread and answers their Attachment ids for the message;
+   * after a refusal it uploads only those not uploaded yet.
    */
-  readonly onSend: (text: string, fromNote: boolean) => Promise<unknown>;
+  readonly onSend: (
+    text: string,
+    fromNote: boolean,
+    uploadImages: UploadMessageImages,
+  ) => Promise<unknown>;
   readonly onLeaveNoteOut?: () => void;
   /** Hears whether anything is written, as a draft mustn't change hands unseen. */
   readonly onDrafting?: (drafting: boolean) => void;
@@ -83,12 +100,18 @@ export function Composer({
           draft,
           skillCommands.map(({ name }) => name),
         );
+  const images = useMessageImages(officeCommand?.kind === "skill");
+  const [dropping, setDropping] = useState(false);
   const drafting = draft.trim() !== "";
-  useEffect(() => onDrafting?.(drafting), [drafting, onDrafting]);
+  // A message may be images alone, as the service takes it.
+  const hasMessage = drafting || images.pending.length > 0;
+  // Images waiting are as much a draft as words: the box mustn't go while they wait.
+  useEffect(() => onDrafting?.(hasMessage), [hasMessage, onDrafting]);
   useEffect(() => onDraftChange?.(draft), [draft, onDraftChange]);
   // An Office command never reaches the person, so nothing they are doing holds it back.
   const runsOfficeCommand = officeCommand?.kind === "office";
-  const canSend = !sending && drafting && (runsOfficeCommand || !busy);
+  const imagesKept = images.problems.length === 0;
+  const canSend = !sending && hasMessage && (runsOfficeCommand || (!busy && imagesKept));
   const send = async (): Promise<void> => {
     if (!canSend) return;
     onCloseCommandNote?.();
@@ -98,11 +121,14 @@ export function Composer({
       return;
     }
     setSending(true);
+    // Images pasted while it is sent wait for the next message.
+    const sentImages = images.pending.map(({ key }) => key);
     try {
-      await onSend(mentions.linked(draft), note !== undefined);
+      await onSend(mentions.linked(draft), note !== undefined, images.upload);
       setDraft("");
       setNoteKept(false);
       mentions.clear();
+      images.removeSent(sentImages);
     } catch {
       // The caller shows why; the draft stays to send again.
     } finally {
@@ -125,6 +151,33 @@ export function Composer({
     onCloseCommandNote();
     return true;
   };
+  // Only a paste of files: one with text in it pastes as text (`pastedFiles`).
+  const onPaste = (event: ClipboardEvent<HTMLDivElement>): void => {
+    const files = pastedFiles(event.clipboardData);
+    if (files.length === 0) return;
+    event.preventDefault();
+    // A dialog taking pastes anywhere in the page (`usePastedFiles`) mustn't take these too.
+    event.stopPropagation();
+    images.add(files);
+  };
+  const onDragOver = (event: DragEvent<HTMLDivElement>): void => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDropping(true);
+  };
+  const onDragLeave = (event: DragEvent<HTMLDivElement>): void => {
+    // Moving over the box's own parts leaves one of them, not the box.
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setDropping(false);
+  };
+  const onDrop = (event: DragEvent<HTMLDivElement>): void => {
+    setDropping(false);
+    if (event.dataTransfer.files.length === 0) return;
+    event.preventDefault();
+    images.add([...event.dataTransfer.files]);
+  };
+  const sendLabel = busy && !runsOfficeCommand ? busyHint : sendWords(imagesKept);
   return (
     <>
       {commandNote}
@@ -139,7 +192,14 @@ export function Composer({
           </Button>
         </p>
       )}
-      <div className="composer">
+      <div
+        className="composer"
+        data-dropping={dropping || undefined}
+        onPaste={onPaste}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+      >
         {commands.picker || mentions.picker}
         <MessageField
           label="Message"
@@ -153,6 +213,7 @@ export function Composer({
           autoFocus={autoFocus}
           onKeyDownFirst={onKeyDownFirst}
           onCaret={mentions.onCaret}
+          above={<PendingMessageImages images={images} disabled={sending} />}
         />
         <IconButton
           icon={<Icon name="at-sign" size={16} />}
@@ -162,7 +223,7 @@ export function Composer({
         />
         <IconButton
           icon={<Icon name="arrow-up" size={16} />}
-          label={busy && !runsOfficeCommand ? busyHint : "Send (Enter)"}
+          label={sendLabel}
           variant="primary"
           disabled={!canSend}
           onClick={() => void send()}
@@ -170,4 +231,9 @@ export function Composer({
       </div>
     </>
   );
+}
+
+/** The send button's words: what it does, or, while an image breaks a rule, why it can't. */
+function sendWords(imagesKept: boolean): string {
+  return imagesKept ? "Send (Enter)" : "Remove the images that can't be sent first";
 }

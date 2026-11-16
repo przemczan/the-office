@@ -24,6 +24,7 @@ function fromUser(id: string, handoverNoteFrom: string | null = null): Message {
     writtenBy: null,
     handoverNoteFrom,
     openPage: null,
+    images: [],
   };
 }
 

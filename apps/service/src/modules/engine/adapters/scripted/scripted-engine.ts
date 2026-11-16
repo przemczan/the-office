@@ -32,6 +32,7 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import {
   inPlaces,
+  recordedMessage,
   type CallerRequest,
   type CallerStep,
   type EventStep,
@@ -107,7 +108,7 @@ export class ScriptedEngine extends AgentEngine {
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
     this.requireFor(options);
-    return this.open(id, options, { step: "start", brief });
+    return this.open(id, options, { step: "start", brief: recordedMessage(brief) });
   }
 
   async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
@@ -271,7 +272,9 @@ export class ScriptedSession implements EngineSession {
   }
 
   send(message: UserMessage, priority: MessagePriority): void {
-    this.request({ step: "send", message, priority }).catch(() => undefined);
+    this.request({ step: "send", message: recordedMessage(message), priority }).catch(
+      () => undefined,
+    );
   }
 
   async interrupt(): Promise<void> {

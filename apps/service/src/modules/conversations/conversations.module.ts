@@ -1,4 +1,14 @@
-import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import {
+  Module,
+  RequestMethod,
+  type DynamicModule,
+  type MiddlewareConsumer,
+  type ModuleMetadata,
+  type NestModule,
+  type Type,
+} from "@nestjs/common";
+import { MESSAGE_IMAGES_TOTAL_BYTES } from "@the-office/contracts";
+import { uploadBody } from "../../platform/http/upload-body.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
@@ -11,7 +21,10 @@ import { LiveViewController } from "./adapters/http/live-view.controller.js";
 import { OfficeInstructionsController } from "./adapters/http/office-instructions.controller.js";
 import { ProposalsController } from "./adapters/http/proposals.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
-import { ThreadsController } from "./adapters/http/threads.controller.js";
+import {
+  THREAD_IMAGE_UPLOAD_ROUTE,
+  ThreadsController,
+} from "./adapters/http/threads.controller.js";
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
@@ -77,6 +90,10 @@ import { ThreadHistory } from "./application/thread-history.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
 import { WorkRecords } from "./application/work-records.js";
+import { MessageImages } from "./application/message-images.js";
+import { ThreadImages } from "./application/thread-images.js";
+import { ContractMessageImageRules } from "./adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "./ports/message-image-rules.js";
 import { ConversationsSettings } from "./ports/conversations-settings.js";
 import { OfficeInstructionsRepository } from "./ports/office-instructions-repository.js";
 import { ProjectBases } from "./ports/project-bases.js";
@@ -93,7 +110,7 @@ export interface ConversationsModuleOptions {
 }
 
 @Module({})
-export class ConversationsModule {
+export class ConversationsModule implements NestModule {
   static register({
     imports,
     projectBases,
@@ -147,6 +164,9 @@ export class ConversationsModule {
         TaskThreadSetups,
         InitiativeThreadSetups,
         WorkRecords,
+        MessageImages,
+        ThreadImages,
+        { provide: MessageImageRules, useClass: ContractMessageImageRules },
         MentionedRecords,
         SessionMemory,
         SessionPlaces,
@@ -201,6 +221,7 @@ export class ConversationsModule {
         TaskThreadSetups,
         InitiativeThreadSetups,
         WorkRecords,
+        MessageImages,
         ProposalAppliers,
         ProposalService,
         StageThreads,
@@ -210,5 +231,12 @@ export class ConversationsModule {
         ThreadRunner,
       ],
     };
+  }
+
+  configure(consumer: MiddlewareConsumer): void {
+    // Larger than one image may be, so one too large is refused in the message box's own words.
+    consumer
+      .apply(uploadBody(MESSAGE_IMAGES_TOTAL_BYTES))
+      .forRoutes({ path: THREAD_IMAGE_UPLOAD_ROUTE, method: RequestMethod.POST });
   }
 }

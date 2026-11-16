@@ -43,6 +43,13 @@ export {
   type TaskSubject,
   type WorkRecordSource,
 } from "./application/work-records.js";
+export type { MessageImageOwner } from "./domain/message-image-owner.js";
+export {
+  MessageImages,
+  type MessageImageSource,
+  type NewMessageImage,
+  type StoredMessageImage,
+} from "./application/message-images.js";
 export { ConversationsModule } from "./conversations.module.js";
 export type { PlanningThreadElsewhere } from "./domain/conversation-tabs.js";
 export {

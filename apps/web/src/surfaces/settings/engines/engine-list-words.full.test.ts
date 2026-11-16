@@ -35,8 +35,8 @@ const STRATA: ApiEngine = {
   baseUrl: "http://127.0.0.1:8080/v1",
   keySet: false,
   models: [
-    { id: "qwen3", contextWindow: 100_000 },
-    { id: "coder", contextWindow: 32_000 },
+    { id: "qwen3", contextWindow: 100_000, seesImages: false },
+    { id: "coder", contextWindow: 32_000, seesImages: false },
   ],
 };
 
@@ -109,7 +109,9 @@ describe("Settings › Engines' list", () => {
 
   it("counts an API endpoint's models, each once", () => {
     expect(apiEndpointSummary(STRATA)).toBe("2 models");
-    expect(apiEndpointSummary({ models: [{ id: " qwen3", contextWindow: 0 }] })).toBe("1 model");
+    expect(
+      apiEndpointSummary({ models: [{ id: " qwen3", contextWindow: 0, seesImages: false }] }),
+    ).toBe("1 model");
     expect(apiEndpointSummary(NEW_API_ENDPOINT)).toBe("No model yet");
   });
 

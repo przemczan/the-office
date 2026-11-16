@@ -4,11 +4,13 @@ import type { Author } from "./author.js";
 export type AttachmentOwner =
   | { readonly kind: "idea"; readonly ideaId: string }
   | { readonly kind: "initiative"; readonly initiativeId: string }
-  | { readonly kind: "task"; readonly taskId: string };
+  | { readonly kind: "task"; readonly taskId: string }
+  /** An image the user sent in a message of a Thread on no Task or Initiative, such as a chat. */
+  | { readonly kind: "thread"; readonly threadId: string };
 
 /**
  * Anything attached to an Idea, an Initiative or a Task: a document, an image, a file or a link
- * (spec §2.1).
+ * (spec §2.1); or an image sent in a Thread's message on none of them.
  */
 export type Attachment = AttachmentFields & (Link | StoredFile);
 

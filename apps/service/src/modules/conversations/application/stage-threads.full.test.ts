@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { ContractMessageImageRules } from "../adapters/http/contract-message-image-rules.js";
+import { MessageImageRules } from "../ports/message-image-rules.js";
+import { MessageImages } from "./message-images.js";
+import { ThreadImages } from "./thread-images.js";
 import { beforeEach, describe, expect, it, vi, afterEach } from "vitest";
 import { z } from "zod";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
@@ -192,6 +196,9 @@ async function startOn(
       OfficeInstructions,
       ContextPolicySettingsService,
       Briefs,
+      MessageImages,
+      ThreadImages,
+      { provide: MessageImageRules, useClass: ContractMessageImageRules },
       sessionMemoryProvider(),
       dutiesProvider(),
       TaskThreadSetups,

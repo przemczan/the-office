@@ -138,6 +138,18 @@ interface UserMessage {
    * skill named, and `text` stays the message as written.
    */
   readonly skillCommand?: { readonly skill: string };
+  /**
+   * The images it carried, as they were when it was sent (spec §2.4); absent on one that carried
+   * none, and on every message from before images.
+   */
+  readonly images?: readonly MessageImage[];
+}
+
+/** An image a user message carried, by the Attachment keeping it, as it was when it was sent. */
+export interface MessageImage {
+  readonly attachmentId: string;
+  readonly name: string;
+  readonly mediaType: string;
 }
 
 /**

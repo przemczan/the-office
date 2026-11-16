@@ -51,6 +51,7 @@ const EVERY_KIND: {
       writtenBy: null,
       handoverNoteFrom: null,
       openPage: null,
+      images: [],
     },
     "Mine",
   ],
@@ -175,6 +176,7 @@ function written(id: string, text: string, delivery: MessageDelivery): Message {
     writtenBy: null,
     handoverNoteFrom: null,
     openPage: null,
+    images: [],
   };
 }
 

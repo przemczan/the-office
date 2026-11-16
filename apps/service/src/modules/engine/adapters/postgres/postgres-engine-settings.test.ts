@@ -45,7 +45,7 @@ describe("PostgresEngineSettings", () => {
           key: "sk-lab",
           models: [
             { id: "small", contextWindow: 8_000 },
-            { id: "large", contextWindow: 128_000 },
+            { id: "large", contextWindow: 128_000, seesImages: true },
           ],
         },
       ],

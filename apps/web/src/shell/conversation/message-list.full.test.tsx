@@ -110,6 +110,7 @@ it("leaves a reader who scrolled up where they are, until they send something th
     writtenBy: null,
     handoverNoteFrom: null,
     openPage: null,
+    images: [],
     delivery: "waiting",
   });
   show();

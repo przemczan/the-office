@@ -61,9 +61,16 @@
 
 .api-endpoint-model-head {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto auto;
   align-items: end;
   gap: 12px;
+}
+
+/* Level with the fields beside it, whose labels sit above them. */
+.api-endpoint-model-sees-images {
+  display: flex;
+  align-items: center;
+  height: var(--control-h);
 }
 
 .engine-tab-actions {

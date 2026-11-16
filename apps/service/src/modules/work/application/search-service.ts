@@ -191,6 +191,8 @@ class ProjectsOf {
         const task = this.tasks.get(owner.taskId);
         return task ? [task.projectId] : [];
       }
+      case "thread":
+        return [];
     }
   }
 }

@@ -38,7 +38,7 @@ const strataEdit: EngineSettingsEdit = {
       defaultModel: "qwen3.8-flash",
       baseUrl: "http://127.0.0.1:8080/v1",
       key: KEY,
-      models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
+      models: [{ id: "qwen3.8-flash", contextWindow: 100_000, seesImages: true }],
     },
   ],
   officeDefault: FIRST_OFFICE_DEFAULT,
@@ -113,7 +113,7 @@ describe("/api/settings/engines", () => {
           defaultModel: "qwen3.8-flash",
           baseUrl: "http://127.0.0.1:8080/v1",
           keySet: true,
-          models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
+          models: [{ id: "qwen3.8-flash", contextWindow: 100_000, seesImages: true }],
         },
       ],
       officeDefault: { engineId: "claude-code", model: "claude-haiku-5-5" },
@@ -124,6 +124,25 @@ describe("/api/settings/engines", () => {
       ],
     });
     expect((await repository.read()).engines[1]).toMatchObject({ id: "strata", key: KEY });
+  });
+
+  it("sends Sees images off for a model kept before it was asked", async () => {
+    expect((await put(strataEdit)).status).toBe(200);
+    const kept = await repository.read();
+    await repository.replace({
+      ...kept,
+      engines: kept.engines.map((engine) =>
+        engine.kind === "openai-compatible-api"
+          ? { ...engine, models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }] }
+          : engine,
+      ),
+    });
+
+    const sent = JSON.parse(await read()) as { engines: unknown[] };
+
+    expect(sent.engines[1]).toMatchObject({
+      models: [{ id: "qwen3.8-flash", contextWindow: 100_000, seesImages: false }],
+    });
   });
 
   it("refuses settings that break a rule with every reason, keeping none", async () => {

@@ -244,7 +244,7 @@ export const NEW_API_ENDPOINT: ApiEngineEdit = {
   kind: "openai-compatible-api",
   defaultModel: "",
   baseUrl: "",
-  models: [{ id: "", contextWindow: 0 }],
+  models: [{ id: "", contextWindow: 0, seesImages: false }],
 };
 
 /** What saving does with an API endpoint's key: kept as it is, a new one, or none. */

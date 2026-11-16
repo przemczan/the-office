@@ -32,6 +32,13 @@ import { skillCommandText } from "./skill-tool.js";
 import type { ConversationFile } from "./conversation-file.js";
 import type { SessionTools } from "./session-tools.js";
 import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
+import {
+  ESTIMATED_IMAGE_TOKENS,
+  imageCount,
+  joinedContent,
+  userContent,
+  withoutImageData,
+} from "./user-content.js";
 
 /** What a session runs on and is held to. */
 export interface ApiSessionParts {
@@ -40,6 +47,8 @@ export interface ApiSessionParts {
   readonly model: string;
   /** How many tokens the model's context holds, as Settings › Engines lists it. */
   readonly contextWindow: number;
+  /** Whether the model sees images, as Settings › Engines lists it: else each is named in words. */
+  readonly seesImages: boolean;
   readonly system: SystemMessage;
   readonly tools: SessionTools;
   readonly toolContext: SessionToolContext;
@@ -250,13 +259,14 @@ export class ApiSession implements EngineSession {
   /**
    * Adds messages to the conversation, returning their ids. A skill command is sent as its skill
    * loaded with the command's input (Claude Code's expansion), or as written for a skill the
-   * session doesn't list.
+   * session doesn't list. A message's images go as parts the model sees, or named in words when it
+   * sees none (`userContent`).
    */
   private async take(messages: readonly UserMessage[]): Promise<string[]> {
     const contents = await Promise.all(
-      messages.map(async ({ text, skillCommand }) =>
+      messages.map(async ({ text, skillCommand, images }) =>
         skillCommand === undefined
-          ? text
+          ? userContent(text, images ?? [], this.parts.seesImages)
           : ((await skillCommandText(this.parts.skills, skillCommand)) ?? text),
       ),
     );
@@ -495,7 +505,7 @@ function requestMessages(
     if (message.role === "user" && last?.role === "user") {
       messages[messages.length - 1] = {
         role: "user",
-        content: `${last.content}\n\n${message.content}`,
+        content: joinedContent(last.content, message.content),
       };
     } else {
       messages.push(message);
@@ -509,14 +519,20 @@ function requestTokens(usage: TokenUsage): number {
   return usage.input + usage.cacheRead + usage.cacheCreation + usage.output;
 }
 
-/** About four characters a token, as a rough measure for a server that counts none. */
+/**
+ * About four characters a token, as a rough measure for a server that counts none; an image counts
+ * as `ESTIMATED_IMAGE_TOKENS`, not by its data's length.
+ */
 const CHARACTERS_PER_TOKEN = 4;
 
 function estimatedTokens(
   messages: readonly ChatMessage[],
   tools: readonly ToolDefinition[],
 ): number {
-  return Math.ceil(JSON.stringify({ messages, tools }).length / CHARACTERS_PER_TOKEN);
+  const text = JSON.stringify({ messages, tools }, withoutImageData);
+  return (
+    Math.ceil(text.length / CHARACTERS_PER_TOKEN) + imageCount(messages) * ESTIMATED_IMAGE_TOKENS
+  );
 }
 
 function added(sum: TokenUsage, usage: TokenUsage | undefined): TokenUsage {

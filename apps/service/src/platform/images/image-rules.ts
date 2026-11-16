@@ -22,12 +22,31 @@ export function readImage(content: Uint8Array): ImageReading {
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG_SIGNATURE = [0xff, 0xd8, 0xff];
+const GIF_SIGNATURE = [0x47, 0x49, 0x46, 0x38];
 const RIFF_SIGNATURE = [0x52, 0x49, 0x46, 0x46];
 const WEBP_SIGNATURE = [0x57, 0x45, 0x42, 0x50];
 const WEBP_SIGNATURE_OFFSET = 8;
 
 /** What the bytes are, whatever the file's name or the browser says; undefined when none of the four. */
 export function mediaTypeOf(content: Uint8Array): ImageMediaType | undefined {
+  const raster = rasterMediaTypeOf(content);
+  if (raster) return raster;
+  return hasSvgRoot(new TextDecoder().decode(content)) ? "image/svg+xml" : undefined;
+}
+
+/**
+ * What the bytes are among the pictures a model reads (PNG, JPEG, GIF, WebP), whatever the file's
+ * name or the browser says; undefined when none of them.
+ */
+export function pictureMediaTypeOf(
+  content: Uint8Array,
+): "image/png" | "image/jpeg" | "image/gif" | "image/webp" | undefined {
+  return hasBytes(content, GIF_SIGNATURE) ? "image/gif" : rasterMediaTypeOf(content);
+}
+
+function rasterMediaTypeOf(
+  content: Uint8Array,
+): "image/png" | "image/jpeg" | "image/webp" | undefined {
   if (hasBytes(content, PNG_SIGNATURE)) return "image/png";
   if (hasBytes(content, JPEG_SIGNATURE)) return "image/jpeg";
   if (
@@ -36,7 +55,7 @@ export function mediaTypeOf(content: Uint8Array): ImageMediaType | undefined {
   ) {
     return "image/webp";
   }
-  return hasSvgRoot(new TextDecoder().decode(content)) ? "image/svg+xml" : undefined;
+  return undefined;
 }
 
 function hasBytes(content: Uint8Array, signature: readonly number[], offset = 0): boolean {

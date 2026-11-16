@@ -19,6 +19,7 @@ import { Composer } from "./composer.tsx";
 import { ContextReading, SessionRow } from "./context-reading.tsx";
 import { threadReadingLook } from "./context-reading-words.ts";
 import { useHandoverNotes } from "./handover-notes.tsx";
+import type { UploadMessageImages } from "./message-images.ts";
 import { useThreadDrafts } from "./thread-drafts.tsx";
 import { takesMessages, writingPlaceholder } from "./thread-writing.ts";
 
@@ -76,8 +77,12 @@ export function ThreadComposer({
   );
   const queryClient = useQueryClient();
   const sending = useMutation({
-    mutationFn: (message: NewMessage) => sendMessage(threadId, message),
-    onSuccess: async (answering, { handoverNoteFrom }) => {
+    // The images go first, so the message names them; a retry uploads only those still to go.
+    mutationFn: async ({ message, uploadImages }: SentMessage) => {
+      const images = await uploadImages(threadId);
+      return sendMessage(threadId, { ...message, ...(images.length > 0 && { images }) });
+    },
+    onSuccess: async (answering, { message: { handoverNoteFrom } }) => {
       if (handoverNoteFrom !== undefined) handoverNotes.clear(threadId);
       threadDrafts.clear(threadId);
       queryClient.setQueryData(threadQueries.one(answering.id).queryKey, answering);
@@ -124,11 +129,14 @@ export function ThreadComposer({
           autoFocus={autoFocus}
           onDrafting={onDrafting}
           onDraftChange={keepsDraft ? leaveDraft : undefined}
-          onSend={(text, fromNote) =>
+          onSend={(text, fromNote, uploadImages) =>
             sending.mutateAsync({
-              text,
-              ...(fromNote && handoverNote ? { handoverNoteFrom: handoverNote.from } : {}),
-              ...(openPage && { openPage }),
+              message: {
+                text,
+                ...(fromNote && handoverNote ? { handoverNoteFrom: handoverNote.from } : {}),
+                ...(openPage && { openPage }),
+              },
+              uploadImages,
             })
           }
           onLeaveNoteOut={() => handoverNotes.clear(threadId)}
@@ -147,6 +155,11 @@ export function ThreadComposer({
       )}
     </>
   );
+}
+
+interface SentMessage {
+  readonly message: Omit<NewMessage, "images">;
+  readonly uploadImages: UploadMessageImages;
 }
 
 type ShownCommandNote = "help" | "starts-fresh" | "nothing-to-clear";

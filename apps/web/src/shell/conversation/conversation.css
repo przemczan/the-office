@@ -818,6 +818,89 @@
   flex: 1;
 }
 
+/* Files dragged over the box: the whole box is where they drop. */
+.composer[data-dropping] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  background: var(--accent-subtle);
+}
+
+/* ---- the images a message waits to carry, over its field */
+.pending-message-images {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pending-message-image-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pending-message-image {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Pictures show at one thumbnail size wherever they are (UI rules): `.attachment-thumbnail`'s. */
+  width: 160px;
+  height: 100px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-sunken);
+}
+
+.pending-message-image[data-problem] {
+  border-color: var(--danger-border);
+}
+
+.pending-message-image > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+
+.pending-message-image-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0 4px;
+  overflow: hidden;
+  font: var(--type-caption);
+  color: var(--fg-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-message-image-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.pending-message-image-problems {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--type-caption);
+  color: var(--danger-fg);
+}
+
+/* ---- the images a user message carried, under its text */
+.message-images {
+  margin-top: 6px;
+}
+
 .thread-read-only {
   display: flex;
   align-items: flex-start;

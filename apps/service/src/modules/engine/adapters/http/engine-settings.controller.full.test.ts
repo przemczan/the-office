@@ -45,7 +45,7 @@ const strataEdit: EngineSettingsEdit = {
       defaultModel: "qwen3.8-flash",
       baseUrl: "http://127.0.0.1:8080/v1",
       key: KEY,
-      models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
+      models: [{ id: "qwen3.8-flash", contextWindow: 100_000, seesImages: false }],
     },
   ],
   officeDefault: FIRST_OFFICE_DEFAULT,

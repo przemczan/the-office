@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { ContractMessageImageRules } from "./contract-message-image-rules.js";
+import { MessageImageRules } from "../../ports/message-image-rules.js";
+import { MessageImages } from "../../application/message-images.js";
+import { ThreadImages } from "../../application/thread-images.js";
 import {
+  MESSAGE_IMAGE_BYTES,
+  MESSAGE_IMAGES_TOTAL_BYTES,
+  messageImageSchema,
   chatThreadPageSchema,
   decisionListSchema,
   messageListSchema,
@@ -26,7 +33,15 @@ import { ThreadRepository } from "../../ports/thread-repository.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { INestApplication } from "@nestjs/common";
+import {
+  Module,
+  RequestMethod,
+  type INestApplication,
+  type MiddlewareConsumer,
+  type NestModule,
+} from "@nestjs/common";
+import { uploadBody } from "../../../../platform/http/upload-body.js";
+import { MessageImagesInMemory } from "../../application/message-images.fixtures.js";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
@@ -69,7 +84,7 @@ import { FireAlarmLiftsController } from "./fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./proposals.controller.js";
 import { OfficeInstructionsController } from "./office-instructions.controller.js";
 import { SizeThresholdController } from "./size-threshold.controller.js";
-import { ThreadsController } from "./threads.controller.js";
+import { THREAD_IMAGE_UPLOAD_ROUTE, ThreadsController } from "./threads.controller.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
 import { ConversationsSettings } from "../../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../../ports/conversations-settings.fixtures.js";
@@ -109,6 +124,19 @@ let url: string;
 let officeData: string;
 
 let published: DomainEvent[];
+
+/** The images pasted into the tests' Threads, as Work keeps them. */
+let messageImages: MessageImagesInMemory;
+
+/** Reads an image's upload body as ConversationsModule does. */
+@Module({})
+class ImageUploadsForTests implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(uploadBody(MESSAGE_IMAGES_TOTAL_BYTES))
+      .forRoutes({ path: THREAD_IMAGE_UPLOAD_ROUTE, method: RequestMethod.POST });
+  }
+}
 
 /** The people the chats are with, by Role key: each test hires its own. */
 let people: Map<string, SessionRole>;
@@ -227,6 +255,7 @@ function setUpEachTest(): void {
         OfficeDataModule.forRoot(officeData),
         SkillsModule,
         McpServersModule,
+        ImageUploadsForTests,
         // The runner's own tests answer messages; these send ones it refuses, or no session takes.
         ScriptedEngineModule.register(new ScriptedEngine([])),
       ],
@@ -250,6 +279,9 @@ function setUpEachTest(): void {
         ContextPolicySettingsService,
         ThreadService,
         Briefs,
+        MessageImages,
+        ThreadImages,
+        { provide: MessageImageRules, useClass: ContractMessageImageRules },
         sessionMemoryProvider(),
         dutiesProvider(),
         TaskThreadSetups,
@@ -302,6 +334,8 @@ function setUpEachTest(): void {
           sessionRefusal: undefined,
         }),
     });
+    messageImages = new MessageImagesInMemory();
+    app.get(MessageImages).provide(messageImages);
     published = [];
     app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
   });
@@ -501,6 +535,8 @@ describe("a person's lists of Threads", () => {
   });
 });
 
+const SCREENSHOT_ID = randomUUID();
+
 describe("a Thread", () => {
   it("answers its log in order, as the web reads it", async () => {
     const roleKey = aPerson("Jan", true);
@@ -532,6 +568,7 @@ describe("a Thread", () => {
         writtenBy: ANN_LEE,
         handoverNoteFrom: roleKey,
         openPage: { kind: "person", roleKey: devops },
+        images: [{ attachmentId: SCREENSHOT_ID, name: "cache.png", mediaType: "image/png" }],
       },
     ]);
 
@@ -546,6 +583,7 @@ describe("a Thread", () => {
         writtenBy: ANN_LEE,
         handoverNoteFrom: null,
         openPage: null,
+        images: [],
       },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
@@ -572,6 +610,7 @@ describe("a Thread", () => {
         writtenBy: ANN_LEE,
         handoverNoteFrom: roleKey,
         openPage: { kind: "person", roleKey: devops },
+        images: [{ attachmentId: SCREENSHOT_ID, name: "cache.png", mediaType: "image/png" }],
       },
     ]);
     const titled = threadSchema.parse(await (await get(`/threads/${thread.id}`)).json());
@@ -614,6 +653,117 @@ describe("a Thread", () => {
     const response = await get(`/threads/${randomUUID()}`);
 
     expect(response.status).toBe(404);
+  });
+});
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const JPEG_SIGNATURE = [0xff, 0xd8, 0xff];
+const SVG = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>');
+
+/**
+ * Uploads `size` bytes starting with `signature` as the image `fileName`, as the message box does.
+ */
+function paste(
+  threadId: string,
+  {
+    fileName = "screen.png",
+    size = 16,
+    signature = PNG_SIGNATURE as readonly number[] | Uint8Array,
+  } = {},
+): Promise<Response> {
+  const query = new URLSearchParams({ fileName });
+  const body = new Uint8Array(Math.max(size, signature.length)).fill(1);
+  body.set(signature);
+  return fetch(`${url}/api/threads/${threadId}/images?${query.toString()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body,
+  });
+}
+
+async function aThreadAt(home: Thread["home"]): Promise<Thread> {
+  const thread = aThread({ id: randomUUID(), home, roleKey: aPerson("Jan", true) });
+  await app.get(ThreadRepository).add(thread);
+  return thread;
+}
+
+describe("an image pasted into a Thread", () => {
+  it("is kept on the Thread's Task or Initiative, and on a chat's Thread itself", async () => {
+    const taskId = randomUUID();
+    const initiativeId = randomUUID();
+    const onTask = await aThreadAt({ kind: "task", taskId });
+    const onInitiative = await aThreadAt({ kind: "initiative", initiativeId });
+    const chat = await aThreadAt({ kind: "chat", roleKey: "planner" });
+
+    const kept = await Promise.all(
+      [onTask, onInitiative, chat].map(async ({ id }) =>
+        messageImageSchema.parse(await (await paste(id)).json()),
+      ),
+    );
+
+    expect(kept.map(({ name, mediaType }) => ({ name, mediaType }))).toEqual([
+      { name: "screen.png", mediaType: "image/png" },
+      { name: "screen.png", mediaType: "image/png" },
+      { name: "screen.png", mediaType: "image/png" },
+    ]);
+    expect(kept.map(({ attachmentId }) => messageImages.kept.get(attachmentId)?.owner)).toEqual([
+      { kind: "task", taskId },
+      { kind: "initiative", initiativeId },
+      { kind: "thread", threadId: chat.id },
+    ]);
+  });
+
+  it("is refused in words when it isn't a picture a message carries, or is too large", async () => {
+    const chat = await aThreadAt({ kind: "chat", roleKey: "planner" });
+
+    const drawing = await paste(chat.id, {
+      fileName: "logo.svg",
+      signature: SVG,
+    });
+    const named = await paste(chat.id, { fileName: "notes.png", signature: [0x6e, 0x6f] });
+    const large = await paste(chat.id, { size: MESSAGE_IMAGE_BYTES + 1 });
+    const nowhere = await paste(randomUUID());
+
+    expect(drawing.status).toBe(422);
+    expect(threadRefusalSchema.parse(await drawing.json()).reasons).toEqual([
+      "logo.svg isn't an image the message can carry: only PNG, JPEG, GIF and WebP are.",
+    ]);
+    expect(named.status).toBe(422);
+    expect(threadRefusalSchema.parse(await named.json()).reasons).toEqual([
+      "notes.png isn't an image the message can carry: only PNG, JPEG, GIF and WebP are.",
+    ]);
+    expect(large.status).toBe(422);
+    expect(threadRefusalSchema.parse(await large.json()).reasons).toEqual([
+      "screen.png is larger than 3 MB, the most one image may be.",
+    ]);
+    expect(nowhere.status).toBe(404);
+    expect(messageImages.kept.size).toBe(0);
+  });
+
+  it("is kept as the type its bytes are, whatever the browser named", async () => {
+    const chat = await aThreadAt({ kind: "chat", roleKey: "planner" });
+
+    const response = await paste(chat.id, { signature: JPEG_SIGNATURE });
+
+    expect(messageImageSchema.parse(await response.json()).mediaType).toBe("image/jpeg");
+  });
+
+  it("goes only with a message to the Thread it was pasted into", async () => {
+    const roleKey = aPerson("Jan", true);
+    const chat = threadSchema.parse(await (await send("POST", `/chats/${roleKey}/threads`)).json());
+    const other = await aThreadAt({ kind: "chat", roleKey: "planner" });
+    const { attachmentId } = messageImageSchema.parse(await (await paste(other.id)).json());
+
+    const refused = await send("POST", `/threads/${chat.id}/messages`, {
+      text: "Look.",
+      images: [attachmentId],
+    });
+
+    expect(refused.status).toBe(422);
+    expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "An image the message carries isn't one sent to this Thread: paste it again.",
+    ]);
+    expect(await (await get(`/threads/${chat.id}/messages`)).json()).toEqual([]);
   });
 });
 

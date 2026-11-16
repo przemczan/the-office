@@ -7,6 +7,7 @@ import { openPersonsThread, sendMessage, threadQueries } from "../../api/convers
 import { Composer } from "../../shell/conversation/composer.tsx";
 import { ContextBar } from "../../shell/conversation/context-bar.tsx";
 import { startsASessionWords } from "../../shell/conversation/context-words.ts";
+import type { UploadMessageImages } from "../../shell/conversation/message-images.ts";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { useThreadDrafts } from "../../shell/conversation/thread-drafts.tsx";
 import { writingPlaceholder } from "../../shell/conversation/thread-writing.ts";
@@ -246,10 +247,13 @@ function useFirstMessage(taskId: string, roleKey: string, onSent: () => void) {
   const threadDrafts = useThreadDrafts();
   const draftKey = `${taskId}/${roleKey}`;
   const sending = useMutation({
-    mutationFn: async (text: string) => {
+    // Images are uploaded to the Thread, so it opens first; a retry finds it open and uploads only
+    // the images still to go.
+    mutationFn: async ({ text, uploadImages }: FirstMessageSent) => {
       const thread = await openPersonsThread(taskId, roleKey);
       queryClient.setQueryData(threadQueries.one(thread.id).queryKey, thread);
-      return sendMessage(thread.id, { text });
+      const images = await uploadImages(thread.id);
+      return sendMessage(thread.id, { text, ...(images.length > 0 && { images }) });
     },
     onSuccess: async (answering) => {
       threadDrafts.clear(draftKey);
@@ -259,6 +263,11 @@ function useFirstMessage(taskId: string, roleKey: string, onSent: () => void) {
     },
   });
   return { ...sending, draftKey };
+}
+
+interface FirstMessageSent {
+  readonly text: string;
+  readonly uploadImages: UploadMessageImages;
 }
 
 function FirstMessage({
@@ -293,7 +302,7 @@ function FirstMessage({
         startingDraft={startingDraft}
         autoFocus={false}
         onDraftChange={leaveDraft}
-        onSend={(text) => mutateAsync(text)}
+        onSend={(text, _fromNote, uploadImages) => mutateAsync({ text, uploadImages })}
       />
       {firstBrief && (
         <div className="context-bar">
