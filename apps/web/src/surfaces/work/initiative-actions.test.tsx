@@ -20,6 +20,13 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+// jsdom has no layout, so the head's row of actions never resizes.
+globalThis.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
+
 const IDEA_ID = "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 
 const INITIATIVE: Initiative = {

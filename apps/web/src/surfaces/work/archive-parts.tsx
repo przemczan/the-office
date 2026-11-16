@@ -1,8 +1,9 @@
 import type { Initiative, Task } from "@the-office/contracts";
-import { Badge, Button, Icon, type ButtonProps } from "@the-office/ui";
+import { Badge, Icon, type ButtonProps } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { dayOf } from "../../shell/time.ts";
 import { isArchived } from "../../shell/work/work-words.ts";
+import { RecordActionButton, type RecordAction } from "./record-actions.tsx";
 import { useRestoringInitiative } from "./use-initiative-archive.ts";
 import { useRestoring } from "./use-task-archive.ts";
 
@@ -29,16 +30,8 @@ export function RestoreButton({
   readonly task: Task;
   readonly size?: ButtonProps["size"];
 }): ReactNode {
-  const restoring = useRestoring();
-  if (!isArchived(task)) return null;
-  return (
-    <RestoreButtonOf
-      name={task.title}
-      size={size}
-      pending={restoring.isPending}
-      onRestore={() => restoring.mutate(task)}
-    />
-  );
+  const restore = useRestoreAction(task);
+  return restore && <RecordActionButton action={restore} size={size} />;
 }
 
 /** Restore for an Initiative: back on the board in Done or Dropped, as it was. */
@@ -49,40 +42,32 @@ export function RestoreInitiativeButton({
   readonly initiative: Initiative;
   readonly size?: ButtonProps["size"];
 }): ReactNode {
-  const restoring = useRestoringInitiative();
-  if (!isArchived(initiative)) return null;
-  return (
-    <RestoreButtonOf
-      name={initiative.name}
-      size={size}
-      pending={restoring.isPending}
-      onRestore={() => restoring.mutate(initiative)}
-    />
-  );
+  const restore = useRestoreInitiativeAction(initiative);
+  return restore && <RecordActionButton action={restore} size={size} />;
 }
 
-function RestoreButtonOf({
-  name,
-  size,
-  pending,
-  onRestore,
-}: {
-  readonly name: string;
-  readonly size: ButtonProps["size"] | undefined;
-  readonly pending: boolean;
-  readonly onRestore: () => void;
-}): ReactNode {
-  return (
-    <Button
-      variant="secondary"
-      {...(size && { size })}
-      iconLeft={<Icon name="archive-restore" size={14} />}
-      title="Return it to the board in the state it had"
-      aria-label={`Restore ${name}`}
-      loading={pending}
-      onClick={onRestore}
-    >
-      Restore
-    </Button>
-  );
+/** The Task's Restore while it is archived. */
+export function useRestoreAction(task: Task): RecordAction | undefined {
+  const restoring = useRestoring();
+  if (!isArchived(task)) return undefined;
+  return restoreAction(task.title, restoring.isPending, () => restoring.mutate(task));
+}
+
+/** The Initiative's Restore while it is archived. */
+export function useRestoreInitiativeAction(initiative: Initiative): RecordAction | undefined {
+  const restoring = useRestoringInitiative();
+  if (!isArchived(initiative)) return undefined;
+  return restoreAction(initiative.name, restoring.isPending, () => restoring.mutate(initiative));
+}
+
+function restoreAction(name: string, pending: boolean, onRestore: () => void): RecordAction {
+  return {
+    key: "restore",
+    label: "Restore",
+    icon: "archive-restore",
+    hint: "Return it to the board in the state it had",
+    ariaLabel: `Restore ${name}`,
+    pending,
+    onSelect: onRestore,
+  };
 }

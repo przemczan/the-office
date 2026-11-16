@@ -12,12 +12,13 @@ import type {
   StartCheck,
   Task,
 } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
+import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
-import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
+import { QueuedMark, useQueueActions, useQueued } from "./queue-parts.tsx";
+import type { RecordAction } from "./record-actions.tsx";
 import { RunEnvironmentQuestion, useAskedProject } from "./run-environment-question.tsx";
 
 interface StartStanding {
@@ -53,55 +54,53 @@ function useStartStanding(task: Task): StartStanding {
  * Overlap with a Task in progress in the Project makes Start "Start anyway" or "Queue behind it"
  * (spec §2.1, "Overlaps at Start"). A blocked Task can't start anyway, so "Queue behind it" is all
  * it offers, behind any Overlap too. A queued Task has the queue's actions instead. What each of
- * these says is in `StartNotes`.
+ * these says is in `StartNotes`. None but on a Ready Task.
  */
-export function StartButton({ task }: { readonly task: Task }): ReactNode {
+export function useStartActions(task: Task): RecordAction[] {
   const { ready, check, queued, refused, blockers, overlaps } = useStartStanding(task);
   const starting = useStarting();
-  if (!ready) return null;
-  if (queued) return <QueueActions queued={queued} />;
+  const queueActions = useQueueActions(queued);
+  if (!ready) return [];
+  if (queued) return queueActions;
   const startWith = (onOverlap: OverlapChoice | undefined) => starting.mutate({ task, onOverlap });
-  const loadingFor = (onOverlap: OverlapChoice | undefined) =>
+  const pendingFor = (onOverlap: OverlapChoice | undefined) =>
     starting.isPending && starting.variables.onOverlap === onOverlap;
   if (blockers.length > 0 || overlaps.length > 0) {
     const queueBehind = overlaps.length > 0 ? "queue-behind" : undefined;
     const behind = new Set([...blockers, ...overlaps].map(({ taskId }) => taskId));
-    return (
-      <>
-        {blockers.length === 0 && (
-          <Button
-            variant="primary"
-            iconLeft={<Icon name="play" size={14} />}
-            disabled={starting.isPending}
-            loading={loadingFor("start-anyway")}
-            onClick={() => startWith("start-anyway")}
-          >
-            Start anyway
-          </Button>
-        )}
-        <Button
-          variant="secondary"
-          iconLeft={<Icon name="clock" size={14} />}
-          disabled={starting.isPending}
-          loading={loadingFor(queueBehind)}
-          onClick={() => startWith(queueBehind)}
-        >
-          {behind.size === 1 ? "Queue behind it" : "Queue behind them"}
-        </Button>
-      </>
-    );
+    const queueBehindAction: RecordAction = {
+      key: "queue-behind",
+      label: behind.size === 1 ? "Queue behind it" : "Queue behind them",
+      icon: "clock",
+      disabled: starting.isPending,
+      pending: pendingFor(queueBehind),
+      onSelect: () => startWith(queueBehind),
+    };
+    if (blockers.length > 0) return [queueBehindAction];
+    return [
+      {
+        key: "start-anyway",
+        label: "Start anyway",
+        icon: "play",
+        variant: "primary",
+        disabled: starting.isPending,
+        pending: pendingFor("start-anyway"),
+        onSelect: () => startWith("start-anyway"),
+      },
+      queueBehindAction,
+    ];
   }
-  return (
-    <Button
-      variant="primary"
-      iconLeft={<Icon name="play" size={14} />}
-      disabled={!check || refused}
-      loading={starting.isPending}
-      onClick={() => startWith(undefined)}
-    >
-      Start
-    </Button>
-  );
+  return [
+    {
+      key: "start",
+      label: "Start",
+      icon: "play",
+      variant: "primary",
+      disabled: !check || refused,
+      pending: starting.isPending,
+      onSelect: () => startWith(undefined),
+    },
+  ];
 }
 
 /**

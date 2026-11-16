@@ -2,6 +2,7 @@ import type { Task } from "@the-office/contracts";
 import { Button, Icon, IconButton, Switch, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import type { RecordAction } from "./record-actions.tsx";
 import {
   useMakingAPlan,
   useMarkingReady,
@@ -10,24 +11,28 @@ import {
   useRememberedAutoMode,
 } from "./use-planning.ts";
 
+/** What moves a Task along in planning, Plan with and Mark Ready, each while it is offered. */
+export function usePlanningActions(task: Task): RecordAction[] {
+  return [usePlanWithAction(task), useMarkReadyAction(task)].filter(
+    (action) => action !== undefined,
+  );
+}
+
 /**
  * "Plan with Jan" on a Task in Backlog: opens the planning Thread for the user to talk it through
- * first. Nothing while nobody is the Planner, as planning would be refused.
+ * first. None while nobody is the Planner, as planning would be refused.
  */
-export function PlanButton({ task }: { readonly task: Task }): ReactNode {
+function usePlanWithAction(task: Task): RecordAction | undefined {
   const planner = usePlanner();
   const planning = usePlanning();
-  if (!planner || task.state !== "backlog") return null;
-  return (
-    <Button
-      variant="secondary"
-      iconLeft={<Icon name="map" size={14} />}
-      loading={planning.isPending}
-      onClick={() => planning.mutate(task)}
-    >
-      Plan with {planner.card.name}
-    </Button>
-  );
+  if (!planner || task.state !== "backlog") return undefined;
+  return {
+    key: "plan-with",
+    label: `Plan with ${planner.card.name}`,
+    icon: "map",
+    pending: planning.isPending,
+    onSelect: () => planning.mutate(task),
+  };
 }
 
 /**
@@ -99,19 +104,17 @@ export function planningNoteWords(task: Task, planner: string | undefined): stri
  * met (Before Ready says which are not); in Backlog, where the user wrote the parts without
  * Planning, only once every line is met.
  */
-export function MarkReadyButton({ task }: { readonly task: Task }): ReactNode {
+function useMarkReadyAction(task: Task): RecordAction | undefined {
   const marking = useMarkingReady();
   const conditionsMet = useReadyConditionsMet(task);
-  if (task.state !== "planning" && !(task.state === "backlog" && conditionsMet)) return null;
-  return (
-    <Button
-      variant="primary"
-      disabled={!conditionsMet}
-      iconLeft={<Icon name="check" size={14} />}
-      loading={marking.isPending}
-      onClick={() => marking.mutate(task)}
-    >
-      Mark Ready
-    </Button>
-  );
+  if (task.state !== "planning" && !(task.state === "backlog" && conditionsMet)) return undefined;
+  return {
+    key: "mark-ready",
+    label: "Mark Ready",
+    icon: "check",
+    variant: "primary",
+    disabled: !conditionsMet,
+    pending: marking.isPending,
+    onSelect: () => marking.mutate(task),
+  };
 }

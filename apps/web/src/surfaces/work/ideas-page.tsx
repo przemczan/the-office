@@ -35,6 +35,7 @@ import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
 import { useShaper } from "../../shell/work/use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName, projectIdsOfIdea } from "../../shell/work/work-words.ts";
+import { RecordActions, withActionItems, type RecordAction } from "./record-actions.tsx";
 import { useShaping, useShapingIntoInitiative } from "./use-shaping.ts";
 
 /**
@@ -178,6 +179,30 @@ function IdeaCard({
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(ideaQueries.list()),
   });
+  const options: RecordAction[] = [
+    ...offered.map((action) => {
+      const { label, icon, mutation } = actions[action];
+      return {
+        key: action,
+        label,
+        icon,
+        pending: mutation.isPending,
+        onSelect: () => {
+          if (idea.projectId === null) setChoosingFor(action);
+          else mutation.mutate(idea.projectId, { onError: (error) => showToast(error.message) });
+        },
+      };
+    }),
+    {
+      key: "shape-into-initiative",
+      label: shaper
+        ? `Shape into an Initiative with ${shaper.card.name}`
+        : "Shape into an Initiative",
+      icon: "flag",
+      pending: shapingIntoInitiative.isPending,
+      onSelect: () => shapingIntoInitiative.mutate(),
+    },
+  ];
   return (
     <article
       className={`idea-card${linkedTo ? " linked-to" : ""}`}
@@ -191,7 +216,7 @@ function IdeaCard({
           open={menuOpen}
           onOpenChange={setMenuOpen}
           align="end"
-          width={180}
+          width={260}
           trigger={
             <IconButton
               size="xs"
@@ -199,7 +224,7 @@ function IdeaCard({
               label={`More for ${idea.title}`}
             />
           }
-          items={[
+          items={withActionItems(options, [
             {
               icon: <Icon name="pencil" size={14} />,
               label: "Edit…",
@@ -222,7 +247,7 @@ function IdeaCard({
               danger: true,
               onSelect: () => dropping.mutate(),
             },
-          ]}
+          ])}
         />
       </div>
       <div className="idea-card-sub">
@@ -233,38 +258,7 @@ function IdeaCard({
       </div>
       {idea.notes !== "" && <p className="idea-card-notes">{idea.notes}</p>}
       <AttachmentGallery rounds={oneRound(attachments.data ?? [])} />
-      <div className="idea-card-options">
-        {offered.map((action) => {
-          const { label, icon, mutation } = actions[action];
-          return (
-            <Button
-              key={action}
-              variant="secondary"
-              size="sm"
-              iconLeft={<Icon name={icon} size={14} />}
-              loading={mutation.isPending}
-              onClick={() => {
-                if (idea.projectId === null) setChoosingFor(action);
-                else
-                  mutation.mutate(idea.projectId, { onError: (error) => showToast(error.message) });
-              }}
-            >
-              {label}
-            </Button>
-          );
-        })}
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<Icon name="flag" size={14} />}
-          loading={shapingIntoInitiative.isPending}
-          onClick={() => shapingIntoInitiative.mutate()}
-        >
-          {shaper
-            ? `Shape into an Initiative with ${shaper.card.name}`
-            : "Shape into an Initiative"}
-        </Button>
-      </div>
+      <RecordActions actions={options} size="sm" align="start" className="idea-card-options" />
       {editing && <EditIdeaDialog idea={idea} onClose={() => setEditing(false)} />}
       {attaching && (
         <AddAttachmentDialog

@@ -1,59 +1,53 @@
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Role, Task, TaskStage, Thread } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
-import type { ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { pauseTask, resumeTask, stopTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import type { RecordAction } from "./record-actions.tsx";
 import { latestRunOf, resumeWords } from "./resume-words.ts";
 
 /**
  * Pause and Stop while a Task is In progress or Waiting on you, Resume once it is Paused
  * (prototypes/app/task.js, spec §2.4). Resume's label says how the Task goes on.
  */
-export function RunControls({ task }: { readonly task: Task }): ReactNode {
-  if (task.state === "paused") return <ResumeButton task={task} />;
-  if (task.state !== "in-progress" && task.state !== "waiting-on-you") return null;
-  return <PauseAndStop task={task} />;
-}
-
-function PauseAndStop({ task }: { readonly task: Task }): ReactNode {
+export function useRunControlActions(task: Task): RecordAction[] {
+  const paused = task.state === "paused";
   const pausing = useRunControl(pauseTask, "Pausing once the Agent's current turn ends.");
   const stopping = useRunControl(stopTask, "Stopped: the Stage's uncommitted edits are discarded.");
-  return (
-    <>
-      <Button
-        variant="secondary"
-        iconLeft={<Icon name="pause" size={14} />}
-        title="Hold the Task once the Agent's current turn ends, keeping the Stage's edits"
-        loading={pausing.isPending}
-        onClick={() => pausing.mutate(task.id)}
-      >
-        Pause
-      </Button>
-      <Button
-        variant="secondary"
-        iconLeft={<Icon name="square" size={14} />}
-        title="Interrupt the Agent now and discard the Stage's uncommitted edits"
-        loading={stopping.isPending}
-        onClick={() => stopping.mutate(task.id)}
-      >
-        Stop
-      </Button>
-    </>
-  );
+  const resume = useResumeAction(task, paused);
+  if (paused) return [resume];
+  if (task.state !== "in-progress" && task.state !== "waiting-on-you") return [];
+  return [
+    {
+      key: "pause",
+      label: "Pause",
+      icon: "pause",
+      hint: "Hold the Task once the Agent's current turn ends, keeping the Stage's edits",
+      pending: pausing.isPending,
+      onSelect: () => pausing.mutate(task.id),
+    },
+    {
+      key: "stop",
+      label: "Stop",
+      icon: "square",
+      hint: "Interrupt the Agent now and discard the Stage's uncommitted edits",
+      pending: stopping.isPending,
+      onSelect: () => stopping.mutate(task.id),
+    },
+  ];
 }
 
-function ResumeButton({ task }: { readonly task: Task }): ReactNode {
-  const stages = useQuery(pipelineQueries.taskStages(task.id)).data?.stages ?? [];
-  const roles = useQuery(roleQueries.list()).data;
-  const decisionOpen = (useQuery(decisionQueries.open()).data ?? []).some(
+/** Resume, its words read only while the Task is paused. */
+function useResumeAction(task: Task, paused: boolean): RecordAction {
+  const stages = useQuery({ ...pipelineQueries.taskStages(task.id), enabled: paused }).data;
+  const roles = useQuery({ ...roleQueries.list(), enabled: paused }).data;
+  const decisionOpen = (useQuery({ ...decisionQueries.open(), enabled: paused }).data ?? []).some(
     ({ taskId }) => taskId === task.id,
   );
-  const latest = latestRunOf(stages);
-  const thread = useStageThread(latest?.run.threadId ?? null);
+  const latest = latestRunOf(stages?.stages ?? []);
+  const thread = useStageThread(paused ? (latest?.run.threadId ?? null) : null);
   const resuming = useRunControl(resumeTask, "Resumed.");
   const words = resumeWords({
     latestRun: latest?.run,
@@ -61,17 +55,15 @@ function ResumeButton({ task }: { readonly task: Task }): ReactNode {
     personName: personOf(latest?.taskStage, roles),
     decisionOpen,
   });
-  return (
-    <Button
-      variant="primary"
-      iconLeft={<Icon name="play" size={14} />}
-      title={words.hint}
-      loading={resuming.isPending}
-      onClick={() => resuming.mutate(task.id)}
-    >
-      {words.label}
-    </Button>
-  );
+  return {
+    key: "resume",
+    label: words.label,
+    icon: "play",
+    variant: "primary",
+    hint: words.hint,
+    pending: resuming.isPending,
+    onSelect: () => resuming.mutate(task.id),
+  };
 }
 
 /** The run's Stage Thread, whose context label tells how the Stage goes on; none for a script. */

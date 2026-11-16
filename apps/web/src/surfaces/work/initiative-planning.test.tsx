@@ -1,24 +1,37 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Initiative, Role, Task } from "@the-office/contracts";
-import { act } from "react";
+import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { autoModeQuery } from "../../api/work.ts";
 import { aDuty } from "../../shell/duties.fixtures.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
-import { PlanTheInitiative } from "./initiative-actions.tsx";
+import { usePlanTheInitiativeAction } from "./initiative-actions.tsx";
 import {
   PLANNING_STEP_WORDS,
   canPlanInitiative,
   planningProgressWords,
   planningStepOf,
 } from "./initiative-planning-words.ts";
+import { RecordActionButton } from "./record-actions.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+/** The action as the head's row shows it, beside its Auto mode switch. */
+function PlanTheInitiative({
+  initiative,
+  initiativeTasks,
+}: {
+  readonly initiative: Initiative;
+  readonly initiativeTasks: readonly Task[];
+}): ReactNode {
+  const action = usePlanTheInitiativeAction(initiative, initiativeTasks);
+  return action && <RecordActionButton action={action} />;
+}
 
 const INITIATIVE: Initiative = {
   id: "3f0c2b1a-9d8e-4f7a-8b6c-5d4e3f2a1b0c",

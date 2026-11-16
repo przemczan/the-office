@@ -15,7 +15,7 @@ import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useShaper } from "../../shell/work/use-shaper.ts";
-import { ArchivedBadge, RestoreInitiativeButton } from "./archive-parts.tsx";
+import { ArchivedBadge } from "./archive-parts.tsx";
 import { InitiativeAttachments } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
@@ -150,7 +150,6 @@ function InitiativeHead({
         </div>
       </div>
       <div className="task-head-actions">
-        <RestoreInitiativeButton initiative={initiative} />
         <InitiativeActions initiative={initiative} onStartedReadyTasks={onStartedReadyTasks} />
       </div>
     </header>

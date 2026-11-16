@@ -13,14 +13,29 @@ import { ToastProvider } from "../../shell/toasts.tsx";
 import {
   canStartReadyTasks,
   readyTasksStartedWords,
-  StartReadyTasksButton,
   StartReadyTasksNote,
+  useStartReadyTasksAction,
 } from "./start-ready-tasks.tsx";
+import { RecordActionButton } from "./record-actions.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+/** The action as the head's row shows it. */
+function StartReadyTasksButton({
+  initiative,
+  initiativeTasks,
+  onStarted,
+}: {
+  readonly initiative: Initiative;
+  readonly initiativeTasks: readonly Task[];
+  readonly onStarted: (started: ReadyTasksStarted) => void;
+}): ReactNode {
+  const action = useStartReadyTasksAction(initiative, initiativeTasks, onStarted);
+  return action && <RecordActionButton action={action} />;
+}
 
 const INITIATIVE: Initiative = {
   id: "3f0c2b1a-9d8e-4f7a-8b6c-5d4e3f2a1b0c",

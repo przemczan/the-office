@@ -1141,6 +1141,95 @@ test("the user adds a Task to an Initiative and takes it out, on the Task's page
   await expect(page.getByText("No Tasks yet.")).toBeVisible();
 });
 
+test(
+  "an Initiative's More menu holds every action of its head, whose buttons stay on one line and hide what doesn't fit",
+  { tag: "@full" },
+  async ({ page }) => {
+    const name = "Head actions that fit";
+    const initiativeId = await seedActiveInitiative(page, name, "2026-11-16T10:00:00.000Z");
+    const ACTIONS = ["Pause the Initiative", "Add a Task", "Add an existing Task"];
+    const head = page.locator(".task-head-actions");
+
+    await page.goto(`/work/initiatives/${initiativeId}`);
+    for (const action of ACTIONS) {
+      await expect(head.getByRole("button", { name: action, exact: true })).toBeVisible();
+    }
+    const more = head.getByRole("button", { name: `More for ${name}` });
+    await more.click();
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("button")).toHaveText([
+      ...ACTIONS,
+      "Copy link",
+      "Drop the Initiative",
+    ]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-initiative-head-menu.png") });
+    await more.click();
+    await expect(menu).toBeHidden();
+
+    await page.setViewportSize({ width: 960, height: 900 });
+    const shown = head.getByRole("button", { name: "Pause the Initiative" });
+    const hidden = head.getByRole("button", { name: "Add an existing Task" });
+    await expect(shown).toBeVisible();
+    await expect(hidden).toBeHidden();
+    // One line: the row is as high as the buttons it shows.
+    const row = await head.locator(".record-actions-row").boundingBox();
+    expect(row!.height).toBe((await shown.boundingBox())!.height);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-960-initiative-head.png") });
+
+    await more.click();
+    await menu.getByRole("button", { name: "Add an existing Task" }).click();
+    await expect(page.getByRole("dialog")).toContainText(`Add an existing Task to ${name}`);
+  },
+);
+
+test(
+  "a Task's and an Idea's More menus hold the actions of their buttons too",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Menus with every action", "ME");
+    const task = await createdTask(page, project, "Run with its actions in the menu");
+    await choosePipeline(page, task);
+    await queryOfficeDatabase(`update tasks set state = 'in-progress' where id = $1`, [task.id]);
+
+    await page.goto(`/tasks/${task.id}`);
+    const head = page.locator(".task-head-actions");
+    await expect(head.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    await expect(head.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+    await head.getByRole("button", { name: `More for ${task.title}` }).click();
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("button")).toHaveText([
+      "Pause",
+      "Stop",
+      "Edit Stages for this Task",
+      "Move to another Project…",
+      "Drop…",
+    ]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-head-menu.png") });
+
+    const idea = await page.request.post("/api/ideas", {
+      data: { title: "Shape me from the menu", notes: "", projectId: project.id },
+    });
+    expect(idea.status()).toBe(201);
+    await page.goto("/work/ideas");
+    const card = page.getByRole("article", { name: "Shape me from the menu" });
+    // Plan as a Task shows only while someone holds Plans.
+    const options = card.locator(".idea-card-options").getByRole("button");
+    await expect(options.first()).toHaveText("Shape into a Task");
+    const optionWords = (await options.allInnerTexts()).map((words) => words.trim());
+    await card.getByRole("button", { name: "More for Shape me from the menu" }).click();
+    await expect(menu.getByRole("button")).toHaveText([
+      ...optionWords,
+      "Edit…",
+      "Attach…",
+      "Copy link",
+      "Drop",
+    ]);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-idea-card-menu.png") });
+
+    await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [task.id]);
+  },
+);
+
 async function archiveInitiative(page: Page, initiativeId: string): Promise<void> {
   expect((await page.request.post(`/api/initiatives/${initiativeId}/archive`)).ok()).toBe(true);
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Initiative, InitiativePauseAnswer } from "@the-office/contracts";
-import { Badge, Button, Icon, type BadgeProps } from "@the-office/ui";
+import { Badge, Icon, type BadgeProps } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
 import {
@@ -10,6 +10,7 @@ import {
   taskQueries,
 } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import type { RecordAction } from "./record-actions.tsx";
 
 /** Paused: a mark beside an active Initiative's state, until it is resumed (spec §2.1). */
 export function isInitiativePaused(initiative: Pick<Initiative, "pausedAt">): boolean {
@@ -67,11 +68,7 @@ export function InitiativePausedBadge({
  * answer replaces the shown Initiative, and the Task list, whose key leads the queue's and every
  * Start check's, is read again. A refusal's reason shows as a toast.
  */
-export function InitiativePauseButton({
-  initiative,
-}: {
-  readonly initiative: Initiative;
-}): ReactNode {
+export function useInitiativePauseAction(initiative: Initiative): RecordAction | undefined {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const fireAlarmOn = (useQuery(nowQueries.now()).data?.fireAlarm ?? null) !== null;
@@ -94,20 +91,15 @@ export function InitiativePauseButton({
       ]);
     },
   });
-  if (!paused && !canPauseInitiative(initiative)) return null;
-  return (
-    <Button
-      variant="secondary"
-      iconLeft={<Icon name={paused ? "play" : "pause"} size={14} />}
-      title={
-        paused
-          ? "Resume the Tasks its Pause held and let its Tasks start again"
-          : "Hold its running Tasks once each Agent's current turn ends, and start none of its Tasks"
-      }
-      loading={changing.isPending}
-      onClick={() => changing.mutate()}
-    >
-      {paused ? "Resume the Initiative" : "Pause the Initiative"}
-    </Button>
-  );
+  if (!paused && !canPauseInitiative(initiative)) return undefined;
+  return {
+    key: "pause-initiative",
+    label: paused ? "Resume the Initiative" : "Pause the Initiative",
+    icon: paused ? "play" : "pause",
+    hint: paused
+      ? "Resume the Tasks its Pause held and let its Tasks start again"
+      : "Hold its running Tasks once each Agent's current turn ends, and start none of its Tasks",
+    pending: changing.isPending,
+    onSelect: () => changing.mutate(),
+  };
 }

@@ -5,33 +5,37 @@ import { useState, type ReactNode } from "react";
 import { changePriority, taskQueries } from "../../api/work.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { useToast } from "../../shell/toasts.tsx";
-import { usePlanner } from "../../shell/work/use-planner.ts";
 import { PriorityGlyph } from "../../shell/work/task-state-badge.tsx";
 import { canBeArchived, NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { MoveTaskDialog } from "./move-task-dialog.tsx";
-import { useMarkingReady, usePlanning, useReadyConditionsMet } from "./use-planning.ts";
+import { usePlanningActions } from "./planning-actions.tsx";
+import { withActionItems, type RecordAction } from "./record-actions.tsx";
 import { useArchiving } from "./use-task-archive.ts";
 
 const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
 /**
- * A Task's "More" menu: what moves it along (planning, Mark Ready), its priority while it hasn't
- * started, its Stages to edit, Move and Drop until it has ended, and Archive once it has. Move
- * shows even where it is refused, as its window says why.
+ * A Task's "More" menu: first its actions, every button of its page's head (`useTaskActions`), or
+ * on its board card what moves it along in planning; then its priority while it hasn't started,
+ * its Stages to edit, Move and Drop until it has ended, and Archive once it has. Move shows even
+ * where it is refused, as its window says why.
  */
-export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
+export function TaskMenu({
+  task,
+  actions,
+}: {
+  readonly task: Task;
+  readonly actions?: readonly RecordAction[];
+}): ReactNode {
   const [open, setOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
   const [editingStages, setEditingStages] = useState(false);
   const [moving, setMoving] = useState(false);
   const queryClient = useQueryClient();
   const showToast = useToast();
-  const planner = usePlanner();
-  const planning = usePlanning();
-  const marking = useMarkingReady();
-  const readyConditionsMet = useReadyConditionsMet(task);
+  const planningActions = usePlanningActions(task);
   const archiving = useArchiving();
   const prioritising = useMutation({
     mutationFn: (priority: Priority) => changePriority(task.id, priority),
@@ -43,26 +47,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
   });
-  const items: MenuItem[] = [
-    ...(planner && task.state === "backlog"
-      ? [
-          {
-            icon: <Icon name="map" size={14} />,
-            label: `Plan with ${planner.card.name}`,
-            onSelect: () => planning.mutate(task),
-          },
-        ]
-      : []),
-    ...(task.state === "planning"
-      ? [
-          {
-            icon: <Icon name="check" size={14} />,
-            label: "Mark Ready",
-            disabled: !readyConditionsMet,
-            onSelect: () => marking.mutate(task),
-          },
-        ]
-      : []),
+  const ownItems: MenuItem[] = [
     ...(NOT_STARTED.includes(task.state)
       ? [
           { heading: "Priority" },
@@ -113,6 +98,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
           },
         ]),
   ];
+  const items = withActionItems(actions ?? planningActions, ownItems);
   if (items.length === 0) return null;
   return (
     <>

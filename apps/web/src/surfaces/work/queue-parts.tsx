@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueuedTask, Task } from "@the-office/contracts";
-import { Badge, Button, Icon, Popover, SplitButton } from "@the-office/ui";
+import { Badge, Icon, Popover, SplitButton } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { moveToTopOfQueue, moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
 import { counted } from "../../shell/pipelines/stage-change-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { distinctShortReasons, reasonsBesideBlockers } from "./queue-reasons.ts";
+import { RecordActionButton, type RecordAction } from "./record-actions.tsx";
 
 /** The Task's place in the queue for Start; undefined while it isn't queued. */
 export function useQueued(taskId: string): QueuedTask | undefined {
@@ -104,41 +105,75 @@ export function QueueActions({
   readonly queued: QueuedTask;
   readonly size?: "sm" | "md";
 }): ReactNode {
+  return useQueueActions(queued, size).map((action) => (
+    <Fragment key={action.key}>
+      <RecordActionButton action={action} size={size} />
+    </Fragment>
+  ));
+}
+
+/**
+ * The queue's actions on a queued Task, none on one that isn't: Move up and Move to top, a split
+ * button, unless it is first, and Take out of the queue.
+ */
+export function useQueueActions(
+  queued: QueuedTask | undefined,
+  size: "sm" | "md" = "md",
+): RecordAction[] {
   const movingUp = useQueueChange(moveUpInQueue, "Moved up in the queue.");
   const movingToTop = useQueueChange(moveToTopOfQueue, "Moved to the top of the queue.");
   const takingOut = useQueueChange(takeOutOfQueue, "Taken out of the queue; it stays Ready.");
-  return (
-    <>
-      {queued.place > 1 && (
+  if (!queued) return [];
+  const moving = movingUp.isPending || movingToTop.isPending;
+  const moveUp = (): void => movingUp.mutate(queued.taskId);
+  const moveToTop = (): void => movingToTop.mutate(queued.taskId);
+  const takeOut: RecordAction = {
+    key: "take-out-of-queue",
+    label: "Take out of the queue",
+    icon: "x",
+    variant: "ghost",
+    pending: takingOut.isPending,
+    onSelect: () => takingOut.mutate(queued.taskId),
+  };
+  if (queued.place === 1) return [takeOut];
+  return [
+    {
+      key: "move-up",
+      label: "Move up",
+      icon: "arrow-up",
+      pending: moving,
+      onSelect: moveUp,
+      control: (
         <SplitButton
           variant="secondary"
           size={size}
           iconLeft={<Icon name="arrow-up" size={14} />}
-          loading={movingUp.isPending || movingToTop.isPending}
-          onClick={() => movingUp.mutate(queued.taskId)}
+          loading={moving}
+          onClick={moveUp}
           menuLabel="More ways to move up"
           items={[
             {
               label: "Move to top",
               icon: <Icon name="arrow-up-to-line" size={14} />,
-              onSelect: () => movingToTop.mutate(queued.taskId),
+              onSelect: moveToTop,
             },
           ]}
         >
           Move up
         </SplitButton>
-      )}
-      <Button
-        variant="ghost"
-        size={size}
-        iconLeft={<Icon name="x" size={14} />}
-        loading={takingOut.isPending}
-        onClick={() => takingOut.mutate(queued.taskId)}
-      >
-        Take out of the queue
-      </Button>
-    </>
-  );
+      ),
+    },
+    // In Move up's split button.
+    {
+      key: "move-to-top",
+      label: "Move to top",
+      icon: "arrow-up-to-line",
+      pending: moving,
+      onSelect: moveToTop,
+      control: null,
+    },
+    takeOut,
+  ];
 }
 
 /** Sends a change of the queue; the queue's own event refreshes every view of it. */

@@ -1,7 +1,7 @@
 import type { Initiative, ReadyTasksStarted, Task } from "@the-office/contracts";
 import { Button, Icon, IconButton, Menu, Switch, type MenuItem } from "@the-office/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import {
@@ -17,7 +17,8 @@ import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { canBeArchived } from "../../shell/work/work-words.ts";
 import { canHoldBack } from "./dependency-words.ts";
-import { InitiativePauseButton } from "./initiative-pause.tsx";
+import { useRestoreInitiativeAction } from "./archive-parts.tsx";
+import { useInitiativePauseAction } from "./initiative-pause.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
 import { DropInitiativeDialog } from "./drop-initiative-dialog.tsx";
 import { AddExistingTaskDialog } from "./initiative-membership.tsx";
@@ -25,7 +26,8 @@ import { tasksToAdd } from "./initiative-membership-words.ts";
 import { tasksOfInitiative } from "./initiative-words.ts";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
-import { StartReadyTasksButton } from "./start-ready-tasks.tsx";
+import { RecordActions, withActionItems, type RecordAction } from "./record-actions.tsx";
+import { useStartReadyTasksAction } from "./start-ready-tasks.tsx";
 import { useRememberedAutoMode } from "./use-planning.ts";
 
 /**
@@ -35,8 +37,8 @@ import { useRememberedAutoMode } from "./use-planning.ts";
  * Task, its answer going to `onStartedReadyTasks`, Pause the Initiative while it is active and
  * Resume the Initiative while it is paused, "Add a Task" while it is open (in the Project of
  * the Idea it was shaped from, if any, until it has Tasks) and "Add an existing Task" beside it,
- * one in no Initiative, and its menu with
- * Drop until it has ended, asking first in DropInitiativeDialog, Archive once it has.
+ * one in no Initiative, and Restore while it is archived; then its menu, with each of these and
+ * Copy link, Drop until it has ended, asking first in DropInitiativeDialog, and Archive once it has.
  */
 export function InitiativeActions({
   initiative,
@@ -53,32 +55,37 @@ export function InitiativeActions({
   });
   const open = initiative.state === "shaping" || initiative.state === "active";
   const initiativeTasks = tasksOfInitiative(initiative, tasks.data ?? []);
+  const confirm = useConfirmAction(initiative);
+  const planningThread = usePlanningThreadAction(initiative);
+  const plan = usePlanTheInitiativeAction(initiative, initiativeTasks);
+  const startReadyTasks = useStartReadyTasksAction(
+    initiative,
+    initiativeTasks,
+    onStartedReadyTasks,
+  );
+  const pause = useInitiativePauseAction(initiative);
+  const restore = useRestoreInitiativeAction(initiative);
+  const actions = [
+    confirm,
+    planningThread,
+    plan,
+    startReadyTasks,
+    pause,
+    ...(open ? addingActions(setAdding) : []),
+    restore,
+  ].filter((action) => action !== undefined);
   return (
     <>
-      {initiative.state === "shaping" && <ConfirmButton initiative={initiative} />}
-      <PlanningThreadLink initiative={initiative} />
-      <PlanTheInitiative initiative={initiative} initiativeTasks={initiativeTasks} />
-      <StartReadyTasksButton
-        initiative={initiative}
-        initiativeTasks={initiativeTasks}
-        onStarted={onStartedReadyTasks}
+      <RecordActions
+        actions={actions}
+        menu={
+          <InitiativeMenu
+            initiative={initiative}
+            initiativeTasks={initiativeTasks}
+            actions={actions}
+          />
+        }
       />
-      <InitiativePauseButton initiative={initiative} />
-      {open && (
-        <>
-          <Button
-            variant="secondary"
-            iconLeft={<Icon name="plus" size={14} />}
-            onClick={() => setAdding("new")}
-          >
-            Add a Task
-          </Button>
-          <Button variant="secondary" onClick={() => setAdding("existing")}>
-            Add an existing Task
-          </Button>
-        </>
-      )}
-      <InitiativeMenu initiative={initiative} initiativeTasks={initiativeTasks} />
       {adding === "new" && (
         <NewTaskDialog
           initiative={initiative}
@@ -98,7 +105,21 @@ export function InitiativeActions({
   );
 }
 
-function ConfirmButton({ initiative }: { readonly initiative: Initiative }): ReactNode {
+/** Add a Task and Add an existing Task, each opening its window. */
+function addingActions(setAdding: (adding: "new" | "existing") => void): RecordAction[] {
+  return [
+    { key: "add-task", label: "Add a Task", icon: "plus", onSelect: () => setAdding("new") },
+    {
+      key: "add-existing-task",
+      label: "Add an existing Task",
+      icon: "list-plus",
+      onSelect: () => setAdding("existing"),
+    },
+  ];
+}
+
+/** Confirm the Initiative, while it is shaping. */
+function useConfirmAction(initiative: Initiative): RecordAction | undefined {
   const showToast = useToast();
   const planner = usePlanner()?.card.name;
   const confirming = useInitiativeChange(
@@ -106,29 +127,27 @@ function ConfirmButton({ initiative }: { readonly initiative: Initiative }): Rea
     () => confirmInitiative(initiative.id),
     (confirmed) => showToast(confirmedWords(confirmed, planner)),
   );
-  return (
-    <Button
-      iconLeft={<Icon name="check" size={14} />}
-      loading={confirming.isPending}
-      onClick={() => confirming.mutate(undefined, { onError: (error) => showToast(error.message) })}
-    >
-      Confirm the Initiative
-    </Button>
-  );
+  if (initiative.state !== "shaping") return undefined;
+  return {
+    key: "confirm",
+    label: "Confirm the Initiative",
+    icon: "check",
+    variant: "primary",
+    pending: confirming.isPending,
+    onSelect: () => confirming.mutate(undefined, { onError: (error) => showToast(error.message) }),
+  };
 }
 
 /**
  * Plan the Initiative, beside its Auto mode switch: one planning Thread with the Planner, who plans
  * its Backlog Tasks in their dependency order. The switch starts at the remembered default, which
- * the choice becomes, as with Make a plan. Nothing while nobody is the Planner.
+ * the choice becomes, as with Make a plan; from the More menu it plans as the switch stands. None
+ * while nobody is the Planner.
  */
-export function PlanTheInitiative({
-  initiative,
-  initiativeTasks,
-}: {
-  readonly initiative: Initiative;
-  readonly initiativeTasks: readonly Task[];
-}): ReactNode {
+export function usePlanTheInitiativeAction(
+  initiative: Initiative,
+  initiativeTasks: readonly Task[],
+): RecordAction | undefined {
   const planner = usePlanner()?.card.name;
   const showToast = useToast();
   const queryClient = useQueryClient();
@@ -144,20 +163,30 @@ export function PlanTheInitiative({
       showToast(plannedWords(planner ?? "Whoever holds Plans", planned.planningAutoMode));
     },
   );
-  if (!planner || !canPlanInitiative(initiative, initiativeTasks)) return null;
-  return (
-    <div className="make-a-plan">
-      <Button
-        variant="primary"
-        iconLeft={<Icon name="map" size={14} />}
-        loading={planning.isPending}
-        onClick={() => planning.mutate(autoMode, { onError: (error) => showToast(error.message) })}
-      >
-        Plan the Initiative
-      </Button>
-      <Switch checked={autoMode} onChange={setChosen} label="Auto mode" />
-    </div>
-  );
+  if (!planner || !canPlanInitiative(initiative, initiativeTasks)) return undefined;
+  const plan = (): void =>
+    planning.mutate(autoMode, { onError: (error) => showToast(error.message) });
+  return {
+    key: "plan-the-initiative",
+    label: "Plan the Initiative",
+    icon: "map",
+    variant: "primary",
+    pending: planning.isPending,
+    onSelect: plan,
+    control: (
+      <div className="make-a-plan">
+        <Button
+          variant="primary"
+          iconLeft={<Icon name="map" size={14} />}
+          loading={planning.isPending}
+          onClick={plan}
+        >
+          Plan the Initiative
+        </Button>
+        <Switch checked={autoMode} onChange={setChosen} label="Auto mode" />
+      </div>
+    ),
+  };
 }
 
 function plannedWords(planner: string, autoMode: boolean): string {
@@ -168,19 +197,27 @@ function plannedWords(planner: string, autoMode: boolean): string {
 }
 
 /** The way to the Initiative's latest planning Thread, once it has one, in its conversation. */
-function PlanningThreadLink({ initiative }: { readonly initiative: Initiative }): ReactNode {
-  if (initiative.planningThreadId === null) return null;
-  return (
-    <Link
-      className="link-button"
-      to="/work/initiatives/$initiativeId"
-      params={{ initiativeId: initiative.id }}
-      search={{ initiativeThread: initiative.planningThreadId }}
-      resetScroll={false}
-    >
-      Planning Thread
-    </Link>
-  );
+function usePlanningThreadAction(initiative: Initiative): RecordAction | undefined {
+  const navigate = useNavigate();
+  const threadId = initiative.planningThreadId;
+  if (threadId === null) return undefined;
+  const to = {
+    to: "/work/initiatives/$initiativeId",
+    params: { initiativeId: initiative.id },
+    search: { initiativeThread: threadId },
+    resetScroll: false,
+  } as const;
+  return {
+    key: "planning-thread",
+    label: "Planning Thread",
+    icon: "messages-square",
+    onSelect: () => void navigate(to),
+    control: (
+      <Link className="link-button" {...to}>
+        Planning Thread
+      </Link>
+    ),
+  };
 }
 
 function confirmedWords(confirmed: Initiative, planner: string | undefined): string {
@@ -192,9 +229,11 @@ function confirmedWords(confirmed: Initiative, planner: string | undefined): str
 function InitiativeMenu({
   initiative,
   initiativeTasks,
+  actions,
 }: {
   readonly initiative: Initiative;
   readonly initiativeTasks: readonly Task[];
+  readonly actions: readonly RecordAction[];
 }): ReactNode {
   const [open, setOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -228,7 +267,7 @@ function InitiativeMenu({
         open={open}
         onOpenChange={setOpen}
         align="end"
-        width={200}
+        width={220}
         trigger={
           <IconButton
             variant="secondary"
@@ -236,7 +275,7 @@ function InitiativeMenu({
             label={`More for ${initiative.name}`}
           />
         }
-        items={items}
+        items={withActionItems(actions, items)}
       />
       {dropping && (
         <DropInitiativeDialog

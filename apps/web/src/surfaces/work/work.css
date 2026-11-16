@@ -840,9 +840,6 @@
 }
 
 .idea-card-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   margin-top: 8px;
 }
 
@@ -2844,15 +2841,45 @@
 }
 
 /* ---- planning: the head's actions, what the Planner proposes, and the user's own version */
-/* Wraps, as the actions would otherwise run out of a narrow window. */
+/* Takes the room the title leaves, up to what its buttons need: past that, `RecordActions` hides
+   the buttons that don't fit, and the head wraps it under the title only on a window too narrow
+   for the title's basis. */
 .task-head-actions {
+  flex: 100 1 0;
+  max-width: max-content;
+  min-width: 0;
+  padding-top: 18px;
+}
+
+/* A record's actions on one line, its More menu at the end (record-actions.tsx). */
+.record-actions {
   display: flex;
-  flex: 0 1 auto;
-  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding-top: 18px;
+}
+
+/* Wraps only for `hideWhatOverflows` to find what doesn't fit on the first line, which it hides;
+   the clip's margin keeps the focus rings of what shows. */
+.record-actions-row {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: clip;
+  overflow-clip-margin: 4px;
+}
+
+.record-actions-row.align-end {
+  justify-content: flex-end;
+}
+
+.record-actions-row > [data-overflowing] {
+  visibility: hidden;
 }
 
 /* A row of the head to itself, under the title and the actions: a line per note. */

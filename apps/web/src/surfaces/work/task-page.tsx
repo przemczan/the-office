@@ -15,18 +15,17 @@ import { ProjectChip } from "../../shell/project-chip.tsx";
 import { PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
-import { ArchivedBadge, RestoreButton } from "./archive-parts.tsx";
+import { ArchivedBadge } from "./archive-parts.tsx";
 import { AttachmentsBlock } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { MissingRecord } from "./missing-record.tsx";
 import { PipelineRail } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
-import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
-import { PullRequestButton } from "./pull-request-button.tsx";
+import { RecordActions } from "./record-actions.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "../../shell/work/record-tab.ts";
-import { RunControls } from "./run-controls.tsx";
 import { useStageHistory } from "./use-stage-history.ts";
-import { StartButton, StartNotes } from "./start-action.tsx";
+import { StartNotes } from "./start-action.tsx";
+import { useTaskActions } from "./task-actions.ts";
 import { ChangesTab } from "./task-changes.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
@@ -159,6 +158,7 @@ function TaskHead({
   const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
   const editedForTask = taskStages?.editedForTask ?? false;
   const waitingOnYou = useWaitingOnYouInItsState();
+  const actions = useTaskActions(task, taskStages?.stages);
   return (
     <header className="task-head">
       <div className="task-head-grow">
@@ -192,13 +192,7 @@ function TaskHead({
         </div>
       </div>
       <div className="task-head-actions">
-        <PlanButton task={task} />
-        <MarkReadyButton task={task} />
-        <StartButton task={task} />
-        <RunControls task={task} />
-        <PullRequestButton taskStages={taskStages?.stages} />
-        <RestoreButton task={task} />
-        <TaskMenu task={task} />
+        <RecordActions actions={actions} menu={<TaskMenu task={task} actions={actions} />} />
       </div>
       <StartNotes task={task} />
     </header>

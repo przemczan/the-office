@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Initiative, ReadyTasksStarted, Task } from "@the-office/contracts";
-import { Alert, Button, Icon } from "@the-office/ui";
+import { Alert } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startReadyTasks, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import type { RecordAction } from "./record-actions.tsx";
 
 /** Start Ready Tasks is offered while the Initiative is active and one of its Tasks is Ready. */
 export function canStartReadyTasks(
@@ -31,15 +32,11 @@ export function readyTasksStartedWords({ started, queued, refused }: ReadyTasksS
  * Overlap queued behind. The answer goes to `onStarted` for the page's note; a refusal of the whole
  * action shows as a toast.
  */
-export function StartReadyTasksButton({
-  initiative,
-  initiativeTasks,
-  onStarted,
-}: {
-  readonly initiative: Initiative;
-  readonly initiativeTasks: readonly Task[];
-  readonly onStarted: (started: ReadyTasksStarted) => void;
-}): ReactNode {
+export function useStartReadyTasksAction(
+  initiative: Initiative,
+  initiativeTasks: readonly Task[],
+  onStarted: (started: ReadyTasksStarted) => void,
+): RecordAction | undefined {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const starting = useMutation({
@@ -52,17 +49,14 @@ export function StartReadyTasksButton({
     // The Task list's key leads the queue's and every start check's, so this refreshes them all.
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
   });
-  if (!canStartReadyTasks(initiative, initiativeTasks)) return null;
-  return (
-    <Button
-      variant="secondary"
-      iconLeft={<Icon name="play" size={14} />}
-      loading={starting.isPending}
-      onClick={() => starting.mutate()}
-    >
-      Start Ready Tasks
-    </Button>
-  );
+  if (!canStartReadyTasks(initiative, initiativeTasks)) return undefined;
+  return {
+    key: "start-ready-tasks",
+    label: "Start Ready Tasks",
+    icon: "play",
+    pending: starting.isPending,
+    onSelect: () => starting.mutate(),
+  };
 }
 
 /**

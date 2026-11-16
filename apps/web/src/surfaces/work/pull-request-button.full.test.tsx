@@ -3,7 +3,8 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
-import { PullRequestButton } from "./pull-request-button.tsx";
+import { pullRequestAction } from "./pull-request-button.tsx";
+import { RecordActionButton } from "./record-actions.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -51,7 +52,8 @@ function publishStage(...outcomes: readonly StageRun["outcome"][]): TaskStage {
 
 function linkOf(taskStage: TaskStage): HTMLAnchorElement | null {
   const page = document.createElement("div");
-  act(() => createRoot(page).render(<PullRequestButton taskStages={[taskStage]} />));
+  const action = pullRequestAction([taskStage]);
+  act(() => createRoot(page).render(action && <RecordActionButton action={action} />));
   return page.querySelector("a");
 }
 

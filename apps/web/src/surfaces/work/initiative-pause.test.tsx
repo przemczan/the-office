@@ -6,15 +6,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import {
   InitiativePausedBadge,
-  InitiativePauseButton,
   pausedWords,
   resumedWords,
+  useInitiativePauseAction,
 } from "./initiative-pause.tsx";
+import { RecordActionButton } from "./record-actions.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+/** The action as the head's row shows it. */
+function InitiativePauseButton({ initiative }: { readonly initiative: Initiative }): ReactNode {
+  const action = useInitiativePauseAction(initiative);
+  return action && <RecordActionButton action={action} />;
+}
 
 const ACTIVE: Initiative = {
   id: "3f0c2b1a-9d8e-4f7a-8b6c-5d4e3f2a1b0c",
