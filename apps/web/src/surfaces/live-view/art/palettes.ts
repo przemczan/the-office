@@ -107,6 +107,9 @@ export const ART_COLORS = {
   printerTop: 0xd6d6d1,
   paper: 0xffffff,
   nextDesk: 0xf23d0f,
+  mat: 0x5aa39b,
+  matSide: 0x43867f,
+  matStripe: 0x8fd3c9,
 } as const;
 
 export type ArtColorName = keyof typeof ART_COLORS;

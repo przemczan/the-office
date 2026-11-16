@@ -170,13 +170,19 @@ class FurnitureList {
   }
 }
 
-/** The meeting spot, the chill area and the furniture along the back wall, with their seats. */
+/**
+ * The meeting spot, the chill area, the exercise mat and the furniture along the back wall, with
+ * their seats and every pastime's spots.
+ */
 export function amenitiesOf(layout: Layout): Amenities {
   const furniture = new FurnitureList();
   const meetingSeats = meetingSpot(furniture);
-  const chillSeats = chillArea(furniture, layout);
-  backWallDecor(furniture, layout);
-  return { items: furniture.items, blocked: furniture.blocked, meetingSeats, chillSeats };
+  const pastimeSpots = [
+    ...chillArea(furniture, layout),
+    ...exerciseMat(furniture),
+    ...backWallDecor(furniture, layout),
+  ];
+  return { items: furniture.items, blocked: furniture.blocked, meetingSeats, pastimeSpots };
 }
 
 const MEETING_CHAIRS: readonly {
@@ -219,6 +225,7 @@ function chillArea(furniture: FurnitureList, layout: Layout): Seat[] {
   const chillSeats: Seat[] = [];
   furniture.items.push({ kind: "plant", x: start + 0.5, y: 0.45, tall: true, depth: start + 0.95 });
   furniture.block(start, 0);
+  chillSeats.push(facingTheWall("plant", start + 0.5, start));
   // The sofa sorts by its front-left corner, not its middle: it stands against the wall, so nothing
   // is ever behind it, and anyone getting up from a seat or passing in front stays in front of it.
   const sofaDepth = start + 1 + 0.95;
@@ -242,8 +249,8 @@ function chillArea(furniture: FurnitureList, layout: Layout): Seat[] {
   furniture.items.push({ kind: "waterCooler", x: coffeeX + 1, y: 0.05, depth: coffeeX + 1.8 });
   furniture.block(coffeeX + 1, 0);
   chillSeats.push(
-    mugSpot({ x: coffeeX + 0.5, y: 1.35 }, { x: coffeeX, y: 1 }, true),
-    mugSpot({ x: coffeeX + 1.35, y: 1.55 }, { x: coffeeX + 1, y: 1 }, false),
+    standingSpot("coffee", { x: coffeeX + 0.5, y: 1.35 }, { x: coffeeX, y: 1 }, true),
+    standingSpot("water", { x: coffeeX + 1.35, y: 1.55 }, { x: coffeeX + 1, y: 1 }, false),
   );
   const tableX = start + 1.7;
   const tableWidth = Math.max(0.8, seats - 1.4);
@@ -279,9 +286,55 @@ function chillArea(furniture: FurnitureList, layout: Layout): Seat[] {
   return chillSeats;
 }
 
-/** Standing by the coffee machine with a mug: sorted by the feet, as a standing figure is. */
-function mugSpot(at: FloorPoint, tile: FloorPoint, mirrored: boolean): Seat {
-  return { kind: "coffee", ...at, tile, facing: "front", mirrored, depth: null, seatZ: 0 };
+/** Standing by the coffee machine or the water cooler: sorted by the feet, as a standing figure is. */
+function standingSpot(
+  kind: "coffee" | "water",
+  at: FloorPoint,
+  tile: FloorPoint,
+  mirrored: boolean,
+): Seat {
+  return { kind, ...at, tile, facing: "front", mirrored, depth: null, seatZ: 0 };
+}
+
+/**
+ * Standing in front of something on the back wall, back to us: a bookshelf or a plant. Mirrored, as
+ * the back view looks along -x and the wall is along -y.
+ */
+function facingTheWall(kind: "bookshelf" | "plant", x: number, tileX: number): Seat {
+  return {
+    kind,
+    x,
+    y: 1.25,
+    tile: { x: tileX, y: 1 },
+    facing: "back",
+    mirrored: true,
+    depth: null,
+    seatZ: 0,
+  };
+}
+
+/**
+ * The exercise mat's tiles: one across and two deep, in the column between the meeting spot and the
+ * chill area, which every floor has (`exerciseMatShape` draws it at this size).
+ */
+const MAT = { x: 4, y: 1, length: 2 } as const;
+
+/**
+ * A mat flat on the floor, between the meeting spot and the chill area, with a spot on each of its
+ * tiles. It blocks no tile, so routes cross it, and sorts under everything standing on it.
+ */
+function exerciseMat(furniture: FurnitureList): Seat[] {
+  furniture.items.push({ kind: "exerciseMat", x: MAT.x, y: MAT.y, depth: 0 });
+  return Array.from({ length: MAT.length }, (_, index) => ({
+    kind: "exercise",
+    x: MAT.x + 0.5,
+    y: MAT.y + index + 0.5,
+    tile: { x: MAT.x, y: MAT.y + index },
+    facing: "front",
+    mirrored: false,
+    depth: null,
+    seatZ: 0,
+  }));
 }
 
 const DECOR: readonly ("bookshelf" | "plant" | "printer")[] = [
@@ -291,24 +344,31 @@ const DECOR: readonly ("bookshelf" | "plant" | "printer")[] = [
   "plant",
 ];
 
-/** Along the back wall past the chill area: shelves, a printer and plants, as far as it reaches. */
-function backWallDecor(furniture: FurnitureList, layout: Layout): void {
+/**
+ * Along the back wall past the chill area: shelves, a printer and plants, as far as it reaches.
+ * Answers a spot in front of each bookshelf and each plant.
+ */
+function backWallDecor(furniture: FurnitureList, layout: Layout): Seat[] {
+  const spots: Seat[] = [];
   let index = 0;
   for (let x = layout.chillEnd + 0.2; x < layout.width - 1.2;) {
     const kind = DECOR[index % DECOR.length]!;
     if (kind === "bookshelf" && x + 1.6 > layout.width - 0.5) break;
     if (kind === "bookshelf") {
       furniture.items.push({ kind, x, y: 0.05, seed: index + 7, depth: x + 0.8 + 0.25 });
+      spots.push(facingTheWall("bookshelf", x + 0.8, Math.floor(x + 0.8)));
     } else if (kind === "printer") {
       furniture.items.push({ kind, x, y: 0.06, depth: x + 0.45 + 0.4 });
     } else {
       furniture.items.push({ kind, x: x + 0.4, y: 0.45, tall: index % 4 === 1, depth: x + 0.85 });
+      spots.push(facingTheWall("plant", x + 0.45, Math.floor(x + 0.4)));
     }
     const span = kind === "bookshelf" ? 1.6 : 0.9;
     for (let tile = Math.floor(x); tile < x + span; tile++) furniture.block(tile, 0);
     x += kind === "bookshelf" ? 2 : 1.2;
     index++;
   }
+  return spots;
 }
 
 /** Which tiles a figure may walk on, row by row (`y * width + x`): 1 walkable, 0 not. */

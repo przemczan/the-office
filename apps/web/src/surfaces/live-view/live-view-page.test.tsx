@@ -13,8 +13,15 @@ import {
 } from "../../shell/page.fixtures.tsx";
 import { PageHeadingProvider } from "../../shell/page-heading.tsx";
 import { LiveViewPage } from "./live-view-page.tsx";
-import type { Light, OfficePerson, OfficeStage, OfficeStageOptions } from "./live-view-types.ts";
-import { officePerson } from "./live-view.fixtures.ts";
+import { doingWords, pickedDoingOf } from "./live-states.ts";
+import type {
+  IdleDoing,
+  Light,
+  OfficePerson,
+  OfficeStage,
+  OfficeStageOptions,
+} from "./live-view-types.ts";
+import { DAY_LIGHT, officePerson } from "./live-view.fixtures.ts";
 
 // jsdom has no layout, so nothing ever resizes; the popover's placing only needs it to exist.
 globalThis.ResizeObserver = class {
@@ -134,18 +141,38 @@ function ShownLiveView(): ReactNode {
 }
 
 async function openLiveView(people: readonly OfficePerson[]) {
-  stubService({
-    "GET /api/live-view": () => ({ status: 200, body: snapshotOf(people) }),
-    "GET /api/roles": () => ({ status: 200, body: people.map(roleOf) }),
-    "GET /api/tasks": () => ({ status: 200, body: [] }),
-    "GET /api/initiatives": () => ({ status: 200, body: [] }),
-  });
+  serveOffice(people);
   const opened = await openPage("/live-view", {
     "live-view": ShownLiveView,
     "tasks/$taskId": () => <p>The Task</p>,
   });
   await until(() => expect(stages.made.at(-1)?.applied.at(-1)).toHaveLength(people.length));
   return opened;
+}
+
+function serveOffice(people: readonly OfficePerson[]): void {
+  stubService({
+    "GET /api/live-view": () => ({ status: 200, body: snapshotOf(people) }),
+    "GET /api/roles": () => ({ status: 200, body: people.map(roleOf) }),
+    "GET /api/tasks": () => ({ status: 200, body: [] }),
+    "GET /api/initiatives": () => ({ status: 200, body: [] }),
+  });
+}
+
+function nothing(): void {}
+
+/** Holds back the service's answers to `request` until the answer it gives is let go. */
+function holdBack(request: string): () => void {
+  let letGo: () => void = nothing;
+  const held = new Promise<void>((resolve) => {
+    letGo = resolve;
+  });
+  const answer = globalThis.fetch;
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (`${init?.method ?? "GET"} ${String(input)}` === request) await held;
+    return answer(input, init);
+  });
+  return () => letGo();
 }
 
 function lastStage() {
@@ -155,7 +182,11 @@ function lastStage() {
 }
 
 /** The stage reports where the figures are, so their nameplates show; `leaving` are walking out. */
-function viewOf(people: readonly OfficePerson[], leaving: readonly string[] = []): void {
+function viewOf(
+  people: readonly OfficePerson[],
+  leaving: readonly string[] = [],
+  doings: ReadonlyMap<string, IdleDoing> = new Map(),
+): void {
   act(() =>
     lastStage().options.onView({
       scale: 3,
@@ -170,6 +201,7 @@ function viewOf(people: readonly OfficePerson[], leaving: readonly string[] = []
         outside: false,
         leaving: leaving.includes(person.roleKey),
       })),
+      doings,
     }),
   );
 }
@@ -224,6 +256,50 @@ describe("The Live view", () => {
     expect(working && shownText(working)).toContain("Working on a Stage of a Task");
     const idle = page.querySelector("[aria-label='Idle']");
     expect(idle && shownText(idle)).toContain("Chat with Pam");
+  });
+
+  it("applies nothing to the stage until the snapshot and the Roles have both loaded", async () => {
+    serveOffice([PAM_IDLE, JIM_WORKING]);
+    const letSnapshotGo = holdBack("GET /api/live-view");
+    const letRolesGo = holdBack("GET /api/roles");
+    await openPage("/live-view", { "live-view": ShownLiveView });
+    await until(() => expect(stages.made.at(-1)?.lit.length).toBeGreaterThan(0));
+    expect(lastStage().applied).toEqual([]);
+
+    letRolesGo();
+    // The Roles alone load, and still nothing is applied.
+    for (let tick = 0; tick < 5; tick++) await until(() => undefined);
+    expect(lastStage().applied).toEqual([]);
+
+    letSnapshotGo();
+    await until(() => expect(lastStage().applied.length).toBeGreaterThan(0));
+    // The first `apply` lays the floor out with the whole office, nobody walking in as a hire.
+    expect(lastStage().applied[0]?.map(({ roleKey }) => roleKey)).toEqual([
+      "office-manager",
+      "developer",
+    ]);
+  });
+
+  it("applies an office with nobody in it, once loaded, as nobody", async () => {
+    await openLiveView([]);
+    expect(lastStage().applied[0]).toEqual([]);
+  });
+
+  it("says what someone idle is doing, as the stage reports it", async () => {
+    const { page } = await openLiveView([PAM_IDLE, JIM_WORKING]);
+    act(() => buttonNamed(page, "List")?.click());
+    // Before the stage reports, what they picked for this turn.
+    const picked = pickedDoingOf(PAM_IDLE, new Date(), DAY_LIGHT);
+    const idleGroup = () => page.querySelector("[aria-label='Idle']");
+    expect(shownText(idleGroup()!)).toContain(`Idle: ${doingWords(picked)}`);
+
+    viewOf(
+      [PAM_IDLE, JIM_WORKING],
+      [],
+      new Map([["office-manager", { pastime: "exercise", exercise: "push-ups", chatting: false }]]),
+    );
+
+    expect(shownText(idleGroup()!)).toContain("Idle: doing push-ups");
   });
 
   it("draws the snapshot a live-view.changed event brings in place of the last", async () => {

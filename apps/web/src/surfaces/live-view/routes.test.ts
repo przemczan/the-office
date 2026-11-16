@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addHire, amenitiesOf, deskSpot, layoutOffice } from "./floor-plan.ts";
+import { DOOR_OUTSIDE, addHire, amenitiesOf, deskSpot, layoutOffice } from "./floor-plan.ts";
 import { FLOOR_SIZES, floorPeopleOf, officePerson } from "./live-view.fixtures.ts";
 import type { Layout } from "./live-view-types.ts";
 import { blockedCrossings, spotsOf } from "./routes.fixtures.ts";
@@ -32,6 +32,19 @@ describe.each(floorPlans())("routes on the floor of $name", ({ layout }) => {
       expect({ spot, walkable: floor.walkable[tile.y * floor.width + tile.x] }).toEqual({
         spot,
         walkable: 1,
+      });
+    }
+  });
+
+  it("walks from the door to every pastime's spot, never over furniture", () => {
+    expect(amenities.pastimeSpots.length).toBeGreaterThan(0);
+    for (const spot of amenities.pastimeSpots) {
+      expect(findTiles(floor, DOOR_OUTSIDE.tile!, spot.tile)).not.toBeNull();
+      const route = routeBetween(floor, DOOR_OUTSIDE, spot);
+      expect(route).not.toBeNull();
+      expect({ spot: spot.kind, crossings: blockedCrossings(floor, route!) }).toEqual({
+        spot: spot.kind,
+        crossings: [],
       });
     }
   });

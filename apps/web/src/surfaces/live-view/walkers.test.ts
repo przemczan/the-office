@@ -18,6 +18,7 @@ import {
   rosterOf,
 } from "./live-view.fixtures.ts";
 import type { FloorPoint, OfficePerson, Placement } from "./live-view-types.ts";
+import { pastimeTurnAt } from "./pastimes.ts";
 import { blockedCrossings } from "./routes.fixtures.ts";
 import { routeBetween, routeFloorOf, routeLength } from "./routes.ts";
 import { OUTSIDE, WALK_SPEED, type Walker, createWalkers } from "./walkers.ts";
@@ -52,6 +53,14 @@ function consulting(roleKey: string, consultantRoleKey: string): OfficePerson {
 
 function idleFor(roleKey: string, minutes: number): OfficePerson {
   return officePerson(roleKey, { idleSince: minutesAgo(minutes) });
+}
+
+/** The first whole minute idle, by day, whose turn picked a nap. */
+function napMinutes(roleKey: string): number {
+  for (let minutes = 0; minutes < 24 * 60; minutes++) {
+    if (pastimeTurnAt(roleKey, minutes).pastime === "nap") return minutes;
+  }
+  throw new Error(`${roleKey} never naps.`);
 }
 
 /** Everyone of the eight working, but those swapped in by Role key. */
@@ -141,6 +150,9 @@ describe("walkers", () => {
     world.apply(eightWith());
     const to = deskSpot(deskOf(world.layout, "developer")!);
     const length = routeLength(routeBetween(world.floor(), from, to)!);
+    // Called to work from a pastime, they set off at once: only a new turn waits its stagger.
+    expect(world.walker("developer").delay).toBe(0);
+    world.run(1, () => world.walkers.isWalking(world.walker("developer")));
     const took = world.run(30, () => settled(world.walker("developer")));
     expect(Math.abs(took - length / WALK_SPEED)).toBeLessThanOrEqual(FRAME + 1e-9);
     expect({ x: world.walker("developer").x, y: world.walker("developer").y }).toEqual({
@@ -189,13 +201,14 @@ describe("walkers", () => {
       expect(world.walker(key).placement.kind).toBe("desk");
   });
 
-  it("walks someone idle to a chill seat, and back to the desk once asleep", () => {
+  it("walks someone idle to a pastime's spot, and back to the desk once asleep", () => {
     const world = office(eightWith());
     world.apply(eightWith(idleFor("developer", 5)));
     const walker = world.walker("developer");
     world.run(30, () => settled(walker));
-    expect(walker.placement.kind).toBe("chill");
-    world.apply(eightWith(idleFor("developer", 45)));
+    expect(walker.placement.kind).toBe("pastime");
+    expect(walker.placement.doing?.pastime).toBe(pastimeTurnAt("developer", 5).pastime);
+    world.apply(eightWith(idleFor("developer", napMinutes("developer"))));
     expect(walker.target?.kind).toBe("desk");
     world.run(30, () => settled(walker));
     expect(walker.placement).toMatchObject({ kind: "desk", activity: "asleep" });
@@ -275,8 +288,12 @@ describe("walkers", () => {
     const returns = world.events.filter((event) => event.kind === "depart");
     expect(returns.map((event) => event.key)).toEqual(sleepers);
     returns.forEach((event, n) => expect(event.at - dawn).toBeCloseTo(0.3 + 1.1 * n, 1));
+    const byDay = world.placementsFor(people);
     for (const key of sleepers)
-      expect(world.walker(key)).toMatchObject({ hidden: false, placement: { kind: "desk" } });
+      expect(world.walker(key)).toMatchObject({
+        hidden: false,
+        placement: { kind: byDay.get(key)!.kind, spot: byDay.get(key)!.spot },
+      });
   });
 
   it.each([0.1, 0.25, 0.6, 1.2, 2.5])(
@@ -301,20 +318,61 @@ describe("walkers", () => {
   );
 
   it("keeps the walk on when the same place comes again mid-walk", () => {
+    // Both minutes are in the first turn, which lasts 4 minutes at least.
+    expect(pastimeTurnAt("developer", 3)).toEqual(pastimeTurnAt("developer", 1));
     const world = office(eightWith());
-    world.apply(eightWith(idleFor("developer", 5)));
+    world.apply(eightWith(idleFor("developer", 1)));
     world.run(0.5);
     const walker = world.walker("developer");
     const route = walker.route;
-    world.apply(eightWith(idleFor("developer", 6)));
+    world.apply(eightWith(idleFor("developer", 3)));
     expect(walker.route).toBe(route);
-    expect(walker.target?.kind).toBe("chill");
+    expect(walker.target?.kind).toBe("pastime");
+  });
+
+  it("walks someone from one pastime to the next when their turn changes", () => {
+    const first = pastimeTurnAt("developer", 0);
+    const next = pastimeTurnAt("developer", first.length);
+    expect(next.index).toBe(1);
+    const world = office(eightWith(idleFor("developer", 0)));
+    const walker = world.walker("developer");
+    expect(walker.placement).toMatchObject({ kind: "pastime", doing: { pastime: first.pastime } });
+    const from = walker.placement.spot;
+
+    const later = eightWith(idleFor("developer", first.length));
+    world.apply(later);
+    const to = world.placementsFor(later).get("developer")!;
+    expect(to).toMatchObject({ kind: "pastime", doing: { pastime: next.pastime } });
+    expect(spotOf(to)).not.toEqual(pointOf(from));
+    expect(walker.target).toEqual(to);
+    world.run(30, () => settled(walker));
+    expect(walker.placement).toEqual(to);
+    expect({ x: walker.x, y: walker.y }).toEqual(spotOf(to));
+  });
+
+  it("sets several pastime changes in one snapshot off one by one, 1.1 s apart", () => {
+    const keys = ["office-manager", "caretaker", "cto", "devops"];
+    const atFirst = eightWith(...keys.map((key) => idleFor(key, 0)));
+    const world = office(atFirst);
+    const atNext = eightWith(...keys.map((key) => idleFor(key, pastimeTurnAt(key, 0).length)));
+    world.apply(atNext);
+    const moving = keys.map((key) => world.walker(key)).filter((walker) => walker.target !== null);
+    expect(moving.length).toBeGreaterThanOrEqual(2);
+    moving.forEach((walker, n) => expect(walker.delay).toBeCloseTo(0.3 + 1.1 * n, 6));
+    world.run(60, () => keys.every((key) => settled(world.walker(key))));
+    const departures = world.events.filter((event) => event.kind === "depart");
+    expect(departures.map((event) => event.key)).toEqual(moving.map((walker) => walker.key));
+    for (let n = 1; n < departures.length; n++)
+      expect(departures[n]!.at - departures[n - 1]!.at).toBeCloseTo(1.1, 1);
   });
 
   it("jumps without animation, ends every walk on settle, and routes again on a new floor", () => {
     const world = office(eightWith());
     world.apply(eightWith(idleFor("developer", 5)), { animate: false });
-    expect(world.walker("developer")).toMatchObject({ target: null, placement: { kind: "chill" } });
+    expect(world.walker("developer")).toMatchObject({
+      target: null,
+      placement: { kind: "pastime" },
+    });
 
     world.apply(eightWith(consulting("developer", "cto"), idleFor("reviewer", 5)));
     world.apply(eightWith(consulting("developer", "cto"), idleFor("reviewer", 5)).slice(1));

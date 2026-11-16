@@ -4,8 +4,10 @@ import type {
   Amenities,
   Desk,
   DeskActivity,
+  Exercise,
   Facing,
   FigurePose,
+  IdleDoing,
   Layout,
   Light,
   LookState,
@@ -15,12 +17,12 @@ import type {
   RecordTitles,
   Seat,
   Spot,
+  SpotPastime,
   WorkLink,
   WorkTarget,
 } from "./live-view-types.ts";
+import { ASLEEP_AFTER_MINUTES, type PastimeTurn, pastimeTurnOf } from "./pastimes.ts";
 
-/** Idle this long, someone is back at their desk asleep rather than in the chill area. */
-export const ASLEEP_AFTER_MINUTES = 30;
 /** How long "New" shows on a hire's nameplate. */
 export const NEW_FOR_MINUTES = 60;
 
@@ -31,22 +33,30 @@ export function isNewHire(person: Pick<OfficePerson, "hiredAt">, now: Date): boo
   return now.getTime() - Date.parse(person.hiredAt) < NEW_FOR_MINUTES * MINUTE;
 }
 
-/** What the figure shows: the snapshot's headline, with idle split by how long and who just joined. */
+/**
+ * What the figure shows: the snapshot's headline, with idle split by who just joined, who went home
+ * for the night and who picked a nap for this turn (`pastimes.ts`). A nap is picked only 30 minutes
+ * or more after they fell idle, counted from dawn at the latest, so those who walk back in at dawn
+ * go to a pastime first (design decision 12); the words still count from `idleSince`.
+ */
 export function lookStateOf(person: OfficePerson, now: Date, light: Light): LookState {
   if (person.state !== "idle") return person.state;
   if (isNewHire(person, now)) return "joined";
   if (light.phase === "night") return "home";
-  return isAsleep(person, now, light) ? "asleep" : "idle";
+  return pastimeTurnOf(person, now, light).pastime === "nap" ? "asleep" : "idle";
 }
 
 /**
- * Idle 30 minutes, counted from dawn at the latest: those who walk back in at dawn go to the chill
- * area first (design decision 12). The words still count from `idleSince`.
+ * What an idle person picked for this turn, as the words say it before the floor has placed them:
+ * the floor's own answer (`doingsOf`) differs only when their pick's spots were all taken.
  */
-function isAsleep(person: OfficePerson, now: Date, light: Light): boolean {
-  if (person.idleSince === null) return false;
-  const idleFrom = Math.max(Date.parse(person.idleSince), light.dawnAt ?? -Infinity);
-  return now.getTime() - idleFrom >= ASLEEP_AFTER_MINUTES * MINUTE;
+export function pickedDoingOf(person: OfficePerson, now: Date, light: Light): IdleDoing {
+  const turn = pastimeTurnOf(person, now, light);
+  return {
+    pastime: turn.pastime,
+    exercise: turn.pastime === "exercise" ? turn.exercise : null,
+    chatting: false,
+  };
 }
 
 /** The light last given to the floor, and when. */
@@ -83,8 +93,38 @@ type Location =
   | { readonly kind: "desk"; readonly desk: Desk }
   | { readonly kind: "consult"; readonly consultantKey: string; readonly desk: Desk }
   | { readonly kind: "meeting"; readonly seat: Seat; readonly seatIndex: number }
-  | { readonly kind: "chill"; readonly seat: Seat }
+  | {
+      readonly kind: "pastime";
+      readonly seat: PastimeSpot;
+      readonly exercise: Exercise;
+    }
   | { readonly kind: "gone" };
+
+type PastimeSpot = Seat & { readonly kind: SpotPastime };
+
+function isPastimeSpot(seat: Seat): seat is PastimeSpot {
+  return seat.kind !== "meeting";
+}
+
+/** Each pastime's spots on the floor, taken one by one in their order; nobody shares a spot. */
+class FreeSpots {
+  private readonly free = new Map<SpotPastime, PastimeSpot[]>();
+
+  constructor(spots: readonly Seat[]) {
+    for (const spot of spots.filter(isPastimeSpot)) {
+      this.free.set(spot.kind, [...(this.free.get(spot.kind) ?? []), spot]);
+    }
+  }
+
+  /** The first free spot of the first pastime in the turn's order with one left; null for the desk. */
+  take(turn: PastimeTurn): Location | null {
+    for (const pastime of turn.preferences) {
+      const seat = this.free.get(pastime)?.shift();
+      if (seat !== undefined) return { kind: "pastime", seat, exercise: turn.exercise };
+    }
+    return null;
+  }
+}
 
 /** Who asks each Consultant, in hire order, counting only Consultants in the office. */
 function askersByConsultant(
@@ -137,11 +177,12 @@ function locationsOf(
   layout: Layout,
   amenities: Amenities,
   lookStates: ReadonlyMap<string, LookState>,
+  turnOf: (person: OfficePerson) => PastimeTurn,
 ): Map<string, Location> {
   const askers = askersByConsultant(people, lookStates);
   const meetingSeats = meetingSeatsOf(askers);
   const deskVisitors = deskVisitorsOf(askers, meetingSeats);
-  const freeChillSeats = [...amenities.chillSeats];
+  const freeSpots = new FreeSpots(amenities.pastimeSpots);
   const locations = new Map<string, Location>();
   for (const person of people) {
     const desk = deskOf(layout, person.roleKey);
@@ -152,7 +193,7 @@ function locationsOf(
       lookState: lookStates.get(person.roleKey) ?? "idle",
       meetingSeat: meetingSeats.get(person.roleKey),
       visitedConsultant: deskVisitors.get(person.roleKey),
-      takeChillSeat: () => freeChillSeats.shift() ?? null,
+      takePastimeSpot: () => freeSpots.take(turnOf(person)),
     });
     locations.set(person.roleKey, location);
   }
@@ -166,7 +207,8 @@ interface LocationContext {
   readonly meetingSeat: number | undefined;
   /** The Consultant whose desk this person stands at, if they are its one visitor. */
   readonly visitedConsultant: string | undefined;
-  readonly takeChillSeat: () => Seat | null;
+  /** A spot of this turn's pastime, or of the next in their order with one free; null for the desk. */
+  readonly takePastimeSpot: () => Location | null;
 }
 
 function locationFor(desk: Desk, context: LocationContext): Location {
@@ -186,10 +228,8 @@ function locationFor(desk: Desk, context: LocationContext): Location {
     }
     case "home":
       return { kind: "gone" };
-    case "idle": {
-      const seat = context.takeChillSeat();
-      return seat ? { kind: "chill", seat } : atDesk;
-    }
+    case "idle":
+      return context.takePastimeSpot() ?? atDesk;
     default:
       return atDesk;
   }
@@ -217,7 +257,10 @@ export function deskActivity(lookState: LookState, visitorCount: number): DeskAc
   return "idle";
 }
 
-/** Who talks with whom: a Consultant with those at their desk, or everyone at the meeting spot. */
+/**
+ * Who talks with whom: a Consultant with those at their desk, everyone at the meeting spot, and
+ * everyone on the sofa, two or more, from its left seat to its right.
+ */
 function conversationsOf(
   locations: ReadonlyMap<string, Location>,
   visitors: ReadonlyMap<string, readonly string[]>,
@@ -228,6 +271,11 @@ function conversationsOf(
     .toSorted(([, a], [, b]) => meetingSeatIndex(a) - meetingSeatIndex(b))
     .map(([roleKey]) => roleKey);
   if (meeting.length > 1) for (const roleKey of meeting) conversations.set(roleKey, meeting);
+  const sofa = [...locations]
+    .filter(([, location]) => location.kind === "pastime" && location.seat.kind === "sofa")
+    .toSorted(([, a], [, b]) => sofaSeatX(a) - sofaSeatX(b))
+    .map(([roleKey]) => roleKey);
+  if (sofa.length > 1) for (const roleKey of sofa) conversations.set(roleKey, sofa);
   for (const [consultantKey, visitorKeys] of visitors) {
     if (locations.get(consultantKey)?.kind !== "desk") continue;
     const talk = [consultantKey, ...visitorKeys];
@@ -239,6 +287,10 @@ function conversationsOf(
 /** The meeting's turn order: the Consultant in seat 0 first. */
 function meetingSeatIndex(location: Location): number {
   return location.kind === "meeting" ? location.seatIndex : 0;
+}
+
+function sofaSeatX(location: Location): number {
+  return location.kind === "pastime" ? location.seat.x : 0;
 }
 
 interface Pose {
@@ -254,8 +306,35 @@ const DESK_POSES: Record<DeskActivity, FigurePose> = {
   // A Consultant turns their chair round to talk with whoever came to their desk.
   talking: "sit-front",
   working: "sit-back",
-  idle: "sit-back",
+  // Idle at the desk, sitting back and stretching now and then.
+  idle: "sit-back-stretch",
 };
+
+const EXERCISE_POSES: Record<Exercise, FigurePose> = {
+  "jumping-jacks": "stand-front-jacks",
+  squats: "stand-front-squat",
+  "push-ups": "lie-front-push-up",
+};
+
+/** Each pastime's pose at its spot. */
+function pastimePoseOf(pastime: SpotPastime, exercise: Exercise): FigurePose {
+  switch (pastime) {
+    case "coffee":
+      return "stand-front-mug";
+    case "water":
+      return "stand-front-cup";
+    case "sofa":
+      return "sit-front";
+    case "beanbag":
+      return "sit-front-phone";
+    case "exercise":
+      return EXERCISE_POSES[exercise];
+    case "bookshelf":
+      return "stand-back-read";
+    case "plant":
+      return "stand-back-water";
+  }
+}
 
 /** The pose at a desk: turned round to talk, else facing the monitors. */
 export function deskPoseOf(activity: DeskActivity): FigurePose {
@@ -279,13 +358,10 @@ function poseOf(location: Location, activity: DeskActivity | null): Pose {
         z: 0,
       };
     }
-    case "chill":
-      if (location.seat.kind === "coffee") {
-        return { pose: "stand-front-mug", facing: "front", mirrored: location.seat.mirrored, z: 0 };
-      }
+    case "pastime":
       return {
-        pose: "sit-front",
-        facing: "front",
+        pose: pastimePoseOf(location.seat.kind, location.exercise),
+        facing: location.seat.facing,
         mirrored: location.seat.mirrored,
         z: location.seat.seatZ,
       };
@@ -301,7 +377,7 @@ function spotOf(location: Location): Spot {
     case "consult":
       return consultSpot(location.desk);
     case "meeting":
-    case "chill":
+    case "pastime":
       return location.seat;
     case "gone":
       return DOOR_OUTSIDE;
@@ -314,18 +390,39 @@ function depthOf(location: Location, spot: Spot): number {
     case "desk":
       return location.desk.depth + 0.1;
     case "meeting":
-    case "chill":
+    case "pastime":
       return location.seat.depth === null ? spot.x + spot.y : location.seat.depth + 0.1;
     default:
       return spot.x + spot.y;
   }
 }
 
+/** What an idle or napping person is doing where the floor put them; null for anyone else. */
+function doingOf(
+  location: Location,
+  lookState: LookState,
+  conversation: readonly string[] | null,
+): IdleDoing | null {
+  if (location.kind === "pastime") {
+    const pastime = location.seat.kind;
+    return {
+      pastime,
+      exercise: pastime === "exercise" ? location.exercise : null,
+      chatting: conversation !== null,
+    };
+  }
+  if (location.kind !== "desk") return null;
+  if (lookState === "asleep") return { pastime: "nap", exercise: null, chatting: false };
+  if (lookState === "idle") return { pastime: "desk", exercise: null, chatting: false };
+  return null;
+}
+
 /**
  * Where each person is drawn and how, by Role key, straight from their look state: working, waiting
- * on you and asleep at the desk; consulting at the Consultant's desk, or at the meeting spot when two
- * or more ask one Consultant; idle in the chill area's seats in hire order, then at the desk; gone
- * home off the floor. People without a desk on the layout are left out.
+ * on you and napping at the desk; consulting at the Consultant's desk, or at the meeting spot when
+ * two or more ask one Consultant; idle at a spot of this turn's pastime, in hire order, else of the
+ * next in their own order with one free, else at the desk; gone home off the floor. People without a
+ * desk on the layout are left out.
  */
 export function placementsOf(
   people: readonly OfficePerson[],
@@ -335,16 +432,18 @@ export function placementsOf(
   now: Date,
 ): ReadonlyMap<string, Placement> {
   const lookStates = lookStatesOf(people, now, light);
-  const locations = locationsOf(people, layout, amenities, lookStates);
+  const locations = locationsOf(people, layout, amenities, lookStates, (person) =>
+    pastimeTurnOf(person, now, light),
+  );
   const visitors = visitorsByConsultant(locations);
   const conversations = conversationsOf(locations, visitors);
   const placements = new Map<string, Placement>();
   for (const [roleKey, location] of locations) {
+    const lookState = lookStates.get(roleKey) ?? "idle";
     const activity =
-      location.kind === "desk"
-        ? deskActivity(lookStates.get(roleKey) ?? "idle", visitors.get(roleKey)?.length ?? 0)
-        : null;
+      location.kind === "desk" ? deskActivity(lookState, visitors.get(roleKey)?.length ?? 0) : null;
     const spot = spotOf(location);
+    const conversation = conversations.get(roleKey) ?? null;
     placements.set(roleKey, {
       kind: location.kind,
       spot,
@@ -352,10 +451,20 @@ export function placementsOf(
       depth: depthOf(location, spot),
       activity,
       consultantKey: location.kind === "consult" ? location.consultantKey : null,
-      conversation: conversations.get(roleKey) ?? null,
+      conversation,
+      doing: doingOf(location, lookState, conversation),
     });
   }
   return placements;
+}
+
+/** What each idle person on the floor is doing, by Role key, from their placements. */
+export function doingsOf(placements: ReadonlyMap<string, Placement>): Map<string, IdleDoing> {
+  const doings = new Map<string, IdleDoing>();
+  for (const [roleKey, placement] of placements) {
+    if (placement.doing) doings.set(roleKey, placement.doing);
+  }
+  return doings;
 }
 
 /* ---------- The desk's monitors ---------- */
@@ -442,12 +551,46 @@ function consultantName(roleKey: string, names: PersonNames): string {
   return names.get(roleKey) ?? "a Consultant";
 }
 
-/** The state in words, as the tooltip, the popover and the list say it. */
+const EXERCISE_WORDS: Record<Exercise, string> = {
+  "jumping-jacks": "doing jumping jacks",
+  squats: "doing squats",
+  "push-ups": "doing push-ups",
+};
+
+/** What an idle person is doing, as "Idle: …" goes on: "having a coffee". */
+export function doingWords(doing: IdleDoing): string {
+  switch (doing.pastime) {
+    case "coffee":
+      return "having a coffee";
+    case "water":
+      return "having a cup of water";
+    case "sofa":
+      return doing.chatting ? "chatting on the sofa" : "relaxing on the sofa";
+    case "beanbag":
+      return "on their phone in a beanbag";
+    case "exercise":
+      return EXERCISE_WORDS[doing.exercise ?? "jumping-jacks"];
+    case "bookshelf":
+      return "browsing the bookshelf";
+    case "plant":
+      return "watering a plant";
+    case "nap":
+      return "napping at their desk";
+    case "desk":
+      return "stretching at their desk";
+  }
+}
+
+/**
+ * The state in words, as the tooltip, the popover and the list say it; `doing` says what an idle
+ * person is doing.
+ */
 export function stateWords(
   person: OfficePerson,
   lookState: LookState,
   titles: RecordTitles,
   names: PersonNames,
+  doing: IdleDoing | null = null,
 ): string {
   const sessions = person.agents.map((agent) => agentWords(agent, titles, names));
   const alsoRunning = sessions.length ? `; still working on ${listWords(sessions)}` : "";
@@ -474,7 +617,7 @@ export function stateWords(
     case "home":
       return "Gone home for the night: idle";
     case "idle":
-      return "Idle";
+      return doing ? `Idle: ${doingWords(doing)}` : "Idle";
   }
 }
 

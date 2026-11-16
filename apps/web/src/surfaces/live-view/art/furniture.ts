@@ -1,5 +1,5 @@
 import type { DeskGroup } from "../live-view-types.ts";
-import { seededRandom, pickFrom } from "./figures.ts";
+import { seededRandom, pickFrom } from "../seeded.ts";
 import { DESK_H } from "./iso.ts";
 import { ART as A, GROUP_ART } from "./palettes.ts";
 import { type ArtShape, type IsoBounds, isoShape } from "./pixel-grid.ts";
@@ -141,6 +141,30 @@ export function coffeeTableShape(width: number): ArtShape {
     pen.box(0, 0, 0, width, 0.5, 5, A.tableTop, A.tableSide, A.tableSide, A.deskEdge);
     pen.box(width * 0.3, 0.18, 5, 0.12, 0.12, 2, A.mug, A.mug, A.deskLeft);
     pen.box(width * 0.62, 0.12, 5, 0.12, 0.12, 2, A.mug, A.mug, A.deskLeft);
+  });
+}
+
+/** The exercise mat's size in tiles: one across, two deep (`floor-plan.ts`'s `MAT`). */
+const MAT = { width: 1, length: 2 } as const;
+/** How far in from the mat's tiles its edges are, in tiles. */
+const MAT_INSET = 0.08;
+/** The rolled edge at the mat's far end, in tiles deep. */
+const MAT_ROLL = 0.14;
+/** How far in from the mat's edges its stripes run, in tiles. */
+const MAT_STRIPE_IN = 0.1;
+
+/** A flat mat on the floor, a pixel thick, rolled at its far end, a stripe along each side. */
+export function exerciseMatShape(): ArtShape {
+  return isoShape({ maxX: MAT.width, maxY: MAT.length, maxZ: 3 }, (pen) => {
+    const x0 = MAT_INSET;
+    const x1 = MAT.width - MAT_INSET;
+    const y0 = MAT_INSET;
+    const y1 = MAT.length - MAT_INSET;
+    pen.box(x0, y0, 0, x1 - x0, y1 - y0, 1, A.mat, A.matSide, A.matSide);
+    for (const x of [x0 + MAT_STRIPE_IN, x1 - MAT_STRIPE_IN]) {
+      pen.line([x, y0 + MAT_ROLL, 1], [x, y1 - MAT_STRIPE_IN, 1], A.matStripe);
+    }
+    pen.box(x0, y0, 1, x1 - x0, MAT_ROLL, 2, A.mat, A.matSide, A.matSide);
   });
 }
 

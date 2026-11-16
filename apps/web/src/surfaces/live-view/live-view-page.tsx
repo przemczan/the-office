@@ -18,7 +18,7 @@ import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { useNarrowPage } from "../../shell/use-narrow-page.ts";
 import { browserZone, lightAt } from "./light.ts";
-import { lookStatesOf, summaryWords } from "./live-states.ts";
+import { lookStatesOf, pickedDoingOf, summaryWords, workLinksOf } from "./live-states.ts";
 import type { OfficePerson, OfficeStage, StageView } from "./live-view-types.ts";
 import { Nameplates, placeNameplate } from "./nameplate.tsx";
 import { officePeopleOf, personNamesOf, recordTitlesOf, shownPeopleOf } from "./office-people.ts";
@@ -46,10 +46,13 @@ export function LiveViewPage(): ReactNode {
   // The browser's time zone, read once per page open: where the sun is worked out for.
   const [zone] = useState(browserZone);
 
-  const people = useMemo(
-    () => (snapshot.data && roles.data ? officePeopleOf(snapshot.data, roles.data) : NOBODY),
+  // Null until the snapshot and the Roles have both loaded, which is not the same as nobody in the
+  // office: the floor is first laid out only once they have, with everyone in place.
+  const loaded = useMemo(
+    () => (snapshot.data && roles.data ? officePeopleOf(snapshot.data, roles.data) : null),
     [snapshot.data, roles.data],
   );
+  const people = loaded ?? NOBODY;
   const titles = useMemo(
     () => recordTitlesOf(tasks.data, initiatives.data),
     [tasks.data, initiatives.data],
@@ -57,10 +60,6 @@ export function LiveViewPage(): ReactNode {
   const names = useMemo(() => personNamesOf(people), [people]);
   const light = useMemo(() => lightAt(now, zone), [now, zone]);
   const lookStates = useMemo(() => lookStatesOf(people, now, light), [people, now, light]);
-  const shown = useMemo(
-    () => shownPeopleOf(people, lookStates, titles),
-    [people, lookStates, titles],
-  );
   const summary = summaryWords(people, light, lookStates);
   usePageHeading({
     title: "Live view",
@@ -72,10 +71,10 @@ export function LiveViewPage(): ReactNode {
 
   /** A press on someone: their work straight away, or the popover to choose from (design decision 9). */
   const askToOpen = (roleKey: string, touch: boolean): void => {
-    const entry = shown.find(({ person }) => person.roleKey === roleKey);
-    if (entry === undefined) return;
+    const person = people.find((candidate) => candidate.roleKey === roleKey);
+    if (person === undefined) return;
     // A screen without hover has shown nothing yet, so a tap shows the words with the links.
-    const direct = touch ? null : directLinkOf(entry.person, entry.links);
+    const direct = touch ? null : directLinkOf(person, workLinksOf(person, titles, names));
     if (direct === null) {
       setPopoverKey(roleKey);
       return;
@@ -100,9 +99,23 @@ export function LiveViewPage(): ReactNode {
   useEffect(() => {
     floor.stage?.setLight(light, now);
   }, [floor.stage, light, now]);
+  // The stage's first `apply` lays out the floor, so it waits for the people: applied before they
+  // load, everyone would walk in as a hire once they do.
   useEffect(() => {
-    floor.stage?.apply(people, now);
-  }, [floor.stage, people, now]);
+    if (loaded) floor.stage?.apply(loaded, now);
+  }, [floor.stage, loaded, now]);
+  // What each idle person is doing: where the floor put them, or before it has, what they picked.
+  const doings = floor.view?.doings;
+  const shown = useMemo(
+    () =>
+      shownPeopleOf(
+        people,
+        lookStates,
+        titles,
+        (person) => doings?.get(person.roleKey) ?? pickedDoingOf(person, now, light),
+      ),
+    [people, lookStates, titles, doings, now, light],
+  );
 
   const showOnFloor = (roleKey: string): void => {
     floor.stage?.frame(roleKey);

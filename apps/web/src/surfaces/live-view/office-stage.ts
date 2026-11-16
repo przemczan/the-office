@@ -1,16 +1,24 @@
 import { Application, Culler, UPDATE_PRIORITY } from "pixi.js";
+import type { FigureBounds } from "./art/figures.ts";
 import { forgetPaintedArt } from "./art/pixel-grid.ts";
 import { NAMEPLATE_BELOW_FEET, figureAnchor } from "./figure-hit.ts";
 import { addHire, amenitiesOf, layoutOffice, letGo } from "./floor-plan.ts";
 import type {
   Amenities,
   CreateOfficeStage,
+  IdleDoing,
   Layout,
   Light,
   OfficePerson,
   OfficeStage,
 } from "./live-view-types.ts";
-import { type SeenLight, lookStatesOf, placementsOf, walksAtLightChange } from "./live-states.ts";
+import {
+  type SeenLight,
+  doingsOf,
+  lookStatesOf,
+  placementsOf,
+  walksAtLightChange,
+} from "./live-states.ts";
 import {
   type ArtRect,
   type OfficeGeometry,
@@ -45,6 +53,7 @@ const RING_MS = 3000;
 const MAX_FRAME_SECONDS = 0.25;
 /** How long the tint takes to ease from one hour's light to the next. */
 const TINT_FADE_SECONDS = 2;
+const NO_DOINGS: ReadonlyMap<string, IdleDoing> = new Map();
 
 interface Floor {
   readonly layout: Layout;
@@ -56,6 +65,8 @@ interface Floor {
   readonly walkers: Walkers;
   /** What the scene was last built from, to build it again when someone sets off or arrives. */
   scene: SceneInput | null;
+  /** What each idle person was last sent to do, for the page's words. */
+  doings: ReadonlyMap<string, IdleDoing>;
 }
 
 /**
@@ -183,9 +194,10 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     scene.world.position.set(origin.x, origin.y);
     scene.world.scale.set(scale);
   };
-  const feetOf = (roleKey: string): Point | null => {
+  /** Where a figure stands now and how far it reaches, as the scene placed it. */
+  const placeOf = (roleKey: string): { feet: Point; bounds: FigureBounds } | null => {
     const place = scene.figures.find((figure) => figure.roleKey === roleKey);
-    return place ? { x: place.feet.x, y: place.feet.y } : null;
+    return place ? { feet: { x: place.feet.x, y: place.feet.y }, bounds: place.bounds } : null;
   };
   const reportView = (): void => {
     options.onView({
@@ -198,10 +210,11 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
         .filter((figure) => !figure.gone)
         .map((figure) => ({
           roleKey: figure.roleKey,
-          ...figureAnchor(view, figure.feet),
+          ...figureAnchor(view, figure.feet, figure.bounds),
           outside: figure.outside,
           leaving: figure.leaving,
         })),
+      doings: floor?.doings ?? NO_DOINGS,
     });
   };
   /** Every change of view: clamped, the world placed again, drawn when still, and told to the page. */
@@ -224,7 +237,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       view = { ...view, width: box.width, height: box.height, devicePixelRatio: ratio };
       return;
     }
-    const framed = view.framing.kind === "figure" ? feetOf(view.framing.roleKey) : null;
+    const framed = view.framing.kind === "figure" ? placeOf(view.framing.roleKey) : null;
     setView(
       resizeView(
         view,
@@ -232,7 +245,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
         box.height,
         ratio,
         floor.bounds,
-        framed ? figureFrame(framed) : undefined,
+        framed ? figureFrame(framed.feet, framed.bounds) : undefined,
       ),
     );
   };
@@ -283,6 +296,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   ): void => {
     const placements = placementsOf(people, on.layout, on.amenities, light, now);
     on.walkers.direct(people, placements, { animate });
+    on.doings = doingsOf(placements);
     on.scene = {
       layout: on.layout,
       amenities: on.amenities,
@@ -352,17 +366,18 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       people: new Set(people.map((person) => person.roleKey)),
       walkers,
       scene: null,
+      doings: NO_DOINGS,
     };
   };
 
   /* ---------- Show on the floor, zoom and fit ---------- */
 
   const frame = (roleKey: string): void => {
-    const feet = feetOf(roleKey);
-    if (!floor || !feet) return;
+    const shown = placeOf(roleKey);
+    if (!floor || !shown) return;
     clearTimeout(ringTimer);
     scene.ring(roleKey);
-    setView(frameFigure(view, roleKey, feet, floor.bounds));
+    setView(frameFigure(view, roleKey, shown.feet, floor.bounds, shown.bounds));
     ringTimer = setTimeout(() => {
       scene.ring(null);
       render();

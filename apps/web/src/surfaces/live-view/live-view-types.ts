@@ -119,9 +119,31 @@ export interface Layout {
 
 export type Facing = "front" | "back";
 
-/** A seat at the meeting spot or in the chill area. */
+/**
+ * What an idle person does for a turn of 4 to 8 minutes (`pastimes.ts`). `desk` is never picked: it
+ * is where they sit, stretching now and then, when every spot they would pick is taken.
+ */
+export type Pastime =
+  "coffee" | "water" | "sofa" | "beanbag" | "exercise" | "bookshelf" | "plant" | "nap" | "desk";
+
+/** A pastime done at a spot of its own on the floor, rather than at the desk. */
+export type SpotPastime = Exclude<Pastime, "nap" | "desk">;
+
+/** What someone on the exercise mat does, picked by the turn's seed. */
+export type Exercise = "jumping-jacks" | "squats" | "push-ups";
+
+/** What an idle person is doing, as the words say it. */
+export interface IdleDoing {
+  readonly pastime: Pastime;
+  /** On the exercise mat: which exercise; else null. */
+  readonly exercise: Exercise | null;
+  /** On the sofa with someone else, chatting. */
+  readonly chatting: boolean;
+}
+
+/** A seat at the meeting spot, or a pastime's spot: a seat, or a place to stand. */
 export interface Seat extends Spot {
-  readonly kind: "meeting" | "sofa" | "coffee" | "beanbag";
+  readonly kind: "meeting" | SpotPastime;
   readonly tile: FloorPoint;
   readonly facing: Facing;
   readonly mirrored: boolean;
@@ -142,7 +164,8 @@ export type AmenityKind =
   | "coffeeTable"
   | "beanbag"
   | "bookshelf"
-  | "printer";
+  | "printer"
+  | "exerciseMat";
 
 /** A piece of furniture along the back wall, with what its shape needs. */
 export interface Amenity extends FloorPoint {
@@ -159,13 +182,17 @@ export interface Amenity extends FloorPoint {
 /** The meeting spot, the chill area and the furniture along the back wall, with their seats. */
 export interface Amenities {
   readonly items: readonly Amenity[];
-  /** Tiles furniture stands on, `[x, y]`. */
+  /** Tiles furniture stands on, `[x, y]`; the exercise mat, flat on the floor, blocks none. */
   readonly blocked: readonly (readonly [number, number])[];
   readonly meetingSeats: readonly Seat[];
-  readonly chillSeats: readonly Seat[];
+  /** Every pastime's spots, each pastime's in the order they are taken. */
+  readonly pastimeSpots: readonly Seat[];
 }
 
-/** A figure's pose, by the art's names. */
+/**
+ * A figure's pose, by the art's names. New poses are appended: `stand`/`sit`/`walk`/`lie` say how
+ * the figure is held, `front`/`back` which way it faces.
+ */
 export type FigurePose =
   | "stand-front"
   | "stand-back"
@@ -176,14 +203,33 @@ export type FigurePose =
   | "sit-back-sleep"
   | "sit-front"
   | "walk-front"
-  | "walk-back";
+  | "walk-back"
+  /** Water at the cooler: a paper cup in hand. */
+  | "stand-front-cup"
+  /** On a beanbag, looking down at a phone held in both hands; one frame. */
+  | "sit-front-phone"
+  /** On the mat, jumping jacks: frame 0 arms up and feet apart, frame 1 arms down and feet together. */
+  | "stand-front-jacks"
+  /** On the mat, squats: frame 0 down, knees bent and arms out in front, frame 1 standing. */
+  | "stand-front-squat"
+  /**
+   * On the mat, a push-up: lying face down along the floor's y axis, head up and to the right, its
+   * anchor the middle of the body; frame 0 arms straight and the body up, frame 1 arms bent and low.
+   */
+  | "lie-front-push-up"
+  /** At a bookshelf, back to us, holding an open book up: frame 1 turns a page. */
+  | "stand-back-read"
+  /** At a plant, back to us, a watering can in hand: frame 1 tips it, a drop or two falling. */
+  | "stand-back-water"
+  /** Idle at the desk, sitting back: frame 0 at rest, frame 1 stretches, arms up over the head. */
+  | "sit-back-stretch";
 
 /** What someone at their desk is doing, for the pose and what is drawn over them. */
 export type DeskActivity = "working" | "waiting" | "talking" | "asleep" | "idle";
 
 /** Where a figure is drawn and how, worked out from their look state and nobody's movement. */
 export interface Placement {
-  readonly kind: "desk" | "consult" | "meeting" | "chill" | "gone";
+  readonly kind: "desk" | "consult" | "meeting" | "pastime" | "gone";
   readonly spot: Spot;
   readonly pose: FigurePose;
   readonly facing: Facing;
@@ -198,6 +244,8 @@ export interface Placement {
   readonly consultantKey: string | null;
   /** Everyone in the same talk, in turn order, this person included; null when not talking. */
   readonly conversation: readonly string[] | null;
+  /** What an idle person is doing, wherever they are; null for anyone not idle. */
+  readonly doing: IdleDoing | null;
 }
 
 /** Task and Initiative titles by id, from the web's Work queries, to name each running session. */
@@ -247,6 +295,8 @@ export interface StageView {
   readonly canZoomIn: boolean;
   readonly canZoomOut: boolean;
   readonly anchors: readonly FigureAnchor[];
+  /** What each idle person on the floor is doing, by Role key, as the words say it. */
+  readonly doings: ReadonlyMap<string, IdleDoing>;
 }
 
 export interface OfficeStageOptions {

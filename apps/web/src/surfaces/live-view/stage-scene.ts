@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite, Texture } from "pixi.js";
-import { paintedFigure, seedOf } from "./art/figures.ts";
+import { type FigureBounds, figureBoundsOf, paintedFigure } from "./art/figures.ts";
+import { seedOf } from "./seeded.ts";
 import { paintFloorLayer, paintSunPatches, paintWalls } from "./art/floor-art.ts";
 import {
   beanbagShape,
@@ -10,6 +11,7 @@ import {
   coffeeTableShape,
   deskShape,
   doorShape,
+  exerciseMatShape,
   lampShape,
   meetingTableShape,
   monitorSlots,
@@ -76,7 +78,8 @@ export interface PlacedFigure extends FigureHitBox {
   /** Its feet, in art pixels. */
   readonly feet: { x: number; y: number };
   depth: number;
-  seated: boolean;
+  /** Where it reaches, by its pose: a seated figure is shorter, a lying one long and low. */
+  bounds: FigureBounds;
   /** Let go and on the way out: drawn and named, but not pressed. */
   readonly leaving: boolean;
   /** Past the door, seen only through the doorway; its nameplate is hidden. */
@@ -178,7 +181,27 @@ function isSpeaking(
   return talk[Math.floor(t / SPEAKING_TURN_SECONDS) % talk.length] === roleKey;
 }
 
-/** The pose's frame at `t`: typing, the raised hand, sleep's breathing and talking, each at its own rate. */
+/** Now and then: frame 1 for `seconds` once every `period` seconds, else frame 0. */
+interface Pulse {
+  readonly period: number;
+  readonly seconds: number;
+}
+
+/** A page turned every 6 s or so. */
+const PAGE_TURN: Pulse = { period: 6, seconds: 0.5 };
+/** The watering can tipped for a while, then held level. */
+const WATERING: Pulse = { period: 5, seconds: 2 };
+/** A stretch at the desk: arms up for 1.5 s every 10 s. */
+const STRETCH: Pulse = { period: 10, seconds: 1.5 };
+/** Jumping jacks and squats, frames a second. */
+const EXERCISE_RATE = 2;
+/** Push-ups, frames a second: slower, up and down. */
+const PUSH_UP_RATE = 1;
+
+/**
+ * The pose's frame at `t`: typing, the raised hand, sleep's breathing, talking and the pastimes, each
+ * at its own rate, offset by the Role key so two people are never in step. Frame 0 in the still office.
+ */
 function frameOf(
   pose: FigurePose,
   activity: DeskActivity | null,
@@ -189,7 +212,20 @@ function frameOf(
 ): number {
   const tick = (rate: number, offset = 0): number => (motion ? Math.floor(t * rate + offset) : 0);
   const offset = (seedOf(roleKey) % 10) / 10;
+  const pulse = ({ period, seconds }: Pulse): number =>
+    motion && (t + offset * period) % period < seconds ? 1 : 0;
   switch (pose) {
+    case "stand-front-jacks":
+    case "stand-front-squat":
+      return tick(EXERCISE_RATE, offset * 2) % 2;
+    case "lie-front-push-up":
+      return tick(PUSH_UP_RATE, offset * 2) % 2;
+    case "stand-back-read":
+      return pulse(PAGE_TURN);
+    case "stand-back-water":
+      return pulse(WATERING);
+    case "sit-back-stretch":
+      return pulse(STRETCH);
     case "sit-back-raise":
       return tick(1.6) % 2;
     case "sit-back-sleep":
@@ -234,6 +270,8 @@ function amenityArt(item: Amenity): PaintedArt | null {
     }
     case "printer":
       return paintedOfficeArt("printer", printerShape);
+    case "exerciseMat":
+      return paintedOfficeArt("exerciseMat", exerciseMatShape);
   }
 }
 
@@ -460,7 +498,7 @@ export class OfficeScene {
     place.feet.x = x;
     place.feet.y = y;
     place.depth = depth;
-    place.seated = false;
+    place.bounds = figureBoundsOf(walk.pose);
     const outside = walker.x < INSIDE_FROM_X;
     if (outside !== place.outside) {
       place.outside = outside;
@@ -737,7 +775,7 @@ export class OfficeScene {
       roleKey: walker.key,
       feet: { x: feet.x, y: feet.y },
       depth: walkers.depthOf(walker),
-      seated: false,
+      bounds: figureBoundsOf("walk-front"),
       leaving: walker.leaving,
       gone: walker.hidden || (walker.target === null && walker.placement.kind === "gone"),
       outside,
@@ -755,8 +793,8 @@ export class OfficeScene {
     const placement: Placement = walker.placement;
     const { pose, activity } = settledPose(walker, input);
     const { mirrored, z } = placement;
-    place.seated = pose.startsWith("sit");
-    const head = feet.y - ((place.seated ? 20 : 23) + z);
+    place.bounds = figureBoundsOf(pose);
+    const head = feet.y - (place.bounds.head + z);
     const standAt = toArt(geometry, walker.x, walker.y, z);
     figure.position.set(standAt.x, standAt.y);
     figure.scale.x = mirrored ? -1 : 1;

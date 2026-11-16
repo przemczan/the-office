@@ -1,6 +1,12 @@
 import type { Initiative, LiveView, Role, Task } from "@the-office/contracts";
 import { stateWords, workLinksOf, type PersonNames } from "./live-states.ts";
-import type { LookState, OfficePerson, RecordTitles, WorkLink } from "./live-view-types.ts";
+import type {
+  IdleDoing,
+  LookState,
+  OfficePerson,
+  RecordTitles,
+  WorkLink,
+} from "./live-view-types.ts";
 
 /**
  * The snapshot's people, in its order, each with what their Role gives. Someone whose Role isn't
@@ -48,10 +54,12 @@ export interface ShownPerson {
   readonly links: readonly WorkLink[];
 }
 
+/** `doingOf` says what an idle person is doing, for their words. */
 export function shownPeopleOf(
   people: readonly OfficePerson[],
   lookStates: ReadonlyMap<string, LookState>,
   titles: RecordTitles,
+  doingOf: (person: OfficePerson) => IdleDoing | null,
 ): ShownPerson[] {
   const names = personNamesOf(people);
   return people.map((person) => {
@@ -59,7 +67,13 @@ export function shownPeopleOf(
     return {
       person,
       lookState,
-      words: stateWords(person, lookState, titles, names),
+      words: stateWords(
+        person,
+        lookState,
+        titles,
+        names,
+        lookState === "idle" ? doingOf(person) : null,
+      ),
       links: workLinksOf(person, titles, names),
     };
   });

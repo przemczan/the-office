@@ -4,6 +4,8 @@ import { amenitiesOf, consultSpot, deskOf, deskSpot, layoutOffice } from "./floo
 import { DOOR_OUTSIDE } from "./floor-plan.ts";
 import {
   LIST_GROUPS,
+  doingWords,
+  doingsOf,
   lookStateOf,
   lookStatesOf,
   monitorsOf,
@@ -13,8 +15,16 @@ import {
   walksAtLightChange,
   workLinksOf,
 } from "./live-states.ts";
-import { DAY_LIGHT, NIGHT_LIGHT, officePerson, rosterOf } from "./live-view.fixtures.ts";
-import type { Light, OfficePerson, RecordTitles } from "./live-view-types.ts";
+import {
+  DAY_LIGHT,
+  FLOOR_SIZES,
+  NIGHT_LIGHT,
+  floorPeopleOf,
+  officePerson,
+  rosterOf,
+} from "./live-view.fixtures.ts";
+import type { IdleDoing, Light, OfficePerson, RecordTitles, Seat } from "./live-view-types.ts";
+import { type PastimeTurn, pastimeTurnAt, pastimeTurnOf } from "./pastimes.ts";
 
 const NOW = new Date(2026, 10, 15, 13, 5);
 const DAY = DAY_LIGHT;
@@ -72,6 +82,34 @@ function idleFor(roleKey: string, minutes: number): OfficePerson {
   return officePerson(roleKey, { idleSince: minutesAgo(minutes) });
 }
 
+/** The first whole minute from `from` on whose turn `holds`, by day (counting from `idleSince`). */
+function minutesWhen(roleKey: string, holds: (turn: PastimeTurn) => boolean, from = 0): number {
+  for (let minutes = from; minutes < from + 24 * 60; minutes++) {
+    if (holds(pastimeTurnAt(roleKey, minutes))) return minutes;
+  }
+  throw new Error(`No such turn for ${roleKey} within a day of ${from} minutes.`);
+}
+
+const isNap = (turn: PastimeTurn): boolean => turn.pastime === "nap";
+
+/** Idle long enough, by day, that their turn picked a nap. */
+function napping(roleKey: string): OfficePerson {
+  return idleFor(roleKey, minutesWhen(roleKey, isNap));
+}
+
+/** Idle by day for as long as it takes their turn to pick the sofa. */
+function onTheSofa(roleKey: string): OfficePerson {
+  return idleFor(
+    roleKey,
+    minutesWhen(roleKey, (turn) => turn.pastime === "sofa"),
+  );
+}
+
+/** What someone idle is doing: having a coffee, but for what a test overrides. */
+function doing(overrides: Partial<IdleDoing>): IdleDoing {
+  return { pastime: "coffee", exercise: null, chatting: false, ...overrides };
+}
+
 /** The eight with someone swapped in by Role key. */
 function eightWith(...people: OfficePerson[]): OfficePerson[] {
   return rosterOf(8).map(
@@ -96,9 +134,15 @@ describe("look states", () => {
     expect(lookStateOf(waitingPerson, NOW, DAY)).toBe("waiting-on-you");
   });
 
-  it("falls asleep at exactly thirty minutes idle, not at twenty-nine", () => {
-    expect(lookStateOf(idleFor("developer", 29), NOW, DAY)).toBe("idle");
-    expect(lookStateOf(idleFor("developer", 30), NOW, DAY)).toBe("asleep");
+  it("is asleep only in a turn that picked a nap, never in the first thirty minutes", () => {
+    for (let minutes = 0; minutes < 30; minutes++) {
+      expect(lookStateOf(idleFor("developer", minutes), NOW, DAY)).toBe("idle");
+    }
+    for (let minutes = 0; minutes < 12 * 60; minutes += 1) {
+      const nap = pastimeTurnAt("developer", minutes).pastime === "nap";
+      expect(lookStateOf(idleFor("developer", minutes), NOW, DAY)).toBe(nap ? "asleep" : "idle");
+    }
+    expect(lookStateOf(napping("developer"), NOW, DAY)).toBe("asleep");
   });
 
   it("shows someone hired within the hour as just joined, then idle", () => {
@@ -148,10 +192,20 @@ describe("look states", () => {
       dawnAt: NOW.getTime() - minutes * 60_000,
     });
     const idleAllNight = idleFor("developer", 600);
-    expect(lookStateOf(idleAllNight, NOW, afterDawn(29))).toBe("idle");
-    expect(lookStateOf(idleAllNight, NOW, afterDawn(30))).toBe("asleep");
+    for (let minutes = 0; minutes < 30; minutes++) {
+      expect(lookStateOf(idleAllNight, NOW, afterDawn(minutes))).toBe("idle");
+    }
+    const napAfterDawn = minutesWhen("developer", isNap);
+    expect(lookStateOf(idleAllNight, NOW, afterDawn(napAfterDawn))).toBe("asleep");
+    expect(
+      lookStateOf(
+        idleAllNight,
+        NOW,
+        afterDawn(minutesWhen("developer", (turn) => !isNap(turn), napAfterDawn)),
+      ),
+    ).toBe("idle");
     // Someone who went idle after dawn counts from then, as by day.
-    expect(lookStateOf(idleFor("developer", 31), NOW, afterDawn(120))).toBe("asleep");
+    expect(lookStateOf(idleFor("developer", napAfterDawn), NOW, afterDawn(600))).toBe("asleep");
   });
 });
 
@@ -186,7 +240,7 @@ describe("placements", () => {
       waitingOnYou: [waiting({ kind: "task", taskId: "task-1" })],
     });
     const { layout, placements } = placed(
-      eightWith(working("developer"), waitingPerson, idleFor("cto", 45)),
+      eightWith(working("developer"), waitingPerson, napping("cto")),
     );
     const developerDesk = deskOf(layout, "developer")!;
     expect(placements.get("developer")).toMatchObject({
@@ -210,12 +264,164 @@ describe("placements", () => {
     });
   });
 
-  it("puts the idle in the chill seats in hire order", () => {
-    const people = rosterOf(8).map((person) => idleFor(person.roleKey, 5));
-    const { placements } = placed(people);
-    const kinds = people.map((person) => placements.get(person.roleKey)?.kind);
-    expect(kinds).toEqual(["chill", "chill", "chill", "chill", "chill", "chill", "chill", "desk"]);
-    expect(placements.get("office-manager")).toMatchObject({ pose: "sit-front", z: 1 });
+  it("puts someone idle at a spot of their pick", () => {
+    const awake = [0, 5, 17, 42, 133, 301, 455].filter(
+      (minutes) => !isNap(pastimeTurnAt("developer", minutes)),
+    );
+    expect(awake.length).toBeGreaterThan(3);
+    for (const minutes of awake) {
+      const developer = idleFor("developer", minutes);
+      const turn = pastimeTurnOf(developer, NOW, DAY);
+      const others = rosterOf(8)
+        .filter((person) => person.roleKey !== "developer")
+        .map((person) => working(person.roleKey));
+      const placement = placed([...others, developer]).placements.get("developer")!;
+      expect(placement).toMatchObject({
+        kind: "pastime",
+        spot: { kind: turn.pastime },
+        doing: {
+          pastime: turn.pastime,
+          exercise: turn.pastime === "exercise" ? turn.exercise : null,
+          chatting: false,
+        },
+        activity: null,
+      });
+      expect(doingsOf(placed([...others, developer]).placements)).toEqual(
+        new Map([["developer", placement.doing]]),
+      );
+    }
+  });
+
+  it("poses each pastime at its spot", () => {
+    const expected: Record<string, string> = {
+      coffee: "stand-front-mug",
+      water: "stand-front-cup",
+      sofa: "sit-front",
+      beanbag: "sit-front-phone",
+      bookshelf: "stand-back-read",
+      plant: "stand-back-water",
+    };
+    const exercises: Record<string, string> = {
+      "jumping-jacks": "stand-front-jacks",
+      squats: "stand-front-squat",
+      "push-ups": "lie-front-push-up",
+    };
+    const posed = new Set<string>();
+    for (const roleKey of rosterOf(30).map((person) => person.roleKey)) {
+      for (let minutes = 0; minutes < 6 * 60; minutes += 7) {
+        const turn = pastimeTurnAt(roleKey, minutes);
+        if (turn.pastime === "nap") continue;
+        const people = floorPeopleOf(30).map((person) =>
+          person.roleKey === roleKey ? idleFor(roleKey, minutes) : working(person.roleKey),
+        );
+        const placement = placed(people).placements.get(roleKey)!;
+        const pose =
+          turn.pastime === "exercise" ? exercises[turn.exercise] : expected[turn.pastime];
+        expect(placement.pose).toBe(pose);
+        posed.add(turn.pastime === "exercise" ? turn.exercise : turn.pastime);
+        if (posed.size === 8) return;
+      }
+    }
+    expect([...posed].toSorted()).toEqual(
+      [...Object.keys(expected), ...Object.keys(exercises)].toSorted(),
+    );
+  });
+
+  it.each(FLOOR_SIZES)(
+    "never puts two people on one spot of the %i-person floor, everyone idle",
+    (count) => {
+      for (const minutes of [0, 4, 9, 30, 47, 90, 200, 333, 480, 700]) {
+        const people = floorPeopleOf(count).map((person, index) =>
+          idleFor(person.roleKey, minutes + index * 3),
+        );
+        const { placements } = placed(people);
+        const spots = [...placements.values()].map(({ spot }) => `${spot.x},${spot.y}`);
+        expect(new Set(spots).size).toBe(people.length);
+      }
+    },
+  );
+
+  it("takes the next pastime in their order with a spot free, then the desk, in hire order", () => {
+    for (const minutes of [0, 5, 13, 40, 120]) {
+      const people = floorPeopleOf(30).map((person) => idleFor(person.roleKey, minutes));
+      const layout = layoutOffice(people);
+      const amenities = amenitiesOf(layout);
+      const placements = placementsOf(people, layout, amenities, DAY, NOW);
+      const taken = new Set<Seat>();
+      const expected = people.map((person) => {
+        const turn = pastimeTurnOf(person, NOW, DAY);
+        // The first spot, in the floor's order, of the first pastime in their order with one free.
+        const free = turn.preferences
+          .map((pastime) =>
+            amenities.pastimeSpots.find((spot) => spot.kind === pastime && !taken.has(spot)),
+          )
+          .find((spot) => spot !== undefined);
+        if (free !== undefined) {
+          taken.add(free);
+          return { kind: "pastime", spot: free };
+        }
+        const nap = isNap(turn);
+        return {
+          kind: "desk",
+          spot: deskSpot(deskOf(layout, person.roleKey)!),
+          pose: nap ? "sit-back-sleep" : "sit-back-stretch",
+          doing: { pastime: nap ? "nap" : "desk" },
+        };
+      });
+      expect(people.map((person) => placements.get(person.roleKey))).toMatchObject(expected);
+      const atDesks = expected.filter((placement) => placement.kind === "desk").length;
+      // Thirty people idle are more than the floor's spots: some sit back at their desk.
+      expect(atDesks).toBeGreaterThan(0);
+      expect(people.length - atDesks).toBeLessThanOrEqual(amenities.pastimeSpots.length);
+    }
+  });
+
+  it("sits someone idle whose every spot is taken back at their desk, stretching", () => {
+    const people = floorPeopleOf(30).map((person) => idleFor(person.roleKey, 5));
+    const { layout, placements } = placed(people);
+    const atDesk = people.filter((person) => placements.get(person.roleKey)?.kind === "desk");
+    expect(atDesk.length).toBeGreaterThan(0);
+    for (const person of atDesk) {
+      expect(placements.get(person.roleKey)).toMatchObject({
+        spot: deskSpot(deskOf(layout, person.roleKey)!),
+        activity: "idle",
+        pose: "sit-back-stretch",
+        facing: "back",
+        doing: { pastime: "desk", exercise: null, chatting: false },
+      });
+    }
+  });
+
+  it("has two or more on the sofa talk, from its left seat to its right; one alone talks to nobody", () => {
+    const pair = placed(eightWith(...["developer", "reviewer"].map(onTheSofa))).placements;
+    const sitters = [...pair]
+      .filter(
+        ([, placement]) => placement.kind === "pastime" && placement.doing?.pastime === "sofa",
+      )
+      .toSorted(([, a], [, b]) => a.spot.x - b.spot.x)
+      .map(([roleKey]) => roleKey);
+    expect(sitters).toContain("developer");
+    expect(sitters).toContain("reviewer");
+    const talk = pair.get("developer")!.conversation;
+    expect(talk).toEqual(sitters);
+    for (const roleKey of sitters) {
+      expect(pair.get(roleKey)!.conversation).toBe(talk);
+      expect(pair.get(roleKey)!.doing).toEqual({
+        pastime: "sofa",
+        exercise: null,
+        chatting: true,
+      });
+    }
+
+    const others = rosterOf(8)
+      .filter((person) => person.roleKey !== "developer")
+      .map((person) => working(person.roleKey));
+    const alone = placed([...others, onTheSofa("developer")]).placements.get("developer")!;
+    expect(alone).toMatchObject({
+      kind: "pastime",
+      conversation: null,
+      doing: { pastime: "sofa", chatting: false },
+    });
   });
 
   it("stands someone consulting at the Consultant's desk, the Consultant turned round to talk", () => {
@@ -420,7 +626,7 @@ describe("words and links", () => {
         waitingOnYou: [waiting({ kind: "chat", roleKey: "caretaker" })],
       }),
       idleFor("office-manager", 5),
-      idleFor("cto", 45),
+      napping("cto"),
     );
     expect(summaryWords(people, DAY, lookStatesOf(people, NOW, DAY))).toBe(
       "8 people: 4 working, 1 consulting, 1 waiting on you, 1 idle, 1 asleep. Day, 13:05.",
@@ -443,6 +649,64 @@ describe("words and links", () => {
     expect(summaryWords(people, NIGHT, lookStatesOf(people, NOW, NIGHT))).toBe(
       "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30.",
     );
+  });
+
+  it("counts asleep in the summary just as the look states do: those whose turn is a nap", () => {
+    const people = rosterOf(30).map((person, index) => idleFor(person.roleKey, 31 + index * 13));
+    const naps = people.filter(
+      (person) => pastimeTurnOf(person, NOW, DAY).pastime === "nap",
+    ).length;
+    expect(naps).toBeGreaterThan(0);
+    expect(naps).toBeLessThan(30);
+    const lookStates = lookStatesOf(people, NOW, DAY);
+    expect([...lookStates.values()].filter((state) => state === "asleep")).toHaveLength(naps);
+    expect(summaryWords(people, DAY, lookStates)).toBe(
+      `30 people: ${30 - naps} idle, ${naps} asleep. Day, 13:05.`,
+    );
+  });
+
+  it("says what someone idle is doing", () => {
+    const idle = idleFor("developer", 5);
+    expect(stateWords(idle, "idle", TITLES, NAMES, doing({}))).toBe("Idle: having a coffee");
+    expect(
+      stateWords(idle, "idle", TITLES, NAMES, doing({ pastime: "exercise", exercise: "push-ups" })),
+    ).toBe("Idle: doing push-ups");
+    expect(
+      stateWords(idle, "idle", TITLES, NAMES, doing({ pastime: "sofa", chatting: true })),
+    ).toBe("Idle: chatting on the sofa");
+    expect(stateWords(idle, "idle", TITLES, NAMES)).toBe("Idle");
+    expect(stateWords(idle, "asleep", TITLES, NAMES, doing({ pastime: "nap" }))).toBe(
+      "Asleep at their desk: idle for 30 minutes or more",
+    );
+    expect(
+      [
+        doing({ pastime: "coffee" }),
+        doing({ pastime: "water" }),
+        doing({ pastime: "sofa" }),
+        doing({ pastime: "sofa", chatting: true }),
+        doing({ pastime: "beanbag" }),
+        doing({ pastime: "exercise", exercise: "jumping-jacks" }),
+        doing({ pastime: "exercise", exercise: "squats" }),
+        doing({ pastime: "exercise", exercise: "push-ups" }),
+        doing({ pastime: "bookshelf" }),
+        doing({ pastime: "plant" }),
+        doing({ pastime: "nap" }),
+        doing({ pastime: "desk" }),
+      ].map(doingWords),
+    ).toEqual([
+      "having a coffee",
+      "having a cup of water",
+      "relaxing on the sofa",
+      "chatting on the sofa",
+      "on their phone in a beanbag",
+      "doing jumping jacks",
+      "doing squats",
+      "doing push-ups",
+      "browsing the bookshelf",
+      "watering a plant",
+      "napping at their desk",
+      "stretching at their desk",
+    ]);
   });
 
   it("says someone at home has gone home for the night", () => {

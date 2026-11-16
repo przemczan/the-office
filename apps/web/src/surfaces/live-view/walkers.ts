@@ -12,7 +12,10 @@ export const WALK_SPEED = 2.4;
 const MAX_STEP_SECONDS = 0.25;
 /** How long a new desk sparkles. */
 const SPARKLE_SECONDS = 3;
-/** Moves through the door in one snapshot go one by one: the first after this, then each this much later. */
+/**
+ * Moves through the door in one snapshot go one by one: the first after this, then each this much
+ * later. Pastime changes in one snapshot are staggered the same way, so the floor doesn't lurch.
+ */
 const DOOR_FIRST_DELAY = 0.3;
 const DOOR_DELAY_STEP = 1.1;
 
@@ -28,6 +31,7 @@ export const OUTSIDE: Placement = {
   activity: null,
   consultantKey: null,
   conversation: null,
+  doing: null,
 };
 
 /** The walk cycle's pose: facing the way the figure goes, mirrored when it goes along y. */
@@ -297,6 +301,8 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
       }
       let doorMoves = 0;
       const doorDelay = (): number => DOOR_FIRST_DELAY + DOOR_DELAY_STEP * doorMoves++;
+      let pastimeMoves = 0;
+      const pastimeDelay = (): number => DOOR_FIRST_DELAY + DOOR_DELAY_STEP * pastimeMoves++;
       for (const walker of byKey.values()) {
         const person = present.get(walker.key);
         if (!person) {
@@ -321,7 +327,12 @@ export function createWalkers(initialFloor: RouteFloor, events: WalkerEvents = {
           continue;
         }
         const throughDoor = wanted.kind === "gone" || walker.hidden;
-        move(walker, wanted, motion, motion && throughDoor ? doorDelay() : 0);
+        // A new turn of someone idle, never someone called to work, who sets off at once.
+        const turnChange = current.doing !== null && wanted.doing !== null;
+        let delay = 0;
+        if (motion && throughDoor) delay = doorDelay();
+        else if (motion && turnChange) delay = pastimeDelay();
+        move(walker, wanted, motion, delay);
       }
     },
 

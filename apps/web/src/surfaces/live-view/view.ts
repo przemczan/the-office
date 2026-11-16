@@ -1,3 +1,4 @@
+import type { FigureBounds } from "./art/figures.ts";
 import type { ArtRect } from "./office-geometry.ts";
 
 /** What a resize keeps in view: the whole office, where the user moved it, or one figure. */
@@ -183,14 +184,38 @@ export function pinchTo(
   return zoomTo(view, next, officeBounds, anchorX, anchorY);
 }
 
-/** The box round a figure that Show on the floor frames, from its feet in art pixels. */
-export function figureFrame(feet: Point): ArtRect {
-  return { x: feet.x - 60, y: feet.y - 50, width: 120, height: 80 };
+/** What Show on the floor frames round a figure's feet, in art pixels: its surroundings. */
+const FIGURE_SURROUNDINGS = { left: 60, up: 50, width: 120, height: 80 } as const;
+/** Room kept round a figure's own bounds, should they reach past its surroundings. */
+const FIGURE_ROOM = 16;
+
+/**
+ * The box round a figure that Show on the floor frames, from its feet in art pixels: its
+ * surroundings, grown to hold its bounds (`figureBoundsOf` its pose) with room round them.
+ */
+export function figureFrame(feet: Point, bounds?: FigureBounds): ArtRect {
+  let left = feet.x - FIGURE_SURROUNDINGS.left;
+  let top = feet.y - FIGURE_SURROUNDINGS.up;
+  let right = left + FIGURE_SURROUNDINGS.width;
+  let bottom = top + FIGURE_SURROUNDINGS.height;
+  if (bounds) {
+    left = Math.min(left, feet.x + bounds.left - FIGURE_ROOM);
+    top = Math.min(top, feet.y + bounds.top - FIGURE_ROOM);
+    right = Math.max(right, feet.x + bounds.right + FIGURE_ROOM);
+    bottom = Math.max(bottom, feet.y + bounds.bottom + FIGURE_ROOM);
+  }
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 /** Frames a figure (Show on the floor) at no more than three CSS pixels per art pixel. */
-export function frameFigure(view: View, roleKey: string, feet: Point, officeBounds: ArtRect): View {
-  const framed = frameBounds(view, figureFrame(feet), FIGURE_FRAME_MAX_SCALE);
+export function frameFigure(
+  view: View,
+  roleKey: string,
+  feet: Point,
+  officeBounds: ArtRect,
+  bounds?: FigureBounds,
+): View {
+  const framed = frameBounds(view, figureFrame(feet, bounds), FIGURE_FRAME_MAX_SCALE);
   return clampView({ ...framed, framing: { kind: "figure", roleKey } }, officeBounds);
 }
 
