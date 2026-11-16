@@ -70,20 +70,25 @@ describe("WorkingMark", () => {
     );
   });
 
-  it("says the Stage's name with the names, and shows only the avatars", () => {
+  it("says the Stage's name with the names, and shows it just before the avatars", () => {
     const mark = rendered(<WorkingMark people={working("Jim Halpert")} stageName="Implement" />);
 
-    expect(mark.querySelector("[role=img]")?.getAttribute("aria-label")).toBe(
-      "Working now: Jim Halpert · Implement",
-    );
-    expect(mark.textContent).not.toContain("Implement");
+    const shown = mark.querySelector("[role=img]");
+    expect(shown?.getAttribute("aria-label")).toBe("Working now: Jim Halpert · Implement");
+    const label = shown?.querySelector(".working-mark-stage");
+    expect(label?.textContent).toBe("Implement");
+    // Before the live dot and the avatars, which keep the mark's right end.
+    expect(shown?.firstElementChild).toBe(label);
+    expect(label?.nextElementSibling?.classList.contains("live-dot")).toBe(true);
   });
 
-  it("says the names alone without a Stage name", () => {
+  it("says the names alone without a Stage name, and shows no label", () => {
     const mark = rendered(<WorkingMark people={working("Jim Halpert")} />);
 
     expect(mark.querySelector("[role=img]")?.getAttribute("aria-label")).toBe(
       "Working now: Jim Halpert",
     );
+    expect(mark.querySelector(".working-mark-stage")).toBeNull();
+    expect(mark.querySelector(".working-mark-with-stage")).toBeNull();
   });
 });

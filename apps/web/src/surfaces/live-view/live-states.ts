@@ -360,11 +360,30 @@ function spotOf(location: Location): Spot {
   }
 }
 
+/**
+ * Where what belongs to a desk sorts, added to the desk's depth: its lit screens, lamp, bulb and
+ * pizza on it, the chair's seat and, turned to a visitor, its back, then the screens' and lamp's
+ * glows, the one sitting there, and the chair's back in front of them when not turned. The glows
+ * come just under the sitter, so whoever sits at the desk is drawn over its lamp and its light.
+ */
+export const DESK_DEPTHS = {
+  screen: 0.001,
+  lamp: 0.002,
+  bulb: 0.0025,
+  pizza: 0.003,
+  seat: 0.05,
+  chairBackTurned: 0.07,
+  screenGlow: 0.09,
+  lampGlow: 0.091,
+  sitter: 0.1,
+  chairBack: 0.15,
+} as const;
+
 /** Where a figure sorts: a seated one just in front of its desk or seat, else by its feet. */
 function depthOf(location: Location, spot: Spot): number {
   switch (location.kind) {
     case "desk":
-      return location.desk.depth + 0.1;
+      return location.desk.depth + DESK_DEPTHS.sitter;
     case "pastime":
       return location.seat.depth === null ? spot.x + spot.y : location.seat.depth + 0.1;
     default:

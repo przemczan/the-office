@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { amenitiesOf, consultSpot, deskOf, deskSpot, layoutOffice } from "./floor-plan.ts";
 import { DOOR_OUTSIDE } from "./floor-plan.ts";
 import {
+  DESK_DEPTHS,
   LIST_GROUPS,
   doingWords,
   doingsOf,
@@ -297,7 +298,7 @@ describe("placements", () => {
       activity: "working",
       pose: "sit-back",
       facing: "back",
-      depth: developerDesk.depth + 0.1,
+      depth: developerDesk.depth + DESK_DEPTHS.sitter,
       conversation: null,
     });
     expect(placements.get("reviewer")).toMatchObject({
@@ -310,6 +311,18 @@ describe("placements", () => {
       activity: "asleep",
       pose: "sit-back-sleep",
     });
+  });
+
+  it("draws whoever sits at a desk over its screens, lamp, bulb and their glows", () => {
+    const { layout, placements } = placed(eightWith(working("developer")));
+    const desk = deskOf(layout, "developer")!;
+    const sitter = placements.get("developer")!.depth;
+    const glows = desk.depth + DESK_DEPTHS.lampGlow;
+    expect(desk.depth + DESK_DEPTHS.screenGlow).toBeLessThan(glows);
+    for (const under of [DESK_DEPTHS.screen, DESK_DEPTHS.lamp, DESK_DEPTHS.bulb, DESK_DEPTHS.seat])
+      expect(desk.depth + under).toBeLessThan(glows);
+    expect(glows).toBeLessThan(sitter);
+    expect(sitter).toBeLessThan(desk.depth + DESK_DEPTHS.chairBack);
   });
 
   it("puts someone idle at a spot of their pick", () => {

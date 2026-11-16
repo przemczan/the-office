@@ -267,6 +267,31 @@
   color: var(--fg-3);
 }
 
+.working-mark > :not(.working-mark-stage) {
+  flex-shrink: 0;
+}
+
+/* With the Stage's name the mark takes the room the row leaves, the name right-aligned just before
+   the live dot and cut with an ellipsis. Its size is contained, so it never adds to the mark's least
+   width: that stays the live dot, avatars and "+N". */
+.board-card-working > .tooltip-trigger:has(.working-mark-with-stage),
+.working-mark-with-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.working-mark-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 6px;
+  overflow: hidden;
+  contain: inline-size;
+  font: 500 11px/16px var(--font-sans);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Positioned, so the live dot's ring pulses under the avatars. */
 .working-mark-avatars {
   position: relative;

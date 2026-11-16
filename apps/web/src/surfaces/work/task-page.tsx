@@ -32,6 +32,7 @@ import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
 import { TaskTags } from "./task-tags.tsx";
 import { TokenCount, TokenMeter } from "../../shell/token-count.tsx";
+import { WorkTabs } from "./work-tabs.tsx";
 
 /**
  * The Task page (prototypes/app/task.js): its head, Pipeline rail and Needs you card across the
@@ -53,10 +54,18 @@ export function TaskPage(): ReactNode {
   if (task.error) return <MissingRecord error={task.error} kind="Task" />;
   const record = task.data;
   // Without the Pipelines a Pipeline they don't have would read as removed.
-  if (!record || !pipelines) return null;
+  if (!record || !pipelines) {
+    return (
+      <div className="task-page">
+        <WorkTabs shown="tasks" />
+      </div>
+    );
+  }
   const pipeline = pipelines.find(({ id }) => id === record.pipelineId);
   return (
+    // The tabs stay inside the page's first element, which the conversation's fit watches.
     <div className="task-page">
+      <WorkTabs shown="tasks" />
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
       <TaskBody
         key={record.id}

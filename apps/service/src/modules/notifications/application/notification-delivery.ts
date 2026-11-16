@@ -9,7 +9,7 @@ import {
   raisedBy,
   shownOf,
 } from "../domain/delivery.js";
-import type { Notification } from "../domain/notification.js";
+import { withTimeWorded, type Notification } from "../domain/notification.js";
 import {
   NotificationRaised,
   NotificationsCleared,
@@ -102,7 +102,8 @@ export class NotificationDelivery implements OnApplicationBootstrap {
       case "none":
         return;
       case "now":
-        await this.phone.push(notification);
+        // The phone has no browser to word the time in its own zone: the service's words it.
+        await this.phone.push(withTimeWorded(notification, at));
         await this.repository.phonePushed(notification.id, at);
         return;
       case "held":

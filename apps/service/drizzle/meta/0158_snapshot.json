@@ -1,5 +1,5 @@
 {
-  "id": "95415637-120e-46e8-9147-72aa716f938b",
+  "id": "deab019c-5574-46aa-95c3-5295c22d9141",
   "prevId": "eb35d8e6-8f01-4e30-b369-81855fafb02f",
   "version": "7",
   "dialect": "postgresql",
@@ -604,12 +604,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "questions": {
-          "name": "questions",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "asked_at": {
           "name": "asked_at",
           "type": "timestamp with time zone",
@@ -638,12 +632,6 @@
         },
         "answer": {
           "name": "answer",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "form_answer": {
-          "name": "form_answer",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -1934,6 +1922,12 @@
         "short_line": {
           "name": "short_line",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

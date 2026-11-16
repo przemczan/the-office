@@ -59,6 +59,12 @@ export interface Notification {
    * it; undefined for the kinds that have none, which the strip shows by `line`.
    */
   readonly shortLine: string | undefined;
+  /**
+   * The instant its line names, as a usage window's reset; its `line` and `shortLine` then hold
+   * `{time}` where the time goes, which each channel words in its reader's time zone
+   * (`withTimeWorded` for those outside the browser). Undefined when it names none.
+   */
+  readonly at: Date | undefined;
   readonly pointsTo: Pointer;
   /** Where its kind's routing sends it. */
   readonly channels: readonly Channel[];
@@ -80,6 +86,8 @@ export interface NotificationDraft {
   readonly roleKey: string | undefined;
   readonly line: string;
   readonly shortLine: string | undefined;
+  /** The instant its lines name at `{time}`; none for most kinds. */
+  readonly at?: Date;
   readonly pointsTo: Pointer;
 }
 
@@ -92,6 +100,7 @@ export function notificationOf(
 ): Notification {
   return {
     ...draft,
+    at: draft.at,
     id,
     channels: channelsOf(draft.kind, routing),
     raisedAt,
@@ -218,16 +227,17 @@ export function taskPausedByUsageWindow(
   taskId: string,
   personRole: string | undefined,
   { engineName, window, resetsAt }: UsedUpWindowWords,
-  now: Date,
 ): NotificationDraft {
-  const resumes = clockWords(resetsAt, now);
-  return taskOutcome(
-    "outcomes.task-paused",
-    taskId,
-    personRole,
-    `I paused: ${engineName}'s ${window} is used up. I'll go on at ${resumes}.`,
-    `Paused: ${engineName}'s ${window} is used up. Resumes at ${resumes}.`,
-  );
+  return {
+    ...taskOutcome(
+      "outcomes.task-paused",
+      taskId,
+      personRole,
+      `I paused: ${engineName}'s ${window} is used up. I'll go on at ${TIME}.`,
+      `Paused: ${engineName}'s ${window} is used up. Resumes at ${TIME}.`,
+    ),
+    at: resetsAt,
+  };
 }
 
 /** A used-up usage window, worded: the engine's name, the window as the user reads it, its reset. */
@@ -235,6 +245,30 @@ export interface UsedUpWindowWords {
   readonly engineName: string;
   readonly window: string;
   readonly resetsAt: Date;
+}
+
+/**
+ * Where a Notification's lines put the time it names (`at`): the browser words it in its own time
+ * zone, and `withTimeWorded` in the service's for the channels outside the browser.
+ */
+export const TIME = "{time}";
+
+/**
+ * Its lines with the time they name worded in the service's time zone, for a channel that has no
+ * browser to word it (the phone); unchanged when it names none.
+ */
+export function withTimeWorded<Worded extends Pick<Notification, "line" | "shortLine" | "at">>(
+  notification: Worded,
+  now: Date,
+): Worded {
+  const { at } = notification;
+  if (at === undefined) return notification;
+  const time = clockWords(at, now);
+  return {
+    ...notification,
+    line: notification.line.replaceAll(TIME, time),
+    shortLine: notification.shortLine?.replaceAll(TIME, time),
+  };
 }
 
 /** "14:00" on the service's day, "Mon 17 Nov 14:00" on another. */
@@ -320,17 +354,18 @@ export function windowUsedUp(
   engine: NamedEngine,
   { window, resetsAt }: Pick<UsedUpWindowWords, "window" | "resetsAt">,
   defaultPerson: string | undefined,
-  now: Date,
 ): NotificationDraft {
-  const until = clockWords(resetsAt, now);
-  return engineKind(
-    engine,
-    "office.window.used-up",
-    defaultPerson,
-    `${engine.name}'s ${window} is used up until ${until}. I've paused the Tasks on it, and the rest wait.`,
-    `${engine.name}'s ${window} is used up until ${until}. Tasks on it are paused and wait.`,
-    `${engine.name} used up until ${until}`,
-  );
+  return {
+    ...engineKind(
+      engine,
+      "office.window.used-up",
+      defaultPerson,
+      `${engine.name}'s ${window} is used up until ${TIME}. I've paused the Tasks on it, and the rest wait.`,
+      `${engine.name}'s ${window} is used up until ${TIME}. Tasks on it are paused and wait.`,
+      `${engine.name} used up until ${TIME}`,
+    ),
+    at: resetsAt,
+  };
 }
 
 export function engineDown(
@@ -416,19 +451,49 @@ function officeKind(
   };
 }
 
-/** How an engine's 5-hour window moved between two of its readings, as Notifications tell it. */
+/** A reading of an engine's 5-hour window: how much is used, and when it resets. */
+export interface WindowReading {
+  readonly percentUsed: number;
+  /** Undefined while the window has not begun. */
+  readonly resetsAt: Date | undefined;
+}
+
+const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+/** How far two readings' reset times may differ by rounding and still name the same moment. */
+const RESET_TOLERANCE_MS = 60 * 1000;
+
+/**
+ * How an engine's 5-hour window moved between two of its readings, as Notifications tell it. It
+ * resets only once the previous reading's reset time came (`now`, The Office's clock), or the
+ * current reading's window began at or after it; a lower reading before then is a reading that
+ * dipped, neither a reset nor a crossing of nearly used.
+ */
 export function windowMove(
-  previousPercent: number,
-  currentPercent: number,
+  previous: WindowReading,
+  current: WindowReading,
+  now: Date,
 ): "nearly-used" | "reset" | undefined {
-  if (currentPercent < previousPercent) return "reset";
-  if (
-    previousPercent < WINDOW_NEARLY_USED_PERCENT &&
-    currentPercent >= WINDOW_NEARLY_USED_PERCENT
-  ) {
+  const reset = windowHasReset(previous, current, now);
+  if (reset && current.percentUsed < previous.percentUsed) return "reset";
+  // A new window starts from nothing; within one, a lower reading than the last says nothing new.
+  const before = reset ? 0 : previous.percentUsed;
+  if (before < WINDOW_NEARLY_USED_PERCENT && current.percentUsed >= WINDOW_NEARLY_USED_PERCENT) {
     return "nearly-used";
   }
   return undefined;
+}
+
+/** Whether the window of the previous reading ended before the current one. */
+export function windowHasReset(
+  previous: WindowReading,
+  current: WindowReading,
+  now: Date,
+): boolean {
+  if (previous.resetsAt === undefined) return false;
+  if (now.getTime() >= previous.resetsAt.getTime()) return true;
+  if (current.resetsAt === undefined) return false;
+  const began = current.resetsAt.getTime() - FIVE_HOURS_MS;
+  return began >= previous.resetsAt.getTime() - RESET_TOLERANCE_MS;
 }
 
 /** What the user did, or what came about, that handles what some Notifications point to. */

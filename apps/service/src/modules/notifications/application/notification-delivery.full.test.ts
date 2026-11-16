@@ -13,7 +13,7 @@ import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js"
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionAnswered, DecisionOpened } from "../../conversations/index.js";
 import { EngineDown } from "../../engine/index.js";
-import { TaskStateChanged } from "../../work/index.js";
+import { TaskPaused, TaskStateChanged } from "../../work/index.js";
 import { RecordingPhonePush } from "../adapters/phone/recording-phone-push.js";
 import type { Notification } from "../domain/notification.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
@@ -213,6 +213,33 @@ describe("NotificationDelivery", () => {
       const ids = raisedNotifications().map(({ id }) => id);
 
       expect(pushedToPhone(ids)).toEqual([ids[0]]);
+    });
+
+    it("words the time a Notification names in the service's time zone, as it has no browser", async () => {
+      const taskId = randomUUID();
+      const resetsAt = noon(150);
+      await events.publish(
+        new TaskPaused(taskId, "in-progress", "usage-window", {
+          engineId: "claude-code",
+          engineName: "Claude Code",
+          window: "five-hour",
+          resetsAt,
+        }),
+      );
+      const [notification] = raisedNotifications();
+
+      // Raised with the instant, for each browser to word in its own time zone.
+      expect(notification).toMatchObject({
+        line: "Paused: Claude Code's 5-hour window is used up. Resumes at {time}.",
+        at: resetsAt,
+      });
+      expect((await listed()).find(({ id }) => id === notification?.id)?.at).toBe(
+        resetsAt.toISOString(),
+      );
+      const recorded = app.get(PhonePush) as RecordingPhonePush;
+      expect(recorded.pushed.find(({ id }) => id === notification?.id)?.line).toBe(
+        "Paused: Claude Code's 5-hour window is used up. Resumes at 14:30.",
+      );
     });
 
     it("waits again after a restart", async () => {

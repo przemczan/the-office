@@ -21,6 +21,7 @@ function notification(overrides: Partial<Notification> & Pick<Notification, "id"
     roleKey: undefined,
     line: "I need your answer: Keep the query string?",
     shortLine: undefined,
+    at: undefined,
     pointsTo: { kind: "office" },
     channels: ["in-app", "desktop", "phone"],
     raisedAt: at(12),

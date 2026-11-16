@@ -17,6 +17,7 @@ export class PostgresNotificationRepository extends NotificationRepository {
       ...notification,
       roleKey: notification.roleKey ?? null,
       shortLine: notification.shortLine ?? null,
+      at: notification.at ?? null,
       phonePushedAt: notification.phonePushedAt ?? null,
     });
   }
@@ -28,10 +29,11 @@ export class PostgresNotificationRepository extends NotificationRepository {
       .where(isNull(notifications.clearedAt))
       .orderBy(asc(notifications.raisedAt));
     return rows.map(
-      ({ clearedAt: _clearedAt, roleKey, shortLine, phonePushedAt, ...notification }) => ({
+      ({ clearedAt: _clearedAt, roleKey, shortLine, at, phonePushedAt, ...notification }) => ({
         ...notification,
         roleKey: roleKey ?? undefined,
         shortLine: shortLine ?? undefined,
+        at: at ?? undefined,
         phonePushedAt: phonePushedAt ?? undefined,
       }),
     );

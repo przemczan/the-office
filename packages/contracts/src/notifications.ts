@@ -272,6 +272,12 @@ export type Pointer = z.infer<typeof pointerSchema>;
 export const gatheringKindSchema = z.enum(["collapsed-outcomes", "quiet-hours-summary"]);
 export type GatheringKind = z.infer<typeof gatheringKindSchema>;
 
+/**
+ * Where a Notification's lines put the instant it names (`at`), mirroring the Notifications
+ * module's own: the web words it in the browser's time zone.
+ */
+export const NOTIFICATION_TIME = "{time}";
+
 /** A pointer to something that waits on the user or happened, cleared once they handle it. */
 export const notificationSchema = z.object({
   id: z.uuid(),
@@ -285,6 +291,12 @@ export const notificationSchema = z.object({
    * it beside it. Only The Office's own kinds have one; the strip shows `line` without it.
    */
   shortLine: z.string().min(1).optional(),
+  /**
+   * The instant `line` and `shortLine` name, as a usage window's reset: they hold
+   * `NOTIFICATION_TIME` where it goes, which the web words in the browser's time zone. Absent when
+   * they name none, and on those raised before it (2026-11-16), whose lines are worded already.
+   */
+  at: z.iso.datetime().optional(),
   pointsTo: pointerSchema,
   /** Where its kind's routing sends it. */
   channels: z.array(channelSchema),
