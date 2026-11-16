@@ -35,10 +35,6 @@
   color: var(--fg-2);
 }
 
-.needs-you-list .decision-options {
-  margin-top: 12px;
-}
-
 .needs-you-list {
   display: flex;
   flex-direction: column;

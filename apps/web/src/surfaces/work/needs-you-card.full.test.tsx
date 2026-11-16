@@ -14,6 +14,7 @@ import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
+import { DecisionDraftsProvider } from "../../shell/conversation/decision-drafts.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
@@ -53,16 +54,12 @@ function aDecision(id: string, question: string): Decision {
         recommendation: { option: 0, reason: "Spreadsheets open it." },
       },
     ],
-    question,
     context: "",
-    options: ["CSV", "JSON"],
-    recommendation: { option: 0, reason: "Spreadsheets open it." },
     attachmentIds: [],
     askedAt: "2026-11-10T14:02:00.000Z",
     putTo: null,
     passedOn: [],
     formAnswer: null,
-    answer: null,
     answeredAt: null,
     answeredByUser: null,
     answeredBy: null,
@@ -123,7 +120,9 @@ async function rendered(): Promise<HTMLElement> {
     createRoot(page).render(
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <RouterProvider router={router} />
+          <DecisionDraftsProvider>
+            <RouterProvider router={router} />
+          </DecisionDraftsProvider>
         </ToastProvider>
       </QueryClientProvider>,
     );
@@ -164,9 +163,12 @@ describe("a Task's Decisions opened in its Initiative's planning Thread", () => 
   it("stay answerable while the Planner works, saying when the answer reaches them", async () => {
     const page = await rendered();
 
-    const options = [...page.querySelectorAll<HTMLButtonElement>(".decision-options button")];
-    expect(options).toHaveLength(4);
-    expect(options.every((option) => !option.disabled)).toBe(true);
+    const submits = [...page.querySelectorAll<HTMLButtonElement>("button")].filter(
+      ({ textContent }) =>
+        textContent?.startsWith("Submit") || textContent?.startsWith("Ask me again"),
+    );
+    expect(submits).toHaveLength(4);
+    expect(submits.every((button) => !button.disabled)).toBe(true);
     expect(page.textContent).toContain("Reaches Angela when this turn ends.");
     expect(page.textContent).not.toContain("is still answering");
   });

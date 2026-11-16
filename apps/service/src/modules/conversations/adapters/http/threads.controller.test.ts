@@ -819,9 +819,6 @@ describe("a Decision", () => {
       kind: "form",
       context: draft.context,
       questions: [question],
-      question: question.question,
-      options: question.options,
-      recommendation: question.recommendation,
       id: decision.id,
       threadId: thread.id,
       taskId: decision.taskId,
@@ -831,7 +828,6 @@ describe("a Decision", () => {
       putTo: null,
       passedOn: [],
       formAnswer: null,
-      answer: null,
       answeredAt: null,
       answeredByUser: null,
       answeredBy: null,
@@ -876,8 +872,8 @@ describe("a Decision", () => {
     });
 
     const again = await send("POST", `/decisions/${decision.id}/answer`, {
-      kind: "option",
-      option: 0,
+      kind: "submitted",
+      answers: [{ kind: "option", option: 0 }],
     });
     const messages = messageListSchema.parse(
       await (await get(`/threads/${thread.id}/messages`)).json(),
@@ -890,11 +886,7 @@ describe("a Decision", () => {
     expect(messages.map((message) => message.kind)).toEqual(["decision", "decision-answer"]);
     expect(messages[1]).toMatchObject({
       formAnswer: oneWordsAnswer("Only this year's."),
-      answer: { kind: "free-answer", text: "Only this year's." },
-      decision: {
-        formAnswer: oneWordsAnswer("Only this year's."),
-        answer: { kind: "free-answer", text: "Only this year's." },
-      },
+      decision: { formAnswer: oneWordsAnswer("Only this year's.") },
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
     expect(open.map(({ id }) => id)).not.toContain(decision.id);
@@ -969,7 +961,7 @@ describe("what each signed-in user does", () => {
     const answering = await send(
       "POST",
       `/decisions/${decision.id}/answer`,
-      { kind: "option", option: 0 },
+      { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
       BY_BEN,
     );
     const log = messageListSchema.parse(await (await get(`/threads/${thread.id}/messages`)).json());
@@ -979,7 +971,10 @@ describe("what each signed-in user does", () => {
     expect(log[0]).toMatchObject({ kind: "user", writtenBy: ANN_LEE });
     expect(log[2]).toMatchObject({
       kind: "decision-answer",
-      decision: { answer: { kind: "option", option: 0 }, answeredByUser: BEN_ITO },
+      decision: {
+        formAnswer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
+        answeredByUser: BEN_ITO,
+      },
     });
     expect((await app.get(ThreadRepository).decision(decision.id))?.answer?.user).toEqual(BEN_ITO);
   });

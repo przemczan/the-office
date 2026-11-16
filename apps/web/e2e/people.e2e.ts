@@ -2069,10 +2069,10 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(readinessLine("Pipeline chosen")).toHaveClass(/task-checklist-met/);
   await expect(markReady).toBeDisabled();
 
-  await decision.getByRole("button", { name: "Keep the query string" }).click();
+  await pickAndSubmit(decision, "Keep the query string");
   await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
   await expect(decision).toHaveCount(0);
-  await expect(inThread).toContainText("Answered by you: Keep the query string");
+  await expectAnsweredByYou(inThread, "Keep the query string (recommended)");
   await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
   await expect(readinessLine("No Decision open")).toHaveClass(/task-checklist-met/);
 
@@ -2518,7 +2518,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await strip.screenshot({ path: path.join(SCREENSHOTS, "dark-strip-needs-you-alert.png") });
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "light");
-  await onNow.getByRole("button", { name: "The page it started from" }).click();
+  await pickAndSubmit(onNow, "The page it started from");
   await expect(onNow).toHaveCount(0);
   await expect(needsYouFigure).toHaveAccessibleName(/^0 need you/);
   await expect(needsYouFigure).not.toHaveClass(/\balert\b/);
@@ -2551,7 +2551,10 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(
     history.getByText("Signing in now returns to the page it started from."),
   ).toBeVisible();
-  await expect(history.getByText("Answered by you: The page it started from")).toBeVisible();
+  await expectAnsweredByYou(
+    history.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` }),
+    "The page it started from (recommended)",
+  );
   await expect(conversation.getByText("Signing in now returns")).toHaveCount(0);
   await expect(history.getByRole("group", { name: "Details" })).toBeVisible();
   await expect(newestRun.getByRole("note")).toHaveText(
@@ -3332,6 +3335,36 @@ test(
   },
 );
 
+/** Answers a Decision form of one choice in place, as the user does: the option, then Submit. */
+async function pickAndSubmit(card: Locator, option: string): Promise<void> {
+  await card.locator("label").filter({ hasText: option }).getByRole("radio").check();
+  await card.getByRole("button", { name: "Submit", exact: true }).click();
+}
+
+/** A sent form of one question in its Thread: its answer, then that the user gave it. */
+async function expectAnsweredByYou(card: Locator, answer: string): Promise<void> {
+  await expect(card.locator(".decision-answer-words")).toHaveText(answer);
+  await expect(card.locator(".decision-answered")).toHaveText("Answered by you");
+}
+
+/**
+ * A Decision of one choice in the columns the service keeps it in: `questions`, its form, and the
+ * one question in `question`, `options` and `recommendation`, which the release before reads.
+ */
+function oneChoiceColumns(
+  question: string,
+  options: readonly string[],
+  reason: string,
+): readonly string[] {
+  const recommendation = { option: 0, reason };
+  return [
+    question,
+    JSON.stringify(options),
+    JSON.stringify(recommendation),
+    JSON.stringify([{ kind: "choice", question, options, recommendation }]),
+  ];
+}
+
 const CONSULTATION_QUESTION = "Is the migration safe to run on the live data?";
 const CONSULTATION_OPTION = "Yes";
 
@@ -3344,14 +3377,17 @@ async function seedConsultation(taskId: string, plannerThreadId: string): Promis
   const decisionId = crypto.randomUUID();
   const consultationId = crypto.randomUUID();
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at, put_to)
-     values ($1, $2, $3, 'planner', 'question', $4, 'The migration rewrites every row.', $5, '{"option":0,"reason":"It ran on the copy."}', now(), 'developer')`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, asked_at, put_to)
+     values ($1, $2, $3, 'planner', 'question', $4, 'The migration rewrites every row.', $5, $6, $7, now(), 'developer')`,
     [
       decisionId,
       plannerThreadId,
       taskId,
-      CONSULTATION_QUESTION,
-      JSON.stringify([CONSULTATION_OPTION, "No"]),
+      ...oneChoiceColumns(
+        CONSULTATION_QUESTION,
+        [CONSULTATION_OPTION, "No"],
+        "It ran on the copy.",
+      ),
     ],
   );
   await queryOfficeDatabase(
@@ -3385,15 +3421,15 @@ const ANSWERED_CONSULTATION_QUESTION = "Does the rollback run in the tests?";
 async function seedAnsweredConsultation(taskId: string, plannerThreadId: string): Promise<void> {
   const decisionId = crypto.randomUUID();
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at, answer, answered_at)
-     values ($1, $2, $3, 'planner', 'question', $4, 'The rollback is new.', $5, '{"option":0,"reason":"It ran."}', now(), $6, now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, asked_at, answer, form_answer, answered_at)
+     values ($1, $2, $3, 'planner', 'question', $4, 'The rollback is new.', $5, $6, $7, now(), $8, $9, now())`,
     [
       decisionId,
       plannerThreadId,
       taskId,
-      ANSWERED_CONSULTATION_QUESTION,
-      JSON.stringify([CONSULTATION_OPTION, "No"]),
+      ...oneChoiceColumns(ANSWERED_CONSULTATION_QUESTION, [CONSULTATION_OPTION, "No"], "It ran."),
       { kind: "option", option: 0, answeredBy: "developer" },
+      { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
     ],
   );
   await queryOfficeDatabase(
@@ -3515,10 +3551,10 @@ test(
       await page.setViewportSize({ width: 1600, height: 900 });
 
       // Taking it over: the user answers in the card, and Jan takes the answer in the asking Thread.
-      await decision.getByRole("button", { name: CONSULTATION_OPTION }).click();
+      await pickAndSubmit(decision, CONSULTATION_OPTION);
       await expect(decision).toHaveCount(0);
       await expect(needsYou).toContainText("Ready: start it when you want");
-      await expect(inThread).toContainText(`Answered by you: ${CONSULTATION_OPTION}`);
+      await expectAnsweredByYou(inThread, `${CONSULTATION_OPTION} (recommended)`);
       await expect(conversation.getByText("Then the migration goes first.")).toBeVisible();
       await expect(adamTab).toHaveCount(0);
 
@@ -5801,7 +5837,7 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     await jan.getByRole("link", { name: /^Decision on/ }).click();
 
     const decisionWindow = page.getByRole("dialog");
-    await expect(decisionWindow.getByRole("button", { name: "Answer", exact: true })).toBeVisible();
+    await expect(decisionWindow.getByRole("button", { name: "Submit", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\/work$/);
     await page.keyboard.press("Escape");
     await expect(decisionWindow).toHaveCount(0);
@@ -6553,7 +6589,7 @@ test(
       await expect(
         beforeReady.getByRole("listitem").filter({ hasText: "No Decision open" }),
       ).toContainText("1 open, in Needs you");
-      await onTask.getByRole("button", { name: "CSV", exact: true }).click();
+      await pickAndSubmit(onTask, "CSV");
       await expect(onTask).toHaveCount(0);
 
       await expect
@@ -6574,7 +6610,7 @@ test(
       expect(
         (
           await page.request.post(`/api/decisions/${rowCount?.id}/answer`, {
-            data: { kind: "option", option: 0 },
+            data: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
           })
         ).ok(),
       ).toBe(true);
@@ -6778,14 +6814,17 @@ const DECISION_FOR_THE_USER_QUESTION = "Should the old export stay beside the ne
 /** A Decision Jan asked on the Task, waiting on the user, by the id the chat's script names. */
 async function seedDecisionForTheUser(taskId: string, plannerThreadId: string): Promise<void> {
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at)
-     values ($1, $2, $3, 'planner', 'question', $4, 'Some reports read the old one.', $5, '{"option":0,"reason":"Reports read it."}', now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, asked_at)
+     values ($1, $2, $3, 'planner', 'question', $4, 'Some reports read the old one.', $5, $6, $7, now())`,
     [
       DECISION_FOR_THE_USER_ID,
       plannerThreadId,
       taskId,
-      DECISION_FOR_THE_USER_QUESTION,
-      JSON.stringify(["Keep the old export", "Remove the old export"]),
+      ...oneChoiceColumns(
+        DECISION_FOR_THE_USER_QUESTION,
+        ["Keep the old export", "Remove the old export"],
+        "Reports read it.",
+      ),
     ],
   );
   await queryOfficeDatabase(
@@ -6830,8 +6869,11 @@ test(
       const card = conversation.getByRole("region", {
         name: `Decision: ${DECISION_FOR_THE_USER_QUESTION}`,
       });
+      await expect(card.locator(".decision-answer-words")).toHaveText(
+        "Keep the old export (recommended)",
+      );
       await expect(card.locator(".decision-answered")).toHaveText(
-        "Answered by Jan at your request: Keep the old export",
+        "Answered by Jan at your request",
       );
       await expect(
         conversation.getByText("Jan · answering the Decision at your request"),
@@ -6892,8 +6934,11 @@ test(
       await expect(call.locator(".decision-question")).toHaveText(
         "Asked Nina to: Add an End to end test command to Called up.",
       );
+      await expect(call.locator(".decision-answer-words")).toHaveText(
+        "I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+      );
       await expect(call.locator(".decision-answered")).toHaveText(
-        "Answered by Nina: I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+        "Answered by Nina in a Consultation · Open the Consultation",
       );
       await expect(call).not.toContainText("Needs you");
       await call.scrollIntoViewIfNeeded();

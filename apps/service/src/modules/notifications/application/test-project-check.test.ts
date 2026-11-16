@@ -17,12 +17,14 @@ import {
   addTestProject,
   checkApi,
   cleanUpTestProject,
+  firstQuestion,
   git,
   hireOnHaiku,
   openDecisionsOn,
   planOnQuickFix,
   stageLines,
   stagesOf,
+  submitDecision,
   tokensOf,
   untilWalkStops,
   type Api,
@@ -165,9 +167,9 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             await note(...(await nowLines(api, `stop ${stops}, ${task.state}`)));
             const waiting = await openDecisionsOn(api, taskId);
             for (const decision of waiting) {
-              const option = decision.recommendation.option;
-              await note(`Answering "${decision.question}" with "${decision.options[option]}"`);
-              await api("POST", `/decisions/${decision.id}/answer`, { kind: "option", option });
+              const { question, options, recommended } = firstQuestion(decision);
+              await note(`Answering "${question}" with "${options[recommended] ?? "words"}"`);
+              await submitDecision(api, decision);
             }
             if (waiting.length === 0) {
               await note("Continuing at the Gate");

@@ -34,7 +34,6 @@ const decision = {
       recommendation: { option: 0, reason: "" },
     },
   ],
-  options: ["This", "That"],
   answeredByUser: null,
 } as Decision;
 const proposal = {} as Proposal;
@@ -111,7 +110,6 @@ const EVERY_KIND: {
       id: "10",
       kind: "decision-answer",
       formAnswer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
-      answer: { kind: "option", option: 0 },
       atUsersRequest: null,
       decision,
     },

@@ -10,9 +10,9 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
-  decisionAnswerRequestSchema,
-  type DecisionAnswerRequest,
+  decisionFormAnswerSchema,
   type Decision as DecisionResponse,
+  type DecisionFormAnswer,
   type Thread as ThreadResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -46,21 +46,19 @@ export class DecisionsController {
 
   /**
    * The signed-in user's answer, to any Decision, as every user shares them; the person who asked
-   * takes it in its Thread, which this answers with. The form's answer, or, to a Decision of one
-   * question, an option or a free answer as before the form.
+   * takes it in its Thread, which this answers with: the form submitted, or Ask me again.
    */
   @Post("decisions/:id/answer")
   @HttpCode(HttpStatus.ACCEPTED)
   async answer(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(decisionAnswerRequestSchema)) answer: DecisionAnswerRequest,
+    @Body(new ContractPipe(decisionFormAnswerSchema)) answer: DecisionFormAnswer,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ThreadResponse> {
-    const answerer = { kind: "user", user: userOf(signedIn) } as const;
-    const thread =
-      answer.kind === "option" || answer.kind === "free-answer"
-        ? await this.decisions.answerAsOne(id, answer, answerer)
-        : await this.decisions.answer(id, answer, answerer);
+    const thread = await this.decisions.answer(id, answer, {
+      kind: "user",
+      user: userOf(signedIn),
+    });
     // A chat has no Decisions, so this Thread takes no part in the record of what was seen.
     return toThreadResponse(thread, await this.contexts.read(thread), undefined);
   }

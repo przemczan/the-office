@@ -20,11 +20,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   addTestProject,
   checkApi,
+  firstQuestion,
   git,
   hireOnHaiku,
   openDecisionsOn,
   stageLines,
   stagesOf,
+  submitDecision,
   tokensOf,
   startPlanner,
   untilThreadWaits,
@@ -157,10 +159,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           if (!planningThread) throw new Error("Planning opened no Thread.");
           await startPlanner(api, planningThread.id, PLANNER_OPENING_MS);
           for (const asked of await openDecisionsOn(api, taskId)) {
-            await api("POST", `/decisions/${asked.id}/answer`, {
-              kind: "option",
-              option: asked.recommendation.option,
-            });
+            await submitDecision(api, asked);
           }
           await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
           await api("PUT", `/tasks/${taskId}/plan`, { plan: PLAN });
@@ -208,13 +207,11 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           // The Decision it asked for, answered the moment it opens.
           const asked = await until(async () => (await openDecisionsOn(api, taskId))[0], 250);
           const stillRunning = (await latestRun(api, taskId)).outcome === null;
-          const option = asked.options.findIndex((each) => each.includes("version"));
-          await api("POST", `/decisions/${asked.id}/answer`, {
-            kind: "option",
-            option: option >= 0 ? option : asked.recommendation.option,
-          });
+          const { question, options } = firstQuestion(asked);
+          const option = options.findIndex((each) => each.includes("version"));
+          await submitDecision(api, asked, option >= 0 ? option : undefined);
           await note(
-            `Decision by ${asked.roleKey ?? "The Office"}: ${asked.question} [${asked.options.join(" | ")}]`,
+            `Decision by ${asked.roleKey ?? "The Office"}: ${question} [${options.join(" | ")}]`,
             `  answered with the run still going: ${stillRunning}`,
           );
 

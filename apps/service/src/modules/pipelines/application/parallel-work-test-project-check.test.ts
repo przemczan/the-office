@@ -23,12 +23,14 @@ import {
   callingItMet,
   checkApi,
   comparable,
+  firstQuestion,
   git,
   hireOnHaiku,
   openDecisionsOn,
   quietly,
   stageLines,
   stagesOf,
+  submitDecision,
   tokensOf,
   startPlanner,
   untilThreadWaits,
@@ -311,10 +313,7 @@ async function planWithThePlanner(
   if (!thread) throw new Error("Planning opened no Thread.");
   await startPlanner(api, thread.id, PLANNER_MS);
   for (const asked of await openDecisionsOn(api, taskId)) {
-    await api("POST", `/decisions/${asked.id}/answer`, {
-      kind: "option",
-      option: asked.recommendation.option,
-    });
+    await submitDecision(api, asked);
     await untilThreadWaits(api, thread.id, PLANNER_MS);
   }
   let task = taskSchema.parse(await api("GET", `/tasks/${taskId}`));
@@ -395,10 +394,11 @@ async function waitingStage(api: Api, taskId: string): Promise<string> {
 async function untilDone(api: Api, taskId: string, note: Note): Promise<Task> {
   let task = await untilWalkStops(api, taskId, WALK_MS);
   for (const asked of await openDecisionsOn(api, taskId)) {
-    await note(`Asked: ${asked.question} [${asked.options.join(" | ")}]`);
-    const markDone = callingItMet(asked.options);
-    if (!asked.question.includes("Definition of Done") || markDone < 0) break;
-    await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
+    const { question, options } = firstQuestion(asked);
+    await note(`Asked: ${question} [${options.join(" | ")}]`);
+    const markDone = callingItMet(options);
+    if (!question.includes("Definition of Done") || markDone < 0) break;
+    await submitDecision(api, asked, markDone);
     task = await untilWalkStops(api, taskId, WALK_MS);
   }
   return task;

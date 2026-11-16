@@ -3,7 +3,6 @@ import {
   projectPipelineFieldsSchema,
   stageSchema,
   type ChatActivity as ChatActivityResponse,
-  type DecisionAnswer as DecisionAnswerResponse,
   type DecisionFormAnswer as DecisionFormAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
@@ -22,13 +21,7 @@ import type { ThreadReading } from "../../application/thread-contexts.js";
 import type { TaskThreadSummary, ThreadSummary } from "../../application/thread-summaries.js";
 import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
-import {
-  decisionSummary,
-  oneAnswerView,
-  oneQuestionView,
-  type Decision,
-  type DecisionAnswer,
-} from "../../domain/decision.js";
+import { type Decision, type DecisionAnswer } from "../../domain/decision.js";
 import { hiredKeyOf } from "../../../people/index.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
@@ -199,7 +192,6 @@ export function toMessageResponse(
       return {
         ...line,
         formAnswer: toFormAnswerResponse(answer),
-        answer: toAnswerResponse(decision, answer),
         atUsersRequest: atUsersRequest ? { ...atUsersRequest } : null,
         decision: toDecisionResponse(decision),
       };
@@ -404,10 +396,7 @@ function decisionOf(
   return decision;
 }
 
-/**
- * The Decision with its form, and, for the web until it reads the form, as one question: its
- * summary, the first question's options and recommendation, and the answer as one.
- */
+/** The Decision with its form and, once answered, the form's answer. */
 export function toDecisionResponse({
   answer,
   askedAt,
@@ -415,7 +404,6 @@ export function toDecisionResponse({
   questions,
   ...decision
 }: Decision): DecisionResponse {
-  const one = oneQuestionView({ questions });
   return {
     ...decision,
     taskId: decision.taskId ?? null,
@@ -434,13 +422,9 @@ export function toDecisionResponse({
           }
         : { ...question },
     ),
-    question: decisionSummary({ questions }),
-    options: [...one.options],
-    recommendation: { ...one.recommendation },
     attachmentIds: [...decision.attachmentIds],
     askedAt: askedAt.toISOString(),
     formAnswer: answer ? toFormAnswerResponse(answer) : null,
-    answer: answer ? toAnswerResponse({ kind: decision.kind, questions }, answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
     closedAt: closedAt?.toISOString() ?? null,
     answeredByUser: answer?.user ?? null,
@@ -467,14 +451,4 @@ function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerRespons
     }),
     ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
   };
-}
-
-function toAnswerResponse(
-  decision: Pick<Decision, "kind" | "questions">,
-  answer: DecisionAnswer,
-): DecisionAnswerResponse {
-  const one = oneAnswerView(decision, answer);
-  return one.kind === "option"
-    ? { kind: "option", option: one.option }
-    : { kind: "free-answer", text: one.text };
 }

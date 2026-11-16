@@ -648,13 +648,13 @@ describe("a Decision", () => {
     const { decision } = await opened();
 
     const wrongOption = await send("POST", `/decisions/${decision.id}/answer`, {
-      kind: "option",
-      option: 2,
+      kind: "submitted",
+      answers: [{ kind: "option", option: 2 }],
     });
     const noAnswer = await send("POST", `/decisions/${decision.id}/answer`, { kind: "maybe" });
     const nowhere = await send("POST", `/decisions/${randomUUID()}/answer`, {
-      kind: "free-answer",
-      text: "Yes.",
+      kind: "submitted",
+      answers: [{ kind: "words", text: "Yes." }],
     });
 
     expect(wrongOption.status).toBe(422);
@@ -665,7 +665,7 @@ describe("a Decision", () => {
     expect(nowhere.status).toBe(404);
   });
 
-  it("takes the form's answer, and an answer as one only on a Decision of one question", async () => {
+  it("takes the form's answer, and refuses one that doesn't answer every question", async () => {
     const taskId = randomUUID();
     const openedIn = async (asked: DecisionDraft): Promise<Decision> => {
       // In a Stage Thread the answer is only recorded, with no session to take it.
@@ -675,16 +675,16 @@ describe("a Decision", () => {
       return (await app.get(DecisionService).open(sessionId, asked)).decision;
     };
     const oneQuestion = await openedIn(draft);
-    const askedAsOne = await openedIn(twoQuestions);
+    const answeredInPart = await openedIn(twoQuestions);
     const form = await openedIn(twoQuestions);
 
-    const asOne = await send("POST", `/decisions/${oneQuestion.id}/answer`, {
-      kind: "option",
-      option: 1,
+    const toOne = await send("POST", `/decisions/${oneQuestion.id}/answer`, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 1 }],
     });
-    const refused = await send("POST", `/decisions/${askedAsOne.id}/answer`, {
-      kind: "option",
-      option: 0,
+    const refused = await send("POST", `/decisions/${answeredInPart.id}/answer`, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 0 }],
     });
     const submitted = await send("POST", `/decisions/${form.id}/answer`, {
       kind: "submitted",
@@ -695,16 +695,16 @@ describe("a Decision", () => {
       generalComment: "Thanks.",
     });
 
-    expect([asOne.status, refused.status, submitted.status]).toEqual([202, 422, 202]);
+    expect([toOne.status, refused.status, submitted.status]).toEqual([202, 422, 202]);
     expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([
-      "This Decision asks 2 questions: answer each.",
+      "Answer every question: this Decision asks 2.",
     ]);
     const repository = app.get(ThreadRepository);
     expect((await repository.decision(oneQuestion.id))?.answer).toMatchObject({
       ...oneOptionAnswer(1),
       user: ANN_LEE,
     });
-    expect((await repository.decision(askedAsOne.id))?.answer).toBeUndefined();
+    expect((await repository.decision(answeredInPart.id))?.answer).toBeUndefined();
     expect((await repository.decision(form.id))?.answer).toMatchObject({
       kind: "submitted",
       answers: [
@@ -721,8 +721,8 @@ describe("a Decision", () => {
     const { thread, decision } = await opened();
 
     const response = await send("POST", `/decisions/${decision.id}/answer`, {
-      kind: "free-answer",
-      text: "Only this year's.",
+      kind: "submitted",
+      answers: [{ kind: "words", text: "Only this year's." }],
     });
     const open = await vi.waitFor(
       async () => {
@@ -737,7 +737,7 @@ describe("a Decision", () => {
     );
 
     expect(response.status).toBe(202);
-    expect(open.find(({ id }) => id === decision.id)).toMatchObject({ answer: null });
+    expect(open.find(({ id }) => id === decision.id)).toMatchObject({ formAnswer: null });
     expect(messages.map((message) => message.kind)).toEqual([
       "decision",
       "decision-answer",
@@ -745,8 +745,7 @@ describe("a Decision", () => {
     ]);
     expect(messages[1]).toMatchObject({
       formAnswer: oneWordsAnswer("Only this year's."),
-      answer: { kind: "free-answer", text: "Only this year's." },
-      decision: { answer: null, formAnswer: null },
+      decision: { formAnswer: null },
     });
     expect(webEvents()).toContainEqual({
       type: "thread.decision-reopened",

@@ -83,7 +83,7 @@ describe("toProposalResponse", () => {
 });
 
 describe("a Decision as the web reads it", () => {
-  it("gives a form of several questions whole, and as one question for the web until it reads the form", () => {
+  it("gives a form of several questions whole, with the form's answer", () => {
     const decision = aDecision({
       questions: THREE_QUESTIONS,
       answer: {
@@ -111,22 +111,17 @@ describe("a Decision as the web reads it", () => {
         ],
         generalComment: "Thanks.",
       },
-      question: "Should the export include archived Projects? (and 2 more questions)",
-      options: ["Only active Projects", "Every Project"],
-      recommendation: { option: 0, reason: "Archived Projects have nothing to export." },
-      answer: { kind: "free-answer", text: expect.stringContaining("General comment: Thanks.") },
+      answeredAt: "2026-11-06T11:00:00.000Z",
     });
   });
 
-  it("gives an open one's answer as null, and an open question's options as none", () => {
+  it("gives an open one's answer as null", () => {
     const decision = aDecision({ questions: [{ kind: "open", question: "Which years?" }] });
 
     expect(decisionSchema.parse(toDecisionResponse(decision))).toMatchObject({
-      question: "Which years?",
-      options: [],
-      recommendation: { option: 0, reason: "" },
+      questions: [{ kind: "open", question: "Which years?" }],
       formAnswer: null,
-      answer: null,
+      answeredAt: null,
     });
   });
 });
@@ -140,7 +135,6 @@ describe("the user a record names, as the web reads it", () => {
 
     expect(decisionSchema.parse(toDecisionResponse(byBen))).toMatchObject({
       formAnswer: oneOptionAnswer(1),
-      answer: { kind: "option", option: 1 },
       answeredByUser: BEN_ITO,
       answeredBy: null,
       atUsersRequest: null,

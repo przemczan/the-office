@@ -1,4 +1,4 @@
-import type { Attachment, Decision, DecisionAnswer, UserRef } from "@the-office/contracts";
+import type { Attachment, Decision, UserRef } from "@the-office/contracts";
 import { isSignedInUser } from "../use-user-name.ts";
 
 /**
@@ -17,11 +17,6 @@ export function atUsersRequestWords(
 /** A Decision closed unanswered, as dropping its Task closes it (spec §2.4). */
 export const CLOSED_WORDS = "Closed: the Task was dropped.";
 
-/** The answer in words: the option picked, or what the user wrote. */
-export function answerWords(answer: DecisionAnswer, { options }: Decision): string {
-  return answer.kind === "option" ? (options[answer.option] ?? "") : answer.text;
-}
-
 /**
  * The Attachments a Decision names, in its order. One removed since it opened stays named on the
  * Decision but is no longer among the Task's, so it is left out.
@@ -35,12 +30,15 @@ export function namedAttachments(
   );
 }
 
-/** What a Decision's details window holds, in short: "2 answers · 5 Attachments". */
+/** What a Decision's details window holds, in short: "3 questions · 5 Attachments". */
 export function decisionDetailsWords(
-  { options }: Pick<Decision, "options">,
+  { questions }: Pick<Decision, "questions">,
   attachments: readonly Attachment[],
 ): string {
-  return `${counted(options.length, "answer", "answers")} · ${counted(attachments.length, "Attachment", "Attachments")}`;
+  const asked = counted(questions.length, "question", "questions");
+  return attachments.length === 0
+    ? asked
+    : `${asked} · ${counted(attachments.length, "Attachment", "Attachments")}`;
 }
 
 function counted(count: number, one: string, many: string): string {

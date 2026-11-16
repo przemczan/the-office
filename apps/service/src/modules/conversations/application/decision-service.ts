@@ -7,7 +7,6 @@ import {
   answerGivenBy,
   CLOSED_DECISION_REFUSAL,
   decisionSummary,
-  formAnswerFromOne,
   isApproval,
   isOnTask,
   type Answerer,
@@ -15,7 +14,6 @@ import {
   type DecisionAnswer,
   type DecisionDraft,
   type DecisionOnTask,
-  type OneQuestionAnswer,
 } from "../domain/decision.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
 import { latestWriter } from "../domain/message.js";
@@ -141,22 +139,6 @@ export class DecisionService {
     );
     if (event) await this.events.publish(event);
     return answered;
-  }
-
-  /**
-   * Answers the Decision as `answer` does, with an answer given as one, as before the form: an
-   * option or words, to a Decision of one question. Refused on a form of several questions, which
-   * needs an answer to each.
-   */
-  async answerAsOne(id: string, answer: OneQuestionAnswer, answerer: Answerer): Promise<Thread> {
-    const decision = await this.repository.decision(id);
-    if (!decision) throw new DecisionNotFound(id);
-    if (decision.questions.length > 1) {
-      throw new ThreadRefused([
-        `This Decision asks ${decision.questions.length} questions: answer each.`,
-      ]);
-    }
-    return this.answer(id, formAnswerFromOne(answer), answerer);
   }
 
   /**

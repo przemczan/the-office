@@ -23,7 +23,8 @@ import { userName, useSignedInUserId, useUserName, type UserNamer } from "../use
 import { contextLabel, earlierSessionLabel, newSessionLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionInThread } from "./decision-card.tsx";
-import { answerWords, atUsersRequestWords } from "./decision-words.ts";
+import { formAnswerWords } from "./decision-form-words.ts";
+import { atUsersRequestWords } from "./decision-words.ts";
 import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
 import {
@@ -732,11 +733,13 @@ function DecisionAnswerItem({
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   const signedInUserId = useSignedInUserId();
-  const words = answerWords(message.answer, message.decision);
+  const words = formAnswerWords(message.decision, message.formAnswer);
   if (message.decision.answeredByTheOffice) {
+    // The Office sends a call back to its caller with words of its own, its general comment.
+    const sent = message.formAnswer.generalComment?.trim();
     return (
       <div className="message-office">
-        <MarkdownText text={words} inline />
+        <MarkdownText text={sent ? sent : words} inline />
       </div>
     );
   }
