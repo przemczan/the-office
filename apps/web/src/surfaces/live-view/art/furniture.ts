@@ -168,12 +168,84 @@ export function exerciseMatShape(): ArtShape {
   });
 }
 
-export function meetingTableShape(): ArtShape {
-  return isoShape({ maxX: 1.8, maxY: 0.8, maxZ: 12 }, (pen) => {
-    pen.box(0.75, 0.3, 0, 0.3, 0.2, 7, A.tableLeg, A.tableLeg, A.tableLeg);
-    pen.box(0, 0, 7, 1.8, 0.8, 1, A.tableTop, A.tableSide, A.tableSide, A.deskEdge);
-    pen.floor(0.3, 0.2, 0.62, 0.42, A.paper, 8);
-    pen.box(1.3, 0.45, 8, 0.12, 0.12, 2, A.mug, A.mug, A.deskLeft);
+/** The floor pillows' colours and shades, by `Amenity.variant`. */
+const PILLOW_COLOURS: readonly (readonly [colour: number, shade: number])[] = [
+  [A.pillowA, A.pillowAShade],
+  [A.pillowB, A.pillowBShade],
+  [A.pillowC, A.pillowCShade],
+];
+
+/**
+ * How high a floor pillow is, in art pixels: a pixel under a desk chair's seat, so whoever sits on
+ * one has a `seatZ` of -1 (`floor-plan.ts`).
+ */
+const FLOOR_PILLOW_H = 4;
+
+/** A plump square floor pillow in one of three colours, by its variant from 0; its origin its middle. */
+export function floorPillowShape(variant: number): ArtShape {
+  const [colour, shade] = PILLOW_COLOURS[Math.abs(variant) % PILLOW_COLOURS.length] ?? [
+    A.pillowA,
+    A.pillowAShade,
+  ];
+  return isoShape({ minX: -0.45, maxX: 0.45, minY: -0.45, maxY: 0.45, maxZ: 8 }, (pen) => {
+    pen.box(-0.32, -0.32, 0, 0.64, 0.64, FLOOR_PILLOW_H - 1, colour, shade, shade);
+    pen.box(-0.27, -0.27, FLOOR_PILLOW_H - 1, 0.54, 0.54, 1, colour, colour, shade);
+    pen.floor(-0.04, -0.04, 0.04, 0.04, shade, FLOOR_PILLOW_H);
+  });
+}
+
+/** The TV stand's extent, the TV on it included; the TV's screen is drawn at the same anchor. */
+const TV_BOUNDS: IsoBounds = { maxX: 2.2, maxY: 0.6, maxZ: 34 };
+/** The low stand's height, in art pixels. */
+const TV_STAND_H = 7;
+/** The TV's screen: the face it is on (y), its ends along x and its bottom and top heights. */
+const TV_SCREEN = { y: 0.28, x0: 0.2, x1: 2.0, z0: TV_STAND_H + 4, z1: TV_STAND_H + 22 } as const;
+
+/**
+ * A big flat TV on a low stand against the back wall, the games console on the stand's open shelf
+ * with its small light; the screen dark (`tvScreenShape` paints it lit, untinted, over this).
+ */
+export function tvStandShape(): ArtShape {
+  return isoShape(TV_BOUNDS, (pen) => {
+    pen.box(0, 0.1, 0, 2.2, 0.5, TV_STAND_H, A.tvStand, A.tvStandSide, A.tvStandRight, A.deskEdge);
+    // The open shelf under the top, and the console in it.
+    pen.faceY(0.6, 0.15, 2.05, 1, TV_STAND_H - 2, A.tvStandRight);
+    pen.box(0.75, 0.32, 1, 0.7, 0.28, 3, A.consoleTop, A.consoleBody, A.consoleBody);
+    pen.faceY(0.6, 1.3, 1.37, 2, 3, A.consoleLight);
+    // The TV on its foot.
+    pen.box(1.0, 0.24, TV_STAND_H, 0.2, 0.16, 2, A.stand, A.stand, A.stand);
+    const { y, x0, x1, z0, z1 } = TV_SCREEN;
+    pen.box(
+      0.1,
+      0.2,
+      TV_STAND_H + 2,
+      2.0,
+      y - 0.2,
+      22,
+      A.monitorSide,
+      A.monitorFrame,
+      A.monitorSide,
+    );
+    pen.faceY(y, x0, x1, z0, z1, A.screenOff);
+  });
+}
+
+/**
+ * The TV's screen, lit with a game: a sky with a cloud, the ground, two little characters and a
+ * coin between them; frame 1 moves them a step and bobs the coin. Drawn untinted over the TV stand.
+ */
+export function tvScreenShape(frame: number): ArtShape {
+  return isoShape(TV_BOUNDS, (pen) => {
+    const { y, x0, x1, z0, z1 } = TV_SCREEN;
+    const step = frame % 2 === 0 ? 0 : 0.08;
+    pen.faceY(y, x0, x1, z0, z1, A.gameSky);
+    pen.faceY(y, 0.45 + step / 2, 0.85 + step / 2, z1 - 5, z1 - 3, A.gameCloud);
+    pen.faceY(y, 1.4 - step / 2, 1.65 - step / 2, z1 - 8, z1 - 7, A.gameCloud);
+    pen.faceY(y, x0, x1, z0, z0 + 2, A.gameDirt);
+    pen.faceY(y, x0, x1, z0 + 2, z0 + 4, A.gameGround);
+    pen.faceY(y, 0.55 + step, 0.7 + step, z0 + 4, z0 + 9, A.gameHeroA);
+    pen.faceY(y, 1.5 - step, 1.65 - step, z0 + 4, z0 + 9, A.gameHeroB);
+    pen.faceY(y, 1.06, 1.14, z0 + 11 + (frame % 2), z0 + 13 + (frame % 2), A.gameCoin);
   });
 }
 

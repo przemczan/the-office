@@ -15,7 +15,7 @@ import type {
 export const AISLE_ROW = 3;
 /** The first row of pods. */
 const POD_TOP = 4;
-/** Where the chill area starts along the back wall, past the meeting spot. */
+/** Where the chill area starts along the back wall, past the entertainment area. */
 const CHILL_START = 5;
 
 /** The groups, in the order they fill the floor from the door (design decision 5). */
@@ -171,51 +171,58 @@ class FurnitureList {
 }
 
 /**
- * The meeting spot, the chill area, the exercise mat and the furniture along the back wall, with
- * their seats and every pastime's spots.
+ * The entertainment area, the chill area, the exercise mat and the furniture along the back wall,
+ * with every pastime's spots.
  */
 export function amenitiesOf(layout: Layout): Amenities {
   const furniture = new FurnitureList();
-  const meetingSeats = meetingSpot(furniture);
   const pastimeSpots = [
+    ...entertainmentArea(furniture),
     ...chillArea(furniture, layout),
     ...exerciseMat(furniture),
     ...backWallDecor(furniture, layout),
   ];
-  return { items: furniture.items, blocked: furniture.blocked, meetingSeats, pastimeSpots };
+  return { items: furniture.items, blocked: furniture.blocked, pastimeSpots };
 }
 
-const MEETING_CHAIRS: readonly {
-  readonly x: number;
-  readonly y: number;
-  readonly facing: Seat["facing"];
-  readonly back: "-y" | "+y";
-}[] = [
-  { x: 2.15, y: 0.62, facing: "front", back: "-y" },
-  { x: 2.95, y: 0.62, facing: "front", back: "-y" },
-  { x: 2.15, y: 2.55, facing: "back", back: "+y" },
-  { x: 2.95, y: 2.55, facing: "back", back: "+y" },
-];
+/** Where the TV stand stands against the back wall: 2.2 tiles long, 0.6 deep (`tvStandShape`). */
+const TV_STAND = { x: 1.4, y: 0, width: 2.2, depth: 0.6 } as const;
+/** The floor pillows' middles along x, in the order they are taken (the middle one first), and y. */
+const PILLOWS = { xs: [2.5, 1.5, 3.5], y: 1.5 } as const;
 
-/** A table for four, a whiteboard on the wall behind it; seat 0 is where a Consultant sits. */
-function meetingSpot(furniture: FurnitureList): Seat[] {
-  furniture.items.push({ kind: "meetingTable", x: 1.6, y: 1.2, depth: 1.6 + 0.9 + 1.2 + 0.4 });
-  for (const x of [1, 2, 3]) furniture.block(x, 1);
-  // Its chairs block their tiles too: the back pair is reached from the aisle, the front pair from
-  // either end of the row along the wall.
-  for (const x of [1, 2, 3]) furniture.block(x, 2);
-  furniture.block(2, 0);
-  return MEETING_CHAIRS.map(({ x, y, facing, back }) => ({
-    kind: "meeting",
-    x,
-    y,
-    tile: y < 1 ? { x: x < 2.5 ? 1 : 3, y: 0 } : { x: Math.floor(x), y: AISLE_ROW },
-    facing,
-    mirrored: true,
-    chairBack: back,
-    depth: x + y,
-    seatZ: 0,
-  }));
+/**
+ * A big TV on a low stand against the back wall, the games console under it, and three floor
+ * pillows in front of it, whoever sits on one with their back to us, facing the TV. The stand
+ * blocks the row along the wall, the pillows the row in front of it; each pillow is reached from the
+ * tile behind it.
+ */
+function entertainmentArea(furniture: FurnitureList): Seat[] {
+  // Long and against the wall, it sorts by its front-left corner, as the sofa does.
+  furniture.items.push({
+    kind: "tvStand",
+    x: TV_STAND.x,
+    y: TV_STAND.y,
+    depth: TV_STAND.x + TV_STAND.depth,
+  });
+  for (let x = Math.floor(TV_STAND.x); x < TV_STAND.x + TV_STAND.width; x++) furniture.block(x, 0);
+  return PILLOWS.xs.map((x) => {
+    const y = PILLOWS.y;
+    const tileX = Math.floor(x);
+    furniture.items.push({ kind: "floorPillow", x, y, variant: tileX - 1, depth: x + y });
+    furniture.block(tileX, Math.floor(y));
+    return {
+      kind: "games",
+      x,
+      y,
+      tile: { x: tileX, y: Math.floor(y) + 1 },
+      facing: "back",
+      // As in front of the back wall: the back view looks along -x.
+      mirrored: true,
+      depth: x + y + 0.01,
+      // A floor pillow is a pixel lower than a desk chair's seat.
+      seatZ: -1,
+    };
+  });
 }
 
 /** A plant, the sofa, the coffee machine and water, beanbags round a low table. */
@@ -314,22 +321,24 @@ function facingTheWall(kind: "bookshelf" | "plant", x: number, tileX: number): S
 }
 
 /**
- * The exercise mat's tiles: one across and two deep, in the column between the meeting spot and the
- * chill area, which every floor has (`exerciseMatShape` draws it at this size).
+ * The exercise mat's tiles: one across and two deep, in the column between the entertainment area
+ * and the chill area, which every floor has (`exerciseMatShape` draws it at this size).
  */
 const MAT = { x: 4, y: 1, length: 2 } as const;
 
 /**
- * A mat flat on the floor, between the meeting spot and the chill area, with a spot on each of its
- * tiles. It blocks no tile, so routes cross it, and sorts under everything standing on it.
+ * A mat flat on the floor, between the entertainment area and the chill area, with a spot on each
+ * of its tiles. It blocks no tile, so routes cross it, and sorts under everything standing on it.
+ * The front tile is taken first: on the back one the nearest beanbag stands in front of anyone
+ * lying down for push-ups.
  */
 function exerciseMat(furniture: FurnitureList): Seat[] {
   furniture.items.push({ kind: "exerciseMat", x: MAT.x, y: MAT.y, depth: 0 });
   return Array.from({ length: MAT.length }, (_, index) => ({
     kind: "exercise",
     x: MAT.x + 0.5,
-    y: MAT.y + index + 0.5,
-    tile: { x: MAT.x, y: MAT.y + index },
+    y: MAT.y + MAT.length - index - 0.5,
+    tile: { x: MAT.x, y: MAT.y + MAT.length - 1 - index },
     facing: "front",
     mirrored: false,
     depth: null,

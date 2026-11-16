@@ -29,10 +29,21 @@ function itemAt(item: Amenity): string {
   return `${item.kind}@${round(item.x)},${round(item.y)}`;
 }
 
-/** The furniture of each design floor before the exercise mat came, from main's `amenitiesOf`. */
+/** The entertainment area's TV stand and its three floor pillows, the middle one first. */
+const ENTERTAINMENT_AREA = [
+  "tvStand@1.4,0",
+  "floorPillow@2.5,1.5",
+  "floorPillow@1.5,1.5",
+  "floorPillow@3.5,1.5",
+] as const;
+
+/**
+ * The furniture of each design floor before the exercise mat came, from main's `amenitiesOf`, with
+ * the entertainment area where the meeting spot was.
+ */
 const FURNITURE_BEFORE_THE_MAT: Record<(typeof FLOOR_SIZES)[number], readonly string[]> = {
   3: [
-    "meetingTable@1.6,1.2",
+    ...ENTERTAINMENT_AREA,
     "plant@5.5,0.45",
     "sofa@6,0.08",
     "coffeeMachine@9.05,0.08",
@@ -41,7 +52,7 @@ const FURNITURE_BEFORE_THE_MAT: Record<(typeof FLOOR_SIZES)[number], readonly st
     "beanbag@5.55,2.4",
   ],
   8: [
-    "meetingTable@1.6,1.2",
+    ...ENTERTAINMENT_AREA,
     "plant@5.5,0.45",
     "sofa@6,0.08",
     "coffeeMachine@9.05,0.08",
@@ -51,7 +62,7 @@ const FURNITURE_BEFORE_THE_MAT: Record<(typeof FLOOR_SIZES)[number], readonly st
     "beanbag@9.5,2.4",
   ],
   30: [
-    "meetingTable@1.6,1.2",
+    ...ENTERTAINMENT_AREA,
     "plant@5.5,0.45",
     "sofa@6,0.08",
     "coffeeMachine@12.05,0.08",
@@ -65,11 +76,14 @@ const FURNITURE_BEFORE_THE_MAT: Record<(typeof FLOOR_SIZES)[number], readonly st
     "printer@17.4,0.06",
   ],
 };
-/** How many tiles the furniture blocked on each design floor before the mat came. */
+/**
+ * How many tiles the furniture blocked on each design floor before the mat came, less one: the
+ * meeting spot blocked seven, the entertainment area blocks six.
+ */
 const BLOCKED_BEFORE_THE_MAT: Record<(typeof FLOOR_SIZES)[number], number> = {
-  3: 17,
-  8: 18,
-  30: 31,
+  3: 16,
+  8: 17,
+  30: 30,
 };
 
 describe("the floor plan", () => {
@@ -83,7 +97,7 @@ describe("the floor plan", () => {
     expect({ width: layout.width, depth: layout.depth }).toEqual({ width, depth });
   });
 
-  it("puts the front desk by the door and the Consultants next to the meeting spot", () => {
+  it("puts the front desk by the door and the Consultants next to the entertainment area", () => {
     const layout = layoutOffice(rosterOf(8));
     expect(groupColumns(layout)).toEqual(["front-desk", "consultants", "consultants", "team"]);
     expect(deskOf(layout, "office-manager")?.group).toBe("front-desk");
@@ -135,7 +149,7 @@ describe("the floor plan", () => {
     }
     // The aisle by the door stays open, and so does every seat's tile.
     expect(isWalkable(layout, walkable, 0, 3)).toBe(true);
-    for (const seat of [...amenities.meetingSeats, ...amenities.pastimeSpots]) {
+    for (const seat of amenities.pastimeSpots) {
       expect(isWalkable(layout, walkable, seat.tile.x, seat.tile.y)).toBe(true);
     }
   });
@@ -167,13 +181,14 @@ describe("the floor plan", () => {
         expect(amenities.blocked).not.toContainEqual([x, y]);
         expect(isWalkable(layout, walkable, x, y)).toBe(true);
       }
+      // The front tile first: on the back one a beanbag stands in front of a push-up.
       expect(
         amenities.pastimeSpots
           .filter((spot) => spot.kind === "exercise")
           .map((spot) => ({ x: spot.x, y: spot.y, tile: spot.tile })),
       ).toEqual([
-        { x: 4.5, y: 1.5, tile: { x: 4, y: 1 } },
         { x: 4.5, y: 2.5, tile: { x: 4, y: 2 } },
+        { x: 4.5, y: 1.5, tile: { x: 4, y: 1 } },
       ]);
     },
   );
@@ -190,6 +205,7 @@ describe("the floor plan", () => {
       expect(spotsOf("coffee")).toHaveLength(1);
       expect(spotsOf("water")).toHaveLength(1);
       expect(spotsOf("exercise")).toHaveLength(2);
+      expect(spotsOf("games")).toHaveLength(3);
       // One in front of each plant, the chill area's included, and each bookshelf.
       expect(spotsOf("plant")).toHaveLength(itemsOf("plant").length);
       expect(spotsOf("bookshelf")).toHaveLength(itemsOf("bookshelf").length);
@@ -202,6 +218,47 @@ describe("the floor plan", () => {
       expect(new Set(places).size).toBe(places.length);
     },
   );
+
+  it("puts three floor pillows facing the TV where the meeting spot was, a games seat on each", () => {
+    const layout = layoutOffice(rosterOf(8));
+    const amenities = amenitiesOf(layout);
+    const walkable = walkableOf(layout, amenities);
+    expect(amenities.items.filter((item) => item.kind === "tvStand").map(itemAt)).toEqual([
+      "tvStand@1.4,0",
+    ]);
+    expect(amenities.items.filter((item) => item.kind === "floorPillow")).toHaveLength(3);
+    const games = amenities.pastimeSpots.filter((spot) => spot.kind === "games");
+    expect(games.map((seat) => [seat.x, seat.y, seat.tile.x, seat.tile.y])).toEqual([
+      [2.5, 1.5, 2, 2],
+      [1.5, 1.5, 1, 2],
+      [3.5, 1.5, 3, 2],
+    ]);
+    const tvStand = amenities.items.find((item) => item.kind === "tvStand");
+    for (const seat of games) {
+      // The back view looks along -x, mirrored along -y: at the TV, against the back wall (y 0)
+      // in front of every pillow.
+      expect(seat).toMatchObject({ facing: "back", mirrored: true, seatZ: -1 });
+      expect(tvStand).toMatchObject({ y: 0 });
+      expect(seat.y).toBeGreaterThan(0);
+      expect(seat.x).toBeGreaterThanOrEqual(tvStand?.x ?? Infinity);
+      expect(seat.x).toBeLessThanOrEqual((tvStand?.x ?? -Infinity) + 2.2);
+      // The pillow blocks its own tile; it is reached from the one behind it.
+      expect(isWalkable(layout, walkable, Math.floor(seat.x), Math.floor(seat.y))).toBe(false);
+      expect(isWalkable(layout, walkable, seat.tile.x, seat.tile.y)).toBe(true);
+    }
+    // The TV stand blocks the row along the wall.
+    for (const x of [1, 2, 3]) expect(isWalkable(layout, walkable, x, 0)).toBe(false);
+    expect(amenities.items.some((item) => (item.kind as string) === "meetingTable")).toBe(false);
+  });
+
+  it("gives each floor pillow its own colour", () => {
+    const amenities = amenitiesOf(layoutOffice(rosterOf(8)));
+    const variants = amenities.items
+      .filter((item) => item.kind === "floorPillow")
+      .map((item) => item.variant)
+      .toSorted();
+    expect(variants).toEqual([0, 1, 2]);
+  });
 
   it("gives each beanbag its own colour", () => {
     const amenities = amenitiesOf(layoutOffice(rosterOf(16)));

@@ -106,9 +106,11 @@ describe("pastimes", () => {
       expect(pastimeTurnOf(idleSinceNoon, NOW, dawnAgo(300))).toEqual(pastimeTurnAt(roleKey, 45));
     }
     // Counted from when they fell idle, some of them would be napping now; counted from dawn, none is.
-    const napsAtNight = ROLE_KEYS.filter(
-      (roleKey) =>
-        pastimeTurnOf(officePerson(roleKey, { idleSince: minutesAgo(600) }), NOW, DAY_LIGHT)
+    const napsAtNight = ROLE_KEYS.flatMap((roleKey) =>
+      [600, 610, 620, 630].map((idle) => [roleKey, idle] as const),
+    ).filter(
+      ([roleKey, idle]) =>
+        pastimeTurnOf(officePerson(roleKey, { idleSince: minutesAgo(idle) }), NOW, DAY_LIGHT)
           .pastime === "nap",
     );
     expect(napsAtNight.length).toBeGreaterThan(0);
@@ -132,6 +134,29 @@ describe("pastimes", () => {
       for (const turn of turnsUpTo(roleKey, TWELVE_HOURS)) picked.add(turn.pastime);
     }
     expect([...picked].toSorted()).toEqual([...PICKED_PASTIMES].toSorted());
+  });
+
+  it("picks games for some, never twice in a row, and falls back to the games seats", () => {
+    expect(PICKED_PASTIMES).toContain("games");
+    const gamers = ROLE_KEYS.filter((roleKey) =>
+      turnsUpTo(roleKey, TWELVE_HOURS).some((turn) => turn.pastime === "games"),
+    );
+    expect(gamers.length).toBeGreaterThan(0);
+    for (const roleKey of ROLE_KEYS) {
+      const turns = turnsUpTo(roleKey, TWELVE_HOURS);
+      const twiceInARow = turns.filter(
+        (turn, i) => turn.pastime === "games" && turns[i - 1]?.pastime === "games",
+      );
+      expect(twiceInARow).toEqual([]);
+      // Any spot pick after a turn of something else may fall back to the games seats.
+      const withoutGames = turns.filter(
+        (turn, i) =>
+          turn.pastime !== "nap" &&
+          turns[i - 1]?.pastime !== "games" &&
+          !turn.preferences.includes("games"),
+      );
+      expect(withoutGames).toEqual([]);
+    }
   });
 
   it("orders the spots to try with the pick first, never last turn's pick, and none for a nap", () => {
