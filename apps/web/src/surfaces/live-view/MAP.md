@@ -31,7 +31,7 @@
 - The Consultant turns round, and anyone talks, only once the asker has arrived: the scene works out desk activity and conversations from the walkers (`visitorsOf`, `conversations`), not from the snapshot's placement.
 - The place comes only from `Intl.DateTimeFormat().resolvedOptions().timeZone`: nothing reads `navigator.geolocation`, nothing asks permission, there is no setting and nothing is sent anywhere (`light.test.ts` spies on the location).
 - Untinted on purpose (design decision 2): lit screens, the lamp bulb, the windows' sky, the exit sign, the "+N" tag and the overlays (sign, bubble, Z). Everything else, the cached floor and walls texture included, takes `light.tint`.
-- People walk out at nightfall and in at dawn only when the crossing is seen live (`walksAtLightChange`: the previous light under 2 minutes old). After a hidden tab or a sleeping machine they are put in place, so a whole office doesn't walk at once.
+- People walk out at nightfall and in at dawn only when the crossing is seen live (`walksAtLightChange`: the previous light under 2 minutes old, and the tab visible, as a hidden tab's clock still ticks). After a hidden tab or a sleeping machine they are put in place, so a whole office doesn't walk at once. Any other change of light (dawn to day, lamps on) walks what the minute changed, as `apply` does.
 - Dawn resets the asleep clock: asleep counts from `max(idleSince, light.dawnAt)`, so those back at dawn sit in the chill area for 30 minutes first; the words still count from `idleSince`.
 - `home` gives a `gone` placement and keeps the desk; a let-go is told apart by the snapshot's keys, never by the placement. A desk nobody sits at has its chair pushed in and its monitors dark.
 - Reduced motion remakes the stage (the page's `canvasKey`), so turning it on mid-walk puts everyone in place at once; `walkers.settle()` does the same for a stage that stays.
@@ -43,7 +43,7 @@
 ### ./
 
 - `figure-hit.ts`: FigureHitBox, FigureAnchor, NAMEPLATE_BELOW_FEET, figureAt, figureAnchor
-- `floor-plan.ts`: AISLE_ROW, DESK_GROUPS, groupOf, PodShape, podShapeFor, layoutOffice, deskOf, placeDesk, addHire, letGo, nextDeskOf, deskSpot, pushedInSpot, consultSpot, DOOR_INSIDE, DOOR_OUTSIDE, amenitiesOf, Walkable, walkableOf, isWalkable
+- `floor-plan.ts`: AISLE_ROW, DESK_GROUPS, groupOf, PodShape, podShapeFor, layoutOffice, deskOf, placeDesk, addHire, letGo, deskSpot, pushedInSpot, consultSpot, DOOR_OUTSIDE, amenitiesOf, Walkable, walkableOf, isWalkable
 - `light.ts`: browserZone, placeOfZone, lightOfDay, lightAt
 - `live-states.ts`: ASLEEP_AFTER_MINUTES, NEW_FOR_MINUTES, isNewHire, lookStateOf, SeenLight, walksAtLightChange, lookStatesOf, deskActivity, deskPoseOf, placementsOf, DeskMonitors, monitorsOf, PersonNames, agentWords, stateWords, workLinksOf, LIST_GROUPS, LOOK_STATE_ORDER, PHASE_WORDS, clockWords, summaryWords
 - `live-view-page.tsx`: LiveViewPage

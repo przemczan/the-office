@@ -302,7 +302,14 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     if (destroyed) return;
     const previous = shownLight;
     shownLight = next;
-    const walksOut = !options.reducedMotion && walksAtLightChange(seen, next, now);
+    // Nightfall and dawn walk people out and in only when seen live (a hidden tab's clock still
+    // ticks, but nothing walks there); any other change of light walks what the minute changed (who
+    // fell asleep), as `apply` does.
+    const crossesNight =
+      previous !== null && (previous.phase === "night") !== (next.phase === "night");
+    const walks =
+      !options.reducedMotion &&
+      (!crossesNight || (!document.hidden && walksAtLightChange(seen, next, now)));
     seen = { light: next, at: now };
     if (!floor) {
       // `apply` came first and waited for the light.
@@ -319,7 +326,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     }
     // Night begins or ends, or the lamps come on: people go home or come back, desks change.
     if (!previous || previous.phase !== next.phase || previous.lampsOn !== next.lampsOn) {
-      if (applied) place(floor, applied, next, now, walksOut);
+      if (applied) place(floor, applied, next, now, walks);
       reportView();
     } else {
       if (floor.scene) floor.scene = { ...floor.scene, light: next };

@@ -21,6 +21,7 @@ import {
   TurnEnded,
 } from "../domain/conversation-events.js";
 import { liveViewOf, type LiveView as LiveViewSnapshot } from "../domain/live-view.js";
+import { worksIn } from "../domain/people-working.js";
 import type { Thread } from "../domain/thread.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 
@@ -51,8 +52,15 @@ export class LiveView implements OnModuleInit, OnModuleDestroy {
   private announcing: Promise<void> | undefined;
   private announceAgain = false;
   private announced: LiveViewSnapshot | undefined;
-  /** The Threads busy as of the last read, which tells which logged messages change nothing. */
+  /**
+   * The Threads busy, and those their person works in, as of the latest read begun, which tell
+   * which logged messages change nothing.
+   */
   private busyThreadIds: ReadonlySet<string> = new Set();
+  private workingThreadIds: ReadonlySet<string> = new Set();
+  /** Reads begun and the latest whose Threads were kept, so a slower older read keeps none. */
+  private readsBegun = 0;
+  private threadsKeptFrom = 0;
 
   constructor(
     private readonly threads: ThreadRepository,
@@ -75,8 +83,17 @@ export class LiveView implements OnModuleInit, OnModuleDestroy {
     await this.announcing;
   }
 
+  /**
+   * An Initiative's planning Thread stays busy while its Decisions wait, yet its person works in it
+   * only while answering, so a turn starting or ending there is a change as well.
+   */
   private announceIfBusyChanged(thread: Thread): void {
-    if (isBusy(thread) !== this.busyThreadIds.has(thread.id)) this.announceInBackground();
+    if (
+      isBusy(thread) !== this.busyThreadIds.has(thread.id) ||
+      worksIn(thread) !== this.workingThreadIds.has(thread.id)
+    ) {
+      this.announceInBackground();
+    }
   }
 
   /** What each person is doing now; from the first read on, each change is announced. */
@@ -90,12 +107,17 @@ export class LiveView implements OnModuleInit, OnModuleDestroy {
   }
 
   private async readNow(): Promise<LiveViewSnapshot> {
+    const read = ++this.readsBegun;
     const [people, threads, lastCalls] = await Promise.all([
       this.roleCards.hiredPeople(),
       this.threads.busy(),
       this.threads.lastCallsByPerson(),
     ]);
-    this.busyThreadIds = new Set(threads.map(({ id }) => id));
+    if (read > this.threadsKeptFrom) {
+      this.threadsKeptFrom = read;
+      this.busyThreadIds = new Set(threads.map(({ id }) => id));
+      this.workingThreadIds = new Set(threads.filter(worksIn).map(({ id }) => id));
+    }
     return liveViewOf({ people, threads, lastCalls });
   }
 

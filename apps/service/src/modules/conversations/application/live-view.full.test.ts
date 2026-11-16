@@ -227,6 +227,39 @@ describe("the Live view's read model", () => {
     expect(await lastAnnounced()).toMatchObject({ state: "idle", waitingOnYou: [] });
   });
 
+  it("announces a planner's turn starting and ending in an Initiative's Thread while its Decision waits", async () => {
+    await liveView.read();
+    const thread = aThread({
+      id: randomUUID(),
+      home: { kind: "initiative", initiativeId: randomUUID() },
+      roleKey: oscar.roleKey,
+    });
+    await repository.add(thread);
+    const waiting = await changed(thread, (latest) =>
+      openDecision(latest, {
+        id: randomUUID(),
+        taskId: randomUUID(),
+        question: "Which Project first?",
+        context: "Both can start.",
+        options: ["Service", "Web"],
+        recommendation: { option: 1, reason: "The web reads the service." },
+        askedAt: ASKED,
+      }),
+    );
+    await vi.waitFor(() => expect(announced).toHaveLength(1));
+
+    const answering = await turnStarted(waiting);
+    await vi.waitFor(() => expect(announced).toHaveLength(2));
+    const working = await lastAnnounced();
+    await changed(answering, (latest) =>
+      logMessages({ ...latest, state: "waiting" }, [personText(latest, "Planned.")], TURN_ENDED),
+    );
+    await vi.waitFor(() => expect(announced).toHaveLength(3));
+
+    expect(working).toMatchObject({ state: "waiting-on-you", agents: [{ threadId: thread.id }] });
+    expect(await lastAnnounced()).toMatchObject({ state: "waiting-on-you", agents: [] });
+  });
+
   it("announces a hire, a let-go and a hire back once each, and nothing when the view is unchanged", async () => {
     await liveView.read();
     const clara = { ...oscar, roleKey: `cto-${randomUUID()}`, name: "Clara", title: "CTO" };

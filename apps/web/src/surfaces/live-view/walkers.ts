@@ -4,8 +4,12 @@ import { type RouteFloor, routeBetween } from "./routes.ts";
 
 /** Tiles a second (design decision 12). */
 export const WALK_SPEED = 2.4;
-/** The longest step a walk takes in one frame, so a stalled frame doesn't jump a figure through a wall. */
-const MAX_STEP_SECONDS = 0.05;
+/**
+ * The longest step a walk takes in one frame, so a stalled frame doesn't jump a figure far along its
+ * route. As long as the stage's own frame cap: any shorter, and below that many frames a second
+ * everyone would walk slower than 2.4 tiles a second.
+ */
+const MAX_STEP_SECONDS = 0.25;
 /** How long a new desk sparkles. */
 const SPARKLE_SECONDS = 3;
 /** Moves through the door in one snapshot go one by one: the first after this, then each this much later. */

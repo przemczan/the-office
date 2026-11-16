@@ -130,20 +130,6 @@ export function letGo(layout: Layout, roleKey: string): void {
   desk.formerKey = roleKey;
 }
 
-/** Where the next hire of a group would sit, without placing anyone. */
-export function nextDeskOf(layout: Layout, group: DeskGroup): Desk {
-  const columns = layout.columns.slice();
-  const trial: Layout = {
-    ...layout,
-    columns,
-    desks: layout.desks.map((desk) => ({
-      ...desk,
-      column: columns[layout.columns.indexOf(desk.column)]!,
-    })),
-  };
-  return placeDesk(trial, group, "next");
-}
-
 /** Sitting at the desk: reached from the aisle tile beside the chair, stepping out past it. */
 export function deskSpot(desk: Desk): Spot {
   return {
@@ -164,7 +150,6 @@ export function consultSpot(desk: Desk): Spot {
   return { x: desk.x + 2.4, y: desk.y + 1.3, tile: { x: desk.x + 2, y: desk.y + 1 } };
 }
 
-export const DOOR_INSIDE: Spot = { x: 0.5, y: AISLE_ROW + 0.5, tile: { x: 0, y: AISLE_ROW } };
 export const DOOR_OUTSIDE: Spot = {
   x: -1.1,
   y: AISLE_ROW + 0.5,

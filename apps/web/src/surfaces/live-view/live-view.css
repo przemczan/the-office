@@ -18,9 +18,10 @@
   background: var(--surface-sunken);
 }
 
+/* Under the time chip, which holds the floor's top left. */
 .live-floor-alert {
   position: absolute;
-  top: var(--space-3);
+  top: calc(var(--space-3) * 2 + var(--space-8));
   left: var(--space-3);
   z-index: 2;
 }

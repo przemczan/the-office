@@ -6925,7 +6925,7 @@ test(
   },
 );
 
-test.describe("the Live view's comings and goings", () => {
+test.describe("the Live view's comings and goings", { tag: "@full" }, () => {
   // A zone with no place keeps noon's light, so nobody has gone home whatever the runner's clock says.
   test.use({ timezoneId: "Etc/UTC" });
 

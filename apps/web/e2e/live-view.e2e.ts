@@ -110,7 +110,7 @@ function minutesOf(clock: string): number {
   return (hours ?? 0) * 60 + (minutes ?? 0);
 }
 
-test.describe("the Live view at night", () => {
+test.describe("the Live view at night", { tag: "@full" }, () => {
   // The browser is in Warsaw, so its hours are worked out there; under reduced motion nobody walks.
   test.use({
     colorScheme: "light",
