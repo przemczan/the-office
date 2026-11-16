@@ -522,6 +522,8 @@ export class TaskDecisionsForTests extends TaskDecisions {
   readonly waiting = new Map<string, readonly DecisionWaitingOnTheUser[]>();
   /** The Tasks whose open Decisions Work closed, in the order it closed them. */
   readonly closedOn: string[] = [];
+  /** The ended Initiatives whose open Decisions on no Task Work closed, in that order. */
+  readonly closedOnInitiatives: string[] = [];
 
   async openOn(taskId: string): Promise<number> {
     return this.open.get(taskId) ?? 0;
@@ -543,6 +545,10 @@ export class TaskDecisionsForTests extends TaskDecisions {
     this.closedOn.push(taskId);
     this.open.delete(taskId);
     this.waiting.delete(taskId);
+  }
+
+  async closeOnInitiative(initiativeId: string): Promise<void> {
+    this.closedOnInitiatives.push(initiativeId);
   }
 }
 

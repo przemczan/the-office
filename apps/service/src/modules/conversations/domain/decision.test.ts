@@ -10,7 +10,7 @@ import {
   answerForUserProblems,
   answerGivenBy,
   answerProblems,
-  CLOSED_DECISION_REFUSAL,
+  closedDecisionRefusal,
   decisionProblems,
   decisionSummary,
   isOpen,
@@ -123,11 +123,18 @@ describe("closing a Decision as its Task is dropped", () => {
 
   it("refuses an answer to a closed Decision, by the user or a person at their request", () => {
     const closed = { ...open, closedAt: AT };
-    const words = [CLOSED_DECISION_REFUSAL];
+    const words = [closedDecisionRefusal(closed)];
     expect(words).toEqual(["This Decision was closed: its Task was dropped."]);
     expect(answerProblems(closed, oneOptionAnswer(0))).toEqual(words);
     expect(answerProblems(closed, { kind: "asked-again" })).toEqual(words);
     expect(answerForUserProblems(closed, aThread({ id: "thread-of-the-cto" }))).toEqual(words);
+  });
+
+  it("says a Decision on no Task was closed as its Initiative ended", () => {
+    const closed = { ...open, taskId: undefined, closedAt: AT };
+    expect(answerProblems(closed, oneOptionAnswer(0))).toEqual([
+      "This Decision was closed: its Initiative ended.",
+    ]);
   });
 });
 
@@ -243,6 +250,51 @@ describe("what keeps a person from answering a Decision for the user", () => {
   });
 });
 
+describe("Decisions in an Initiative's shaping Thread", () => {
+  const INITIATIVE_HOME = { kind: "initiative", initiativeId: "initiative-1" } as const;
+  const shaping = aThread({ home: INITIATIVE_HOME, session: SESSION, state: "answering" });
+  const opening = { ...DRAFT, askedAt: AT, initiativeThread: "shaping" } as const;
+
+  it("opens one on no Task, on the Initiative as a whole", () => {
+    const opened = openDecision(shaping, { ...opening, id: "decision-a" });
+
+    expect(opened.decision?.taskId).toBeUndefined();
+    expect(opened.thread.openDecisions.map(({ id }) => id)).toEqual(["decision-a"]);
+  });
+
+  it("refuses a second one, or a call, while one waits, and any naming a Task", () => {
+    const { thread: waiting } = openDecision(shaping, { ...opening, id: "decision-a" });
+    const refusal = [
+      `Your Decision "${decisionSummary(DRAFT)}" on the Initiative still waits on its answer. End your turn: it comes as your next message.`,
+    ];
+
+    expect(refusalOf(() => openDecision(waiting, { ...opening, id: "decision-b" }))).toEqual(
+      refusal,
+    );
+    expect(
+      refusalOf(() => openDecision(waiting, { ...opening, id: "call-1", putTo: "devops" })),
+    ).toEqual(refusal);
+    expect(
+      refusalOf(() => openDecision(shaping, { ...opening, id: "decision-b", taskId: "task-a" })),
+    ).toEqual(["In the shaping Thread a Decision is on no Task: leave taskId out."]);
+  });
+
+  it("checks the Attachments it names against those given, the Initiative's", () => {
+    expect(
+      refusalOf(() =>
+        openDecision(shaping, {
+          ...opening,
+          id: "decision-a",
+          attachmentIds: ["of-another-initiative"],
+          attachmentsOfTheTask: ["of-the-initiative"],
+        }),
+      ),
+    ).toEqual([
+      "A Decision names Attachments of its own Initiative only, and these aren't: of-another-initiative.",
+    ]);
+  });
+});
+
 describe("Decisions in an Initiative's planning Thread", () => {
   const INITIATIVE_HOME = { kind: "initiative", initiativeId: "initiative-1" } as const;
   const planning = aThread({ home: INITIATIVE_HOME, session: SESSION, state: "answering" });
@@ -275,12 +327,40 @@ describe("Decisions in an Initiative's planning Thread", () => {
     ]);
   });
 
-  it("is refused naming no Task, and a Thread on a Task keeps one at a time on its own Task", () => {
-    expect(
-      refusalOf(() => openDecision(planning, { ...DRAFT, id: "decision-a", askedAt: AT })),
-    ).toEqual([
-      "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks. Only a call to a person may name none.",
+  it("opens one on the Initiative as a whole beside those on Tasks, one at a time", () => {
+    const onA = openDecision(planning, {
+      ...DRAFT,
+      id: "decision-a",
+      askedAt: AT,
+      taskId: "task-a",
+    });
+    const onTheInitiative = openDecision(onA.thread, { ...DRAFT, id: "decision-i", askedAt: AT });
+    const onB = openDecision(onTheInitiative.thread, {
+      ...DRAFT,
+      id: "decision-b",
+      askedAt: AT,
+      taskId: "task-b",
+    });
+
+    expect(onB.thread.openDecisions.map(({ id, taskId }) => ({ id, taskId }))).toEqual([
+      { id: "decision-a", taskId: "task-a" },
+      { id: "decision-i", taskId: undefined },
+      { id: "decision-b", taskId: "task-b" },
     ]);
+    const refusal = [
+      `Your Decision "${decisionSummary(DRAFT)}" on the Initiative still waits on its answer. End your turn, or plan the Tasks that don't need it: its answer comes as your next message.`,
+    ];
+    expect(
+      refusalOf(() => openDecision(onB.thread, { ...DRAFT, id: "decision-j", askedAt: AT })),
+    ).toEqual(refusal);
+    expect(
+      refusalOf(() =>
+        openDecision(onB.thread, { ...DRAFT, id: "call-1", askedAt: AT, putTo: "devops" }),
+      ),
+    ).toEqual(refusal);
+  });
+
+  it("a Thread on a Task keeps one at a time on its own Task", () => {
     const onTask = aThread({ home: TASK_HOME, session: SESSION, state: "answering" });
     expect(
       refusalOf(() =>

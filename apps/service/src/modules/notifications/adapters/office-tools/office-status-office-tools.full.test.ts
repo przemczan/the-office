@@ -67,7 +67,12 @@ describe("the show_office_status tool", () => {
       },
     ];
     app.get(OpenDecisionsForTests).open = [
-      { id: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
+      {
+        id: randomUUID(),
+        threadId: randomUUID(),
+        taskId,
+        askedAt: new Date("2026-10-27T09:05:00Z"),
+      },
     ];
     const [tool] = app.get(OfficeToolRegistry).named([SHOW_OFFICE_STATUS_TOOL]);
     if (!tool) throw new Error("No show_office_status tool.");

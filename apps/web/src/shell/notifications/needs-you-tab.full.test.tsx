@@ -174,3 +174,24 @@ it("never blinks with reduced motion preferred", () => {
 
   expect(titlesOver(2)).toEqual([STEADY, STEADY, STEADY]);
 });
+
+it("blinks for a new Decision on an Initiative, and not again for one already seen", () => {
+  const onInitiative: NeedsYouItem = {
+    kind: "initiative-decision",
+    decisionId: "2d8c6b3a-8c77-4e3e-9f73-4b2f7c3e9a32",
+    initiativeId: "3e9d7c4b-9d88-4f4f-8a84-5c3a8d4fab43",
+    threadId: "4fae8d5c-ae99-4a5a-9b95-6d4b9e5abc54",
+    projectIds: ["billing", "search"],
+    waitingSince: "2026-11-13T09:00:00.000Z",
+  };
+  showTab(false);
+  needsYou([onInitiative]);
+
+  expect(titlesOver(1)).toEqual([STEADY, BLINK]);
+
+  showTab(true);
+  showTab(false);
+  needsYou([{ ...onInitiative, waitingSince: "2026-11-13T09:05:00.000Z" }]);
+
+  expect(titlesOver(1)).toEqual([STEADY, STEADY]);
+});

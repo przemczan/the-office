@@ -178,12 +178,22 @@ export interface Decision extends DecisionDraft {
   readonly passedOn: readonly PassedOn[];
   /** Undefined while it waits on the user or the Consultant. */
   readonly answer: GivenAnswer | undefined;
-  /** When it was closed unanswered, as its Task was dropped; undefined otherwise. */
+  /**
+   * When it was closed unanswered, as its Task was dropped, or, on no Task in an Initiative's
+   * Thread, as the Initiative ended; undefined otherwise.
+   */
   readonly closedAt?: Date | undefined;
 }
 
-/** Why a closed Decision can't be answered, in words for the user and any person alike. */
-export const CLOSED_DECISION_REFUSAL = "This Decision was closed: its Task was dropped.";
+/**
+ * Why a closed Decision can't be answered, in words for the user and any person alike: one on a
+ * Task closed as its Task was dropped, one on no Task as its Initiative ended.
+ */
+export function closedDecisionRefusal({ taskId }: Pick<Decision, "taskId">): string {
+  return taskId === undefined
+    ? "This Decision was closed: its Initiative ended."
+    : "This Decision was closed: its Task was dropped.";
+}
 
 /** Whether the Decision still waits: neither answered nor closed. */
 export function isOpen({ answer, closedAt }: Pick<Decision, "answer" | "closedAt">): boolean {
@@ -267,12 +277,13 @@ function numbered(count: number, index: number, problem: string): string {
 export function attachmentProblems(
   named: readonly string[],
   ofTheTask: readonly string[],
+  owner: "Task" | "Initiative" = "Task",
 ): string[] {
   const others = named.filter((id) => !ofTheTask.includes(id));
   return others.length === 0
     ? []
     : [
-        `A Decision names Attachments of its own Task only, and these aren't: ${others.join(", ")}.`,
+        `A Decision names Attachments of its own ${owner} only, and these aren't: ${others.join(", ")}.`,
       ];
 }
 
@@ -286,7 +297,7 @@ export function answerProblems(
   answer: DecisionAnswer,
   { byTheOffice = false }: Pick<AnswerGivenBy, "byTheOffice"> = {},
 ): string[] {
-  if (decision.closedAt) return [CLOSED_DECISION_REFUSAL];
+  if (decision.closedAt) return [closedDecisionRefusal(decision)];
   if (answer.kind === "asked-again") return byTheOffice ? [] : askAgainProblems(decision);
   if (isApproval(decision)) return approvalAnswerProblems(decision, answer);
   const { questions } = decision;
@@ -368,7 +379,7 @@ export function answerForUserProblems(decision: Decision, caller: Thread): strin
     return ["Only in a Thread the user talks to you in can you answer a Decision for them."];
   }
   if (decision.answer) return ["This Decision is answered already."];
-  if (decision.closedAt) return [CLOSED_DECISION_REFUSAL];
+  if (decision.closedAt) return [closedDecisionRefusal(decision)];
   if (decision.putTo !== undefined) {
     return [
       `This Decision is put to the person in the Role ${decision.putTo}, who answers it in a Consultation; only a Decision waiting on the user can be answered for them.`,

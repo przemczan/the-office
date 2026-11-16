@@ -76,6 +76,8 @@ beforeAll(async () => {
       ),
     taskAttachmentIds: () => Promise.resolve([]),
     initiativeTaskAttachmentIds: () => Promise.resolve(undefined),
+    isInitiativePlanningThread: () => Promise.resolve(true),
+    initiativeAttachmentIds: () => Promise.resolve([]),
     initiativeRecord: () => Promise.resolve(undefined),
     initiativeName: (id) => Promise.resolve(id === INITIATIVE ? "Offline sync" : undefined),
     projectWork: (projectId) =>

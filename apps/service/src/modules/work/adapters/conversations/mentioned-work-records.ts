@@ -78,6 +78,25 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
     return this.taskAttachmentIds(taskId);
   }
 
+  async isInitiativePlanningThread(initiativeId: string, threadId: string): Promise<boolean> {
+    try {
+      return (await this.initiatives.read(initiativeId)).planningThreadIds.includes(threadId);
+    } catch (error) {
+      if (error instanceof InitiativeNotFound) return false;
+      throw error;
+    }
+  }
+
+  async initiativeAttachmentIds(initiativeId: string): Promise<readonly string[]> {
+    try {
+      const attachments = await this.attachments.listOf({ kind: "initiative", initiativeId });
+      return attachments.map(({ id }) => id);
+    } catch (error) {
+      if (error instanceof InitiativeNotFound) return [];
+      throw error;
+    }
+  }
+
   async initiativeRecord(initiativeId: string): Promise<string | undefined> {
     try {
       return await this.initiatives.recordText(initiativeId);

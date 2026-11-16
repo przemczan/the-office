@@ -66,6 +66,7 @@ function aDecision(id: string, question: string): Decision {
     atUsersRequest: null,
     answeredByTheOffice: false,
     closedAt: null,
+    closedBecause: null,
   };
 }
 

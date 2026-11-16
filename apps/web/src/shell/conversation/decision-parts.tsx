@@ -24,7 +24,7 @@ import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { NamedTag, PersonTag } from "../person-tag.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
-import { CLOSED_WORDS, namedAttachments } from "./decision-words.ts";
+import { closedWords, namedAttachments } from "./decision-words.ts";
 import { ThreadLink } from "./thread-link.tsx";
 import "./conversation.css";
 
@@ -68,14 +68,29 @@ export function useDecisionThread(
   };
 }
 
-/** The Attachments the Decision names that the Task still holds; undefined until they are read. */
+/**
+ * The Attachments the Decision names that its Task, or for one on no Task in an Initiative's Thread
+ * its Initiative, still holds; undefined until they are read.
+ */
 export function useNamedAttachments(decision: Decision): readonly Attachment[] | undefined {
+  const names = decision.attachmentIds.length > 0;
+  const home = useQuery({
+    ...threadQueries.one(decision.threadId),
+    enabled: names && decision.taskId === null,
+  }).data?.home;
+  const initiativeId =
+    decision.taskId === null && home?.kind === "initiative" ? home.initiativeId : undefined;
+  const owner =
+    decision.taskId !== null
+      ? { kind: "task" as const, taskId: decision.taskId }
+      : { kind: "initiative" as const, initiativeId: initiativeId ?? "" };
   const { data } = useQuery({
-    ...attachmentQueries.of({ kind: "task", taskId: decision.taskId ?? "" }),
-    // A call made from a chat names no Attachments, as it is on no Task.
-    enabled: decision.attachmentIds.length > 0 && decision.taskId !== null,
+    ...attachmentQueries.of(owner),
+    // A call made from a chat names no Attachments, as it is on no Task and no Initiative.
+    enabled: names && (decision.taskId !== null || initiativeId !== undefined),
   });
-  if (decision.attachmentIds.length === 0 || decision.taskId === null) return [];
+  if (!names) return [];
+  if (decision.taskId === null && home !== undefined && home.kind !== "initiative") return [];
   return data && namedAttachments(decision, data);
 }
 
@@ -299,14 +314,14 @@ export function stillAnsweringHint(answering: boolean, personName: string): stri
 }
 
 /**
- * A Decision closed unanswered, as its Task was dropped: in the answer's place, with nothing left to
- * answer or take over (spec §2.4).
+ * A Decision closed unanswered, as its Task was dropped or its Initiative ended: in the answer's
+ * place, with nothing left to answer or take over (spec §2.4).
  */
-export function ClosedLine(): ReactNode {
+export function ClosedLine({ decision }: { readonly decision: Decision }): ReactNode {
   return (
     <p className="decision-answered decision-closed">
       <Icon name="x" size={12} />
-      <span>{CLOSED_WORDS}</span>
+      <span>{closedWords(decision)}</span>
     </p>
   );
 }

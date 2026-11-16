@@ -23,7 +23,7 @@ import {
 } from "../domain/consult.js";
 import { MessagesLogged, TurnEnded } from "../domain/conversation-events.js";
 import {
-  CLOSED_DECISION_REFUSAL,
+  closedDecisionRefusal,
   formAnswerWords,
   isOpen,
   type Decision,
@@ -267,7 +267,7 @@ export class Consultations implements OnModuleInit {
         "This Decision is answered already: the user took the Consultation over, or someone it was passed on to answered. There is nothing left to answer.",
       ]);
     }
-    if (decision.closedAt) throw new ThreadRefused([CLOSED_DECISION_REFUSAL]);
+    if (decision.closedAt) throw new ThreadRefused([closedDecisionRefusal(decision)]);
     if (decision.putTo !== consultation.roleKey) {
       throw new ThreadRefused([
         "You passed this Decision on: it waits on someone else now. There is nothing left to answer.",

@@ -14,15 +14,16 @@ import { needsYouWords } from "./now-words.ts";
 export const OFFICE_TITLE = "The Office";
 
 /**
- * Where opening a Notification goes: the Task or the Initiative it is about, Settings › Updates for
- * an Office update, or Now for the Office's own state, with the chat of the person who speaks over
- * it.
+ * Where opening a Notification goes: the Task or the Initiative it is about (for a Decision on no
+ * Task, the Initiative's Thread it waits in, at its card), Settings › Updates for an Office update,
+ * or Now for the Office's own state, with the chat of the person who speaks over it.
  */
 export type NotificationTarget =
   | { readonly to: "/tasks/$taskId"; readonly params: { readonly taskId: string } }
   | {
       readonly to: "/work/initiatives/$initiativeId";
       readonly params: { readonly initiativeId: string };
+      readonly search?: { readonly initiativeThread: string; readonly decision?: string };
     }
   | { readonly to: "/now"; readonly search?: { readonly chat: string } }
   | { readonly to: "/settings/updates" };
@@ -42,9 +43,16 @@ export function targetOf({
   if (pointsTo.kind === "since-you-left") return { to: "/now" };
   if (pointsTo.kind === "office-update") return { to: "/settings/updates" };
   if (pointsTo.kind === "initiative") {
+    const { initiativeId, threadId, decisionId } = pointsTo;
     return {
       to: "/work/initiatives/$initiativeId",
-      params: { initiativeId: pointsTo.initiativeId },
+      params: { initiativeId },
+      ...(threadId !== undefined && {
+        search: {
+          initiativeThread: threadId,
+          ...(decisionId !== undefined && { decision: decisionId }),
+        },
+      }),
     };
   }
   return { to: "/tasks/$taskId", params: { taskId: pointsTo.taskId } };

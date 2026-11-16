@@ -1149,6 +1149,8 @@ describe("Office tools on a Stage", () => {
       taskAttachmentIds: (taskId) =>
         Promise.resolve(taskId === request.taskId ? [screenshot, report] : [ofAnotherTask]),
       initiativeTaskAttachmentIds: () => Promise.resolve(undefined),
+      isInitiativePlanningThread: () => Promise.resolve(true),
+      initiativeAttachmentIds: () => Promise.resolve([]),
       initiativeRecord: () => Promise.resolve(undefined),
       initiativeName: () => Promise.resolve(undefined),
       projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),

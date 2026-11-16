@@ -33,7 +33,10 @@ export class DecisionsController {
   /** Every Decision waiting on the user, the first asked first: Waiting on you, and Needs you. */
   @Get("decisions/open")
   async listOpen(): Promise<DecisionResponse[]> {
-    return (await this.decisions.listOpen()).map(toDecisionResponse);
+    // The Decision's own fields alone: Needs you reads the Initiative of one on no Task from Now.
+    return (await this.decisions.listOpen()).map(({ initiativeId: _initiativeId, ...decision }) =>
+      toDecisionResponse(decision),
+    );
   }
 
   /** The Task's Decisions nobody has answered, those with a Consultant too: its Needs you card. */

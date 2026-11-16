@@ -11,5 +11,10 @@ import { useProjectFilter } from "../project-filter/use-project-filter.ts";
 export function useNeedsYou(): Narrowed<NeedsYouItem> | undefined {
   const needsYou = useQuery(nowQueries.now()).data?.needsYou;
   const { shows } = useProjectFilter();
-  return needsYou && narrowed(needsYou, ({ projectId }) => shows([projectId]));
+  return needsYou && narrowed(needsYou, (item) => shows(projectsOf(item)));
+}
+
+/** The Projects an item is in: its Task's, or for a Decision on no Task its Initiative's. */
+function projectsOf(item: NeedsYouItem): readonly string[] {
+  return item.kind === "initiative-decision" ? item.projectIds : [item.projectId];
 }

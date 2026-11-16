@@ -66,9 +66,13 @@ function useBlinkPhase(blinking: boolean): boolean {
 }
 
 function itemKey(item: NeedsYouItem): string {
-  return item.kind === "decision"
-    ? `decision:${item.decisionId}`
-    : `gate:${item.taskId}:${item.stageKey}:${item.waitingSince}`;
+  switch (item.kind) {
+    case "decision":
+    case "initiative-decision":
+      return `decision:${item.decisionId}`;
+    case "gate":
+      return `gate:${item.taskId}:${item.stageKey}:${item.waitingSince}`;
+  }
 }
 
 function hasNew(waiting: ReadonlySet<string>, seen: ReadonlySet<string>): boolean {

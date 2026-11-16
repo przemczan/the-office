@@ -7159,6 +7159,312 @@ test(
   },
 );
 
+const REPORT_FORMAT_QUESTION = "Which format should the quarterly report export use?";
+
+/** The open Decision whose first question is `question`, as Needs you lists it. */
+async function openDecisionAsking(page: Page, question: string) {
+  return decisionListSchema
+    .parse(await (await page.request.get("/api/decisions/open")).json())
+    .find(({ questions }) => questions[0]?.question === question);
+}
+
+// The engine replays the next session in e2e/sessions.jsonl: Bob's on the Initiative's shaping
+// Thread, which holds at a mark before it opens a Decision of two questions on no Task, and at
+// another before its turn ends; the answer reaches him as his next message, which he answers.
+test(
+  "Bob asks two questions on the whole Initiative while shaping it: the card is answered in the Thread, Needs you and the Notification lead there, and the answer reaches him",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Quarterly reports", "QR");
+      const idea = ideaSchema.parse(
+        await (
+          await page.request.post("/api/ideas", {
+            data: { title: "Quarterly report exports", notes: "", projectId: null },
+          })
+        ).json(),
+      );
+      const initiative = initiativeSchema.parse(
+        await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+      );
+      const task = taskSchema.parse(
+        await (
+          await page.request.post(`/api/initiatives/${initiative.id}/tasks`, {
+            data: {
+              title: "Quarterly report download",
+              projectId: project.id,
+              priority: "normal",
+              blockedBy: [],
+            },
+          })
+        ).json(),
+      );
+      const reach = async (mark: string) =>
+        expect((await page.request.post(`/api/e2e/marks/${mark}`)).status()).toBe(204);
+
+      // Bob opens the Decision while the user is elsewhere: its Notification comes as a toast, once
+      // the page has read those open before it (which it never shows again).
+      const notificationsRead = page.waitForResponse(
+        (response) => new URL(response.url()).pathname === "/api/notifications" && response.ok(),
+      );
+      await page.goto("/projects");
+      await notificationsRead;
+      await reach("report-exports-asks");
+      await expect.poll(() => openDecisionAsking(page, REPORT_FORMAT_QUESTION)).toBeTruthy();
+      const decision = await openDecisionAsking(page, REPORT_FORMAT_QUESTION);
+      if (!decision) throw new Error("Bob's Decision isn't open.");
+      expect(decision.taskId).toBeNull();
+      const threadUrl = `/work/initiatives/${initiative.id}?initiativeThread=${decision.threadId}&decision=${decision.id}`;
+      const notificationOf = async () =>
+        notificationListSchema
+          .parse(await (await page.request.get("/api/notifications")).json())
+          .find(
+            ({ kind, pointsTo }) =>
+              kind === "needs-you.decision" &&
+              pointsTo.kind === "initiative" &&
+              pointsTo.decisionId === decision.id,
+          );
+      await expect.poll(notificationOf).toMatchObject({
+        pointsTo: {
+          kind: "initiative",
+          initiativeId: initiative.id,
+          threadId: decision.threadId,
+          decisionId: decision.id,
+        },
+      });
+      const toast = page.locator(".toasts").getByRole("button", {
+        name: /On the Initiative Quarterly report exports, I need your answer: Which format/,
+      });
+      await toast.click();
+      await expect(page).toHaveURL(
+        new RegExp(
+          `/work/initiatives/${initiative.id}\\?initiativeThread=${decision.threadId}&decision=${decision.id}$`,
+        ),
+      );
+
+      // The card is answered in the Thread, the whole form in place; while Bob's turn runs, the
+      // answer would reach him as it ends.
+      const conversation = page.getByRole("complementary", { name: "Conversation" });
+      const card = conversation.locator(`#decision-card-${decision.id}`);
+      await expect(card).toHaveAttribute(
+        "aria-label",
+        `Decision: ${REPORT_FORMAT_QUESTION} (and 1 more question)`,
+      );
+      await expect(card.locator(".decision-on-task")).toHaveText(
+        "On no Task: about the Initiative as a whole",
+      );
+      await expect(card.getByRole("group", { name: "Question 1" })).toContainText(
+        REPORT_FORMAT_QUESTION,
+      );
+      await expect(card.getByRole("group", { name: "Question 2" })).toContainText(
+        "How often should the export run?",
+      );
+      await expect(card.getByText("Reaches Bob when this turn ends.")).toBeVisible();
+      await reach("report-exports-turn-ends");
+      await expect(
+        conversation.getByText("I asked you two things before I write the outcome."),
+      ).toBeVisible();
+      await expect(card.getByText("Reaches Bob when this turn ends.")).toHaveCount(0);
+      // For a Task's review, the card at the top of its Thread, at each width: in a narrow window the
+      // conversation is a drawer, which the address naming the Thread opens as the page loads.
+      for (const colorScheme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const width of [1600, 900, 390]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(threadUrl);
+          await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
+          await expect(card.getByRole("button", { name: "Submit", exact: true })).toBeVisible();
+          await card.evaluate((shown) => shown.scrollIntoView({ block: "start" }));
+          await motionSettled(page);
+          const sideways = await page
+            .locator("html")
+            .evaluate((html) => html.scrollWidth - html.clientWidth);
+          expect(sideways).toBe(0);
+          await page.screenshot({
+            path: path.join(
+              TASK_SCREENSHOTS,
+              `initiative-decision-card-${colorScheme}-${width}.png`,
+            ),
+          });
+        }
+      }
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.setViewportSize({ width: 1600, height: 900 });
+
+      // The Needs you panel lists it under the Initiative's title and Project, linking to the Thread.
+      await page.goto("/projects");
+      await page
+        .getByRole("status", { name: "Status strip" })
+        .getByRole("button", { name: /needs? you/ })
+        .click();
+      const panel = page.getByRole("dialog").filter({ hasText: "Needs you" });
+      const inPanel = panel.locator('[aria-label="Decision on Quarterly report exports"]');
+      await expect(inPanel.locator("a.needs-you-title")).toHaveText("Quarterly report exports");
+      await expect(inPanel.locator("a.needs-you-title")).toHaveAttribute("href", threadUrl);
+      await expect(inPanel.locator(".needs-you-heading .project-chip")).toContainText(
+        "Quarterly reports",
+      );
+      await expect(
+        inPanel.getByRole("region", { name: /^Decision: Which format should the quarterly/ }),
+      ).toBeVisible();
+      await screenshotScenario(page, "needs-you-initiative-decision", { inView: inPanel });
+      await panel.getByRole("button", { name: "Close" }).click();
+      await expect(panel).toHaveCount(0);
+
+      // So does Now, whose title link opens the Thread at the card.
+      await page.goto("/now");
+      const onNow = page
+        .getByRole("region", { name: "Needs you" })
+        .locator('[aria-label="Decision on Quarterly report exports"]');
+      await expect(onNow.locator(".needs-you-heading .project-chip")).toContainText(
+        "Quarterly reports",
+      );
+      await onNow.locator("a.needs-you-title").click();
+      await expect(page).toHaveURL(new RegExp(`/work/initiatives/${initiative.id}\\?`));
+      await expect(card).toBeInViewport();
+
+      // Submitted, it is answered in the Thread, leaves Needs you and handles the Notification, and
+      // reaches Bob as his next message, which he answers.
+      await card
+        .getByRole("group", { name: "Question 1" })
+        .getByRole("radio", { name: "PDF", exact: true })
+        .check();
+      await card.getByRole("button", { name: "Submit", exact: true }).click();
+      // Answered, it shows what became of it, whole, no longer a card a link lands on.
+      const answered = conversation.getByRole("region", {
+        name: `Decision: ${REPORT_FORMAT_QUESTION} (and 1 more question)`,
+      });
+      await expect(answered.locator(".decision-answered")).toHaveText("Answered by you");
+      await expect(answered).toContainText("PDF");
+      await expect(answered).toContainText("Every quarter");
+      await expect(
+        conversation.getByText("A PDF every quarter: I'll write the outcome that way."),
+      ).toBeVisible();
+      await expect.poll(() => openDecisionAsking(page, REPORT_FORMAT_QUESTION)).toBeUndefined();
+      await expect.poll(notificationOf).toBeUndefined();
+      await page.goto("/now");
+      await expect(
+        page
+          .getByRole("region", { name: "Needs you" })
+          .locator('[aria-label="Decision on Quarterly report exports"]'),
+      ).toHaveCount(0);
+
+      // Nothing of it is left to weigh on the next tests: the Initiative is dropped with its Task.
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/drop`)).ok()).toBe(true);
+      await expect
+        .poll(
+          async () =>
+            taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json()).state,
+        )
+        .toBe("dropped");
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+/** The Tasks the scripted Planner asks about by id, beside a Decision on the whole Initiative. */
+const ARCHIVE_STORE_TASK = "8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e01";
+const ARCHIVE_PAGE_TASK = "8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e02";
+const ARCHIVE_SCOPE_QUESTION = "Should the archive take reports from before this year?";
+
+// The engine replays the next two sessions in e2e/sessions.jsonl: Bob's on the Initiative's
+// shaping Thread, then Jan's, who opens a Decision on each of the two Tasks by their ids and one on
+// no Task, about the Initiative as a whole, and ends his turn.
+test(
+  "in the planning Thread Jan asks about the whole Initiative beside his Decisions on its Tasks",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Report archive", "RA");
+      const idea = ideaSchema.parse(
+        await (
+          await page.request.post("/api/ideas", {
+            data: { title: "Report archive", notes: "", projectId: null },
+          })
+        ).json(),
+      );
+      const initiative = initiativeSchema.parse(
+        await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+      );
+      const add = async (title: string) =>
+        taskSchema.parse(
+          await (
+            await page.request.post(`/api/initiatives/${initiative.id}/tasks`, {
+              data: { title, projectId: project.id, priority: "normal", blockedBy: [] },
+            })
+          ).json(),
+        );
+      const store = await add("Archive store");
+      const archivePage = await add("Archive page");
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/confirm`)).ok()).toBe(
+        true,
+      );
+      await giveTasksFixedIds([store.id, ARCHIVE_STORE_TASK], [archivePage.id, ARCHIVE_PAGE_TASK]);
+
+      const initiativeUrl = `/work/initiatives/${initiative.id}`;
+      await page.goto(initiativeUrl);
+      await page.getByRole("button", { name: "Plan the Initiative" }).click();
+      await expect.poll(() => openDecisionAsking(page, ARCHIVE_SCOPE_QUESTION)).toBeTruthy();
+      const { planningThreadId } = initiativeSchema.parse(
+        await (await page.request.get(`/api/initiatives/${initiative.id}`)).json(),
+      );
+      const inThread = async () =>
+        decisionListSchema
+          .parse(await (await page.request.get("/api/decisions/open")).json())
+          .filter(({ threadId }) => threadId === planningThreadId)
+          .map(({ taskId }) => taskId);
+      await expect
+        .poll(inThread)
+        .toEqual(expect.arrayContaining([ARCHIVE_STORE_TASK, ARCHIVE_PAGE_TASK, null]));
+
+      await page.goto(`${initiativeUrl}?initiativeThread=${planningThreadId}`);
+      const conversation = page.getByRole("complementary", { name: "Conversation" });
+      await expect(
+        conversation.getByText(
+          "Both Tasks wait for your answers, and I asked one thing about the whole Initiative.",
+        ),
+      ).toBeVisible();
+      // The one on no Task is the whole form, answered here; each on a Task names it and leads to
+      // its card.
+      const onTheInitiative = conversation.getByRole("region", {
+        name: `Decision: ${ARCHIVE_SCOPE_QUESTION}`,
+      });
+      await expect(onTheInitiative.locator(".decision-on-task")).toHaveText(
+        "On no Task: about the Initiative as a whole",
+      );
+      await expect(
+        onTheInitiative.getByRole("button", { name: "Submit", exact: true }),
+      ).toBeVisible();
+      for (const [question, title] of [
+        ["Where should archived reports be kept?", "Archive store"],
+        ["Should the archive page search inside reports?", "Archive page"],
+      ] as const) {
+        const onTask = conversation.getByRole("region", { name: `Decision: ${question}` });
+        await expect(onTask.locator(".decision-on-task")).toContainText(title);
+        await expect(onTask).toContainText("Waits on you.");
+        await expect(onTask.getByRole("button", { name: "Submit", exact: true })).toHaveCount(0);
+      }
+
+      // Now lists it under the Initiative beside those under their Tasks.
+      await page.goto("/now");
+      const needsYou = page.getByRole("region", { name: "Needs you" });
+      await expect(needsYou.locator('[aria-label="Decision on Report archive"]')).toBeVisible();
+      await expect(needsYou.locator('[aria-label="Decision on Archive store"]')).toBeVisible();
+      await expect(needsYou.locator('[aria-label="Decision on Archive page"]')).toBeVisible();
+
+      // Nothing of it is left to weigh on the next tests: dropped with its Tasks, the Initiative
+      // closes every Decision in its planning Thread.
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/drop`)).ok()).toBe(true);
+      await expect.poll(inThread).toEqual([]);
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
 test.describe("the Live view's comings and goings", { tag: "@full" }, () => {
   // A zone with no place keeps noon's light, so nobody has gone home whatever the runner's clock says.
   test.use({ timezoneId: "Etc/UTC" });

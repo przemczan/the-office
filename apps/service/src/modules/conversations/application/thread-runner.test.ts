@@ -175,6 +175,8 @@ const initiativeTasks = new Map<
   string,
   { readonly initiativeId: string; readonly title: string }
 >();
+/** The Initiatives here being shaped, by id: their Threads are shaping Threads, every other's planning. */
+const shapingInitiatives = new Set<string>();
 /** The Office tools of the Initiatives' Threads here: a test planning one adds open_decision. */
 let initiativeOfficeTools: readonly string[];
 /** The Initiatives here with a Pipeline, confirmed, by id: their Threads read their branch. */
@@ -235,6 +237,7 @@ beforeEach(async () => {
   mcpServersOnResume = NO_MCP_SERVERS;
   initiativeOfficeTools = ["read_task"];
   initiativeTasks.clear();
+  shapingInitiatives.clear();
   initiativeBranchReads.clear();
   refreshedOnInitiative = [];
 });
@@ -408,6 +411,9 @@ async function startOn(
     taskAttachmentIds: () => Promise.resolve([]),
     initiativeTaskAttachmentIds: (initiativeId, taskId) =>
       Promise.resolve(initiativeTasks.get(taskId)?.initiativeId === initiativeId ? [] : undefined),
+    isInitiativePlanningThread: (initiativeId) =>
+      Promise.resolve(!shapingInitiatives.has(initiativeId)),
+    initiativeAttachmentIds: () => Promise.resolve([]),
     initiativeRecord: (initiativeId) => Promise.resolve(workRecords.get(initiativeId)),
     initiativeName: () => Promise.resolve(undefined),
     projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
@@ -2517,7 +2523,7 @@ describe("a Decision", () => {
 /** The Planner opens a Decision on one of the Initiative's Tasks, in its planning Thread. */
 function opensDecisionOn(
   callId: string,
-  taskId: string,
+  taskId: string | undefined,
   question: string,
   attachments?: string[],
 ): Step[] {
@@ -2748,6 +2754,117 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     await answered(opened.id, 1);
     expect((await threads.read(opened.id)).openDecisions).toEqual([]);
+  });
+});
+
+describe("a Decision on an Initiative as a whole", () => {
+  it("opens on no Task in the shaping Thread; an answer given while the shaper works reaches it as the turn ends", async () => {
+    const initiativeId = randomUUID();
+    shapingInitiatives.add(initiativeId);
+    initiativeOfficeTools = ["read_task", OPEN_DECISION_TOOL, HOLD_TURN];
+    await startWith(
+      started(
+        ...opensDecisionOn("c-1", undefined, "Which format?"),
+        ...opensDecisionOn("c-2", undefined, "Which columns?"),
+        ...holdsTheTurn("c-3"),
+        ...aTurn("brief", "It waits on the user."),
+        sent("answer"),
+        ...aTurn("answer", "Shaped with CSV."),
+      ),
+    );
+    const turn: { letGo?: () => void } = {};
+    const held = new Promise<void>((resolve) => {
+      turn.letGo = resolve;
+    });
+    app.get(OfficeToolRegistry).register({
+      name: HOLD_TURN,
+      description: "Holds the turn.",
+      input: z.object({}),
+      run: async () => {
+        await held;
+        return { text: "Done.", isError: false };
+      },
+    });
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Shaping the Initiative",
+      opening: "Shape the Initiative.",
+    });
+    const results = await vi.waitFor(
+      () => {
+        const reported =
+          engine.sessions[0]?.reportedEvents.flatMap((event) =>
+            event.kind === "tool-result" ? [event.text] : [],
+          ) ?? [];
+        if (reported.length < 2) throw new Error("Not answered yet.");
+        return reported;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    expect(results).toEqual([
+      "The Decision is open on the Initiative, waiting on the user. End your turn now: their answer comes as your next message.",
+      `Your Decision "Which format?" on the Initiative still waits on its answer. End your turn: it comes as your next message.`,
+    ]);
+    const [onTheInitiative] = (await threads.read(opened.id)).openDecisions;
+    expect(onTheInitiative?.taskId).toBeUndefined();
+    await expect(decisions.listOpen()).resolves.toContainEqual(
+      expect.objectContaining({ id: onTheInitiative?.id, initiativeId }),
+    );
+
+    await decisions.answer(onTheInitiative?.id ?? "", oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
+
+    const kept = (await threads.messages(opened.id)).find(
+      (line) => line.kind === "decision-answer",
+    );
+    expect(kept).toMatchObject({ decisionId: onTheInitiative?.id, delivery: "waiting" });
+    const [session] = engine.sessions;
+    expect(session?.received.filter(({ step }) => step === "send")).toEqual([]);
+
+    turn.letGo?.();
+    await vi.waitFor(
+      () => {
+        if (!session?.received.some(({ step }) => step === "send"))
+          throw new Error("Not handed over yet.");
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const handedOver = session?.received.find(({ step }) => step === "send");
+    expect(handedOver?.step === "send" && handedOver.message.text).toBe(
+      "The user Ann Lee answered your Decision:\n\n1. Which format?\n   Answer: CSV",
+    );
+    await answered(opened.id, 1);
+    expect((await threads.read(opened.id)).openDecisions).toEqual([]);
+  });
+
+  it("opens on no Task in the planning Thread, where the Planner plans on while it waits", async () => {
+    const initiativeId = randomUUID();
+    initiativeOfficeTools = ["read_task", OPEN_DECISION_TOOL];
+    await startWith(
+      started(
+        ...opensDecisionOn("c-1", undefined, "Which format?"),
+        ...opensDecisionOn("c-2", undefined, "Which columns?"),
+        ...aTurn("brief", "It waits on the user."),
+      ),
+    );
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Planning the Initiative",
+      opening: "Plan the Initiative's Tasks.",
+    });
+    await answered(opened.id, 1);
+
+    const results =
+      engine.sessions[0]?.reportedEvents.flatMap((event) =>
+        event.kind === "tool-result" ? [event.text] : [],
+      ) ?? [];
+    expect(results).toEqual([
+      "The Decision is open on the Initiative, waiting on the user. Plan the Tasks that don't need its answer; end your turn once every Task left waits for an answer. Its answer comes as a message.",
+      `Your Decision "Which format?" on the Initiative still waits on its answer. End your turn, or plan the Tasks that don't need it: its answer comes as your next message.`,
+    ]);
   });
 });
 

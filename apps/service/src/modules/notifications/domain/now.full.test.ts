@@ -107,14 +107,14 @@ describe("nowOf", () => {
         },
       ],
       openDecisions: [
-        { id: "d2", taskId: "t2", askedAt: at(9) },
-        { id: "d1", taskId: "t3", askedAt: at(1) },
+        { id: "d2", threadId: "th", taskId: "t2", askedAt: at(9) },
+        { id: "d1", threadId: "th", taskId: "t3", askedAt: at(1) },
       ],
       tasks: [TASK, { ...TASK, id: "t2" }, { ...TASK, id: "t3" }],
     });
 
     expect(
-      now.needsYou.map((item) => (item.kind === "decision" ? item.decisionId : item.stageKey)),
+      now.needsYou.map((item) => (item.kind === "gate" ? item.stageKey : item.decisionId)),
     ).toEqual(["d1", "look", "d2"]);
   });
 
@@ -122,14 +122,72 @@ describe("nowOf", () => {
     const now = nowOf({
       ...PARTS,
       openDecisions: [
-        { id: "d1", taskId: "t2", askedAt: at(1) },
-        { id: "d2", taskId: "gone", askedAt: at(2) },
+        { id: "d1", threadId: "th", taskId: "t2", askedAt: at(1) },
+        { id: "d2", threadId: "th", taskId: "gone", askedAt: at(2) },
       ],
       tasks: [{ ...TASK, id: "t2", projectId: "p2" }],
     });
 
     expect(now.needsYou).toEqual([
       { kind: "decision", decisionId: "d1", taskId: "t2", projectId: "p2", waitingSince: at(1) },
+    ]);
+  });
+
+  it("lists a Decision on no Task in an Initiative's Thread with the Projects the Initiative spans", () => {
+    const initiative = { id: "i1", name: "Billing", state: "active", createdAt: at(0) };
+    const now = nowOf({
+      ...PARTS,
+      openDecisions: [
+        { id: "d1", threadId: "th1", initiativeId: "i1", askedAt: at(5) },
+        { id: "d2", threadId: "th2", taskId: "t2", askedAt: at(2) },
+      ],
+      tasks: [{ ...TASK, id: "t2", projectId: "p2" }],
+      initiatives: [initiative],
+      initiativeTasks: new Map([
+        [
+          "i1",
+          [
+            { projectId: "p1", state: "in-progress" },
+            { projectId: "p3", state: "dropped" },
+            { projectId: "p2", state: "draft" },
+            { projectId: "p1", state: "draft" },
+          ],
+        ],
+      ]),
+    });
+
+    expect(now.needsYou).toEqual([
+      { kind: "decision", decisionId: "d2", taskId: "t2", projectId: "p2", waitingSince: at(2) },
+      {
+        kind: "initiative-decision",
+        decisionId: "d1",
+        initiativeId: "i1",
+        threadId: "th1",
+        projectIds: ["p1", "p2"],
+        waitingSince: at(5),
+      },
+    ]);
+  });
+
+  it("leaves out a Decision on an Initiative Work no longer knows or that ended", () => {
+    const now = nowOf({
+      ...PARTS,
+      openDecisions: [
+        { id: "d1", threadId: "th1", initiativeId: "gone", askedAt: at(1) },
+        { id: "d2", threadId: "th2", initiativeId: "done", askedAt: at(2) },
+        { id: "d3", threadId: "th3", initiativeId: "dropped", askedAt: at(3) },
+        { id: "d4", threadId: "th4", initiativeId: "shaping", askedAt: at(4) },
+      ],
+      initiatives: ["done", "dropped", "shaping"].map((state) => ({
+        id: state,
+        name: state,
+        state,
+        createdAt: at(0),
+      })),
+    });
+
+    expect(now.needsYou).toEqual([
+      expect.objectContaining({ kind: "initiative-decision", decisionId: "d4", projectIds: [] }),
     ]);
   });
 

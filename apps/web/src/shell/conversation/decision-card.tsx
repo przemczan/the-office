@@ -16,6 +16,7 @@ import {
   decisionCardElementId,
   DecisionFrame,
   LinkToConsultation,
+  useDecisionThread,
   type DecisionAnsweringProps,
 } from "./decision-parts.tsx";
 import "./conversation.css";
@@ -35,6 +36,8 @@ export interface DecisionCardProps extends DecisionAnsweringProps {
    * first two a long form, or one with Attachments, is the compact card.
    */
   readonly where?: DecisionCardPlace;
+  /** A line under the card's first, such as what in an Initiative it is on. */
+  readonly lead?: ReactNode;
 }
 
 /**
@@ -47,6 +50,7 @@ export function DecisionCard({
   place,
   landing = false,
   where = "needs-you",
+  lead,
   ...answering
 }: DecisionCardProps): ReactNode {
   const { decision } = answering;
@@ -60,6 +64,7 @@ export function DecisionCard({
       place={place}
       settled={settled}
     >
+      {lead}
       {settled ? (
         <DecisionAnswered decision={decision} />
       ) : decision.kind === "approval" ? (
@@ -79,11 +84,13 @@ export function DecisionCard({
 
 /**
  * A Decision in its Thread: while open a short form with the way to its card, in the Task's Needs
- * you, then what became of it, whole. In an Initiative's planning Thread, where the Planner asks
- * about any of its Tasks, each names the Task it is on. One put to a Consultant links to their
- * Consultation; a call made from a chat has no Needs you, its Consultation in the callee's chat
- * (spec §2.4). One waiting on the user in a person's chat, never under Needs you, is the whole form
- * inline, answered there; its answer reaches the person as their next message.
+ * you, then what became of it, whole. In an Initiative's shaping or planning Thread, where the
+ * person asks about any of its Tasks, each names the Task it is on; one on no Task, about the
+ * Initiative as a whole, is answered in the Thread itself, the whole card in place. One put to a
+ * Consultant links to their Consultation; a call made from a chat has no Needs you, its
+ * Consultation in the callee's chat (spec §2.4). One waiting on the user in a person's chat, never
+ * under Needs you, is the whole form inline, answered there; its answer reaches the person as their
+ * next message.
  */
 export function DecisionInThread({
   decision,
@@ -100,6 +107,10 @@ export function DecisionInThread({
   const home = thread?.home;
   const settled = decision.closedAt !== null || decision.formAnswer !== null;
   const count = decision.questions.length;
+  const onTheInitiative = home?.kind === "initiative" && decision.taskId === null;
+  if (onTheInitiative && !settled && decision.putTo === null) {
+    return <DecisionOnTheInitiative decision={decision} />;
+  }
   if (home?.kind === "chat" && !thread?.consultation && decision.putTo === null) {
     return (
       <DecisionCard
@@ -123,6 +134,7 @@ export function DecisionInThread({
           On <RecordMention link={{ kind: "task", taskId: decision.taskId }} written="its Task" />
         </p>
       )}
+      {onTheInitiative && <OnNoTaskLine />}
       {settled ? (
         <DecisionAnswered decision={decision} />
       ) : (
@@ -155,6 +167,22 @@ export function DecisionInThread({
       )}
     </DecisionFrame>
   );
+}
+
+/**
+ * An open Decision on no Task in an Initiative's Thread, answered where it is: the form in place,
+ * or the compact card past the threshold, as in Needs you; the card a link to it lands on.
+ */
+function DecisionOnTheInitiative({ decision }: { readonly decision: Decision }): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  const { card } = useDecisionThread(decision, roles);
+  return (
+    <DecisionCard decision={decision} {...card} where="thread" landing lead={<OnNoTaskLine />} />
+  );
+}
+
+function OnNoTaskLine(): ReactNode {
+  return <p className="decision-on-task">On no Task: about the Initiative as a whole</p>;
 }
 
 /** What the page does as a link leaves for the card, such as clearing what lies over it. */

@@ -5,7 +5,7 @@ import { RoleCards } from "../../people/index.js";
 import {
   answerForUserProblems,
   answerGivenBy,
-  CLOSED_DECISION_REFUSAL,
+  closedDecisionRefusal,
   decisionSummary,
   isApproval,
   isOnTask,
@@ -13,7 +13,6 @@ import {
   type Decision,
   type DecisionAnswer,
   type DecisionDraft,
-  type DecisionOnTask,
 } from "../domain/decision.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
 import { latestWriter } from "../domain/message.js";
@@ -23,16 +22,25 @@ import {
   openDecision,
   openDecisionOf,
   recordDecisionAnswer,
+  SHAPING_DECISION_ON_A_TASK,
+  type InitiativeThreadKind,
 } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { WorkRecords } from "./work-records.js";
 
-/** A Decision just opened, and the home of the Thread it was opened in. */
+/** A Decision waiting on the user, with the Initiative it is about when it is on no Task. */
+export type DecisionWaitingOnTheUser = Decision & { readonly initiativeId?: string };
+
+/**
+ * A Decision just opened, the home of the Thread it was opened in and, on an Initiative, which of
+ * its Threads that is.
+ */
 export interface OpenedDecision {
   readonly decision: Decision;
   readonly home: Home;
+  readonly initiativeThread?: InitiativeThreadKind | undefined;
 }
 
 /**
@@ -52,11 +60,12 @@ export class DecisionService {
 
   /**
    * Opens a Decision in the Thread whose engine session is `sessionId`, on the Thread's Task, or in
-   * an Initiative's planning Thread on `taskId`, one of the Initiative's Tasks, or in a person's
-   * chat on no Task, where it waits on the user inline (spec §2.7). Refused for a session no Thread
-   * has now, while the Thread waits on another on the same Task (in a chat, on any), for a Task
-   * outside the Initiative, and with what is asked wrong, such as an Attachment that isn't the
-   * Task's.
+   * an Initiative's planning Thread on `taskId`, one of the Initiative's Tasks; in an Initiative's
+   * Thread naming no Task, on the Initiative as a whole, one at a time; or in a person's chat on no
+   * Task, where it waits on the user inline (spec §2.7). Refused for a session no Thread has now,
+   * while the Thread waits on another on the same Task (or on no Task; in a chat, on any), for a
+   * Task outside the Initiative, for any Task in the shaping Thread, and with what is asked wrong,
+   * such as an Attachment that isn't the Task's, or the Initiative's on no Task.
    */
   async open(
     sessionId: string,
@@ -65,6 +74,10 @@ export class DecisionService {
   ): Promise<OpenedDecision> {
     const thread = await this.repository.findBySession(sessionId);
     if (!thread) throw new ThreadRefused(["The Office doesn't know this session's Thread."]);
+    const initiativeThread = await this.initiativeThreadKind(thread);
+    if (initiativeThread === "shaping" && taskId !== undefined) {
+      throw new ThreadRefused([SHAPING_DECISION_ON_A_TASK]);
+    }
     const attachmentsOfTheTask = await this.attachmentsToCheck(thread, draft, taskId);
     const id = randomUUID();
     const { thread: waiting, event } = await this.repository.update(thread.id, (latest) =>
@@ -73,6 +86,7 @@ export class DecisionService {
         putTo,
         taskId,
         attachmentsOfTheTask,
+        initiativeThread,
         id,
         askedAt: new Date(),
       }),
@@ -80,7 +94,7 @@ export class DecisionService {
     if (event) await this.events.publish(event);
     const decision = openDecisionOf(waiting, id);
     if (!decision) throw new Error(`Thread ${thread.id} opened no Decision.`);
-    return { decision, home: waiting.home };
+    return { decision, home: waiting.home, initiativeThread };
   }
 
   /**
@@ -123,7 +137,7 @@ export class DecisionService {
     const decision = await this.repository.decision(id);
     if (!decision) throw new DecisionNotFound(id);
     if (decision.answer) throw new ThreadRefused(["This Decision is answered already."]);
-    if (decision.closedAt) throw new ThreadRefused([CLOSED_DECISION_REFUSAL]);
+    if (decision.closedAt) throw new ThreadRefused([closedDecisionRefusal(decision)]);
     const thread = await this.repository.find(decision.threadId);
     if (!thread) throw new Error(`Decision ${id}'s Thread is gone.`);
     if (decision.roleKey !== undefined && !thread.stageThread) {
@@ -158,11 +172,36 @@ export class DecisionService {
   }
 
   /**
-   * Every Decision waiting on the user, the first asked first: what Waiting on you shows. Each is on
-   * a Task: a chat's Decision waits on the user inline in the chat, never here (spec §2.7).
+   * The Initiative ended, Done or Dropped (spec §2.4): every Decision on no Task still open in its
+   * Threads, waiting on the user or put to a Consultant, is closed, as on a dropped Task, so it
+   * leaves Needs you and can no longer be answered. Those on its Tasks stay with their Tasks.
    */
-  async listOpen(): Promise<readonly DecisionOnTask[]> {
-    return (await this.repository.openDecisions()).filter(isOnTask);
+  async closeOnInitiative(initiativeId: string): Promise<void> {
+    const threads = await this.repository.listIn({ kind: "initiative", initiativeId });
+    for (const thread of threads) {
+      for (const { id } of thread.openDecisions.filter(({ taskId }) => taskId === undefined)) {
+        const { event } = await this.repository.update(thread.id, (latest) =>
+          closeDecision(latest, id, new Date()),
+        );
+        if (event) await this.events.publish(event);
+      }
+    }
+  }
+
+  /**
+   * Every Decision waiting on the user, the first asked first: what Needs you shows. Each is on a
+   * Task, or on an Initiative as a whole in one of its Threads (`initiativeId` set); a chat's
+   * Decision waits on the user inline in the chat, never here (spec §2.7).
+   */
+  async listOpen(): Promise<readonly DecisionWaitingOnTheUser[]> {
+    const [onTasks, onInitiatives] = await Promise.all([
+      this.repository.openDecisions(),
+      this.repository.openInInitiativeThreads(),
+    ]);
+    return [...onTasks.filter(isOnTask), ...onInitiatives].toSorted(
+      (first, second) =>
+        first.askedAt.getTime() - second.askedAt.getTime() || first.id.localeCompare(second.id),
+    );
   }
 
   /**
@@ -213,16 +252,17 @@ export class DecisionService {
   }
 
   /**
-   * The Decisions on Tasks the Thread waits on, the first asked first, by their Task and the
-   * Decision in one line.
+   * The Decisions the Thread waits on, the first asked first, by their Task (undefined for one on
+   * no Task, such as on an Initiative as a whole) and the Decision in one line.
    */
   async openInThread(
     threadId: string,
-  ): Promise<readonly { readonly taskId: string; readonly question: string }[]> {
+  ): Promise<readonly { readonly taskId: string | undefined; readonly question: string }[]> {
     const thread = await this.repository.find(threadId);
-    return (thread?.openDecisions ?? [])
-      .filter(isOnTask)
-      .map((decision) => ({ taskId: decision.taskId, question: decisionSummary(decision) }));
+    return (thread?.openDecisions ?? []).map((decision) => ({
+      taskId: decision.taskId,
+      question: decisionSummary(decision),
+    }));
   }
 
   /** The Thread's Decisions, open and answered, which its log's cards show. */
@@ -230,16 +270,32 @@ export class DecisionService {
     return this.repository.decisionsIn(threadId);
   }
 
+  /** Which of its Initiative's Threads the Thread is, as Work tells them apart; undefined off one. */
+  private async initiativeThreadKind({
+    id,
+    home,
+  }: Thread): Promise<InitiativeThreadKind | undefined> {
+    if (home.kind !== "initiative") return undefined;
+    return (await this.work.isInitiativePlanningThread(home.initiativeId, id))
+      ? "planning"
+      : "shaping";
+  }
+
   /**
    * The Task's Attachments, read only for a Decision that names some; in an Initiative's Thread
-   * read always, as they tell whether the Task is the Initiative's, refused when it isn't.
+   * read always for one on a Task, as they tell whether the Task is the Initiative's, refused when
+   * it isn't, and the Initiative's own for one on no Task that names some.
    */
   private async attachmentsToCheck(
     { home }: Thread,
     { attachmentIds = [] }: DecisionDraft,
     taskId: string | undefined,
   ): Promise<readonly string[]> {
-    if (home.kind === "initiative" && taskId !== undefined) {
+    if (home.kind === "initiative") {
+      if (taskId === undefined) {
+        if (attachmentIds.length === 0) return [];
+        return this.work.initiativeAttachmentIds(home.initiativeId);
+      }
       const ids = await this.work.initiativeTaskAttachmentIds(home.initiativeId, taskId);
       if (!ids) {
         throw new ThreadRefused([

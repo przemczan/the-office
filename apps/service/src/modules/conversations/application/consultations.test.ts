@@ -292,6 +292,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     taskTitle: () => Promise.resolve("Build the export"),
     taskAttachmentIds: () => Promise.resolve([]),
     initiativeTaskAttachmentIds: () => Promise.resolve([]),
+    isInitiativePlanningThread: () => Promise.resolve(true),
+    initiativeAttachmentIds: () => Promise.resolve([]),
     initiativeRecord: () => Promise.resolve(undefined),
     initiativeName: () => Promise.resolve(undefined),
     projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
@@ -873,12 +875,15 @@ describe("a call from a chat", () => {
       answer: undefined,
       passedOn: [{ roleKey: devopsKey }],
     });
-    expect(await threads.messages(caller.id)).toContainEqual(
-      expect.objectContaining({
-        kind: "consultation-line",
-        decisionId: waiting.id,
-        text: expect.stringContaining("The Decision waits on the user now."),
-      }),
+    // The line is logged just after the Decision turns to the user.
+    await vi.waitFor(async () =>
+      expect(await threads.messages(caller.id)).toContainEqual(
+        expect.objectContaining({
+          kind: "consultation-line",
+          decisionId: waiting.id,
+          text: expect.stringContaining("The Decision waits on the user now."),
+        }),
+      ),
     );
     expect(engine.sessions[0]?.received.find((step) => step.step === "send")).toBeUndefined();
   });

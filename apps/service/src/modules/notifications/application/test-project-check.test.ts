@@ -200,7 +200,9 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             expect(notification.channels).toEqual(expect.arrayContaining(["in-app", "desktop"]));
             expect(cleared.has(notification.id)).toBe(true);
           }
-          expect(now.needsYou.filter((item) => item.taskId === taskId)).toEqual([]);
+          expect(now.needsYou.filter((item) => "taskId" in item && item.taskId === taskId)).toEqual(
+            [],
+          );
           const since = sinceYouLeftSchema.parse(await api("GET", "/now/since-you-left"));
           expect(since.finished).toContainEqual(
             expect.objectContaining({ taskId, outcome: "done" }),

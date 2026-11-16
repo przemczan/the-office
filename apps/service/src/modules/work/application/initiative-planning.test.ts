@@ -344,7 +344,7 @@ describe("a Decision on one of the Initiative's Tasks", () => {
       .of({ threadId, initiativeId: initiative.id, roleKey: "planner" });
 
     expect(setup.record).toContain(
-      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
+      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: don't ask them again, and leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
     );
   });
 });

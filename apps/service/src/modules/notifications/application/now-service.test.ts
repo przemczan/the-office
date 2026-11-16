@@ -91,7 +91,7 @@ describe("NowService", () => {
       },
     ]);
     app.get(OpenDecisionsForTests).open = [
-      { id: decisionId, taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
+      { id: decisionId, threadId: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
     ];
     app.get(DeskLimitForTests).limit = 4;
     const usage = app.get(AccountUsageForTests).readingsByEngine;
@@ -148,7 +148,12 @@ describe("NowService", () => {
 
   it("no longer lists a Decision its Task's Drop closed, and announces it", async () => {
     const taskId = randomUUID();
-    const decision = { id: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") };
+    const decision = {
+      id: randomUUID(),
+      threadId: randomUUID(),
+      taskId,
+      askedAt: new Date("2026-10-27T09:05:00Z"),
+    };
     tasks.tasks = [
       {
         id: taskId,

@@ -834,6 +834,7 @@ describe("a Decision", () => {
       atUsersRequest: null,
       answeredByTheOffice: false,
       closedAt: null,
+      closedBecause: null,
     };
     expect(open).toContainEqual(shown);
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([

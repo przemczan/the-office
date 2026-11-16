@@ -314,6 +314,25 @@ export class PostgresThreadRepository extends ThreadRepository {
     return rows.map(({ decision }) => toDecision(decision));
   }
 
+  async openInInitiativeThreads(): Promise<
+    readonly (Decision & { readonly initiativeId: string })[]
+  > {
+    const rows = await this.database
+      .select({ decision: decisions, initiativeId: threads.homeId })
+      .from(decisions)
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
+      .where(
+        and(
+          eq(threads.homeKind, "initiative"),
+          isNull(decisions.taskId),
+          isNull(decisions.putTo),
+          unanswered,
+        ),
+      )
+      .orderBy(asc(decisions.askedAt), asc(decisions.id));
+    return rows.map(({ decision, initiativeId }) => ({ ...toDecision(decision), initiativeId }));
+  }
+
   async unansweredOn(taskId: string): Promise<readonly Decision[]> {
     return this.unansweredWhere(eq(decisions.taskId, taskId));
   }

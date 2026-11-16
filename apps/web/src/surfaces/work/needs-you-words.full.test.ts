@@ -34,6 +34,7 @@ function decisionPutTo(putTo: string | null): Decision {
     atUsersRequest: null,
     answeredByTheOffice: false,
     closedAt: null,
+    closedBecause: null,
   };
 }
 

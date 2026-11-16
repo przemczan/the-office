@@ -81,6 +81,7 @@ export function aDecision(fields: Partial<Decision> = {}): Decision {
     atUsersRequest: null,
     answeredByTheOffice: false,
     closedAt: null,
+    closedBecause: null,
     ...fields,
   };
 }
@@ -110,6 +111,10 @@ export async function rendered(
   queryClient.setQueryData(taskQueries.one(TASK.id).queryKey, TASK);
   queryClient.setQueryData(
     attachmentQueries.of({ kind: "task", taskId: TASK.id }).queryKey,
+    attachments as Attachment[],
+  );
+  queryClient.setQueryData(
+    attachmentQueries.of({ kind: "initiative", initiativeId: INITIATIVE_ID }).queryKey,
     attachments as Attachment[],
   );
   queryClient.setQueryData(

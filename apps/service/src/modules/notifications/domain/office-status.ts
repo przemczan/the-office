@@ -16,7 +16,10 @@ export function officeStatusText({ needsYou, running }: Now): string {
 
 function waitingLine(needsYou: readonly NeedsYouItem[]): string {
   const counts = [
-    counted(needsYou.filter(({ kind }) => kind === "decision").length, "Decision"),
+    counted(
+      needsYou.filter(({ kind }) => kind === "decision" || kind === "initiative-decision").length,
+      "Decision",
+    ),
     counted(needsYou.filter(({ kind }) => kind === "gate").length, "Gate"),
   ].filter((count) => count !== undefined);
   return counts.length === 0

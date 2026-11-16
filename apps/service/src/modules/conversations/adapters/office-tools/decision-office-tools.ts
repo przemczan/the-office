@@ -31,7 +31,8 @@ const END_YOUR_TURN =
  * or consults a person, whose Consultation answers a Decision put to them; a Consultant gives their
  * answer with the third. Asking returns at once: the Agent ends its turn, and the answer comes as
  * its next message (spec §9). The Planner opens Decisions in an Initiative's planning Thread too,
- * each on one of its Tasks, and plans on while they wait. A person the user talks to answers a
+ * each on one of its Tasks, and plans on while they wait, or one on the Initiative as a whole; the
+ * shaper opens one at a time in the shaping Thread, on the Initiative. A person the user talks to answers a
  * Decision waiting on the user for them, when the user asks them to, with the fourth (spec §2.4).
  */
 @Injectable()
@@ -54,7 +55,7 @@ export class DecisionOfficeTools implements OnModuleInit {
     this.registry.register({
       name: OPEN_DECISION_TOOL,
       description:
-        "Opens a Decision in this Thread when something is the user's to decide: ask everything you need in one Decision, as a form of one or more questions, each with its options and the one you recommend, or with none for a question they answer in their own words. The user answers each question, with an optional comment on each and a general comment, then Submits, or asks you again instead; they may ask you a follow-up first. It returns at once; then end your turn without asking the questions again. Their answer comes as your next message. In your chat it shows inline, and the user answers it there. In an Initiative's planning Thread, name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile.",
+        "Opens a Decision in this Thread when something is the user's to decide: ask everything you need in one Decision, as a form of one or more questions, each with its options and the one you recommend, or with none for a question they answer in their own words. The user answers each question, with an optional comment on each and a general comment, then Submits, or asks you again instead; they may ask you a follow-up first. It returns at once; then end your turn without asking the questions again. Their answer comes as your next message. In your chat it shows inline, and the user answers it there. In an Initiative's shaping Thread leave taskId out: the Decision is on the Initiative, one at a time. In its planning Thread name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile; or leave taskId out for the Initiative as a whole, one at a time.",
       input: z.object({
         context: z
           .string()
@@ -64,13 +65,13 @@ export class DecisionOfficeTools implements OnModuleInit {
           .array(z.string())
           .optional()
           .describe(
-            "The Task's Attachments this Decision is about, of any kind, by their ids, for the user to see on its card. Leave it out when it is about none.",
+            "The Task's Attachments this Decision is about, of any kind, by their ids, for the user to see on its card; the Initiative's for one on the Initiative. Leave it out when it is about none.",
           ),
         taskId: z
           .string()
           .optional()
           .describe(
-            "In an Initiative's planning Thread, the Task the Decision is on: one of the Initiative's Tasks, by its id. Leave it out in a Thread on a Task, where it is on that Task.",
+            "In an Initiative's planning Thread, the Task the Decision is on: one of the Initiative's Tasks, by its id (one open per Task); leave it out for the Initiative as a whole (one at a time). Leave it out in the Initiative's shaping Thread, where a Decision is on the Initiative (one at a time), and in a Thread on a Task, where it is on that Task.",
           ),
       }),
       run: ({ context, questions, attachments, taskId }, { sessionId }) =>
@@ -221,7 +222,9 @@ export class DecisionOfficeTools implements OnModuleInit {
     taskId: string | undefined,
   ): Promise<OfficeToolResult> {
     try {
-      const { decision, home } = await this.decisions.open(sessionId, draft, { taskId });
+      const { decision, home, initiativeThread } = await this.decisions.open(sessionId, draft, {
+        taskId,
+      });
       const onTask = decision.taskId;
       if (home.kind === "chat") {
         return {
@@ -229,9 +232,18 @@ export class DecisionOfficeTools implements OnModuleInit {
           isError: false,
         };
       }
-      if (home.kind !== "initiative" || onTask === undefined) {
+      if (home.kind !== "initiative") {
         return {
           text: `The Decision is open in this Thread, waiting on the user. ${END_YOUR_TURN}`,
+          isError: false,
+        };
+      }
+      if (onTask === undefined) {
+        return {
+          text:
+            initiativeThread === "planning"
+              ? "The Decision is open on the Initiative, waiting on the user. Plan the Tasks that don't need its answer; end your turn once every Task left waits for an answer. Its answer comes as a message."
+              : "The Decision is open on the Initiative, waiting on the user. End your turn now: their answer comes as your next message.",
           isError: false,
         };
       }

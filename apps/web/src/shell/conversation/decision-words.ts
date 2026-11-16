@@ -1,4 +1,4 @@
-import type { Attachment, Decision, UserRef } from "@the-office/contracts";
+import type { Attachment, Decision, DecisionClosedBecause, UserRef } from "@the-office/contracts";
 import { isSignedInUser } from "../use-user-name.ts";
 
 /**
@@ -14,8 +14,19 @@ export function atUsersRequestWords(
     : `at ${user.name}'s request`;
 }
 
-/** A Decision closed unanswered, as dropping its Task closes it (spec §2.4). */
-export const CLOSED_WORDS = "Closed: the Task was dropped.";
+/**
+ * A Decision closed unanswered, by why (spec §2.4): dropping its Task closes it, and the end of its
+ * Initiative closes one on no Task in the Initiative's Thread.
+ */
+export const CLOSED_WORDS: Readonly<Record<DecisionClosedBecause, string>> = {
+  "task-dropped": "Closed: the Task was dropped.",
+  "initiative-ended": "Closed: the Initiative ended.",
+};
+
+/** The closed line's words; a Decision closed before the reason was kept was closed by its Task. */
+export function closedWords({ closedBecause }: Pick<Decision, "closedBecause">): string {
+  return CLOSED_WORDS[closedBecause ?? "task-dropped"];
+}
 
 /**
  * The Attachments a Decision names, in its order. One removed since it opened stays named on the

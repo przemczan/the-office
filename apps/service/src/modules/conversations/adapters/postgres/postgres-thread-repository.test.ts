@@ -145,6 +145,53 @@ describe("PostgresThreadRepository", () => {
     ).rejects.toThrow(/"decisions"/);
   });
 
+  it("reads the Decisions on no Task waiting on the user in Initiatives' Threads, each with its Initiative", async () => {
+    const initiativeId = randomUUID();
+    const home = { kind: "initiative", initiativeId } as const;
+    const asked = {
+      context: "The outcome is open.",
+      questions: [{ kind: "open" as const, question: "Who is it for?" }],
+      askedAt: AT,
+    };
+    const opened = async (thread: Thread, fields: { putTo?: string; taskId?: string } = {}) => {
+      const { thread: waiting } = await repository.update(thread.id, (latest) =>
+        openDecision(latest, { ...asked, ...fields, id: randomUUID() }),
+      );
+      const decision = waiting.openDecisions.at(-1);
+      if (!decision) throw new Error("It opened nothing.");
+      return decision;
+    };
+    const shaping = aThreadOfItsOwn("shaper", { home });
+    const planning = aThreadOfItsOwn("planner", { home });
+    const calling = aThreadOfItsOwn("shaper", {
+      home: { kind: "initiative", initiativeId: randomUUID() },
+    });
+    const chat = aThreadOfItsOwn(`role-${randomUUID()}`);
+    for (const thread of [shaping, planning, calling, chat]) await repository.add(thread);
+    const onShaping = await opened(shaping);
+    const onATask = await opened(planning, { taskId: randomUUID() });
+    const answeredOne = await opened(planning);
+    await repository.update(planning.id, (latest) =>
+      recordDecisionAnswer(latest, {
+        decisionId: answeredOne.id,
+        answer: { kind: "asked-again" },
+        messageId: randomUUID(),
+        answeredAt: AT,
+        user: BEN_ITO,
+      }),
+    );
+    const onPlanning = await opened(planning);
+    const aCall = await opened(calling, { putTo: "devops" });
+    const chatsCall = await opened(chat, { putTo: "devops" });
+
+    const read = await repository.openInInitiativeThreads();
+
+    expect(read).toContainEqual({ ...onShaping, initiativeId });
+    expect(read).toContainEqual({ ...onPlanning, initiativeId });
+    const ids = read.map(({ id }) => id);
+    for (const left of [onATask, answeredOne, aCall, chatsCall]) expect(ids).not.toContain(left.id);
+  });
+
   it("keeps a chat's Decision waiting on the user out of Needs you, read back after a restart", async () => {
     const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
     await repository.add(thread);

@@ -94,9 +94,14 @@ export class Briefs {
     });
   }
 
-  /** As `forThread`, from the setup the session is about to start with: the Initiative's record. */
+  /**
+   * As `forThread`, from the setup the session is about to start with: the Initiative's record, and
+   * the Decision on no Task the Thread waits on.
+   */
   async forInitiativeThread(thread: Thread, setup: InitiativeThreadSetup): Promise<Brief> {
     return initiativeThreadBrief({
+      // A Thread on an Initiative waits on one Decision on no Task at most.
+      open: thread.openDecisions.find(({ taskId }) => taskId === undefined),
       record: setup.record,
       continuing: thread.session !== undefined,
       // An Initiative spans Projects, so it reads the notes that hold for all of them.

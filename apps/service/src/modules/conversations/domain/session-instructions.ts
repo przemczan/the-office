@@ -651,7 +651,10 @@ function answeredWords(answerer: Answerer, asked: string): string {
   }
 }
 
-/** A Decision answered in an Initiative's planning Thread, with the title of the Task it is on. */
+/**
+ * A Decision answered in an Initiative's Thread, with the title of the Task it is on (none for one
+ * on the Initiative as a whole).
+ */
 export interface AnsweredOnTask {
   readonly decision: Decision;
   readonly answer: DecisionAnswer;
@@ -662,14 +665,24 @@ export interface AnsweredOnTask {
 }
 
 /**
- * What the planning session is sent when Decisions on the Initiative's Tasks are answered: every
- * answer, in the order given, each naming its Task, in one message (spec §2.4).
+ * What a session on an Initiative is sent when its Decisions are answered: every answer, in the
+ * order given, each naming its Task, in one message (spec §2.4). One on no Task, on the Initiative
+ * as a whole, is named so only beside answers on Tasks.
  */
 export function decisionAnswersOnTasksMessage(answers: readonly AnsweredOnTask[]): string {
+  const [only, ...others] = answers;
+  if (only && others.length === 0 && only.decision.taskId === undefined) {
+    return decisionAnswerMessage(only.decision, only.answer, only.answerer);
+  }
   return answers
     .map(
       ({ decision, answer, taskTitle, answerer }) =>
-        `On the Task ${taskTitle === undefined ? "" : `"${taskTitle}" `}(${decision.taskId}): ${decisionAnswerMessage(decision, answer, answerer)}`,
+        `${onWhat(decision.taskId, taskTitle)}: ${decisionAnswerMessage(decision, answer, answerer)}`,
     )
     .join("\n\n");
+}
+
+function onWhat(taskId: string | undefined, taskTitle: string | undefined): string {
+  if (taskId === undefined) return "On the Initiative as a whole";
+  return `On the Task ${taskTitle === undefined ? "" : `"${taskTitle}" `}(${taskId})`;
 }

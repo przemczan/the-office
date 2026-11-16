@@ -378,8 +378,13 @@ export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 export const decisionKindSchema = z.enum(["form", "approval", "request"]);
 export type DecisionKind = z.infer<typeof decisionKindSchema>;
 
+/** Why a Decision was closed unanswered: its Task was dropped, or its Initiative ended. */
+export const decisionClosedBecauseSchema = z.enum(["task-dropped", "initiative-ended"]);
+export type DecisionClosedBecause = z.infer<typeof decisionClosedBecauseSchema>;
+
 /**
- * A question an Agent puts to the user in the Thread it works in on a Task, or The Office does
+ * A question an Agent puts to the user in the Thread it works in on a Task or in an Initiative's
+ * shaping or planning Thread (on no Task, or on one of its Tasks), or The Office does
  * about a Task's Pipeline (a Stage that failed with no retries left, the Definition of Done not
  * met), or a call a person puts to another from a chat, shown there as a card. POST
  * /decisions/:id/answer takes a `decisionFormAnswerSchema`.
@@ -388,7 +393,10 @@ export const decisionSchema = z.object({
   id: z.uuid(),
   threadId: z.uuid(),
   kind: decisionKindSchema,
-  /** Null for a call made from a chat, which is on no Task. */
+  /**
+   * Null for a call made from a chat, and for one about an Initiative as a whole in its shaping
+   * or planning Thread, which are on no Task.
+   */
   taskId: z.string().nullable(),
   /** Who asked, by the key of the Role they fill; null when The Office asked. */
   roleKey: z.string().nullable(),
@@ -414,8 +422,13 @@ export const decisionSchema = z.object({
   /** Null while it waits on the user or the Consultant, and once closed unanswered. */
   formAnswer: decisionFormAnswerSchema.nullable(),
   answeredAt: z.iso.datetime().nullable(),
-  /** When it was closed unanswered, as its Task was dropped; null otherwise. */
+  /**
+   * When it was closed unanswered, as its Task was dropped or, for one on no Task in an
+   * Initiative's Thread, its Initiative ended; null otherwise.
+   */
   closedAt: z.iso.datetime().nullable(),
+  /** Why it was closed unanswered; null while it isn't closed. */
+  closedBecause: decisionClosedBecauseSchema.nullable(),
   /**
    * The user who answered it themselves, any user, as Decisions are shared; null while it is open,
    * when someone else answered, and on an answer from before users existed.
@@ -1120,7 +1133,10 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("thread.decision-reopened"),
     ...decisionWebEventFields,
   }),
-  /** The Decision's Task was dropped: it was closed unanswered, and nobody waits on it now. */
+  /**
+   * The Decision's Task was dropped, or its Initiative ended: it was closed unanswered, and nobody
+   * waits on it now.
+   */
   webEventSchema.extend({
     type: z.literal("thread.decision-closed"),
     ...decisionWebEventFields,

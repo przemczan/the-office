@@ -407,23 +407,32 @@ export interface DecisionOpening extends DecisionDraft {
   readonly byTheOffice?: boolean;
   /** The Consultant, by the key of their Role, the Agent's question is put to instead of the user. */
   readonly putTo?: string;
-  /** The ids of the Task's Attachments, which are all a Decision may name. */
+  /**
+   * The ids of the Task's Attachments, which are all a Decision may name; the Initiative's own for
+   * one on no Task in an Initiative's Thread.
+   */
   readonly attachmentsOfTheTask?: readonly string[];
   /**
    * The Task the Decision is on: the Thread's own in a Thread on a Task, where it may be left out,
-   * and one of the Initiative's Tasks, which the caller has checked, in an Initiative's Thread.
+   * and one of the Initiative's Tasks, which the caller has checked, in an Initiative's planning
+   * Thread, or none there for the Initiative as a whole.
    */
   readonly taskId?: string;
+  /** Which of an Initiative's Threads it is opened in, as Work tells them apart; planning unless said. */
+  readonly initiativeThread?: InitiativeThreadKind;
 }
+
+/** An Initiative's shaping Thread, or one of its planning Threads. */
+export type InitiativeThreadKind = "shaping" | "planning";
 
 /**
  * The person opens a Decision (spec §2.4): its card is logged, and the Thread waits on it until the
  * user answers. In a Thread on a Task it is on that Task, and refused while another Decision waits.
  * In an Initiative's planning Thread it names one of the Initiative's Tasks, several may be open,
- * and it is refused while another waits on the same Task. In a person's chat one opens on no Task,
- * one at a time, waiting on the user inline there or put to a person; a Consultation in a chat and
- * an Initiative's Thread naming no Task open only a call. Refused with every problem of what is
- * asked, in words the person acts on.
+ * and it is refused while another waits on the same Task; naming none, there or in the shaping
+ * Thread, it is on the Initiative as a whole, one at a time. In a person's chat one opens on no
+ * Task, one at a time, waiting on the user inline there or put to a person; a Consultation in a
+ * chat opens only a call. Refused with every problem of what is asked, in words the person acts on.
  */
 export function openDecision(
   thread: Thread,
@@ -435,13 +444,18 @@ export function openDecision(
     attachmentsOfTheTask = [],
     attachmentIds = [],
     taskId: named,
+    initiativeThread = "planning",
     ...draft
   }: DecisionOpening,
 ): ThreadChange<DecisionOpened> {
-  const taskId = decisionTaskOf(thread, named, putTo);
+  const taskId = decisionTaskOf(thread, named, putTo, initiativeThread);
   const problems = [
     ...decisionProblems(draft),
-    ...attachmentProblems(attachmentIds, attachmentsOfTheTask),
+    ...attachmentProblems(
+      attachmentIds,
+      attachmentsOfTheTask,
+      thread.home.kind === "initiative" && taskId === undefined ? "Initiative" : "Task",
+    ),
   ];
   if (problems.length > 0) throw new ThreadRefused(problems);
   const decision: Decision = {
@@ -477,12 +491,15 @@ export function openDecision(
 /**
  * The Task a Decision opened in the Thread is on, refused where none may be opened. A person's chat
  * opens one on no Task, put to someone or waiting on the user inline there (spec §2.4, §2.7), one at
- * a time; a Consultation sitting in a chat opens only a call, on no Task.
+ * a time; a Consultation sitting in a chat opens only a call, on no Task. In an Initiative's Thread
+ * one naming no Task, asked of the user or a call, is on no Task, about the Initiative as a whole,
+ * and one at a time; in its planning Thread one naming a Task is on it, one per Task.
  */
 function decisionTaskOf(
   thread: Thread,
   named: string | undefined,
   putTo: string | undefined,
+  initiativeThread: InitiativeThreadKind,
 ): string | undefined {
   const { home, openDecisions } = thread;
   switch (home.kind) {
@@ -519,7 +536,8 @@ function decisionTaskOf(
       return home.taskId;
     }
     case "initiative": {
-      if (named === undefined) return callOnNoTask(openDecisions, putTo);
+      if (named === undefined) return onTheInitiative(openDecisions, initiativeThread);
+      if (initiativeThread === "shaping") throw new ThreadRefused([SHAPING_DECISION_ON_A_TASK]);
       const waiting = openDecisions.find((decision) => decision.taskId === named);
       if (waiting) {
         throw new ThreadRefused([
@@ -531,20 +549,26 @@ function decisionTaskOf(
   }
 }
 
+/** Why a Decision in an Initiative's shaping Thread can't name a Task. */
+export const SHAPING_DECISION_ON_A_TASK =
+  "In the shaping Thread a Decision is on no Task: leave taskId out.";
+
 /**
- * A call from an Initiative's Thread naming no Task (spec §2.4): put to a person, on no Task, as a
- * chat's call is, and one at a time; anything else there names the Task it is on.
+ * A Decision in an Initiative's Thread naming no Task (spec §2.4): on the Initiative as a whole,
+ * waiting on the user or a call put to a person, one at a time in the Thread.
  */
-function callOnNoTask(openDecisions: readonly Decision[], putTo: string | undefined): undefined {
-  if (putTo === undefined) {
-    throw new ThreadRefused([
-      "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks. Only a call to a person may name none.",
-    ]);
-  }
+function onTheInitiative(
+  openDecisions: readonly Decision[],
+  initiativeThread: InitiativeThreadKind,
+): undefined {
   const waiting = openDecisions.find((decision) => decision.taskId === undefined);
   if (waiting) {
+    const goOn =
+      initiativeThread === "planning"
+        ? "End your turn, or plan the Tasks that don't need it: its answer comes as your next message."
+        : "End your turn: it comes as your next message.";
     throw new ThreadRefused([
-      `Your call "${decisionSummary(waiting)}" still waits on its answer. End your turn: it comes as your next message.`,
+      `Your Decision "${decisionSummary(waiting)}" on the Initiative still waits on its answer. ${goOn}`,
     ]);
   }
   return undefined;
@@ -787,7 +811,8 @@ export function recordDecisionAnswer(
 }
 
 /**
- * The Decision's Task was dropped: the open Decision is closed unanswered, so nobody waits on it,
+ * The Decision's Task was dropped, or, for one on no Task in an Initiative's Thread, its Initiative
+ * ended: the open Decision is closed unanswered, so nobody waits on it,
  * the user or a Consultant, and it can't be answered any more. Its card shows it closed. None for
  * a Decision the Thread doesn't wait on, answered or closed already.
  */

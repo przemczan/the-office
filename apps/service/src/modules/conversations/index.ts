@@ -1,4 +1,4 @@
-export { DecisionService } from "./application/decision-service.js";
+export { DecisionService, type DecisionWaitingOnTheUser } from "./application/decision-service.js";
 export {
   InitiativeThreadSetups,
   type InitiativeThreadRequest,

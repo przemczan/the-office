@@ -132,12 +132,21 @@ export abstract class ThreadRepository {
    */
   abstract openDecisions(): Promise<readonly Decision[]>;
 
+  /**
+   * Every Decision on no Task in an Initiative's Threads waiting on the user, the first asked first,
+   * each with the Initiative its Thread is on.
+   */
+  abstract openInInitiativeThreads(): Promise<
+    readonly (Decision & { readonly initiativeId: string })[]
+  >;
+
   /** Every Decision on the Task still open, a Consultant's too, the first asked first. */
   abstract unansweredOn(taskId: string): Promise<readonly Decision[]>;
 
   /**
-   * Every Decision made outside a Task still open, the first asked first: calls, and a chat's
-   * Decisions waiting on the user.
+   * Every Decision on no Task still open, the first asked first: calls, a chat's Decisions waiting
+   * on the user, and each Decision on an Initiative as a whole, waiting on the user or put to a
+   * Consultant.
    */
   abstract unansweredOnNoTask(): Promise<readonly Decision[]>;
 

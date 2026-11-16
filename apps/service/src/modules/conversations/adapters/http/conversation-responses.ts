@@ -427,6 +427,13 @@ export function toDecisionResponse({
     formAnswer: answer ? toFormAnswerResponse(answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
     closedAt: closedAt?.toISOString() ?? null,
+    // No column keeps why: only a Decision on no Task in an Initiative's Thread closes as its
+    // Initiative ends, every other closes as its Task is dropped.
+    closedBecause: closedAt
+      ? decision.taskId === undefined
+        ? "initiative-ended"
+        : "task-dropped"
+      : null,
     answeredByUser: answer?.user ?? null,
     answeredBy: answer?.answeredBy ?? null,
     atUsersRequest: answer?.atUsersRequest ? { ...answer.atUsersRequest } : null,

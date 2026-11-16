@@ -108,6 +108,25 @@ describe("The Projects in a Brief for a Thread on an Initiative", () => {
   });
 });
 
+describe("a Brief for a Thread on an Initiative waiting on a Decision on no Task", () => {
+  it("names it, says it waits on the user and isn't asked again, and that the answer comes as a message", () => {
+    const brief = initiativeThreadBrief({
+      record: "## The Initiative",
+      continuing: true,
+      memory: NO_MEMORY,
+      projects: PROJECTS,
+      open: aDecision({ taskId: undefined, questions: THREE_QUESTIONS.slice(0, 1) }),
+    }).text;
+
+    expect(brief).toContain(
+      "## Your open Decision on the Initiative\n\nYou asked the user:\n\n1. ",
+    );
+    expect(brief).toContain(
+      "It still waits on the user: don't ask it again. Their answer comes as a message in this Thread.",
+    );
+  });
+});
+
 describe("a chat Thread's Brief when it continues fresh", () => {
   it("holds the title, the latest Handover note and the exchanges, without tool activity", () => {
     const log = [

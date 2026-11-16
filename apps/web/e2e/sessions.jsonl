@@ -387,3 +387,32 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-usage-window-resumed"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"The export keeps its filter.","handoverNote":"The filter is kept in the export.","definitionOfDoneMet":[1]},"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-shape-report-exports","text":"Shape the Initiative"}}
+{"step":"wait","mark":"report-exports-asks"}
+{"step":"event","event":{"kind":"tool-call","callId":"report-exports-decision","tool":"open_decision","officeTool":true,"input":{"context":"Accounting files the quarterly report as a PDF; the finance team reworks it in a spreadsheet.","questions":[{"question":"Which format should the quarterly report export use?","options":["CSV","PDF"],"recommended":1,"why":"The finance team reworks the figures."},{"question":"How often should the export run?","options":["Every quarter","Every month"],"recommended":1,"why":"The report is quarterly."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-exports-decision","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I asked you two things before I write the outcome.","withinToolCall":null}}
+{"step":"wait","mark":"report-exports-turn-ends"}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-shape-report-exports"],"usage":{"input":3,"output":60,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"answer-report-exports","text":"The answer"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"A PDF every quarter: I'll write the outcome that way.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-report-exports"],"usage":{"input":3,"output":30,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-shape-report-archive","text":"Shape the Initiative"}}
+{"step":"event","event":{"kind":"text","text":"What should be true once reports are archived?","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-shape-report-archive"],"usage":{"input":3,"output":20,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-plan-report-archive","text":"Plan the Initiative"}}
+{"step":"event","event":{"kind":"tool-call","callId":"report-archive-1","tool":"open_decision","officeTool":true,"input":{"taskId":"8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e01","context":"The archive grows by a few gigabytes a year.","questions":[{"question":"Where should archived reports be kept?","options":["Object storage","The database"],"recommended":1,"why":"It keeps the database small."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-archive-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"report-archive-2","tool":"open_decision","officeTool":true,"input":{"taskId":"8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e02","context":"Searching every archived report is slow without an index.","questions":[{"question":"Should the archive page search inside reports?","options":["Titles only","Inside reports too"],"recommended":1,"why":"Titles are enough to start."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-archive-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"report-archive-3","tool":"open_decision","officeTool":true,"input":{"context":"Reports before this year are in the old format.","questions":[{"question":"Should the archive take reports from before this year?","options":["Only from this year on","Every report"],"recommended":1,"why":"The old format needs its own reader."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-archive-3","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"Both Tasks wait for your answers, and I asked one thing about the whole Initiative.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-plan-report-archive"],"usage":{"input":3,"output":200,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
+{"step":"end"}

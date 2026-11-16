@@ -234,6 +234,8 @@ export interface InitiativeThreadRecord {
   /** The person's Memory notes that hold for every Project, since an Initiative spans them. */
   readonly memory: BriefMemory;
   readonly projects: readonly BriefProject[];
+  /** The Decision on no Task, on the Initiative as a whole, this Thread waits on, if any. */
+  readonly open?: Decision | undefined;
 }
 
 /**
@@ -246,6 +248,7 @@ export function initiativeThreadBrief({
   continuing,
   memory,
   projects,
+  open,
 }: InitiativeThreadRecord): Brief {
   return briefOf([
     continuing
@@ -254,7 +257,19 @@ export function initiativeThreadBrief({
     record,
     memorySection(memory),
     projectsSection(projects),
+    open && openOnInitiativeSection(open),
   ]);
+}
+
+/**
+ * The Brief's section for the Decision on no Task an Initiative's Thread waits on (spec §2.4): what
+ * was asked, that it waits on its answer and isn't asked again, and that the answer comes as a
+ * message in the Thread.
+ */
+export function openOnInitiativeSection({ questions, putTo }: Decision): string {
+  const asked = questions.map(openQuestionLines).join("\n\n");
+  const whom = putTo === undefined ? "the user" : `the person in the Role ${putTo}`;
+  return `## Your open Decision on the Initiative\n\nYou asked ${whom}:\n\n${asked}\n\nIt still waits on ${whom}: don't ask it again. Their answer comes as a message in this Thread.`;
 }
 
 function memorySection({ lines, leftOut }: BriefMemory): string | undefined {

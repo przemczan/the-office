@@ -70,6 +70,7 @@ function aDecisionOn(taskId: string): Decision {
     atUsersRequest: null,
     answeredByTheOffice: false,
     closedAt: null,
+    closedBecause: null,
   };
 }
 

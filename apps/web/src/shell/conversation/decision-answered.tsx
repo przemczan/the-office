@@ -97,7 +97,7 @@ interface UnansweredLine {
 function Outcome({ decision }: { readonly decision: Decision }): ReactNode {
   const signedInUserId = useSignedInUserId();
   const { formAnswer } = decision;
-  if (decision.closedAt !== null) return <ClosedLine />;
+  if (decision.closedAt !== null) return <ClosedLine decision={decision} />;
   if (formAnswer === null) return null;
   const general = formAnswer.generalComment?.trim();
   if (decision.answeredByTheOffice) {

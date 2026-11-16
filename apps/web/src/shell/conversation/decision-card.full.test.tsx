@@ -536,7 +536,11 @@ describe("an answered Decision", () => {
 
 describe("a closed Decision", () => {
   /** Closed unanswered, as its Task was dropped while it waited on a Consultant. */
-  const closed = aDecision({ putTo: "reviewer", closedAt: "2026-11-15T09:00:00.000Z" });
+  const closed = aDecision({
+    putTo: "reviewer",
+    closedAt: "2026-11-15T09:00:00.000Z",
+    closedBecause: "task-dropped",
+  });
 
   it("says its Task was dropped on its card, with nothing to answer or take over", async () => {
     const page = await rendered(card(closed));
@@ -555,6 +559,78 @@ describe("a closed Decision", () => {
     expect(page.textContent).not.toContain("Waiting on");
     expect(page.textContent).not.toContain("Needs you");
     expect(page.textContent).not.toContain("Open the Consultation");
+  });
+});
+
+/** A Decision on no Task, about the Initiative as a whole, in its planning Thread. */
+function onTheInitiative(fields: Partial<Decision> = {}): Decision {
+  return aDecision({ threadId: PLANNING_THREAD, taskId: null, ...fields });
+}
+
+describe("a Decision on no Task in an Initiative's Thread", () => {
+  it("is the whole form in place, answered there, on no Task and with no copy link", async () => {
+    const page = await rendered(inThread(onTheInitiative({ questions: [FORMAT, FILE_NAME] })));
+
+    const shown = page.querySelector<HTMLElement>(".decision-card");
+    expect(shown?.id).toBe(`decision-card-${DECISION_ID}`);
+    expect(page.querySelector(".decision-on-task")?.textContent).toBe(
+      "On no Task: about the Initiative as a whole",
+    );
+    expect(page.querySelectorAll("[role='radiogroup']")).toHaveLength(1);
+    expect(page.textContent).not.toContain("Needs you");
+    expect(buttonsNamed("Copy link")).toHaveLength(0);
+    await click(radio("Which format?", "CSV"));
+    type(fieldLabelled("Your answer"), "usage.csv");
+    await click(buttonNamed("Submit"));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 0 },
+        { kind: "words", text: "usage.csv" },
+      ],
+    });
+  });
+
+  it("is answered at once while the person answers, reaching them when the turn ends", async () => {
+    const page = await rendered(inThread(onTheInitiative()), { threadState: "answering" });
+
+    expect(buttonNamed("Submit").disabled).toBe(false);
+    expect(page.textContent).toContain("Reaches Angela when this turn ends.");
+  });
+
+  it("is the compact card past the threshold, with Open details", async () => {
+    await rendered(inThread(onTheInitiative({ questions: [FORMAT, FILE_NAME, COLUMNS, FORMAT] })));
+
+    expect(buttonsNamed("Open details")).toHaveLength(1);
+  });
+
+  it("shows the answer once sent", async () => {
+    const page = await rendered(
+      inThread(answered({ threadId: PLANNING_THREAD, taskId: null, answeredByUser: BY_YOU })),
+    );
+
+    expect(page.querySelector(".decision-card")?.classList.contains("settled")).toBe(true);
+    expect(outcome(page).textContent).toBe("Answered by you");
+    expect(page.querySelector(".decision-on-task")?.textContent).toBe(
+      "On no Task: about the Initiative as a whole",
+    );
+  });
+
+  it("says the Initiative ended once closed", async () => {
+    const page = await rendered(
+      inThread(
+        onTheInitiative({
+          closedAt: "2026-11-15T09:00:00.000Z",
+          closedBecause: "initiative-ended",
+        }),
+      ),
+    );
+
+    expect(outcome(page).textContent).toBe("Closed: the Initiative ended.");
+    expect(page.querySelectorAll("[role='radiogroup']")).toHaveLength(0);
+    expect(page.textContent).not.toContain("Waits on you");
   });
 });
 
