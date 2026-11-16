@@ -63,7 +63,7 @@ import type {
   Placement,
   Sky,
 } from "./live-view-types.ts";
-import { deskActivity, deskPoseOf, monitorsOf } from "./live-states.ts";
+import { DESK_DEPTHS, deskActivity, deskPoseOf, monitorsOf } from "./live-states.ts";
 import { type OfficeGeometry, toArt } from "./office-geometry.ts";
 import { type StageTextures, artSprite, setArt, showArt } from "./stage-textures.ts";
 import type { Walker, Walkers } from "./walkers.ts";
@@ -357,11 +357,12 @@ function settledPose(
 
 /**
  * The office's sprites: the still floor and walls as one texture, the sky in the windows and the
- * sunlight on the floor, then desks, chairs, furniture and figures sorted by depth, the glows added
- * over them, and the overlays (signs, Zs, bubbles, tags, sparkles) over them all. Everything takes
- * the hour's tint but what gives off its own light (design decision 2): lit screens, the lamps'
- * bulbs, the sky, the exit sign, the coffee machine's LED, the "+N" tag and the overlays. Built again
- * whenever someone sets off or arrives; in between, `moveWalker` moves only the figures that walk.
+ * sunlight on the floor, then desks, chairs, furniture, glows and figures sorted by depth (each glow
+ * added to what is under it, just over what gives it off), and the overlays (signs, Zs, bubbles,
+ * tags, sparkles) over them all. Everything takes the hour's tint but what gives off its own light
+ * (design decision 2): lit screens, the lamps' bulbs, the sky, the exit sign, the coffee machine's
+ * LED, the "+N" tag and the overlays. Built again whenever someone sets off or arrives; in between,
+ * `moveWalker` moves only the figures that walk.
  */
 export class OfficeScene {
   /** Placed and scaled by the stage: one unit is one art pixel. */
@@ -369,8 +370,10 @@ export class OfficeScene {
   /** The floor and walls, the sky in the windows over them, and the sunlight on the floor. */
   private readonly backdrop = new Container();
   private readonly items = new Container({ sortableChildren: true });
-  /** Screens', lamps' and signs' glows, added to what is under them; hidden by day. */
-  private readonly glows = new Container();
+  /** Screens', lamps' and signs' glows, sorted in with the items; hidden by day. */
+  private glows: Sprite[] = [];
+  /** How strongly things glow now, from the hour's light. */
+  private glowAlpha = 0;
   private readonly overlays = new Container({ sortableChildren: true });
   /** Figures outside the room, clipped to the doorway, drawn over the open door. */
   private readonly doorway = new Container();
@@ -408,8 +411,7 @@ export class OfficeScene {
     this.doorway.addChild(this.doorwayMask);
     this.doorway.mask = this.doorwayMask;
     this.doorway.zIndex = DOOR_DEPTH + 0.001;
-    this.glows.blendMode = "add";
-    this.world.addChild(this.backdrop, this.items, this.glows, this.overlays);
+    this.world.addChild(this.backdrop, this.items, this.overlays);
   }
 
   /** Draws the office afresh; the floor is painted again only when it grew. */
@@ -428,7 +430,7 @@ export class OfficeScene {
     for (const child of this.doorway.removeChildren()) if (!kept.has(child)) child.destroy();
     this.doorway.addChild(this.doorwayMask);
     for (const child of this.overlays.removeChildren()) child.destroy();
-    for (const child of this.glows.removeChildren()) child.destroy();
+    this.glows = [];
     this.ringSprite = null;
     this.animations = [];
     const { geometry, walkers } = input;
@@ -444,7 +446,7 @@ export class OfficeScene {
       artSprite(this.textures, doorArt(this.doorOpen), at(0, AISLE_ROW), null),
     );
     add(this.door, DOOR_DEPTH);
-    this.addGlow("exitSign", at(0.05, AISLE_ROW + 0.5, 39));
+    this.addGlow("exitSign", at(0.05, AISLE_ROW + 0.5, 39), DOOR_DEPTH + 0.0005);
     if (input.alarmOn) this.buildAlarmLight(at(0.05, ALARM_LIGHT.y, ALARM_LIGHT.z));
     for (const desk of input.layout.desks) this.buildDesk(input, desk, add);
     for (const item of input.amenities.items) {
@@ -458,11 +460,11 @@ export class OfficeScene {
         const point = at(item.x + 0.62, item.y + 0.5, 21);
         led.position.set(point.x, point.y);
         add(led, item.depth + 0.001);
-        this.addGlow("led", at(item.x + 0.6, item.y + 0.5, 21));
+        this.addGlow("led", at(item.x + 0.6, item.y + 0.5, 21), item.depth + 0.002);
       }
       if (item.kind === "tvStand" && this.isAnyonePlaying(walkers)) {
         this.buildGame(at(item.x, item.y), item.depth + 0.001);
-        this.addGlow("tv", at(item.x + 1.1, item.y + 0.6, 12));
+        this.addGlow("tv", at(item.x + 1.1, item.y + 0.6, 12), item.depth + 0.002);
       }
     }
     const conversations = walkers.conversations();
@@ -501,8 +503,8 @@ export class OfficeScene {
         this.sun.alpha = light.sunPatch.alpha;
       }
     }
-    this.glows.alpha = light.glow;
-    this.glows.visible = light.glow > 0;
+    this.glowAlpha = light.glow;
+    for (const glow of this.glows) this.showGlow(glow);
   }
 
   /** The tint shown now; the stage eases it from one hour's to the next. Allocates nothing. */
@@ -639,8 +641,8 @@ export class OfficeScene {
     return sprite;
   }
 
-  /** A glow at `at`, in the additive layer. */
-  private addGlow(kind: GlowKind, at: FloorPoint): void {
+  /** A glow at `at`, sorted at `depth` with the items, added to what is under it. */
+  private addGlow(kind: GlowKind, at: FloorPoint, depth: number): void {
     let art = this.glowArts.get(kind);
     if (!art) {
       art = paintGlow(kind);
@@ -648,7 +650,15 @@ export class OfficeScene {
     }
     const sprite = artSprite(this.textures, art, at, null);
     sprite.blendMode = "add";
-    this.glows.addChild(sprite);
+    sprite.zIndex = depth;
+    this.showGlow(sprite);
+    this.glows.push(sprite);
+    this.items.addChild(sprite);
+  }
+
+  private showGlow(sprite: Sprite): void {
+    sprite.alpha = this.glowAlpha;
+    sprite.visible = this.glowAlpha > 0;
   }
 
   /** The doorway's opening in the left wall, which clips anyone outside the room. */
@@ -702,8 +712,12 @@ export class OfficeScene {
     for (let i = 0; i < Math.min(lit, slots.length); i++) {
       const slot = slots[i] ?? 1;
       const screen = artSprite(this.textures, this.screenArt(slot, i * 2, laptop), deskAt, null);
-      add(screen, desk.depth + 0.001 + i * 0.0001);
-      this.addGlow("monitor", at(desk.x + 0.6, desk.y + slot, DESK_H + 6));
+      add(screen, desk.depth + DESK_DEPTHS.screen + i * 0.0001);
+      this.addGlow(
+        "monitor",
+        at(desk.x + 0.6, desk.y + slot, DESK_H + 6),
+        desk.depth + DESK_DEPTHS.screenGlow + i * 0.0001,
+      );
       const seed = seedOf(roleKey ?? "") % 6;
       let shownFrame = i * 2;
       this.animations.push((t, motion) => {
@@ -739,8 +753,8 @@ export class OfficeScene {
       seat.position.set(chairAt.x, chairAt.y);
       back.position.set(chairAt.x, chairAt.y);
     };
-    add(seat, desk.depth + 0.05);
-    add(back, desk.depth + (turned ? 0.07 : 0.15));
+    add(seat, desk.depth + DESK_DEPTHS.seat);
+    add(back, desk.depth + (turned ? DESK_DEPTHS.chairBackTurned : DESK_DEPTHS.chairBack));
     placeChair(kept);
     if (!kept && atDesk && walkers.isOnTheMove(walker)) {
       const spot = deskSpot(desk);
@@ -764,14 +778,15 @@ export class OfficeScene {
           null,
         ),
       );
-      add(lamp, desk.depth + 0.002);
+      add(lamp, desk.depth + DESK_DEPTHS.lamp);
       const bulbAt = at(desk.x + 0.62, desk.y + 0.25, DESK_H + 7);
       const bulb = new Sprite(Texture.WHITE);
       bulb.setSize(BULB.width, BULB.height);
       bulb.tint = ART_COLORS.bulb;
       bulb.position.set(Math.round(bulbAt.x) - 1, Math.round(bulbAt.y));
-      add(bulb, desk.depth + 0.0025);
-      this.addGlow("lamp", at(desk.x + 0.6, desk.y + 0.5, DESK_H));
+      add(bulb, desk.depth + DESK_DEPTHS.bulb);
+      const lampGlowAt = at(desk.x + 0.6, desk.y + 0.5, DESK_H);
+      this.addGlow("lamp", lampGlowAt, desk.depth + DESK_DEPTHS.lampGlow);
       const working = input.lookStates.get(walker.key) === "working";
       if (light.phase === "night" && working && seedOf(walker.key) % 2 === 0) {
         const pizza = artSprite(
@@ -780,7 +795,7 @@ export class OfficeScene {
           at(desk.x + 0.6, desk.y + 1.62),
           null,
         );
-        add(this.shaded(pizza), desk.depth + 0.003);
+        add(this.shaded(pizza), desk.depth + DESK_DEPTHS.pizza);
       }
     }
   }
