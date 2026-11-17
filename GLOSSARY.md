@@ -366,8 +366,36 @@ A daily window, off until the user sets it, in which no Notification goes to the
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
-A named, ordered set of Stages that a Task's work follows; a Publishing Task follows its Project's Initiative's Pipeline. It is an office-wide Pipeline or a Project Pipeline.
-_Avoid_: Workflow, flow, process (a Process is a session's background command)
+A named flow of Stages joined by routes, each with an optional condition, that a Task's work follows from its first Stage to End, one path at a time; a Publishing Task follows its Project's Initiative's Pipeline. Its Stages keep an order, the Pipeline's order, in which every route leads forward, so only an "on failure go back" loop goes back. It is an office-wide Pipeline or a Project Pipeline. "Flow" says what shape it has, as in the flow editor, and never names it.
+_Avoid_: Workflow, graph, process (a Process is a session's background command)
+
+**Route**:
+A link in a Pipeline from one Stage to another, or to End, that the walk follows as the Stage ends when its condition holds; the first route out of a Stage that holds is followed, and one with no condition always holds.
+_Avoid_: Edge, arrow, transition, branch (a branch is git's)
+
+**Condition**:
+What a route needs to be followed: built-in tests of the previous Stage or a named one (ended Done, ended Failed, was Skipped, changed files, changed no files, ran N or more times) or of the Definition of Done (all Reported met, some not Reported met), and Project-command tests that hold when the command exits 0, combined in All of and Any of groups.
+_Avoid_: Rule, guard, filter, expression
+
+**Join**:
+A Stage into which routes from more than one Stage lead, where paths of a Pipeline meet again; it runs each time the walk arrives, never waiting for another path.
+_Avoid_: Merge (git's), sync point
+
+**End**:
+Where a Pipeline's walk finishes; a route to it ends the walk, and the Task completes.
+_Avoid_: Finish node, exit, sink
+
+**Final Stage**:
+A Stage with a route to End. Every other Stage needs a route to another Stage, so a Stage is never final by a missing route.
+_Avoid_: Last Stage (which is the last in the Pipeline's order), terminal Stage
+
+**Walk**:
+A Task's way through its Pipeline: the Stages it ran and the routes it followed, from its first Stage to End, one Stage at a time, going back only by an on-failure loop, a Gate's Send back or one more round of the Definition of Done check.
+_Avoid_: Run (a run is one Stage's), execution, journey
+
+**Not taken**:
+Said of a Stage the walk went past on another path: it holds no run, and the Pipeline rail shows it so. A Stage the user skipped is Skipped instead.
+_Avoid_: Skipped, bypassed, inactive
 
 **Pipeline library**:
 The office-wide Pipelines and, beside them, the Stage templates, edited in Settings › Pipelines or changed by the Proposals of the holder of Onboards and repairs Projects (Devops by default). Project Pipelines are not in it: each is edited on its Project's page.
@@ -386,7 +414,7 @@ The office-wide Pipeline a Project Pipeline is built from. Always "base Pipeline
 _Avoid_: Parent, template, base
 
 **Stage change**:
-One entry in a Project Pipeline's ordered list, naming a Stage by its key: Insert before, Insert after, Replace, Change or Remove a Stage. Never bare "changes", which is the Changes tab.
+One entry in a Project Pipeline's ordered list, naming a Stage by its key: Insert before, Insert after, Replace, Change or Remove a Stage, or Change routes of a Stage (its whole list of routes out). Inserting and removing a Stage carry the routes around it along, so a straight line stays one. Never bare "changes", which is the Changes tab.
 _Avoid_: Override, patch, diff, changes
 
 **Broken**:
@@ -410,7 +438,7 @@ How many run environments may be running together across The Office, 2 by defaul
 _Avoid_: run environment slots, concurrency limit
 
 **Stage**:
-One step of a Pipeline: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
+One node of a Pipeline's flow, with its routes out and an optional "on failure go back" loop: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)
 
 **Stage template**:
