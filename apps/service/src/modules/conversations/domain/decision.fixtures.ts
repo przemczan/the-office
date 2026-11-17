@@ -1,20 +1,25 @@
 import type { ContextDecision } from "./context-policy.js";
-import type { Decision, DecisionDraft } from "./decision.js";
+import type { Decision, DecisionDraft, DecisionQuestion } from "./decision.js";
 import type { ThreadSession } from "./thread.js";
 import { ThreadRefused } from "./thread-refused.js";
 
 /** A Decision the Planner opened on a Task, waiting on the user. */
 export function aDecision(fields: Partial<Decision> = {}): Decision {
   return {
-    kind: "question",
+    kind: "form",
     id: crypto.randomUUID(),
     threadId: "8f0b1a52-3c1e-4a4e-9d0e-1f5b6c7d8e9f",
     taskId: "3b1f6f0e-2a4d-4c8e-9f1a-7d2e5c6b8a90",
     roleKey: "planner",
-    question: "Should the export include archived Projects?",
     context: "The export reads every Project; archived ones have no worktree.",
-    options: ["Only active Projects", "Every Project"],
-    recommendation: { option: 0, reason: "Archived Projects have nothing to export." },
+    questions: [
+      {
+        kind: "choice",
+        question: "Should the export include archived Projects?",
+        options: ["Only active Projects", "Every Project"],
+        recommendation: { option: 0, reason: "Archived Projects have nothing to export." },
+      },
+    ],
     askedAt: new Date("2026-10-25T09:02:00.000Z"),
     attachmentIds: [],
     passedOn: [],
@@ -44,11 +49,33 @@ export const SESSION: ThreadSession = {
 };
 
 export const DRAFT: DecisionDraft = {
-  question: "Should the export include archived Projects?",
   context: "Archived Projects have no worktree.",
-  options: ["Only active Projects", "Every Project"],
-  recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+  questions: [
+    {
+      kind: "choice",
+      question: "Should the export include archived Projects?",
+      options: ["Only active Projects", "Every Project"],
+      recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+    },
+  ],
 };
+
+/** A form of three questions: two choices around an open question. */
+export const THREE_QUESTIONS: readonly DecisionQuestion[] = [
+  {
+    kind: "choice",
+    question: "Should the export include archived Projects?",
+    options: ["Only active Projects", "Every Project"],
+    recommendation: { option: 0, reason: "Archived Projects have nothing to export." },
+  },
+  { kind: "open", question: "Which years should it cover?" },
+  {
+    kind: "choice",
+    question: "Which format?",
+    options: ["CSV", "JSON"],
+    recommendation: { option: 1, reason: "It keeps the nesting." },
+  },
+];
 
 export const WARM: ContextDecision = {
   move: "resume",

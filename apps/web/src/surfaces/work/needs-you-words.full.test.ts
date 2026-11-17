@@ -11,24 +11,30 @@ function decisionPutTo(putTo: string | null): Decision {
   return {
     id: crypto.randomUUID(),
     threadId: "thread",
-    kind: "question",
+    kind: "form",
     taskId: "task",
     roleKey: "planner",
-    question: "Which one?",
+    questions: [
+      {
+        kind: "choice",
+        question: "Which one?",
+        options: ["This", "That"],
+        recommendation: { option: 0, reason: "It is smaller." },
+      },
+    ],
     context: "",
-    options: ["This", "That"],
-    recommendation: { option: 0, reason: "It is smaller." },
     attachmentIds: [],
     putTo,
     passedOn: [],
     askedAt: "2026-11-04T10:00:00.000Z",
-    answer: null,
+    formAnswer: null,
     answeredAt: null,
     answeredByUser: null,
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,
     closedAt: null,
+    closedBecause: null,
   };
 }
 

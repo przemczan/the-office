@@ -41,6 +41,14 @@ export function isPersonsThread({ home, stageThread, consultation }: Thread): bo
   return home.kind === "task" && !stageThread && !consultation;
 }
 
+/**
+ * A person's chat with the user (spec §2.4): every chat Thread but a Consultation sitting in a chat.
+ * Its Decisions wait on the user inline in the chat, never under Needs you (spec §2.7).
+ */
+export function isPersonsChat({ home, consultation }: Thread): boolean {
+  return home.kind === "chat" && !consultation;
+}
+
 /** The Thread's tokens as the user sees them: its ended turns and the running turn's so far. */
 export function tokensSoFar({ tokens, runningTurnTokens }: Thread): TokenTotals {
   return addTokens(tokens, runningTurnTokens);

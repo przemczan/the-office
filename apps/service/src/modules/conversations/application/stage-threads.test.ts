@@ -14,6 +14,7 @@ import {
   type SessionScript,
   ScriptedEngineModule,
 } from "../../engine/index.js";
+import { oneOptionAnswer } from "../domain/decision.js";
 import { openDecision, answerDecision, startTaskThread } from "../domain/thread-changes.js";
 import { DecisionService } from "./decision-service.js";
 import { StageDecisions } from "./stage-decisions.js";
@@ -327,10 +328,15 @@ async function anAnsweredDecision(taskId: string, roleKey: string): Promise<void
     openDecision(latest, {
       id: decisionId,
       askedAt: new Date(),
-      question: "Which page shows the rename?",
       context: "Both pages list devices.",
-      options: ["The device page", "The list"],
-      recommendation: { option: 0, reason: "It has the room." },
+      questions: [
+        {
+          kind: "choice",
+          question: "Which page shows the rename?",
+          options: ["The device page", "The list"],
+          recommendation: { option: 0, reason: "It has the room." },
+        },
+      ],
     }),
   );
   await repository.update(thread.id, (latest) =>
@@ -348,7 +354,7 @@ async function anAnsweredDecision(taskId: string, roleKey: string): Promise<void
       newSession: undefined,
       brief: "",
       decisionId,
-      answer: { kind: "option", option: 0 },
+      answer: oneOptionAnswer(0),
       messageId: randomUUID(),
       answeredAt: new Date(),
     }),
@@ -448,13 +454,14 @@ function anAskingStage(roleKey: string): StageThreadRequest {
   };
 }
 
-const WHICH_PAGE = {
+const WHICH_PAGE_QUESTION = {
   question: "Which page shows the rename?",
-  context: "Both pages list devices.",
   options: ["The device page", "The list"],
   recommended: 1,
   why: "It has the room.",
 };
+
+const WHICH_PAGE = { context: "Both pages list devices.", questions: [WHICH_PAGE_QUESTION] };
 
 /** The hooks every test of both files runs. */
 function onTheirOwnApp(): void {
@@ -511,7 +518,7 @@ describe("StageThreads", () => {
     const opening = session?.received[0];
     const brief = opening?.step === "start" ? opening.brief.text : "";
     expect(brief).toContain("## The Task\n\nRename a device.");
-    expect(brief).toContain("Which page shows the rename?\n  Answer: The device page");
+    expect(brief).toContain("- Which page shows the rename?\n  Answer: The device page");
     expect(brief.endsWith("## What to do now\n\n## The Stage: Implement\n\nBuild it.")).toBe(true);
     expect(session?.options).toMatchObject({
       folder: request.folder,
@@ -804,16 +811,16 @@ describe("StageDecisions", () => {
     });
     const thread = await app
       .get(DecisionService)
-      .answer(id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
+      .answer(id, oneOptionAnswer(1), ANSWERED_BY_ANN_LEE);
 
     expect(thread.openDecisions[0]).toBeUndefined();
     const log = drafts(await repository.messages(stageThread.threadId));
     expect(log.slice(-2)).toEqual([
       { kind: "decision", roleKey: undefined, decisionId: id },
-      { kind: "decision-answer", decisionId: id, answer: { kind: "option", option: 1 } },
+      { kind: "decision-answer", decisionId: id, answer: oneOptionAnswer(1) },
     ]);
     expect(answered.map(({ decision }) => [decision.id, decision.answer?.kind])).toEqual([
-      [id, "option"],
+      [id, "submitted"],
     ]);
     // The session ended with the Stage; nothing started another.
     expect(engine.sessions).toHaveLength(1);
@@ -845,10 +852,13 @@ describe("Office tools on a Stage", () => {
     await stageThread.end({ handoverNote: "Waiting.", closing: undefined });
     const answered = answeredEvents();
 
-    await app.get(DecisionService).answer(id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+    await app.get(DecisionService).answer(id, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
 
     expect(answered.map((event) => event.decision.id)).toEqual([id]);
-    expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });
+    expect(await repository.decision(id)).toMatchObject({
+      roleKey: ada,
+      answer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
+    });
   });
 
   it("offer write_run_environment_definition only to a Role with the Run environment capability", async () => {

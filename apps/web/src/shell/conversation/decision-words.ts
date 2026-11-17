@@ -1,4 +1,4 @@
-import type { Attachment, Decision, DecisionAnswer, UserRef } from "@the-office/contracts";
+import type { Attachment, Decision, DecisionClosedBecause, UserRef } from "@the-office/contracts";
 import { isSignedInUser } from "../use-user-name.ts";
 
 /**
@@ -14,12 +14,18 @@ export function atUsersRequestWords(
     : `at ${user.name}'s request`;
 }
 
-/** A Decision closed unanswered, as dropping its Task closes it (spec §2.4). */
-export const CLOSED_WORDS = "Closed: the Task was dropped.";
+/**
+ * A Decision closed unanswered, by why (spec §2.4): dropping its Task closes it, and the end of its
+ * Initiative closes one on no Task in the Initiative's Thread.
+ */
+export const CLOSED_WORDS: Readonly<Record<DecisionClosedBecause, string>> = {
+  "task-dropped": "Closed: the Task was dropped.",
+  "initiative-ended": "Closed: the Initiative ended.",
+};
 
-/** The answer in words: the option picked, or what the user wrote. */
-export function answerWords(answer: DecisionAnswer, { options }: Decision): string {
-  return answer.kind === "option" ? (options[answer.option] ?? "") : answer.text;
+/** The closed line's words; a Decision closed before the reason was kept was closed by its Task. */
+export function closedWords({ closedBecause }: Pick<Decision, "closedBecause">): string {
+  return CLOSED_WORDS[closedBecause ?? "task-dropped"];
 }
 
 /**
@@ -35,12 +41,15 @@ export function namedAttachments(
   );
 }
 
-/** What a Decision's details window holds, in short: "2 answers · 5 Attachments". */
+/** What a Decision's details window holds, in short: "3 questions · 5 Attachments". */
 export function decisionDetailsWords(
-  { options }: Pick<Decision, "options">,
+  { questions }: Pick<Decision, "questions">,
   attachments: readonly Attachment[],
 ): string {
-  return `${counted(options.length, "answer", "answers")} · ${counted(attachments.length, "Attachment", "Attachments")}`;
+  const asked = counted(questions.length, "question", "questions");
+  return attachments.length === 0
+    ? asked
+    : `${asked} · ${counted(attachments.length, "Attachment", "Attachments")}`;
 }
 
 function counted(count: number, one: string, many: string): string {

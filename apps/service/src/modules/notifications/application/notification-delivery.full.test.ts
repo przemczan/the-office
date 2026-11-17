@@ -50,8 +50,12 @@ function decisionEvent(
   decision: { readonly id: string; readonly taskId: string },
 ): DecisionOpened {
   const [thread, asked] = [
-    {},
-    { ...decision, roleKey: "developer", question: "Keep the query string?" },
+    { home: { kind: "task" } },
+    {
+      ...decision,
+      roleKey: "developer",
+      questions: [{ kind: "open", question: "Keep the query string?" }],
+    },
   ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
   return new eventClass(thread, asked, new Date());
 }

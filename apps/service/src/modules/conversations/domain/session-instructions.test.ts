@@ -1,14 +1,18 @@
 import {
   ANSWER_DECISION_TOOL as CONTRACT_ANSWER_DECISION_TOOL,
   CONSULT_TOOL as CONTRACT_CONSULT_TOOL,
+  OPEN_DECISION_TOOL as CONTRACT_OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { aDecision } from "./decision.fixtures.js";
+import { oneOptionAnswer, oneWordsAnswer } from "./decision.js";
+import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
 import {
   ANSWER_DECISION_TOOL,
   CHANGE_ROLE_TOOL,
   CALLING_RULE,
+  CHAT_DECISION_RULE,
   CONSULT_TOOL,
+  OPEN_DECISION_TOOL,
   CREATE_INITIATIVE_TOOL,
   consultationOfficeTools,
   caretakerChatInstructions,
@@ -198,26 +202,94 @@ describe("answer_decision", () => {
   });
 });
 
+describe("open_decision in a chat", () => {
+  it("is in every chat, the Caretaker's and the Office Manager's too, and in no Consultation", () => {
+    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(held)).toContain(OPEN_DECISION_TOOL);
+    }
+    expect(caretakerChatOfficeTools(CARETAKER)).toContain(OPEN_DECISION_TOOL);
+    expect(consultationOfficeTools(PLANNER, true)).not.toContain(OPEN_DECISION_TOOL);
+    expect(OPEN_DECISION_TOOL).toBe(CONTRACT_OPEN_DECISION_TOOL);
+  });
+
+  it("comes with the rule to ask everything in one form, right after the calling rule", () => {
+    const card = { name: "Ada", title: "Developer", responsibilities: "", instructions: "" };
+    const person = { card, officeInstructions: "" };
+
+    for (const instructions of [
+      chatInstructions(person, PLANNER),
+      chatInstructions(person, OFFICE_MANAGER),
+      caretakerChatInstructions(person, false),
+    ]) {
+      expect(instructions).toContain(`${CALLING_RULE}\n\n${CHAT_DECISION_RULE}`);
+    }
+    expect(consultationInstructions(person, true)).not.toContain(CHAT_DECISION_RULE);
+  });
+});
+
 describe("the message an answered Decision is sent with", () => {
   const decision = aDecision();
-  const option = { kind: "option", option: 1 } as const;
+  const option = oneOptionAnswer(1);
   const atUsersRequest = { roleKey: "cto", threadId: "chat", name: "Ada", user: ANN_LEE } as const;
+  const answered = "1. Should the export include archived Projects?\n   Answer: Every Project";
 
   it("names who answered: the user, the Consultant, or a person at the user's request", () => {
     expect(decisionAnswerMessage(decision, option, ANSWERED_BY_ANN_LEE)).toBe(
-      `The user Ann Lee answered your Decision "${decision.question}" with the option "Every Project".`,
+      `The user Ann Lee answered your Decision:\n\n${answered}`,
     );
     expect(
       decisionAnswerMessage(decision, option, { kind: "consultant", roleKey: "cto", name: "Ada" }),
-    ).toBe(`Ada answered your Decision "${decision.question}" with the option "Every Project".`);
+    ).toBe(`Ada answered your Decision:\n\n${answered}`);
+    expect(
+      decisionAnswerMessage(decision, oneWordsAnswer("Active ones."), {
+        kind: "at-users-request",
+        ...atUsersRequest,
+      }),
+    ).toBe(
+      "Ada answered your Decision for the user Ann Lee, at their request:\n\n1. Should the export include archived Projects?\n   Answer, in their own words: Active ones.",
+    );
     expect(
       decisionAnswerMessage(
         decision,
-        { kind: "free-answer", text: "Active ones." },
+        { kind: "asked-again", generalComment: "Say what archived means." },
         { kind: "at-users-request", ...atUsersRequest },
       ),
     ).toBe(
-      `Ada answered your Decision "${decision.question}" for the user Ann Lee, at their request, in their own words:\n\nActive ones.`,
+      "Ada asked you to ask again for the user Ann Lee, at their request, answering none of your Decision's questions:\n\nGeneral comment: Say what archived means.\n\nAnswer what they said, then open a new Decision for what you still need to ask.",
+    );
+  });
+
+  it("gives every question with its answer and comment, and the general comment", () => {
+    const form = aDecision({ questions: THREE_QUESTIONS });
+    expect(
+      decisionAnswerMessage(
+        form,
+        {
+          kind: "submitted",
+          answers: [
+            { kind: "option", option: 0 },
+            { kind: "words", text: "2026", comment: "Only this year." },
+            { kind: "option", option: 1, comment: "For the API." },
+          ],
+          generalComment: "Ship it Friday.",
+        },
+        ANSWERED_BY_ANN_LEE,
+      ),
+    ).toBe(
+      [
+        "The user Ann Lee answered your Decision:",
+        "",
+        "1. Should the export include archived Projects?",
+        "   Answer: Only active Projects",
+        "2. Which years should it cover?",
+        "   Answer, in their own words: 2026",
+        "   Comment: Only this year.",
+        "3. Which format?",
+        "   Answer: JSON",
+        "   Comment: For the API.",
+        "",
+        "General comment: Ship it Friday.",
+      ].join("\n"),
     );
   });
 
@@ -232,7 +304,7 @@ describe("the message an answered Decision is sent with", () => {
         },
       ]),
     ).toBe(
-      `On the Task "Export" (${decision.taskId}): Ada answered your Decision "${decision.question}" for the user Ann Lee, at their request, with the option "Every Project".`,
+      `On the Task "Export" (${decision.taskId}): Ada answered your Decision for the user Ann Lee, at their request:\n\n${answered}`,
     );
   });
 });

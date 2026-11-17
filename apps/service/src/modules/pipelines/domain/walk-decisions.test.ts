@@ -53,6 +53,50 @@ describe("walkAnswerOf", () => {
       kind: "accept-issues",
     });
   });
+
+  const failedOnce: StageRunDecision = {
+    id: "decision-2",
+    kind: "no-retries-left",
+    options: [
+      { kind: "one-more-round", guidance: undefined },
+      { kind: "accept-issues" },
+      { kind: "drop" },
+    ],
+    answer: undefined,
+  };
+
+  it("guides one more round chosen with the comments given beside it, the user's", () => {
+    // stageAnswerOf joins the option's comment and the general comment into the guidance.
+    const guidance = "Mock the clock.\n\nAnd keep the test small.";
+
+    expect(walkAnswerOf(failedOnce, { kind: "option", option: 0, guidance })).toEqual({
+      kind: "one-more-round",
+      guidance,
+    });
+  });
+
+  it("names the Consultant whose comments guide the round", () => {
+    expect(
+      walkAnswerOf(failedOnce, {
+        kind: "option",
+        option: 0,
+        guidance: "Mock the clock.",
+        answeredBy: "cto",
+      }),
+    ).toEqual({ kind: "one-more-round", guidance: "Mock the clock.", guidedBy: "cto" });
+  });
+
+  it("names the Consultant whose own words guide the round", () => {
+    expect(
+      walkAnswerOf(failedOnce, { kind: "free-answer", text: "Mock the clock.", answeredBy: "cto" }),
+    ).toEqual({ kind: "one-more-round", guidance: "Mock the clock.", guidedBy: "cto" });
+  });
+
+  it("leaves comments out of an option that takes no guidance", () => {
+    expect(
+      walkAnswerOf(failedOnce, { kind: "option", option: 1, guidance: "Fine by me." }),
+    ).toEqual({ kind: "accept-issues" });
+  });
 });
 
 describe("the branch-moved Decision", () => {
@@ -74,6 +118,21 @@ describe("the branch-moved Decision", () => {
       { kind: "drop" },
     ]);
     expect(decision.draft.context).toContain(error);
+  });
+
+  it("keeps the branch guided by the comments given beside the option", () => {
+    const decision = walkDecision(run, question);
+    const kept: StageRunDecision = {
+      id: "decision-3",
+      kind: "branch-moved",
+      options: decision.options,
+      answer: undefined,
+    };
+
+    expect(walkAnswerOf(kept, { kind: "option", option: 0, guidance: "I rebased it." })).toEqual({
+      kind: "keep-branch",
+      guidance: "I rebased it.",
+    });
   });
 });
 

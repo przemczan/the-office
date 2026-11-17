@@ -3,6 +3,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  accountSchema,
   attachmentSchema,
   decisionListSchema,
   ideaSchema,
@@ -15,6 +16,8 @@ import {
   roleSchema,
   taskSchema,
   type Attachment,
+  type DecisionFormAnswer,
+  type DecisionQuestion,
   type Idea,
   type Initiative,
   type InitiativeState,
@@ -1290,9 +1293,9 @@ test(
     // A Thread waiting on an open Decision shows nobody, however long it stays answering.
     const decisionId = crypto.randomUUID();
     await queryOfficeDatabase(
-      `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, attachment_ids, asked_at)
-     values ($1, $2, $3, 'caretaker', 'question', 'Which way?', 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', '[]', now())`,
-      [decisionId, workingThread, done.id],
+      `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, attachment_ids, asked_at)
+     values ($1, $2, $3, 'caretaker', 'question', $4, 'Both work.', $5, $6, $7, '[]', now())`,
+      [decisionId, workingThread, done.id, ...decisionColumns([aChoice("Which way?")])],
     );
     await moveThreadTo(page, workingThread, "answering", "Asking");
     const backlog = column(page, "Backlog");
@@ -2077,10 +2080,45 @@ test(
   },
 );
 
-/** An open Decision on the Task, in a Thread of its own, as a Stage's session would ask it. */
+/** A choice of a seeded Decision: "Yes" or "No", the first recommended, unless given. */
+function aChoice(
+  question: string,
+  options: readonly string[] = ["Yes", "No"],
+  recommended = 0,
+  reason = "It is simpler.",
+): DecisionQuestion {
+  return {
+    kind: "choice",
+    question,
+    options: [...options],
+    recommendation: { option: recommended, reason },
+  };
+}
+
+/**
+ * The columns a Decision is kept in, as the service writes them: the form in `questions`, and its
+ * first question in `question`, `options` and `recommendation`, which the release before reads.
+ */
+function decisionColumns(questions: readonly DecisionQuestion[]): readonly string[] {
+  const [first] = questions;
+  if (first === undefined) throw new Error("A Decision asks a question.");
+  const recommendation =
+    first.kind === "choice" ? first.recommendation : { option: 0, reason: first.why ?? "" };
+  return [
+    first.question,
+    JSON.stringify(first.kind === "choice" ? first.options : []),
+    JSON.stringify(recommendation),
+    JSON.stringify(questions),
+  ];
+}
+
+/**
+ * An open Decision on the Task, in a Thread of its own, as a Stage's session would ask it: one
+ * question of "Yes" or "No", or the form's questions.
+ */
 async function seedDecision(
   task: Task,
-  question: string,
+  asked: string | readonly DecisionQuestion[],
   attachmentIds: readonly string[] = [],
 ): Promise<SeededDecision> {
   const threadId = crypto.randomUUID();
@@ -2091,11 +2129,50 @@ async function seedDecision(
     [threadId, task.id, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
   );
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, attachment_ids, asked_at)
-     values ($1, $2, $3, 'developer', 'question', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', $5, now())`,
-    [decisionId, threadId, task.id, question, JSON.stringify(attachmentIds)],
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, attachment_ids, asked_at)
+     values ($1, $2, $3, 'developer', 'question', $4, 'Both work.', $5, $6, $7, $8, now())`,
+    [
+      decisionId,
+      threadId,
+      task.id,
+      ...decisionColumns(typeof asked === "string" ? [aChoice(asked)] : asked),
+      JSON.stringify(attachmentIds),
+    ],
   );
   return { threadId, decisionId };
+}
+
+/**
+ * A Decision the shared user answered, in the Planner's Thread on the Task, as the service keeps
+ * one: the form's answer in `form_answer`, and in `answer` as one, with who gave it.
+ */
+async function seedAnsweredDecision(
+  page: Page,
+  task: Task,
+  questions: readonly DecisionQuestion[],
+  formAnswer: DecisionFormAnswer,
+): Promise<string> {
+  const decisionId = crypto.randomUUID();
+  const account = accountSchema.parse(await (await page.request.get("/api/account")).json());
+  const user = { userId: account.id, name: account.name };
+  const one =
+    formAnswer.kind === "asked-again"
+      ? { kind: "free-answer", text: formAnswer.generalComment ?? "" }
+      : { kind: "free-answer", text: "Answered in the form." };
+  const threadId = await seedThread(task.id, "Planning", [{ kind: "decision", decisionId }]);
+  await queryOfficeDatabase(
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, asked_at, answer, form_answer, answered_at)
+     values ($1, $2, $3, 'planner', 'question', $4, 'Accounting imports CSV; the API clients read JSON.', $5, $6, $7, now(), $8, $9, now())`,
+    [
+      decisionId,
+      threadId,
+      task.id,
+      ...decisionColumns(questions),
+      JSON.stringify({ ...one, user }),
+      JSON.stringify(formAnswer),
+    ],
+  );
+  return threadId;
 }
 
 /**
@@ -2509,52 +2586,120 @@ async function attachedImage(
   return attachmentSchema.parse(await response.json());
 }
 
-test("a Decision with nothing to look at is answered in place, by an answer's line or in your own words", async ({
+test("a Decision form with nothing to look at is answered in place: each choice at its recommendation, the open question in words, each with its comment", async ({
   page,
 }) => {
   const project = await addedProject(page, "Decisions in place", "DI");
   const task = await createdTask(page, project, "Pick an export format");
-  const byLine = await seedDecision(task, "Export as CSV or as JSON?");
-  const inOwnWords = await seedDecision(task, "Keep the old export too?");
-  const answersByLine = await catchAnswers(page, byLine);
-  const answersInOwnWords = await catchAnswers(page, inOwnWords);
+  const form = await seedDecision(task, [
+    aChoice("Export as CSV or as JSON?", ["CSV", "JSON"], 0, "Accounting imports CSV."),
+    aChoice("Keep the old export too?", ["Keep it", "Remove it"], 1, "Nobody reads it."),
+    {
+      kind: "open",
+      question: "What should the file be called?",
+      why: "The download needs a name.",
+    },
+  ]);
+  const toAskAgain = await seedDecision(task, "Zip the export?");
+  const answers = await catchAnswers(page, form);
+  const askedAgain = await catchAnswers(page, toAskAgain);
 
   await page.goto(`/tasks/${task.id}`);
   const needsYou = page.getByRole("region", { name: "Needs you" });
-  const first = needsYou.getByRole("region", { name: "Decision: Export as CSV or as JSON?" });
-  const second = needsYou.getByRole("region", { name: "Decision: Keep the old export too?" });
-  // Each answer on a line of its own, the recommended one first, then its reason and your own words.
-  const yes = first.getByRole("button", { name: "Yes", exact: true });
-  const no = first.getByRole("button", { name: "No", exact: true });
-  await expect(yes).toContainText("Recommended");
-  await expect(no).not.toContainText("Recommended");
-  const yesBox = await yes.boundingBox();
-  const noBox = await no.boundingBox();
-  expect(noBox?.y).toBeGreaterThan((yesBox?.y ?? 0) + (yesBox?.height ?? 0) - 1);
-  expect(noBox?.width).toBe(yesBox?.width);
-  await expect(first.getByText("recommends “Yes”: It is simpler.")).toBeVisible();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-in-place.png") });
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-decision-in-place.png") });
-  await page.emulateMedia({ colorScheme: "light" });
+  const card = needsYou.getByRole("region", {
+    name: "Decision: Export as CSV or as JSON? (and 2 more questions)",
+  });
+  const format = card.getByRole("group", { name: "Question 1" });
+  const oldExport = card.getByRole("group", { name: "Question 2" });
+  const fileName = card.getByRole("group", { name: "Question 3" });
+  await expect(card).toBeVisible();
   await expectNeedsYouInTheRecordColumn(page, needsYou);
   await page.setViewportSize({ width: 1100, height: 900 });
   await expectNeedsYouInTheRecordColumn(page, needsYou);
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1100-decision-in-place.png") });
   await page.setViewportSize({ width: 1600, height: 900 });
+  // Each choice starts at its recommended option, the one marked so, with "None of these" last.
+  const formatChoice = format.getByRole("radiogroup", { name: "Export as CSV or as JSON?" });
+  await expect(formatChoice.getByRole("radio")).toHaveCount(3);
+  await expect(formatChoice.getByRole("radio", { name: /^CSV/ })).toBeChecked();
+  await expect(formatChoice.getByRole("radio").last()).toHaveAccessibleName(
+    "None of these: answer in words",
+  );
+  await expect(formatChoice.locator("label").filter({ hasText: "Recommended" })).toHaveText(/^CSV/);
+  await expect(format.getByText(/recommends “CSV”: Accounting imports CSV\./)).toBeVisible();
+  const oldExportChoice = oldExport.getByRole("radiogroup", { name: "Keep the old export too?" });
+  await expect(oldExportChoice.getByRole("radio", { name: /^Remove it/ })).toBeChecked();
+  await expect(oldExportChoice.locator("label").filter({ hasText: "Recommended" })).toHaveText(
+    /^Remove it/,
+  );
+  await expect(fileName.getByRole("radio")).toHaveCount(0);
+  await expect(fileName).toContainText("The download needs a name.");
 
-  await no.click();
-  await expect.poll(() => answersByLine).toEqual([{ kind: "option", option: 1 }]);
-  await second.getByLabel("Your answer").fill("Keep it for a release, then remove it.");
-  await second.getByRole("button", { name: "Answer", exact: true }).click();
+  // Submit waits for the open question, naming it, and the progress line leads there.
+  const submit = card.getByRole("button", { name: "Submit", exact: true });
+  const progress = card.locator(".decision-progress");
+  await expect(submit).toBeDisabled();
+  await expect(submit).toHaveAttribute("title", "Answer question 3 first.");
+  await expect(progress).toContainText("2 of 3 answered");
+  await card.getByRole("button", { name: "Question 3 needs an answer" }).click();
+  const fileNameWords = fileName.getByRole("textbox", { name: /^Your answer\W*$/ });
+  await expect(fileNameWords).toBeFocused();
+  await card.scrollIntoViewIfNeeded();
+  await screenshotScenario(page, "decision-form-in-place");
+
+  // Another option with a comment; "None of these", whose words are then the answer; the words.
+  await formatChoice.getByRole("radio", { name: "JSON", exact: true }).check();
+  await format.getByRole("button", { name: "Add a comment" }).click();
+  await format
+    .getByRole("textbox", { name: "Comment", exact: true })
+    .fill("The API clients read JSON.");
+  await oldExportChoice.getByRole("radio", { name: "None of these: answer in words" }).check();
+  await expect(oldExport.getByRole("button", { name: "Add a comment" })).toHaveCount(0);
+  await fileNameWords.fill("invoices.json");
+  await expect(submit).toBeDisabled();
+  await expect(submit).toHaveAttribute("title", "Answer question 2 in its words first.");
+  await expect(progress).toContainText("2 of 3 answered");
+  await oldExport
+    .getByRole("textbox", { name: /^Your answer in words/ })
+    .fill("Keep it for a release, then remove it.");
+  await expect(progress).toContainText("3 of 3 answered");
+  await expect(progress).toContainText("Ready to submit");
+  await card.getByRole("textbox", { name: "General comment" }).fill("Ship it with the release.");
+  await expect(submit).toBeEnabled();
+  await submit.click();
   await expect
-    .poll(() => answersInOwnWords)
-    .toEqual([{ kind: "free-answer", text: "Keep it for a release, then remove it." }]);
+    .poll(() => answers)
+    .toEqual([
+      {
+        kind: "submitted",
+        answers: [
+          { kind: "option", option: 1, comment: "The API clients read JSON." },
+          { kind: "words", text: "Keep it for a release, then remove it." },
+          { kind: "words", text: "invoices.json" },
+        ],
+        generalComment: "Ship it with the release.",
+      },
+    ]);
+
+  // Ask me again asks what to explain or change first, and Cancel leaves the form as it was.
+  const zip = needsYou.getByRole("region", { name: "Decision: Zip the export?" });
+  const askAgainStep = zip.getByRole("region", { name: "Ask me again" });
+  await zip.getByRole("button", { name: "Ask me again" }).click();
+  await expect(zip.getByRole("button", { name: "Submit", exact: true })).toHaveCount(0);
+  await askAgainStep.getByRole("button", { name: "Cancel" }).click();
+  await expect(askAgainStep).toHaveCount(0);
+  await expect(zip.getByRole("button", { name: "Submit", exact: true })).toBeEnabled();
+  await zip.getByRole("button", { name: "Ask me again" }).click();
+  await askAgainStep
+    .getByRole("textbox", { name: /^What should .+ explain or change\?/ })
+    .fill("One zip, or one per month?");
+  await askAgainStep.getByRole("button", { name: "Ask me again" }).click();
+  await expect
+    .poll(() => askedAgain)
+    .toEqual([{ kind: "asked-again", generalComment: "One zip, or one per month?" }]);
 });
 
 test(
-  "a Decision with Attachments is accepted on its card, or answered in its details window",
+  "a Decision with Attachments is accepted on its compact card, or answered in its window, its draft kept between",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Decision pictures", "DP");
@@ -2589,47 +2734,46 @@ test(
     expect((await page.request.delete(`/api/attachments/${removed.id}`)).status()).toBe(204);
     const answers = await catchAnswers(page, seeded);
 
-    // The card: its question, the recommended answer with Accept, and the way to its details.
+    // The compact card: the context's first line, question 1 with its recommendation, Accept, and
+    // the way to the window, where the Attachments are.
     await page.goto(`/tasks/${task.id}`);
     const card = page
       .getByRole("region", { name: "Needs you" })
       .getByRole("region", { name: `Decision: ${question}` });
-    const recommended = card.getByRole("region", { name: "Recommended answer" });
-    await expect(recommended).toContainText("Yes");
-    await expect(recommended).toContainText("It is simpler.");
-    await expect(card.getByRole("region", { name: "Details" })).toContainText(
-      "2 answers · 6 Attachments",
+    const first = card.getByRole("region", { name: "Question 1" });
+    await expect(card.locator(".decision-context")).toHaveText("Both work.");
+    await expect(first).toContainText(question);
+    await expect(first.locator(".decision-compact-recommended")).toHaveText(/^Yes/);
+    await expect(first).toContainText("recommends it: It is simpler.");
+    await expect(card.locator(".decision-compact-more")).toHaveText(
+      "6 Attachments to look at in Open details",
     );
+    await expect(card.getByRole("radio")).toHaveCount(0);
     await expect(card.getByRole("button", { name: /^View / })).toHaveCount(0);
-    await expect(card.getByText("Both work.")).toHaveCount(0);
-    await page.screenshot({
-      path: path.join(SCREENSHOTS, "light-1600-decision-with-attachments.png"),
-    });
-    await recommended.getByRole("button", { name: "Accept" }).click();
-    await expect.poll(() => answers).toEqual([{ kind: "option", option: 0 }]);
+    await screenshotScenario(page, "decision-form-compact");
+    await card.getByRole("button", { name: "Accept" }).click();
+    await expect
+      .poll(() => answers)
+      .toEqual([{ kind: "submitted", answers: [{ kind: "option", option: 0 }] }]);
 
-    // The window: the context, the Attachments it names, every answer with the recommended one
-    // picked, and your own words.
+    // The window: the context, the Attachments it names, the question with the recommended option
+    // picked.
     await card.getByRole("button", { name: "Open details" }).click();
     const details = page.getByRole("dialog", { name: /^Decision/ });
     await expect(details).toContainText(question);
     await expect(details).toContainText("Both work.");
-    const answerChoices = details.getByRole("radiogroup", { name: "Answers" });
-    await expect(answerChoices.getByRole("radio", { name: /^Yes/ })).toBeChecked();
-    await expect(answerChoices.getByRole("radio", { name: "In your own words" })).not.toBeChecked();
+    const choice = details.getByRole("radiogroup", { name: question });
+    await expect(choice.getByRole("radio", { name: /^Yes/ })).toBeChecked();
+    await expect(
+      choice.getByRole("radio", { name: "None of these: answer in words" }),
+    ).not.toBeChecked();
     await expect(details.getByRole("button", { name: /^View / })).toHaveCount(4);
     await expect(details.getByRole("link", { name: "The brand guide" })).toBeVisible();
     await expect(details.getByRole("button", { name: `View ${notNamed.name}` })).toHaveCount(0);
     await expect(details.getByRole("button", { name: "View removed.png" })).toHaveCount(0);
     const size = await details.getByRole("button", { name: "View today.png" }).boundingBox();
     expect(size).toMatchObject({ width: 160, height: 100 });
-    const frame = await details.boundingBox();
-    expect(frame?.width).toBe(1180);
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-window.png") });
-    await page.emulateMedia({ colorScheme: "dark" });
-    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
-    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-decision-window.png") });
-    await page.emulateMedia({ colorScheme: "light" });
+    await screenshotScenario(page, "decision-form-window-attachments");
 
     // The Attachment viewer opens over the window, and Esc closes the viewer alone.
     await details.getByRole("button", { name: "View wider.png" }).click();
@@ -2656,7 +2800,10 @@ test(
       .getByRole("button", { name: /needs? you/ })
       .click();
     const panel = page.getByRole("dialog").filter({ hasText: "oldest first" });
-    await panel.getByRole("button", { name: "Open details" }).click();
+    await panel
+      .getByRole("region", { name: `Decision: ${question}` })
+      .getByRole("button", { name: "Open details" })
+      .click();
     await details.getByRole("button", { name: "View wider.png" }).click();
     await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -2668,32 +2815,223 @@ test(
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Picking another answer, then Answer in the bar.
+    // Closing the window keeps the draft, and Accept waits while the draft differs from it.
     await card.getByRole("button", { name: "Open details" }).click();
-    await answerChoices.getByRole("radio", { name: "No", exact: true }).check();
-    await details.getByRole("button", { name: "Answer", exact: true }).click();
-    await expect
-      .poll(() => answers)
-      .toEqual([
-        { kind: "option", option: 0 },
-        { kind: "option", option: 1 },
-      ]);
+    await choice.getByRole("radio", { name: "No", exact: true }).check();
+    await details.getByRole("button", { name: "Add a comment" }).click();
+    await details
+      .getByRole("textbox", { name: "Comment", exact: true })
+      .fill("Today's look is too busy.");
+    await details.getByRole("button", { name: "Close", exact: true }).click();
     await expect(details).toHaveCount(0);
-
-    // In your own words: Answer waits for them.
+    await expect(card.getByText("Draft kept · 1 change")).toBeVisible();
+    await expect(card.getByRole("button", { name: "Accept" })).toHaveCount(0);
     await card.getByRole("button", { name: "Open details" }).click();
-    await answerChoices.getByRole("radio", { name: "In your own words" }).check();
-    const answer = details.getByRole("button", { name: "Answer", exact: true });
-    await expect(answer).toBeDisabled();
-    await details.getByLabel("Your answer").fill("Take today's look, a little wider.");
-    await answer.click();
+    await expect(choice.getByRole("radio", { name: "No", exact: true })).toBeChecked();
+    await expect(details.getByRole("textbox", { name: "Comment", exact: true })).toHaveValue(
+      "Today's look is too busy.",
+    );
+    await details.getByRole("button", { name: "Submit", exact: true }).click();
     await expect
       .poll(() => answers.at(-1))
       .toEqual({
-        kind: "free-answer",
-        text: "Take today's look, a little wider.",
+        kind: "submitted",
+        answers: [{ kind: "option", option: 1, comment: "Today's look is too busy." }],
       });
     await expect(details).toHaveCount(0);
+    // A sent draft is gone, so Accept is back.
+    await expect(card.getByRole("button", { name: "Accept" })).toBeVisible();
+
+    // None of these: Submit waits for the answer in words.
+    await card.getByRole("button", { name: "Open details" }).click();
+    await choice.getByRole("radio", { name: "None of these: answer in words" }).check();
+    const submit = details.getByRole("button", { name: "Submit", exact: true });
+    await expect(submit).toBeDisabled();
+    await expect(submit).toHaveAttribute("title", "Pick an option or write your answer first.");
+    await details
+      .getByRole("textbox", { name: /^Your answer in words/ })
+      .fill("Take today's look, a little wider.");
+    await submit.click();
+    await expect
+      .poll(() => answers.at(-1))
+      .toEqual({
+        kind: "submitted",
+        answers: [{ kind: "words", text: "Take today's look, a little wider." }],
+      });
+    await expect(details).toHaveCount(0);
+  },
+);
+
+test(
+  "a Decision of eight questions shows compact, is answered question by question in its window, and keeps its draft in the Needs you panel",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Long Decision forms", "LF");
+    const task = await createdTask(page, project, "Plan the invoice export");
+    const questions: readonly DecisionQuestion[] = [
+      aChoice("Which invoices go in the export?", ["Paid ones", "Every one"], 0, "Books close."),
+      aChoice("Keep the old invoice export?", ["Keep it", "Remove it"], 1, "Nobody reads it."),
+      { kind: "open", question: "What should the invoice file be called?" },
+      aChoice("Where does the export button go?", ["The toolbar", "The menu"], 0, "Daily use."),
+      aChoice("Zip large invoice exports?", ["Zip them", "Leave them plain"], 0, "They are big."),
+      aChoice("Which dates are exported?", ["This month", "Any range"], 1, "Quarters close."),
+      { kind: "open", question: "Who hears when an export fails?", why: "Someone must retry." },
+      aChoice("Log each invoice export?", ["Log it", "Don't log it"], 0, "Audits ask."),
+    ];
+    const seeded = await seedDecision(task, questions);
+    const answers = await catchAnswers(page, seeded);
+    const name = "Decision: Which invoices go in the export? (and 7 more questions)";
+
+    // Compact: question 1, how many more, the progress line, and no Accept with open questions.
+    await page.goto(`/tasks/${task.id}`);
+    const card = page.getByRole("region", { name: "Needs you" }).getByRole("region", { name });
+    await expect(card.getByRole("region", { name: "Question 1" })).toContainText("Question 1 of 8");
+    await expect(card.locator(".decision-compact-more")).toHaveText(
+      "7 more questions, 2 of them open questions",
+    );
+    await expect(card.locator(".decision-progress")).toContainText("6 of 8 answered");
+    await expect(card.getByRole("button", { name: "Accept" })).toHaveCount(0);
+    await expect(card.getByRole("radio")).toHaveCount(0);
+    await screenshotScenario(page, "decision-form-compact-long");
+
+    // The progress line opens the window at the question that needs an answer.
+    await card.getByRole("button", { name: "Question 3 needs an answer" }).click();
+    const window = page.getByRole("dialog", { name: /^Decision/ });
+    const overline = window.locator(".decision-window-overline");
+    const list = window.getByRole("navigation", { name: "Questions" });
+    await expect(overline).toHaveText("Question 3 of 8");
+    await expect(list.getByRole("button")).toHaveCount(8);
+    await expect(list.getByRole("button").nth(2)).toHaveAttribute("aria-current", "true");
+    await window.getByRole("textbox", { name: /^Your answer\W*$/ }).fill("invoices-<month>.csv");
+    await expect(list.getByRole("button").nth(2)).toContainText("invoices-<month>.csv");
+
+    // Every question is reached by Next, from the first to the last.
+    await list.getByRole("button").first().click();
+    for (const [index, { question }] of questions.entries()) {
+      await expect(overline).toHaveText(`Question ${index + 1} of 8`);
+      await expect(window.getByRole("group", { name: `Question ${index + 1}` })).toContainText(
+        question,
+      );
+      if (index < questions.length - 1) await window.getByRole("button", { name: "Next" }).click();
+    }
+    await expect(window.getByRole("button", { name: "Next" })).toHaveCount(0);
+    await window.getByRole("button", { name: "Previous" }).click();
+    await expect(overline).toHaveText("Question 7 of 8");
+    await window
+      .getByRole("textbox", { name: /^Your answer\W*$/ })
+      .fill("The person who started it.");
+    await list.getByRole("button").nth(5).click();
+    await window
+      .getByRole("radiogroup", { name: "Which dates are exported?" })
+      .getByRole("radio", { name: "This month", exact: true })
+      .check();
+    const progress = window.locator(".decision-progress");
+    await expect(progress).toContainText("8 of 8 answered");
+    await expect(progress).toContainText("Ready to submit");
+
+    // In a narrow window the questions are a row of numbers.
+    await page.setViewportSize({ width: 800, height: 900 });
+    await expect(list).toBeHidden();
+    await window
+      .getByRole("group", { name: "Questions by number" })
+      .getByRole("button", { name: "Question 5" })
+      .click();
+    await expect(overline).toHaveText("Question 5 of 8");
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await screenshotScenario(page, "decision-form-window");
+
+    // Closing keeps the draft, which the same card in the Needs you panel shows and sends.
+    await window.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(window).toHaveCount(0);
+    await expect(card.getByText("Draft kept · 3 changes")).toBeVisible();
+    await expect(card.locator(".decision-progress")).toContainText("8 of 8 answered");
+    await page
+      .getByRole("status", { name: "Status strip" })
+      .getByRole("button", { name: /needs? you/ })
+      .click();
+    const panel = page.getByRole("dialog").filter({ hasText: "oldest first" });
+    const inPanel = panel.getByRole("region", { name });
+    await expect(inPanel.getByText("Draft kept · 3 changes")).toBeVisible();
+    await expect(inPanel.locator(".decision-progress")).toContainText("Ready to submit");
+    await inPanel.getByRole("button", { name: "Open details" }).click();
+    await list.getByRole("button").nth(2).click();
+    await expect(window.getByRole("textbox", { name: /^Your answer\W*$/ })).toHaveValue(
+      "invoices-<month>.csv",
+    );
+    await window.getByRole("button", { name: "Submit", exact: true }).click();
+    await expect
+      .poll(() => answers)
+      .toEqual([
+        {
+          kind: "submitted",
+          answers: [
+            { kind: "option", option: 0 },
+            { kind: "option", option: 1 },
+            { kind: "words", text: "invoices-<month>.csv" },
+            { kind: "option", option: 0 },
+            { kind: "option", option: 0 },
+            { kind: "option", option: 0 },
+            { kind: "words", text: "The person who started it." },
+            { kind: "option", option: 0 },
+          ],
+        },
+      ]);
+    await expect(window).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+  },
+);
+
+// Reads a Thread, which shows once the Planner is hired: run alone, after people.e2e.ts's hiring.
+test(
+  "a sent Decision form reads in its Thread: each answer with its comment, the general comment, and who answered",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Sent Decision forms", "SD");
+    const task = await createdTask(page, project, "Export the invoices once");
+    await seedAnsweredDecision(
+      page,
+      task,
+      [
+        aChoice("Which format should the export use?", ["CSV", "JSON"], 0, "Accounting asked."),
+        aChoice("Keep the old export beside it?", ["Keep it", "Remove it"], 1, "Nobody reads it."),
+        { kind: "open", question: "What should the downloaded file be called?" },
+        aChoice("Zip the large exports?", ["Zip them", "Leave them plain"], 0, "They are big."),
+      ],
+      {
+        kind: "submitted",
+        answers: [
+          { kind: "option", option: 0 },
+          { kind: "option", option: 0, comment: "Two reports still read it." },
+          { kind: "words", text: "invoices-<month>.csv" },
+          { kind: "words", text: "Only past 10 MB." },
+        ],
+        generalComment: "Ship it with the next release.",
+      },
+    );
+
+    await page.goto(`/tasks/${task.id}`);
+    const card = page.getByRole("complementary", { name: "Conversation" }).getByRole("region", {
+      name: "Decision: Which format should the export use? (and 3 more questions)",
+    });
+    await expect(card).toHaveClass(/\bsettled\b/);
+    const answerWords = card.locator(".decision-answer-words");
+    await expect(answerWords).toHaveText(["CSV (recommended)", "Keep it", "invoices-<month>.csv"]);
+    await expect(card.locator(".decision-answer").nth(1)).toContainText(
+      "Comment: Two reports still read it.",
+    );
+    await card.getByRole("button", { name: "Show all 4" }).click();
+    await expect(answerWords).toHaveText([
+      "CSV (recommended)",
+      "Keep it",
+      "invoices-<month>.csv",
+      "Only past 10 MB.",
+    ]);
+    await expect(card).toContainText("General comment: Ship it with the next release.");
+    await expect(card.locator(".decision-answered")).toHaveText("Answered by you");
+    await expect(card.getByRole("button", { name: "Submit" })).toHaveCount(0);
+    await card.scrollIntoViewIfNeeded();
+    await screenshotScenario(page, "decision-form-answered-in-thread");
   },
 );
 
@@ -3548,7 +3886,7 @@ async function markDoneByItsDecision(page: Page, taskId: string): Promise<void> 
   // Kept before the reply reads the Thread's Brief, which needs its Role filled: run alone, this
   // file hires nobody, so the walk going on is what tells.
   await page.request.post(`/api/decisions/${decision?.id}/answer`, {
-    data: { kind: "option", option: 1 },
+    data: { kind: "submitted", answers: [{ kind: "option", option: 1 }] },
   });
   await expect
     .poll(

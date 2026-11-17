@@ -27,6 +27,31 @@ describe("targetOf", () => {
     expect(targetOf({ pointsTo: { kind: "office" }, roleKey: null })).toEqual({ to: "/now" });
   });
 
+  it("opens an Initiative's Thread at its Decision when the pointer names them", () => {
+    const decisionId = "0b6a4f1e-6a55-4c1c-9d51-2f0d5a1c7e10";
+    const threadId = "1c7b5a2f-7b66-4d2d-8e62-3a1e6b2d8f21";
+    expect(
+      targetOf({
+        pointsTo: { kind: "initiative", initiativeId: TASK_ID, threadId, decisionId },
+        roleKey: "planner",
+      }),
+    ).toEqual({
+      to: "/work/initiatives/$initiativeId",
+      params: { initiativeId: TASK_ID },
+      search: { initiativeThread: threadId, decision: decisionId },
+    });
+    expect(
+      targetOf({
+        pointsTo: { kind: "initiative", initiativeId: TASK_ID, threadId },
+        roleKey: null,
+      }),
+    ).toEqual({
+      to: "/work/initiatives/$initiativeId",
+      params: { initiativeId: TASK_ID },
+      search: { initiativeThread: threadId },
+    });
+  });
+
   it("opens the chat of whoever speaks an Office kind over Now", () => {
     expect(targetOf({ pointsTo: { kind: "office" }, roleKey: "receptionist" })).toEqual({
       to: "/now",

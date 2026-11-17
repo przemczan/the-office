@@ -1,6 +1,13 @@
 import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import type { DutyKey } from "../../people/index.js";
-import { answerWords, type Answerer, type Decision, type DecisionAnswer } from "./decision.js";
+import {
+  decisionSummary,
+  formAnswerWords,
+  isApproval,
+  type Answerer,
+  type Decision,
+  type DecisionAnswer,
+} from "./decision.js";
 import { sameUser, userWords, userWordsOpening, type UserRef } from "./user.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
@@ -39,6 +46,7 @@ export function chatInstructions(person: SessionPerson, held: HeldDuties): strin
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title. When you and the user already know how it will be done and what must be true when it is, give it a Plan and a Definition of Done too, both or neither, for the user to confirm on the Task page.`,
     ...(held.includes("default-person-to-talk-to") ? [DEFAULT_PERSON_CALLING_RULE] : []),
     CALLING_RULE,
+    CHAT_DECISION_RULE,
     // Devops reached for Grep on the repository it onboarded, refused outside its folders (task
     // 33's run).
     ...(held.includes("onboards-projects") ? [READ_REPOSITORY_RULE] : []),
@@ -57,6 +65,18 @@ export const CONSULT_TOOL = "consult";
  * say the same.
  */
 export const CALLING_RULE = `Call another person of The Office with the ${CONSULT_TOOL} tool only when the user asks you to, such as "ask a colleague to set that up", or your authority says to consult them first. A request asks them to do what you can't; they work with their own tools and permissions, never yours, and answer in their own words. End your turn once you called: their answer comes as your next message, and you tell the user.`;
+
+/**
+ * The Office tool a person opens a Decision with (spec §2.4); the contracts name it too, and a test
+ * keeps the two the same.
+ */
+export const OPEN_DECISION_TOOL = "open_decision";
+
+/**
+ * When a person asks the user a Decision form in their chat (spec §2.4, §2.7): it shows inline
+ * there, and its answer comes as their next message. Follows `CALLING_RULE` in every chat.
+ */
+export const CHAT_DECISION_RULE = `When you need the user's choice, or several answers, before you go on, ask them with the ${OPEN_DECISION_TOOL} tool: everything in one form, which shows inline in this chat, then end your turn. Their answer comes as your next message. A simple question can still go in your reply.`;
 
 /**
  * The Default person to talk to calls someone only when the user asks (spec §2.2): otherwise they
@@ -106,6 +126,7 @@ export function caretakerChatInstructions(person: SessionPerson, changesAllowed:
     ENGINE_TRANSCRIPTS_RULE,
     OFFICE_SETUP_RULE,
     CALLING_RULE,
+    CHAT_DECISION_RULE,
   ].join("\n\n");
 }
 
@@ -217,11 +238,13 @@ export const ANSWER_DECISION_TOOL = "answer_decision";
 
 /**
  * The Office tools a chat session works with (spec §6): it reads every record and a Task's Stage
- * history, answers a Decision for the user when they ask, captures an Idea, creates a Task and
- * drafts a skill as a Proposal (Conversations' `propose_skill`), and changes no file.
+ * history, asks the user a Decision form inline in the chat, answers a Decision for the user when
+ * they ask, captures an Idea, creates a Task and drafts a skill as a Proposal (Conversations'
+ * `propose_skill`), and changes no file.
  */
 export const CHAT_OFFICE_TOOLS = [
   ...PERSON_READING_OFFICE_TOOLS,
+  OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,
   "capture_idea",
   "create_task",
@@ -570,25 +593,49 @@ export function openingMessage(brief: string, opening: string): string {
 }
 
 /**
- * What the asking session is sent as its next message when its Decision is answered: the question,
- * with the chosen option or the answerer's own words, so a fresh session knows what was asked, and
- * who answered: the user by name, the Consultant, the person who answered for the user at their
- * request, or The Office.
+ * What the asking session is sent as its next message when its Decision is answered (spec §2.4):
+ * who answered (the user by name, the Consultant, the person who answered for the user at their
+ * request, or The Office), then every question with its answer and comment and the general
+ * comment, so a fresh session knows what was asked; or that they asked again, with the general
+ * comment, or that The Office sent a call from a chat back, saying why. An approval keeps its one
+ * line.
  */
 export function decisionAnswerMessage(
   decision: Decision,
   answer: DecisionAnswer,
   answerer: Answerer,
 ): string {
-  const words = answerWords(decision, answer);
-  const asked =
-    decision.kind === "request"
-      ? `your request "${decision.question}"`
-      : `your Decision "${decision.question}"`;
-  const answered = answeredWords(answerer, asked);
-  return answer.kind === "option"
-    ? `${answered} with the option "${words}".`
-    : `${answered} in their own words:\n\n${words}`;
+  if (answer.kind === "asked-again") {
+    const comment = answer.generalComment?.trim();
+    if (answerer.kind === "the-office") {
+      // A call from a chat sent back to its caller: the comment says why and what to do.
+      return `The Office sent your Decision back to you, answering none of its questions: ${comment ?? ""}`;
+    }
+    return [
+      `${askedAgainWords(answerer)}, answering none of your Decision's questions:`,
+      comment ? `General comment: ${comment}` : "They gave no comment.",
+      "Answer what they said, then open a new Decision for what you still need to ask.",
+    ].join("\n\n");
+  }
+  if (isApproval(decision)) {
+    const asked = `your Decision "${decisionSummary(decision)}"`;
+    return `${answeredWords(answerer, asked)} with the option "${formAnswerWords(decision, answer)}".`;
+  }
+  const asked = decision.kind === "request" ? "your request" : "your Decision";
+  return `${answeredWords(answerer, asked)}:\n\n${formAnswerWords(decision, answer)}`;
+}
+
+function askedAgainWords(answerer: Answerer): string {
+  switch (answerer.kind) {
+    case "user":
+      return `${userWordsOpening(answerer.user)} asked you to ask again`;
+    case "consultant":
+      return `${answerer.name} asked you to ask again`;
+    case "the-office":
+      return "The Office asked you to ask again";
+    case "at-users-request":
+      return `${answerer.name} asked you to ask again for ${userWords(answerer.user)}, at their request`;
+  }
 }
 
 function answeredWords(answerer: Answerer, asked: string): string {
@@ -600,11 +647,14 @@ function answeredWords(answerer: Answerer, asked: string): string {
     case "the-office":
       return `The Office answered ${asked}`;
     case "at-users-request":
-      return `${answerer.name} answered ${asked} for ${userWords(answerer.user)}, at their request,`;
+      return `${answerer.name} answered ${asked} for ${userWords(answerer.user)}, at their request`;
   }
 }
 
-/** A Decision answered in an Initiative's planning Thread, with the title of the Task it is on. */
+/**
+ * A Decision answered in an Initiative's Thread, with the title of the Task it is on (none for one
+ * on the Initiative as a whole).
+ */
 export interface AnsweredOnTask {
   readonly decision: Decision;
   readonly answer: DecisionAnswer;
@@ -615,14 +665,24 @@ export interface AnsweredOnTask {
 }
 
 /**
- * What the planning session is sent when Decisions on the Initiative's Tasks are answered: every
- * answer, in the order given, each naming its Task, in one message (spec §2.4).
+ * What a session on an Initiative is sent when its Decisions are answered: every answer, in the
+ * order given, each naming its Task, in one message (spec §2.4). One on no Task, on the Initiative
+ * as a whole, is named so only beside answers on Tasks.
  */
 export function decisionAnswersOnTasksMessage(answers: readonly AnsweredOnTask[]): string {
+  const [only, ...others] = answers;
+  if (only && others.length === 0 && only.decision.taskId === undefined) {
+    return decisionAnswerMessage(only.decision, only.answer, only.answerer);
+  }
   return answers
     .map(
       ({ decision, answer, taskTitle, answerer }) =>
-        `On the Task ${taskTitle === undefined ? "" : `"${taskTitle}" `}(${decision.taskId}): ${decisionAnswerMessage(decision, answer, answerer)}`,
+        `${onWhat(decision.taskId, taskTitle)}: ${decisionAnswerMessage(decision, answer, answerer)}`,
     )
     .join("\n\n");
+}
+
+function onWhat(taskId: string | undefined, taskTitle: string | undefined): string {
+  if (taskId === undefined) return "On the Initiative as a whole";
+  return `On the Task ${taskTitle === undefined ? "" : `"${taskTitle}" `}(${taskId})`;
 }

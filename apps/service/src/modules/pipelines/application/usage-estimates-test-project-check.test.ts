@@ -24,9 +24,11 @@ import {
   callingItMet,
   checkApi,
   cleanUpTestProject,
+  firstQuestion,
   git,
   hireOnHaiku,
   openDecisionsOn,
+  submitDecision,
   untilWalkStops,
   type Api,
 } from "../../../../test/live-check.js";
@@ -315,9 +317,9 @@ function implementStageOf(stages: readonly Stage[]): Stage[] {
 async function untilDone(api: Api, taskId: string): Promise<Task> {
   let task = await untilWalkStops(api, taskId, WALK_MS);
   for (const asked of await openDecisionsOn(api, taskId)) {
-    const markDone = callingItMet(asked.options);
+    const markDone = callingItMet(firstQuestion(asked).options);
     if (markDone < 0) break;
-    await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
+    await submitDecision(api, asked, markDone);
     task = await untilWalkStops(api, taskId, WALK_MS);
   }
   return task;

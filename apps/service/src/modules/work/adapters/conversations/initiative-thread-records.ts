@@ -48,7 +48,9 @@ import { initiativeBranchReads } from "./initiative-branch-reads.js";
  * The Office tools of a shaping session: it reads every record and Attachment and changes its own
  * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left
  * out, since a Task made there would be no part of it. Its Tasks' dependencies and which Tasks it
- * has are Office actions, which the session gets by its person's duties (spec 5.4). It answers a
+ * has are Office actions, which the session gets by its person's duties (spec 5.4). It asks the
+ * user's choices in a Decision on no Task, one at a time, whose waiting Conversations' own section
+ * of the Brief words, so the shaping Brief doesn't read it. It answers a
  * Decision for the user when they ask, as every Thread the user talks in does, and calls a person
  * when the user asks (`CALLING_RULE`), on no Task, as a chat calls.
  */
@@ -59,6 +61,7 @@ export const SHAPING_OFFICE_TOOLS = [
   WRITE_TASK_TITLE,
   WRITE_TASK_DESCRIPTION,
   CHOOSE_PIPELINE,
+  OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,
   CONSULT_TOOL,
 ] as const;
@@ -72,7 +75,8 @@ export const INITIATIVE_PLANNING_THREAD_INSTRUCTIONS = `${INITIATIVE_PLANNING_IN
 /**
  * The Office tools of an Initiative's planning session: it reads every record and Attachment, moves
  * the Initiative's Tasks to Planning as their turn comes, writes each one's parts by its Task id,
- * opens a Decision on a Task that needs the user's answer, and answers one for the user when they
+ * opens a Decision on a Task that needs the user's answer, or one on no Task about the Initiative
+ * as a whole, and answers one for the user when they
  * ask; it calls a person when the user asks, on the Task its call names, or on none.
  */
 export const INITIATIVE_PLANNING_OFFICE_TOOLS = [

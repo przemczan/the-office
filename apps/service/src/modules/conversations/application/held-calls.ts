@@ -8,6 +8,7 @@ import {
   type HardSwitchValue,
 } from "../../people/index.js";
 import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
+import { isApproval, onlyChoice } from "../domain/decision.js";
 import { heldCallRuling } from "../domain/held-call.js";
 import { mcpToolCallWords } from "../domain/mcp-tool-call.js";
 import type { Thread } from "../domain/thread.js";
@@ -43,7 +44,8 @@ type HeldCall = Omit<HeldCallRequest, "switchKey">;
  * same way (spec §6). The setting decides: Allowed runs, Never refuses, Ask me and Consult open an
  * approval for the call, of the Consultant a Consult names, or of the user. Nothing waits in the
  * tool call: the answer comes as the Agent's next message, and its repeat of the call then runs
- * once if the answer was "Allow once". In a chat no Decision opens, so such a call is refused.
+ * once if the answer was "Allow once". In a person's chat the user's approval waits inline there
+ * (spec §2.7); where no Decision opens, as in a Consultation, such a call is refused.
  */
 @Injectable()
 export class HeldCalls implements OnModuleInit {
@@ -137,9 +139,10 @@ export class HeldCalls implements OnModuleInit {
   private async spentApprovalIn(threadId: string, call: string): Promise<boolean> {
     const question = approvalQuestion(call);
     for (const decision of await this.threads.decisionsIn(threadId)) {
-      const chosen =
-        decision.answer?.kind === "option" ? decision.options[decision.answer.option] : undefined;
-      if (decision.question === question && chosen === APPROVAL_OPTIONS[0]) {
+      const choice = onlyChoice(decision);
+      const given = decision.answer?.kind === "submitted" ? decision.answer.answers[0] : undefined;
+      const chosen = given?.kind === "option" ? choice?.options[given.option] : undefined;
+      if (isApproval(decision) && choice?.question === question && chosen === APPROVAL_OPTIONS[0]) {
         if (await this.threads.spendApproval(decision.id)) return true;
       }
     }

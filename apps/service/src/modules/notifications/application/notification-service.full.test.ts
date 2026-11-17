@@ -19,6 +19,7 @@ import {
   DecisionAnswered,
   DecisionClosed,
   DecisionOpened,
+  DecisionReopened,
   TurnEnded,
 } from "../../conversations/index.js";
 import {
@@ -61,15 +62,44 @@ import {
 
 type DecisionEventParameters = ConstructorParameters<typeof DecisionOpened>;
 
-/** Only what Notifications reads of a Decision: who asks what, on which Task. */
+/** Only what Notifications reads of a Decision: who asks what, on which Task, in what home. */
 function decisionEvent(
-  eventClass: typeof DecisionOpened | typeof DecisionAnswered | typeof DecisionClosed,
-  decision: { readonly id: string; readonly taskId: string; readonly roleKey: string | undefined },
+  eventClass:
+    | typeof DecisionOpened
+    | typeof DecisionReopened
+    | typeof DecisionAnswered
+    | typeof DecisionClosed,
+  decision: { readonly id: string; readonly taskId?: string; readonly roleKey: string | undefined },
+  home: { readonly kind: "task" | "chat" } = { kind: "task" },
 ): DecisionOpened {
-  const [thread, asked] = [{}, { ...decision, question: "Keep the query string?" }] as unknown as [
-    DecisionEventParameters[0],
-    DecisionEventParameters[1],
-  ];
+  const [thread, asked] = [
+    { home },
+    { ...decision, questions: [{ kind: "open", question: "Keep the query string?" }] },
+  ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
+  return new eventClass(thread, asked, new Date());
+}
+
+/** A Decision event in a Thread of the given home, on no Task. */
+function onNoTask(
+  eventClass:
+    | typeof DecisionOpened
+    | typeof DecisionReopened
+    | typeof DecisionAnswered
+    | typeof DecisionClosed,
+  home:
+    | { readonly kind: "initiative"; readonly initiativeId: string }
+    | { readonly kind: "chat"; readonly roleKey: string },
+  decision: { readonly id: string; readonly threadId: string },
+): DecisionOpened {
+  const [thread, asked] = [
+    { id: decision.threadId, home },
+    {
+      ...decision,
+      taskId: undefined,
+      roleKey: "architect",
+      questions: [{ kind: "open", question: "Split billing out?" }],
+    },
+  ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
   return new eventClass(thread, asked, new Date());
 }
 
@@ -214,6 +244,15 @@ describe("NotificationService", () => {
     expect((await openNotifications()).map(({ id }) => id)).not.toContain(notification?.id);
   });
 
+  it("raises nothing for a chat's Decision, which waits on the user inline in the chat", async () => {
+    const decision = { id: randomUUID(), roleKey: "developer" };
+
+    await events.publish(decisionEvent(DecisionOpened, decision, { kind: "chat" }));
+    await events.publish(decisionEvent(DecisionReopened, decision, { kind: "chat" }));
+
+    expect(raised).toEqual([]);
+  });
+
   it("clears a Decision's Notification as its Task's Drop closes it", async () => {
     const decision = { id: randomUUID(), taskId: randomUUID(), roleKey: "developer" };
     await events.publish(decisionEvent(DecisionOpened, decision));
@@ -224,6 +263,90 @@ describe("NotificationService", () => {
 
     expect(cleared).toEqual([notification?.id]);
     expect((await openNotifications()).map(({ id }) => id)).not.toContain(notification?.id);
+  });
+
+  function anInitiative(): { readonly kind: "initiative"; readonly initiativeId: string } {
+    const initiativeId = randomUUID();
+    app.get(OfficeInitiativesForTests).initiatives = [
+      { id: initiativeId, name: "Billing", state: "shaping", createdAt: new Date() },
+    ];
+    return { kind: "initiative", initiativeId };
+  }
+
+  describe("a Decision on no Task", () => {
+    it("in an Initiative's Thread names the Initiative and opens its page at that Thread", async () => {
+      const home = anInitiative();
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+
+      expect(raised.map(({ notification }) => notification)).toEqual([
+        expect.objectContaining({
+          kind: "needs-you.decision",
+          roleKey: "architect",
+          line: "On the Initiative Billing, I need your answer: Split billing out?",
+          pointsTo: {
+            kind: "initiative",
+            initiativeId: home.initiativeId,
+            decisionId: decision.id,
+            threadId: decision.threadId,
+          },
+        }),
+      ]);
+      expect((await openNotifications()).map(({ pointsTo }) => pointsTo)).toContainEqual(
+        raised[0]?.notification.pointsTo,
+      );
+    });
+
+    it("stays open as the user opens the Initiative, and clears once answered", async () => {
+      const home = anInitiative();
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+
+      await reportActivity({ kind: "initiative", initiativeId: home.initiativeId });
+      expect(cleared).toEqual([]);
+
+      await events.publish(onNoTask(DecisionAnswered, home, decision));
+      expect(cleared).toEqual([raised[0]?.notification.id]);
+    });
+
+    it("clears once closed as its Initiative ended", async () => {
+      const home = anInitiative();
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+
+      await events.publish(onNoTask(DecisionClosed, home, decision));
+
+      expect(cleared).toEqual([raised[0]?.notification.id]);
+    });
+
+    it("asked again, clears the one answered and raises the one asked anew", async () => {
+      const home = anInitiative();
+      const first = { id: randomUUID(), threadId: randomUUID() };
+      const again = { id: randomUUID(), threadId: first.threadId };
+      await events.publish(onNoTask(DecisionOpened, home, first));
+      await events.publish(onNoTask(DecisionAnswered, home, first));
+
+      await events.publish(onNoTask(DecisionOpened, home, again));
+      await events.publish(onNoTask(DecisionReopened, home, again));
+
+      expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
+        expect.objectContaining({ decisionId: first.id }),
+        expect.objectContaining({ decisionId: again.id }),
+      ]);
+      expect(cleared).toEqual([raised[0]?.notification.id]);
+    });
+
+    it("raises nothing in a chat, and its answer clears nothing", async () => {
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+      const home = { kind: "chat" as const, roleKey: "office-manager" };
+
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+      await events.publish(onNoTask(DecisionAnswered, home, decision));
+
+      expect(raised).toEqual([]);
+      expect(cleared).toEqual([]);
+    });
   });
 
   it("raises a Gate once, in the Task's person's words, and clears it when the user acts", async () => {

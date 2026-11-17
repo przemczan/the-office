@@ -1,4 +1,4 @@
-import type { Decision } from "./decision.js";
+import { decisionSummary, isTheOfficesOwn, type Decision } from "./decision.js";
 import { worksIn } from "./people-working.js";
 import type { Home, Thread } from "./thread.js";
 
@@ -29,6 +29,7 @@ export interface LiveConsulting {
   readonly threadId: string;
   readonly home: Home;
   readonly consultantRoleKey: string;
+  /** The Decision in one line: its first question, and how many more it asks. */
   readonly question: string;
   readonly since: Date;
 }
@@ -40,6 +41,7 @@ export interface LiveWaitingOnYou {
   readonly home: Home;
   /** The Office asked it, as when a Stage runs out of tries, a budget or the Definition of Done. */
   readonly byTheOffice: boolean;
+  /** The Decision in one line: its first question, and how many more it asks. */
   readonly question: string;
   readonly since: Date;
 }
@@ -139,7 +141,7 @@ function liveConsulting(
     threadId: thread.id,
     home: thread.home,
     consultantRoleKey,
-    question: decision.question,
+    question: decisionSummary(decision),
     since: decision.askedAt,
   };
 }
@@ -149,8 +151,8 @@ function liveWaitingOnYou(thread: Thread, decision: Decision): LiveWaitingOnYou 
     decisionId: decision.id,
     threadId: thread.id,
     home: thread.home,
-    byTheOffice: decision.roleKey === undefined,
-    question: decision.question,
+    byTheOffice: isTheOfficesOwn(decision),
+    question: decisionSummary(decision),
     since: decision.askedAt,
   };
 }

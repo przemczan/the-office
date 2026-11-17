@@ -21,6 +21,17 @@ export const needsYouItemSchema = z.discriminatedUnion("kind", [
     stageKey: z.string().min(1),
     waitingSince: z.iso.datetime(),
   }),
+  /** A Decision on no Task, opened in an Initiative's shaping or planning Thread. */
+  z.object({
+    kind: z.literal("initiative-decision"),
+    decisionId: z.uuid(),
+    initiativeId: z.uuid(),
+    /** The Initiative's Thread it waits in, where it is answered. */
+    threadId: z.uuid(),
+    /** The Projects the Initiative spans, which the Project filter narrows by. */
+    projectIds: z.array(z.string()),
+    waitingSince: z.iso.datetime(),
+  }),
 ]);
 export type NeedsYouItem = z.infer<typeof needsYouItemSchema>;
 
@@ -235,7 +246,16 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("decision"), decisionId: z.uuid(), taskId: z.uuid() }),
   z.object({ kind: z.literal("gate"), taskId: z.uuid(), stageKey: z.string().min(1) }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
-  z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
+  /**
+   * The Initiative page; for a Decision on no Task in one of its Threads, that Thread with the
+   * Decision brought into view.
+   */
+  z.object({
+    kind: z.literal("initiative"),
+    initiativeId: z.uuid(),
+    decisionId: z.uuid().optional(),
+    threadId: z.uuid().optional(),
+  }),
   /** The Office's own state, on Now and the status strip; an engine down names its engine. */
   z.object({ kind: z.literal("office"), engineId: z.string().min(1).optional() }),
   /** Now, where Needs you and Since you left show what a Notification gathered. */

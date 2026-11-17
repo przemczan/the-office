@@ -260,15 +260,28 @@ describe("StageInterpreter's Decisions", () => {
       const answered = new DecisionAnswered(
         aStageThread(taskId),
         {
-          ...asked,
-          kind: "question",
+          id: asked.id,
+          kind: "form",
+          context: asked.context,
+          questions: [
+            {
+              kind: "choice",
+              question: asked.question,
+              options: asked.options,
+              recommendation: asked.recommendation,
+            },
+          ],
           threadId: (await runsOf(pipelines, taskId))[0]?.threadId ?? "",
           taskId,
           roleKey: "developer",
           attachmentIds: [],
           askedAt: new Date(),
           passedOn: [],
-          answer: { kind: "option", option: 0, answeredAt: new Date() },
+          answer: {
+            kind: "submitted",
+            answers: [{ kind: "option", option: 0 }],
+            answeredAt: new Date(),
+          },
         },
         new Date(),
       );

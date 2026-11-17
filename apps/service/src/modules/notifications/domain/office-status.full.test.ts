@@ -77,6 +77,33 @@ describe("officeStatusText", () => {
     );
   });
 
+  it("counts a Decision on an Initiative with those on Tasks", () => {
+    const text = officeStatusText(
+      nowWith({
+        needsYou: [
+          {
+            kind: "decision",
+            decisionId: "d1",
+            taskId: "t1",
+            projectId: "p1",
+            waitingSince: AN_HOUR_AGO,
+          },
+          {
+            kind: "initiative-decision",
+            decisionId: "d2",
+            initiativeId: "i1",
+            threadId: "th1",
+            projectIds: ["p1"],
+            waitingSince: AN_HOUR_AGO,
+          },
+        ],
+        running: [],
+      }),
+    );
+
+    expect(text.split("\n")[0]).toBe("Waiting on the user: 2 Decisions.");
+  });
+
   it("says when nothing waits and nothing is started", () => {
     expect(officeStatusText(nowWith({ needsYou: [], running: [] }))).toBe(
       "Nothing waits on the user.\nNo Task is started: everyone is available.",

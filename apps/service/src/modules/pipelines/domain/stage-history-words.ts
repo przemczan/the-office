@@ -6,6 +6,7 @@ import type {
   PublishedWork,
   RefusedTurn,
   HoldingUser,
+  StageDecision,
   StageInterruption,
   StageOutcome,
   StageRun,
@@ -232,10 +233,17 @@ function outcomeWords(outcome: StageOutcome | undefined): string {
         ? `Outcome: skipped. ${outcome.summary}`
         : `Outcome: done. ${outcome.summary}${pullRequestWords(outcome.pullRequestUrl)}`;
     case "needs-decision":
-      return `Outcome: needs a decision. The Agent asked: "${outcome.question}"\nOptions: ${outcome.options.map((option, index) => `${index + 1}. ${option}`).join("; ")}. Recommended: ${outcome.recommendation.option}, as ${outcome.recommendation.reason}`;
+      return `Outcome: needs a decision. The Agent asked: "${outcome.question}"${optionWords(outcome)}`;
     case "failed":
       return `Outcome: failed${failedWhy(outcome)}.\n${outcome.error}`;
   }
+}
+
+/** The options of the Agent's question, when it was one choice: a form of several has none kept. */
+function optionWords({ options, recommendation }: StageDecision): string {
+  if (options.length === 0) return "";
+  const listed = options.map((option, index) => `${index + 1}. ${option}`).join("; ");
+  return `\nOptions: ${listed}. Recommended: ${recommendation.option}, as ${recommendation.reason}`;
 }
 
 function pullRequestWords(url: string | undefined): string {

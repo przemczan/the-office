@@ -10,7 +10,7 @@ import {
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
-import { DecisionAnswered } from "../../conversations/index.js";
+import { DecisionAnswered, stageAnswerOf } from "../../conversations/index.js";
 import { ScheduledExitCancelled, ScheduledExitHold } from "../../office-updates/index.js";
 import {
   AlarmSounded,
@@ -169,8 +169,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.events.subscribe(TaskDependencyRemoved, () => this.walkHeldForBlocker());
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
       // A call made from a chat is on no Task, so no Pipeline waits on it.
-      if (!decision.answer || decision.taskId === undefined) return;
-      const { answeredAt: _answeredAt, ...answer } = decision.answer;
+      const answer = stageAnswerOf(decision);
+      if (!answer || decision.taskId === undefined) return;
       return this.takeAnswer(decision.taskId, decision.id, answer);
     });
   }

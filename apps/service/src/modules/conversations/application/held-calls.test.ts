@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { approvalQuestion } from "../domain/consult.js";
-import { aDecision } from "../domain/decision.fixtures.js";
 import { CALL, request, heldCallsWith, anApproval } from "./held-calls.fixtures.js";
 
 describe("a call behind Change Roles", () => {
@@ -27,8 +26,10 @@ describe("a call behind Change Roles", () => {
     await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "held", waitingOn: "the user" });
     expect(opened).toHaveLength(1);
     expect(opened[0]).toMatchObject({
-      question: approvalQuestion(CALL),
-      options: ["Allow once", "Deny"],
+      kind: "approval",
+      questions: [
+        { kind: "choice", question: approvalQuestion(CALL), options: ["Allow once", "Deny"] },
+      ],
     });
   });
 
@@ -44,10 +45,7 @@ describe("a call behind Change Roles", () => {
   });
 
   it("does not take an approval of another call as its own", async () => {
-    const other = aDecision({
-      ...anApproval(0),
-      question: approvalQuestion("Change the Reviewer's instructions."),
-    });
+    const other = anApproval(0, "Change the Reviewer's instructions.");
     const { heldCalls } = heldCallsWith({ changeRoles: { kind: "ask-me" }, answered: [other] });
 
     await expect(heldCalls.hold(request)).resolves.toMatchObject({ kind: "held" });

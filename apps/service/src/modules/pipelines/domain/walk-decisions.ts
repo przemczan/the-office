@@ -19,11 +19,13 @@ import type {
 } from "./stage-run.js";
 
 /**
- * How the user answers a Decision: one of its options, by its index, or in their own words.
- * `answeredBy` is the Consultant who answered in their place, by the key of their Role.
+ * How the user answers a Decision: one of its options, by its index, with the comments given
+ * beside it as `guidance`, or in their own words. `answeredBy` is the Consultant who answered in
+ * their place, by the key of their Role; an answer given for the user at their request is the
+ * user's own, so it names nobody.
  */
 export type DecisionAnswer = (
-  | { readonly kind: "option"; readonly option: number }
+  | { readonly kind: "option"; readonly option: number; readonly guidance?: string }
   | { readonly kind: "free-answer"; readonly text: string }
 ) & { readonly answeredBy?: string };
 
@@ -67,14 +69,16 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
 }
 
 /**
- * What the user's answer lets the walk do: the chosen option's, or for words of their own, the
- * Agent's question answered, or one more round with their words as its guidance.
+ * What the user's answer lets the walk do: the chosen option's, its comments guiding the round
+ * when it is one more round or keeps the branch, or for words of their own, the Agent's question
+ * answered, or one more round with their words as its guidance (spec §2.3). The guidance names who
+ * gave it: the Consultant (`guidedBy`), or the user when it names nobody.
  */
 export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer): WalkAnswer {
   if (answer.kind === "option") {
     const chosen = decision.options[answer.option];
     if (!chosen) throw new Error(`Decision ${decision.id} has no option ${answer.option}.`);
-    return chosen;
+    return withGuidance(chosen, answer);
   }
   if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
   if (decision.kind === "branch-moved")
@@ -84,6 +88,22 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
   return {
     kind: "one-more-round",
     guidance: answer.text.trim(),
+    ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
+  };
+}
+
+/** The chosen option, guided by the comments given beside it when it takes guidance. */
+function withGuidance(
+  chosen: WalkAnswer,
+  answer: Extract<DecisionAnswer, { kind: "option" }>,
+): WalkAnswer {
+  const guidance = answer.guidance?.trim();
+  if (!guidance) return chosen;
+  if (chosen.kind === "keep-branch") return { kind: "keep-branch", guidance };
+  if (chosen.kind !== "one-more-round") return chosen;
+  return {
+    kind: "one-more-round",
+    guidance,
     ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
   };
 }

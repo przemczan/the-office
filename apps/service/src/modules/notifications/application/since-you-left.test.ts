@@ -201,12 +201,12 @@ describe("The phone, with two users", () => {
     await schedule.advanceTo(noon(3));
     await active(aUser("Ben Ito"));
     const [thread, asked] = [
-      {},
+      { home: { kind: "task" } },
       {
         id: randomUUID(),
         taskId: randomUUID(),
         roleKey: "developer",
-        question: "Keep it?",
+        questions: [{ kind: "open", question: "Keep it?" }],
         askedAt: noon(3),
       },
     ] as unknown as ConstructorParameters<typeof DecisionOpened>;

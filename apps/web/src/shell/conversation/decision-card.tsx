@@ -1,171 +1,168 @@
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseMutationResult,
-} from "@tanstack/react-query";
-import { Link, useSearch } from "@tanstack/react-router";
-import type {
-  Attachment,
-  Decision,
-  DecisionAnswer,
-  Role,
-  Thread,
-  ThreadSummary,
-} from "@the-office/contracts";
-import { Badge, Button, Icon, IconButton } from "@the-office/ui";
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
-import { rowsOf } from "../../api/pages.ts";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import type { Decision } from "@the-office/contracts";
+import { createContext, useContext, type ReactNode } from "react";
+import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
-import { attachmentQueries } from "../../api/work.ts";
-import { useCopyRecordLink } from "../copy-record-link.ts";
-import { MarkdownText } from "../markdown-text.tsx";
 import { RecordMention } from "../record-mention.tsx";
-import { RefusalAlert } from "../refusal-alert.tsx";
+import { ApprovalCard } from "./approval-card.tsx";
+import { DecisionAnswered } from "./decision-answered.tsx";
+import { CompactDecision } from "./decision-compact.tsx";
+import { DecisionForm } from "./decision-form.tsx";
+import { decisionSummary, isCompact } from "./decision-form-words.ts";
 import {
-  answerWords,
-  atUsersRequestWords,
-  CLOSED_WORDS,
-  namedAttachments,
-} from "./decision-words.ts";
-import { roleFirstName } from "../person-name.ts";
-import { NamedTag, PersonTag } from "../person-tag.tsx";
-import { userName, useSignedInUserId } from "../use-user-name.ts";
-import { MessageField } from "./message-field.tsx";
-import { ThreadLink } from "./thread-link.tsx";
+  bringDecisionCardIntoView,
+  consultantName,
+  decisionCardElementId,
+  DecisionFrame,
+  LinkToConsultation,
+  useDecisionThread,
+  type DecisionAnsweringProps,
+} from "./decision-parts.tsx";
 import "./conversation.css";
 
+/** Where the card shows, which decides whether a long form is shown compact. */
+export type DecisionCardPlace = "needs-you" | "thread" | "inline";
+
+/** What every form of an open Decision the user answers is given. */
+export interface DecisionCardProps extends DecisionAnsweringProps {
+  /** Where or when it was asked, in the card's first line. */
+  readonly place?: ReactNode;
+  /** The card a link to the Decision lands on: the page's, not the panel's open over it. */
+  readonly landing?: boolean;
+  /**
+   * Where the card shows: a Task's Needs you (and Now and the Needs you panel), a Thread that
+   * answers it in place, or inline in a chat, which is always the whole form in place. In the
+   * first two a long form, or one with Attachments, is the compact card.
+   */
+  readonly where?: DecisionCardPlace;
+  /** A line under the card's first, such as what in an Initiative it is on. */
+  readonly lead?: ReactNode;
+}
+
 /**
- * An open Decision with nothing to look at, whole (spec §2.4): the question, what they found, each
- * answer on its own line with the recommended one marked, and a free answer. Follow-ups are
- * ordinary messages in its Thread, and leave it open, except in a Stage Thread, where The Office
- * sends the messages once no Stage runs. Nothing is answered while the person is still answering,
- * but in an Initiative's planning Thread, where the answer reaches them when the turn ends. The
- * Office's own Decisions about the Task's Pipeline show the same way, as The Office's.
+ * A Decision where the user answers it (spec §2.4, the Decision form card's design): the form, in
+ * place or compact; the approval of a call, one click per option; or, once nothing waits on it,
+ * what became of it. The Office's own Decisions about the Task's Pipeline show the same way, as
+ * The Office's.
  */
 export function DecisionCard({
-  decision,
-  personName,
-  answering,
-  reachesAtTurnEnd = false,
-  followUps,
   place,
   landing = false,
+  where = "needs-you",
+  lead,
+  ...answering
 }: DecisionCardProps): ReactNode {
-  const roles = useQuery(roleQueries.list()).data;
+  const { decision } = answering;
+  const settled = decision.closedAt !== null || decision.formAnswer !== null;
   return (
     <DecisionFrame
       decision={decision}
-      personName={personName}
+      personName={answering.personName}
+      label={`Decision: ${decisionSummary(decision)}`}
       elementId={landing ? decisionCardElementId(decision.id) : undefined}
       place={place}
+      settled={settled}
     >
-      <DecisionDetail decision={decision} roles={roles} />
-      {decision.closedAt === null ? (
-        <OpenDecision
-          decision={decision}
-          personName={personName}
-          answering={answering}
-          reachesAtTurnEnd={reachesAtTurnEnd}
-          followUps={followUps}
-          roles={roles}
-        />
+      {lead}
+      {settled ? (
+        <DecisionAnswered decision={decision} />
+      ) : decision.kind === "approval" ? (
+        <ApprovalCard {...answering} />
+      ) : where !== "inline" && isCompact(decision) ? (
+        <CompactDecision {...answering} />
       ) : (
-        <ClosedLine />
+        <DecisionForm
+          {...answering}
+          layout="in-place"
+          {...(where === "inline" ? { followUpsWhere: "below" } : {})}
+        />
       )}
     </DecisionFrame>
   );
 }
 
-/** What every form of an open Decision the user answers is given. */
-export interface DecisionCardProps {
-  readonly decision: Decision;
-  readonly personName: string;
-  /** The person is answering, so the Decision can't be answered yet. */
-  readonly answering: boolean;
-  /**
-   * The person is answering in an Initiative's planning Thread, where an answer is taken at once
-   * and reaches them when their turn ends.
-   */
-  readonly reachesAtTurnEnd?: boolean;
-  /** The user can ask the person something first in the Thread. */
-  readonly followUps: boolean;
-  /** Where or when it was asked, in the card's first line. */
-  readonly place?: ReactNode;
-  /** The card a link to the Decision lands on: the page's, not the panel's open over it. */
-  readonly landing?: boolean;
-}
-
-/** The Attachments the Decision names that the Task still holds; undefined until they are read. */
-export function useNamedAttachments(decision: Decision): readonly Attachment[] | undefined {
-  const { data } = useQuery({
-    ...attachmentQueries.of({ kind: "task", taskId: decision.taskId ?? "" }),
-    // A call made from a chat names no Attachments, as it is on no Task.
-    enabled: decision.attachmentIds.length > 0 && decision.taskId !== null,
-  });
-  if (decision.attachmentIds.length === 0) return [];
-  return data && namedAttachments(decision, data);
-}
-
 /**
  * A Decision in its Thread: while open a short form with the way to its card, in the Task's Needs
- * you, then its answered form. In an Initiative's planning Thread, where the Planner asks about
- * any of its Tasks, each names the Task it is on. One put to a Consultant links to their
- * Consultation; a call made from a chat has no Needs you, its Consultation in the callee's chat
- * (spec §2.4).
+ * you, then what became of it, whole. In an Initiative's shaping or planning Thread, where the
+ * person asks about any of its Tasks, each names the Task it is on; one on no Task, about the
+ * Initiative as a whole, is answered in the Thread itself, the whole card in place. One put to a
+ * Consultant links to their Consultation; a call made from a chat has no Needs you, its
+ * Consultation in the callee's chat (spec §2.4). One waiting on the user in a person's chat, never
+ * under Needs you, is the whole form inline, answered there; its answer reaches the person as their
+ * next message.
  */
 export function DecisionInThread({
   decision,
   personName,
+  answering,
 }: {
   readonly decision: Decision;
   readonly personName: string;
+  /** The Thread's person is answering, so the form inline in a chat waits. */
+  readonly answering: boolean;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
-  const home = useQuery(threadQueries.one(decision.threadId)).data?.home;
+  const thread = useQuery(threadQueries.one(decision.threadId)).data;
+  const home = thread?.home;
+  const settled = decision.closedAt !== null || decision.formAnswer !== null;
+  const count = decision.questions.length;
+  const onTheInitiative = home?.kind === "initiative" && decision.taskId === null;
+  if (onTheInitiative && !settled && decision.putTo === null) {
+    return <DecisionOnTheInitiative decision={decision} />;
+  }
+  if (home?.kind === "chat" && !thread?.consultation && decision.putTo === null) {
+    return (
+      <DecisionCard
+        decision={decision}
+        personName={personName}
+        answering={answering}
+        followUps
+        where="inline"
+      />
+    );
+  }
   return (
-    <DecisionFrame decision={decision} personName={personName}>
+    <DecisionFrame
+      decision={decision}
+      personName={personName}
+      label={`Decision: ${decisionSummary(decision)}`}
+      settled={settled}
+    >
       {home?.kind === "initiative" && decision.taskId !== null && (
         <p className="decision-on-task">
           On <RecordMention link={{ kind: "task", taskId: decision.taskId }} written="its Task" />
         </p>
       )}
-      {decision.closedAt !== null ? (
-        <>
-          <DecisionDetail decision={decision} roles={roles} />
-          <ClosedLine />
-        </>
-      ) : decision.answer === null ? (
-        <p className="decision-hint">
-          {decision.putTo === null
-            ? "Waits on you."
-            : `Waiting on ${consultantName(decision.putTo, roles)} in a Consultation.`}{" "}
-          {decision.taskId !== null && (
-            <LinkToDecisionCard
-              decision={decision}
-              taskId={decision.taskId}
-              inInitiative={home?.kind === "initiative"}
-            />
-          )}
-          {decision.putTo !== null && (
-            <>
-              {" "}
-              <LinkToConsultation decision={decision} consultantKey={decision.putTo} />
-            </>
-          )}
-        </p>
+      {onTheInitiative && <OnNoTaskLine />}
+      {settled ? (
+        <DecisionAnswered decision={decision} />
       ) : (
         <>
-          <DecisionDetail decision={decision} roles={roles} />
-          <div className="decision-answered">
-            <Icon name="check" size={12} />
-            <span>
-              <AnsweredBy decision={decision} roles={roles} />
-              <MarkdownText text={answerWords(decision.answer, decision)} inline />
-            </span>
-          </div>
+          {decision.kind !== "request" && (
+            <p className="message-text decision-question">
+              {count > 1 && `${count} questions, starting with: `}
+              {decision.questions[0]?.question}
+            </p>
+          )}
+          <p className="decision-hint">
+            {decision.putTo === null
+              ? "Waits on you."
+              : `Waiting on ${consultantName(decision.putTo, roles)} in a Consultation.`}{" "}
+            {decision.taskId !== null && (
+              <LinkToDecisionCard
+                decision={decision}
+                taskId={decision.taskId}
+                inInitiative={home?.kind === "initiative"}
+              />
+            )}
+            {decision.putTo !== null && (
+              <>
+                {" "}
+                <LinkToConsultation decision={decision} consultantKey={decision.putTo} />
+              </>
+            )}
+          </p>
         </>
       )}
     </DecisionFrame>
@@ -173,59 +170,19 @@ export function DecisionInThread({
 }
 
 /**
- * A Decision closed unanswered, as its Task was dropped: in the answer's place, with nothing left to
- * answer or take over (spec §2.4).
+ * An open Decision on no Task in an Initiative's Thread, answered where it is: the form in place,
+ * or the compact card past the threshold, as in Needs you; the card a link to it lands on.
  */
-function ClosedLine(): ReactNode {
+function DecisionOnTheInitiative({ decision }: { readonly decision: Decision }): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  const { card } = useDecisionThread(decision, roles);
   return (
-    <div className="decision-answered decision-closed">
-      <Icon name="x" size={12} />
-      <span>{CLOSED_WORDS}</span>
-    </div>
+    <DecisionCard decision={decision} {...card} where="thread" landing lead={<OnNoTaskLine />} />
   );
 }
 
-/**
- * Who answered, before the answer: the user, the Consultant, or a person the user asked to answer it
- * for them, with the way to the Thread they asked in.
- */
-function AnsweredBy({
-  decision,
-  roles,
-}: {
-  readonly decision: Decision;
-  readonly roles: readonly Role[] | undefined;
-}): ReactNode {
-  const signedInUserId = useSignedInUserId();
-  const { atUsersRequest, answeredBy, answeredByUser, answeredByTheOffice } = decision;
-  if (answeredByTheOffice) return "Answered by The Office: ";
-  if (atUsersRequest !== null) {
-    return (
-      <>
-        Answered by {roleFirstName(atUsersRequest.roleKey, roles)}{" "}
-        <ThreadLink threadId={atUsersRequest.threadId}>
-          {atUsersRequestWords(atUsersRequest.user, signedInUserId)}
-        </ThreadLink>
-        :{" "}
-      </>
-    );
-  }
-  if (answeredBy !== null) return `Answered by ${consultantName(answeredBy, roles)}: `;
-  return answeredByUser === null
-    ? "Answered: "
-    : `Answered by ${userName(answeredByUser, signedInUserId, "you")}: `;
-}
-
-/**
- * Brings the Decision's whole card into view, if the page shows it. The address alone can't: a
- * link followed again leaves it as it was.
- */
-export function bringDecisionCardIntoView(decisionId: string): void {
-  document.getElementById(decisionCardElementId(decisionId))?.scrollIntoView({ block: "start" });
-}
-
-export function decisionCardElementId(decisionId: string): string {
-  return `decision-card-${decisionId}`;
+function OnNoTaskLine(): ReactNode {
+  return <p className="decision-on-task">On no Task: about the Initiative as a whole</p>;
 }
 
 /** What the page does as a link leaves for the card, such as clearing what lies over it. */
@@ -262,384 +219,4 @@ function LinkToDecisionCard({
       {decision.putTo === null ? "Answer it in Needs you" : "Take it over in Needs you"}
     </Link>
   );
-}
-
-/**
- * The way to the Consultation of a Decision put to `consultantKey`, once it has opened: on its Task,
- * or in the callee's chat for a call made from a chat (spec §2.4).
- */
-function LinkToConsultation({
-  decision,
-  consultantKey,
-}: {
-  readonly decision: Decision;
-  readonly consultantKey: string;
-}): ReactNode {
-  const onNoTask = decision.taskId === null;
-  // A Consultation opens as the Decision is put, so while it waits it is among the chat's newest.
-  const inChat = useInfiniteQuery({ ...threadQueries.inChat(consultantKey), enabled: onNoTask });
-  const onTask = useQuery({
-    ...threadQueries.onTask(decision.taskId ?? ""),
-    enabled: !onNoTask,
-  });
-  const threads: readonly Pick<ThreadSummary, "id" | "roleKey" | "consultation">[] = onNoTask
-    ? rowsOf(inChat.data)
-    : (onTask.data ?? []);
-  const consultation = threads.find(
-    (thread) => thread.consultation?.decisionId === decision.id && thread.roleKey === consultantKey,
-  );
-  if (!consultation) return null;
-  return <ThreadLink threadId={consultation.id}>Open the Consultation</ThreadLink>;
-}
-
-/**
- * What every form of a Decision has: who asked, the question, and its link, which mentions it in a
- * chat and opens the Task's page at it, marked. A call made from a chat, on no Task, has no link.
- */
-export function DecisionFrame({
-  decision,
-  personName,
-  elementId,
-  place,
-  children,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-  readonly elementId?: string | undefined;
-  readonly place?: ReactNode;
-  readonly children: ReactNode;
-}): ReactNode {
-  const copyLink = useCopyRecordLink();
-  const roles = useQuery(roleQueries.list()).data;
-  const { taskId } = decision;
-  const linkedTo = useSearch({ strict: false }).decision === decision.id;
-  return (
-    <section
-      id={elementId}
-      className={`message decision-card${linkedTo ? " linked-to" : ""}`}
-      aria-label={`Decision: ${decision.question}`}
-      aria-current={linkedTo || undefined}
-    >
-      <div className="message-by">
-        <DecisionHeading decision={decision} personName={personName} />
-        {place}
-        {taskId !== null && (
-          <IconButton
-            className="decision-copy-link"
-            icon={<Icon name="link" size={12} />}
-            label="Copy link"
-            size="xs"
-            onClick={() =>
-              copyLink({
-                kind: "decision",
-                taskId,
-                threadId: decision.threadId,
-                decisionId: decision.id,
-              })
-            }
-          />
-        )}
-      </div>
-      <div className="message-text decision-question">
-        <MarkdownText text={questionWords(decision, roles)} />
-      </div>
-      {children}
-    </section>
-  );
-}
-
-/**
- * The Decision's header: who asked and, when it was put to a Consultant, whom it waits on, so a
- * Decision that isn't the user's reads so at a glance (spec §2.4). It keeps whom it was put to once
- * answered.
- */
-export function DecisionHeading({
-  decision,
-  personName,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-}): ReactNode {
-  const roles = useQuery(roleQueries.list()).data;
-  return (
-    <>
-      <Badge tone="warning">Decision</Badge>
-      <AskerTag decision={decision} personName={personName} />
-      {decision.putTo !== null && (
-        <>
-          <span className="decision-put-to">to</span>
-          <PersonTag roleKey={decision.putTo} name={consultantName(decision.putTo, roles)} />
-        </>
-      )}
-    </>
-  );
-}
-
-function AskerTag({
-  decision: { roleKey },
-  personName,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-}): ReactNode {
-  return roleKey === null ? (
-    <NamedTag name="The Office" />
-  ) : (
-    <PersonTag roleKey={roleKey} name={personName} />
-  );
-}
-
-/**
- * The question as the card shows it: a request reads as what the asker asked the person it is put
- * to, or the user, to do.
- */
-function questionWords(decision: Decision, roles: readonly Role[] | undefined): string {
-  if (decision.kind !== "request") return decision.question;
-  const callee = decision.putTo === null ? "you" : consultantName(decision.putTo, roles);
-  return `Asked ${callee} to: ${decision.question}`;
-}
-
-/** What the person found, and who passed the Decision on. */
-export function DecisionDetail({
-  decision,
-  roles,
-}: {
-  readonly decision: Decision;
-  readonly roles: readonly Role[] | undefined;
-}): ReactNode {
-  return (
-    <>
-      {decision.context !== "" && (
-        <div className="decision-context">
-          <MarkdownText text={decision.context} />
-        </div>
-      )}
-      {decision.passedOn.map(({ roleKey, reason, passedOnAt }) => (
-        <p key={passedOnAt} className="decision-passed-on">
-          <Icon name="users" size={12} />
-          <span>
-            {consultantName(roleKey, roles)} passed it on: <MarkdownText text={reason} inline />
-          </span>
-        </p>
-      ))}
-    </>
-  );
-}
-
-function OpenDecision({
-  decision,
-  personName,
-  answering,
-  reachesAtTurnEnd,
-  followUps,
-  roles,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-  readonly answering: boolean;
-  readonly reachesAtTurnEnd: boolean;
-  readonly followUps: boolean;
-  readonly roles: readonly Role[] | undefined;
-}): ReactNode {
-  const [freeAnswer, setFreeAnswer] = useState("");
-  const answeringDecision = useAnswering(decision);
-  const busy = answering || answeringDecision.isPending;
-  const recommended = decision.recommendation.option;
-  const waitHint = stillAnsweringHint(answering, personName);
-  const canSendFreeAnswer = !busy && freeAnswer.trim() !== "";
-  const sendFreeAnswer = (): void =>
-    answeringDecision.mutate(
-      { kind: "free-answer", text: freeAnswer },
-      { onSuccess: () => setFreeAnswer("") },
-    );
-  return (
-    <>
-      <ConsultationNote decision={decision} roles={roles} />
-      {decision.kind === "request" ? (
-        <RequestReason decision={decision} personName={personName} />
-      ) : (
-        <>
-          <div className="decision-options" role="group" aria-label="Options">
-            {decision.options.map((option, index) => (
-              <Button
-                key={option}
-                variant={index === recommended ? "primary" : "secondary"}
-                disabled={busy}
-                title={waitHint}
-                fullWidth
-                style={ANSWER_ON_A_LINE}
-                iconRight={
-                  index === recommended && (
-                    // Marked to the eye; the recommendation under the answers says it in words.
-                    <span className="decision-option-tag" aria-hidden="true">
-                      Recommended
-                    </span>
-                  )
-                }
-                onClick={() => answeringDecision.mutate({ kind: "option", option: index })}
-              >
-                <span className="decision-option-words">{option}</span>
-              </Button>
-            ))}
-          </div>
-          <Recommendation decision={decision} personName={personName} />
-        </>
-      )}
-      <form
-        className="decision-free-answer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          sendFreeAnswer();
-        }}
-      >
-        <MessageField
-          label="Your answer"
-          rows={2}
-          placeholder="Or answer in your own words"
-          value={freeAnswer}
-          onChange={setFreeAnswer}
-          canSend={canSendFreeAnswer}
-          busyReason={waitHint}
-          onSend={sendFreeAnswer}
-        />
-        <Button variant="secondary" type="submit" disabled={!canSendFreeAnswer} title={waitHint}>
-          Answer
-        </Button>
-      </form>
-      <ReachesAtTurnEndHint personName={personName} reachesAtTurnEnd={reachesAtTurnEnd} />
-      <FollowUpsHint decision={decision} personName={personName} followUps={followUps} />
-      {answeringDecision.error && <AnswerRefused error={answeringDecision.error} />}
-    </>
-  );
-}
-
-/** The design system's Button holds its label on one centred line; an answer may be a sentence. */
-const ANSWER_ON_A_LINE = {
-  justifyContent: "flex-start",
-  height: "auto",
-  minHeight: 32,
-  paddingBlock: 6,
-  whiteSpace: "normal",
-  textAlign: "left",
-  lineHeight: 1.35,
-} as const;
-
-/** In a Consultation, whom the Decision waits on, and that answering takes it over. */
-export function ConsultationNote({
-  decision,
-  roles,
-}: {
-  readonly decision: Decision;
-  readonly roles: readonly Role[] | undefined;
-}): ReactNode {
-  if (decision.putTo === null) return null;
-  return (
-    <p className="decision-consultation" role="note">
-      <Icon name="users" size={12} />
-      Waiting on {consultantName(decision.putTo, roles)} in a Consultation. Answer here to take it
-      over.
-    </p>
-  );
-}
-
-/** Why the asker needs what a request asks, in place of the options a request has none of. */
-function RequestReason({
-  decision,
-  personName,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-}): ReactNode {
-  return (
-    <p className="decision-recommendation">
-      Why {askerName(decision, personName)} needs it:{" "}
-      <MarkdownText text={decision.recommendation.reason} inline />
-    </p>
-  );
-}
-
-export function Recommendation({
-  decision,
-  personName,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-}): ReactNode {
-  return (
-    <p className="decision-recommendation">
-      {askerName(decision, personName)} recommends “
-      {decision.options[decision.recommendation.option]}”:{" "}
-      <MarkdownText text={decision.recommendation.reason} inline />
-    </p>
-  );
-}
-
-/** Follow-ups are messages in the person's Thread, which the user writes only outside a Stage. */
-export function FollowUpsHint({
-  decision,
-  personName,
-  followUps,
-}: {
-  readonly decision: Decision;
-  readonly personName: string;
-  readonly followUps: boolean;
-}): ReactNode {
-  if (!followUps || decision.roleKey === null) return null;
-  return (
-    <p className="decision-hint">
-      A question first? Ask {personName} in the Thread; the Decision stays open.
-    </p>
-  );
-}
-
-export function AnswerRefused({ error }: { readonly error: Error }): ReactNode {
-  return <RefusalAlert title="The answer wasn't sent" error={error} />;
-}
-
-/**
- * In place of the wait in an Initiative's planning Thread: the answer is taken now and reaches the
- * person once their turn ends.
- */
-export function ReachesAtTurnEndHint({
-  personName,
-  reachesAtTurnEnd,
-}: {
-  readonly personName: string;
-  readonly reachesAtTurnEnd: boolean;
-}): ReactNode {
-  if (!reachesAtTurnEnd) return null;
-  return <p className="decision-hint">Reaches {personName} when this turn ends.</p>;
-}
-
-/** Why the answers wait: nothing is answered while the person is still answering. */
-export function stillAnsweringHint(answering: boolean, personName: string): string | undefined {
-  return answering ? `${personName} is still answering. Answer once they finish.` : undefined;
-}
-
-/** A Consultant's name from the Role they fill; the key itself when the Role is gone. */
-function consultantName(roleKey: string, roles: readonly Role[] | undefined): string {
-  return roles?.find(({ key }) => key === roleKey)?.card.name ?? roleKey;
-}
-
-/** Who asked: the Thread's person, or The Office, which has no person (spec §9). */
-function askerName(decision: Decision, personName: string): string {
-  return decision.roleKey === null ? "The Office" : personName;
-}
-
-/** Answers the Decision; the asking person takes it in the Thread, which answers with its state. */
-export function useAnswering(decision: Decision): UseMutationResult<Thread, Error, DecisionAnswer> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (answer: DecisionAnswer) => answerDecision(decision.id, answer),
-    onSuccess: async (thread) => {
-      queryClient.setQueryData(threadQueries.one(thread.id).queryKey, thread);
-      await Promise.all([
-        queryClient.invalidateQueries(threadQueries.messages(thread.id)),
-        queryClient.invalidateQueries(decisionQueries.open()),
-        ...(decision.taskId === null
-          ? []
-          : [queryClient.invalidateQueries(decisionQueries.unanswered(decision.taskId))]),
-      ]);
-    },
-  });
 }

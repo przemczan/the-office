@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { aDecision } from "./decision.fixtures.js";
+import { oneOptionAnswer, oneWordsAnswer } from "./decision.js";
+import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
 import { decisionRecordText, withMentionedRecords } from "./mention.js";
 import { ANN_LEE } from "./user.fixtures.js";
 
@@ -13,14 +14,12 @@ describe("a mentioned Decision's record", () => {
       [
         `Decision ${decision.id} on the Task ${decision.taskId}, asked 2026-10-25T09:02:00.000Z by the person in the Role planner`,
         "",
-        "Question: Should the export include archived Projects?",
-        "",
         "The export reads every Project; archived ones have no worktree.",
         "",
+        "Question 1: Should the export include archived Projects?",
         "Options:",
         "1. Only active Projects",
         "2. Every Project",
-        "",
         "Recommended: Only active Projects, because Archived Projects have nothing to export.",
         "Not answered yet: it waits on the user.",
         "",
@@ -34,8 +33,7 @@ describe("a mentioned Decision's record", () => {
   it("says who answered it, who it waits on, and who passed it on", () => {
     const answered = aDecision({
       answer: {
-        kind: "free-answer",
-        text: "Active only. ",
+        ...oneWordsAnswer("Active only. "),
         answeredAt: new Date("2026-10-26T10:00:00.000Z"),
         answeredBy: "cto",
       },
@@ -46,7 +44,7 @@ describe("a mentioned Decision's record", () => {
     });
 
     expect(decisionRecordText(answered, TASK_RECORD)).toContain(
-      "Answered by the person in the Role cto on 2026-10-26T10:00:00.000Z: Active only.",
+      "Answered by the person in the Role cto on 2026-10-26T10:00:00.000Z:\n1. Should the export include archived Projects?\n   Answer, in their own words: Active only.",
     );
     expect(decisionRecordText(passedOn, undefined)).toContain(
       [
@@ -62,15 +60,14 @@ describe("a mentioned Decision's record", () => {
   it("says who answered it for the user, at their request, and in which Thread", () => {
     const answered = aDecision({
       answer: {
-        kind: "option",
-        option: 1,
+        ...oneOptionAnswer(1),
         answeredAt: new Date("2026-10-26T10:00:00.000Z"),
         atUsersRequest: { roleKey: "cto", threadId: "thread-of-the-cto", user: ANN_LEE },
       },
     });
 
     expect(decisionRecordText(answered, TASK_RECORD)).toContain(
-      "Answered by the person in the Role cto, for the user Ann Lee at their request in the Thread thread-of-the-cto, on 2026-10-26T10:00:00.000Z: Every Project",
+      "Answered by the person in the Role cto, for the user Ann Lee at their request in the Thread thread-of-the-cto, on 2026-10-26T10:00:00.000Z:\n1. Should the export include archived Projects?\n   Answer: Every Project",
     );
   });
 });
@@ -78,5 +75,33 @@ describe("a mentioned Decision's record", () => {
 describe("a message with the records it mentions", () => {
   it("stays as written when it mentions none", () => {
     expect(withMentionedRecords("Hello.", [])).toBe("Hello.");
+  });
+});
+
+describe("a mentioned form's record", () => {
+  it("lists every question in order, and that it was asked again with the general comment", () => {
+    const form = aDecision({
+      questions: THREE_QUESTIONS,
+      answer: {
+        kind: "asked-again",
+        generalComment: "Say what archived means.",
+        answeredAt: new Date("2026-10-26T10:00:00.000Z"),
+        user: ANN_LEE,
+      },
+    });
+
+    const text = decisionRecordText(form, TASK_RECORD);
+
+    expect(text).toContain(
+      [
+        "Question 2: Which years should it cover?",
+        "An open question, answered in their own words.",
+        "",
+        "Question 3: Which format?",
+      ].join("\n"),
+    );
+    expect(text).toContain(
+      "Asked again by the user Ann Lee on 2026-10-26T10:00:00.000Z, answering none of its questions: General comment: Say what archived means.",
+    );
   });
 });

@@ -132,8 +132,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT)("Task 36's check on the Test Pro
         await note(`Consultation "${consultation.title}" opened with ${consultation.roleKey}`);
         const decisionId = consultation.consultation?.decisionId ?? "";
         const answered = await call("POST", `/decisions/${decisionId}/answer`, {
-          kind: "option",
-          option: 0,
+          kind: "submitted",
+          answers: [{ kind: "option", option: 0 }],
         });
         // Devops may have answered first, which the run's report shows.
         await note(`The user took the Consultation over with Allow once: ${answered.status}`);

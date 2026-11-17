@@ -285,9 +285,13 @@ const archivedRoute = createRoute({
   staticData: { title: "Work" },
 });
 
-/** An Initiative's page, showing one of its Threads first, as a Task's page does. */
+/**
+ * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's link
+ * also lands on its card in that Thread.
+ */
 export interface InitiativeSearch {
   readonly initiativeThread?: string;
+  readonly decision?: string;
 }
 
 // An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
@@ -295,10 +299,12 @@ const initiativeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "work/initiatives/$initiativeId",
   component: InitiativePage,
-  validateSearch: (search: Record<string, unknown>): InitiativeSearch =>
-    typeof search["initiativeThread"] === "string"
-      ? { initiativeThread: search["initiativeThread"] }
-      : {},
+  validateSearch: (search: Record<string, unknown>): InitiativeSearch => ({
+    ...(typeof search["initiativeThread"] === "string" && {
+      initiativeThread: search["initiativeThread"],
+    }),
+    ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+  }),
   // Until the Initiative is read; the page then names it.
   staticData: { title: "Work" },
 });

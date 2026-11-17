@@ -7,6 +7,7 @@ import {
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  decisionSummary,
   TurnEnded,
 } from "../../conversations/index.js";
 import {
@@ -40,6 +41,7 @@ import {
 } from "../../work/index.js";
 import {
   decisionWaiting,
+  decisionWaitingOnInitiative,
   engineDown,
   gateWaiting,
   handles,
@@ -76,6 +78,7 @@ import { KnownPeople } from "../ports/known-people.js";
 import { NotificationRoutingRepository } from "../ports/notification-routing-repository.js";
 import { NotificationRepository } from "../ports/notification-repository.js";
 import { NotificationTimingRepository } from "../ports/notification-timing-repository.js";
+import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { NotificationDelivery } from "./notification-delivery.js";
@@ -109,6 +112,7 @@ export class NotificationService implements OnModuleInit {
   constructor(
     private readonly repository: NotificationRepository,
     private readonly tasks: OfficeTasks,
+    private readonly initiatives: OfficeInitiatives,
     private readonly stages: TaskStageProgress,
     private readonly people: KnownPeople,
     private readonly routing: NotificationRoutingRepository,
@@ -141,18 +145,36 @@ export class NotificationService implements OnModuleInit {
 
   private subscribeToNeedsYou(): void {
     for (const eventClass of [DecisionOpened, DecisionReopened]) {
-      // A Decision put to a Consultant waits on them, not on the user (spec §6), and a call made
-      // from a chat, on no Task, goes back to its caller (spec §2.4): no Notification for either.
-      this.events.subscribe(eventClass, ({ decision: { taskId, ...decision } }) =>
-        decision.putTo || taskId === undefined
-          ? undefined
-          : this.raise(decisionWaiting({ ...decision, taskId })),
-      );
+      // A Decision put to a Consultant waits on them, not on the user (spec §6), and a chat's waits
+      // on the user inline in the chat (spec §2.7): no Notification for either. One on no Task in an
+      // Initiative's Thread waits on the user about the Initiative as a whole.
+      this.events.subscribe(eventClass, async ({ thread, decision }) => {
+        const { id, roleKey, taskId, putTo } = decision;
+        if (putTo || thread.home.kind === "chat") return;
+        const question = decisionSummary(decision);
+        if (taskId !== undefined) {
+          await this.raise(decisionWaiting({ id, roleKey, taskId, question }));
+          return;
+        }
+        if (thread.home.kind !== "initiative") return;
+        const { initiativeId } = thread.home;
+        const initiative = (await this.initiatives.list()).find((held) => held.id === initiativeId);
+        if (!initiative) return;
+        await this.raise(
+          decisionWaitingOnInitiative({
+            id,
+            threadId: decision.threadId,
+            initiativeId,
+            initiativeTitle: initiative.name,
+            roleKey,
+            question,
+          }),
+        );
+      });
     }
+    // A call from a chat raised nothing, so its answer or closing finds nothing to handle.
     this.events.subscribe(DecisionAnswered, ({ decision: { id, taskId } }) =>
-      taskId === undefined
-        ? undefined
-        : this.handle({ kind: "decision-answered", decisionId: id, taskId }),
+      this.handle({ kind: "decision-answered", decisionId: id, taskId }),
     );
     this.events.subscribe(DecisionClosed, ({ decision: { id } }) =>
       this.handle({ kind: "decision-closed", decisionId: id }),

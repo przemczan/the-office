@@ -7,6 +7,7 @@ import {
   startInitiativePlanning,
   startPlanningInInitiative,
   type InitiativePlanningProject,
+  type OpenTaskDecision,
 } from "./initiative-planning.js";
 import { proposeDefinitionOfDone, proposePipeline, proposePlan } from "./planning-changes.js";
 import { InitiativeRefused } from "./initiative-refused.js";
@@ -205,6 +206,7 @@ describe("the Initiative's planning Thread", () => {
       "Without subagents, plan the Tasks one after another yourself",
       "mark_planned",
       "open a Decision on it with open_decision, giving its taskId",
+      "asking every question that Task has in that one Decision",
       "Leave that Task, and every Task that waits for it, and keep planning the rest",
       "End your turn only when every Task left waits for an answer, or all are planned",
       "Each answer comes as a message: carry on from it",
@@ -454,7 +456,7 @@ describe("the planning Brief's Decisions", () => {
     });
 
     expect(brief).toContain(
-      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
+      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: don't ask them again, and leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
     );
     expect(
       initiativePlanningBrief({
@@ -466,6 +468,30 @@ describe("the planning Brief's Decisions", () => {
         pipelines: [],
       }),
     ).not.toContain("## Waiting for an answer");
+  });
+
+  it("leaves the Decision open on the Initiative as a whole to the Brief's own section of it", () => {
+    const brief = (waiting: readonly OpenTaskDecision[]) =>
+      initiativePlanningBrief({
+        initiative: planning,
+        waiting,
+        record: "Initiative: Usage exports",
+        tasks: [first, second],
+        projects: [],
+        pipelines: [],
+      });
+    const onTheInitiative = { taskId: undefined, question: "Ship both Projects together?" };
+
+    const beside = brief([{ taskId: first.id, question: "Which format?" }, onTheInitiative]);
+    expect(beside).toContain(`- "Export API" (Task ${first.id}): "Which format?"`);
+    expect(beside).not.toContain("Ship both Projects together?");
+    expect(brief([onTheInitiative])).not.toContain("## Waiting for an answer");
+  });
+
+  it("tells the planner to open one Decision on the Initiative as a whole leaving taskId out", () => {
+    expect(INITIATIVE_PLANNING_INSTRUCTIONS).toContain(
+      "When a choice is about the Initiative as a whole rather than one Task, open one Decision leaving taskId out",
+    );
   });
 });
 

@@ -7,8 +7,12 @@ import { decisionQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
-import { bringDecisionCardIntoView } from "../../shell/conversation/decision-card.tsx";
-import { DecisionOnTask, useDecisionThread } from "../../shell/conversation/decision-on-task.tsx";
+import { decisionSummary } from "../../shell/conversation/decision-form-words.ts";
+import { DecisionOnTask } from "../../shell/conversation/decision-on-task.tsx";
+import {
+  bringDecisionCardIntoView,
+  useDecisionThread,
+} from "../../shell/conversation/decision-parts.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { GateCard } from "../../shell/work/gate-card.tsx";
@@ -103,7 +107,8 @@ function WhatWaits({
   }, [linkedTo]);
   const onYou = waitingOnYou(decisions);
   const count = onYou.length + (waiting ? 1 : 0);
-  const headline = onYou[0]?.question ?? (waiting && gateQuestion(waiting));
+  const first = onYou[0];
+  const headline = first ? decisionSummary(first) : waiting && gateQuestion(waiting);
   const needsYou = (
     <section
       id={NEEDS_YOU_ELEMENT_ID}

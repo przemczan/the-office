@@ -10,9 +10,9 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
-  decisionAnswerSchema,
-  type DecisionAnswer,
+  decisionFormAnswerSchema,
   type Decision as DecisionResponse,
+  type DecisionFormAnswer,
   type Thread as ThreadResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -33,7 +33,10 @@ export class DecisionsController {
   /** Every Decision waiting on the user, the first asked first: Waiting on you, and Needs you. */
   @Get("decisions/open")
   async listOpen(): Promise<DecisionResponse[]> {
-    return (await this.decisions.listOpen()).map(toDecisionResponse);
+    // The Decision's own fields alone: Needs you reads the Initiative of one on no Task from Now.
+    return (await this.decisions.listOpen()).map(({ initiativeId: _initiativeId, ...decision }) =>
+      toDecisionResponse(decision),
+    );
   }
 
   /** The Task's Decisions nobody has answered, those with a Consultant too: its Needs you card. */
@@ -46,13 +49,13 @@ export class DecisionsController {
 
   /**
    * The signed-in user's answer, to any Decision, as every user shares them; the person who asked
-   * takes it in its Thread, which this answers with.
+   * takes it in its Thread, which this answers with: the form submitted, or Ask me again.
    */
   @Post("decisions/:id/answer")
   @HttpCode(HttpStatus.ACCEPTED)
   async answer(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(decisionAnswerSchema)) answer: DecisionAnswer,
+    @Body(new ContractPipe(decisionFormAnswerSchema)) answer: DecisionFormAnswer,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ThreadResponse> {
     const thread = await this.decisions.answer(id, answer, {

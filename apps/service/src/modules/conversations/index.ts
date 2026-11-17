@@ -1,4 +1,4 @@
-export { DecisionService } from "./application/decision-service.js";
+export { DecisionService, type DecisionWaitingOnTheUser } from "./application/decision-service.js";
 export {
   InitiativeThreadSetups,
   type InitiativeThreadRequest,
@@ -15,6 +15,8 @@ export {
   type SettingProposalApplier,
 } from "./application/proposal-appliers.js";
 export { StageDecisions, type StageDecisionRequest } from "./application/stage-decisions.js";
+export { stageAnswerOf, type StageAnswer } from "./domain/stage-answer.js";
+export { decisionSummary } from "./domain/decision.js";
 export {
   StageThreads,
   type StageSessionSettings,

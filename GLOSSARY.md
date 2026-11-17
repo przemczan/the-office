@@ -234,8 +234,40 @@ A file Attachment whose bytes are text, a document among them; Agents read it by
 _Avoid_: Plain-text file, source file, text document
 
 **Decision**:
-A question an Agent puts to the user and waits on before continuing. Asked in an Initiative's planning Thread, it names one of the Initiative's Tasks. A person the user asks to may answer one waiting on the user for them; it then reads "answered by <person> at your request" (`atUsersRequest` in code). Dropping its Task closes one still open: it leaves Needs you unanswered, and its card says the Task was dropped.
-_Avoid_: Approval, prompt, question (as a noun for the record)
+A form an Agent puts to the user, or to a Consultant, and waits on before continuing: one or more questions in order, its context, a general comment, and two ways to send it, Submit or Ask me again; the asking session gets it all back together as its next message. Waiting on the user it shows under Needs you, except in a chat, where it shows inline. Asked in an Initiative's planning Thread, it names one of the Initiative's Tasks or none; asked in its shaping Thread, none. A person the user asks to may answer one waiting on the user for them; it then reads "answered by <person> at your request" (`atUsersRequest` in code). Dropping its Task closes one still open: it leaves Needs you unanswered, and its card says the Task was dropped. Approval of a call past a Hard switch is never one of its questions: it stays a card of its own.
+_Avoid_: Approval (its own card), prompt, questionnaire, survey, question (one part of it)
+
+**Question**:
+One part of a Decision's form: a choice or an open question, with an optional comment. A Decision recorded before the form reads as a form of one question.
+_Avoid_: Item, field, prompt
+
+**Choice**:
+A question answered by picking one of its options, the Agent's recommended option preselected with the reason it gives; picking none, its comment alone is the answer, in words.
+_Avoid_: Multiple choice, select, poll
+
+**Open question**:
+A question answered in words, with no options; a Request is a Decision of one open question.
+_Avoid_: Free-text question, text question
+
+**Comment**:
+The optional words the user adds to one question of a Decision, beside its answer, sent with it on Submit.
+_Avoid_: Note (that is a Memory note or a Handover note), remark
+
+**General comment**:
+The optional words the user adds to a Decision as a whole: sent with the answers on Submit, and alone on Ask me again, saying what to explain or change.
+_Avoid_: Summary, overall note, feedback (that is a Gate's)
+
+**Submit**:
+Sending a Decision with every question's answer and comment and the general comment; it needs every question answered, and the Decision is then answered.
+_Avoid_: Answer (as the button), send, confirm
+
+**Ask me again**:
+Sending a Decision with only the general comment and no answers, so the Agent explains and asks again in a new form; the Decision closes as asked again. The Office's own Decisions and approvals have none.
+_Avoid_: Reject, decline, skip, cancel
+
+**Asked again**:
+The state of a Decision closed by Ask me again: no longer waiting, never reopened, its general comment kept; the Agent's new form follows it in the Thread.
+_Avoid_: Rejected, declined, cancelled, reopened
 
 **Thread**:
 One continuous exchange within a conversation on a Task, an Initiative or a person's chat; a fresh Thread starts without the previous one's context. On a Task, each person has one Thread of their own, in their tab, and each Stage run has its Stage Thread, shown in the Stage history.
@@ -250,11 +282,11 @@ One author's neighbouring messages in a Thread, shown together under one name.
 _Avoid_: Bubble
 
 **Consultation**:
-A Thread in which a Consultant answers what another person asks them: a question, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file. On a Task the user can read it or take it over, but not join it.
+A Thread in which a Consultant answers what another person asks them: a Decision, answered as the same form the user would answer, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file. On a Task the user can read it or take it over, but not join it.
 _Avoid_: Delegation, escalation (for this), handoff
 
 **Request**:
-A consult asking a person to do something the asker can't, such as "ask Devops to set that up": a Decision put to them with no options, which they answer in their own words, saying what they did, such as a Proposal they drafted, or why they can't.
+A consult asking a person to do something the asker can't, such as "ask Devops to set that up": a Decision put to them as a form of one open question, which they answer in their own words, saying what they did, such as a Proposal they drafted, or why they can't.
 _Avoid_: Task (for this), delegation, ticket
 
 **Mention**:
@@ -480,7 +512,7 @@ A command an Agent's session, or one of its Sub-agents, runs in the background, 
 _Avoid_: Background task, shell, job, background command (in the UI)
 
 **Consultant**:
-A person whom other people of The Office may consult or call, with a question, for an approval or with a Request, in a Consultation.
+A person whom other people of The Office may consult or call, with a Decision, for an approval or with a Request, in a Consultation.
 _Avoid_: Expert, advisor, Staff
 
 **Task limit**:

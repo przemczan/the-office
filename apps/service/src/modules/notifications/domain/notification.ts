@@ -12,7 +12,16 @@ export type Pointer =
   | { readonly kind: "decision"; readonly decisionId: string; readonly taskId: string }
   | { readonly kind: "gate"; readonly taskId: string; readonly stageKey: string }
   | { readonly kind: "task"; readonly taskId: string }
-  | { readonly kind: "initiative"; readonly initiativeId: string }
+  /**
+   * The Initiative page; for a Decision on no Task in one of its Threads, that Thread with the
+   * Decision brought into view.
+   */
+  | {
+      readonly kind: "initiative";
+      readonly initiativeId: string;
+      readonly decisionId?: string;
+      readonly threadId?: string;
+    }
   /**
    * The Office's own state, as Now and the status strip show it; an engine down names its engine,
    * so each engine's is raised, and handled, on its own.
@@ -106,6 +115,7 @@ export function decisionWaiting(decision: {
   readonly id: string;
   readonly taskId: string;
   readonly roleKey: string | undefined;
+  /** The Decision in one line: its first question, and how many more it asks. */
   readonly question: string;
 }): NotificationDraft {
   return {
@@ -114,6 +124,37 @@ export function decisionWaiting(decision: {
     line: decision.roleKey ? `I need your answer: ${decision.question}` : decision.question,
     shortLine: undefined,
     pointsTo: { kind: "decision", decisionId: decision.id, taskId: decision.taskId },
+  };
+}
+
+/**
+ * A Decision on no Task waits on the user in one of an Initiative's Threads: its asker's question,
+ * naming the Initiative, opening the Initiative's page at that Thread.
+ */
+export function decisionWaitingOnInitiative(decision: {
+  readonly id: string;
+  readonly threadId: string;
+  readonly initiativeId: string;
+  /** The Initiative's title, as the line names it. */
+  readonly initiativeTitle: string;
+  readonly roleKey: string | undefined;
+  /** The Decision in one line: its first question, and how many more it asks. */
+  readonly question: string;
+}): NotificationDraft {
+  const about = `On the Initiative ${decision.initiativeTitle}`;
+  return {
+    kind: "needs-you.decision",
+    roleKey: decision.roleKey,
+    line: decision.roleKey
+      ? `${about}, I need your answer: ${decision.question}`
+      : `${about}: ${decision.question}`,
+    shortLine: undefined,
+    pointsTo: {
+      kind: "initiative",
+      initiativeId: decision.initiativeId,
+      decisionId: decision.id,
+      threadId: decision.threadId,
+    },
   };
 }
 
@@ -457,9 +498,19 @@ export function windowHasReset(
 
 /** What the user did, or what came about, that handles what some Notifications point to. */
 export type Handling =
-  /** Answering a Decision also handles the failure it was opened about. */
-  | { readonly kind: "decision-answered"; readonly decisionId: string; readonly taskId: string }
-  /** Dropping its Task closed the Decision, which no longer waits on the user. */
+  /**
+   * Answering a Decision, or asking it again, handles it; answering one on a Task also handles the
+   * failure it was opened about.
+   */
+  | {
+      readonly kind: "decision-answered";
+      readonly decisionId: string;
+      readonly taskId: string | undefined;
+    }
+  /**
+   * Dropping its Task, or ending its Initiative for one on no Task, closed the Decision, which no
+   * longer waits on the user.
+   */
   | { readonly kind: "decision-closed"; readonly decisionId: string }
   | { readonly kind: "gate-acted"; readonly taskId: string }
   | { readonly kind: "task-resumed"; readonly taskId: string }
@@ -483,11 +534,13 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
   switch (handling.kind) {
     case "decision-answered":
       return (
-        (pointsTo.kind === "decision" && pointsTo.decisionId === handling.decisionId) ||
-        (kind === "outcomes.task-failed" && pointsAt(pointsTo, handling.taskId))
+        pointsToDecision(pointsTo, handling.decisionId) ||
+        (handling.taskId !== undefined &&
+          kind === "outcomes.task-failed" &&
+          pointsAt(pointsTo, handling.taskId))
       );
     case "decision-closed":
-      return pointsTo.kind === "decision" && pointsTo.decisionId === handling.decisionId;
+      return pointsToDecision(pointsTo, handling.decisionId);
     case "gate-acted":
       return pointsTo.kind === "gate" && pointsTo.taskId === handling.taskId;
     case "task-resumed":
@@ -495,7 +548,12 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
     case "task-opened":
       return pointsTo.kind === "task" && pointsTo.taskId === handling.taskId;
     case "initiative-opened":
-      return pointsTo.kind === "initiative" && pointsTo.initiativeId === handling.initiativeId;
+      // A Decision waiting in one of its Threads is handled only by its answer, never by a look.
+      return (
+        pointsTo.kind === "initiative" &&
+        pointsTo.initiativeId === handling.initiativeId &&
+        pointsTo.decisionId === undefined
+      );
     case "now-opened":
       return levelsOf(kind).includes("office.window");
     case "window-reset":
@@ -529,6 +587,14 @@ export function samePointer(
 /** An engine's Notification raised before engines were named stands for any engine. */
 function isAbout(pointsTo: Pointer, engineId: string): boolean {
   return pointsTo.kind === "office" && (pointsTo.engineId ?? engineId) === engineId;
+}
+
+/** On a Task it points to the Decision; on no Task, to the Initiative's Thread it waits in. */
+function pointsToDecision(pointsTo: Pointer, decisionId: string): boolean {
+  return (
+    (pointsTo.kind === "decision" || pointsTo.kind === "initiative") &&
+    pointsTo.decisionId === decisionId
+  );
 }
 
 function pointsAt(pointsTo: Pointer, taskId: string): boolean {

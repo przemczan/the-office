@@ -153,11 +153,16 @@ describe("taskRecordText", () => {
     const record = taskRecordText(aTask(), {
       ...NOTHING,
       decisionsWaiting: [
-        { id: "d-1", question: "Which page?", options: ["Login", "Logout"], approval: false },
+        {
+          id: "d-1",
+          questions: [{ question: "Which page?", options: ["Login", "Logout"] }],
+          approval: false,
+        },
         {
           id: "d-2",
-          question: "Allow this call? Install ffmpeg",
-          options: ["Allow once", "Deny"],
+          questions: [
+            { question: "Allow this call? Install ffmpeg", options: ["Allow once", "Deny"] },
+          ],
           approval: true,
         },
       ],
@@ -165,12 +170,43 @@ describe("taskRecordText", () => {
 
     expect(part(record, "Decisions waiting on the user:")).toEqual([
       "Decisions waiting on the user:",
-      "- Which page? (Decision d-1)",
-      "  1. Login",
-      "  2. Logout",
-      "- Allow this call? Install ffmpeg (Decision d-2): an approval of a call, which only the user gives, on its card",
-      "  1. Allow once",
-      "  2. Deny",
+      "- Decision d-1",
+      "  Question 1: Which page?",
+      "    1. Login",
+      "    2. Logout",
+      "- Decision d-2: an approval of a call, which only the user gives, on its card",
+      "  Question 1: Allow this call? Install ffmpeg",
+      "    1. Allow once",
+      "    2. Deny",
+    ]);
+  });
+
+  it("lists every question of a Decision waiting on the user, in order", () => {
+    const record = taskRecordText(aTask(), {
+      ...NOTHING,
+      decisionsWaiting: [
+        {
+          id: "d-3",
+          questions: [
+            { question: "Which page?", options: ["Login", "Logout"] },
+            { question: "What should its title say?", options: [] },
+            { question: "Keep the old route?", options: ["Keep it", "Remove it"] },
+          ],
+          approval: false,
+        },
+      ],
+    });
+
+    expect(part(record, "Decisions waiting on the user:")).toEqual([
+      "Decisions waiting on the user:",
+      "- Decision d-3",
+      "  Question 1: Which page?",
+      "    1. Login",
+      "    2. Logout",
+      "  Question 2: What should its title say?",
+      "  Question 3: Keep the old route?",
+      "    1. Keep it",
+      "    2. Remove it",
     ]);
   });
 
