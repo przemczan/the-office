@@ -194,11 +194,11 @@ What a Ready Task's whole Pipeline is expected to use on each engine it uses, in
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
 **Usage window**:
-One of an engine's limits on use over time, each with a reset time: on a Claude Code engine the 5-hour window, the 7-day window or a model's weekly window; on a Codex engine signed in with ChatGPT the windows its plan gives (one 30-day window on the Free plan). A Codex engine on an API key has none. It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1-work.md#defaults)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
+One of an engine's limits on use over time, each with a reset time: on a Claude Code engine the 5-hour window, the 7-day window or a model's weekly window; on a Codex engine on a ChatGPT plan the 5-hour and the 7-day window its plan gives (a window of any other length, such as the Free plan's one 30-day window, is left unread). A Codex engine on an API key has none. It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1-work.md#defaults)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
 _Avoid_: Quota, rate limit, plan limit
 
 **Window cap**:
-A Claude Code or Codex engine's cap, one for each of its windows, on how much of a Usage window (the 5-hour or the 7-day window on Claude Code) a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
+The cap of a Claude Code engine or a Codex engine on a ChatGPT plan, one for each of its windows, on how much of a Usage window (the 5-hour or the 7-day window) a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit, Project limits and Task limits count started Tasks), threshold
 
 **Daily cap**:

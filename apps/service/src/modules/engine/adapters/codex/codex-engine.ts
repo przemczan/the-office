@@ -6,7 +6,7 @@ import { McpClient } from "../../../../platform/mcp/mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
-import { CODEX_MODELS } from "../../domain/engines.js";
+import { CODEX_MODELS, hasUsageWindows } from "../../domain/engines.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,
@@ -40,14 +40,14 @@ import { CodexThreadFile } from "./codex-thread-file.js";
 import { SessionMcpEndpoint } from "./session-mcp-endpoint.js";
 
 /**
- * What the engine check found the app-server can do (spec §5.4 Defaults, the Codex engine). Its
- * usage windows are read once a later Task reads `account/rateLimits/read`; Codex has no LSP tool.
+ * What the engine check found the app-server can do (spec §5.4 Defaults, the Codex engine): a
+ * ChatGPT account's usage windows are read by `account/rateLimits/read`; Codex has no LSP tool.
  */
 export const CODEX_CAPABILITIES: EngineCapabilities = {
   bargeIn: true,
   interrupt: true,
   resume: true,
-  usageWindows: false,
+  usageWindows: true,
   contextUsage: true,
   officeTools: true,
   outputSchema: true,
@@ -205,6 +205,7 @@ export class CodexAppServerEngine extends AgentEngine {
         shellTool,
         skills,
         effort: options.effort,
+        usageWindows: hasUsageWindows(options.engine),
         outputSchema: options.outputSchema,
         mcpServersNotStarted,
         close,

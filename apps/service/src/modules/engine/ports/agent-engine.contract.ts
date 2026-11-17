@@ -68,6 +68,11 @@ export interface EngineUnderContract {
    * replays it, and a live engine only when the account's window really ran out.
    */
   readonly usageWindowUsedUp?: boolean;
+  /**
+   * Whether the account has the 5-hour and 7-day windows `usage-windows` reads; true unless said.
+   * A Codex account on ChatGPT Free has one 30-day window instead, which is left unread.
+   */
+  readonly fiveHourAndSevenDayWindows?: boolean;
   /** Whether a turn can be made to fail on purpose, after an allowed rate-limit event: a recording only. */
   readonly failedTurns?: boolean;
   /**
@@ -492,7 +497,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       under.timeoutMs,
     );
 
-    it.runIf(can.usageWindows)(
+    it.runIf(can.usageWindows && under.fiveHourAndSevenDayWindows !== false)(
       "reads the account's usage windows",
       scenario("usage-windows", async (engine, options) => {
         await replyingSession(engine, options, SHORT_REPLY_BRIEF, async (session) => {

@@ -116,7 +116,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `agent-stage-runner.fixtures.ts`: implement, corrected, WINDOW_RESET, aRefusedTurn, A_REFUSED_SESSION, refusedCorrection
 - `index.fixtures.ts`: ownProjectsStartedTasks, projectPipelinesForTests
 - `pipeline-library.module.ts`: PipelineLibraryModule
-- `pipelines-application.fixtures.ts`: PipelinesApplication, startPipelinesApplication, walkStages, runsOf, anAgentStage, aTurn, anAgentSession, AN_INTERRUPTED_SESSION, aDoneResult, A_WAITING_RESULT, anAskedDecision, asksOnce, answerAsked, answerLastDecision
+- `pipelines-application.fixtures.ts`: PipelinesApplication, startPipelinesApplication, startPipelinesApplicationOn, PipelinesEngine, walkStages, runsOf, anAgentStage, aTurn, anAgentSession, AN_INTERRUPTED_SESSION, aDoneResult, A_WAITING_RESULT, anAskedDecision, asksOnce, answerAsked, answerLastDecision
 - `pipelines.module.ts`: PipelinesModuleOptions, PipelinesModule
 - `project-pipelines.fixtures.ts`: projectPipelinesForTests
 - `publish-stage.fixtures.ts`: implement, publish, reviewedPublish, PULL_REQUEST

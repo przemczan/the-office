@@ -65,7 +65,7 @@ export class OfficeLimits {
     const engines = await this.engines.engines();
     if (!namesEveryEngine(caps, engines)) return "Every engine has its caps, once.";
     if (!windowCapsWhereWindows(caps, engines)) {
-      return "Window caps are on each Claude Code engine, and on no other.";
+      return "Window caps are on each engine whose account has usage windows, and on no other.";
     }
     return undefined;
   }

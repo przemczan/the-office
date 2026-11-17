@@ -4,6 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startAnswerSchema, type Task } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { ProviderOverride } from "../../../../../test/test-application.js";
+import { EngineModels, FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../../engine/index.js";
+import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
@@ -13,6 +16,7 @@ import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import {
   AccountWindowsForTests,
   FireAlarmRepositoryForTests,
+  KnownEngineCascadeForTests,
   WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -40,7 +44,7 @@ const { readTask, readyTask, requestStart, ownProjectTasks, sound } = tasksHttp(
 const NOW = new Date(2026, 10, 13, 12, 0);
 const RESET = new Date(NOW.getTime() + 2 * HOUR);
 
-async function startApplication(): Promise<void> {
+async function startApplication(overrides: readonly ProviderOverride[] = []): Promise<void> {
   const settings = new WorkSettingsForTests();
   await settings.changeOfficeWideLimit(12);
   work = await startWorkApplication(officeData, [
@@ -48,6 +52,7 @@ async function startApplication(): Promise<void> {
     { provide: FireAlarmRepository, useValue: fireAlarm },
     ownProjectsQueue(() => [projectId]),
     ownProjectTasks(),
+    ...overrides,
   ]);
   clock().setTime(NOW);
 }
@@ -85,10 +90,14 @@ async function startedTask(): Promise<Task> {
 }
 
 /** As the Stage runner asks, once the engine refused the Stage's turn. */
-async function refused(taskId: string, resetsAt = RESET): Promise<void> {
+async function refused(
+  taskId: string,
+  resetsAt = RESET,
+  engine: Pick<Engine, "id" | "name"> = FIRST_CLAUDE_CODE_ENGINE,
+): Promise<void> {
   await work.app.get(TaskService).pauseForUsageWindow(taskId, {
-    engineId: "claude-code",
-    engineName: "Claude Code",
+    engineId: engine.id,
+    engineName: engine.name,
     window: "five-hour",
     resetsAt,
   });
@@ -235,6 +244,76 @@ describe("The queue while an engine's usage window is used up", () => {
 
     await requestStart(task.id);
 
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+});
+
+/** A Codex engine signed in with ChatGPT, whose plan gives usage windows. */
+const CODEX: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: null,
+};
+
+describe("A Codex engine's used-up usage window", { timeout: MANY_REQUESTS_TEST_MS }, () => {
+  beforeEach(async () => {
+    // Settings › Engines of the test's own lists the Codex engine, which the Project's Roles run on.
+    await work.app.close();
+    const engines = new EngineSettingsForTests({
+      engines: [FIRST_CLAUDE_CODE_ENGINE, CODEX],
+      searchEndpoint: null,
+      modelPrices: [],
+    });
+    await startApplication([{ provide: EngineModels, useValue: new EngineModels(engines) }]);
+    work.app
+      .get(KnownEngineCascadeForTests)
+      .inProject.set(projectId, { engineId: CODEX.id, model: "gpt-6-luna" });
+  });
+
+  it("pauses the Task until the window's reset, and resumes it by itself then", async () => {
+    const task = await startedTask();
+    work.published.length = 0;
+
+    await refused(task.id, RESET, CODEX);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "paused",
+      pausedBy: "usage-window",
+      resumesAt: RESET.toISOString(),
+    });
+    expect(work.published).toContainEqual(
+      expect.objectContaining({
+        constructor: TaskPaused,
+        taskId: task.id,
+        by: "usage-window",
+        usageWindow: expect.objectContaining({
+          engineId: "codex",
+          engineName: "Codex",
+          window: "five-hour",
+          resetsAt: RESET,
+        }),
+      }),
+    );
+
+    await clock().advanceTo(RESET);
+
+    expect(await readTask(task.id)).toMatchObject({ state: "in-progress", pausedBy: null });
+    expect(work.published.some((event) => event instanceof TaskResumed)).toBe(true);
+  });
+
+  it("holds a Start on the Codex engine with the reason naming it, and starts it at the reset", async () => {
+    work.app
+      .get(AccountWindowsForTests)
+      .usedUp.set(CODEX.id, { window: "five-hour", until: RESET });
+    const task = await readyTask();
+    ownIds.push(task.id);
+
+    const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
+
+    expect(answer.queued?.reasons).toEqual(["Codex's 5-hour window is used up until 14:00."]);
+    await clock().advanceTo(RESET);
     expect((await readTask(task.id)).state).toBe("in-progress");
   });
 });

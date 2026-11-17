@@ -582,8 +582,8 @@ export type UsageMeasure = z.infer<typeof usageMeasureSchema>;
 /**
  * What a Task's whole Pipeline is expected to use on one engine its Stages' Roles run on, in the
  * ticked measures alone; the windows only on an engine whose account has them (a Claude Code
- * engine). A ticked window or cost is null when there is no estimate of it: no reading to learn
- * from, or ("no cost") a model with no Model price.
+ * engine, or a Codex engine on a ChatGPT plan). A ticked window or cost is null when there is no
+ * estimate of it: no reading to learn from, or ("no cost") a model with no Model price.
  */
 export const engineUsageEstimateSchema = z.object({
   engineId: engineIdSchema,
@@ -915,9 +915,9 @@ export type AutoModeSetting = z.infer<typeof autoModeSettingSchema>;
 export const windowCapSchema = z.int().min(1).max(100);
 
 /**
- * The caps on one engine (spec §2.2), each null when off: a Window cap on each window, exactly on a
- * Claude Code engine, as only its account has them (the service refuses windows elsewhere), and the
- * Daily caps on tokens and on dollars.
+ * The caps on one engine (spec §2.2), each null when off: a Window cap on each window, exactly on an
+ * engine whose account has usage windows, a Claude Code engine or a Codex engine on a ChatGPT plan
+ * (the service refuses windows elsewhere), and the Daily caps on tokens and on dollars.
  */
 export const engineCapsSchema = z.object({
   engineId: engineIdSchema,

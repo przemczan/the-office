@@ -1,8 +1,8 @@
+import { Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
-import type { UsageWindows } from "../../domain/usage-windows.js";
-import { CapabilityMissing } from "../../ports/agent-engine.js";
+import type { ReadingSource, UsageWindows } from "../../domain/usage-windows.js";
 import type {
   ContextUsage,
   EngineSession,
@@ -47,6 +47,7 @@ import {
   type CodexTurn,
   type CodexUserInput,
 } from "./codex-protocol.js";
+import { codexUsageWindows, codexWindowsOf, unknownWindowLengths } from "./codex-usage-windows.js";
 import { codexExitWords, type CodexAppServer, type CodexRpcHandlers } from "./codex-rpc.js";
 
 /**
@@ -68,6 +69,8 @@ export interface CodexSessionParts {
   /** What the session lists, those only the user runs among them, which skill commands run. */
   readonly skills: readonly ListedSkill[];
   readonly effort: Effort;
+  /** Whether the account has usage windows to read: a ChatGPT sign-in's, not an API key's. */
+  readonly usageWindows: boolean;
   /** What each turn's answer must match, or undefined for a reply in plain words. */
   readonly outputSchema: JsonSchema | undefined;
   /** The servers that failed to start as the session opened, reported before anything else. */
@@ -75,6 +78,8 @@ export interface CodexSessionParts {
   /** Closes what the session opened beside its app-server: its MCP endpoint and servers. */
   readonly close: () => Promise<void>;
 }
+
+const logger = new Logger("CodexSession");
 
 /** How long Stop waits for `turn/interrupt` to end the turn before it ends the app-server anyway. */
 const INTERRUPT_GRACE_MS = 10_000;
@@ -211,8 +216,44 @@ export class CodexSession implements EngineSession {
     this.endTurn(turn, "interrupted", []);
   }
 
+  /**
+   * The account's 5-hour and 7-day windows, with no model call: `account/rateLimits/read`, else the
+   * latest `account/rateLimits/updated`, each as its own Reading source. None on an API key.
+   */
   async readUsageWindows(): Promise<UsageWindows | undefined> {
-    throw new CapabilityMissing("usageWindows");
+    if (!this.parts.usageWindows) return undefined;
+    const read = await this.readRateLimits();
+    if (read !== undefined) return this.windowsOf(read, "usage-endpoint");
+    return this.rateLimits === undefined
+      ? undefined
+      : this.windowsOf(this.rateLimits, "rate-limit-headers");
+  }
+
+  /** `account/rateLimits/read`'s snapshot; undefined when there is no app-server or it fails. */
+  private async readRateLimits(): Promise<CodexRateLimitSnapshot | undefined> {
+    const server = this.server;
+    if (server === undefined) return undefined;
+    try {
+      const { rateLimits } = await server.rpc.request("account/rateLimits/read", undefined);
+      return codexWindowsOf(rateLimits).length === 0 ? undefined : rateLimits;
+    } catch (error) {
+      logger.warn(`Reading the usage windows failed: ${messageOf(error)}`);
+      return undefined;
+    }
+  }
+
+  private windowsOf(
+    snapshot: CodexRateLimitSnapshot,
+    source: ReadingSource,
+  ): UsageWindows | undefined {
+    const windows = codexUsageWindows(snapshot, source);
+    if (windows === undefined) {
+      const lengths = unknownWindowLengths(snapshot).map((minutes) => minutes ?? "no");
+      logger.warn(
+        `Codex reported a usage window of ${lengths.join(" and ")} minutes, left unread.`,
+      );
+    }
+    return windows;
   }
 
   /**

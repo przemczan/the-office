@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CodexApiKey } from "./codex-api-key.js";
 import {
   CLAUDE_CODE_MODELS,
   CODEX_MODELS,
@@ -38,9 +39,10 @@ describe("an engine", () => {
     expect(offeredModels(strata)).toEqual(["qwen3", "org/coder:q4"]);
   });
 
-  it("has usage windows only on Claude Code", () => {
+  it("has usage windows on Claude Code and on Codex signed in with ChatGPT, not on an API key", () => {
     expect(hasUsageWindows(FIRST_CLAUDE_CODE_ENGINE)).toBe(true);
-    expect(hasUsageWindows(codex)).toBe(false);
+    expect(hasUsageWindows(codex)).toBe(true);
+    expect(hasUsageWindows({ ...codex, apiKey: CodexApiKey.of("sk-test") })).toBe(false);
     expect(hasUsageWindows(strata)).toBe(false);
   });
 });

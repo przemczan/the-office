@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Module, type DynamicModule, type INestApplication } from "@nestjs/common";
-import { startTestApplication } from "../../../test/test-application.js";
+import { startTestApplication, type ProviderOverride } from "../../../test/test-application.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
@@ -11,6 +11,7 @@ import {
   EngineModule,
   ScriptedEngine,
   ScriptedEngineModule,
+  type EngineId,
   type SessionScript,
   type StandInEngine,
 } from "../engine/index.js";
@@ -89,10 +90,39 @@ export async function startPipelinesApplication(
   standIn?: StandInEngine,
   telemetry?: Telemetry,
 ): Promise<PipelinesApplication> {
-  const engine = new ScriptedEngine(scripts, {}, standIn);
+  return startOn(new ScriptedEngine(scripts, {}, standIn), [], telemetry);
+}
+
+/**
+ * As `startPipelinesApplication`, every Agent Stage's session on the engine `engineId`, replaying
+ * `scripts` with `capabilities`, such as a Codex engine's; `overrides` list it, such as Settings ›
+ * Engines of the test's own.
+ */
+export async function startPipelinesApplicationOn(
+  { engineId, capabilities, overrides }: PipelinesEngine,
+  scripts: readonly SessionScript[],
+): Promise<PipelinesApplication> {
+  const pipelines = await startOn(new ScriptedEngine(scripts, capabilities), overrides);
+  pipelines.stageThreads.engineId = engineId;
+  return pipelines;
+}
+
+/** The engine a test's Agent Stages run on, and what lists it. */
+export interface PipelinesEngine {
+  readonly engineId: EngineId;
+  readonly capabilities: ConstructorParameters<typeof ScriptedEngine>[1];
+  readonly overrides: readonly ProviderOverride[];
+}
+
+async function startOn(
+  engine: ScriptedEngine,
+  overrides: readonly ProviderOverride[],
+  telemetry?: Telemetry,
+): Promise<PipelinesApplication> {
   const engineModule = ScriptedEngineModule.register(engine);
   const { app } = await startTestApplication({
     database: true,
+    overrides,
     imports: [
       EventsModule,
       EventStreamModule,

@@ -9,7 +9,8 @@ import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
-import type { Engine } from "../../domain/engines.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
+import type { CodexEngine, Engine } from "../../domain/engines.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import {
   type AgentEngine,
@@ -34,10 +35,15 @@ import {
 import { CodexAppServer } from "./codex-rpc.js";
 import { CodexThreadMissing } from "./codex-thread-file.js";
 import { CodexWireRecorder } from "./codex-wire-recording.fixtures.js";
-import { fakeAppServer, fakeAppServerRuns } from "./fake-app-server.fixtures.js";
+import {
+  FAKE_FIVE_HOUR_RESET,
+  FAKE_SEVEN_DAY_RESET,
+  fakeAppServer,
+  fakeAppServerRuns,
+} from "./fake-app-server.fixtures.js";
 import { replayingAppServer, unreplayedAppServers } from "./fake-codex-app-server.fixtures.js";
 
-const ENGINE: Engine = {
+const ENGINE: CodexEngine = {
   id: "codex-tests",
   name: "Codex",
   kind: "codex",
@@ -229,7 +235,72 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
       errors: [],
     });
     await expect(session.readContextUsage()).resolves.toEqual({ tokens: 110, window: 200_000 });
-    await expect(session.readUsageWindows()).rejects.toThrow(/usageWindows/);
+  });
+
+  it("reads a ChatGPT account's usage windows from account/rateLimits/read", async () => {
+    const { session, log } = await started(message("answer hi"));
+    await log.turn(0);
+
+    await expect(session.readUsageWindows()).resolves.toEqual({
+      fiveHour: { percentUsed: 12, resetsAt: new Date(FAKE_FIVE_HOUR_RESET * 1000) },
+      sevenDay: { percentUsed: 30, resetsAt: new Date(FAKE_SEVEN_DAY_RESET * 1000) },
+      source: "usage-endpoint",
+    });
+    const [run] = await fakeAppServerRuns(report);
+    expect(run?.received.map(({ method }) => method)).toContain("account/rateLimits/read");
+  });
+
+  it("reads no usage windows on an API key, asking the app-server nothing", async () => {
+    const { session, log } = await started(message("answer hi"), {
+      engine: { ...ENGINE, apiKey: CodexApiKey.of("sk-test") },
+    });
+    await log.turn(0);
+
+    await expect(session.readUsageWindows()).resolves.toBeUndefined();
+    const [run] = await fakeAppServerRuns(report);
+    expect(run?.received.map(({ method }) => method)).not.toContain("account/rateLimits/read");
+  });
+
+  it("reports each rate-limit update as a reading of the fullest window", async () => {
+    const { log } = await started(message("limits"));
+    await log.turn(0);
+
+    expect(log.events.filter((event) => event.kind === "rate-limit")).toEqual([
+      {
+        kind: "rate-limit",
+        status: "allowed",
+        window: "five-hour",
+        resetsAt: new Date(FAKE_FIVE_HOUR_RESET * 1000),
+      },
+    ]);
+  });
+
+  it("reads the usage windows from the last rate-limit update when account/rateLimits/read fails", async () => {
+    const { session, log } = await started(message("limits unreadable"));
+    await log.turn(0);
+
+    await expect(session.readUsageWindows()).resolves.toEqual({
+      fiveHour: { percentUsed: 45, resetsAt: new Date(FAKE_FIVE_HOUR_RESET * 1000) },
+      sevenDay: { percentUsed: 31, resetsAt: new Date(FAKE_SEVEN_DAY_RESET * 1000) },
+      source: "rate-limit-headers",
+    });
+  });
+
+  it("ends a turn refused for a used-up window as such, naming the window and its reset", async () => {
+    const { log } = await started(message("used up"));
+
+    expect(await log.turn(0)).toMatchObject({
+      outcome: "usage-window-used-up",
+      errors: ["You've hit your usage limit."],
+      usedUpWindow: {
+        window: "five-hour",
+        resetsAt: new Date(FAKE_FIVE_HOUR_RESET * 1000),
+        resetGiven: true,
+      },
+    });
+    expect(log.events).toContainEqual(
+      expect.objectContaining({ kind: "rate-limit", status: "rejected", window: "five-hour" }),
+    );
   });
 
   it("keeps the thread in the session's folder, written whole, and resumes on it", async () => {
@@ -512,6 +583,8 @@ describe.runIf((MODE === "live" || MODE === "record") && CODEX_FOLDER !== undefi
     describeAgentEngineContract("CodexAppServerEngine", {
       capabilities: CODEX_CAPABILITIES,
       engine: LIVE_ENGINE,
+      // The recordings' account is on ChatGPT Free, whose one window is 30 days.
+      fiveHourAndSevenDayWindows: false,
       model: LIVE_MODEL,
       timeoutMs: 180_000,
       mcpServer: CONTRACT_MCP_SERVER,
@@ -559,6 +632,7 @@ describe("CodexAppServerEngine on a stand-in replaying the recordings", () => {
   describeAgentEngineContract("CodexAppServerEngine on a replaying stand-in", {
     capabilities: CODEX_CAPABILITIES,
     engine: LIVE_ENGINE,
+    fiveHourAndSevenDayWindows: false,
     model: LIVE_MODEL,
     timeoutMs: 20_000,
     mcpServer: CONTRACT_MCP_SERVER,

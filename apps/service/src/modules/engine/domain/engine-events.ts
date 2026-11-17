@@ -4,8 +4,8 @@ import type { UsageWindowName, UsageWindows } from "./usage-windows.js";
 
 /**
  * An engine's account's usage windows changed, as read after the engine signalled a rate limit
- * (spec §5.4). Each Claude Code engine is an account of its own, so it names the engine, with its
- * name at the time for the words.
+ * (spec §5.4). Each Claude Code engine and Codex engine is an account of its own, so it names the
+ * engine, with its name at the time for the words.
  */
 export class UsageWindowsChanged extends DomainEvent {
   constructor(
@@ -81,8 +81,8 @@ export class EngineRemoved extends DomainEvent {
 }
 
 /**
- * A Sign in of a Claude Code engine ended, signed in or not, so its account may differ now
- * (spec §5.4).
+ * A Sign in of a Claude Code or Codex engine ended, signed in or not, or a token was pasted, an API
+ * key set or a Sign out made, so its account may differ now (spec §5.4).
  */
 export class EngineAccountChanged extends DomainEvent {
   constructor(readonly engineId: EngineId) {

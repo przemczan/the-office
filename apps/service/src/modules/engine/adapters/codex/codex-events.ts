@@ -9,6 +9,7 @@ import {
   type ToolRefusedEvent,
   type ToolResultEvent,
   type TurnOutcome,
+  type UsageWindowName,
   type UsedUpWindow,
 } from "../../ports/session-events.js";
 import type { JsonSchema } from "../../ports/session-options.js";
@@ -24,6 +25,13 @@ import type {
   CodexTokenUsage,
   CodexTurn,
 } from "./codex-protocol.js";
+import {
+  codexResetOf,
+  codexWindowsOf,
+  FIVE_HOURS_MINUTES,
+  SEVEN_DAYS_MINUTES,
+  usedUp,
+} from "./codex-usage-windows.js";
 
 /*
  * What a Codex session reports, made of the app-server's items and notifications in the port's
@@ -221,54 +229,48 @@ export function mergedRateLimits(
 }
 
 /**
- * The signal to read the windows, naming the fullest one; `rejected` once the account reached a
- * limit. The Codex engine reads no windows yet, so the signal only tells.
+ * The signal to read the windows, naming the fullest one: `rejected` once a window is used up or the
+ * account reached a limit, else `allowed`, as Codex reports no warning level of its own.
  */
 export function rateLimitEvent(snapshot: CodexRateLimitSnapshot): RateLimitEvent {
   const window = fullestWindow(snapshot);
+  const rejected = isSet(snapshot.rateLimitReachedType) || (window !== undefined && usedUp(window));
   return {
     kind: "rate-limit",
-    status: isSet(snapshot.rateLimitReachedType) ? "rejected" : "allowed",
-    window: window === undefined ? undefined : windowName(snapshot, window),
-    resetsAt: resetOf(window),
+    status: rejected ? "rejected" : "allowed",
+    window: window === undefined ? undefined : windowName(window),
+    resetsAt: codexResetOf(window),
   };
 }
 
-/** The window a turn refused for a used-up window found used up, by the latest reading. */
+/**
+ * The window a turn refused for a used-up window found used up, by the latest reading: the fullest
+ * at 100% or more, with its reset; with none, `unknown` and a wait of `UNKNOWN_RESET_RETRY_MS`, so
+ * the reset comes from the next reading.
+ */
 export function usedUpWindow(
   snapshot: CodexRateLimitSnapshot | undefined,
   now: Date,
 ): UsedUpWindow {
-  const window = snapshot === undefined ? undefined : fullestWindow(snapshot);
-  const resetsAt = resetOf(window);
+  const fullest = snapshot === undefined ? undefined : fullestWindow(snapshot);
+  const window = fullest !== undefined && usedUp(fullest) ? fullest : undefined;
+  const resetsAt = codexResetOf(window);
   return {
-    window:
-      snapshot === undefined || window === undefined ? "unknown" : windowName(snapshot, window),
+    window: window === undefined ? "unknown" : windowName(window),
     resetsAt: resetsAt ?? new Date(now.getTime() + UNKNOWN_RESET_RETRY_MS),
     resetGiven: resetsAt !== undefined,
   };
 }
 
 function fullestWindow(snapshot: CodexRateLimitSnapshot): CodexRateLimitWindow | undefined {
-  const windows = [snapshot.primary, snapshot.secondary].filter(
-    (window): window is CodexRateLimitWindow => window !== undefined && window !== null,
-  );
-  return windows.toSorted((one, other) => other.usedPercent - one.usedPercent)[0];
+  return codexWindowsOf(snapshot).toSorted((one, other) => other.usedPercent - one.usedPercent)[0];
 }
 
-const FIVE_HOURS_MINUTES = 5 * 60;
-const SEVEN_DAYS_MINUTES = 7 * 24 * 60;
-
-/** The 5-hour and 7-day windows by the port's names; any other by Codex's name for its limit. */
-function windowName(snapshot: CodexRateLimitSnapshot, window: CodexRateLimitWindow): string {
+/** The 5-hour and 7-day windows by the port's names; a window of another length is `unknown`. */
+function windowName(window: CodexRateLimitWindow): UsageWindowName {
   if (window.windowDurationMins === FIVE_HOURS_MINUTES) return "five-hour";
   if (window.windowDurationMins === SEVEN_DAYS_MINUTES) return "seven-day";
-  return snapshot.limitId ?? snapshot.limitName ?? "unknown";
-}
-
-function resetOf(window: CodexRateLimitWindow | undefined): Date | undefined {
-  const resetsAt = window?.resetsAt;
-  return resetsAt === undefined || resetsAt === null ? undefined : new Date(resetsAt * 1000);
+  return "unknown";
 }
 
 function isSet(value: string | null | undefined): boolean {

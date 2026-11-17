@@ -1,16 +1,26 @@
 import { readFile } from "node:fs/promises";
 import type { CodexEngineSetup } from "./codex-engine.js";
 
+/** When the stand-in's 5-hour window resets, in epoch seconds. */
+export const FAKE_FIVE_HOUR_RESET = 1_800_000_000;
+/** When the stand-in's 7-day window resets, in epoch seconds. */
+export const FAKE_SEVEN_DAY_RESET = 1_800_500_000;
+
 /**
  * A stand-in `codex app-server`, a Node script speaking its JSON-RPC: it answers `initialize`,
- * `thread/start`, `thread/resume`, `turn/steer` and `turn/interrupt`, and plays each turn by its
- * first message's words:
+ * `thread/start`, `thread/resume`, `turn/steer`, `turn/interrupt` and `account/rateLimits/read`, the
+ * last with a ChatGPT account's 5-hour window at 12% and 7-day window at 30%
+ * (`FAKE_FIVE_HOUR_RESET`, `FAKE_SEVEN_DAY_RESET`), and plays each turn by its first message's words:
  * - `hold`: runs until a steer, which ends it, or an interrupt;
  * - `slow`: answers after a moment;
  * - `run <command line>`: asks to approve the command wrapped as Codex wraps it, runs it only when
  *   accepted, then answers;
  * - `answer <text>`: answers with the text;
  * - `crash`: exits with 7;
+ * - `limits`: notifies `account/rateLimits/updated` with the 5-hour window at 45%, then answers;
+ * - `limits unreadable`: the same, and `account/rateLimits/read` fails from then on;
+ * - `used up`: notifies the 5-hour window at 100%, then fails the turn as Codex fails one refused
+ *   for a used-up usage window;
  * - anything else: answers "ok".
  * Each turn's model call counts 100 input tokens, 40 of them cached, and 10 output tokens. The
  * script appends to the file its first argument names, one JSON line each: how it started (its
@@ -29,6 +39,15 @@ let turns = 0;
 let active;
 let held = false;
 let total = { input: 0, cached: 0, output: 0 };
+let rateLimitsReadable = true;
+const FIVE_HOUR_RESET = ${FAKE_FIVE_HOUR_RESET};
+const SEVEN_DAY_RESET = ${FAKE_SEVEN_DAY_RESET};
+const snapshot = (fiveHour, sevenDay) => ({
+  limitId: "codex", limitName: null, planType: "plus", rateLimitReachedType: null,
+  primary: { usedPercent: fiveHour, windowDurationMins: 300, resetsAt: FIVE_HOUR_RESET },
+  secondary: { usedPercent: sevenDay, windowDurationMins: 10080, resetsAt: SEVEN_DAY_RESET },
+});
+const rateLimitsUpdated = (rateLimits) => out({ method: "account/rateLimits/updated", params: { rateLimits } });
 
 const breakdown = ({ input, cached, output }) => ({
   totalTokens: input + output, inputTokens: input, cachedInputTokens: cached,
@@ -51,15 +70,23 @@ const message = (turnId, text) => {
   item("started", turnId, value);
   item("completed", turnId, value);
 };
-const complete = (turnId, status) => {
+const complete = (turnId, status, error = null) => {
   active = undefined;
   held = false;
-  out({ method: "turn/completed", params: { threadId: thread, turn: { id: turnId, status, error: null, items: [] } } });
+  out({ method: "turn/completed", params: { threadId: thread, turn: { id: turnId, status, error, items: [] } } });
 };
 
 async function play(turnId, text) {
   if (text.startsWith("hold")) { held = true; return; }
   if (text.startsWith("crash")) process.exit(7);
+  if (text.startsWith("used up")) {
+    rateLimitsUpdated(snapshot(100, 31));
+    return complete(turnId, "failed", { message: "You've hit your usage limit.", codexErrorInfo: "usageLimitExceeded" });
+  }
+  if (text.startsWith("limits")) {
+    if (text.startsWith("limits unreadable")) rateLimitsReadable = false;
+    rateLimitsUpdated(snapshot(45, 31));
+  }
   if (text.startsWith("slow")) await new Promise((resolve) => setTimeout(resolve, 300));
   if (text.startsWith("run ")) {
     const command = "/bin/bash -lc '" + text.slice(4) + "'";
@@ -101,6 +128,9 @@ function handle(m) {
       message(turnId, "steered");
       return complete(turnId, "completed");
     }
+    case "account/rateLimits/read":
+      if (!rateLimitsReadable) return out({ id: m.id, error: { code: -32603, message: "rate limits unavailable" } });
+      return out({ id: m.id, result: { rateLimits: snapshot(12, 30), rateLimitsByLimitId: null } });
     case "turn/interrupt":
       out({ id: m.id, result: {} });
       if (active !== undefined) complete(active, "interrupted");

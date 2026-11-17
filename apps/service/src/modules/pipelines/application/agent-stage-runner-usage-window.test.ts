@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { CODEX_CAPABILITIES, FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../engine/index.js";
+import { EngineSettingsForTests, EngineSettingsRepository } from "../../engine/index.fixtures.js";
 import { TaskPaused, TaskResumed } from "../../work/index.js";
 import {
   aDoneResult,
@@ -8,6 +10,7 @@ import {
   anAgentStage,
   runsOf,
   startPipelinesApplication,
+  startPipelinesApplicationOn,
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
@@ -183,5 +186,65 @@ describe("AgentStageRunner, a turn refused for a used-up usage window (spec 2.3)
     const [held] = await runsOf(pipelines, taskId);
     expect(held?.outcome).toMatchObject({ interrupted: "pause", refused: { message: "work" } });
     expect(pipelines.tasks.usageWindowPauses).toEqual([]);
+  });
+});
+
+/** A Codex engine signed in with ChatGPT, whose plan gives usage windows. */
+const CODEX: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: null,
+};
+
+describe("AgentStageRunner on a Codex engine, a turn refused for a used-up usage window", () => {
+  it("holds the run, pauses the Task until the reset naming the Codex engine, and goes on once resumed", async () => {
+    // Settings › Engines of the test's own lists the Codex engine.
+    const settings = new EngineSettingsForTests({
+      engines: [FIRST_CLAUDE_CODE_ENGINE, CODEX],
+      searchEndpoint: null,
+      modelPrices: [],
+    });
+    pipelines = await startPipelinesApplicationOn(
+      {
+        engineId: CODEX.id,
+        capabilities: CODEX_CAPABILITIES,
+        overrides: [{ provide: EngineSettingsRepository, useValue: settings }],
+      },
+      [A_REFUSED_SESSION, anAgentSession(aDoneResult())],
+    );
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [held] = await runsOf(pipelines, taskId);
+    expect(held?.outcome).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining(
+        "Paused: Codex's 5-hour window is used up until 2026-11-13 14:00 UTC.",
+      ) as string,
+      interrupted: "usage-window",
+      refused: { message: "work", engineName: "Codex", windowWords: "5-hour window" },
+    });
+    expect(held?.heldBy).toBe("usage-window");
+    expect(pipelines.tasks.usageWindowPauses).toEqual([
+      {
+        taskId,
+        refusal: {
+          engineId: "codex",
+          engineName: "Codex",
+          window: "five-hour",
+          resetsAt: WINDOW_RESET,
+        },
+      },
+    ]);
+    expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
+
+    await resume(taskId);
+
+    expect(pipelines.stageThreads.requests[1]?.work).toContain("## Paused for the usage window");
+    expect(await statusesOf(taskId)).toEqual([
+      ["implement", "failed"],
+      ["implement", "done"],
+    ]);
   });
 });

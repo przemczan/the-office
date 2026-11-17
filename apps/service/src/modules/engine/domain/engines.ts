@@ -97,12 +97,19 @@ export function offeredModels(engine: Engine): readonly string[] {
 }
 
 /**
- * Whether `engine`'s account has usage windows (spec §5.4): a Claude Code account's. A Codex
- * account's are read once its adapter reads them. Whether an engine reads them is its adapter's
- * capability (`usageWindows`).
+ * Whether `engine`'s account has usage windows (spec §5.4): a Claude Code account's, and a Codex
+ * account's signed in with ChatGPT rather than an API key. Whether an engine reads them is its
+ * adapter's capability (`usageWindows`).
  */
 export function hasUsageWindows(engine: Engine): boolean {
-  return engine.kind === "claude-code";
+  switch (engine.kind) {
+    case "claude-code":
+      return true;
+    case "codex":
+      return engine.apiKey === null;
+    case "openai-compatible-api":
+      return false;
+  }
 }
 
 /** An engine and one of its models, by its id there. */

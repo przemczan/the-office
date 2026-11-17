@@ -291,9 +291,44 @@ describe("a Codex turn's end", () => {
     });
   });
 
-  it("signals a rate-limit reading, rejected once a limit is reached", () => {
-    const resetsAt = Date.parse("2026-12-01T00:00:00Z") / 1000;
+  it("finds no used-up window when every window has some left", () => {
+    const resetsAt = Date.parse("2026-11-20T00:00:00Z") / 1000;
 
+    expect(
+      turnEnding(
+        {
+          ...turn,
+          status: "failed",
+          error: { message: "limit", codexErrorInfo: "usageLimitExceeded" },
+        },
+        {
+          primary: { usedPercent: 99, windowDurationMins: 300, resetsAt },
+          secondary: { usedPercent: 40, windowDurationMins: 10080, resetsAt },
+        },
+        NOW,
+      ).usedUpWindow,
+    ).toEqual({
+      window: "unknown",
+      resetsAt: new Date(NOW.getTime() + 3_600_000),
+      resetGiven: false,
+    });
+  });
+
+  it("signals a rate-limit reading naming the fullest window by its length", () => {
+    const resetsAt = Date.parse("2026-11-20T00:00:00Z") / 1000;
+
+    expect(
+      rateLimitEvent({
+        limitId: "codex",
+        primary: { usedPercent: 12, windowDurationMins: 300, resetsAt },
+        secondary: { usedPercent: 30, windowDurationMins: 10080, resetsAt: resetsAt + 1000 },
+      }),
+    ).toEqual({
+      kind: "rate-limit",
+      status: "allowed",
+      window: "seven-day",
+      resetsAt: new Date((resetsAt + 1000) * 1000),
+    });
     expect(
       rateLimitEvent({
         limitId: "codex",
@@ -302,12 +337,18 @@ describe("a Codex turn's end", () => {
     ).toEqual({
       kind: "rate-limit",
       status: "allowed",
-      window: "codex",
+      window: "unknown",
       resetsAt: new Date(resetsAt * 1000),
     });
+  });
+
+  it("signals a rejected reading once the account reached a limit or a window is used up", () => {
     expect(
-      rateLimitEvent({ rateLimitReachedType: "primary", primary: { usedPercent: 100 } }),
+      rateLimitEvent({ rateLimitReachedType: "primary", primary: { usedPercent: 80 } }),
     ).toMatchObject({ status: "rejected" });
+    expect(
+      rateLimitEvent({ primary: { usedPercent: 100, windowDurationMins: 300 } }),
+    ).toMatchObject({ status: "rejected", window: "five-hour" });
   });
 });
 

@@ -76,6 +76,8 @@ describeAgentEngineContract("ScriptedEngine replaying the Codex recordings", {
   engine: CODEX_ENGINE,
   model: "gpt-6-luna",
   timeoutMs: 5000,
+  // The recordings' account is on ChatGPT Free, whose one window is 30 days.
+  fiveHourAndSevenDayWindows: false,
   mcpServer: CONTRACT_MCP_SERVER,
   backgroundCommands: false,
   engineFor: async (scenario) =>

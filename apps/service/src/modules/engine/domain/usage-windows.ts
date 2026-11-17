@@ -36,7 +36,8 @@ function sameWindow(one: UsageWindow, other: UsageWindow): boolean {
 
 /**
  * The usage windows the Claude Code engine names (docs/engine-check.md,
- * engine.usage-window-refusal): its `rateLimitType`s, in the port's words.
+ * engine.usage-window-refusal): its `rateLimitType`s, in the port's words. A Codex engine's windows
+ * are read as `five-hour` and `seven-day` by their length.
  */
 export const USAGE_WINDOW_NAMES = [
   "five-hour",

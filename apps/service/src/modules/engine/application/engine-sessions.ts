@@ -5,7 +5,12 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown, SkillCalled } from "../domain/engine-events.js";
 import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
-import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
+import {
+  hasUsageWindows,
+  type Engine,
+  type EngineId,
+  type EngineModel,
+} from "../domain/engines.js";
 import { withLeftOutLanguageServers } from "../domain/language-servers.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
@@ -114,9 +119,9 @@ export class EngineSessions {
     return (await this.find(engineId))?.name ?? engineId;
   }
 
-  /** Whether `engine`'s sessions read its account's usage windows. */
+  /** Whether `engine`'s sessions read its account's usage windows: it has them and reads them. */
   readsUsageWindows(engine: Engine): boolean {
-    return this.engines.of(engine).capabilities.usageWindows;
+    return hasUsageWindows(engine) && this.engines.of(engine).capabilities.usageWindows;
   }
 
   /** What `engine` declares it can't do, which the Role card names under its Engine field. */

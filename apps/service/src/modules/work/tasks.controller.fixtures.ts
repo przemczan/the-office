@@ -11,7 +11,7 @@ import {
 } from "@the-office/contracts";
 import { expect } from "vitest";
 import type { ProviderOverride } from "../../../test/test-application.js";
-import { FIRST_CLAUDE_CODE_ENGINE, UsageWindowsRead } from "../engine/index.js";
+import { FIRST_CLAUDE_CODE_ENGINE, UsageWindowsRead, type EngineId } from "../engine/index.js";
 import { DATABASE, type Database } from "../../platform/database/database.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
@@ -19,6 +19,7 @@ import { Schedule } from "../../platform/schedule/schedule.js";
 import { PlanningService } from "./application/planning-service.js";
 import { TaskService } from "./application/task-service.js";
 import type { Author } from "./domain/author.js";
+import type { AccountWindowsReading } from "./domain/cap-waits.js";
 import type { TaskChange } from "./domain/task-changes.js";
 import { STARTED_STATES } from "./domain/task-states.js";
 import type { Task as StoredTask } from "./domain/task.js";
@@ -236,34 +237,45 @@ export function tasksHttp(current: () => TasksHttpTest) {
   }
 
   /**
-   * The 5-hour window read now, by The Office's clock, at `percentUsed`, resetting `resetsIn` from
-   * now; desks to spare.
+   * `engineId`'s 5-hour window read now, by The Office's clock, at `percentUsed`, resetting
+   * `resetsIn` from now; desks to spare.
    */
-  async function windowRead(percentUsed: number, resetsIn: number): Promise<void> {
+  async function windowRead(
+    percentUsed: number,
+    resetsIn: number,
+    engineId: EngineId = FIRST_CLAUDE_CODE_ENGINE.id,
+  ): Promise<void> {
     const now = work().app.get(Schedule).now();
     work().app.get(AccountWindowRatiosForTests).windowRatios = {
       fiveHour: 0.0001,
       sevenDay: undefined,
     };
     await sendJson(work(), "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
-    work().app.get(AccountWindowsForTests).reading = {
+    setReading(engineId, {
       readAt: now,
       fiveHour: { percentUsed, resetsAt: new Date(now.getTime() + resetsIn) },
       sevenDay: { percentUsed: 0, resetsAt: undefined },
-    };
+    });
   }
 
-  async function newReading(): Promise<void> {
+  function setReading(engineId: EngineId, reading: AccountWindowsReading): void {
     const windows = work().app.get(AccountWindowsForTests);
-    const reading = windows.reading;
+    if (engineId === FIRST_CLAUDE_CODE_ENGINE.id) windows.reading = reading;
+    else windows.readings.set(engineId, reading);
+  }
+
+  /** `engineId`'s windows read again now, as they were, and the reading announced. */
+  async function newReading(engineId: EngineId = FIRST_CLAUDE_CODE_ENGINE.id): Promise<void> {
+    const reading = work().app.get(AccountWindowsForTests).of(engineId);
     if (!reading) throw new Error("No reading to read again.");
-    windows.reading = { ...reading, readAt: work().app.get(Schedule).now() };
-    const { readAt, fiveHour, sevenDay } = windows.reading;
+    const readAt = work().app.get(Schedule).now();
+    setReading(engineId, { ...reading, readAt });
+    const { fiveHour, sevenDay } = reading;
     await work()
       .app.get(EventBus)
       .publish(
         new UsageWindowsRead(
-          FIRST_CLAUDE_CODE_ENGINE.id,
+          engineId,
           { fiveHour, sevenDay, source: "rate-limit-headers" },
           readAt,
         ),

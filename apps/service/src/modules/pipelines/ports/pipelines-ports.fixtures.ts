@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
-import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
+import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE, type EngineId } from "../../engine/index.js";
 import { DUTIES, permissionNarrowingProblems, PipelineRoleSources } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStageEdits, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
@@ -476,6 +476,9 @@ export class StageThreadsForTests extends StageThreads {
   /** The session's context after each turn, as a test sets it: not reported, unless set. */
   contextAfterTurn: StageRunContext | undefined = undefined;
 
+  /** The engine each Stage's session runs on, as a test sets it: the first Claude Code engine. */
+  engineId: EngineId = FIRST_CLAUDE_CODE_ENGINE.id;
+
   /** What `sessionAhead` answers, as a test sets it: a new session, unless set. */
   ahead: StageSessionAhead = { move: "fresh", cacheWarm: false, contextTokens: 0, briefTokens: 0 };
 
@@ -492,12 +495,12 @@ export class StageThreadsForTests extends StageThreads {
   async open(request: StageThreadRequest): Promise<StageThread> {
     this.requests.push(request);
     const threadId = randomUUID();
-    const engine = "claude-code";
+    const engine = this.engineId;
     const model = "scripted";
     const session = await this.sessions.start({
       id: randomUUID(),
       settings: {
-        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        engineId: engine,
         turnLabel: `Someone in the Stage ${request.stageName}`,
         folder: request.folder,
         environment: request.environment,

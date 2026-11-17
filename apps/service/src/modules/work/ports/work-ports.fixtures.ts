@@ -597,16 +597,18 @@ export class ModelPricesForTests extends ModelPrices {
 
 /**
  * The windows of the test's own, so no test weighs a reading another file's session made: none
- * unless a test gives one, which counts for the first Claude Code engine's account.
+ * unless a test gives one, `reading` for the first Claude Code engine's account and `readings` for
+ * any other engine id's.
  */
 @Injectable()
 export class AccountWindowsForTests extends AccountWindows {
   reading: AccountWindowsReading | undefined;
+  readonly readings = new Map<EngineId, AccountWindowsReading>();
   /** The used-up window of each engine id a test gives, kept until the test's own clock passes it. */
   readonly usedUp = new Map<EngineId, UsedUpWindowReading>();
 
   of(engineId: EngineId): AccountWindowsReading | undefined {
-    return engineId === FIRST_CLAUDE_CODE_ENGINE.id ? this.reading : undefined;
+    return engineId === FIRST_CLAUDE_CODE_ENGINE.id ? this.reading : this.readings.get(engineId);
   }
 
   usedUpUntil(engineId: EngineId): UsedUpWindowReading | undefined {
