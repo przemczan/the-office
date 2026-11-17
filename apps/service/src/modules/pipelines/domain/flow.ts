@@ -1,4 +1,4 @@
-import { plainRoute, type Route, type StagePlace } from "./route.js";
+import { namedRoutes, plainRoute, type Route, type StagePlace } from "./route.js";
 import type { Stage } from "./stage.js";
 
 /** A Stage of a flow: one that carries its routes and its place, as a Pipeline's always do. */
@@ -53,6 +53,20 @@ export function asFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[]
     routes: stage.routes ?? [],
     place: stage.place ?? { column: index, row: 0 },
   }));
+}
+
+/**
+ * A flow an agent proposed, ready to be judged and kept: `asFlow`'s, so a Stage left without a place
+ * stands in the column of its index in the order given, and every route naming the Stages it leads
+ * to and tests by their names among `stages`. In the Pipeline's order.
+ */
+export function placedInOrder(stages: readonly Stage[]): FlowStage[] {
+  const names = new Map(stages.map(({ key, name }) => [key, name]));
+  const named: FlowStage[] = asFlow(stages).map((stage) => ({
+    ...stage,
+    routes: namedRoutes(stage.routes, names),
+  }));
+  return pipelineOrder(named);
 }
 
 /**

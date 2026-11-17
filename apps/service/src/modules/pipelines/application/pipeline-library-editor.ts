@@ -233,16 +233,6 @@ export class PipelineLibraryEditor {
     };
   }
 
-  /**
-   * The Project Pipelines built from the office-wide Pipeline that these new Stages would leave
-   * Broken, each with its Project and why: what a Proposal of its Stages warns of.
-   */
-  async breaksOf(pipelineId: string, stages: readonly Stage[]): Promise<ProjectPipelineBreak[]> {
-    const pipeline = await this.repository.find(pipelineId);
-    if (!pipeline) throw new UnknownPipeline(pipelineId);
-    return this.breaks(pipeline, { ...pipeline, stages });
-  }
-
   async addProjectPipeline(
     projectId: string,
     edit: ProjectPipelineEdit,

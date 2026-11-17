@@ -3,6 +3,7 @@ import { pipelineProblem, type Pipeline, type StageProblem } from "./pipeline.js
 import { UnknownProjectPipeline } from "./pipeline-library-refusals.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { pipelineNameProblems, type TakenName } from "./pipeline-names.js";
+import { unnamedRoutes } from "./route.js";
 import {
   buildStages,
   emptyChangeIndexes,
@@ -151,14 +152,19 @@ export function proposedProjectPipelineProblems(
 
 /**
  * Fields alike as they are kept, where a field left out and one left undefined are the same; a
- * Stage change's `stageName` is for its words alone, so it doesn't count.
+ * Stage change's `stageName` and the Stages' names in Change routes are for their words alone, so
+ * they don't count.
  */
 function sameFieldsAsKept(one: ProjectPipelineEdit, other: ProjectPipelineEdit): boolean {
   return isDeepStrictEqual(fieldsAsKept(one), fieldsAsKept(other));
 }
 
 function fieldsAsKept(edit: ProjectPipelineEdit): unknown {
-  const stageChanges = edit.stageChanges.map(({ stageName: _stageName, ...unnamed }) => unnamed);
+  const stageChanges = edit.stageChanges.map(({ stageName: _stageName, ...unnamed }) =>
+    unnamed.kind === "change-routes"
+      ? { ...unnamed, routes: unnamedRoutes(unnamed.routes) }
+      : unnamed,
+  );
   const { name, description, basePipelineId } = edit;
   const fields = {
     name: name.trim(),

@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
-import { keptStageChangeSchema, stageChangeSchema, stageSchema } from "./stages.js";
+import {
+  keptStageChangeSchema,
+  stageChangeSchema,
+  stageProblemSchema,
+  stageSchema,
+} from "./stages.js";
 
 export const pipelineSchema = z.object({
   id: z.string().min(1),
@@ -314,35 +319,6 @@ export type TaskStages = z.infer<typeof taskStagesSchema>;
 /** PUT /tasks/:id/stages: the Task's Stages as the user edited them for the Task, in order. */
 export const taskStagesEditSchema = z.object({ stages: z.array(stageSchema) });
 export type TaskStagesEdit = z.infer<typeof taskStagesEditSchema>;
-
-/**
- * Where on its Stage a problem is: the Stage itself, one of its routes (by its index among the
- * Stage's routes, and a test of its condition by its indexes, `[0, 1]`), or its on-failure setting.
- */
-export const stageProblemAtSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("stage") }),
-  z.object({
-    kind: z.literal("route"),
-    routeIndex: z.int().nonnegative(),
-    testPath: z.array(z.int().nonnegative()).optional(),
-  }),
-  z.object({ kind: z.literal("onFailure") }),
-]);
-export type StageProblemAt = z.infer<typeof stageProblemAtSchema>;
-
-/**
- * Why Stages can't be saved (`problem`), or what the editor warns about but saves (`warning`), on the
- * Stage it concerns by its key, as the editor's draft may change before the answer comes back; both
- * null for the Pipeline as a whole. Save is refused while a `problem` stands.
- */
-export const stageProblemSchema = z.object({
-  stageKey: z.string().nullable(),
-  at: stageProblemAtSchema.nullable(),
-  level: z.enum(["problem", "warning"]),
-  text: z.string(),
-});
-export type StageProblem = z.infer<typeof stageProblemSchema>;
-export type StageProblemLevel = StageProblem["level"];
 
 /**
  * POST /tasks/:id/stages/check: the Stages as the editor holds them, and `pipelineId`, the Pipeline

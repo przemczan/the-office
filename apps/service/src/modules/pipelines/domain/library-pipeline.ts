@@ -4,6 +4,7 @@ import { pipelineProblem, stageProblems, type Pipeline, type StageProblem } from
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { comparableName, pipelineNameProblems, type TakenName } from "./pipeline-names.js";
 import type { ProjectPipeline } from "./project-pipeline.js";
+import { unnamedRoutes } from "./route.js";
 import { sameAsKept, type Stage } from "./stage.js";
 import { commandsWords, missingCommandsOnStages } from "./stage-commands.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
@@ -104,7 +105,8 @@ export function pipelineEditFlags(
 /**
  * Every reason a Proposal of the Pipeline's new Stages (`to`) can't be saved on it now: its Stages
  * changed since the Proposal was drafted (`from`), nothing would change, or the new Stages break a
- * rule the library editor keeps. Its name and description stay.
+ * rule the library editor keeps, warnings aside. Its name and description stay. Both are weighed as
+ * flows, so a Proposal drafted as a plain list reads as its straight line.
  */
 export function proposedStagesProblems(
   pipeline: Pipeline,
@@ -114,10 +116,10 @@ export function proposedStagesProblems(
   projectPipelineNames: readonly TakenName[],
 ): StageProblem[] {
   // A draft from before flows, or one sending a plain list, reads as its conversion.
-  if (!sameAsKept(flowInOrder(pipeline.stages), flowInOrder(from))) {
+  if (!sameAsKept(comparedFlow(pipeline.stages), comparedFlow(from))) {
     return [pipelineProblem(`${pipeline.name}'s Stages changed since this was proposed.`)];
   }
-  if (sameAsKept(flowInOrder(from), flowInOrder(to))) {
+  if (sameAsKept(comparedFlow(from), comparedFlow(to))) {
     return [
       pipelineProblem(
         "Nothing changes: give the Pipeline's Stages as they should be, all of them.",
@@ -326,6 +328,14 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
 
 function flowInOrder(stages: readonly Stage[]): Stage[] {
   return pipelineOrder(asFlow(stages));
+}
+
+/** The flow in order as a Proposal compares it: the Stages' names in routes are for words alone. */
+function comparedFlow(stages: readonly Stage[]): Stage[] {
+  return pipelineOrder(asFlow(stages)).map((stage) => ({
+    ...stage,
+    routes: unnamedRoutes(stage.routes),
+  }));
 }
 
 function pipelineOf(id: string, { name, description, stages }: PipelineEdit): Pipeline {

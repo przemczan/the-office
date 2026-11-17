@@ -125,6 +125,7 @@ describe("ProposedProjectPipelineFields", () => {
       <ProposedProjectPipelineFields
         change={{
           kind: "project-pipeline",
+          routes: null,
           projectId: "the-office",
           pipelineId: null,
           from: null,
@@ -160,6 +161,7 @@ describe("ProposedProjectPipelineFields", () => {
       <ProposedProjectPipelineFields
         change={{
           kind: "project-pipeline",
+          routes: null,
           projectId: "the-office",
           pipelineId: "pp-linux",
           from: {

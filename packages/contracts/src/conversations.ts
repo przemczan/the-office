@@ -7,7 +7,7 @@ import { pageSchemaOf } from "./paging.js";
 import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
-import { stageChangeSchema, stageSchema } from "./stages.js";
+import { routeSchema, stageChangeSchema, stageProblemSchema, stageSchema } from "./stages.js";
 import { userRefSchema } from "./users.js";
 import { prioritySchema } from "./work.js";
 
@@ -512,6 +512,25 @@ export const projectPipelineFieldsSchema = z.object({
 });
 export type ProjectPipelineFields = z.infer<typeof projectPipelineFieldsSchema>;
 
+/**
+ * What a Proposal of a Pipeline does to its routes (spec §2.3, "Agents propose route and condition
+ * changes"): each Stage whose routes change, in the proposed order, with its routes as they were and
+ * as proposed; a new Stage's `from` and a removed one's `to` are empty. `check` is the check's
+ * located answer when it was drafted, warnings only, as a problem refuses the draft.
+ */
+export const proposedRoutesSchema = z.object({
+  stages: z.array(
+    z.object({
+      stageKey: z.string(),
+      stageName: z.string(),
+      from: z.array(routeSchema),
+      to: z.array(routeSchema),
+    }),
+  ),
+  check: z.array(stageProblemSchema),
+});
+export type ProposedRoutes = z.infer<typeof proposedRoutesSchema>;
+
 /** Duties by key, each to the key of the Role holding it, or null for none; only those named. */
 export const dutyHoldersSchema = z.partialRecord(dutyKeySchema, z.string().nullable());
 export type DutyHolders = z.infer<typeof dutyHoldersSchema>;
@@ -614,14 +633,16 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     changes: proposedProjectCommandsSchema,
   }),
   /**
-   * Devops' new Stages for a library Pipeline, and its Stages when drafted (now). Applying is
-   * refused once they changed.
+   * Devops' new Stages for a library Pipeline, its whole flow, and its Stages when drafted (now).
+   * Applying is refused once they changed or the new ones fail the check.
    */
   z.object({
     kind: z.literal("pipeline"),
     pipelineId: z.string(),
     from: z.array(stageSchema),
     to: z.array(stageSchema),
+    /** Null for a Proposal drafted before Proposals carried routes. */
+    routes: proposedRoutesSchema.nullable(),
   }),
   /**
    * Devops' new Stage for a Stage template, and its Stage when drafted (now). Applying is refused
@@ -644,6 +665,8 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     pipelineId: z.string().nullable(),
     from: projectPipelineFieldsSchema.nullable(),
     to: projectPipelineFieldsSchema,
+    /** The built Stages' routes; null for a Proposal drafted before Proposals carried routes. */
+    routes: proposedRoutesSchema.nullable(),
   }),
   /**
    * A Project Devops drafted to onboard: applying it adds the Project and its Onboard Task, Ready

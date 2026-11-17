@@ -168,6 +168,35 @@ export const stageSchema = z.discriminatedUnion("kind", [
 export type Stage = z.infer<typeof stageSchema>;
 
 /**
+ * Where on its Stage a problem is: the Stage itself, one of its routes (by its index among the
+ * Stage's routes, and a test of its condition by its indexes, `[0, 1]`), or its on-failure setting.
+ */
+export const stageProblemAtSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("stage") }),
+  z.object({
+    kind: z.literal("route"),
+    routeIndex: z.int().nonnegative(),
+    testPath: z.array(z.int().nonnegative()).optional(),
+  }),
+  z.object({ kind: z.literal("onFailure") }),
+]);
+export type StageProblemAt = z.infer<typeof stageProblemAtSchema>;
+
+/**
+ * Why Stages can't be saved (`problem`), or what the editor warns about but saves (`warning`), on the
+ * Stage it concerns by its key, as the editor's draft may change before the answer comes back; both
+ * null for the Pipeline as a whole. Save is refused while a `problem` stands.
+ */
+export const stageProblemSchema = z.object({
+  stageKey: z.string().nullable(),
+  at: stageProblemAtSchema.nullable(),
+  level: z.enum(["problem", "warning"]),
+  text: z.string(),
+});
+export type StageProblem = z.infer<typeof stageProblemSchema>;
+export type StageProblemLevel = StageProblem["level"];
+
+/**
  * The fields a Change gives a Stage of a Project Pipeline, at least one; `null` clears an optional
  * one. Never its key or kind, which take a Replace (spec §2.3).
  */

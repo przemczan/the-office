@@ -188,6 +188,7 @@ function serviceReading(answers: Record<string, unknown>, applied?: Proposal): M
 describe("ProposalCard on a Project Pipeline", () => {
   const newOne = proposalOf({
     kind: "project-pipeline",
+    routes: null,
     projectId: "the-office",
     pipelineId: null,
     from: null,
@@ -258,6 +259,7 @@ describe("ProposalCard on a Project Pipeline", () => {
     const card = cardOf(
       proposalOf({
         kind: "project-pipeline",
+        routes: null,
         projectId: "the-office",
         pipelineId: "pp-linux",
         from: fields,
@@ -271,7 +273,13 @@ describe("ProposalCard on a Project Pipeline", () => {
 });
 
 describe("ProposalCard on a library Pipeline's Stages", () => {
-  const proposal = proposalOf({ kind: "pipeline", pipelineId: "full", from: [TESTS], to: [] });
+  const proposal = proposalOf({
+    kind: "pipeline",
+    pipelineId: "full",
+    from: [TESTS],
+    to: [],
+    routes: null,
+  });
 
   it("lists the Project Pipelines it would break while open, and still applies", async () => {
     serviceReading({

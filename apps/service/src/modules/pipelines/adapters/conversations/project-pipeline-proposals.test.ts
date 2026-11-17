@@ -98,6 +98,33 @@ describe("a Proposal of a Project Pipeline", () => {
     });
   });
 
+  it("doesn't count the Stages' names in a Change routes as a change since it was drafted", async () => {
+    const base = await aBasePipeline();
+    const toLinux = { to: "linux", condition: null };
+    const projectPipeline = await added(
+      aNewProjectPipeline(aProject(), base.id, {
+        stageChanges: [
+          { kind: "insert-after", stageKey: "tests", stage: LINUX_CHECK },
+          { kind: "change-routes", stageKey: "tests", routes: [toLinux] },
+        ],
+      }),
+    );
+    const drafted = aChangeTo(projectPipeline, { description: "Proposed." });
+    const proposal = {
+      ...drafted,
+      from: drafted.from && {
+        ...drafted.from,
+        stageChanges: drafted.from.stageChanges.map((stageChange) =>
+          "routes" in stageChange
+            ? { ...stageChange, routes: [{ ...toLinux, toName: "Old" }] }
+            : stageChange,
+        ),
+      },
+    };
+
+    expect(await appliers().problemsWith(proposal)).toEqual([]);
+  });
+
   it("is refused once the Project Pipeline changed since it was drafted, changing nothing", async () => {
     const base = await aBasePipeline();
     const projectPipeline = await added(aNewProjectPipeline(aProject(), base.id));

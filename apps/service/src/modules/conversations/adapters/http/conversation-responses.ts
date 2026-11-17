@@ -1,6 +1,7 @@
 import {
   officeCommandClash,
   projectPipelineFieldsSchema,
+  proposedRoutesSchema,
   stageSchema,
   type ChatActivity as ChatActivityResponse,
   type DecisionFormAnswer as DecisionFormAnswerResponse,
@@ -11,6 +12,7 @@ import {
   type ProposedProjectCommands as ProposedProjectCommandsResponse,
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
+  type ProposedRoutes as ProposedRoutesResponse,
   type Thread as ThreadResponse,
   type ThreadSummary as ThreadSummaryResponse,
   type TaskConversation,
@@ -26,7 +28,12 @@ import { hiredKeyOf } from "../../../people/index.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
-import type { Proposal, ProposedChange, ProposedProjectCommands } from "../../domain/proposal.js";
+import type {
+  PipelineRoutes,
+  Proposal,
+  ProposedChange,
+  ProposedProjectCommands,
+} from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 export function toThreadResponse(
@@ -287,6 +294,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         // Pipelines gave the Stages; Conversations keeps them unread, so they are read here.
         from: STAGES.parse(change.from),
         to: STAGES.parse(change.to),
+        routes: routesOf(change.routes),
       };
     case "stage-template":
       return {
@@ -303,6 +311,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         // The Stage changes are kept unread, as a Pipeline's Stages are.
         from: change.from && projectPipelineFieldsSchema.parse(change.from),
         to: projectPipelineFieldsSchema.parse(change.to),
+        routes: routesOf(change.routes),
       };
     case "project":
       return {
@@ -361,6 +370,11 @@ function toNewProjectResponse(project: NewProject): NewProjectResponse {
 }
 
 const STAGES = stageSchema.array();
+
+/** Pipelines gave the routes; Conversations keeps them unread, so they are read here. */
+function routesOf(routes: PipelineRoutes | undefined): ProposedRoutesResponse | null {
+  return routes ? proposedRoutesSchema.parse(routes) : null;
+}
 
 function toProposedProjectCommandsResponse({
   installCommand,

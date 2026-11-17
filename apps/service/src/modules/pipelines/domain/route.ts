@@ -72,6 +72,54 @@ export function testsOf(
   });
 }
 
+/**
+ * `routes` with the names of the Stages they lead to and test (`toName`, `stageName`) taken from
+ * `names`, by key; a Stage `names` lacks keeps the name it had.
+ */
+export function namedRoutes(routes: readonly Route[], names: ReadonlyMap<string, string>): Route[] {
+  return routes.map(({ to, toName, condition }) => {
+    const name = to === null ? undefined : (names.get(to) ?? toName);
+    return {
+      to,
+      ...(name === undefined ? {} : { toName: name }),
+      condition: condition && namedGroup(condition, names),
+    };
+  });
+}
+
+function namedGroup(group: ConditionGroup, names: ReadonlyMap<string, string>): ConditionGroup {
+  return {
+    combine: group.combine,
+    tests: group.tests.map((test) => {
+      if (isConditionGroup(test)) return namedGroup(test, names);
+      if (test.kind !== "stage" || test.stage === null) return test;
+      const name = names.get(test.stage) ?? test.stageName;
+      const { stageName: _stageName, ...unnamed } = test;
+      return name === undefined ? unnamed : { ...unnamed, stageName: name };
+    }),
+  };
+}
+
+/** `routes` without the Stages' names, which are for their words alone: what a comparison weighs. */
+export function unnamedRoutes(routes: readonly Route[]): Route[] {
+  return routes.map(({ to, condition }) => ({
+    to,
+    condition: condition && unnamedGroup(condition),
+  }));
+}
+
+function unnamedGroup(group: ConditionGroup): ConditionGroup {
+  return {
+    combine: group.combine,
+    tests: group.tests.map((test) => {
+      if (isConditionGroup(test)) return unnamedGroup(test);
+      if (test.kind !== "stage") return test;
+      const { stageName: _stageName, ...unnamed } = test;
+      return unnamed;
+    }),
+  };
+}
+
 /** The keys of the Project commands the routes' conditions run, each once. */
 export function commandKeysOfRoutes(routes: readonly Route[]): readonly string[] {
   const keys = routes.flatMap(({ condition }) =>

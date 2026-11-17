@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { asFlow, isStraightLine, pipelineOrder, straightLineFlow, type FlowStage } from "./flow.js";
+import {
+  asFlow,
+  isStraightLine,
+  pipelineOrder,
+  placedInOrder,
+  straightLineFlow,
+  type FlowStage,
+} from "./flow.js";
 import type { Route } from "./route.js";
 import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 
@@ -179,6 +186,69 @@ describe("asFlow", () => {
 function at(key: string, column: number, row: number): FlowStage {
   return { ...scriptStage({ key, name: key }), routes: [], place: { column, row } };
 }
+
+describe("placedInOrder", () => {
+  it("places the Stages an agent left without places one to a column in the order given, each route naming its Stages", () => {
+    const changed: Route["condition"] = {
+      combine: "any",
+      tests: [
+        { kind: "stage", stage: "tests", is: "changed" },
+        ...(WHILE_SOME_NOT_MET?.tests ?? []),
+      ],
+    };
+    const placed = placedInOrder([
+      { ...implement, routes: [{ to: "tests", condition: null }] },
+      {
+        ...tests,
+        routes: [
+          { to: "look", condition: changed },
+          { to: null, condition: null },
+        ],
+      },
+      { ...look, routes: [{ to: null, toName: "Old", condition: null }] },
+    ]);
+
+    expect(flowOf(placed)).toEqual([
+      {
+        key: "implement",
+        routes: [{ to: "tests", toName: "Tests", condition: null }],
+        place: { column: 0, row: 0 },
+      },
+      {
+        key: "tests",
+        routes: [
+          {
+            to: "look",
+            toName: "Look",
+            condition: {
+              combine: "any",
+              tests: [
+                { kind: "stage", stage: "tests", stageName: "Tests", is: "changed" },
+                { kind: "definitionOfDone", is: "some-not-met" },
+              ],
+            },
+          },
+          { to: null, condition: null },
+        ],
+        place: { column: 1, row: 0 },
+      },
+      { key: "look", routes: [{ to: null, condition: null }], place: { column: 2, row: 0 } },
+    ]);
+  });
+
+  it("orders Stages by the places given, and draws a plain list as its straight line", () => {
+    const placed = placedInOrder([
+      { ...tests, routes: [{ to: null, condition: null }], place: { column: 1, row: 0 } },
+      { ...implement, routes: [{ to: "tests", condition: null }], place: { column: 0, row: 0 } },
+    ]);
+
+    expect(placed.map(({ key }) => key)).toEqual(["implement", "tests"]);
+    expect(flowOf(placedInOrder([implement, tests])).map(({ routes }) => routes)).toEqual([
+      [{ to: "tests", toName: "Tests", condition: null }],
+      [{ to: null, condition: null }],
+    ]);
+  });
+});
 
 describe("pipelineOrder", () => {
   it("orders Stages by column, then by row, keeping the order of Stages at one place", () => {

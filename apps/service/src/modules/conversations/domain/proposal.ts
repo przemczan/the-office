@@ -192,6 +192,8 @@ export interface ProposedPipelineChange {
   readonly pipelineId: string;
   readonly from: readonly PipelineStage[];
   readonly to: readonly PipelineStage[];
+  /** Undefined on a Proposal drafted before Proposals carried routes. */
+  readonly routes?: PipelineRoutes;
 }
 
 /**
@@ -219,6 +221,8 @@ export interface ProposedProjectPipelineChange {
   readonly pipelineId: string | null;
   readonly from: ProjectPipelineFields | null;
   readonly to: ProjectPipelineFields;
+  /** Undefined on a Proposal drafted before Proposals carried routes. */
+  readonly routes?: PipelineRoutes;
 }
 
 /**
@@ -311,6 +315,12 @@ export type PipelineStage = object;
 
 /** A Stage change of a Project Pipeline, as Pipelines keeps it; Conversations doesn't read it. */
 export type PipelineStageChange = object;
+
+/**
+ * What a Proposal of a Pipeline does to its routes, each Stage's as they were and as proposed, with
+ * the check's answer when drafted, as Pipelines gave it; Conversations doesn't read it.
+ */
+export type PipelineRoutes = object;
 
 /**
  * Open until a user applies it or declines it; nothing changes before they apply it. `by` is the

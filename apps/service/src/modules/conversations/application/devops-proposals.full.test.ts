@@ -155,8 +155,18 @@ describe("Devops' Proposals, through the scripted engine", () => {
           ],
         },
       },
-      { kind: "pipeline", pipelineId: pipeline.id, from: pipeline.stages, to: stages },
+      {
+        kind: "pipeline",
+        pipelineId: pipeline.id,
+        from: pipeline.stages,
+        to: expect.any(Array),
+        routes: expect.objectContaining({ stages: expect.any(Array) }),
+      },
     ]);
+    // Drafted as the straight line the plain list stands for.
+    const [, pipelineDraft] = drafted;
+    if (pipelineDraft?.change.kind !== "pipeline") throw new Error("A Pipeline's Proposal.");
+    expect(asPlainList(pipelineDraft.change.to)).toEqual(stages);
     for (const { id } of drafted) {
       const response = await chat.api("POST", `/proposals/${id}/apply`, {});
       expect(response.status).toBe(200);
@@ -180,6 +190,56 @@ describe("Devops' Proposals, through the scripted engine", () => {
       ["publish"],
       [null],
     ]);
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it('drafts "run Review only when Tests changed files or ended Failed, otherwise Publish"; applied it saves the flow, declined it changes nothing', async () => {
+    const pipeline = await aPipeline();
+    // Review stands where Publish stood, which moves a column on.
+    const reviewWhenNeeded: Stage[] = [
+      ...pipeline.stages.map((stage) => {
+        if (stage.key === "tests") return { ...stage, routes: REVIEW_WHEN_TESTS_CHANGED_OR_FAILED };
+        if (stage.key === "publish") return { ...stage, place: { column: 3, row: 0 } };
+        return stage;
+      }),
+      { ...REVIEW, routes: [{ to: "publish", condition: null }], place: { column: 2, row: 0 } },
+    ];
+
+    const proposing = [
+      PROPOSE_LIBRARY_PIPELINE_TOOL,
+      { pipeline: pipeline.id, stages: reviewWhenNeeded },
+    ] as const;
+    const [declined] = await chat.ninaProposes(proposing);
+    const [applied] = await chat.ninaProposes(proposing);
+    if (applied?.change.kind !== "pipeline" || !declined) throw new Error("Two Proposals.");
+
+    expect(applied.change.routes?.stages).toEqual([
+      {
+        stageKey: "tests",
+        stageName: "Tests",
+        from: [{ to: "publish", toName: "Publish", condition: null }],
+        to: [
+          { ...REVIEW_WHEN_TESTS_CHANGED_OR_FAILED[0], toName: "Review" },
+          { to: "publish", toName: "Publish", condition: null },
+        ],
+      },
+      {
+        stageKey: "review",
+        stageName: "Review",
+        from: [],
+        to: [{ to: "publish", toName: "Publish", condition: null }],
+      },
+    ]);
+    const declinedResponse = await chat.api("POST", `/proposals/${declined.id}/decline`, {});
+    expect(declinedResponse.status).toBe(200);
+    expect(pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`))).toEqual(pipeline);
+    const appliedResponse = await chat.api("POST", `/proposals/${applied.id}/apply`, {});
+    expect(appliedResponse.status).toBe(200);
+    const saved = pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`));
+    expect(saved.stages.map(({ key }) => key)).toEqual(["implement", "tests", "review", "publish"]);
+    expect(saved.stages.find(({ key }) => key === "tests")?.routes).toEqual(
+      applied.change.routes?.stages[0]?.to,
+    );
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
 
@@ -717,6 +777,7 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
       pipelineId: null,
       from: null,
       to,
+      routes: expect.objectContaining({ stages: expect.any(Array) }),
     });
     expect(await projectPipelinesOf(project)).toEqual([]);
     const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
@@ -758,6 +819,7 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
       pipelineId: projectPipeline.id,
       from,
       to: { ...from, stageChanges },
+      routes: expect.objectContaining({ stages: [] }),
     });
     expect(await aProjectPipelineNow(projectPipeline.id)).toEqual(projectPipeline);
     const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
@@ -862,6 +924,33 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
 });
+
+/** "Run Review only when Tests changed files or ended Failed, otherwise Publish", out of Tests. */
+const REVIEW_WHEN_TESTS_CHANGED_OR_FAILED = [
+  {
+    to: "review",
+    condition: {
+      combine: "any" as const,
+      tests: [
+        { kind: "stage" as const, stage: null, is: "changed" as const },
+        { kind: "stage" as const, stage: null, is: "failed" as const },
+      ],
+    },
+  },
+  { to: "publish", condition: null },
+];
+
+/** A Review Stage after Tests. */
+const REVIEW: Stage = {
+  kind: "agent",
+  key: "review",
+  name: "Review",
+  role: "developer",
+  brief: "Review the change.",
+  session: "fresh",
+  budget: 100_000,
+  optional: false,
+};
 
 /** A Lint Stage, the Project's lint command. */
 const LINT: Stage = { kind: "script", key: "lint", name: "Lint", optional: false, command: "lint" };

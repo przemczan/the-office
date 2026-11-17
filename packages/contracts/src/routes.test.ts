@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { stageProblemSchema } from "./pipelines.js";
 import {
   conditionGroupSchema,
   conditionTestSchema,
   routeSchema,
   stageChangeSchema,
+  stageProblemSchema,
   stageSchema,
 } from "./stages.js";
 
