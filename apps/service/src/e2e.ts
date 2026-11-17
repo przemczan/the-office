@@ -27,7 +27,8 @@ const E2E_MARK_PATH = "/api/e2e/marks/:mark";
 const E2E_CODEX_APPROVAL_PATH = "/api/e2e/codex-sign-ins/:engineId/approval";
 /**
  * `POST` it to set what the scripted Grafana holds for the full stats, replacing all it held: each
- * part absent answers empty, and a `failure` answers every read (`ScriptedStatsSource`). 204.
+ * part absent answers empty (the data sources both there), and a `failure` answers every read
+ * (`ScriptedStatsSource`). 204.
  */
 const E2E_STATS_SOURCE_PATH = "/api/e2e/stats-source";
 const e2ePointsSchema = z.array(z.object({ at: z.coerce.date(), value: z.number() }));
@@ -38,6 +39,9 @@ const e2eStatsSourceSchema = z.object({
       z.object({ kind: z.literal("unreachable"), problem: z.string() }),
       z.object({ kind: z.literal("rejected") }),
     ])
+    .optional(),
+  dataSources: z
+    .object({ prometheus: z.string().optional(), loki: z.string().optional() })
     .optional(),
   usage: z
     .object({

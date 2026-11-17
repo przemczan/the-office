@@ -202,8 +202,9 @@ export const fullStatsReadSchema = z.object({
 export type FullStatsRead = z.infer<typeof fullStatsReadSchema>;
 
 /**
- * GET /stats/full (spec 2.11, States): `not-on` unless Bundled Grafana is chosen and telemetry
- * isn't set by the environment; then whether Grafana starts, couldn't start, can't be reached,
+ * GET /stats/full (spec 2.11, States): `not-on` unless Bundled Grafana, or the user's own endpoint
+ * with a Grafana read address, is chosen and telemetry isn't set by the environment; then whether
+ * the bundled Grafana starts, couldn't start, can't be reached,
  * refused the read token, holds nothing The Office sent, or answered the full stats.
  */
 export const fullStatsSchema = z.discriminatedUnion("state", [
@@ -220,3 +221,30 @@ export const fullStatsSchema = z.discriminatedUnion("state", [
   fullStatsReadSchema,
 ]);
 export type FullStats = z.infer<typeof fullStatsSchema>;
+
+/**
+ * POST /stats/grafana-check (Settings › Telemetry, Test): the user's own Grafana to check, its read
+ * token left out or empty to use the saved one.
+ */
+export const grafanaCheckSchema = z.object({
+  readAddress: z.string(),
+  readToken: z.string().optional(),
+});
+export type GrafanaCheck = z.infer<typeof grafanaCheckSchema>;
+
+/** A data source the full stats read: Prometheus for the metrics, Loki for the records. */
+export const grafanaDataSourceKindSchema = z.enum(["prometheus", "loki"]);
+export type GrafanaDataSourceKind = z.infer<typeof grafanaDataSourceKindSchema>;
+
+/**
+ * What the check found: Grafana answered with both data sources, by their names in Grafana; refused
+ * the read token; can't be reached, with why in plain words; or lacks the data sources named in
+ * `missing`.
+ */
+export const grafanaCheckAnswerSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("reachable"), prometheus: z.string(), loki: z.string() }),
+  z.object({ state: z.literal("rejected") }),
+  z.object({ state: z.literal("unreachable"), problem: z.string() }),
+  z.object({ state: z.literal("no-data-sources"), missing: z.array(grafanaDataSourceKindSchema) }),
+]);
+export type GrafanaCheckAnswer = z.infer<typeof grafanaCheckAnswerSchema>;

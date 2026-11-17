@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { projectSchema, taskSchema, type NewProject, type Task } from "@the-office/contracts";
 import { screenshotScenario } from "./task-screenshots.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
@@ -158,6 +158,49 @@ function grafanaHolding(task: Task): Record<string, unknown> {
   };
 }
 
+/** A Project on a new repository with one Task, for the scripted Grafana to name. */
+async function projectWithTask(
+  request: APIRequestContext,
+  name: string,
+  label: string,
+  title: string,
+): Promise<{ readonly repository: TemporaryRepository; readonly task: Task }> {
+  const repository = await createTemporaryRepository();
+  const newProject: NewProject = {
+    name,
+    path: repository.path,
+    baseBranch: "main",
+    mark: { label, colour: "teal" },
+    installCommand: "npm ci",
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+    ],
+    installInputs: [],
+    publishingMode: "push-and-pull-request",
+    defaultPipeline: "full",
+  };
+  const added = await request.post("/api/projects", { data: newProject });
+  expect(added.status(), await added.text()).toBe(201);
+  const project = projectSchema.parse(await added.json());
+  const created = await request.post("/api/tasks", {
+    data: { title, projectId: project.id, priority: "normal" },
+  });
+  expect(created.status()).toBe(201);
+  return { repository, task: taskSchema.parse(await created.json()) };
+}
+
+/** Waits until Stats' full stats answer in `state`. */
+async function fullStatsAre(page: Page, state: string): Promise<void> {
+  await expect
+    .poll(async () => {
+      const answer = await page.request.get("/api/stats/full");
+      return ((await answer.json()) as { state: string }).state;
+    })
+    .toBe(state);
+}
+
 test.describe("the full stats from the bundled Grafana", () => {
   test.describe.configure({ mode: "serial" });
   test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
@@ -166,30 +209,12 @@ test.describe("the full stats from the bundled Grafana", () => {
   let task: Task;
 
   test.beforeAll(async ({ request }) => {
-    repository = await createTemporaryRepository();
-    const newProject: NewProject = {
-      name: "Stats full",
-      path: repository.path,
-      baseBranch: "main",
-      mark: { label: "SF", colour: "teal" },
-      installCommand: "npm ci",
-      commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
-        { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
-      ],
-      installInputs: [],
-      publishingMode: "push-and-pull-request",
-      defaultPipeline: "full",
-    };
-    const added = await request.post("/api/projects", { data: newProject });
-    expect(added.status(), await added.text()).toBe(201);
-    const project = projectSchema.parse(await added.json());
-    const created = await request.post("/api/tasks", {
-      data: { title: "Price the full stats", projectId: project.id, priority: "normal" },
-    });
-    expect(created.status()).toBe(201);
-    task = taskSchema.parse(await created.json());
+    ({ repository, task } = await projectWithTask(
+      request,
+      "Stats full",
+      "SF",
+      "Price the full stats",
+    ));
   });
 
   test.afterAll(async ({ request }) => {
@@ -205,12 +230,7 @@ test.describe("the full stats from the bundled Grafana", () => {
     test.setTimeout(120_000);
     await scriptGrafana(page, grafanaHolding(task));
     await chooseTelemetry(page, "bundled-grafana");
-    await expect
-      .poll(async () => {
-        const answer = await page.request.get("/api/stats/full");
-        return ((await answer.json()) as { state: string }).state;
-      })
-      .toBe("full");
+    await fullStatsAre(page, "full");
 
     await page.goto("/stats");
     const usage = page.getByRole("region", {
@@ -304,5 +324,108 @@ test.describe("the full stats from the bundled Grafana", () => {
     await page.getByRole("button", { name: "Try again" }).click();
     await again;
     await expect(page.getByRole("link", { name: "Settings › Telemetry" })).toBeVisible();
+  });
+});
+
+const READ_ADDRESS = "https://grafana.example.com";
+
+test.describe("the full stats from your own Grafana", () => {
+  test.describe.configure({ mode: "serial" });
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+
+  let repository: TemporaryRepository;
+  let task: Task;
+
+  test.beforeAll(async ({ request }) => {
+    ({ repository, task } = await projectWithTask(
+      request,
+      "Stats own",
+      "SO",
+      "Price your own Grafana",
+    ));
+  });
+
+  test.afterAll(async ({ request }) => {
+    await request.put("/api/settings/telemetry", { data: { kind: "off" } });
+    await request.post("/api/e2e/stats-source", { data: {} });
+    await repository.remove();
+  });
+
+  test("gives Settings › Telemetry a read address and token, tests and saves them, and Stats shows the full stats", async ({
+    page,
+  }) => {
+    // Six screenshots of a page that other files' workers slow down.
+    test.setTimeout(120_000);
+    await chooseTelemetry(page, "off");
+    await scriptGrafana(page, grafanaHolding(task));
+    await page.goto("/settings/telemetry");
+    const card = page.getByRole("form", { name: "Telemetry" });
+    await card.getByRole("radio", { name: "Your own endpoint, over OTLP/HTTP" }).check();
+    await card.getByLabel("Endpoint URL").fill("https://otlp.example.com");
+
+    const stats = card.getByRole("group", { name: "Stats", exact: true });
+    await expect(stats).toBeVisible();
+    const testButton = stats.getByRole("button", { name: "Test", exact: true });
+    await expect(testButton).toBeDisabled();
+    await expect(testButton).toHaveAttribute("title", "Give the Grafana read address to test it.");
+    await stats.getByLabel("Grafana read address").fill(READ_ADDRESS);
+    await stats.getByLabel("Read token", { exact: true }).fill("glsa_e2e-read-token");
+    await expect(card).toContainText(
+      "Stats' read address and token apply as soon as they're saved.",
+    );
+
+    await testButton.click();
+    await expect(stats.getByText(`Grafana answered at ${READ_ADDRESS}.`)).toBeVisible();
+    await expect(stats.getByText("Found Prometheus “Prometheus” and Loki “Loki”.")).toBeVisible();
+    await screenshotScenario(page, "telemetry-own-grafana", { inView: stats });
+
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/settings/telemetry") && response.request().method() === "PUT",
+    );
+    await card.getByRole("button", { name: "Save", exact: true }).click();
+    expect((await saved).ok()).toBe(true);
+    // The token never comes back: its field shows it saved.
+    await expect(stats.getByLabel("Read token", { exact: true })).toHaveAttribute(
+      "placeholder",
+      "Saved",
+    );
+    await expect(stats.getByLabel("Read token", { exact: true })).toHaveValue("");
+    await expect(stats.getByLabel("Grafana read address")).toHaveValue(READ_ADDRESS);
+    await expect(stats.getByRole("button", { name: "Remove", exact: true })).toBeVisible();
+
+    // The read address applies at once, with no restart.
+    await fullStatsAre(page, "full");
+    await page.goto("/stats");
+    const usage = page.getByRole("region", {
+      name: "Tokens and estimated cost over time",
+      exact: true,
+    });
+    await expect(usage).toBeVisible();
+    await expect(usage).toContainText("claude-sonnet-5-5");
+    await expect(
+      page.getByRole("region", { name: "The most expensive", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "The full stats", exact: true })).toHaveCount(0);
+  });
+
+  test("says when your Grafana refuses the read token, leading to Settings › Telemetry", async ({
+    page,
+  }) => {
+    await scriptGrafana(page, { failure: { kind: "rejected" } });
+    await fullStatsAre(page, "rejected");
+    await page.goto("/stats");
+
+    await expect(page.getByText("Grafana refused the read token")).toBeVisible();
+    await expect(
+      page.getByText(`Grafana at ${READ_ADDRESS} answered 401.`, { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Tokens per day", exact: true })).toBeVisible();
+
+    await page.getByRole("link", { name: "Settings › Telemetry" }).click();
+    await expect(page).toHaveURL(/\/settings\/telemetry$/);
+    await expect(
+      page.getByRole("group", { name: "Stats", exact: true }).getByLabel("Grafana read address"),
+    ).toHaveValue(READ_ADDRESS);
   });
 });

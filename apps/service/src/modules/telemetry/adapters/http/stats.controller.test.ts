@@ -4,6 +4,7 @@ import {
   basicStatsSchema,
   fullStatsReadSchema,
   fullStatsSchema,
+  grafanaCheckAnswerSchema,
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
@@ -142,8 +143,12 @@ class StatsSourcesForTests {}
 @Module({})
 class NoTelemetrySettings {}
 
-const grafanaNow: { now: () => Promise<GrafanaNow> } = {
+const grafanaNow: {
+  now: () => Promise<GrafanaNow>;
+  savedReadToken: () => Promise<string | undefined>;
+} = {
   now: () => Promise.resolve({ kind: "ready", access: { address: "http://127.0.0.1:3300" } }),
+  savedReadToken: () => Promise.resolve("saved-token"),
 };
 const statsSource = new ScriptedStatsSource();
 
@@ -251,7 +256,8 @@ describe("GET /stats/full", () => {
     const stats = fullStatsSchema.parse(await response.json());
 
     expect(response.status).toBe(200);
-    expect(statsSource.calls.find(({ kind }) => kind === "usage")?.query).toMatchObject({
+    const usage = statsSource.calls.find((call) => call.kind === "usage");
+    expect(usage?.kind === "usage" && usage.query).toMatchObject({
       split: "project",
       projectNames: ["The Office"],
     });
@@ -284,5 +290,82 @@ describe("GET /stats/full", () => {
     const response = await fetch(`${url}/api/stats/full?range=1y`);
 
     expect(response.status).toBe(400);
+  });
+});
+
+async function check(body: unknown): Promise<{ status: number; answer: unknown }> {
+  const response = await fetch(`${url}/api/stats/grafana-check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, answer: await response.json() };
+}
+
+function lastAccess(): unknown {
+  return statsSource.calls.findLast((call) => call.kind === "data-sources")?.access;
+}
+
+describe("POST /stats/grafana-check", () => {
+  it("checks the address with the read token given, trimmed", async () => {
+    statsSource.set({});
+
+    const { status, answer } = await check({
+      readAddress: " https://grafana.example.com ",
+      readToken: " glsa_new ",
+    });
+
+    expect(status).toBe(200);
+    expect(grafanaCheckAnswerSchema.parse(answer)).toEqual({
+      state: "reachable",
+      prometheus: "Prometheus",
+      loki: "Loki",
+    });
+    expect(lastAccess()).toEqual({ address: "https://grafana.example.com", token: "glsa_new" });
+  });
+
+  it("checks with the saved read token when none is given", async () => {
+    statsSource.set({});
+
+    await check({ readAddress: "https://grafana.example.com", readToken: "" });
+
+    expect(lastAccess()).toEqual({ address: "https://grafana.example.com", token: "saved-token" });
+  });
+
+  it.each([
+    [{ failure: { kind: "rejected" } }, { state: "rejected" }],
+    [
+      { failure: { kind: "unreachable", problem: "No answer within 10 seconds." } },
+      { state: "unreachable", problem: "No answer within 10 seconds." },
+    ],
+    [
+      { dataSources: { prometheus: "Prometheus" } },
+      { state: "no-data-sources", missing: ["loki"] },
+    ],
+  ] as const)("answers what the Grafana came to: %j", async (stats, expected) => {
+    statsSource.set(stats);
+
+    const { answer } = await check({ readAddress: "https://grafana.example.com" });
+
+    expect(answer).toEqual(expected);
+  });
+
+  it("answers unreachable, asking nothing, for an address that isn't http or https", async () => {
+    statsSource.set({});
+    const callsBefore = statsSource.calls.length;
+
+    const { answer } = await check({ readAddress: "ftp://grafana.example.com" });
+
+    expect(answer).toEqual({
+      state: "unreachable",
+      problem: "ftp://grafana.example.com isn't an http:// or https:// address.",
+    });
+    expect(statsSource.calls).toHaveLength(callsBefore);
+  });
+
+  it("refuses a body without a read address", async () => {
+    const { status } = await check({ readToken: "glsa" });
+
+    expect(status).toBe(400);
   });
 });

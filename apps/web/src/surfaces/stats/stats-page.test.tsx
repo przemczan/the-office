@@ -214,8 +214,22 @@ describe("Stats", () => {
     expect(message?.textContent).toContain(step);
   });
 
-  it("shows no message with Bundled Grafana chosen and no answer from it", async () => {
-    const { opened } = openStats(STATS, { ...OFF, saved: { kind: "bundled-grafana" } });
+  it.each([
+    ["Bundled Grafana", { ...OFF, saved: { kind: "bundled-grafana" } } satisfies TelemetrySettings],
+    [
+      "an own endpoint with a Grafana read address",
+      {
+        ...OFF,
+        saved: {
+          kind: "own-endpoint",
+          endpoint: "https://otel.example.com",
+          headerNames: [],
+          grafana: { readAddress: "https://grafana.example.com", hasReadToken: true },
+        },
+      } satisfies TelemetrySettings,
+    ],
+  ])("shows no message with %s chosen and no answer from it", async (_chosen, telemetry) => {
+    const { opened } = openStats(STATS, telemetry);
     const { page } = await opened;
     await until(() => expect(page.textContent).toContain("Add a filter"));
     await until(() => expect(page.textContent).toContain("Tasks done"));
