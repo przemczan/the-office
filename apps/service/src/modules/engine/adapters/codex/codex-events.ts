@@ -288,13 +288,22 @@ export interface TurnEnding {
 /** Codex's name for a turn refused because a usage window is used up. */
 const USAGE_LIMIT_EXCEEDED = "usageLimitExceeded";
 
+/** The usage windows of the account a turn ran on, as far as the session knows them. */
+export interface TurnAccount {
+  /** Whether the account has usage windows: a ChatGPT sign-in's, not an API key's. */
+  readonly usageWindows: boolean;
+  /** Its latest rate-limit reading, or undefined before any. */
+  readonly rateLimits: CodexRateLimitSnapshot | undefined;
+}
+
 /**
  * How a turn ended, as `turn/completed` says: a failed turn whose error names a used-up usage
- * window is one (spec §5.4 Defaults, Usage windows), every other failure in Codex's words.
+ * window is one on an account with usage windows (spec §5.4 Defaults, Usage windows), every
+ * other failure, an API key's used-up quota among them, in Codex's words.
  */
 export function turnEnding(
   { status, error }: CodexTurn,
-  rateLimits: CodexRateLimitSnapshot | undefined,
+  { usageWindows, rateLimits }: TurnAccount,
   now: Date,
 ): TurnEnding {
   switch (status) {
@@ -303,7 +312,7 @@ export function turnEnding(
     case "interrupted":
       return { outcome: "interrupted", errors: [] };
     case "failed": {
-      if (error?.codexErrorInfo === USAGE_LIMIT_EXCEEDED) {
+      if (usageWindows && error?.codexErrorInfo === USAGE_LIMIT_EXCEEDED) {
         return {
           outcome: "usage-window-used-up",
           errors: [error.message],

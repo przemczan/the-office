@@ -483,7 +483,11 @@ export class CodexSession implements EngineSession {
     if (turn.finishing) return;
     turn.finishing = true;
     await turn.steering;
-    const ending = turnEnding(completed, this.rateLimits, new Date());
+    const ending = turnEnding(
+      completed,
+      { usageWindows: this.parts.usageWindows, rateLimits: this.rateLimits },
+      new Date(),
+    );
     if (ending.outcome !== "completed" || this.readOutput === undefined) {
       this.endTurn(turn, ending.outcome, ending.errors, undefined, ending.usedUpWindow);
       return;

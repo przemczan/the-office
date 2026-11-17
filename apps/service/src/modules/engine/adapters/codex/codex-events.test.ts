@@ -225,13 +225,14 @@ describe("Codex's tokens", () => {
 
 describe("a Codex turn's end", () => {
   const turn = { id: "turn-1", error: null } as const;
+  const NO_READING = { usageWindows: true, rateLimits: undefined } as const;
 
   it("ends as the app-server says, a failure in its words", () => {
-    expect(turnEnding({ ...turn, status: "completed" }, undefined, NOW)).toEqual({
+    expect(turnEnding({ ...turn, status: "completed" }, NO_READING, NOW)).toEqual({
       outcome: "completed",
       errors: [],
     });
-    expect(turnEnding({ ...turn, status: "interrupted" }, undefined, NOW)).toEqual({
+    expect(turnEnding({ ...turn, status: "interrupted" }, NO_READING, NOW)).toEqual({
       outcome: "interrupted",
       errors: [],
     });
@@ -246,7 +247,7 @@ describe("a Codex turn's end", () => {
             additionalDetails: "retry",
           },
         },
-        undefined,
+        NO_READING,
         NOW,
       ),
     ).toEqual({ outcome: "failed", errors: ["stream disconnected retry"] });
@@ -263,9 +264,12 @@ describe("a Codex turn's end", () => {
           error: { message: "You've hit your usage limit.", codexErrorInfo: "usageLimitExceeded" },
         },
         {
-          limitId: "codex",
-          primary: { usedPercent: 100, windowDurationMins: 300, resetsAt },
-          secondary: { usedPercent: 40, windowDurationMins: 10080, resetsAt: resetsAt + 1000 },
+          usageWindows: true,
+          rateLimits: {
+            limitId: "codex",
+            primary: { usedPercent: 100, windowDurationMins: 300, resetsAt },
+            secondary: { usedPercent: 40, windowDurationMins: 10080, resetsAt: resetsAt + 1000 },
+          },
         },
         NOW,
       ),
@@ -281,7 +285,7 @@ describe("a Codex turn's end", () => {
           status: "failed",
           error: { message: "limit", codexErrorInfo: "usageLimitExceeded" },
         },
-        undefined,
+        NO_READING,
         NOW,
       ).usedUpWindow,
     ).toEqual({
@@ -289,6 +293,20 @@ describe("a Codex turn's end", () => {
       resetsAt: new Date(NOW.getTime() + 3_600_000),
       resetGiven: false,
     });
+  });
+
+  it("fails a turn refused for a used-up limit on an account with no usage windows, as on an API key", () => {
+    expect(
+      turnEnding(
+        {
+          ...turn,
+          status: "failed",
+          error: { message: "Quota exceeded.", codexErrorInfo: "usageLimitExceeded" },
+        },
+        { usageWindows: false, rateLimits: undefined },
+        NOW,
+      ),
+    ).toEqual({ outcome: "failed", errors: ["Quota exceeded."] });
   });
 
   it("finds no used-up window when every window has some left", () => {
@@ -302,8 +320,11 @@ describe("a Codex turn's end", () => {
           error: { message: "limit", codexErrorInfo: "usageLimitExceeded" },
         },
         {
-          primary: { usedPercent: 99, windowDurationMins: 300, resetsAt },
-          secondary: { usedPercent: 40, windowDurationMins: 10080, resetsAt },
+          usageWindows: true,
+          rateLimits: {
+            primary: { usedPercent: 99, windowDurationMins: 300, resetsAt },
+            secondary: { usedPercent: 40, windowDurationMins: 10080, resetsAt },
+          },
         },
         NOW,
       ).usedUpWindow,
