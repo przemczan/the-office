@@ -6,7 +6,7 @@ import type { Attachment } from "../../domain/attachment.js";
 import { confirmPipeline } from "../../domain/planning-changes.js";
 import { changeCommitMessage, publishCommitMessage } from "../../domain/task-commit-message.js";
 import { changeTitle } from "../../domain/task-description.js";
-import { aLink, anIdea } from "../../domain/work.fixtures.js";
+import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
@@ -15,6 +15,7 @@ import { PostgresInitiativeRepository } from "./postgres-initiative-repository.j
 import { PostgresTaskRepository } from "./postgres-task-repository.js";
 import { PostgresWorkSettings } from "./postgres-work-settings.js";
 import { engineCaps, workSettings } from "./work-settings.schema.js";
+import { taskStateChanges } from "./work.schema.js";
 import {
   aProjectId,
   startWorkRepositories,
@@ -261,5 +262,43 @@ describe("PostgresWorkSettings", () => {
 
     const withoutLab: UsageSettings = { ...kept, caps: kept.caps.slice(0, 1) };
     expect(seen).toEqual([DEFAULT_USAGE_SETTINGS, kept, 7, withoutLab, false, true, 7]);
+  });
+});
+
+function move(taskId: string, toState: "done" | "in-progress", changedAt: Date) {
+  return {
+    taskId,
+    fromState: "in-progress" as const,
+    toState,
+    changedAt,
+    changedBy: ANN_LEE,
+  };
+}
+
+describe("PostgresTaskRepository.doneSince", () => {
+  it("gives each Task moved to Done at or after the moment once, archived or moved on since", async () => {
+    const database = app.get<Database>(DATABASE);
+    const projectId = aProjectId();
+    const [twice, atTheMoment, before, notDone] = [
+      await createdTask(projectId),
+      await createdTask(projectId),
+      await createdTask(projectId),
+      await createdTask(projectId),
+    ];
+    const since = new Date("2099-03-02T00:00:00.000Z");
+    await database
+      .insert(taskStateChanges)
+      .values([
+        move(twice.id, "done", new Date("2099-03-02T08:00:00.000Z")),
+        move(twice.id, "done", new Date("2099-03-03T08:00:00.000Z")),
+        move(atTheMoment.id, "done", since),
+        move(before.id, "done", new Date("2099-03-01T23:59:59.000Z")),
+        move(notDone.id, "in-progress", new Date("2099-03-02T09:00:00.000Z")),
+      ]);
+    const ours = new Set([twice.id, atTheMoment.id, before.id, notDone.id]);
+
+    const done = (await tasks.doneSince(since)).filter((taskId) => ours.has(taskId));
+
+    expect(done.toSorted()).toEqual([twice.id, atTheMoment.id].toSorted());
   });
 });

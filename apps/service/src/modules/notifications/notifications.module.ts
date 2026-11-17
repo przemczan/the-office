@@ -11,6 +11,7 @@ import { PostgresUserActivityRepository } from "./adapters/postgres/postgres-use
 import { OfficeStatusOfficeTools } from "./adapters/office-tools/office-status-office-tools.js";
 import { RecordingPhonePush } from "./adapters/phone/recording-phone-push.js";
 import { NotificationsWebEvents } from "./adapters/websocket/notifications-web-events.js";
+import { DayTokenHistory } from "./application/day-token-history.js";
 import { NotificationDelivery } from "./application/notification-delivery.js";
 import { NotificationRouting } from "./application/notification-routing.js";
 import { NotificationService } from "./application/notification-service.js";
@@ -104,7 +105,9 @@ export class NotificationsModule {
         NotificationRouting,
         NotificationsWebEvents,
         OfficeStatusOfficeTools,
+        DayTokenHistory,
       ],
+      exports: [DayTokenHistory],
     };
   }
 }

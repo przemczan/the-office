@@ -5,6 +5,8 @@ export { StageResultWords } from "./application/stage-result-words.js";
 export { TaskGateRuns } from "./application/task-gate-runs.js";
 export { TaskStagesService } from "./application/task-stages-service.js";
 export { UsageHistory } from "./application/usage-history.js";
+export { StageRunTotals } from "./application/stage-run-totals.js";
+export type { StartedStageRun } from "./ports/stage-run-repository.js";
 export type { StageUsage, StageUsages } from "./domain/usage-history.js";
 export {
   DefinitionOfDoneNotMet,

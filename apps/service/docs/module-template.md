@@ -1,6 +1,6 @@
 # The module template
 
-A module is a bounded context of [spec §5.3](../../../docs/spec/5.3-modules.md), named as there: `work`, `people`, `pipelines`, `conversations`, `projects`, `engine`, `skills`, `notifications`. Telemetry, the spec's last one, is shared plumbing and lives in `src/platform/telemetry/`.
+A module is a bounded context of [spec §5.3](../../../docs/spec/5.3-modules.md), named as there: `work`, `people`, `pipelines`, `conversations`, `projects`, `engine`, `skills`, `notifications`, `telemetry`. Telemetry, the spec's last one, is a module for Stats alone (its Nest module `StatsModule`); its shared plumbing (the exporters, `Telemetry`, the logger) lives in `src/platform/telemetry/`.
 
 ```
 src/modules/work/

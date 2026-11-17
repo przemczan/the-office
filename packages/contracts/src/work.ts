@@ -3,7 +3,7 @@ import { webEventSchema } from "./events.js";
 import { engineIdSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
 import { pageQuerySchema, pageSchemaOf } from "./paging.js";
-import type { ProjectFilter } from "./project-filter.js";
+import { projectFilterParamSchema } from "./project-filter.js";
 import { userRefSchema } from "./users.js";
 
 /**
@@ -167,17 +167,6 @@ export const archivedInitiativesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   project: projectFilterParamSchema(),
 });
-
-/** The Project filter as a query's `project` parameters, one per Project; none is every Project. */
-function projectFilterParamSchema() {
-  return z
-    .union([z.string(), z.array(z.string())])
-    .optional()
-    .transform((project): ProjectFilter => {
-      const projectIds = typeof project === "string" ? [project] : (project ?? []);
-      return projectIds.length === 0 ? "all" : projectIds;
-    });
-}
 export type ArchivedInitiativesQuery = z.infer<typeof archivedInitiativesQuerySchema>;
 
 /** An archived Initiative with its final count: its Tasks done of those it kept (not Dropped). */
@@ -826,13 +815,7 @@ export type SearchQuery = z.infer<typeof searchQuerySchema>;
  * each, every Project when none is named.
  */
 export const searchEverythingQuerySchema = searchQuerySchema.extend({
-  project: z
-    .union([z.string(), z.array(z.string())])
-    .optional()
-    .transform((project): ProjectFilter => {
-      const projectIds = typeof project === "string" ? [project] : (project ?? []);
-      return projectIds.length === 0 ? "all" : projectIds;
-    }),
+  project: projectFilterParamSchema(),
 });
 export type SearchEverythingQuery = z.infer<typeof searchEverythingQuerySchema>;
 

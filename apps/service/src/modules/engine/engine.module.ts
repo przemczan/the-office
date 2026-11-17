@@ -20,6 +20,7 @@ import { RemovedEngineUsage } from "./application/removed-engine-usage.js";
 import { UsageWindowSamples } from "./application/usage-window-samples.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import { UsageWindowTelemetry } from "./application/usage-window-telemetry.js";
+import { UsageWindowsNow } from "./application/usage-windows-now.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
 import { DayUsageRepository } from "./ports/day-usage-repository.js";
 import { SessionLanguageServers } from "./ports/session-language-servers.js";
@@ -59,6 +60,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
     RemovedEngineUsage,
     ChangedAccountUsage,
     UsageWindowTelemetry,
+    UsageWindowsNow,
     { provide: SessionLanguageServers, useClass: WorkstationLanguageServers },
     EngineSessions,
   ],
@@ -67,6 +69,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
     OfficeToolRegistry,
     UsageWindowState,
     UsageWindowSamples,
+    UsageWindowsNow,
     DayUsage,
     EngineSettingsModule,
   ],

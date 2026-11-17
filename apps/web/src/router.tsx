@@ -22,6 +22,7 @@ import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
+import { StatsPage } from "./surfaces/stats/stats-page.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
@@ -417,6 +418,13 @@ const projectsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const statsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "stats",
+  component: StatsPage,
+  staticData: { title: "Stats" },
+});
+
 const liveViewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "live-view",
@@ -712,6 +720,7 @@ export const router = createRouter({
       projectServerValuesRoute,
       projectAppearanceRoute,
     ]),
+    statsRoute,
     liveViewRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,

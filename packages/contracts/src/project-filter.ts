@@ -13,3 +13,14 @@ export function isInProjectFilter(projectIds: readonly string[], filter: Project
     filter === "all" || projectIds.length === 0 || projectIds.some((id) => filter.includes(id))
   );
 }
+
+/** The Project filter as a query's `project` parameters, one per Project; none is every Project. */
+export function projectFilterParamSchema() {
+  return z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((project): ProjectFilter => {
+      const projectIds = typeof project === "string" ? [project] : (project ?? []);
+      return projectIds.length === 0 ? "all" : projectIds;
+    });
+}

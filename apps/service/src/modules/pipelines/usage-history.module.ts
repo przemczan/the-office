@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { EngineModule } from "../engine/index.js";
 import { PostgresStageRunRepository } from "./adapters/postgres/postgres-stage-run-repository.js";
 import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-stages-repository.js";
+import { StageRunTotals } from "./application/stage-run-totals.js";
 import { StageResultWords } from "./application/stage-result-words.js";
 import { TaskGateRuns } from "./application/task-gate-runs.js";
 import { UsageHistory } from "./application/usage-history.js";
@@ -21,7 +22,15 @@ import { TaskStagesRepository } from "./ports/task-stages-repository.js";
     StageResultWords,
     TaskGateRuns,
     UsageHistory,
+    StageRunTotals,
   ],
-  exports: [StageResultWords, TaskGateRuns, StageRunRepository, TaskStagesRepository, UsageHistory],
+  exports: [
+    StageResultWords,
+    TaskGateRuns,
+    StageRunRepository,
+    TaskStagesRepository,
+    UsageHistory,
+    StageRunTotals,
+  ],
 })
 export class UsageHistoryModule {}

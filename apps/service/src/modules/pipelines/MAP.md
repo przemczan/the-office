@@ -62,7 +62,7 @@
 
 ## Public entry (`index.ts`)
 
-AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateRuns, TaskStagesService, UsageHistory, StageUsage, StageUsages, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, UsageHistoryModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
+AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateRuns, TaskStagesService, UsageHistory, StageRunTotals, StartedStageRun, StageUsage, StageUsages, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, UsageHistoryModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
 
 ## Domain events
 
@@ -172,7 +172,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `stage-runs.schema.ts`: stageRuns
 - `stage-templates.schema.ts`: stageTemplates
 - `task-stages.schema.ts`: taskStages
-- Tests: postgres-project-pipeline-repository.test.ts, set-up-brief-migration.test.ts, stage-duties-migration.test.ts
+- Tests: postgres-project-pipeline-repository.test.ts, postgres-stage-run-repository.test.ts, set-up-brief-migration.test.ts, stage-duties-migration.test.ts
 
 ### adapters/websocket/
 
@@ -205,6 +205,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `stage-result-words.ts`: HandoverNoteWords, StageResultWords
 - `stage-run-environment-definitions.ts`: StageRunEnvironmentDefinitions
 - `stage-run-interruption.ts`: StageRunInterruption
+- `stage-run-totals.ts`: StageRunTotals
 - `stage-run-waits.ts`: StageRunWaits
 - `stage-runner.ts`: StageOfKind, StageWork, StageRunner
 - `stage-runners.ts`: StageRunners
@@ -281,7 +282,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-decisions.ts`: StageDecisionRequest, OpenedStageDecision, StageDecisions
 - `stage-role-engines.ts`: NewlyNamedStageRoles, StageRoleEngines
-- `stage-run-repository.ts`: StageRunThread, StageRunRepository
+- `stage-run-repository.ts`: StageRunThread, StartedStageRun, StageRunRepository
 - `stage-template-repository.ts`: StageTemplateRepository
 - `stage-thread-messages.ts`: StageRunThreadWindow, StageThreadMessages
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads

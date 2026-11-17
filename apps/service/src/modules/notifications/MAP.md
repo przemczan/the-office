@@ -2,7 +2,7 @@
 
 **Owns:** Notifications (`notifications`): the kinds tree and routing resolved from the nearest level (`domain/notification-kinds.ts`), the routing the user sets in Settings › Notifications, by level and channel (`NotificationRouting`, `notification_routing`, seeded with ticket 20's defaults), each Notification raised from another module's event with its content and the channels the stored routing gives it, Outcomes landing close together collapsed into one, and cleared once the user handles what it points to, or once the Decision it points to is closed as its Task was dropped or, on no Task, its Initiative ended (`DecisionClosed`, which also announces Now again) (`NotificationService`); the delivery rules, pure in `domain/delivery.ts`, and their timing (`notification_timing`, one row: the at-desk hold, the away delay, batching, quiet hours), applied by `NotificationDelivery`: the desktop and phone held inside quiet hours with one summary at their end, the phone waiting while any user is at the desk (The Office is away only when every user is: the latest activity of any user decides), sent through the `PhonePush` port (`RecordingPhonePush` until task 28's Web Push); and Now and the status strip as one read model shared by every user (`NowService`, pushed whole as `now.changed`), with each user's own Since you left beside it (`GET /now/since-you-left` for the requester: where their last absence began and the outcomes since), and what only events tell, kept in its own tables: each started Task's outcomes (`task_outcomes`), each user's activity by their id, which says where their Since you left begins (`user_activity`), and tokens by day (`day_tokens`, measured from `thread_token_counts`).
 
-**Talks to:** nothing calls it. It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `StartQueue` to Work's `QueueService` (Now's queue, first place first), `OfficeInitiatives` to Work's `InitiativeService` (Now's Shaping: the Initiatives in Shaping, oldest first, with their Tasks so far, announced again on Work's Initiative and Task membership events and People's duty and hiring events), `KnownPeople` to People's `RoleCards` (`holderOf(duty)` alone: whoever holds Default person to talk to speaks the Office kinds, the Caretaker while nobody does; whoever shapes Initiatives tells an Initiative done, the UI's voice while nobody does, and is Now's shaper of each Initiative in Shaping, none while nobody does), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`, `OfficeFireAlarm` to Work's `FireAlarmService` and `ResumePlans` to Pipelines' `AlarmResumes`: while the alarm is on, Now carries it (`Now.fireAlarm`: stopping until each Task it paused has a plan, then each plan and the total), read afresh on every read, since a cache cools with no event. The `show_office_status` of whoever holds Default person to talk to (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own. Office-updates' `OfficeUpdated` and `OfficeUpdateFailed` raise `office.update.done` and `office.update.failed`, pointing at Settings › Updates (`office-update`), whose page activity handles them, as does the next result.
+**Talks to:** only Telemetry's Stats calls it, reading tokens by day through `DayTokenHistory` (`lastDays`: the last office days ending today, a day with no count all zero). It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `StartQueue` to Work's `QueueService` (Now's queue, first place first), `OfficeInitiatives` to Work's `InitiativeService` (Now's Shaping: the Initiatives in Shaping, oldest first, with their Tasks so far, announced again on Work's Initiative and Task membership events and People's duty and hiring events), `KnownPeople` to People's `RoleCards` (`holderOf(duty)` alone: whoever holds Default person to talk to speaks the Office kinds, the Caretaker while nobody does; whoever shapes Initiatives tells an Initiative done, the UI's voice while nobody does, and is Now's shaper of each Initiative in Shaping, none while nobody does), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`, `OfficeFireAlarm` to Work's `FireAlarmService` and `ResumePlans` to Pipelines' `AlarmResumes`: while the alarm is on, Now carries it (`Now.fireAlarm`: stopping until each Task it paused has a plan, then each plan and the total), read afresh on every read, since a cache cools with no event. The `show_office_status` of whoever holds Default person to talk to (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own. Office-updates' `OfficeUpdated` and `OfficeUpdateFailed` raise `office.update.done` and `office.update.failed`, pointing at Settings › Updates (`office-update`), whose page activity handles them, as does the next result.
 
 **Traps:**
 - In-app and the desktop live in the browser: the service routes each Notification and sends it, with its channels and those quiet hours hold, as `notification.raised` (with the ids it `replaces`: a collapse takes the place of the Outcome or the collapse shown before); the web's channel adapters show it and ignore `phone`. The phone is a channel outside the browser, pushed through `PhonePush` here.
@@ -25,7 +25,7 @@
 
 ## Public entry (`index.ts`)
 
-NotificationsModule
+NotificationsModule, DayTokenHistory, DayTokens
 
 ## Domain events
 
@@ -79,6 +79,7 @@ NotificationsModule
 - `postgres-office-day-figures.ts`: PostgresOfficeDayFigures
 - `postgres-task-outcome-repository.ts`: PostgresTaskOutcomeRepository
 - `postgres-user-activity-repository.ts`: PostgresUserActivityRepository
+- Tests: postgres-office-day-figures.test.ts
 
 ### adapters/websocket/
 
@@ -86,11 +87,12 @@ NotificationsModule
 
 ### application/
 
+- `day-token-history.ts`: DayTokens, DayTokenHistory
 - `notification-delivery.ts`: NotificationDelivery
 - `notification-routing.ts`: NotificationRouting
 - `notification-service.ts`: Page, NotificationService
 - `now-service.ts`: NowService
-- Tests: notification-delivery.full.test.ts, notification-service.full.test.ts, now-service.full.test.ts, now-service.test.ts, since-you-left.test.ts, test-project-check.test.ts
+- Tests: day-token-history.full.test.ts, notification-delivery.full.test.ts, notification-service.full.test.ts, now-service.full.test.ts, now-service.test.ts, since-you-left.test.ts, test-project-check.test.ts
 
 ### domain/
 

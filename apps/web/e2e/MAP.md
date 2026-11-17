@@ -48,6 +48,7 @@
 - `skill-source.ts`: SkillSource, SkillRelease, createSkillSource
 - `skills.e2e.ts`
 - `ssh-host.ts`: E2E_HOST_KEY, E2E_HOST_KEY_FINGERPRINT, hostKeyVariables
+- `stats.e2e.ts`
 - `task-screenshots.ts`: TASK_SCREENSHOTS, screenshotScenario
 - `temporary-repository.ts`: TemporaryRepository, createTemporaryRepository, TemporaryRepositoryWithRemote, createTemporaryRepositoryWithRemote, fileOnRemote, commitFiles, commitOnTaskBranch, addTaskWorktree
 - `top-bar.ts`: createFromTopBar, openUserMenu

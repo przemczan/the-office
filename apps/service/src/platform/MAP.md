@@ -182,7 +182,7 @@
 - `telemetry-settings.ts`: TELEMETRY_VARIABLES, TelemetryInEffect, TELEMETRY_OFF, telemetrySetByEnvironment, telemetrySettingsFrom, isSetByEnvironment, runningTelemetryOf, sameTelemetry
 - `telemetry.fixtures.ts`: CollectingMetricReader, setUp
 - `telemetry.module.ts`: TelemetryModule
-- `telemetry.ts`: TelemetryAttributes, TelemetrySpan, TokenUsage, TraceRoot, UsageWindowAttribute, Telemetry
+- `telemetry.ts`: TelemetryAttributes, TelemetrySpan, TokenUsage, TraceRoot, TELEMETRY_SCOPE, UsageWindowAttribute, Telemetry
 - Tests: export-timeout.full.test.ts, office-logger.full.test.ts, office-logger.test.ts, start-telemetry.test.ts, telemetry-settings.controller.test.ts, telemetry-settings.test.ts, telemetry.full.test.ts, telemetry.test.ts
 
 ### telemetry/bundled-grafana/

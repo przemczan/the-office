@@ -23,6 +23,14 @@ export interface StageRunThread {
   readonly model: string;
 }
 
+/** A Stage run's tokens, and whether its Stage already had a run on the same Task before it. */
+export interface StartedStageRun {
+  readonly taskId: string;
+  readonly tokens: StageTokens;
+  /** True when an earlier run (a lower number) of the same Stage on the same Task exists. */
+  readonly retry: boolean;
+}
+
 /** Where each Task's Stage runs are kept. */
 export abstract class StageRunRepository {
   /**
@@ -87,4 +95,10 @@ export abstract class StageRunRepository {
    * before whole outputs were kept gives the filtered output it has. Undefined for no such run.
    */
   abstract commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined>;
+
+  /**
+   * Every run started at or after `since`, of any Task; a retry counts even when its Stage's first
+   * run started before `since`.
+   */
+  abstract startedSince(since: Date): Promise<readonly StartedStageRun[]>;
 }

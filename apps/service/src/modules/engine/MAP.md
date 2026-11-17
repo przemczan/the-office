@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-EngineSessions, EngineCapability, OfficeToolRegistry, FOLLOW_YOUR_AUTHORITY, officeActionTool, CommandJudgement, OfficeTool, OfficeToolCall, OfficeToolPicture, OfficeToolResult, UsageWindowState, UsageWindowReading, UsedUpUsageWindow, UsageWindowSamples, UsageWindowRatios, EngineAdded, EngineDown, EngineRemoved, SkillCalled, UsageWindowReset, UsageWindowsChanged, UsageWindowsRead, UsageWindowUsedUp, EngineModels, usageWindowWords, UsageWindowName, EngineSettingsChecks, EngineCascadeSettings, EngineSettingsSave, EngineReferenceMoves, EngineReferences, EngineReferenceLock, movedEngineModel, movedEngineReference, EngineRemoval, MovedEngineReference, FIRST_CLAUDE_CODE_ENGINE, hasUsageWindows, offeredModels, Engine, EngineId, EngineModel, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL, RUN_PROJECT_COMMAND_TOOL, EngineModule, EngineAccountsModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, ClaudeCodeAccounts, StandInClaudeCodeAccounts, CodexAccounts, StandInCodexAccounts, OPENAI_COMPATIBLE_API_CAPABILITIES, CODEX_CAPABILITIES, NewSession, NoEngineListed, EngineSession, ApprovalCall, ApprovalHold
+EngineSessions, EngineCapability, OfficeToolRegistry, FOLLOW_YOUR_AUTHORITY, officeActionTool, CommandJudgement, OfficeTool, OfficeToolCall, OfficeToolPicture, OfficeToolResult, UsageWindowState, UsageWindowReading, UsedUpUsageWindow, UsageWindowSamples, UsageWindowsNow, EngineUsageWindowsNow, EngineWindowsNow, UsageWindowRatios, EngineAdded, EngineDown, EngineRemoved, SkillCalled, UsageWindowReset, UsageWindowsChanged, UsageWindowsRead, UsageWindowUsedUp, EngineModels, usageWindowWords, UsageWindowName, EngineSettingsChecks, EngineCascadeSettings, EngineSettingsSave, EngineReferenceMoves, EngineReferences, EngineReferenceLock, movedEngineModel, movedEngineReference, EngineRemoval, MovedEngineReference, FIRST_CLAUDE_CODE_ENGINE, hasUsageWindows, offeredModels, Engine, EngineId, EngineModel, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL, RUN_PROJECT_COMMAND_TOOL, EngineModule, EngineAccountsModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, ClaudeCodeAccounts, StandInClaudeCodeAccounts, CodexAccounts, StandInCodexAccounts, OPENAI_COMPATIBLE_API_CAPABILITIES, CODEX_CAPABILITIES, NewSession, NoEngineListed, EngineSession, ApprovalCall, ApprovalHold
 
 ## Domain events
 
@@ -242,7 +242,8 @@ EngineSessions, EngineCapability, OfficeToolRegistry, FOLLOW_YOUR_AUTHORITY, off
 - `usage-window-samples.ts`: UsageWindowSamples
 - `usage-window-state.ts`: UsageWindowReading, UsedUpUsageWindow, UsageWindowState
 - `usage-window-telemetry.ts`: UsageWindowTelemetry
-- Tests: agent-engines.test.ts, changed-account-usage.full.test.ts, engine-sessions.full.test.ts, engine-sessions.test.ts, model-prices.full.test.ts, office-tool-registry.full.test.ts, removed-engine-usage.full.test.ts, usage-window-samples.full.test.ts, usage-window-state.full.test.ts, usage-window-telemetry.full.test.ts, usage-window-used-up.test.ts
+- `usage-windows-now.ts`: EngineWindowsNow, EngineUsageWindowsNow, UsageWindowsNow
+- Tests: agent-engines.test.ts, changed-account-usage.full.test.ts, engine-sessions.full.test.ts, engine-sessions.test.ts, model-prices.full.test.ts, office-tool-registry.full.test.ts, removed-engine-usage.full.test.ts, usage-window-samples.full.test.ts, usage-window-state.full.test.ts, usage-window-telemetry.full.test.ts, usage-window-used-up.test.ts, usage-windows-now.full.test.ts
 
 ### domain/
 

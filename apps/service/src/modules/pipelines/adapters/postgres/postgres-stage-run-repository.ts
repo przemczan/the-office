@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, getTableColumns, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, exists, getTableColumns, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.js";
 import type {
@@ -12,7 +13,11 @@ import type {
   AskedInterruption,
   HoldingUser,
 } from "../../domain/stage-run.js";
-import { StageRunRepository, type StageRunThread } from "../../ports/stage-run-repository.js";
+import {
+  StageRunRepository,
+  type StageRunThread,
+  type StartedStageRun,
+} from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
 
 const { commandOutputs: _readOnlyByRun, ...stageRunColumns } = getTableColumns(stageRuns);
@@ -120,6 +125,28 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .where(inArray(stageRuns.taskId, [...taskIds]))
       .orderBy(asc(stageRuns.taskId), asc(stageRuns.number));
     return rows.map(stageRunOf);
+  }
+
+  async startedSince(since: Date): Promise<readonly StartedStageRun[]> {
+    const earlier = alias(stageRuns, "earlier");
+    const earlierRun = this.database
+      .select({ one: sql`1` })
+      .from(earlier)
+      .where(
+        and(
+          eq(earlier.taskId, stageRuns.taskId),
+          eq(earlier.stageKey, stageRuns.stageKey),
+          lt(earlier.number, stageRuns.number),
+        ),
+      );
+    return this.database
+      .select({
+        taskId: stageRuns.taskId,
+        tokens: stageRuns.tokens,
+        retry: sql<boolean>`${exists(earlierRun)}`,
+      })
+      .from(stageRuns)
+      .where(gte(stageRuns.startedAt, since));
   }
 
   async commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined> {
