@@ -1,0 +1,21 @@
+{"step":"start","brief":{"id":"fabe9ecb-8d7f-4b5a-8251-6a3cc87614b9","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"context-read","tokens":8825}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8825,"output":28,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-840995f2-8b47-480b-a441-bd837139f5c1","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"send","message":{"id":"1bfaee48-f9ce-4dcf-b2c4-aab5db72eb98","text":"Reply with the single word: later"},"priority":"later"}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-840995f2-8b47-480b-a441-bd837139f5c1","text":"Go on.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8945}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9066,"output":53,"cacheRead":8704,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9013}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9375,"output":58,"cacheRead":17408,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["fabe9ecb-8d7f-4b5a-8251-6a3cc87614b9"],"usage":{"input":9375,"output":58,"cacheRead":17408,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"text","text":"later","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9031}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":199,"output":5,"cacheRead":8832,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["1bfaee48-f9ce-4dcf-b2c4-aab5db72eb98"],"usage":{"input":199,"output":5,"cacheRead":8832,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

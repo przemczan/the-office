@@ -1,0 +1,8 @@
+{"step":"start","brief":{"id":"81ae8540-f59d-45db-81db-331140ad7cc6","text":"Reply with the single word: ok"}}
+{"step":"event","event":{"kind":"text","text":"ok","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8803}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":1379,"output":5,"cacheRead":7424,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["81ae8540-f59d-45db-81db-331140ad7cc6"],"usage":{"input":1379,"output":5,"cacheRead":7424,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":8808,"window":258400}}
+{"step":"end"}

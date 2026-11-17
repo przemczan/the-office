@@ -309,6 +309,7 @@ async function startOn(
         "agent-sdk": engine,
         "claude-code-p": new ScriptedEngine([]),
         "openai-compatible-api": api?.engine ?? new ScriptedEngine([]),
+        codex: new ScriptedEngine([]),
       }),
       // Signed in with GitHub, as the app may be, so a session holding the token would show.
       GitHubModule.register(),

@@ -135,6 +135,7 @@
 
 ### os/
 
+- `codex-build.ts`: codexBuild
 - `current-operating-system.ts`: currentOperatingSystem, processorArchitecture
 - `linux-processes.ts`: LinuxProcess, hasEnded, processFromStat, runningInGroup
 - `linux.ts`: linux
@@ -147,7 +148,7 @@
 - `program.ts`: Program, startProgram, isOnPath
 - `shell.ts`: AgentShell, ShellProgram, AgentShellProgram, Shell, ShellInvocation, FailedShellCommand
 - `windows.ts`: windows, programOf, programCandidates
-- Tests: current-operating-system.full.test.ts, current-operating-system.test.ts, linux-processes.full.test.ts, linux.full.test.ts, linux.test.ts, move-when-free.full.test.ts, move-when-free.test.ts, program.full.test.ts, program.test.ts, windows.full.test.ts, windows.test.ts
+- Tests: codex-build.test.ts, current-operating-system.full.test.ts, current-operating-system.test.ts, linux-processes.full.test.ts, linux.full.test.ts, linux.test.ts, move-when-free.full.test.ts, move-when-free.test.ts, program.full.test.ts, program.test.ts, windows.full.test.ts, windows.test.ts
 
 ### paging/
 

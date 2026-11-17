@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { win32 } from "node:path";
+import { codexBuild } from "./codex-build.js";
 import type { OperatingSystem, SshPrograms, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
 import type { ProcessTrees } from "./process-trees.js";
@@ -50,6 +51,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
       "claude",
     ),
     claudeCodeBinaries: [`win32-${process.arch}/claude.exe`],
+    codexBinary: codexBuild("win32", "pc-windows-msvc", "codex.exe"),
     secretPaths: [
       win32.join(homeDirectory, ".ssh"),
       win32.join(

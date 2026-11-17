@@ -78,6 +78,7 @@ function engineOf({
   models,
 }: EngineRow): Engine {
   if (kind === "claude-code") return { id, name, kind, defaultModel, claudeCodeP };
+  if (kind === "codex") return { id, name, kind, defaultModel };
   return {
     id,
     name,
@@ -92,13 +93,18 @@ function engineOf({
 function engineRowOf(engine: Engine, position: number): EngineRow {
   const { id, name, kind, defaultModel } = engine;
   const common = { id, position, name, kind, defaultModel };
-  return engine.kind === "claude-code"
-    ? { ...common, claudeCodeP: engine.claudeCodeP, baseUrl: null, key: null, models: null }
-    : {
+  switch (engine.kind) {
+    case "claude-code":
+      return { ...common, claudeCodeP: engine.claudeCodeP, baseUrl: null, key: null, models: null };
+    case "codex":
+      return { ...common, claudeCodeP: false, baseUrl: null, key: null, models: null };
+    case "openai-compatible-api":
+      return {
         ...common,
         claudeCodeP: false,
         baseUrl: engine.baseUrl,
         key: engine.key,
         models: engine.models,
       };
+  }
 }

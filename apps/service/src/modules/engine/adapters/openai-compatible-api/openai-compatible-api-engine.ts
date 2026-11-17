@@ -29,7 +29,7 @@ import { ReadFiles } from "./built-in-tool.js";
 import { ChatCompletionsClient } from "./chat-completions-client.js";
 import type { ChatMessage } from "./chat-completions.js";
 import { ConversationFile } from "./conversation-file.js";
-import { listedSkills, modelListing } from "./listed-skills.js";
+import { listedSkills, modelListing } from "../skills/listed-skills.js";
 import { projectInstructions } from "./project-instructions.js";
 import { SessionTools } from "./session-tools.js";
 import { systemPrompt } from "./system-prompt.js";

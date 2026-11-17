@@ -95,6 +95,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
             "agent-sdk": engine,
             "claude-code-p": engine,
             "openai-compatible-api": engine,
+            codex: engine,
           }),
           new Telemetry(tracing.getTracer("the-office"), metering.getMeter("the-office")),
           events,

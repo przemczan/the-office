@@ -61,6 +61,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
     model: MODEL,
     timeoutMs: 180_000,
     mcpServer: CONTRACT_MCP_SERVER,
+    backgroundCommands: true,
     // A refused turn is seen live only while the account's window is used up (apps/service/docs/testing.md).
     usageWindowUsedUp: process.env["OFFICE_ENGINE_USAGE_WINDOW_USED_UP"] === "1",
     engineFor: () => Promise.resolve(liveEngine()),

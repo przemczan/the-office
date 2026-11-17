@@ -134,6 +134,7 @@ function setUp(
       "agent-sdk": new ScriptedEngine(scripts, capabilities),
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -230,6 +231,7 @@ function twoEngines(scripts: {
       "agent-sdk": agentSdk,
       "claude-code-p": claudeCodeP,
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
     }),
   };
 }
@@ -340,6 +342,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         "agent-sdk": new ScriptedEngine([ONE_TURN, ONE_TURN]),
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
         "openai-compatible-api": new ScriptedEngine([ONE_TURN], { usageWindows: false }),
+        codex: new ScriptedEngine([]),
       });
 
       await oneTurn(sessions, SETTINGS);

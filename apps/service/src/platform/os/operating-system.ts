@@ -41,6 +41,12 @@ export interface OperatingSystem {
    * SDK, as `<package suffix>/<executable>`, in the order the SDK tries them (spec §5.4 Defaults).
    */
   readonly claudeCodeBinaries: readonly string[];
+  /**
+   * The native Codex binary of the pinned `@openai/codex`, in the platform package npm installs
+   * beside it, as `<package suffix>/<path in the package>`, as its launcher finds it (spec §5.4
+   * Defaults); undefined on a processor Codex has no build for.
+   */
+  readonly codexBinary: string | undefined;
   /** The OpenSSH programs The Office's git runs: on Windows, the ones Git for Windows bundles. */
   readonly sshPrograms: SshPrograms;
   /** Whether the system reports a load average: Node's `loadavg()` gives zeros on Windows. */

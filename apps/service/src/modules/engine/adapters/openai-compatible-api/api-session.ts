@@ -27,8 +27,8 @@ import type {
   ToolMessage,
 } from "./chat-completions.js";
 import type { Completion } from "./completion-assembly.js";
-import type { ListedSkill } from "./listed-skills.js";
-import { skillCommandText } from "./skill-tool.js";
+import type { ListedSkill } from "../skills/listed-skills.js";
+import { skillCommandText } from "../skills/skill-loading.js";
 import type { ConversationFile } from "./conversation-file.js";
 import type { SessionTools } from "./session-tools.js";
 import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";

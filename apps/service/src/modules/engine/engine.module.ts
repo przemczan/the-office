@@ -4,6 +4,7 @@ import { Module } from "@nestjs/common";
 import { McpClientModule } from "../../platform/mcp/mcp-client.module.js";
 import { AgentSdkEngine } from "./adapters/agent-sdk/agent-sdk-engine.js";
 import { ClaudeCodePEngine } from "./adapters/claude-code-p/claude-code-p-engine.js";
+import { CodexAppServerEngine } from "./adapters/codex/codex-engine.js";
 import { SessionEndpoints } from "./adapters/claude-code-p/session-endpoints.js";
 import { SessionEndpointsController } from "./adapters/http/session-endpoints.controller.js";
 import { WorkstationLanguageServers } from "./adapters/language-servers/workstation-language-servers.js";
@@ -30,19 +31,22 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
     SessionEndpoints,
     ClaudeCodePEngine,
     OpenAiCompatibleApiEngine,
+    CodexAppServerEngine,
     {
       provide: AgentEngines,
       useFactory: (
         agentSdk: AgentSdkEngine,
         claudeCodeP: ClaudeCodePEngine,
         openAiCompatibleApi: OpenAiCompatibleApiEngine,
+        codex: CodexAppServerEngine,
       ) =>
         new AgentEngines({
           "agent-sdk": agentSdk,
           "claude-code-p": claudeCodeP,
           "openai-compatible-api": openAiCompatibleApi,
+          codex,
         }),
-      inject: [AgentSdkEngine, ClaudeCodePEngine, OpenAiCompatibleApiEngine],
+      inject: [AgentSdkEngine, ClaudeCodePEngine, OpenAiCompatibleApiEngine, CodexAppServerEngine],
     },
     OfficeToolRegistry,
     UsageWindowState,

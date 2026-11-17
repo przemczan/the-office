@@ -7,11 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { fakeStdioMcpServer } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
-import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../domain/engines.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-engine.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
+import { CODEX_CAPABILITIES } from "../codex/codex-engine.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { RecordingEngine } from "./recording-engine.js";
 import { ScriptedEngine, ScriptMismatch } from "./scripted-engine.js";
@@ -23,6 +24,14 @@ import {
 } from "./session-script.js";
 
 const RECORDINGS = fileURLToPath(new URL("./recordings/", import.meta.url));
+const CODEX_RECORDINGS = join(RECORDINGS, "codex");
+
+const CODEX_ENGINE: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+};
 
 const NO_CAPABILITY: EngineCapabilities = {
   bargeIn: false,
@@ -41,6 +50,7 @@ describeAgentEngineContract("ScriptedEngine replaying the recordings", {
   model: "scripted",
   timeoutMs: 5000,
   mcpServer: CONTRACT_MCP_SERVER,
+  backgroundCommands: true,
   usageWindowUsedUp: true,
   failedTurns: true,
   engineFor: async (scenario) =>
@@ -53,10 +63,25 @@ describeAgentEngineContract("ScriptedEngine without capabilities", {
   model: "scripted",
   timeoutMs: 5000,
   mcpServer: CONTRACT_MCP_SERVER,
+  backgroundCommands: true,
   usageWindowUsedUp: true,
   failedTurns: true,
   engineFor: async (scenario) =>
     new ScriptedEngine(await readRecording(join(RECORDINGS, `${scenario}.jsonl`)), NO_CAPABILITY),
+});
+
+describeAgentEngineContract("ScriptedEngine replaying the Codex recordings", {
+  capabilities: CODEX_CAPABILITIES,
+  engine: CODEX_ENGINE,
+  model: "gpt-6-luna",
+  timeoutMs: 5000,
+  mcpServer: CONTRACT_MCP_SERVER,
+  backgroundCommands: false,
+  engineFor: async (scenario) =>
+    new ScriptedEngine(
+      await readRecording(join(CODEX_RECORDINGS, `${scenario}.jsonl`)),
+      CODEX_CAPABILITIES,
+    ),
 });
 
 let folder: string;

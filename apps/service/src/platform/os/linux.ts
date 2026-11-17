@@ -1,6 +1,7 @@
 import { chmod } from "node:fs/promises";
 import { posix } from "node:path";
 import { setTimeout } from "node:timers/promises";
+import { codexBuild } from "./codex-build.js";
 import { runningInGroup } from "./linux-processes.js";
 import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
@@ -48,6 +49,8 @@ export function linux({
       const builds = [`linux-${process.arch}`, `linux-${process.arch}-musl`];
       return (hasGlibc() ? builds : builds.toReversed()).map((build) => `${build}/claude`);
     },
+    // Codex ships one Linux build per processor, linked against musl.
+    codexBinary: codexBuild("linux", "unknown-linux-musl", "codex"),
     secretPaths: [
       posix.join(homeDirectory, ".ssh"),
       posix.join(

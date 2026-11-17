@@ -80,6 +80,9 @@ function response(settings: EngineSettings): EngineSettingsResponse {
 
 function engineResponse(engine: Engine): EngineResponse {
   if (engine.kind === "claude-code") return { ...engine };
+  if (engine.kind === "codex") {
+    throw new Error(`The contract has no Codex engine yet, so ${engine.id} can't be answered.`);
+  }
   const { key, models, ...rest } = engine;
   return {
     ...rest,

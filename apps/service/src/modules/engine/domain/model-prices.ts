@@ -98,7 +98,8 @@ export function priceOf(
   const own = prices.find((each) => each.engineId === engineId && each.model === model);
   if (own) return own.price;
   const engine = engines.find(({ id }) => id === engineId);
-  if (engine?.kind === "openai-compatible-api") return undefined;
+  // Only the Claude models share a price across engines so far; a Codex engine's are unpriced.
+  if (engine?.kind === "openai-compatible-api" || engine?.kind === "codex") return undefined;
   if (engine === undefined && prices.some((each) => each.engineId === engineId)) return undefined;
   return prices.find((each) => each.engineId === null && each.model === model)?.price;
 }

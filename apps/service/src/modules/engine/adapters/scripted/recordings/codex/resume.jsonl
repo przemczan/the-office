@@ -1,0 +1,23 @@
+{"step":"start","brief":{"id":"9ff6ca20-a9d0-4c81-bf21-7910e6d2a181","text":"Remember the word \"tangerine\" for later. Do not call any tool now; reply with the single word: ok"}}
+{"step":"event","event":{"kind":"text","text":"ok","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8844}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8844,"output":5,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["9ff6ca20-a9d0-4c81-bf21-7910e6d2a181"],"usage":{"input":8844,"output":5,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}
+{"step":"resume"}
+{"step":"send","message":{"id":"10461a51-b14e-4dbe-a8bf-3a09197afe7a","text":"Call the note tool once with the word you were asked to remember, then reply with the single word: done"},"priority":"next"}
+{"step":"event","event":{"kind":"context-read","tokens":8877}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":173,"output":31,"cacheRead":8704,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-a82d8054-0094-4d0e-992b-92aff39837b7","tool":"note","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-a82d8054-0094-4d0e-992b-92aff39837b7","text":"Noted.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8994}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":463,"output":63,"cacheRead":17408,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9069}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":700,"output":68,"cacheRead":26240,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["10461a51-b14e-4dbe-a8bf-3a09197afe7a"],"usage":{"input":700,"output":68,"cacheRead":26240,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

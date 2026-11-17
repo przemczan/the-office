@@ -7,6 +7,7 @@ import {
   offeredModels,
   type ApiEngine,
   type ClaudeCodeEngine,
+  type CodexEngine,
   type Engine,
   type EngineId,
   type EngineModel,
@@ -63,7 +64,10 @@ export type ApiEngineEdit = Omit<ApiEngine, "id" | "key"> & {
   readonly key?: string;
 };
 
-export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit;
+/** A Codex engine as Settings › Engines saves it: without an `id` when it is new. */
+export type CodexEngineEdit = Omit<CodexEngine, "id"> & { readonly id?: EngineId };
+
+export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit | CodexEngineEdit;
 
 export interface EngineSettingsEdit {
   /** Every engine, in order; a saved one left out is refused, as removing one moves what names it. */
@@ -190,6 +194,7 @@ function changedEnginesOf(
     if (edit.kind === "claude-code") {
       return { ...common, kind: edit.kind, claudeCodeP: edit.claudeCodeP };
     }
+    if (edit.kind === "codex") return { ...common, kind: edit.kind };
     const keptKey = kept?.kind === "openai-compatible-api" ? kept.key : "";
     return {
       ...common,

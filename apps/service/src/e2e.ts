@@ -30,6 +30,7 @@ await launch(
     const { Test } = await import("@nestjs/testing");
     const {
       ClaudeCodeAccounts,
+      CODEX_CAPABILITIES,
       EngineModule,
       OPENAI_COMPATIBLE_API_CAPABILITIES,
       readRecording,
@@ -53,9 +54,10 @@ await launch(
       scan: () => Promise.resolve([scannedKey]),
     };
     const engine = new ScriptedEngine(await readRecording(scripts));
-    // No end-to-end session runs on the OpenAI-compatible API; its stand-in only declares what the
-    // engine can't do, for the Role card to name.
+    // No end-to-end session runs on the OpenAI-compatible API or Codex; their stand-ins only declare
+    // what the engine can't do, for the Role card to name.
     const apiEngine = new ScriptedEngine([], OPENAI_COMPATIBLE_API_CAPABILITIES);
+    const codexEngine = new ScriptedEngine([], CODEX_CAPABILITIES);
     const moduleRef = await Test.createTestingModule({ imports: [appModule] })
       .overrideModule(EngineModule)
       .useModule(
@@ -63,6 +65,7 @@ await launch(
           "agent-sdk": engine,
           "claude-code-p": engine,
           "openai-compatible-api": apiEngine,
+          codex: codexEngine,
         }),
       )
       .overrideProvider(ClaudeCodeAccounts)

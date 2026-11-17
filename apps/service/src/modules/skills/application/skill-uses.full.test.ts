@@ -116,6 +116,7 @@ beforeEach(async () => {
         "agent-sdk": claudeCode,
         "claude-code-p": claudeCode,
         "openai-compatible-api": api.engine,
+        codex: new ScriptedEngine([]),
       }),
     ],
     overrides: [

@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 import { builtInTool, failure, resolvedPath, success } from "./built-in-tool.js";
-import { fileProblem, isMissing } from "./file-problems.js";
+import { fileProblem, isMissing } from "../skills/file-problems.js";
 
 const writeInput = z.object({
   file_path: z

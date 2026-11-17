@@ -1,0 +1,365 @@
+import { Inject, Injectable, Optional } from "@nestjs/common";
+import { execFile } from "node:child_process";
+import { dirname } from "node:path";
+import { promisify } from "node:util";
+import { McpClient } from "../../../../platform/mcp/mcp-client.js";
+import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
+import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
+import { CODEX_MODELS } from "../../domain/engines.js";
+import { listingProblems } from "../../domain/skill-listing.js";
+import {
+  AgentEngine,
+  ModelNotOffered,
+  SessionSkillsDiffer,
+  type EngineCapabilities,
+  type NewSession,
+} from "../../ports/agent-engine.js";
+import type { EngineSession } from "../../ports/engine-session.js";
+import type { SessionOptions } from "../../ports/session-options.js";
+import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import type { EngineCommand } from "../claude-code/engine-process.js";
+import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
+import {
+  officeToolCall,
+  removeSessionTemporaryFolder,
+  sessionTemporaryFolder,
+  type ToolDecider,
+} from "../office-rules/office-tool-call.js";
+import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
+import { sessionOfficeRules } from "../office-rules/session-office-rules.js";
+import { toolDecision } from "../office-rules/tool-decision.js";
+import { listedSkills, modelListing, type ListedSkill } from "../skills/listed-skills.js";
+import { CodexApprovals, codexShellTool } from "./codex-approvals.js";
+import { codexAppServerArguments, codexEnvironment, codexMcpServers } from "./codex-arguments.js";
+import { pinnedCodexPath } from "./codex-binary.js";
+import type { CodexThreadSettings } from "./codex-protocol.js";
+import { CodexAppServer, type CodexWireTap } from "./codex-rpc.js";
+import { codexEffort, CodexSession, type CodexConnect } from "./codex-session.js";
+import { CodexThreadFile } from "./codex-thread-file.js";
+import { SessionMcpEndpoint } from "./session-mcp-endpoint.js";
+
+/**
+ * What the engine check found the app-server can do (spec §5.4 Defaults, the Codex engine). Its
+ * usage windows are read once a later Task reads `account/rateLimits/read`; Codex has no LSP tool.
+ */
+export const CODEX_CAPABILITIES: EngineCapabilities = {
+  bargeIn: true,
+  interrupt: true,
+  resume: true,
+  usageWindows: false,
+  contextUsage: true,
+  officeTools: true,
+  outputSchema: true,
+  languageServers: false,
+};
+
+/** One app-server process of a session, as a recording names its places. */
+export interface CodexWireProcess {
+  readonly sessionId: string;
+  /** The session's folder, the thread's `cwd`. */
+  readonly folder: string;
+  /** The engine's folder, the app-server's `CODEX_HOME`. */
+  readonly codexHome: string;
+  /** The session's temporary folder (`sessionTemporaryFolder`). */
+  readonly temporaryFolder: string;
+  /** The Office data directory. */
+  readonly officeData: string;
+}
+
+/** What tests change of how the engine runs the app-server; nothing in the service does. */
+export interface CodexEngineSetup {
+  /**
+   * The program started as the app-server, before its arguments: the pinned binary unless given,
+   * such as a stand-in that replays a recording.
+   */
+  readonly appServer?: { readonly command: string; readonly args: readonly string[] };
+  /**
+   * The engine's folder for every session, in place of `<office-data>/engines/<engine id>/`, such
+   * as one signed in for a live test. Used as it is: nothing is made or removed in it.
+   */
+  readonly codexHome?: string;
+  /** Called as each app-server starts: told every line of it, as a recording keeps them. */
+  readonly wire?: (process: CodexWireProcess) => CodexWireTap;
+}
+
+/** Binds a `CodexEngineSetup` for tests; the service binds none. */
+export const CODEX_ENGINE_SETUP = Symbol("CodexEngineSetup");
+
+/** How the app-server is told who its client is. */
+const CLIENT_INFO = { name: "the_office", title: "The Office", version: "1" } as const;
+
+/**
+ * The Codex engine (spec §5.4 Defaults): each session one pinned `codex app-server` with
+ * `CODEX_HOME` the engine's folder, its settings given as `-c` overrides and in `thread/start`,
+ * its Office tools and MCP servers served to it over the session's MCP endpoint, every command,
+ * file change and tool call judged by the Office rules through its approval requests.
+ */
+@Injectable()
+export class CodexAppServerEngine extends AgentEngine {
+  readonly capabilities = CODEX_CAPABILITIES;
+
+  private readonly operatingSystem: OperatingSystem = currentOperatingSystem();
+
+  constructor(
+    private readonly officeData: OfficeDataDirectory,
+    private readonly mcpClient: McpClient,
+    @Optional() @Inject(CODEX_ENGINE_SETUP) private readonly setup: CodexEngineSetup = {},
+  ) {
+    super();
+  }
+
+  async start({ id, options, brief }: NewSession): Promise<EngineSession> {
+    this.requireFor(options);
+    const session = await this.open(id, options, undefined);
+    session.send(brief, "later");
+    return session;
+  }
+
+  /** On the thread the session kept; throws CodexThreadMissing when it kept none. */
+  async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
+    this.require("resume");
+    this.requireFor(options);
+    const threadId = await this.threadFile(sessionId).read();
+    return this.open(sessionId, options, threadId);
+  }
+
+  private threadFile(sessionId: string): CodexThreadFile {
+    return CodexThreadFile.of(this.officeData.folder("sessions"), sessionId);
+  }
+
+  /**
+   * Refuses, before the app-server starts, a model the engine doesn't offer or a session without
+   * exactly its skills (spec §5.6). Whatever opened before a failure is closed again.
+   */
+  private async open(
+    id: string,
+    options: SessionOptions,
+    keptThread: string | undefined,
+  ): Promise<CodexSession> {
+    const model = offeredModel(options);
+    const skills = await listedSkills(options.folder, options.skills);
+    const problems = listingProblems(
+      options.skills?.expected ?? [],
+      modelListing(skills).map(({ name }) => name),
+    );
+    if (problems.length > 0) throw new SessionSkillsDiffer(id, problems);
+    const os = this.operatingSystem;
+    const codexHome =
+      this.setup.codexHome ??
+      (await preparedEngineConfigFolder(this.officeData, options.engine.id));
+    // The variables the app-server and the Agent's commands run with, which the rules expand.
+    const environment = codexEnvironment(options.environment, codexHome);
+    const rules = sessionOfficeRules(os, this.officeData, id, options, {
+      readableFolders: [],
+      environment,
+    });
+    const holds = { toolHold: options.toolHold, approvalHold: options.approvalHold };
+    const decide: ToolDecider = (tool, input) => toolDecision(rules, holds, tool, input);
+    const shellTool = codexShellTool(os.agentShells);
+    const connections = new McpServerConnections(options.mcpServers, this.mcpClient);
+    let endpoint: SessionMcpEndpoint | undefined;
+    const close = async (): Promise<void> => {
+      await endpoint?.close();
+      await connections.close();
+      await removeSessionTemporaryFolder(os.paths, id);
+    };
+    let session: CodexSession;
+    try {
+      const mcpServersNotStarted = await connections.open();
+      endpoint = await SessionMcpEndpoint.open({
+        officeTools: options.officeTools,
+        skills,
+        call: officeToolCall(id, os.paths, decide),
+        decide,
+        mcpServers: options.mcpServers,
+        connections,
+      });
+      const settings = threadSettings(options, model, {
+        projectRoot: await mainCheckout(options.folder),
+        skills,
+        mcpServers: codexMcpServers(endpoint, servedServers(options, skills, endpoint)),
+      });
+      const command: EngineCommand = {
+        command: this.setup.appServer?.command ?? pinnedCodexPath(os.codexBinary),
+        args: [...(this.setup.appServer?.args ?? []), ...codexAppServerArguments()],
+        cwd: options.folder,
+        env: environment,
+      };
+      const wireProcess: CodexWireProcess = {
+        sessionId: id,
+        folder: options.folder,
+        codexHome,
+        temporaryFolder: sessionTemporaryFolder(os.paths, id),
+        officeData: this.officeData.path,
+      };
+      session = new CodexSession(id, {
+        connect: this.connector(command, settings, wireProcess),
+        approvals: new CodexApprovals({
+          decide,
+          folder: options.folder,
+          paths: os.paths,
+          defaultShell: shellTool,
+          outsideSandbox: options.workstation === true,
+        }),
+        shellTool,
+        skills,
+        effort: options.effort,
+        outputSchema: options.outputSchema,
+        mcpServersNotStarted,
+        close,
+      });
+    } catch (error) {
+      await close();
+      throw error;
+    }
+    try {
+      const threadId = await session.connect(keptThread);
+      if (keptThread === undefined) await this.threadFile(id).write(threadId);
+    } catch (error) {
+      await session.end();
+      throw error;
+    }
+    return session;
+  }
+
+  /** Starts one app-server on the session's thread, ended again when it fails to get there. */
+  private connector(
+    command: EngineCommand,
+    settings: CodexThreadSettings,
+    wireProcess: CodexWireProcess,
+  ): CodexConnect {
+    return async (handlers, threadId) => {
+      const wire = this.setup.wire?.(wireProcess);
+      const server = CodexAppServer.start(this.operatingSystem.processTrees, command, {
+        ...handlers,
+        ...(wire === undefined ? {} : { wire }),
+      });
+      try {
+        await server.rpc.request("initialize", {
+          clientInfo: CLIENT_INFO,
+          capabilities: { experimentalApi: true, requestAttestation: false },
+        });
+        server.rpc.notify("initialized");
+        const opened =
+          threadId === undefined
+            ? await server.rpc.request("thread/start", settings)
+            : await server.rpc.request("thread/resume", { ...settings, threadId });
+        return { server, threadId: opened.thread.id };
+      } catch (error) {
+        await server.kill();
+        throw error;
+      }
+    };
+  }
+}
+
+/** The model a session runs on, refused when the engine is no Codex engine or doesn't offer it. */
+function offeredModel({ engine, model }: SessionOptions): string {
+  if (engine.kind !== "codex") {
+    throw new ModelNotOffered(model, `"${engine.name}" is no Codex engine.`);
+  }
+  if (!(CODEX_MODELS as readonly string[]).includes(model)) {
+    throw new ModelNotOffered(
+      model,
+      `the Codex engine ${engine.name} offers no model ${model}; pick another model on the Role card.`,
+    );
+  }
+  return model;
+}
+
+/**
+ * The servers the session's endpoint gives Codex: `office` when the session has Office tools or
+ * skills the model loads, then each of the Role's MCP servers.
+ */
+function servedServers(
+  options: SessionOptions,
+  skills: readonly ListedSkill[],
+  endpoint: SessionMcpEndpoint,
+): string[] {
+  const office = options.officeTools.length > 0 || modelListing(skills).length > 0;
+  return endpoint.serverNames.filter((name) => name !== OFFICE_TOOL_SERVER || office);
+}
+
+/**
+ * `thread/start`'s settings, the same on `thread/resume` (spec §5.4 Defaults): the session's folder
+ * in the `workspace-write` sandbox under the `untrusted` approval policy, so every command and file
+ * change comes to the Office rules; the repository named untrusted by its main checkout, so its
+ * own `.codex/config.toml` never joins the settings and the engine's folder gets no entry for it.
+ */
+function threadSettings(
+  options: SessionOptions,
+  model: string,
+  {
+    projectRoot,
+    skills,
+    mcpServers,
+  }: {
+    readonly projectRoot: string;
+    readonly skills: readonly ListedSkill[];
+    readonly mcpServers: Readonly<Record<string, unknown>>;
+  },
+): CodexThreadSettings {
+  return {
+    cwd: options.folder,
+    model,
+    approvalPolicy: "untrusted",
+    sandbox: "workspace-write",
+    developerInstructions: codexInstructions(options.instructions, skills),
+    config: {
+      model_reasoning_effort: codexEffort(options.effort),
+      projects: { [projectRoot]: { trust_level: "untrusted" } },
+      ...(Object.keys(mcpServers).length === 0 ? {} : { mcp_servers: mcpServers }),
+    },
+  };
+}
+
+/** What a declined call means, as a decline tells the model nothing more (spec §5.4 Defaults). */
+export const DECLINED_CALLS =
+  "A command, file change or tool call of yours that is declined was refused by the Office rules, the rules this workspace holds every Agent to; a note follows with the rule's words.";
+
+/**
+ * The Office rules judge a file change by what it changes and a command as a command, as on the
+ * Claude Code engines, where Edit and Write change files: a file written by a command would be
+ * refused under a profile that allows edits but only read-only commands.
+ */
+export const FILE_CHANGES = "Create and change files with apply_patch, never with a shell command.";
+
+/**
+ * The session's developer instructions: its own, then the skills the model may load with the
+ * `Skill` tool of the `office` MCP server (spec §5.6), then how to change files and what a
+ * declined call means.
+ */
+export function codexInstructions(instructions: string, skills: readonly ListedSkill[]): string {
+  const offered = modelListing(skills);
+  const listing =
+    offered.length === 0
+      ? ""
+      : [
+          `Skills: when a task matches one of these, load it with the Skill tool of the ${OFFICE_TOOL_SERVER} MCP server before you start, then follow its instructions.`,
+          ...offered.map(({ name, description }) =>
+            description === "" ? `- ${name}` : `- ${name}: ${description}`,
+          ),
+        ].join("\n");
+  return [instructions, listing, `${FILE_CHANGES} ${DECLINED_CALLS}`]
+    .filter((part) => part.trim() !== "")
+    .join("\n\n");
+}
+
+/**
+ * The repository's main checkout, as Codex keys a project: the folder holding its common git
+ * folder, the same for every worktree of it; a folder outside any repository is its own.
+ */
+export async function mainCheckout(folder: string): Promise<string> {
+  try {
+    const { stdout } = await promisify(execFile)(
+      "git",
+      ["-C", folder, "rev-parse", "--path-format=absolute", "--git-common-dir"],
+      { timeout: 10_000, windowsHide: true },
+    );
+    const commonFolder = stdout.trim();
+    return commonFolder === "" ? folder : dirname(commonFolder);
+  } catch {
+    return folder;
+  }
+}

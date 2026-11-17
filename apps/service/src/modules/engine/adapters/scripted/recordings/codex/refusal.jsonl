@@ -1,0 +1,16 @@
+{"step":"start","brief":{"id":"c48827b9-3d13-40c3-9f11-f4e7aecdcbcb","text":"Create the file notes.txt containing the word hi, with your tool for writing files. If that is refused, do not try again or another way; reply with the single word: refused"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-bdff8106-71ca-4f4d-9004-42b85da101b8","tool":"Write","officeTool":false,"input":{"file_path":"<folder>/notes.txt","diff":"hi\n"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-refused","callId":"exec-bdff8106-71ca-4f4d-9004-42b85da101b8","tool":"Write","reason":"Not allowed in this session: editing files.","refusedBy":"office-rules"}}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-bdff8106-71ca-4f4d-9004-42b85da101b8","text":"Not allowed in this session: editing files.","isError":true,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8841}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8841,"output":38,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"context-read","tokens":8926}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9063,"output":69,"cacheRead":8704,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"text","text":"refused","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8987}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9346,"output":75,"cacheRead":17408,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["c48827b9-3d13-40c3-9f11-f4e7aecdcbcb"],"usage":{"input":9346,"output":75,"cacheRead":17408,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

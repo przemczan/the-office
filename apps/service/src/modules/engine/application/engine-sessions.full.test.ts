@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SdkMcpClient } from "../../../platform/mcp/sdk-mcp-client.js";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
+import { CODEX_CAPABILITIES, CodexAppServerEngine } from "../adapters/codex/codex-engine.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import {
@@ -12,12 +18,14 @@ import {
   FIRST_CLAUDE_CODE_ENGINE,
   type ApiEngine,
   type ClaudeCodeEngine,
+  type CodexEngine,
 } from "../domain/engines.js";
 import { type LanguageServer, LANGUAGE_SERVERS } from "../domain/language-servers.js";
 import type { PermissionProfile } from "../domain/permission-profile.js";
 import { EngineSettingsForTests } from "../ports/engine-settings-repository.fixtures.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
+  type AgentEngine,
   CapabilityMissing,
   EngineNotListed,
   ModelNotOffered,
@@ -149,6 +157,7 @@ function setUp(
       "agent-sdk": new ScriptedEngine(scripts, capabilities),
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -162,7 +171,7 @@ const [TYPESCRIPT, CLANGD, KOTLIN] = LANGUAGE_SERVERS as [
 ];
 
 function setUpOn(
-  engines: Readonly<Record<EngineAdapter, ScriptedEngine>>,
+  engines: Readonly<Record<EngineAdapter, AgentEngine>>,
   settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
   languageServers: SessionLanguageServers = new NoLanguageServers(),
 ) {
@@ -251,6 +260,7 @@ function twoEngines(scripts: {
       "agent-sdk": agentSdk,
       "claude-code-p": claudeCodeP,
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
     }),
   };
 }
@@ -405,7 +415,12 @@ describe("EngineSessions", () => {
         [{ step: "start", brief: { id: "brief", text: BRIEF_NAMING_KOTLIN } }, { step: "end" }],
       ]);
       const { sessions } = setUpOn(
-        { "agent-sdk": engine, "claude-code-p": engine, "openai-compatible-api": engine },
+        {
+          "agent-sdk": engine,
+          "claude-code-p": engine,
+          "openai-compatible-api": engine,
+          codex: engine,
+        },
         undefined,
         new WorkstationWithoutKotlin(),
       );
@@ -425,7 +440,12 @@ describe("EngineSessions", () => {
         [{ step: "start", brief: { id: "brief", text: BRIEF_NAMING_KOTLIN } }, { step: "end" }],
       ]);
       const { sessions } = setUpOn(
-        { "agent-sdk": engine, "claude-code-p": engine, "openai-compatible-api": engine },
+        {
+          "agent-sdk": engine,
+          "claude-code-p": engine,
+          "openai-compatible-api": engine,
+          codex: engine,
+        },
         undefined,
         new WorkstationWithoutKotlin(),
       );
@@ -438,7 +458,12 @@ describe("EngineSessions", () => {
     it("resumes a session on the servers it started with", async () => {
       const engine = new ScriptedEngine([RESUMED]);
       const { sessions } = setUpOn(
-        { "agent-sdk": engine, "claude-code-p": engine, "openai-compatible-api": engine },
+        {
+          "agent-sdk": engine,
+          "claude-code-p": engine,
+          "openai-compatible-api": engine,
+          codex: engine,
+        },
         undefined,
         new WorkstationWithoutKotlin(),
       );
@@ -483,6 +508,7 @@ describe("EngineSessions", () => {
       "agent-sdk": new ScriptedEngine([]),
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new WithoutTheModel([]),
+      codex: new ScriptedEngine([]),
     });
 
     await expect(
@@ -600,6 +626,7 @@ describe("EngineSessions on each engine's adapter", () => {
       "agent-sdk": new HandedOptions([RESUMED]),
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new HandedOptions([ONE_TURN]),
+      codex: new ScriptedEngine([]),
     });
 
     const started = await sessions.start({
@@ -626,6 +653,35 @@ describe("EngineSessions on each engine's adapter", () => {
       usageWindows: false,
       interrupt: true,
     });
+  });
+
+  it("reads a Codex engine's capabilities from the Codex adapter, missing only usage windows and language servers", async () => {
+    const officeData = await mkdtemp(join(tmpdir(), "office-codex-capabilities-"));
+    try {
+      const codex: CodexEngine = {
+        id: "codex",
+        name: "Codex",
+        kind: "codex",
+        defaultModel: "gpt-6-luna",
+      };
+      const { sessions } = setUpOn(
+        {
+          "agent-sdk": new ScriptedEngine([]),
+          "claude-code-p": new ScriptedEngine([]),
+          "openai-compatible-api": new ScriptedEngine([]),
+          codex: new CodexAppServerEngine(new OfficeDataDirectory(officeData), new SdkMcpClient()),
+        },
+        new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, codex] }),
+      );
+
+      await expect(sessions.capabilitiesOf(codex.id)).resolves.toEqual(CODEX_CAPABILITIES);
+      expect(sessions.missingCapabilitiesOf(codex).toSorted()).toEqual([
+        "languageServers",
+        "usageWindows",
+      ]);
+    } finally {
+      await rm(officeData, { recursive: true, force: true });
+    }
   });
 
   it("refuses on an engine what only the other can do", async () => {
@@ -657,6 +713,7 @@ describe("EngineSessions on each engine's adapter", () => {
         ],
       ]),
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
     });
 
     const session = await sessions.start({
@@ -689,6 +746,7 @@ describe("EngineSessions' readings of the usage windows", () => {
       "openai-compatible-api": new ScriptedEngine([turnThenWindows(WINDOWS)], {
         usageWindows: false,
       }),
+      codex: new ScriptedEngine([], { usageWindows: false }),
     });
     const onTheApi = await sessions.start({
       id: "s-api",
@@ -729,6 +787,7 @@ describe("EngineSessions' readings of the usage windows", () => {
       "openai-compatible-api": new ScriptedEngine([turnThenWindows(WINDOWS)], {
         usageWindows: false,
       }),
+      codex: new ScriptedEngine([], { usageWindows: false }),
     });
     const session = await sessions.start({
       id: "s-1",
@@ -823,6 +882,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         "agent-sdk": new ScriptedEngine([]),
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
         "openai-compatible-api": new ScriptedEngine([]),
+        codex: new ScriptedEngine([]),
       },
       new EngineSettingsForTests({
         ...DEFAULT_ENGINE_SETTINGS,

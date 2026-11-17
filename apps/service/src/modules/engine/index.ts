@@ -74,8 +74,9 @@ export { ScriptedEngineModule } from "./scripted-engine.module.js";
 // So no end-to-end test runs the binary's login.
 export { ClaudeCodeAccounts } from "./ports/claude-code-accounts.js";
 export { StandInClaudeCodeAccounts } from "./adapters/scripted/stand-in-claude-code-accounts.js";
-// So a stand-in for this engine declares what it can't do, as the Role card names it.
+// So a stand-in for these engines declares what it can't do, as the Role card names it.
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
+export { CODEX_CAPABILITIES } from "./adapters/codex/codex-engine.js";
 export type { NewSession } from "./ports/agent-engine.js";
 export { NoEngineListed } from "./ports/agent-engine.js";
 export type { EngineSession } from "./ports/engine-session.js";

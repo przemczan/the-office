@@ -62,5 +62,10 @@ function perEngine(
   engines: ScriptedEngine | Readonly<Record<EngineAdapter, AgentEngine>>,
 ): Readonly<Record<EngineAdapter, AgentEngine>> {
   if (!(engines instanceof AgentEngine)) return engines;
-  return { "agent-sdk": engines, "claude-code-p": engines, "openai-compatible-api": engines };
+  return {
+    "agent-sdk": engines,
+    "claude-code-p": engines,
+    "openai-compatible-api": engines,
+    codex: engines,
+  };
 }
