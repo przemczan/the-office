@@ -1090,10 +1090,7 @@ export class ThreadRunner implements OnModuleDestroy {
       toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
       approvalHold: this.approvalHolds.of(id),
       turnLabel: `${card.name} in ${threadWords(thread)}`,
-      telemetry: {
-        span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },
-        metric: { "office.conversation.home": thread.home.kind },
-      },
+      telemetry: threadTelemetry(thread, roleKey, place),
     };
   }
 
@@ -1404,6 +1401,26 @@ export class ThreadRunner implements OnModuleDestroy {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * What the engine calls of a Thread's session carry (spec §5.2): its home's ids, the Thread's and
+ * the person's Role on the span; on the metric only names, the Stage `""` as no Stage runs here.
+ */
+export function threadTelemetry(
+  thread: Pick<Thread, "id" | "home">,
+  roleKey: string,
+  { span, metric }: Pick<SessionPlace, "span" | "metric">,
+): NonNullable<SessionSettings["telemetry"]> {
+  return {
+    span: { ...span, "office.thread": thread.id, "office.role": roleKey },
+    metric: {
+      "office.conversation.home": thread.home.kind,
+      "office.role": roleKey,
+      "office.stage": "",
+      ...metric,
+    },
+  };
 }
 
 /** No engine listed refuses the message in words, before anything is logged. */

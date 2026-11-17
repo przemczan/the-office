@@ -397,7 +397,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     // The Task's own Stages, made here too: the event bus only logs a copy that failed as it started.
     const { pipelineId, trace } = await this.taskStages.make(taskId, task.pipelineId);
     if (await this.staffingHolds.holdIfLackingPeople(taskId)) return;
-    const attributes = { "office.task.id": taskId, "office.pipeline": pipelineId };
+    const attributes = { "office.task": taskId, "office.pipeline": pipelineId };
     await this.telemetry.inTrace("walk", attributes, trace, async (_span, root) => {
       if (!trace) await this.taskStages.saveTrace(taskId, root);
       await this.walkStages(taskId);

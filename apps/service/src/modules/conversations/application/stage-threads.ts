@@ -103,6 +103,13 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
+  /** The Task's Initiative; undefined when the Task is in none. */
+  readonly initiativeId: string | undefined;
+  /** The Stage run's number, as the Task's Stage history counts them. */
+  readonly stageRun: number;
+  /** The Task's Pipeline's name, and its Project's, which the session's telemetry carries. */
+  readonly pipelineName: string;
+  readonly projectName: string;
   /** The Stage's own effort; undefined keeps the Role card's. */
   readonly effort: SessionSettings["effort"] | undefined;
   /** The session the Stage declares, which wins at a Stage boundary (spec §2.5). */
@@ -694,15 +701,7 @@ export class StageThreads {
       subAgentsInForeground: true,
       approvalHold: this.approvalHolds.of(id),
       turnLabel: `${card.name} in the Stage ${request.stageName}`,
-      telemetry: {
-        span: {
-          "office.task": request.taskId,
-          "office.thread": threadId,
-          "office.role": roleKey,
-          "office.stage": request.stageName,
-        },
-        metric: { "office.conversation.home": "task" },
-      },
+      telemetry: stageThreadTelemetry(threadId, roleKey, request),
     };
   }
 
@@ -1007,6 +1006,39 @@ const BACKGROUND_EVENT_KINDS: ReadonlySet<SessionEvent["kind"]> = new Set([
 ]);
 
 const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
+
+/**
+ * What a Stage's engine calls carry (spec §5.2): ids on the span, which the `office.engine.call`
+ * record reads, and only names on the metric. A Task in no Initiative carries `""`.
+ */
+export function stageThreadTelemetry(
+  threadId: string,
+  roleKey: string,
+  request: Pick<
+    StageThreadRequest,
+    "taskId" | "initiativeId" | "stageName" | "stageRun" | "pipelineName" | "projectName"
+  >,
+): NonNullable<SessionSettings["telemetry"]> {
+  return {
+    span: {
+      "office.task": request.taskId,
+      "office.initiative": request.initiativeId ?? "",
+      "office.thread": threadId,
+      "office.role": roleKey,
+      "office.stage": request.stageName,
+      "office.stage.run": request.stageRun,
+      "office.pipeline": request.pipelineName,
+      "office.project": request.projectName,
+    },
+    metric: {
+      "office.conversation.home": "task",
+      "office.role": roleKey,
+      "office.stage": request.stageName,
+      "office.pipeline": request.pipelineName,
+      "office.project": request.projectName,
+    },
+  };
+}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

@@ -101,6 +101,9 @@ beforeAll(async () => {
     setUp: ({ taskId }: TaskThreadRequest) =>
       Promise.resolve({
         projectId: "admin-panel",
+        initiativeId: undefined,
+        projectName: "Admin panel",
+        pipelineName: "",
         folder: `/office/worktrees/admin-panel/${taskId}`,
         environment: {},
         useProjectSkills: true,

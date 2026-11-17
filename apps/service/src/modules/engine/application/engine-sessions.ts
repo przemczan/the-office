@@ -42,6 +42,7 @@ import {
 import type { SessionOptions } from "../ports/session-options.js";
 import { AgentEngines } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
+import { ModelPrices } from "./model-prices.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
@@ -76,11 +77,11 @@ export interface SessionStart {
 }
 
 /**
- * Runs sessions on the engine each names for the other modules, and watches each: a span per engine call
- * with its tokens and cost, the usage windows read on each rate-limit signal and when a caller
- * asks, paired Office-wide into what the windows move by per token, the Office's tokens so far on
- * each engine, each day's use, and an "engine down" event when
- * the engine can't start a session or stops running one (spec §5.4).
+ * Runs sessions on the engine each names for the other modules, and watches each: a span and a log
+ * record per engine call with its tokens and its cost estimated from Model prices, the usage
+ * windows read on each rate-limit signal and when a caller asks, paired Office-wide into what the
+ * windows move by per token, the Office's tokens so far on each engine, each day's use, and an
+ * "engine down" event when the engine can't start a session or stops running one (spec §5.4).
  */
 @Injectable()
 export class EngineSessions {
@@ -101,6 +102,7 @@ export class EngineSessions {
     private readonly running: RunningEngineSessions,
     private readonly busyWork: BusyWork,
     private readonly languageServers: SessionLanguageServers,
+    private readonly prices: ModelPrices,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
@@ -223,6 +225,7 @@ export class EngineSessions {
     return new EngineCallSpans(
       this.telemetry,
       this.costs,
+      this.prices,
       sessionId,
       options,
       telemetry,

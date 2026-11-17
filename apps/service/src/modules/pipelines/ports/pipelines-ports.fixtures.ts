@@ -265,6 +265,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       "## What the user wants, in their own words\n\nLet me name each device as I call it.",
     plan: "Add a rename dialog to the device page.",
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
+    initiativeId: undefined,
     commitMessage: {
       text: "Rename a device\n\nAdds a rename dialog to the device page.",
       written: true,

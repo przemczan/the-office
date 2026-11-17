@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { context } from "@opentelemetry/api";
+import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -38,18 +40,13 @@ import {
 } from "../ports/session-language-servers.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import type { EngineSession } from "../ports/engine-session.js";
-import { MeterProvider, MetricReader } from "@opentelemetry/sdk-metrics";
+import type { MetricReader } from "@opentelemetry/sdk-metrics";
 import { BusyWork } from "../../office-updates/index.js";
-import {
-  InMemorySpanExporter,
-  SimpleSpanProcessor,
-  TracerProvider,
-} from "@opentelemetry/sdk-trace";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
-import { Telemetry } from "../../../platform/telemetry/telemetry.js";
+import { setUp as setUpTelemetry } from "../../../platform/telemetry/telemetry.fixtures.js";
 import { NoLanguageServers } from "../adapters/scripted/no-language-servers.js";
 import { DayUsageForTests } from "../ports/day-usage-repository.fixtures.js";
 import { UsageWindowSamplesForTests } from "../ports/usage-window-sample-repository.fixtures.js";
@@ -57,6 +54,7 @@ import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
 import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
+import { ModelPrices } from "./model-prices.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
@@ -65,16 +63,6 @@ import { UsageWindowSamples } from "./usage-window-samples.js";
 import { UsageWindowState } from "./usage-window-state.js";
 
 // What engine-sessions.test.ts and engine-sessions.full.test.ts share.
-
-class CollectingMetricReader extends MetricReader {
-  protected override onForceFlush(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  protected override onShutdown(): Promise<void> {
-    return Promise.resolve();
-  }
-}
 
 const NOTE_TOOL: OfficeTool = {
   name: "note",
@@ -90,6 +78,12 @@ const FALLBACK: ClaudeCodeEngine = {
   name: "Fallback",
   claudeCodeP: true,
 };
+
+/** Haiku's Model price, in dollars per million tokens of each kind. */
+const HAIKU_PRICE = { input: 1, output: 5, cacheWrites: 1.25, cacheReads: 0.1 };
+
+/** One turn's tokens, 4 input, 12 output, 200 cache writes and 24,000 cache reads, at Haiku's price. */
+const HAIKU_TURN_USD = (4 * 1 + 12 * 5 + 200 * 1.25 + 24_000 * 0.1) / 1_000_000;
 
 const LAB: ApiEngine = {
   id: "lab",
@@ -172,15 +166,13 @@ const [TYPESCRIPT, CLANGD, KOTLIN] = LANGUAGE_SERVERS as [
 
 function setUpOn(
   engines: Readonly<Record<EngineAdapter, AgentEngine>>,
-  settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
+  settings = new EngineSettingsForTests({
+    engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB],
+    modelPrices: [{ engineId: null, model: "claude-haiku-5-5", price: HAIKU_PRICE }],
+  }),
   languageServers: SessionLanguageServers = new NoLanguageServers(),
 ) {
-  const spans = new InMemorySpanExporter();
-  const tracerProvider = new TracerProvider({
-    spanProcessors: [new SimpleSpanProcessor({ exporter: spans })],
-  });
-  const meterProvider = new MeterProvider({ readers: [new CollectingMetricReader()] });
-  const telemetry = new Telemetry(tracerProvider.getTracer("test"), meterProvider.getMeter("test"));
+  const { telemetry, spans, records, metricReader } = setUpTelemetry();
   const events = new EventBus();
   const published: unknown[] = [];
   events.subscribeToEveryEvent((event) => {
@@ -205,8 +197,20 @@ function setUpOn(
     running,
     new BusyWork(new EventBus()),
     languageServers,
+    new ModelPrices(settings),
   );
-  return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
+  return {
+    sessions,
+    spans,
+    records,
+    metricReader,
+    published,
+    usageWindows,
+    dayUsage,
+    schedule,
+    windowSamples,
+    running,
+  };
 }
 
 /** Reads a session's events until its `count`th turn has ended. */
@@ -236,6 +240,36 @@ const ONE_TURN: SessionScript = [
   turnEnded("brief", 0.01),
   { step: "end" },
 ];
+
+/** On Opus, which Settings › Engines gives no Model price here. */
+const UNPRICED: SessionSettings = { ...SETTINGS, model: "claude-opus-5-5" };
+
+/** A Stage's session on a Task, as Pipelines tags it. */
+const IN_A_STAGE = {
+  span: { "office.task": "task-1", "office.thread": "thread-1", "office.stage": "Implement" },
+  metric: {
+    "office.role": "developer",
+    "office.stage": "Implement",
+    "office.pipeline": "Standard",
+    "office.project": "The Office",
+    "office.conversation.home": "task",
+  },
+};
+
+/** Each metric's data points by its name, as attributes and value. */
+async function metricsOf(reader: MetricReader): Promise<Map<string, [unknown, unknown][]>> {
+  const { resourceMetrics } = await reader.collect();
+  return new Map(
+    resourceMetrics.scopeMetrics
+      .flatMap((scope) => scope.metrics)
+      .map((metric) => [
+        metric.descriptor.name,
+        (metric.dataPoints as { attributes: unknown; value: unknown }[]).map(
+          (point): [unknown, unknown] => [point.attributes, point.value],
+        ),
+      ]),
+  );
+}
 
 const ON_THE_API: SessionSettings = { ...SETTINGS, engineId: LAB.id, model: "coder" };
 
@@ -309,7 +343,16 @@ class WorkstationWithoutKotlin extends SessionLanguageServers {
 }
 
 describe("EngineSessions", () => {
-  it("records each engine call as a span with its tokens, cost and prompt features", async () => {
+  // Without a context manager, the active span is not carried across awaits, as a record needs.
+  beforeAll(() => {
+    context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+  });
+
+  afterAll(() => {
+    context.disable();
+  });
+
+  it("records each engine call as a span with its tokens, estimated cost and prompt features", async () => {
     const { sessions, spans } = setUp([TWO_TURNS]);
     const session = await sessions.start({
       id: "s-1",
@@ -321,9 +364,11 @@ describe("EngineSessions", () => {
     await turns(session, 1);
     await session.end();
 
+    await vi.waitFor(() => expect(spans.getFinishedSpans()).toHaveLength(2));
     const calls = spans.getFinishedSpans();
     expect(calls.map((span) => span.name)).toEqual(["engine call", "engine call"]);
     expect(calls[0]?.attributes).toEqual({
+      "office.engine": FIRST_CLAUDE_CODE_ENGINE.id,
       "office.engine.session": "s-1",
       "office.engine.model": "claude-haiku-5-5",
       "office.prompt.features": ["office-tool:note", "skills"],
@@ -332,13 +377,69 @@ describe("EngineSessions", () => {
       "office.tokens.output": 12,
       "office.tokens.cache_read": 24_000,
       "office.tokens.cache_creation": 200,
-      "office.cost.usd": 0.01,
+      "office.cost.usd": HAIKU_TURN_USD,
     });
-    expect(calls[1]?.attributes["office.cost.usd"]).toBeCloseTo(0.02);
+    expect(calls[1]?.attributes["office.cost.usd"]).toBeCloseTo(HAIKU_TURN_USD);
   });
 
-  it("leaves out a resumed session's first cost when its total before is unknown", async () => {
-    const { sessions, spans } = setUp([
+  it("writes one record per engine call in its span, with every field and the costs apart", async () => {
+    const { sessions, spans, records } = setUp([TWO_TURNS]);
+    const session = await sessions.start({
+      id: "s-1",
+      settings: { ...SETTINGS, telemetry: IN_A_STAGE },
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+    session.send(message("Go on."), "next");
+    await turns(session, 1);
+    await session.end();
+
+    await vi.waitFor(() => expect(records.getFinishedLogRecords()).toHaveLength(2));
+    const [first, second] = records.getFinishedLogRecords();
+    expect(first?.eventName).toBe("office.engine.call");
+    expect(first?.attributes).toEqual({
+      "office.task": "task-1",
+      "office.initiative": "",
+      "office.thread": "thread-1",
+      "office.stage": "Implement",
+      "office.stage.run": "",
+      "office.role": "developer",
+      "office.pipeline": "Standard",
+      "office.project": "The Office",
+      "office.conversation.home": "task",
+      "office.engine": FIRST_CLAUDE_CODE_ENGINE.id,
+      "office.engine.model": "claude-haiku-5-5",
+      "office.engine.outcome": "completed",
+      "office.engine.call.duration_ms": expect.any(Number),
+      "office.tokens.input": 4,
+      "office.tokens.output": 12,
+      "office.tokens.cache_read": 24_000,
+      "office.tokens.cache_creation": 200,
+      "office.cost.estimated_usd": HAIKU_TURN_USD,
+      "office.cost.engine_reported_usd": 0.01,
+    });
+    expect(second?.attributes["office.cost.estimated_usd"]).toBeCloseTo(HAIKU_TURN_USD);
+    expect(second?.attributes["office.cost.engine_reported_usd"]).toBeCloseTo(0.02);
+    const [call] = spans.getFinishedSpans();
+    expect(first?.spanContext?.spanId).toBe(call?.spanContext().spanId);
+  });
+
+  it("estimates a call on a model with no Model price at the engine's own report", async () => {
+    const { sessions, spans, records } = setUp([ONE_TURN]);
+
+    await oneTurn(sessions, UNPRICED);
+
+    await vi.waitFor(() => expect(records.getFinishedLogRecords()).toHaveLength(1));
+    expect(records.getFinishedLogRecords()[0]?.attributes).toMatchObject({
+      "office.engine.model": "claude-opus-5-5",
+      "office.cost.estimated_usd": 0.01,
+      "office.cost.engine_reported_usd": 0.01,
+    });
+    expect(spans.getFinishedSpans()[0]?.attributes["office.cost.usd"]).toBe(0.01);
+  });
+
+  it("leaves out a resumed session's first cost on a model with no price and no total before", async () => {
+    const { sessions, spans, records } = setUp([
       [
         { step: "resume" },
         { step: "send", message: { id: "m", text: "Go on." }, priority: "next" },
@@ -346,14 +447,67 @@ describe("EngineSessions", () => {
         { step: "end" },
       ],
     ]);
-    const session = await sessions.resume("s-1", SETTINGS);
+    const session = await sessions.resume("s-1", UNPRICED);
     session.send(message("Go on."), "next");
     await turns(session, 1);
     await session.end();
 
+    await vi.waitFor(() => expect(records.getFinishedLogRecords()).toHaveLength(1));
     const [call] = spans.getFinishedSpans();
     expect(call?.attributes["office.tokens.output"]).toBe(12);
     expect(call?.attributes).not.toHaveProperty("office.cost.usd");
+    const attributes = records.getFinishedLogRecords()[0]?.attributes;
+    expect(attributes).not.toHaveProperty("office.cost.estimated_usd");
+    expect(attributes).not.toHaveProperty("office.cost.engine_reported_usd");
+  });
+
+  it("writes no record for a call that ends without a turn", async () => {
+    const { sessions, spans, records } = setUp([
+      [{ step: "start", brief: { id: "brief", text: "Begin." } }, { step: "end" }],
+    ]);
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    await session.end();
+
+    await vi.waitFor(() => expect(spans.getFinishedSpans()).toHaveLength(1));
+    expect(records.getFinishedLogRecords()).toEqual([]);
+  });
+
+  it("still writes a call's record, with no estimate, when Model prices can't be read", async () => {
+    const { sessions, spans, records } = setUp([ONE_TURN]);
+    vi.spyOn(ModelPrices.prototype, "costOf").mockRejectedValueOnce(new Error("database down"));
+
+    await oneTurn(sessions, SETTINGS);
+
+    await vi.waitFor(() => expect(records.getFinishedLogRecords()).toHaveLength(1));
+    const attributes = records.getFinishedLogRecords()[0]?.attributes;
+    expect(attributes).not.toHaveProperty("office.cost.estimated_usd");
+    expect(attributes?.["office.cost.engine_reported_usd"]).toBe(0.01);
+    const [call] = spans.getFinishedSpans();
+    expect(call?.attributes).not.toHaveProperty("office.cost.usd");
+    expect(call?.events.map((event) => event.name)).toEqual(["exception"]);
+  });
+
+  it("counts tokens and the estimated cost by the caller's metric attributes", async () => {
+    const { sessions, metricReader, records } = setUp([ONE_TURN]);
+
+    await oneTurn(sessions, { ...SETTINGS, telemetry: IN_A_STAGE });
+
+    await vi.waitFor(() => expect(records.getFinishedLogRecords()).toHaveLength(1));
+    const metrics = await metricsOf(metricReader);
+    const byStage = {
+      ...IN_A_STAGE.metric,
+      "office.engine.model": "claude-haiku-5-5",
+      "office.prompt.features": "office-tool:note,skills",
+    };
+    expect(metrics.get("office.cost")).toEqual([[byStage, HAIKU_TURN_USD]]);
+    expect(metrics.get("office.tokens")).toContainEqual([
+      { ...byStage, "office.token.type": "cache_read" },
+      24_000,
+    ]);
   });
 
   it("reads the usage windows on a rate limit, and announces the reading and the change", async () => {

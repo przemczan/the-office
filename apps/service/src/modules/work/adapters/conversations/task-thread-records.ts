@@ -139,13 +139,17 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     task: Task,
     project: KnownProject,
   ): Promise<TaskThreadSetup> {
-    const [worktree, made] = await Promise.all([
+    const [worktree, made, pipeline] = await Promise.all([
       this.worktrees.find(task.projectId, task.id),
       this.worktrees.exists(task.projectId, task.id),
+      task.pipelineId === undefined ? undefined : this.pipelines.read(task.pipelineId),
     ]);
     const sessionRefusal = CLOSED_TASK_CONVERSATION_WORDS[task.state];
     return {
       projectId: task.projectId,
+      initiativeId: task.initiativeId,
+      projectName: project.name,
+      pipelineName: pipelineNameOf(task, pipeline ? [pipeline] : []),
       folder: made ? worktree.path : undefined,
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,
@@ -208,6 +212,9 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       ]);
     return {
       projectId: task.projectId,
+      initiativeId: task.initiativeId,
+      projectName: project.name,
+      pipelineName: pipelineNameOf(task, pipelines),
       // A Task planned in its Initiative's Thread has no worktree until it starts.
       ...(made
         ? { folder: worktree.path }
@@ -256,6 +263,18 @@ function initiativeBranchStart(
     branch: base.branch,
     initiativePipeline: pipeline ? `${pipeline.name} (${pipelineId})` : pipelineId,
   };
+}
+
+/**
+ * The name of the Pipeline the Task follows among `pipelines`, for its sessions' telemetry: its id
+ * once the Pipeline is gone, `""` while the Task has none.
+ */
+function pipelineNameOf(
+  { pipelineId }: Task,
+  pipelines: readonly Pick<PlanningPipeline, "id" | "name">[],
+): string {
+  if (pipelineId === undefined) return "";
+  return pipelines.find(({ id }) => id === pipelineId)?.name ?? pipelineId;
 }
 
 const NOTHING_TO_ASK_IN_BACKLOG =

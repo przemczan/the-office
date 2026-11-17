@@ -17,7 +17,10 @@ import { InitiativeService } from "./initiative-service.js";
 import { TaskService } from "./task-service.js";
 
 /** A Task's record, as a session working on the Task reads it. */
-export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfDone"> {
+export interface TaskRecord extends Pick<
+  Task,
+  "title" | "plan" | "definitionOfDone" | "initiativeId"
+> {
   /** The commit message Publish lands it as: the one written, or the default. */
   readonly commitMessage: { readonly text: string; readonly written: boolean };
   /** The Description, as the section of a Brief the Planner's has too. */
@@ -90,6 +93,7 @@ export class TaskRecords {
       descriptionSection: descriptionSection(task.description),
       plan: task.plan,
       definitionOfDone: task.definitionOfDone,
+      initiativeId: task.initiativeId,
       commitMessage: { text: commitMessageOf(task), written: task.commitMessage !== "" },
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
       linkedRecordsSection: linkedRecordsSection(links),

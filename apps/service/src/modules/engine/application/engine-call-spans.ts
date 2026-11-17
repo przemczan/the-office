@@ -1,8 +1,26 @@
-import type { Telemetry, TelemetryAttributes } from "../../../platform/telemetry/telemetry.js";
+import type {
+  Telemetry,
+  TelemetryAttributes,
+  TelemetrySpan,
+} from "../../../platform/telemetry/telemetry.js";
+import type { EngineModel } from "../domain/engines.js";
 import type { TurnEndedEvent } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
+import type { ModelPrices } from "./model-prices.js";
 
 const ENGINE_CALL = "engine call";
+
+/** The caller's attributes an `office.engine.call` record always holds, `""` where none applies. */
+const CALLER_RECORD_KEYS = [
+  "office.task",
+  "office.initiative",
+  "office.thread",
+  "office.stage",
+  "office.stage.run",
+  "office.role",
+  "office.pipeline",
+  "office.project",
+] as const;
 
 /** What a session's caller tags its engine calls with, beside the engine's own attributes. */
 export interface SessionTelemetry {
@@ -39,9 +57,51 @@ export function promptFeatures(options: SessionOptions): string[] {
   ].toSorted();
 }
 
+/** An engine call that ended with its turn. */
+export interface EndedCall {
+  readonly turn: TurnEndedEvent;
+  readonly durationMs: number;
+}
+
+/** What one call cost: estimated from Model prices, and as the engine reported it. */
+export interface CallCost {
+  readonly estimatedUsd: number | undefined;
+  readonly engineReportedUsd: number | undefined;
+}
+
+/**
+ * The attributes of one call's `office.engine.call` record (spec §5.2): the caller's, each `""`
+ * where none applies, then the engine's, the call's tokens and its costs where known.
+ */
+export function engineCallRecord(
+  spentOn: EngineModel,
+  caller: SessionTelemetry | undefined,
+  { turn, durationMs }: EndedCall,
+  cost: CallCost,
+): TelemetryAttributes {
+  return {
+    ...Object.fromEntries(CALLER_RECORD_KEYS.map((key) => [key, ""])),
+    ...caller?.span,
+    ...caller?.metric,
+    "office.engine": spentOn.engineId,
+    "office.engine.model": spentOn.model,
+    "office.engine.outcome": turn.outcome,
+    "office.engine.call.duration_ms": durationMs,
+    "office.tokens.input": turn.usage.input,
+    "office.tokens.output": turn.usage.output,
+    "office.tokens.cache_read": turn.usage.cacheRead,
+    "office.tokens.cache_creation": turn.usage.cacheCreation,
+    ...(cost.estimatedUsd === undefined ? {} : { "office.cost.estimated_usd": cost.estimatedUsd }),
+    ...(cost.engineReportedUsd === undefined
+      ? {}
+      : { "office.cost.engine_reported_usd": cost.engineReportedUsd }),
+  };
+}
+
 /**
  * One span per engine call, a turn, from when it begins (a message reaching an idle session, or a
- * turn ending with messages left to take) to its end, with its tokens and cost.
+ * turn ending with messages left to take) to its end, with its tokens and estimated cost, and one
+ * `office.engine.call` record per call that ends with a turn.
  */
 export class EngineCallSpans {
   /** Messages sent and not yet taken by a turn. */
@@ -49,20 +109,24 @@ export class EngineCallSpans {
   private open: OpenCall | undefined;
   /** Ends the count of the open call as busy work, which a scheduled Office update waits for. */
   private endBusy: (() => void) | undefined;
+  private readonly spentOn: EngineModel;
   private readonly spanAttributes: TelemetryAttributes;
   private readonly metricAttributes: TelemetryAttributes;
 
   constructor(
     private readonly telemetry: Telemetry,
     private readonly costs: SessionCosts,
+    private readonly prices: Pick<ModelPrices, "costOf">,
     private readonly sessionId: string,
     options: SessionOptions,
-    caller: SessionTelemetry | undefined,
+    private readonly caller: SessionTelemetry | undefined,
     private readonly countBusy: () => () => void,
   ) {
     const features = promptFeatures(options);
+    this.spentOn = { engineId: options.engine.id, model: options.model };
     this.spanAttributes = {
       ...caller?.span,
+      "office.engine": options.engine.id,
       "office.engine.session": sessionId,
       "office.engine.model": options.model,
       "office.prompt.features": features,
@@ -109,27 +173,48 @@ export class EngineCallSpans {
     this.endBusy = this.countBusy();
     this.telemetry
       .inSpan(ENGINE_CALL, this.spanAttributes, async (span) => {
-        const turn = await call.ended;
-        if (turn === undefined) return;
-        span.setAttribute("office.engine.outcome", turn.outcome);
-        this.telemetry.recordTokens(span, turn.usage, this.metricAttributes);
-        const cost = this.costs.turnCost(this.sessionId, turn.sessionCostUsd);
-        if (cost !== undefined) this.telemetry.recordCost(span, cost, this.metricAttributes);
+        const ended = await call.ended;
+        if (ended === undefined) return;
+        span.setAttribute("office.engine.outcome", ended.turn.outcome);
+        this.telemetry.recordTokens(span, ended.turn.usage, this.metricAttributes);
+        const cost = await this.costOf(span, ended.turn);
+        if (cost.estimatedUsd !== undefined) {
+          this.telemetry.recordCost(span, cost.estimatedUsd, this.metricAttributes);
+        }
+        this.telemetry.recordEngineCall(engineCallRecord(this.spentOn, this.caller, ended, cost));
       })
       // The span keeps the failure; the session's reader gets it from the stream.
       .catch(() => undefined);
+  }
+
+  /**
+   * Priced from the turn's tokens by Model prices, as Daily caps are; the engine's own report
+   * stands in only for a model with no price (spec §5.2). When the prices can't be read, the call
+   * has no estimate and its span keeps why, so its record is still written.
+   */
+  private async costOf(span: TelemetrySpan, turn: TurnEndedEvent): Promise<CallCost> {
+    const engineReportedUsd = this.costs.turnCost(this.sessionId, turn.sessionCostUsd);
+    try {
+      const priced = await this.prices.costOf(this.spentOn, turn.usage);
+      return { estimatedUsd: priced ?? engineReportedUsd, engineReportedUsd };
+    } catch (error) {
+      span.recordException(error instanceof Error ? error : String(error));
+      return { estimatedUsd: undefined, engineReportedUsd };
+    }
   }
 }
 
 /** A call under way, which ends with its turn, or without one when the session stops first. */
 class OpenCall {
-  readonly ended: Promise<TurnEndedEvent | undefined>;
+  readonly ended: Promise<EndedCall | undefined>;
   end: (turn: TurnEndedEvent | undefined) => void = () => undefined;
   fail: (error: unknown) => void = () => undefined;
+  private readonly begunAt = performance.now();
 
   constructor() {
     this.ended = new Promise((resolve, reject) => {
-      this.end = resolve;
+      this.end = (turn) =>
+        resolve(turn && { turn, durationMs: Math.round(performance.now() - this.begunAt) });
       this.fail = reject;
     });
   }
