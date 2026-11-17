@@ -382,6 +382,7 @@ describe("StageInterpreter's Decisions", () => {
         ["review", "done"],
       ]);
       expect(runs[1]?.outcome).toMatchObject({ summary: expect.stringContaining("Skipped") });
+      expect(runs[1]?.changedFiles).toEqual([]);
       expect(pipelines.stageThreads.requests).toHaveLength(1);
       expect(statesOf(taskId)).toEqual(["done"]);
     });

@@ -43,6 +43,11 @@ export const stageRuns = pgTable(
     model: text("model"),
     /** Where The Office left the Task's branch after the run. */
     headCommit: text("head_commit"),
+    /**
+     * The paths of The Office's commit of the run's work; `[]` for a run that committed nothing,
+     * null until recorded, and for runs kept before this was.
+     */
+    changedFiles: jsonb("changed_files").$type<readonly string[]>(),
     /** The Project commands The Office ran for the run. */
     commandRuns: jsonb("command_runs").$type<readonly StageCommandRun[]>().notNull().default([]),
     /**

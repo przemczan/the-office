@@ -148,7 +148,7 @@ export class ResolveStageGit implements OnModuleInit {
     }
     const end = await this.publishing.finishResolve(task.project.id, run.taskId);
     if (end.kind === "resolved") {
-      await this.stageGit.leaveAt(run, { ...expected, commit: end.commit });
+      await this.stageGit.leaveAtCommit(run, task, end.commit);
       return result;
     }
     await this.stageGit.leaveAt(run, expected);

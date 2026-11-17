@@ -42,6 +42,7 @@ export function aRun(
     roleKey: undefined,
     session: "fresh",
     headCommit: undefined,
+    changedFiles: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     context: undefined,

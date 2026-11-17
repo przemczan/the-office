@@ -29,6 +29,7 @@ import type {
 } from "../../domain/stage-run.js";
 import {
   StageRunRepository,
+  type LeftBranch,
   type RanAgentStageRun,
   type StageRunThread,
   type StartedStageRun,
@@ -59,6 +60,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
 
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
     await this.database.update(stageRuns).set({ headCommit }).where(eq(stageRuns.id, runId));
+  }
+
+  async saveLeftBranch(runId: string, left: LeftBranch): Promise<void> {
+    await this.database.update(stageRuns).set(left).where(eq(stageRuns.id, runId));
   }
 
   async saveCommandRuns(
@@ -120,7 +125,12 @@ export class PostgresStageRunRepository extends StageRunRepository {
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
     await this.database
       .update(stageRuns)
-      .set({ outcome, endedAt, waitingSince: null })
+      .set({
+        outcome,
+        endedAt,
+        waitingSince: null,
+        changedFiles: sql`coalesce(${stageRuns.changedFiles}, '[]'::jsonb)`,
+      })
       .where(eq(stageRuns.id, id));
   }
 
@@ -233,6 +243,7 @@ function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">):
     model: row.model ?? undefined,
     context: row.context ?? undefined,
     headCommit: row.headCommit ?? undefined,
+    changedFiles: row.changedFiles ?? undefined,
     heldBy: row.heldBy ?? undefined,
     heldByUser: row.heldByUser ?? undefined,
     gateAction: row.gateAction ?? undefined,

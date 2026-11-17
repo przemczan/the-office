@@ -25,6 +25,17 @@ export abstract class TaskGit {
   abstract commit(projectId: string, taskId: string, message: string): Promise<string | undefined>;
 
   /**
+   * The paths one of the Task's commits changed against its first parent: added, changed and
+   * deleted ones, and both paths of a rename. For a merge commit, only the paths its own
+   * resolution changed against every parent.
+   */
+  abstract committedPaths(
+    projectId: string,
+    taskId: string,
+    commit: string,
+  ): Promise<readonly string[]>;
+
+  /**
    * Drops every uncommitted change in the Task's worktree, untracked files included and ignored
    * ones, such as dependencies, kept. Returns the dropped paths.
    */

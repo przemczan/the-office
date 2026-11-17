@@ -131,6 +131,18 @@ export class TaskWorktrees {
   }
 
   /**
+   * The paths one of the Task's commits changed against its first parent: added, changed and
+   * deleted ones, and both paths of a rename.
+   */
+  async committedPaths(
+    projectId: string,
+    taskId: string,
+    commit: string,
+  ): Promise<readonly string[]> {
+    return this.worktrees.committedPaths(await this.projects.read(projectId), taskId, commit);
+  }
+
+  /**
    * After a Stage's commit, pushes a Publishing Task's Initiative's branch to the base branch's
    * remote, without force, on the Office identity (spec §5.5, "Pushed"); not needed for any other
    * Task, or when the base branch tracks no remote. A refused push answers why, which doesn't fail

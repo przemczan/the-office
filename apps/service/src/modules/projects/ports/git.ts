@@ -416,6 +416,13 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<string | undefined>;
 
+  /**
+   * The paths `commit` changed against its first parent: added, changed and deleted ones, and
+   * both the old and the new path of a rename. For a merge commit, only the paths it changed
+   * against every parent: its own resolution, not what the merged branches brought in.
+   */
+  abstract committedPaths(worktreePath: string, commit: string): Promise<readonly string[]>;
+
   abstract head(worktreePath: string): Promise<Head>;
 
   /**

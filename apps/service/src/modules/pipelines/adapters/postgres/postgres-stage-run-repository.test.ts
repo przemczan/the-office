@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import { aStageRun } from "../../domain/stage-run.fixtures.js";
 import type { StageRun } from "../../domain/stage-run.js";
@@ -11,6 +13,7 @@ import { PostgresTaskStagesRepository } from "./postgres-task-stages-repository.
 let app: INestApplication;
 let runs: PostgresStageRunRepository;
 let taskStages: PostgresTaskStagesRepository;
+let database: Database;
 
 beforeAll(async () => {
   ({ app } = await startTestApplication({
@@ -19,6 +22,7 @@ beforeAll(async () => {
   }));
   runs = app.get(PostgresStageRunRepository);
   taskStages = app.get(PostgresTaskStagesRepository);
+  database = app.get(DATABASE);
 });
 
 afterAll(async () => {
@@ -28,6 +32,50 @@ afterAll(async () => {
 function thisWeek(hour: number): Date {
   return new Date(Date.UTC(2099, 2, 2, hour));
 }
+
+async function runOf(taskId: string): Promise<StageRun | undefined> {
+  return (await runs.list(taskId))[0];
+}
+
+describe("PostgresStageRunRepository's changed files", () => {
+  it("keeps where the run left the branch with the files its commit changed", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+    const changedFiles = ["src/old-name.ts", "src/new-name.ts", "README.md"];
+
+    await runs.saveLeftBranch(run.id, { headCommit: "c".repeat(40), changedFiles });
+    await runs.saveEnded({ ...run, outcome: { status: "done", summary: "Done." } });
+
+    expect(await runOf(run.taskId)).toMatchObject({ headCommit: "c".repeat(40), changedFiles });
+  });
+
+  it("keeps none for a run that committed nothing, and for one that ended with none saved", async () => {
+    const leftAsFound = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    const gate = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(leftAsFound);
+    await runs.saveNew(gate);
+
+    await runs.saveLeftBranch(leftAsFound.id, { headCommit: "a".repeat(40), changedFiles: [] });
+    expect((await runOf(gate.taskId))?.changedFiles).toBeUndefined();
+    await runs.saveEnded({ ...gate, outcome: { status: "done", summary: "Approved." } });
+
+    expect((await runOf(leftAsFound.taskId))?.changedFiles).toEqual([]);
+    expect((await runOf(gate.taskId))?.changedFiles).toEqual([]);
+  });
+
+  it("reads a run the previous release wrote, without the column, as not recorded", async () => {
+    const taskId = randomUUID();
+    await database.execute(
+      sql`INSERT INTO "stage_runs" ("id", "task_id", "stage_key", "number", "head_commit", "outcome", "started_at", "ended_at")
+        VALUES (${randomUUID()}, ${taskId}, 'implement', 1, ${"b".repeat(40)}, '{"status":"done","summary":"Done."}'::jsonb, now(), now())`,
+    );
+
+    const run = await runOf(taskId);
+
+    expect(run?.headCommit).toBe("b".repeat(40));
+    expect(run?.changedFiles).toBeUndefined();
+  });
+});
 
 describe("PostgresStageRunRepository.startedSince", () => {
   it("gives each run started since with its tokens, a retry this week of a Stage first run last week counted as a retry", async () => {

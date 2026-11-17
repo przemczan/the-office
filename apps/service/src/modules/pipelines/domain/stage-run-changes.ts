@@ -33,6 +33,7 @@ export function startStageRun(
     engineName: undefined,
     model: undefined,
     headCommit: undefined,
+    changedFiles: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     context: undefined,

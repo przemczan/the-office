@@ -65,17 +65,35 @@ describe("ScriptStageRunner", () => {
     pipelines = await startPipelinesApplication();
     const build = aScriptStage("build", { name: "Build" });
 
-    const taskId = await walkStages(pipelines, [build]);
+    const taskId = randomUUID();
+    pipelines.git.uncommitted.set(taskId, ["dist/app.js"]);
+
+    await walkStages(pipelines, [build], taskId);
 
     expect(pipelines.git.commits).toEqual([
       {
         taskId,
         message: "Build: Rename a device\n\n`npm run build` passed.",
         commit: expect.any(String),
+        paths: ["dist/app.js"],
       },
     ]);
     const [run] = await runsOf(pipelines, taskId);
     expect(run?.headCommit).toBe(pipelines.git.commits[0]?.commit);
+    expect(run?.changedFiles).toEqual(["dist/app.js"]);
+  });
+
+  it("records no changed files when a build changed nothing", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    pipelines.git.unchanged.add(taskId);
+
+    await walkStages(pipelines, [aScriptStage("build", { name: "Build" })], taskId);
+
+    expect(pipelines.git.commits).toEqual([]);
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.headCommit).toBe(PLANNED_COMMIT);
+    expect(run?.changedFiles).toEqual([]);
   });
 
   it("fails, committing nothing, when its command moved HEAD", async () => {

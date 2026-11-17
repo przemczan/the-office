@@ -679,15 +679,18 @@ export const PLANNED_COMMIT = "0123456789abcdef0123456789abcdef01234567";
 @Injectable()
 export class TaskGitForTests extends TaskGit {
   private readonly heads = new Map<string, WorktreeHead>();
+  /** Each merge commit Resolve made, with the paths its own resolution changed. */
+  private readonly merges = new Map<string, readonly string[]>();
   /** What each Task's worktree holds uncommitted, as an Agent's edits leave it. */
   readonly uncommitted = new Map<string, readonly string[]>();
   /** Every discard The Office made, in order, with the paths it dropped. */
   readonly discarded: { readonly taskId: string; readonly paths: readonly string[] }[] = [];
-  /** Every commit The Office made, in order. */
+  /** Every commit The Office made, in order, with the paths it holds: what was uncommitted. */
   readonly commits: {
     readonly taskId: string;
     readonly message: string;
     readonly commit: string;
+    readonly paths: readonly string[];
   }[] = [];
   /** The Tasks whose worktrees hold nothing to commit. */
   readonly unchanged = new Set<string>();
@@ -739,9 +742,25 @@ export class TaskGitForTests extends TaskGit {
     this.observe?.("commit");
     if (this.unchanged.has(taskId)) return Promise.resolve(undefined);
     const commit = `${this.commits.length + 1}`.padStart(40, "c");
-    this.commits.push({ taskId, message, commit });
+    this.commits.push({ taskId, message, commit, paths: this.uncommitted.get(taskId) ?? [] });
     this.move(taskId, { commit, branch: this.headOf(taskId).branch });
     return Promise.resolve(commit);
+  }
+
+  /**
+   * Moves the Task's HEAD to a merge commit Resolve made, as git's would, holding what was left
+   * uncommitted as the merge's own resolution.
+   */
+  merged(taskId: string, commit: string): void {
+    this.merges.set(commit, this.uncommitted.get(taskId) ?? []);
+    this.move(taskId, { commit, branch: this.headOf(taskId).branch });
+  }
+
+  committedPaths(_projectId: string, _taskId: string, commit: string): Promise<readonly string[]> {
+    const paths =
+      this.commits.find((each) => each.commit === commit)?.paths ?? this.merges.get(commit);
+    if (paths === undefined) return Promise.reject(new Error(`No commit ${commit}.`));
+    return Promise.resolve(paths);
   }
 
   discard(_projectId: string, taskId: string): Promise<readonly string[]> {
@@ -1050,11 +1069,11 @@ export class TaskPublishingForTests extends TaskPublishing {
   finishResolve(_projectId: string, taskId: string): Promise<ResolveEnd> {
     this.resolveCalls.push({ call: "finish", taskId });
     const end = this.resolveEnds.shift() ?? { kind: "resolved", commit: RESOLVED_COMMIT };
-    if (end.kind === "resolved") this.mergedAt(taskId, end.commit);
+    if (end.kind === "resolved") this.git.merged(taskId, end.commit);
     return Promise.resolve(end);
   }
 
-  /** The merge commit moves the Task's branch, as git's would. */
+  /** A clean merge moves the Task's branch, as git's would. */
   private mergedAt(taskId: string, commit: string): void {
     this.git.move(taskId, { commit, branch: aTaskRecord().worktree.branch });
   }

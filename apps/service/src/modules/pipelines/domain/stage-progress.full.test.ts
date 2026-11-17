@@ -57,6 +57,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     roleKey: undefined,
     session: undefined,
     headCommit: undefined,
+    changedFiles: undefined,
     commandRuns: [],
     startedAt: new Date(0),
     endedAt: each.outcome && new Date(0),

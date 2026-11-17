@@ -265,7 +265,11 @@ describe("AgentStageRunner after the session", () => {
       sessionEndedAt[call] = ended ?? false;
     };
 
-    const taskId = await walkStages(pipelines, [implement]);
+    const taskId = randomUUID();
+    const paths = ["src/rename-dialog.tsx", "src/rename-dialog.test.tsx"];
+    pipelines.git.uncommitted.set(taskId, paths);
+
+    await walkStages(pipelines, [implement], taskId);
 
     expect(sessionEndedAt).toEqual({ head: true, commit: true, changesSoFar: false });
     expect(pipelines.stageThreads.sessionsEnded).toHaveLength(1);
@@ -275,9 +279,11 @@ describe("AgentStageRunner after the session", () => {
       message:
         "Implement: Rename a device\n\nAdded the rename dialog.\n\nIt saves on Enter.\n\nHandover note:\nLeft: the list's refresh.",
       commit: expect.any(String),
+      paths,
     });
     const [run] = await runsOf(pipelines, taskId);
     expect(run?.headCommit).toBe(commit?.commit);
+    expect(run?.changedFiles).toEqual(paths);
     expect(run?.outcome?.status).toBe("done");
   });
 
@@ -290,7 +296,10 @@ describe("AgentStageRunner after the session", () => {
 
     await walkStages(pipelines, [implement], taskId);
 
-    expect((await runsOf(pipelines, taskId))[0]?.headCommit).toBe(commit);
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.headCommit).toBe(commit);
+    // The base's merge isn't the Stage's own change.
+    expect(run?.changedFiles).toEqual([]);
     expect(pipelines.stageThreads.requests[0]?.work).toContain("up to date with");
   });
 
@@ -317,6 +326,7 @@ describe("AgentStageRunner after the session", () => {
     const error = `The Stage changed git itself: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. Only The Office commits a Stage's work, so it stopped here without committing.`;
     expect(moved?.outcome).toEqual({ status: "failed", error, handoverNote: "Nothing is left." });
     expect(moved?.headCommit).toBe(implemented?.commit);
+    expect(moved?.changedFiles).toEqual([]);
     expect(pipelines.stageThreads.ended[1]?.closing).toEqual({ kind: "failure", reason: error });
     expect(again?.stageKey).toBe("implement");
     expect(again?.outcome).toEqual({
@@ -324,6 +334,7 @@ describe("AgentStageRunner after the session", () => {
       error: `The Task's worktree isn't where The Office left it: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. The Stage didn't start.`,
       branchMoved: true,
     });
+    expect(again?.changedFiles).toEqual([]);
     expect(pipelines.stageThreads.requests).toHaveLength(2);
   });
 });

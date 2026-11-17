@@ -77,6 +77,7 @@ class FakeGit extends Git {
   checkoutDetached = notUsed;
   removeWorktree = notUsed;
   commit = notUsed;
+  committedPaths = notUsed;
   head = notUsed;
   diffSummary = notUsed;
   branchChanges = notUsed;

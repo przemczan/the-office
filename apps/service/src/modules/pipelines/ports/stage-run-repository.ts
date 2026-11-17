@@ -23,6 +23,12 @@ export interface StageRunThread {
   readonly model: string;
 }
 
+/** Where The Office left the Task's branch after a run, and what the run's own commit changed. */
+export interface LeftBranch {
+  readonly headCommit: string;
+  readonly changedFiles: readonly string[];
+}
+
 /** A Stage run's tokens, and whether its Stage already had a run on the same Task before it. */
 export interface StartedStageRun {
   readonly taskId: string;
@@ -52,8 +58,14 @@ export abstract class StageRunRepository {
 
   abstract saveThread(runId: string, thread: StageRunThread): Promise<void>;
 
-  /** Saves the commit The Office left the Task's branch at after the run. */
+  /** Saves the commit HEAD moved to while the run runs, by a base update The Office made. */
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;
+
+  /**
+   * Saves where The Office left the Task's branch after the run, with the files its commit of the
+   * run's work changed, together, so neither is ever kept without the other.
+   */
+  abstract saveLeftBranch(runId: string, left: LeftBranch): Promise<void>;
 
   /** Saves the Project commands The Office ran for the run, replacing those saved before. */
   abstract saveCommandRuns(
@@ -92,7 +104,7 @@ export abstract class StageRunRepository {
    */
   abstract saveGateAction(runId: string, gateAction: GateAction): Promise<boolean>;
 
-  /** Saves how the run ended. */
+  /** Saves how the run ended; a run that saved no changed files, such as a Gate's, changed none. */
   abstract saveEnded(run: StageRun): Promise<void>;
 
   /** The Task's runs, oldest first, without their commands' whole outputs. */

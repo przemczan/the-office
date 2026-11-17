@@ -346,6 +346,13 @@ export interface StageRun {
    * Stage expects HEAD there. Undefined for a run that leaves git as it was.
    */
   readonly headCommit: string | undefined;
+  /**
+   * The paths of the commit The Office made of the run's work, against its first parent, both
+   * paths of a rename; none for a run that ended with nothing committed, a base update not being
+   * its own change. Undefined until The Office records where the run left the branch, and for runs
+   * kept before this was recorded.
+   */
+  readonly changedFiles: readonly string[] | undefined;
   /** The Project commands The Office ran for the run, in order; none when it ran none. */
   readonly commandRuns: readonly StageCommandRun[];
   /**

@@ -25,6 +25,7 @@ function aRun(stageKey: string, decisions: StageRunDecision[]): StageRun {
     roleKey: undefined,
     session: undefined,
     headCommit: undefined,
+    changedFiles: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     context: undefined,

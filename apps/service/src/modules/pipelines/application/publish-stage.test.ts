@@ -120,8 +120,10 @@ describe("A Publish Stage", () => {
       error,
       conflictedFiles: ["src/index.ts"],
     });
+    const taskId = randomUUID();
+    pipelines.git.uncommitted.set(taskId, ["src/index.ts"]);
 
-    const taskId = await walkStages(pipelines, [implement, reviewedPublish]);
+    await walkStages(pipelines, [implement, reviewedPublish], taskId);
 
     const runs = await runsOf(pipelines, taskId);
     expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
@@ -133,6 +135,8 @@ describe("A Publish Stage", () => {
     ]);
     expect(runs[2]?.carriedFailure).toEqual({ stageKey: "publish", error, round: 1, rounds: 3 });
     expect(runs[2]?.headCommit).toBe(RESOLVED_COMMIT);
+    // The merge commit records only what its resolution changed.
+    expect(runs[2]?.changedFiles).toEqual(["src/index.ts"]);
     expect(pipelines.publishing.resolveCalls).toEqual([
       { call: "start", taskId },
       { call: "finish", taskId },
