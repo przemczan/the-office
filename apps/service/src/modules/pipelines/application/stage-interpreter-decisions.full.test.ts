@@ -371,7 +371,7 @@ describe("StageInterpreter's Decisions", () => {
   describe("an optional Stage", () => {
     const review = anAgentStage("review", { optional: true });
 
-    it("is skipped when every statement of the Definition of Done is already reported met", async () => {
+    it("is passed by, with no run, when every statement of the Definition of Done is already reported met", async () => {
       await startWith(agentDone);
 
       const taskId = await walkStages(pipelines, [draft, review]);
@@ -379,10 +379,7 @@ describe("StageInterpreter's Decisions", () => {
       const runs = await runsOf(pipelines, taskId);
       expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
         ["draft", "done"],
-        ["review", "done"],
       ]);
-      expect(runs[1]?.outcome).toMatchObject({ summary: expect.stringContaining("Skipped") });
-      expect(runs[1]?.changedFiles).toEqual([]);
       expect(pipelines.stageThreads.requests).toHaveLength(1);
       expect(statesOf(taskId)).toEqual(["done"]);
     });

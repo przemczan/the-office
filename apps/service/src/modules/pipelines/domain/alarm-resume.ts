@@ -75,8 +75,6 @@ export function walkAhead(
     case "complete":
     case "drop":
       return { kind: "goes-on", stage: undefined };
-    case "skip":
-      return { kind: "goes-on", stage: move.stage };
     case "run":
       return runAhead(move.stage);
   }

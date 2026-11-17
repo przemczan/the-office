@@ -10,7 +10,7 @@ import {
   type Stage,
   type StageKind,
 } from "./stage.js";
-import { reportedMetIn } from "./pipeline-walk.js";
+import { reportedMetIn } from "./definition-of-done-reports.js";
 import { isResolveStage } from "./resolve-stages.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
@@ -85,6 +85,8 @@ export interface EarlierResult {
   readonly outcome: StageOutcome;
   /** A Gate's run alone: the notes the user let the work continue with. */
   readonly gateNotes?: string;
+  /** The notes the user chose where the walk goes on with, when none of the Stage's routes held. */
+  readonly routeNotes?: string;
 }
 
 /** What an Agent Stage's Brief is assembled from: the record, with no model call (spec §2.5). */
@@ -362,7 +364,6 @@ function laterStageWords(
   const kind = [
     STAGE_KIND_NAMES[laterStage.kind],
     ...(laterStage.kind === "agent" ? [workerWords(laterStage, roleTitle)] : []),
-    ...(laterStage.optional ? ["optional"] : []),
   ].join(", ");
   const comesBack =
     laterStage.kind !== "gate" && laterStage.onFailure?.goBackTo === stage.key
@@ -499,12 +500,16 @@ function earlierResultWords(result: EarlierResult): string {
 }
 
 /** A Stage run's result as a line of a Brief, without its Handover note. */
-export function stageResultWords({ stageName, kind, outcome, gateNotes }: EarlierResult): string {
+export function stageResultWords(result: EarlierResult): string {
+  const words = resultWords(result);
+  if (result.routeNotes === undefined) return words;
+  return `${words}\n  None of its routes held, so the user chose where the work goes on, with notes for the Stages after it. Follow them:\n  ${withinItem(result.routeNotes)}`;
+}
+
+function resultWords({ stageName, kind, outcome, gateNotes }: EarlierResult): string {
   const name = `- ${stageName} (${STAGE_KIND_NAMES[kind]})`;
   if (gateNotes !== undefined) {
-    // A later brief line stays within its item, as laterStageWords keeps a brief's.
-    const notes = gateNotes.replaceAll("\n", "\n  ");
-    return `${name}: the user let the work continue, with notes for the Stages after it. Follow them:\n  ${notes}`;
+    return `${name}: the user let the work continue, with notes for the Stages after it. Follow them:\n  ${withinItem(gateNotes)}`;
   }
   switch (outcome.status) {
     case "done":
@@ -516,6 +521,11 @@ export function stageResultWords({ stageName, kind, outcome, gateNotes }: Earlie
   }
 }
 
+/** A later brief line stays within its item, as laterStageWords keeps a brief's. */
+function withinItem(notes: string): string {
+  return notes.replaceAll("\n", "\n  ");
+}
+
 /**
  * The runs that ended with a result, in the order given. A Gate's has none to brief with, but for
  * the notes the user let the work continue with, which every later Stage follows (spec §2.3).
@@ -524,14 +534,24 @@ export function earlierResults(
   stages: readonly Stage[],
   runs: readonly StageRun[],
 ): EarlierResult[] {
-  return runs.flatMap(({ stageKey, outcome, gateAction }): EarlierResult[] => {
+  return runs.flatMap((run): EarlierResult[] => {
+    const { stageKey, outcome, gateAction } = run;
     const stage = stages.find(({ key }) => key === stageKey);
     if (!stage || !outcome) return [];
-    if (stage.kind !== "gate") return [{ stageName: stage.name, kind: stage.kind, outcome }];
+    const routeNotes = routeNotesOf(run);
+    const noted = routeNotes === undefined ? {} : { routeNotes };
+    const result = { stageName: stage.name, kind: stage.kind, outcome, ...noted };
+    if (stage.kind !== "gate") return [result];
     const gateNotes = gateAction?.kind === "continue" ? gateAction.feedback : undefined;
-    if (gateNotes === undefined) return [];
-    return [{ stageName: stage.name, kind: stage.kind, outcome, gateNotes }];
+    if (gateNotes === undefined && routeNotes === undefined) return [];
+    return [gateNotes === undefined ? result : { ...result, gateNotes }];
   });
+}
+
+/** The notes the user answered the run's no-route-holds Decision with, if any. */
+function routeNotesOf({ decisions }: StageRun): string | undefined {
+  const answer = decisions.find(({ kind }) => kind === "no-route-holds")?.answer;
+  return answer?.kind === "follow-route" ? answer.guidance : undefined;
 }
 
 function attachmentsSection(lines: readonly string[]): string {

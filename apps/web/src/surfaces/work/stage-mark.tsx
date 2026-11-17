@@ -9,6 +9,7 @@ const STATE_ICONS: Readonly<Partial<Record<TaskStage["state"], string>>> = {
   paused: "pause",
   stopped: "square",
   skipped: "minus",
+  "not-taken": "skip-forward",
 };
 
 /** A Stage's mark: its kind by the shape, its state by the colour and the icon. */

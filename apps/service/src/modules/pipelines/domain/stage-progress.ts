@@ -1,4 +1,5 @@
 import type { DutyKey } from "../../people/index.js";
+import { asFlow, reachableFrom } from "./flow.js";
 import type { Stage } from "./stage.js";
 import { staffedRole, staffedStages } from "./stage-staffing.js";
 import {
@@ -12,11 +13,19 @@ import {
 
 /**
  * Where one of a started Task's Stages stands, as the Task page shows it: from its latest run, or
- * pending before its first. A run the user held with Pause or Stop, or the fire alarm held, is no
- * failure (spec §2.4, §2.8).
+ * pending before its first, or Not taken when the walk went another way (`notTaken`). A run the
+ * user held with Pause or Stop, or the fire alarm held, is no failure (spec §2.4, §2.8).
  */
 export type StageState =
-  "pending" | "running" | "waiting-on-you" | "paused" | "stopped" | "done" | "skipped" | "failed";
+  | "pending"
+  | "running"
+  | "waiting-on-you"
+  | "paused"
+  | "stopped"
+  | "done"
+  | "skipped"
+  | "failed"
+  | "not-taken";
 
 /** Where a failed run's on-failure loop went back to, and which time. */
 export interface WentBack {
@@ -64,13 +73,14 @@ export function stagesProgress(
   holders: ReadonlyMap<DutyKey, string> = new Map(),
 ): StageProgress[] {
   const staffed = staffedStages(stages, runs, holders);
+  const notTaken = notTakenStages(stages, runs);
   return stages.map((stage, index) => {
     const own = runs.filter(({ stageKey }) => stageKey === stage.key);
     const latest = own.at(-1);
     const staffedStage = staffed[index];
     return {
       stage,
-      state: latest ? stateOf(stage, latest) : "pending",
+      state: latest ? stateOf(stage, latest) : notTaken.has(stage.key) ? "not-taken" : "pending",
       runs: own,
       tokens: own.reduce((sum, run) => addTokens(sum, run.tokens), NO_STAGE_TOKENS),
       wentBack: latest && wentBackFrom(latest, runs),
@@ -80,6 +90,19 @@ export function stagesProgress(
           : undefined,
     };
   });
+}
+
+/**
+ * The keys of the Stages Not taken in the walk so far (spec §2.3): once it started, every Stage no
+ * path of routes leads to from the Stage of the Task's latest run. Only those without a run show
+ * so; a Stage that ran keeps its run's state.
+ */
+function notTakenStages(stages: readonly Stage[], runs: readonly StageRun[]): ReadonlySet<string> {
+  const latest = runs.at(-1);
+  if (!latest) return new Set();
+  const flow = asFlow(stages);
+  const reached = reachableFrom(flow, latest.stageKey);
+  return new Set(flow.flatMap(({ key }) => (reached.has(key) ? [] : [key])));
 }
 
 function stateOf(stage: Stage, { outcome, decisions, gateAction }: StageRun): StageState {

@@ -96,7 +96,7 @@ describe("stageHistoryLine", () => {
 
   it("says a Script Stage's command and rule", () => {
     expect(stageHistoryLine(aTaskStage(tests), roles, names)).toBe(
-      "Project command · test · optional · on failure back to Implement, at most 3×",
+      "Project command · test · on failure back to Implement, at most 3×",
     );
   });
 

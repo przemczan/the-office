@@ -47,7 +47,10 @@ export type StageOutcome = (
       readonly definitionOfDoneOutOfReach?: readonly OutOfReachStatement[];
       /** The pull request a Publish opened. Undefined on runs stored before it was kept. */
       readonly pullRequestUrl?: string;
-      /** Set on an optional Stage's run recorded as skipped, which ran nothing. */
+      /**
+       * Set on a run recorded as skipped, which ran nothing: an optional Stage's, as the previous
+       * release recorded them.
+       */
       readonly skipped?: true;
     }
   | ({ readonly status: "needs-decision" } & StageDecision)
@@ -250,7 +253,8 @@ export interface SentBack {
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
  * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), a Publish
  * that found the Task's branch no longer applies cleanly on the base branch, a branch moved
- * outside The Office, or a Publish that shipped but whose after publishing line failed.
+ * outside The Office, a Publish that shipped but whose after publishing line failed, or no route
+ * out of an ended Stage holding.
  */
 export type StageDecisionKind =
   | "agent"
@@ -260,7 +264,8 @@ export type StageDecisionKind =
   | "restart"
   | "base-moved"
   | "branch-moved"
-  | "after-publishing-failed";
+  | "after-publishing-failed"
+  | "no-route-holds";
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =
@@ -287,6 +292,11 @@ export type WalkAnswer =
   | { readonly kind: "resolved-in-worktree" }
   /** The Stage runs from the branch as it is now, guided by the user's words, if any. */
   | { readonly kind: "keep-branch"; readonly guidance: string | undefined }
+  /**
+   * The walk follows the route to `to` (null: the Pipeline's End) though none held, with the
+   * user's notes for the Stage it goes on to, if any.
+   */
+  | { readonly kind: "follow-route"; readonly to: string | null; readonly guidance?: string }
   | { readonly kind: "drop" };
 
 /**

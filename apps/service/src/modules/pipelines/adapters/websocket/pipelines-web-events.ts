@@ -19,7 +19,6 @@ import {
   StageRunWaiting,
   StageRunThreadOpened,
   SentBackFromGate,
-  StageSkipped,
   StopHeldAsPause,
   WentBackToStage,
 } from "../../domain/stage-run-events.js";
@@ -123,11 +122,6 @@ export class PipelinesWebEvents implements OnModuleInit {
         stageKey: event.stageKey,
       }),
     );
-    this.forwarding.forward(StageSkipped, (event): WebEventOf<"stage-run.skipped"> => ({
-      type: "stage-run.skipped",
-      taskId: event.taskId,
-      stageKey: event.stageKey,
-    }));
     this.forwarding.forward(WentBackToStage, (event): WebEventOf<"stage-run.went-back"> => ({
       type: "stage-run.went-back",
       taskId: event.taskId,

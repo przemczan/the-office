@@ -70,7 +70,6 @@ const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFiel
     words: (stage) =>
       publishOnly(stage, ({ afterConflict }) => AFTER_CONFLICT_NAMES[afterConflict ?? "publish"]),
   },
-  { label: "Optional", words: ({ optional }) => (optional ? "Yes" : "No") },
 ];
 
 /** A field of a Stage from one value to another, in the editor's words. */
@@ -186,7 +185,6 @@ export function stageDetailsLine(stage: Stage, stages: readonly Stage[]): string
       stage.afterConflict === "review" &&
       stage.publishTarget !== "branch-only" &&
       "a resolved conflict waits for you",
-    stage.optional && "optional",
     onFailure &&
       `on failure back to ${target?.name ?? onFailure.goBackTo}, at most ${onFailure.rounds}×`,
   ]

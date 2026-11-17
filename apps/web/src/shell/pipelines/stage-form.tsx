@@ -11,7 +11,6 @@ import {
   type Stage,
 } from "@the-office/contracts";
 import {
-  Checkbox,
   Field,
   GroupedSelect,
   Input,
@@ -123,13 +122,6 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
           </Field>
         </div>
       )}
-      <div className="stage-editor-wide">
-        <Checkbox
-          label="Optional: skipped when the Definition of Done is already met"
-          checked={stage.optional}
-          onChange={(optional) => change({ ...stage, optional })}
-        />
-      </div>
     </div>
   );
 }

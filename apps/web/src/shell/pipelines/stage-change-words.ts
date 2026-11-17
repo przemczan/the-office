@@ -13,7 +13,7 @@ import {
   thousands,
   whoWorks,
 } from "./pipeline-words.ts";
-import type { StageChangeRow, StageField } from "./stage-change-edits.ts";
+import { isStageField, type StageChangeRow, type StageField } from "./stage-change-edits.ts";
 import { commandWords } from "./stage-commands.ts";
 
 /**
@@ -41,7 +41,6 @@ export const STAGE_FIELD_LABELS: Readonly<Record<StageField, string>> = {
   brief: "Brief",
   permissions: "Permissions",
   onFailure: "On failure",
-  optional: "Optional",
 };
 
 export const STAGE_CHANGE_KIND_NAMES: Readonly<Record<StageChange["kind"], string>> = {
@@ -82,9 +81,20 @@ export function originWords(row: StageChangeRow, baseName: string): OriginWords 
   }
 }
 
-/** "Brief, Effort": the fields Changes gave a Stage, by their labels. */
+/**
+ * The label of `optional`, which the form no longer offers but a Change saved before may still
+ * give: the service still draws a converted line's routes again from it, so its words name it.
+ */
+const OPTIONAL_LABEL = "Optional";
+
+/** "Brief, Effort": the fields Changes gave a Stage, by their labels; one nobody knows left out. */
 export function changedFieldsWords(fields: readonly string[]): string {
-  return fields.map((field) => STAGE_FIELD_LABELS[field as StageField] ?? field).join(", ");
+  return fields
+    .flatMap((field) => {
+      if (isStageField(field)) return [STAGE_FIELD_LABELS[field]];
+      return field === "optional" ? [OPTIONAL_LABEL] : [];
+    })
+    .join(", ");
 }
 
 /** What Undo gives back, as its tooltip and name say it. */
@@ -164,8 +174,6 @@ export function fieldWords(stage: Stage, field: StageField, context: FieldWordsC
       return stage.kind === "agent" && stage.permissions ? "Narrowed" : "The Role card's";
     case "onFailure":
       return onFailureWords(stage, context.stages);
-    case "optional":
-      return stage.optional ? "Yes" : "No";
     case "brief":
     case "name":
       return typeof value === "string" && value.trim() !== "" ? value : "None";

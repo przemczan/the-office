@@ -1254,6 +1254,14 @@
   border-style: dashed;
 }
 
+/* A Stage the walk's path went past: muted, as nothing ran or will run there. */
+.stage-mark-not-taken {
+  border-style: dashed;
+  border-color: var(--border);
+  background: var(--surface-sunken);
+  color: var(--fg-3);
+}
+
 .pipeline-rail-body {
   display: flex;
   flex-direction: column;
@@ -1324,8 +1332,7 @@
   color: var(--fg-2);
 }
 
-.pipeline-rail-optional {
-  font: italic 400 10px/1.4 var(--font-sans);
+.pipeline-rail-stage-not-taken .pipeline-rail-name {
   color: var(--fg-3);
 }
 

@@ -79,7 +79,8 @@ export type PipelineRemovalRefusal = z.infer<typeof pipelineRemovalRefusalSchema
 
 /**
  * Where one of a started Task's Stages stands, from its latest run: paused and stopped when the
- * user held it, which is no failure.
+ * user held it, which is no failure; not taken when it has no run and no path of routes leads to
+ * it from the Stage of the Task's latest run, as the walk went another way.
  */
 export const stageStateSchema = z.enum([
   "pending",
@@ -90,6 +91,7 @@ export const stageStateSchema = z.enum([
   "done",
   "skipped",
   "failed",
+  "not-taken",
 ]);
 export type StageState = z.infer<typeof stageStateSchema>;
 
@@ -118,7 +120,7 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("done"),
     summary: z.string(),
-    /** An optional Stage skipped, which ran nothing. */
+    /** A Stage skipped, which ran nothing, as the previous release recorded optional Stages. */
     skipped: z.boolean(),
     /**
      * The Definition of Done statements this run's Agent reported met, by their numbers from 1; null
@@ -545,11 +547,6 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
   /** The user stopped a run that couldn't be interrupted, such as a command: held after it. */
   webEventSchema.extend({
     type: z.literal("stage-run.stop-held-as-pause"),
-    taskId: z.uuid(),
-    stageKey: z.string(),
-  }),
-  webEventSchema.extend({
-    type: z.literal("stage-run.skipped"),
     taskId: z.uuid(),
     stageKey: z.string(),
   }),

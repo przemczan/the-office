@@ -528,7 +528,6 @@ test(
     await expect(page.getByLabel("Project command")).toHaveValue("lint");
     await page.getByLabel("Project command").selectOption({ label: "Another key…" });
     await page.getByLabel("Command key").fill("build");
-    await page.getByText("Optional: skipped when the Definition of Done is already met").click();
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     await page.getByRole("button", { name: "Save the template" }).click();
     await expect(

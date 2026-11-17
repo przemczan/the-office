@@ -12,11 +12,8 @@ import {
   NO_STAGE_WORKERS,
   type Stage,
 } from "../domain/stage.js";
-import {
-  gateChecksDefinitionOfDone,
-  reportedMet,
-  reportedOutOfReach,
-} from "../domain/pipeline-walk.js";
+import { reportedMet, reportedOutOfReach } from "../domain/definition-of-done-reports.js";
+import { gateChecksDefinitionOfDone } from "../domain/pipeline-walk.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { staffingProblems } from "../domain/stage-staffing.js";

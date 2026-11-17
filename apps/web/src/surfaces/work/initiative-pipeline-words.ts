@@ -179,14 +179,9 @@ export function publishedWords(project: Pick<Project, "publishingMode" | "baseBr
     : `By a pull request into ${project.baseBranch}`;
 }
 
-/**
- * Under a Stage's name: its state once its Publishing Task reached it, else who works it, with
- * "optional" for one that may be skipped.
- */
+/** Under a Stage's name: its state once its Publishing Task reached it, else who works it. */
 export function trackStageWords(taskStage: TaskStage, who: string): string {
-  if (taskStage.state === "pending") {
-    return taskStage.stage.optional ? (who === "" ? "optional" : `${who} · optional`) : who;
-  }
+  if (taskStage.state === "pending") return who;
   return stageWaitsForRunEnvironment(taskStage)
     ? WAITING_FOR_RUN_ENVIRONMENT
     : STAGE_STATE_WORDS[taskStage.state];

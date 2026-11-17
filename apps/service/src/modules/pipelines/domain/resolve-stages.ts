@@ -1,3 +1,5 @@
+import { asFlow, type FlowStage } from "./flow.js";
+import { plainRoute } from "./route.js";
 import type { AgentStage, Gate, ScriptStage, Stage } from "./stage.js";
 import type { CarriedFailure, StageRun } from "./stage-run.js";
 
@@ -56,24 +58,40 @@ export function goesToResolve(run: StageRun): boolean {
 }
 
 /**
- * The Stages as the walk goes over them: once a Publish run's conflict went to Resolve, Resolve
- * and the Project's Test stand before that Publish, with a Gate after them when the Publish asks
- * for a review (spec §2.3), so the Stage rows show them.
+ * The Stages as the walk goes over them, as a flow (`asFlow`): once a Publish run's conflict went
+ * to Resolve, Resolve and the Project's Test stand before that Publish, with a Gate after them when
+ * the Publish asks for a review (spec §2.3), so the Stage rows show them.
  */
-export function walkedStages(stages: readonly Stage[], runs: readonly StageRun[]): Stage[] {
+export function walkedStages<Of extends Stage>(
+  stages: readonly Of[],
+  runs: readonly StageRun[],
+): FlowStage<Of | Stage>[] {
+  const flow = asFlow(stages);
   const conflicted = runs.find(goesToResolve);
-  if (!conflicted) return [...stages];
+  if (!conflicted) return flow;
   return withResolveStages(
-    stages,
-    stages.findIndex(({ key }) => key === conflicted.stageKey),
+    flow,
+    flow.findIndex(({ key }) => key === conflicted.stageKey),
   );
 }
 
-/** `stages` with the Resolve Stages before the Publish at `publishIndex`, unless they stand already. */
-export function withResolveStages(stages: readonly Stage[], publishIndex: number): Stage[] {
+/**
+ * `stages` with the Resolve Stages before the Publish at `publishIndex`, unless they stand already:
+ * each at the Publish's place, with one route to the next and the last to the Publish.
+ */
+export function withResolveStages<Of extends Stage>(
+  stages: readonly Of[],
+  publishIndex: number,
+): (Of | FlowStage)[] {
   const publish = stages[publishIndex];
   if (!publish || stages.some(isResolveStage)) return [...stages];
-  return stages.toSpliced(publishIndex, 0, ...resolveStages(stages, publish));
+  const resolve = resolveStages(stages, publish);
+  const chained = resolve.map((stage, index): FlowStage => ({
+    ...stage,
+    routes: [plainRoute(resolve[index + 1]?.key ?? publish.key)],
+    place: publish.place ?? { column: publishIndex, row: 0 },
+  }));
+  return [...stages.slice(0, publishIndex), ...chained, ...stages.slice(publishIndex)];
 }
 
 /**

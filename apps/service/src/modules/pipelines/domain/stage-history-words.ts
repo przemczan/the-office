@@ -329,6 +329,7 @@ const WALK_DECISION_WORDS: Readonly<Record<WalkDecisionKind, string>> = {
   "base-moved": "The branch conflicts with the base branch at Publish",
   "branch-moved": "The branch moved outside The Office",
   "after-publishing-failed": "Publish shipped the work, but the after publishing line failed",
+  "no-route-holds": "None of the Stage's routes held",
 };
 
 function decisionLines(decisions: readonly StageRunDecision[]): string[] {
@@ -364,6 +365,8 @@ function answerWords(answer: WalkAnswer | undefined): string {
       return "Answered: the user resolved the conflict in the worktree.";
     case "keep-branch":
       return `Answered: keep the branch as it is${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
+    case "follow-route":
+      return `Answered: ${answer.to === null ? "end the Pipeline here" : `go on to the Stage "${answer.to}"`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
     case "drop":
       return "Answered: drop the Task.";
   }

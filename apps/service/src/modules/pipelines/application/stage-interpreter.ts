@@ -40,7 +40,6 @@ import {
   DefinitionOfDoneNotMet,
   NoRetriesLeft,
   PipelineCompleted,
-  StageSkipped,
   StopHeldAsPause,
   WentBackToStage,
 } from "../domain/stage-run-events.js";
@@ -66,8 +65,7 @@ import { StageRunners } from "./stage-runners.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 type RunMove = Extract<NextMove, { move: "run" }>;
-type SkipMove = Extract<NextMove, { move: "skip" }>;
-type HaltMove = Exclude<NextMove, RunMove | SkipMove>;
+type HaltMove = Exclude<NextMove, RunMove>;
 
 /** A run the walk started, with the Stages and runs it was started from. */
 interface StartedStep {
@@ -81,7 +79,6 @@ interface StartedStep {
 /** What the walk did at its next move, or why it waits there. */
 type WalkStep =
   | { readonly step: "over" }
-  | { readonly step: "skipped" }
   | StartedStep
   | {
       readonly step: "halt";
@@ -419,7 +416,6 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
         this.takeNextMove(taskId, stages, definitionOfDone, record),
       );
       if (step.step === "over") return;
-      if (step.step === "skipped") continue;
       if (step.step === "started") {
         await this.runStageOf(record, step, interruption);
         continue;
@@ -435,9 +431,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   }
 
   /**
-   * The walk's next move, taken while no edit can change the Task's Stages: an optional Stage
-   * skipped, or a run started and saved. Over when another walk of the Task moved first, or The
-   * Office is stopping.
+   * The walk's next move, taken while no edit can change the Task's Stages: a run started and
+   * saved. Over when another walk of the Task moved first, or The Office is stopping.
    */
   private async takeNextMove(
     taskId: string,
@@ -449,9 +444,6 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     // Read once per move, so a Stage starts with whoever holds its duty now (spec §2.3).
     const staffed = await this.roleFillings.staffed(stages, runs);
     const move = nextMove(staffed, runs, definitionOfDone);
-    if (move.move === "skip") {
-      return (await this.skip(taskId, move, runs)) ? { step: "skipped" } : { step: "over" };
-    }
     if (move.move !== "run") return { step: "halt", move, stages: staffed, runs };
     if (this.stopping) return { step: "over" };
     // At the Stage boundary, until the update or restart is cancelled or the service exits for it; a
@@ -482,38 +474,6 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       stages: walkedStages(staffed, runs),
       earlierRuns: runs,
     };
-  }
-
-  /**
-   * Records the optional Stage as skipped, a run done without running anything, so the walk goes
-   * on past it as it replays. False when another walk of the Task recorded a run first.
-   */
-  private async skip(
-    taskId: string,
-    { stage }: SkipMove,
-    earlierRuns: readonly StageRun[],
-  ): Promise<boolean> {
-    const now = new Date();
-    const started = startStageRun(
-      {
-        id: randomUUID(),
-        taskId,
-        stageKey: stage.key,
-        carriedFailure: undefined,
-        sentBack: undefined,
-      },
-      earlierRuns.length,
-      now,
-    );
-    return this.inStageSpan(started.run, stage, async () => {
-      if (!(await this.runs.saveNew(started.run))) return false;
-      const summary =
-        "Skipped: every statement of the Definition of Done was already reported met, and the Stage is optional.";
-      const ended = endStageRun(started.run, { status: "done", summary, skipped: true }, now);
-      await this.runs.saveEnded(ended.run);
-      await this.events.publish(new StageSkipped(taskId, ended.run.id, stage.key));
-      return true;
-    });
   }
 
   /** A span per Stage run, whose engine calls are its children. */

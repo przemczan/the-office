@@ -177,6 +177,22 @@ describe("railCaption", () => {
   it("says all finished on a done Task", () => {
     expect(railCaption(waiting, "done")).toBe("All 2 Stages finished");
   });
+
+  it("leaves Stages the walk's path no longer reaches out of its counts", () => {
+    const stages = [
+      aTaskStage(implement, { state: "done", runs: [aRun()] }),
+      aTaskStage(tests, { state: "not-taken" }),
+      aTaskStage(review),
+    ];
+    expect(railCaption(stages, "in-progress")).toBe("1 of 2 Stages finished");
+
+    const done = [
+      aTaskStage(implement, { state: "done", runs: [aRun()] }),
+      aTaskStage(tests, { state: "not-taken" }),
+      aTaskStage(review, { state: "done", runs: [aRun()] }),
+    ];
+    expect(railCaption(done, "done")).toBe("All 2 Stages finished");
+  });
 });
 
 describe("stageWorkerWords", () => {
@@ -216,9 +232,9 @@ describe("stageWorkerWords", () => {
 });
 
 describe("railStateWords", () => {
-  it("has words for all eight Stage states", () => {
+  it("has words for all nine Stage states", () => {
     const states = Object.keys(STAGE_STATE_WORDS) as TaskStage["state"][];
-    expect(states).toHaveLength(8);
+    expect(states).toHaveLength(9);
     for (const state of states) {
       expect(railStateWords(aTaskStage(tests, { state }), names)).toBe(STAGE_STATE_WORDS[state]);
     }
@@ -256,6 +272,12 @@ describe("railRunsWords", () => {
   it("says a skipped Stage wasn't needed", () => {
     const skipped = aTaskStage(tests, { state: "skipped", runs: [aRun()] });
     expect(railRunsWords(skipped, true, now)).toBe("Not needed");
+  });
+
+  it("says a Stage the walk's path no longer reaches is Not taken and won't run", () => {
+    const notTaken = aTaskStage(tests, { state: "not-taken" });
+    expect(railStateWords(notTaken, names)).toBe("Not taken");
+    expect(railRunsWords(notTaken, true, now)).toBe("Not run");
   });
 
   it("counts runs and their time", () => {

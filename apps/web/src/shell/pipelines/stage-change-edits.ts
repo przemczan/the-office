@@ -18,8 +18,12 @@ import { addStage, addStageFrom, keyAmong, type StageKind } from "./stage-edits.
  * name, not by the rows' indexes, so an answer the service gave for the edit before still reads.
  */
 
-/** The fields a Change may give a Stage, in the Stage form's order. */
-export type StageField = keyof StageFieldChanges;
+/**
+ * The fields a Change may give a Stage, in the Stage form's order. `optional` is left out: the walk
+ * no longer reads it, so the editor neither offers nor shows it, though a Change may still carry
+ * it for the release before.
+ */
+export type StageField = Exclude<keyof StageFieldChanges, "optional">;
 
 export const STAGE_FIELDS: readonly StageField[] = [
   "name",
@@ -34,8 +38,12 @@ export const STAGE_FIELDS: readonly StageField[] = [
   "brief",
   "permissions",
   "onFailure",
-  "optional",
 ];
+
+/** Whether a field the service names is one the editor shows. */
+export function isStageField(field: string): field is StageField {
+  return (STAGE_FIELDS as readonly string[]).includes(field);
+}
 
 /** A Stage names a Role or a duty, never both: a Change giving one clears the other (spec §2.3). */
 const WORKER_FIELD_CLEARED: Readonly<Record<string, StageField | undefined>> = {

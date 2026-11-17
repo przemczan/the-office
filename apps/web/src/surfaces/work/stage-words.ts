@@ -22,6 +22,7 @@ export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   stopped: STOPPED,
   done: "Done",
   skipped: "Skipped",
+  "not-taken": "Not taken",
   failed: "Failed",
 };
 
@@ -67,13 +68,12 @@ export function stageNamesOf(stages: readonly Stage[]): StageNames {
   return (key) => stages.find((stage) => stage.key === key)?.name ?? key;
 }
 
-/** "Optional · on failure back to Implement, at most 3×": what a Stage not yet run will do. */
+/** "on failure back to Implement, at most 3×": what a Stage not yet run will do. */
 export function stageRule(stage: Stage, names: StageNames): string[] {
   const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
-  return [
-    stage.optional ? "optional" : undefined,
-    onFailure && `on failure back to ${names(onFailure.goBackTo)}, at most ${onFailure.rounds}×`,
-  ].filter((part) => part !== undefined);
+  return onFailure
+    ? [`on failure back to ${names(onFailure.goBackTo)}, at most ${onFailure.rounds}×`]
+    : [];
 }
 
 /**

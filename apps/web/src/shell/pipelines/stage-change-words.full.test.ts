@@ -71,6 +71,12 @@ describe("a row's mark and its Undo", () => {
     expect(originWords(row({ origin: "removed" }), "Full").text).toBe("Removed");
   });
 
+  it("still names Optional for a Change saved with it, which redraws a converted line's routes", () => {
+    expect(
+      originWords(row({ origin: "changed", changedFields: ["brief", "optional"] }), "Full").text,
+    ).toBe("Changed: Brief, Optional");
+  });
+
   it("says what Undo gives back", () => {
     expect(
       undoWords(

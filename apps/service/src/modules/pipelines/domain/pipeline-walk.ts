@@ -1,4 +1,12 @@
 import {
+  carriesAFailure,
+  COMMAND_CONDITIONS_NOT_RUN,
+  type CommandConditions,
+  weighRoutes,
+} from "./conditions.js";
+import { reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
+import { asFlow, pipelineOrder } from "./flow.js";
+import {
   conflictCarried,
   goesToResolve,
   isResolveStage,
@@ -6,13 +14,12 @@ import {
   withoutResolveStages,
   withResolveStages,
 } from "./resolve-stages.js";
+import { namedRoutes, type Route } from "./route.js";
 import { isPublishStage, type Stage } from "./stage.js";
 import type {
   BudgetReached,
   CarriedFailure,
-  OutOfReachStatement,
   SentBack,
-  StageOutcome,
   StageRun,
   StageRunDecision,
   WalkAnswer,
@@ -46,10 +53,10 @@ export type WalkQuestion =
   | { readonly kind: "after-publishing-failed"; readonly stage: Stage; readonly error: string }
   /**
    * The Definition of Done isn't reported met as the walk reaches `before`, the Publish Stage it
-   * checks ahead of, or, undefined, as every Stage of a Pipeline without one ended. One more round
-   * would run `again`, the last Agent Stage before it other than Resolve (or the Stage just before
-   * it when there is none). `outOfReach` are those of `unmet` the reports say they can't verify,
-   * which another round can't address.
+   * checks ahead of, or, undefined, as it follows a route to End. One more round would run
+   * `again`, the last Agent Stage other than Resolve the walk ran (or the Stage it just left when
+   * there is none). `outOfReach` are those of `unmet` the reports say they can't verify, which
+   * another round can't address.
    */
   | {
       readonly kind: "definition-of-done";
@@ -57,6 +64,17 @@ export type WalkQuestion =
       readonly outOfReach: readonly UnmetOutOfReach[];
       readonly again: Stage;
       readonly before: Stage | undefined;
+    }
+  /**
+   * None of `routes`, the routes out of the ended Stage the walk weighed, holds, or one of them
+   * can't be weighed, as `why` says (spec §2.3, "When no route holds"). Each route carries the name
+   * of the Stage it leads to.
+   */
+  | {
+      readonly kind: "no-route-holds";
+      readonly stage: Stage;
+      readonly routes: readonly Route[];
+      readonly why: string | undefined;
     };
 
 /** What the walk over a Task's Stages does next. */
@@ -72,39 +90,38 @@ export type NextMove =
       readonly sentBack: SentBack | undefined;
     }
   /**
-   * Skip the optional Stage: every statement of the Definition of Done is already reported met
-   * (spec §2.3).
-   */
-  | { readonly move: "skip"; readonly stage: Stage }
-  /**
    * The last run is still running, the Decision opened on it waits on the user, or its Gate does.
    */
   | { readonly move: "wait"; readonly run: StageRun }
   /** Ask the user, with a Decision opened on the last run. */
   | { readonly move: "ask"; readonly run: StageRun; readonly question: WalkQuestion }
-  /** Every Stage ended, with the Definition of Done reported met or the user calling it Done. */
+  /** The walk followed a route to End, with the Definition of Done reported met or called Done. */
   | { readonly move: "complete" }
   /** The user dropped the Task in a Decision or at a Gate. */
   | { readonly move: "drop" };
 
-type StoppingMove = Exclude<NextMove, { move: "run" | "skip" }>;
+type StoppingMove = Exclude<NextMove, { move: "run" }>;
 
 interface WalkPosition {
-  readonly index: number;
+  /** The key of the Stage the walk is at; null once it followed a route to End. */
+  readonly key: string | null;
   readonly carriedFailure: CarriedFailure | undefined;
   readonly sentBack: SentBack | undefined;
 }
 
-/** The position at the Stage of `index`, with nothing carried to it. */
-function at(index: number): WalkPosition {
-  return { index, carriedFailure: undefined, sentBack: undefined };
+/** The position at the Stage of `key`, with nothing carried to it. */
+function at(key: string | null): WalkPosition {
+  return { key, carriedFailure: undefined, sentBack: undefined };
 }
 
 /** What the walk replays as it goes over the runs. */
 interface Walk {
-  /** The Task's Stages, with Resolve's put in once a conflict at Publish went to it. */
+  /** The Task's Stages in the Pipeline's order, with Resolve's put in once a conflict went to it. */
   stages: readonly Stage[];
+  /** The routes out of each of the Task's own Stages, by its key, as `asFlow` reads them. */
+  readonly routes: ReadonlyMap<string, readonly Route[]>;
   readonly definitionOfDone: readonly string[];
+  readonly commands: CommandConditions;
   position: WalkPosition;
   /** The runs replayed so far, the current one last. */
   replayed: readonly StageRun[];
@@ -119,6 +136,11 @@ interface Walk {
    * met", or continued at the Gate that is the check (`gateChecksDefinitionOfDone`).
    */
   calledMet: boolean;
+  /**
+   * Whether the walk entered a Publish Stage that isn't first in the order, where the Definition of
+   * Done is checked, so End doesn't check it again.
+   */
+  enteredPublish: boolean;
 }
 
 /**
@@ -131,29 +153,38 @@ export const RESTARTS_ASKED_AT = 3;
 const DEFINITION_OF_DONE_ROUNDS = "definition of done";
 
 /**
- * The one walk over a Task's Stages (spec §2.3): a straight list whose only control flow is "on
- * failure go back to Stage X, at most N times", with the user asked when a Stage fails with no
- * retries left and when the Definition of Done isn't reported met before Publish (or at the end of
- * a Pipeline without one) unless a Gate just before it was the check, and waiting at each Gate for
- * the user, who may send the work back to an earlier Stage without using a round. The position,
- * each loop's rounds, the user's answers and Gate actions are replayed from the Task's
- * Stage runs, oldest first, so they are kept nowhere else. A loop's rounds belong to the Stage that
- * owns it and count over the whole Task: going back again never resets them.
+ * The one walk over a Task's Stages (spec §2.3), a flow: from the first Stage, as each Stage ends
+ * it follows the first of its routes whose condition holds, to a later Stage or to End, and asks
+ * the user when none holds. A failing Stage goes back by its on-failure loop, at most N times, then
+ * on by a route only when its condition says the Stage ended Failed, and otherwise asks the user.
+ * The Definition of Done is checked as the walk enters a Publish, or at End on a path that entered
+ * none, unless a Gate just before it was the check; each Gate waits for the user, who may send the
+ * work back to an earlier Stage without using a round. The position, each loop's rounds, the
+ * user's answers and Gate actions are replayed from the Task's Stage runs, oldest first, so they
+ * are kept nowhere else; a recorded run of a Stage a route leads to is followed as it was, without
+ * weighing again. A loop's rounds belong to the Stage that owns it and count over the whole Task:
+ * going back again never resets them. `commands` answers the Project-command tests.
  */
 export function nextMove(
   stages: readonly Stage[],
   runs: readonly StageRun[],
   definitionOfDone: readonly string[],
+  commands: CommandConditions = COMMAND_CONDITIONS_NOT_RUN,
 ): NextMove {
+  const flow = pipelineOrder(asFlow(stages));
+  const given = new Map(stages.map((stage) => [stage.key, stage]));
   const walk: Walk = {
-    stages,
+    stages: flow.flatMap(({ key }) => given.get(key) ?? []),
+    routes: new Map(flow.map(({ key, routes }) => [key, routes])),
     definitionOfDone,
-    position: at(0),
+    commands,
+    position: at(flow[0]?.key ?? null),
     replayed: [],
     roundsUsed: new Map(),
     roundsAdded: new Map(),
     runs,
     calledMet: false,
+    enteredPublish: false,
   };
   for (const [index, run] of runs.entries()) {
     walk.replayed = runs.slice(0, index + 1);
@@ -164,77 +195,9 @@ export function nextMove(
       `Stage run ${run.number} of Task ${run.taskId} stopped the walk (${stopped.move}), yet runs follow it.`,
     );
   }
-  const stage = walk.stages[walk.position.index];
-  if (!stage) return { move: "complete" };
-  if (stage.optional && unmetStatements(definitionOfDone, runs).length === 0) {
-    return { move: "skip", stage };
-  }
-  const { carriedFailure, sentBack } = walk.position;
-  return { move: "run", stage, carriedFailure, sentBack };
-}
-
-/**
- * The numbers, from 1, of the Definition of Done statements Reported met (spec §2.3): met once any
- * Agent Stage run that ended done reported it, until a later report lists it as no longer met.
- * Script Stages report none. `runs` are the Task's, oldest first.
- */
-export function reportedMet(runs: readonly StageRun[]): readonly number[] {
-  return reportedMetIn(runs.map(({ outcome }) => outcome));
-}
-
-/** `reportedMet` over the outcomes of the Task's runs, oldest first. */
-export function reportedMetIn(outcomes: readonly (StageOutcome | undefined)[]): readonly number[] {
-  return [...definitionOfDoneReports(outcomes).met].toSorted((one, other) => one - other);
-}
-
-/**
- * The statements Out of reach, by their numbers with the latest why, counted across reports as
- * `reportedMet` is: a statement later reported met is no longer Out of reach.
- */
-export function reportedOutOfReach(runs: readonly StageRun[]): readonly OutOfReachStatement[] {
-  return [...definitionOfDoneReports(runs.map(({ outcome }) => outcome)).outOfReach]
-    .map(([statement, why]) => ({ statement, why }))
-    .toSorted((one, other) => one.statement - other.statement);
-}
-
-/** What every Agent Stage's report so far adds up to. */
-interface DefinitionOfDoneReports {
-  readonly met: ReadonlySet<number>;
-  /** The latest why, by the statement's number; never one in `met`. */
-  readonly outOfReach: ReadonlyMap<number, string>;
-}
-
-/**
- * Folds the done Agent Stage runs' reports, oldest first: each adds what it reports met, takes back
- * what it lists as no longer met, and records its Out of reach statements. Runs stored before
- * reports counted across Stages fold the same way.
- */
-function definitionOfDoneReports(
-  outcomes: readonly (StageOutcome | undefined)[],
-): DefinitionOfDoneReports {
-  const met = new Set<number>();
-  const outOfReach = new Map<number, string>();
-  for (const outcome of outcomes) {
-    if (outcome?.status !== "done" || !outcome.definitionOfDoneMet) continue;
-    for (const statement of outcome.definitionOfDoneMet) {
-      met.add(statement);
-      outOfReach.delete(statement);
-    }
-    for (const statement of outcome.definitionOfDoneNoLongerMet ?? []) met.delete(statement);
-    for (const { statement, why } of outcome.definitionOfDoneOutOfReach ?? []) {
-      if (!met.has(statement)) outOfReach.set(statement, why);
-    }
-  }
-  return { met, outOfReach };
-}
-
-/** The Definition of Done statements not Reported met. */
-export function unmetStatements(
-  definitionOfDone: readonly string[],
-  runs: readonly StageRun[],
-): string[] {
-  const met = new Set(reportedMet(runs));
-  return definitionOfDone.filter((_statement, index) => !met.has(index + 1));
+  const { key, carriedFailure, sentBack } = walk.position;
+  if (key === null) return { move: "complete" };
+  return { move: "run", stage: stageOf(walk, key), carriedFailure, sentBack };
 }
 
 /** The unmet statements Out of reach, in the words of the Definition of Done, with why. */
@@ -278,16 +241,16 @@ function definitionOfDoneCarried(
 
 /** Moves the walk past the run; a move that stops it is returned. */
 function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
-  const stage = stageOfRun(walk.stages, walk.position.index, run);
+  const stage = stageOfRun(walk, run);
   const { outcome } = run;
   if (!outcome) return { move: "wait", run };
   switch (outcome.status) {
     case "done":
-      return stage.kind === "gate" ? afterGate(walk, run) : advance(walk, run);
+      return stage.kind === "gate" ? afterGate(walk, run, stage) : advance(walk, run, stage);
     case "needs-decision":
       if (waitsOnItsAgent(run)) return { move: "wait", run };
       // Answered: the Stage runs again, with the answer in its Brief.
-      walk.position = at(walk.position.index);
+      walk.position = at(stage.key);
       return undefined;
     case "failed":
       // A held run keeps the Decision its Agent opened: nothing runs until the user answers it.
@@ -308,28 +271,30 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
 }
 
 /**
- * The Task waits at the Gate until the user acts: Continue moves on, Drop drops the Task, and Send
- * back goes to the earlier Stage they chose with their feedback, using no round (spec §2.3).
+ * The Task waits at the Gate until the user acts: Continue follows its routes, Drop drops the Task,
+ * and Send back goes to the earlier Stage they chose with their feedback, using no round (spec
+ * §2.3).
  */
-function afterGate(walk: Walk, run: StageRun): StoppingMove | undefined {
+function afterGate(walk: Walk, run: StageRun, gate: Stage): StoppingMove | undefined {
   const action = run.gateAction;
   if (!action) return { move: "wait", run };
+  const gateIndex = walk.stages.indexOf(gate);
   switch (action.kind) {
     case "continue":
-      if (gateChecksDefinitionOfDone(walk.stages, walk.position.index)) walk.calledMet = true;
-      return advance(walk, run);
+      if (gateChecksDefinitionOfDone(walk.stages, gateIndex)) walk.calledMet = true;
+      return advance(walk, run, gate);
     case "drop":
       return { move: "drop" };
     case "send-back": {
       const index = walk.stages.findIndex(({ key }) => key === action.stageKey);
       // The Gate refuses a Stage that isn't earlier (gateActionProblems), so this is a fault.
-      if (index < 0 || index >= walk.position.index) {
+      if (index < 0 || index >= gateIndex) {
         throw new Error(
           `Gate "${run.stageKey}" sent the work back to "${action.stageKey}", which isn't earlier.`,
         );
       }
       walk.position = {
-        index,
+        key: action.stageKey,
         carriedFailure: undefined,
         sentBack: { gateKey: run.stageKey, feedback: action.feedback },
       };
@@ -338,6 +303,10 @@ function afterGate(walk: Walk, run: StageRun): StoppingMove | undefined {
   }
 }
 
+/**
+ * A Stage failed (spec §2.3, "When a Stage fails"): its on-failure loop goes first, then a route
+ * whose condition says it ended Failed, and with neither the user is asked.
+ */
 function afterFailure(
   walk: Walk,
   run: StageRun,
@@ -349,6 +318,17 @@ function afterFailure(
     walk.position = back;
     return undefined;
   }
+  if (decisionOf(run, "no-retries-left")) return afterNoRetriesLeft(walk, run, stage, error);
+  const failureRoutes = routesOf(walk, stage).filter((route) => carriesAFailure(route, stage.key));
+  return follow(walk, run, stage, failureRoutes, () => afterNoRetriesLeft(walk, run, stage, error));
+}
+
+function afterNoRetriesLeft(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  error: string,
+): StoppingMove | undefined {
   const question = { kind: "no-retries-left", stage, error } as const;
   const waiting = waitingOn(run, "no-retries-left", question);
   if (waiting) return waiting;
@@ -365,7 +345,8 @@ function afterFailure(
       return undefined;
     }
     case "accept-issues":
-      return advance(walk, run);
+      // Every route is weighed as usual, the Stage's outcome staying Failed.
+      return advance(walk, run, stage);
     case "drop":
       return { move: "drop" };
     case "answered":
@@ -373,6 +354,7 @@ function afterFailure(
     case "raise-budget":
     case "resolved-in-worktree":
     case "keep-branch":
+    case "follow-route":
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a failure.`);
   }
 }
@@ -457,13 +439,12 @@ function afterBaseMoved(
   error: string,
 ): StoppingMove | undefined {
   if (goesToResolve(run)) {
-    const stages = withResolveStages(walk.stages, walk.position.index);
-    const index = stages.findIndex(({ key }) => key === RESOLVE_KEY);
-    if (index >= 0) {
+    const stages = withResolveStages(walk.stages, walk.stages.indexOf(stage));
+    if (stages.some(({ key }) => key === RESOLVE_KEY)) {
       walk.stages = stages;
       const conflicts = walk.replayed.filter(goesToResolve).length;
       walk.position = {
-        index,
+        key: RESOLVE_KEY,
         carriedFailure: conflictCarried(stage, error, conflicts),
         sentBack: undefined,
       };
@@ -477,7 +458,7 @@ function afterBaseMoved(
     case "one-more-round":
       return undefined;
     case "accept-issues":
-      return advance(walk, run);
+      return advance(walk, run, stage);
     case "drop":
       return { move: "drop" };
     default:
@@ -530,7 +511,7 @@ function afterBranchMoved(
       if (answer.guidance !== undefined) {
         const { guidance } = answer;
         walk.position = {
-          index: walk.position.index,
+          key: stage.key,
           carriedFailure: { stageKey: stage.key, error, round: 1, rounds: 1, guidance },
           sentBack: undefined,
         };
@@ -561,11 +542,11 @@ function afterResolveGaveUp(
   const answer = answerOf(run, "base-moved");
   switch (answer.kind) {
     case "resolved-in-worktree":
-      walk.position = at(walk.position.index);
+      walk.position = at(stage.key);
       return undefined;
     case "one-more-round":
       walk.position = {
-        index: walk.position.index,
+        key: stage.key,
         carriedFailure: { stageKey: stage.key, error, round: 1, rounds: 1, ...guidanceOf(answer) },
         sentBack: undefined,
       };
@@ -577,35 +558,110 @@ function afterResolveGaveUp(
   }
 }
 
+/** The Stage ended: the walk follows the first of its routes that holds, or asks the user. */
+function advance(walk: Walk, run: StageRun, stage: Stage): StoppingMove | undefined {
+  return follow(walk, run, stage, routesOf(walk, stage), () =>
+    noRouteHolds(walk, run, stage, undefined),
+  );
+}
+
 /**
- * Moves the walk to the next Stage. Before it enters a Publish Stage, or past the last Stage of a
- * Pipeline that checks none, the Definition of Done must be reported met (spec §2.3), so an unmet
- * statement is asked about before anything is pushed or merged.
+ * Follows one of `routes` out of the Stage the run ended (spec §2.3, "Which route the walk
+ * follows"): the route the user chose in the run's no-route-holds Decision; the route to the Stage
+ * of the next recorded run, which the walk followed then, so a replay doesn't weigh again; or the
+ * first route whose condition holds now. With none holding, `whenNoneHolds` decides; a route that
+ * can't be weighed asks the user.
  */
-function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
-  const index = walk.position.index + 1;
-  walk.position = at(index);
-  // A Decision recorded where the walk checked before (on a Publish run, past the last Stage) is
-  // replayed where it is, whatever the check would find now.
+function follow(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  routes: readonly Route[],
+  whenNoneHolds: () => StoppingMove | undefined,
+): StoppingMove | undefined {
+  const asked = decisionOf(run, "no-route-holds");
+  if (asked) return afterNoRouteHolds(walk, run, asked);
+  const recorded = walk.runs[walk.replayed.length];
+  const followed = recorded && routes.find(({ to }) => to === recorded.stageKey);
+  if (followed) return goTo(walk, run, followed.to);
+  const choice = weighRoutes(routes, {
+    stageKey: stage.key,
+    runs: walk.replayed,
+    definitionOfDone: walk.definitionOfDone,
+    commands: walk.commands,
+  });
+  switch (choice.kind) {
+    case "follow":
+      return goTo(walk, run, choice.route.to);
+    case "none-holds":
+      return whenNoneHolds();
+    case "cannot-be-weighed":
+      return noRouteHolds(walk, run, stage, choice.why, routes);
+  }
+}
+
+/** Asks the user where the walk goes on from the Stage, as none of its routes holds. */
+function noRouteHolds(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  why: string | undefined,
+  routes: readonly Route[] = routesOf(walk, stage),
+): StoppingMove {
+  const names = new Map(walk.stages.map(({ key, name }) => [key, name]));
+  return {
+    move: "ask",
+    run,
+    question: { kind: "no-route-holds", stage, routes: namedRoutes(routes, names), why },
+  };
+}
+
+/** The user's answer to the no-route-holds Decision: the route they chose, or Drop. */
+function afterNoRouteHolds(
+  walk: Walk,
+  run: StageRun,
+  decision: StageRunDecision,
+): StoppingMove | undefined {
+  const { answer } = decision;
+  if (!answer) return { move: "wait", run };
+  switch (answer.kind) {
+    case "follow-route":
+      return goTo(walk, run, answer.to);
+    case "drop":
+      return { move: "drop" };
+    default:
+      throw new Error(`Stage run ${run.id} was answered "${answer.kind}" when no route held.`);
+  }
+}
+
+/**
+ * Moves the walk to the Stage `to`, or End (null). Before it enters a Publish Stage that isn't
+ * first, or at End on a path that entered none, the Definition of Done must be reported met (spec
+ * §2.3), so an unmet statement is asked about before anything is pushed or merged.
+ */
+function goTo(walk: Walk, run: StageRun, to: string | null): StoppingMove | undefined {
+  walk.position = at(to);
+  const next = to === null ? undefined : stageOf(walk, to);
+  const checksHere = next ? checksBefore(walk.stages, next) : !walk.enteredPublish;
+  if (next && checksHere) walk.enteredPublish = true;
+  // A Decision recorded where the walk checked before (on a Publish run, at End) is replayed where
+  // it is, whatever the check would find now.
   if (decisionOf(run, "definition-of-done")) return checkDefinitionOfDone(walk, run);
-  const next = walk.stages[index];
+  if (!checksHere) return undefined;
   if (next) {
     // Resolve's Stages go back to a Publish the check already let through.
-    if (!isPublishStage(next) || walk.calledMet || isResolveStage({ key: run.stageKey })) {
-      return undefined;
-    }
+    if (walk.calledMet || isResolveStage({ key: run.stageKey })) return undefined;
     // Runs that went on past a Publish unchecked ran before the check moved there.
     if (run !== walk.runs.at(-1)) return undefined;
-    return checkDefinitionOfDone(walk, run);
   }
-  if (checksBeforePublish(walk.stages)) return undefined;
   return checkDefinitionOfDone(walk, run);
 }
 
 /**
  * Whether the Gate at `index` is the Definition of Done check for the Publish Stage after it (spec
  * §2.3), so its Continue calls the Definition of Done met: no Agent Stage, whose report may change
- * what is met, nor a later Gate stands between them; Script Stages may. Resolve's Stages don't count.
+ * what is met, nor a later Gate stands between them in the Pipeline's order; Script Stages may.
+ * Resolve's Stages don't count.
  */
 export function gateChecksDefinitionOfDone(stages: readonly Stage[], index: number): boolean {
   const gate = stages[index];
@@ -619,26 +675,25 @@ export function gateChecksDefinitionOfDone(stages: readonly Stage[], index: numb
 }
 
 /**
- * Whether the walk checks the Definition of Done before a Publish Stage rather than at the end: a
- * Publish first in the Pipeline has no Stage before it to check after, so it is checked at the end.
+ * Whether the walk checks the Definition of Done before entering `stage`: a Publish Stage that
+ * isn't first in the Pipeline's order, as a first one has no Stage before it to check after.
  * Resolve's Stages, which The Office puts before a Publish that conflicted, don't count.
  */
-function checksBeforePublish(stages: readonly Stage[]): boolean {
-  return withoutResolveStages(stages).some((stage, index) => index > 0 && isPublishStage(stage));
+function checksBefore(stages: readonly Stage[], stage: Stage): boolean {
+  return isPublishStage(stage) && withoutResolveStages(stages)[0]?.key !== stage.key;
 }
 
 /**
- * The Definition of Done check at the walk's position, a Publish Stage or past the last Stage: with
- * every statement reported met it goes on; otherwise the user is asked on the run, and their answer
- * replayed.
+ * The Definition of Done check at the walk's position, a Publish Stage or End: with every statement
+ * reported met it goes on; otherwise the user is asked on the run, and their answer replayed.
  */
 function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefined {
-  const { index } = walk.position;
-  const before = walk.stages[index];
+  const { key } = walk.position;
+  const before = key === null ? undefined : stageOf(walk, key);
   const unmet = unmetStatements(walk.definitionOfDone, walk.replayed);
   // A Decision already on the run, open or answered, is kept even when nothing is unmet now.
   if (unmet.length === 0 && !decisionOf(run, "definition-of-done")) return undefined;
-  const again = againStage(walk.stages, index);
+  const again = againStage(walk, run);
   const outOfReach = outOfReachStatements(walk.definitionOfDone, walk.replayed);
   const question = { kind: "definition-of-done", unmet, outOfReach, again, before } as const;
   const waiting = waitingOn(run, "definition-of-done", question);
@@ -660,7 +715,7 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
       const carried = unmet.length > 0 ? unmet : walk.definitionOfDone;
       const error = definitionOfDoneCarried(carried, outOfReach);
       walk.position = {
-        index: walk.stages.indexOf(again),
+        key: again.key,
         carriedFailure: {
           stageKey: again.key,
           error,
@@ -678,6 +733,7 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
     case "raise-budget":
     case "resolved-in-worktree":
     case "keep-branch":
+    case "follow-route":
       throw new Error(
         `Stage run ${run.id} was answered "${answer.kind}" at the Definition of Done.`,
       );
@@ -685,16 +741,17 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
 }
 
 /**
- * The Stage one more round of the Definition of Done check runs: the last Agent Stage before the
- * Stage at `index`, never Resolve, or the Stage just before it when there is none.
+ * The Stage one more round of the Definition of Done check runs: the last Agent Stage the walk ran,
+ * never Resolve, or the Stage the run ended when there is none.
  */
-function againStage(stages: readonly Stage[], index: number): Stage {
-  const earlier = stages.slice(0, index);
-  const again =
-    earlier.findLast((stage) => stage.kind === "agent" && stage.key !== RESOLVE_KEY) ??
-    earlier.at(-1);
-  if (!again) throw new Error("The Definition of Done was checked before any Stage ran.");
-  return again;
+function againStage(walk: Walk, run: StageRun): Stage {
+  const agentStages = new Map(
+    walk.stages
+      .filter((stage) => stage.kind === "agent" && stage.key !== RESOLVE_KEY)
+      .map((stage) => [stage.key, stage]),
+  );
+  const lastAgentRun = walk.replayed.findLast(({ stageKey }) => agentStages.has(stageKey));
+  return (lastAgentRun && agentStages.get(lastAgentRun.stageKey)) ?? stageOf(walk, run.stageKey);
 }
 
 /**
@@ -731,21 +788,34 @@ function decisionOf(run: StageRun, kind: WalkDecisionKind): StageRunDecision | u
   return run.decisions.find((decision) => decision.kind === kind);
 }
 
+/** The routes out of the Stage: a Resolve Stage carries its own, chained to its Publish. */
+function routesOf(walk: Walk, stage: Stage): readonly Route[] {
+  return walk.routes.get(stage.key) ?? stage.routes ?? [];
+}
+
+/** The Stage of `key`, which the walk's position or a route names. */
+function stageOf(walk: Walk, key: string): Stage {
+  const stage = walk.stages.find((candidate) => candidate.key === key);
+  if (!stage) throw new Error(`The walk reached "${key}", which isn't among the Task's Stages.`);
+  return stage;
+}
+
 /** The Stage the walk stands at, which the run must be of. */
-function stageOfRun(stages: readonly Stage[], index: number, run: StageRun): Stage {
-  const stage = stages[index];
-  if (stage?.key !== run.stageKey) {
-    const expected = stage ? `"${stage.key}"` : "none, as they have all ended";
+function stageOfRun(walk: Walk, run: StageRun): Stage {
+  const { key } = walk.position;
+  if (key !== run.stageKey) {
+    const expected = key === null ? "none, as the walk reached End" : `"${key}"`;
     throw new Error(
       `Stage run ${run.number} of Task ${run.taskId} ran "${run.stageKey}"; its Stages expected ${expected}.`,
     );
   }
-  return stage;
+  return stageOf(walk, key);
 }
 
 /**
  * Where the failed Stage goes back to, or undefined when it has no retries left. Its loop goes
- * back to an earlier Stage; rounds the user allowed a Stage without a loop run it again.
+ * back to an earlier Stage in the Pipeline's order; rounds the user allowed a Stage without a loop
+ * run it again.
  */
 function goBack(
   walk: Walk,
@@ -757,7 +827,7 @@ function goBack(
   const rounds = (onFailure?.rounds ?? 0) + (walk.roundsAdded.get(failed.key) ?? 0);
   const round = (walk.roundsUsed.get(failed.key) ?? 0) + 1;
   if (round > rounds) return undefined;
-  const failedIndex = walk.stages.indexOf(failed);
+  const failedIndex = walk.stages.findIndex(({ key }) => key === failed.key);
   const index = onFailure
     ? walk.stages.findIndex(({ key }) => key === onFailure.goBackTo)
     : failedIndex;
@@ -769,7 +839,7 @@ function goBack(
   }
   walk.roundsUsed.set(failed.key, round);
   return {
-    index,
+    key: onFailure ? onFailure.goBackTo : failed.key,
     carriedFailure: { stageKey: failed.key, error, round, rounds, ...guided },
     sentBack: undefined,
   };

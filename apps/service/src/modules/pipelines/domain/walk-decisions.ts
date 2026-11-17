@@ -5,7 +5,9 @@ import {
   type UnmetOutOfReach,
   type WalkQuestion,
 } from "./pipeline-walk.js";
+import { routesWords } from "./proposed-routes.js";
 import { isResolveStage } from "./resolve-stages.js";
+import type { Route } from "./route.js";
 import type { Stage } from "./stage.js";
 import { tokensWords } from "./stage-budget.js";
 import type {
@@ -46,8 +48,8 @@ const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more 
 /**
  * The Decision for what the walk asks (spec §2.3), The Office's: when a Stage fails with no
  * retries left or reaches its budget, the Definition of Done isn't reported met before Publish or
- * as a Pipeline without one ends, The Office restarted during a Stage too often, or a conflict at
- * Publish is left to the user. The Agent asks its own with an Office tool, never through the walk. The user always may answer in their own words (`walkAnswerOf`).
+ * as a Pipeline without one ends, The Office restarted during a Stage too often, a conflict at
+ * Publish is left to the user, or no route out of an ended Stage holds. The Agent asks its own with an Office tool, never through the walk. The user always may answer in their own words (`walkAnswerOf`).
  */
 export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecision {
   switch (question.kind) {
@@ -65,13 +67,16 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
       return branchMovedDecision(question.stage, question.error);
     case "after-publishing-failed":
       return afterPublishingFailedDecision(question.stage, question.error);
+    case "no-route-holds":
+      return noRouteHolds(question.stage, question.routes, question.why);
   }
 }
 
 /**
  * What the user's answer lets the walk do: the chosen option's, its comments guiding the round
- * when it is one more round or keeps the branch, or for words of their own, the Agent's question
- * answered, or one more round with their words as its guidance (spec §2.3). The guidance names who
+ * when it is one more round, keeps the branch or follows a route, or for words of their own, the
+ * Agent's question answered, the first route followed with their words as its notes, or one more
+ * round with their words as its guidance (spec §2.3). The guidance names who
  * gave it: the Consultant (`guidedBy`), or the user when it names nobody.
  */
 export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer): WalkAnswer {
@@ -83,6 +88,10 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
   if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
   if (decision.kind === "branch-moved")
     return { kind: "keep-branch", guidance: answer.text.trim() };
+  const firstRoute = decision.options[0];
+  if (decision.kind === "no-route-holds" && firstRoute?.kind === "follow-route") {
+    return { ...firstRoute, guidance: answer.text.trim() };
+  }
   const raise = decision.options.find(({ kind }) => kind === "raise-budget");
   if (decision.kind === "budget" && raise) return raise;
   return {
@@ -100,6 +109,7 @@ function withGuidance(
   const guidance = answer.guidance?.trim();
   if (!guidance) return chosen;
   if (chosen.kind === "keep-branch") return { kind: "keep-branch", guidance };
+  if (chosen.kind === "follow-route") return { ...chosen, guidance };
   if (chosen.kind !== "one-more-round") return chosen;
   return {
     kind: "one-more-round",
@@ -224,6 +234,40 @@ function branchMovedDecision(stage: Stage, error: string): WalkDecision {
       { kind: "drop" },
     ],
   };
+}
+
+/**
+ * None of the routes out of the Stage holds, or one can't be weighed, as `why` says (spec §2.3,
+ * "When no route holds"): the user follows one of them anyway, the first recommended as the
+ * Pipeline puts it first, or drops the Task. Words of their own follow the first route and go with
+ * the Stages after it, as a Gate's notes do.
+ */
+function noRouteHolds(
+  stage: Stage,
+  routes: readonly Route[],
+  why: string | undefined,
+): WalkDecision {
+  const question =
+    why === undefined
+      ? `None of the routes out of "${stage.name}" holds. Where does the walk go on?`
+      : `The Office can't weigh a route out of "${stage.name}": ${why} Where does the walk go on?`;
+  return {
+    kind: "no-route-holds",
+    draft: {
+      question,
+      context: `"${stage.name}" goes ${routesWords(routes)}.\n\nOr answer in your own words: the walk follows the first route, and your answer goes with the Stages after it.`,
+      options: [...routes.map(routeOptionWords), DROP_THE_TASK],
+      recommendation: {
+        option: 0,
+        reason: "It is the route the Pipeline weighs first.",
+      },
+    },
+    options: [...routes.map(({ to }) => ({ kind: "follow-route", to }) as const), { kind: "drop" }],
+  };
+}
+
+function routeOptionWords({ to, toName }: Route): string {
+  return to === null ? "End the Pipeline here" : `Go on to ${toName ?? to}`;
 }
 
 /**

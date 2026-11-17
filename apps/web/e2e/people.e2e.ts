@@ -1863,7 +1863,8 @@ test(
       }
       await chooseWhoWorks(added, "Reviewer");
       await added.getByLabel("Session").selectOption("continue");
-      await added.getByText("Optional: skipped when the Definition of Done is already met").click();
+      // A Stage is no longer optional: the walk follows its routes, and the form offers no Optional.
+      await expect(added.getByText(/^Optional/)).toHaveCount(0);
       await added.getByLabel("Name", { exact: true }).fill("Review");
 
       const tests = editorRow(page, "Tests");
@@ -1920,7 +1921,7 @@ test(
           kind: "agent",
           key: "new-stage",
           name: "Review",
-          optional: true,
+          optional: false,
           role: "reviewer",
           brief: "",
           session: "continue",

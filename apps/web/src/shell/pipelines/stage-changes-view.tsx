@@ -25,6 +25,7 @@ import { StageCheckAlerts } from "./stage-check-alerts.tsx";
 import {
   insertPlace,
   insertPlaces,
+  isStageField,
   newStageAmong,
   stageChangesShown,
   stageDrafted,
@@ -42,7 +43,6 @@ import {
   type InsertPlace,
   type NotApplying,
   type StageChangeRow,
-  type StageField,
 } from "./stage-change-edits.ts";
 import {
   changedFieldsWords,
@@ -510,18 +510,18 @@ function CompareTable({
         <span role="columnheader">{projectName} gets</span>
         <span role="columnheader" />
       </div>
-      {changedFields.map((field) => {
-        const label = STAGE_FIELD_LABELS[field as StageField] ?? field;
+      {changedFields.filter(isStageField).map((field) => {
+        const label = STAGE_FIELD_LABELS[field];
         return (
           <div role="row" key={field}>
             <span role="rowheader" className="stage-changes-compare-label">
               {label}
             </span>
             <span role="cell" className="stage-changes-was" data-who={`${baseName} has`}>
-              {fieldWords(baseStage, field as StageField, context)}
+              {fieldWords(baseStage, field, context)}
             </span>
             <span role="cell" className="stage-changes-now" data-who={`${projectName} gets`}>
-              {fieldWords(stage, field as StageField, context)}
+              {fieldWords(stage, field, context)}
             </span>
             <span role="cell" className="stage-changes-set-back">
               {onEdit && (
@@ -531,9 +531,7 @@ function CompareTable({
                   title={`Set ${label} back to ${baseName}'s`}
                   aria-label={`Set ${label} back to ${baseName}'s`}
                   iconLeft={<Icon name="undo-2" size={13} />}
-                  onClick={() =>
-                    onEdit(withFieldSetBack(stageChanges, row.built, field as StageField))
-                  }
+                  onClick={() => onEdit(withFieldSetBack(stageChanges, row.built, field))}
                 >
                   Set back
                 </Button>

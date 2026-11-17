@@ -1,14 +1,23 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import { straightLineFlow } from "../domain/flow.js";
+import type { ConditionGroup, Route } from "../domain/route.js";
 import type { Stage } from "../domain/stage.js";
+import type { StageOutcome } from "../domain/stage-run.js";
+import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import {
   aDoneResult,
   anAgentSession,
   anAgentStage,
+  answerLastDecision,
   runsOf,
   startPipelinesApplication,
   walkStages,
+  type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
+import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { TaskStagesService } from "./task-stages-service.js";
 
 const implement = anAgentStage("implement");
 const review = anAgentStage("review", { optional: true });
@@ -22,36 +31,84 @@ const ship: Stage = {
 
 const LIST: readonly Stage[] = [implement, review, ship];
 
-/** What each run of the Task's walk did, in order, and how many Agent Stage sessions ran. */
-async function walked(stages: readonly Stage[], met: readonly number[]) {
-  const pipelines = await startPipelinesApplication([
+const WHILE_SOME_NOT_MET: ConditionGroup = {
+  combine: "all",
+  tests: [{ kind: "definitionOfDone", is: "some-not-met" }],
+};
+
+/** `stage` placed at `column`, `row` on the flow, going by `routes`. */
+function placed(stage: Stage, column: number, row: number, routes: Route[]): Stage {
+  return { ...stage, routes, place: { column, row } };
+}
+
+function pipelineNamed(name: string): readonly Stage[] {
+  const pipeline = builtInPipelines.find((each) => each.name === name);
+  if (!pipeline) throw new Error(`There is no built-in Pipeline "${name}".`);
+  return pipeline.stages;
+}
+
+/** Each Agent Stage's session ends done, the first reporting `met` of the Definition of Done. */
+function sessionsMeeting(met: readonly number[]) {
+  return [
     anAgentSession(aDoneResult("Done.", "Nothing is left.", met)),
     anAgentSession(aDoneResult()),
-  ]);
+  ];
+}
+
+async function using<T>(
+  met: readonly number[],
+  work: (pipelines: PipelinesApplication) => Promise<T>,
+): Promise<T> {
+  const pipelines = await startPipelinesApplication(sessionsMeeting(met));
   try {
-    const taskId = await walkStages(pipelines, stages);
-    const runs = (await runsOf(pipelines, taskId)).map(({ stageKey, outcome }) => [
-      stageKey,
-      outcome?.status,
-      outcome !== undefined && "summary" in outcome && outcome.summary.startsWith("Skipped"),
-    ]);
-    return { runs, sessions: pipelines.stageThreads.requests.length };
+    return await work(pipelines);
   } finally {
     await pipelines.app.close();
   }
 }
 
+/** What each run of the Task's walk did, in order, and how many Agent Stage sessions ran. */
+function walked(stages: readonly Stage[], met: readonly number[]) {
+  return using(met, async (pipelines) => {
+    const taskId = await walkStages(pipelines, stages);
+    const runs = (await runsOf(pipelines, taskId)).map(({ stageKey, outcome }) => [
+      stageKey,
+      outcome?.status,
+    ]);
+    return {
+      runs,
+      sessions: pipelines.stageThreads.requests.length,
+      state: (await pipelines.tasks.read(taskId)).state,
+    };
+  });
+}
+
+async function progressStates(pipelines: PipelinesApplication, taskId: string) {
+  const progress = await pipelines.app.get(TaskStagesService, { strict: false }).progress(taskId);
+  return progress?.stages.map(({ stage, state }) => [stage.key, state]);
+}
+
 describe("A converted Pipeline's Stages", () => {
-  it("walk as the list did, skipping the optional Stage once the Definition of Done is met", async () => {
+  it.each(["Full", "Quick fix"])("of %s walk as the list did", async (name) => {
+    const stages = pipelineNamed(name);
+
+    const asTheList = await walked(stages, [1, 2]);
+    const asAFlow = await walked(straightLineFlow(stages), [1, 2]);
+
+    expect(asAFlow).toEqual(asTheList);
+    expect(asAFlow.runs).toEqual(stages.map(({ key }) => [key, "done"]));
+  });
+
+  it("walk as the list did, passing the optional Stage by with no run once the Definition of Done is met", async () => {
     const asTheList = await walked(LIST, [1, 2]);
     const asAFlow = await walked(straightLineFlow(LIST), [1, 2]);
 
     expect(asAFlow).toEqual(asTheList);
     expect(asAFlow.runs).toEqual([
-      ["implement", "done", false],
-      ["review", "done", true],
-      ["ship", "done", false],
+      ["implement", "done"],
+      ["ship", "done"],
     ]);
+    expect(asAFlow.sessions).toBe(1);
   });
 
   it("walk as the list did, running the optional Stage while something isn't met", async () => {
@@ -59,6 +116,136 @@ describe("A converted Pipeline's Stages", () => {
     const asAFlow = await walked(straightLineFlow(LIST), [2]);
 
     expect(asAFlow).toEqual(asTheList);
+    expect(asAFlow.runs).toEqual([
+      ["implement", "done"],
+      ["review", "done"],
+      ["ship", "done"],
+    ]);
     expect(asAFlow.sessions).toBe(2);
+  });
+
+  it("show the optional Stage passed by as not taken", async () => {
+    await using([1, 2], async (pipelines) => {
+      const taskId = await walkStages(pipelines, LIST);
+
+      expect(await progressStates(pipelines, taskId)).toEqual([
+        ["implement", "done"],
+        ["review", "not-taken"],
+        ["ship", "done"],
+      ]);
+    });
+  });
+
+  it("carry on after a Skipped run the previous release recorded for the optional Stage", async () => {
+    await using([1, 2], async (pipelines) => {
+      const taskId = randomUUID();
+      const repository = pipelines.app.get(StageRunRepository, { strict: false });
+      const ended: [string, StageOutcome][] = [
+        ["implement", { status: "done", summary: "Done.", definitionOfDoneMet: [1, 2] }],
+        ["review", { status: "done", summary: "Skipped.", skipped: true }],
+      ];
+      for (const [index, [stageKey, outcome]] of ended.entries()) {
+        const { run } = startStageRun(
+          { id: randomUUID(), taskId, stageKey, carriedFailure: undefined, sentBack: undefined },
+          index,
+          new Date(),
+        );
+        await repository.saveNew(run);
+        await repository.saveEnded(endStageRun(run, outcome, new Date()).run);
+      }
+
+      await walkStages(pipelines, LIST, taskId);
+
+      const runs = await runsOf(pipelines, taskId);
+      expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+        ["implement", "done"],
+        ["review", "done"],
+        ["ship", "done"],
+      ]);
+      expect(pipelines.stageThreads.requests).toHaveLength(0);
+      expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+    });
+  });
+});
+
+describe("A flow's routes", () => {
+  /** Implement goes to Review while something isn't met, else straight to Ship. */
+  const FLOW: readonly Stage[] = [
+    placed(anAgentStage("implement"), 0, 0, [
+      { to: "review", condition: WHILE_SOME_NOT_MET },
+      { to: "ship", condition: null },
+    ]),
+    placed(anAgentStage("review"), 1, 1, [{ to: "ship", condition: null }]),
+    placed(ship, 2, 0, [{ to: null, condition: null }]),
+  ];
+
+  it("take the branch whose condition holds, and pass the other by with no run", async () => {
+    await using([1, 2], async (pipelines) => {
+      const taskId = await walkStages(pipelines, FLOW);
+
+      const runs = await runsOf(pipelines, taskId);
+      expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+        ["implement", "done"],
+        ["ship", "done"],
+      ]);
+      expect(await progressStates(pipelines, taskId)).toEqual([
+        ["implement", "done"],
+        ["review", "not-taken"],
+        ["ship", "done"],
+      ]);
+      expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+    });
+  });
+
+  it("go through the conditional branch while its condition holds", async () => {
+    await using([2], async (pipelines) => {
+      const taskId = await walkStages(pipelines, FLOW);
+
+      const runs = await runsOf(pipelines, taskId);
+      expect(runs.map(({ stageKey }) => stageKey)).toEqual(["implement", "review", "ship"]);
+      expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+    });
+  });
+
+  describe("when none holds", () => {
+    /** Implement goes on only while something isn't met; everything is. */
+    const STUCK: readonly Stage[] = [
+      placed(anAgentStage("implement"), 0, 0, [{ to: "review", condition: WHILE_SOME_NOT_MET }]),
+      placed(anAgentStage("review", { name: "Review" }), 1, 0, [{ to: null, condition: null }]),
+    ];
+
+    it("asks the user where the walk goes on, the Task waiting on them", async () => {
+      await using([1, 2], async (pipelines) => {
+        const taskId = await walkStages(pipelines, STUCK);
+
+        const [decision, ...others] = pipelines.decisions.on(taskId);
+        expect(others).toEqual([]);
+        expect(decision?.putTo).toBeUndefined();
+        expect(decision?.draft.options).toEqual(["Go on to Review", "Drop the Task"]);
+        expect((await pipelines.tasks.read(taskId)).state).toBe("waiting-on-you");
+        expect(pipelines.stageThreads.requests).toHaveLength(1);
+      });
+    });
+
+    it("follows the route the user chose", async () => {
+      await using([1, 2], async (pipelines) => {
+        const taskId = await walkStages(pipelines, STUCK);
+
+        await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+
+        const runs = await runsOf(pipelines, taskId);
+        expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+          ["implement", "done"],
+          ["review", "done"],
+        ]);
+        expect(runs[0]?.decisions).toEqual([
+          expect.objectContaining({
+            kind: "no-route-holds",
+            answer: { kind: "follow-route", to: "review" },
+          }),
+        ]);
+        expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+      });
+    });
   });
 });

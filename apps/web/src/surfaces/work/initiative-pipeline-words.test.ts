@@ -71,13 +71,13 @@ describe("a Project's track", () => {
     expect(trackLayout(358, 3)).toBe("across");
   });
 
-  it("says a reached Stage's state, else who works it, and that one may be skipped", () => {
+  it("says a reached Stage's state, else who works it, an optional one no differently", () => {
     expect(trackStageWords(aTaskStage(REVIEW, "waiting-on-you"), "waits for you")).toBe(
       "Waiting on you",
     );
     expect(trackStageWords(aTaskStage(INTEGRATE, "pending"), "verify")).toBe("verify");
-    expect(trackStageWords(aTaskStage(PUBLISH, "pending"), "publish")).toBe("publish · optional");
-    expect(trackStageWords(aTaskStage(PUBLISH, "pending"), "")).toBe("optional");
+    expect(trackStageWords(aTaskStage(PUBLISH, "pending"), "publish")).toBe("publish");
+    expect(trackStageWords(aTaskStage(PUBLISH, "not-taken"), "publish")).toBe("Not taken");
   });
 
   it("says a loop-back in words when stacked", () => {
