@@ -10,20 +10,26 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  engineApiKeySchema,
   enginePastedTokenSchema,
   engineSignInCodeSchema,
   type EngineAccount as EngineAccountResponse,
+  type EngineApiKey,
   type EnginePastedToken,
   type EngineSignIn,
   type EngineSignInCode,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { EngineAccounts } from "../../application/engine-accounts.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
 import type { EngineAccount } from "../../domain/engine-account.js";
 import { PastedToken } from "../../domain/pasted-token.js";
 import { EngineAccountRefusalFilter } from "./engine-account-refusal.filter.js";
 
-/** Settings › Engines: a Claude Code engine's account, its Sign in, a pasted token and Sign out. */
+/**
+ * Settings › Engines: a Claude Code or Codex engine's account, its Sign in and Sign out, a pasted
+ * token on a Claude Code engine and an API key on a Codex engine.
+ */
 @Controller("settings/engines/:engineId")
 @UseFilters(EngineAccountRefusalFilter)
 export class EngineAccountsController {
@@ -37,7 +43,8 @@ export class EngineAccountsController {
   @Post("sign-in")
   @HttpCode(200)
   async signIn(@Param("engineId") engineId: string): Promise<EngineSignIn> {
-    return { url: await this.accounts.signIn(engineId) };
+    const { url, userCode } = await this.accounts.signIn(engineId);
+    return userCode === undefined ? { url } : { url, userCode };
   }
 
   @Post("sign-in/code")
@@ -59,6 +66,16 @@ export class EngineAccountsController {
     await this.accounts.setPastedToken(engineId, PastedToken.of(token));
   }
 
+  /** The key is never answered back, nor named in a refusal. */
+  @Put("api-key")
+  @HttpCode(204)
+  async setApiKey(
+    @Param("engineId") engineId: string,
+    @Body(new ContractPipe(engineApiKeySchema)) { key }: EngineApiKey,
+  ): Promise<void> {
+    await this.accounts.setApiKey(engineId, CodexApiKey.of(key));
+  }
+
   @Delete("sign-in")
   @HttpCode(204)
   async signOut(@Param("engineId") engineId: string): Promise<void> {
@@ -67,10 +84,13 @@ export class EngineAccountsController {
 }
 
 function accountResponse(account: EngineAccount): EngineAccountResponse {
-  if (!account.signedIn) return { signedIn: false, pastedToken: false, email: null, plan: null };
+  if (!account.signedIn) {
+    return { signedIn: false, pastedToken: false, apiKey: false, email: null, plan: null };
+  }
   return {
     signedIn: true,
     pastedToken: account.pastedToken,
+    apiKey: account.apiKey,
     email: account.email ?? null,
     plan: account.plan ?? null,
   };

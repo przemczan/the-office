@@ -22,7 +22,7 @@ const ENGINES: Readonly<Record<EngineAdapter, Engine>> = {
     key: "",
     models: [{ id: "coder", contextWindow: 32_000 }],
   },
-  codex: { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna" },
+  codex: { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna", apiKey: null },
 };
 
 describe("AgentEngines", () => {

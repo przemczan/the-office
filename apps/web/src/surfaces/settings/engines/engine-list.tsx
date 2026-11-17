@@ -6,7 +6,9 @@ import { engineAccountQuery } from "../../../api/engine.ts";
 import {
   apiEndpointSummary,
   claudeCodeEngineSummary,
+  codexEngineSummary,
   engineCalled,
+  ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
   sameSelection,
   type EngineSelection,
@@ -21,15 +23,10 @@ export interface EngineRow {
   readonly problem: string | undefined;
 }
 
-/** Each kind's icon, in the list's rows and in "Add an engine". */
-const ENGINE_KIND_ICONS: Readonly<Record<EngineEdit["kind"], string>> = {
-  "claude-code": "terminal",
-  "openai-compatible-api": "server",
-};
-
 /**
  * Settings › Engines' list: "Add an engine" in its head, a menu of the kinds, each selecting the
- * engine it adds, then a row per engine, the Claude Code engines first, as Save sends them.
+ * engine it adds, then a row per engine, the Claude Code engines first, then the Codex engines, as
+ * Save sends them.
  */
 export function EngineList({
   rows,
@@ -48,8 +45,8 @@ export function EngineList({
       name="Engines"
       count={rows.length}
       action={<AddEngineMenu add={add} />}
-      empty="No engine yet. Add a Claude Code engine or an API endpoint with Add an engine."
-      note="Each Claude Code engine is one Claude account, each API endpoint a server on the OpenAI-compatible API, such as a local LLM."
+      empty="No engine yet. Add a Claude Code engine, a Codex engine or an API endpoint with Add an engine."
+      note="Each Claude Code engine is one Claude account, each Codex engine one OpenAI account, each API endpoint a server on the OpenAI-compatible API, such as a local LLM."
     >
       {rows.map((row) => (
         <EngineListItem
@@ -130,18 +127,23 @@ function EngineListItem({
 
 function EngineSummary({ engine }: { readonly engine: EngineEdit }): ReactNode {
   if (engine.kind === "openai-compatible-api") return apiEndpointSummary(engine);
-  if (engine.id === undefined) return claudeCodeEngineSummary(engine.defaultModel, "not-saved");
-  return <SavedClaudeCodeSummary engineId={engine.id} defaultModel={engine.defaultModel} />;
+  const summary = engine.kind === "codex" ? codexEngineSummary : claudeCodeEngineSummary;
+  if (engine.id === undefined) return summary(engine.defaultModel, "not-saved");
+  return (
+    <SavedEngineSummary engineId={engine.id} defaultModel={engine.defaultModel} summary={summary} />
+  );
 }
 
-/** A saved Claude Code engine's line, its account read as its Account tab reads it. */
-function SavedClaudeCodeSummary({
+/** A saved Claude Code or Codex engine's line, its account read as its Account tab reads it. */
+function SavedEngineSummary({
   engineId,
   defaultModel,
+  summary,
 }: {
   readonly engineId: string;
   readonly defaultModel: string;
+  readonly summary: typeof claudeCodeEngineSummary;
 }): ReactNode {
   const account = useQuery(engineAccountQuery(engineId));
-  return claudeCodeEngineSummary(defaultModel, account.data);
+  return summary(defaultModel, account.data);
 }

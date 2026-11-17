@@ -61,8 +61,31 @@ export const apiEngineSchema = z.object({
 });
 export type ApiEngine = z.infer<typeof apiEngineSchema>;
 
+/**
+ * An OpenAI account whose sessions run on the pinned `codex app-server`. Its API key, when one
+ * signs it in, has no field here: it is never sent back.
+ */
+export const codexEngineSchema = z.object({
+  id: engineIdSchema,
+  name: z.string(),
+  kind: z.literal("codex"),
+  /** One of the Codex models, which picking the engine fills in. */
+  defaultModel: z.string(),
+});
+export type CodexEngine = z.infer<typeof codexEngineSchema>;
+
+/**
+ * The models the pinned Codex offers, by their ids; mirrors the Engine module's `CODEX_MODELS`
+ * (its domain doesn't read the contracts), so the web tells a Codex model from a Claude one.
+ */
+export const CODEX_MODELS = ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"] as const;
+
 /** An engine the user lists in Settings › Engines (spec §5.4). */
-export const engineSchema = z.discriminatedUnion("kind", [claudeCodeEngineSchema, apiEngineSchema]);
+export const engineSchema = z.discriminatedUnion("kind", [
+  claudeCodeEngineSchema,
+  apiEngineSchema,
+  codexEngineSchema,
+]);
 export type Engine = z.infer<typeof engineSchema>;
 export type EngineKind = Engine["kind"];
 
@@ -84,8 +107,8 @@ export type ModelPrice = z.infer<typeof modelPriceSchema>;
 
 /**
  * A model that may be priced, with its Model price; null when it has none, which gives "no cost".
- * A Claude model's `engineId` is null: its price is shared by every Claude Code engine. An API
- * engine's model is priced on that engine.
+ * A Claude or Codex model's `engineId` is null: its price is shared by every Claude Code engine, or
+ * every Codex engine. An API engine's model is priced on that engine.
  */
 export const offeredModelSchema = z.object({
   engineId: engineIdSchema.nullable(),
@@ -105,7 +128,7 @@ export const engineSettingsSchema = z.object({
   officeDefault: engineModelSchema.nullable(),
   /** Null until the user sets one; WebSearch is refused meanwhile. */
   searchEndpoint: searchEndpointSchema.nullable(),
-  /** Every model offered now: the Claude models first, then each API engine's. */
+  /** Every model offered now: the Claude models first, then the Codex models, then each API engine's. */
   modelPrices: z.array(offeredModelSchema),
 });
 export type EngineSettings = z.infer<typeof engineSettingsSchema>;
@@ -128,9 +151,19 @@ export const apiEngineEditSchema = apiEngineSchema.omit({ keySet: true, models: 
 });
 export type ApiEngineEdit = z.infer<typeof apiEngineEditSchema>;
 
+/**
+ * A Codex engine as Settings › Engines saves it: without an `id` when it is new. A Save never
+ * carries its API key and keeps the one kept: PUT /settings/engines/:engineId/api-key sets it.
+ */
+export const codexEngineEditSchema = codexEngineSchema.extend({
+  id: engineIdSchema.optional(),
+});
+export type CodexEngineEdit = z.infer<typeof codexEngineEditSchema>;
+
 export const engineEditSchema = z.discriminatedUnion("kind", [
   claudeCodeEngineEditSchema,
   apiEngineEditSchema,
+  codexEngineEditSchema,
 ]);
 export type EngineEdit = z.infer<typeof engineEditSchema>;
 
@@ -188,12 +221,15 @@ export type EngineRemovalPreview = z.infer<typeof engineRemovalPreviewSchema>;
 
 /**
  * GET /settings/engines/:engineId/account: a Claude Code engine's account as `claude auth status`
- * gives it, the email and plan null when signed out, signed in by a pasted token, or not told.
+ * gives it, or a Codex engine's as `account/read` gives it; the email and plan null when signed
+ * out, signed in by a pasted token or an API key, or not told.
  */
 export const engineAccountSchema = z.object({
   signedIn: z.boolean(),
-  /** A token pasted with "Paste a token instead" signs it in, not a Sign in. */
+  /** A token pasted with "Paste a token instead" signs a Claude Code engine in, not a Sign in. */
   pastedToken: z.boolean(),
+  /** An API key given with "Use an API key instead" signs a Codex engine in, not a Sign in. */
+  apiKey: z.boolean(),
   email: z.string().nullable(),
   /** The Claude subscription, such as `max` or `pro`. */
   plan: z.string().nullable(),
@@ -201,10 +237,13 @@ export const engineAccountSchema = z.object({
 export type EngineAccount = z.infer<typeof engineAccountSchema>;
 
 /**
- * POST /settings/engines/:engineId/sign-in: the Sign in started. Where there is a display the
- * browser opens by itself; this page signs in from any browser and gives a code to paste back.
+ * POST /settings/engines/:engineId/sign-in: the Sign in started. On a Claude Code engine the
+ * browser opens by itself where there is a display; the page signs in from any browser and gives a
+ * code to paste back. On a Codex engine it is a device-code login: the page signs in from any
+ * browser once `userCode` is entered there, and the login's end is announced as
+ * `engine.account-changed`.
  */
-export const engineSignInSchema = z.object({ url: z.url() });
+export const engineSignInSchema = z.object({ url: z.url(), userCode: z.string().optional() });
 export type EngineSignIn = z.infer<typeof engineSignInSchema>;
 
 /** POST /settings/engines/:engineId/sign-in/code: the code the sign-in page gave. */
@@ -228,8 +267,15 @@ export const enginePastedTokenSchema = z.object({
 export type EnginePastedToken = z.infer<typeof enginePastedTokenSchema>;
 
 /**
- * A Claude Code engine's account changed (a Sign in ended, a token was pasted, or it was signed
- * out), so an open Settings page refetches it.
+ * PUT /settings/engines/:engineId/api-key: "Use an API key instead" on a Codex engine, an OpenAI
+ * API key, which replaces any ChatGPT sign-in, is kept in the database and is never sent back.
+ */
+export const engineApiKeySchema = z.object({ key: z.string().trim().min(1) });
+export type EngineApiKey = z.infer<typeof engineApiKeySchema>;
+
+/**
+ * A Claude Code or Codex engine's account changed (a Sign in ended, a token or an API key was
+ * given, or it was signed out), so an open Settings page refetches it.
  */
 export const engineWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("engine.account-changed"), engineId: engineIdSchema }),

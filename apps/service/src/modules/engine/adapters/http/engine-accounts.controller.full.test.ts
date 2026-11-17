@@ -5,6 +5,7 @@ import { EngineSettingsService } from "../../application/engine-settings-service
 import { RunningEngineSessions } from "../../application/running-engine-sessions.js";
 import { EngineAccountChanged } from "../../domain/engine-events.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
 import { PastedToken } from "../../domain/pasted-token.js";
 import {
   STAND_IN_SIGN_IN_PAGE,
@@ -18,8 +19,10 @@ import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
+import { CodexAccounts } from "../../ports/codex-accounts.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
+import { StandInCodexAccounts } from "../scripted/stand-in-codex-accounts.js";
 
 // What engine-accounts.controller.test.ts and engine-accounts.controller.full.test.ts share.
 
@@ -38,6 +41,23 @@ class FolderRecordingAccounts extends StandInClaudeCodeAccounts {
   }
 }
 
+/** The Codex stand-in, telling what happened to each engine's folder in the same list. */
+class HomeRecordingCodexAccounts extends StandInCodexAccounts {
+  constructor(private readonly folders: string[]) {
+    super();
+  }
+
+  override prepareHome(engineId: string): Promise<void> {
+    this.folders.push(`made ${engineId}`);
+    return super.prepareHome(engineId);
+  }
+
+  override removeHome(engineId: string): Promise<void> {
+    this.folders.push(`removed ${engineId}`);
+    return super.removeHome(engineId);
+  }
+}
+
 let app: INestApplication;
 
 let url: string;
@@ -45,6 +65,10 @@ let url: string;
 let published: DomainEvent[];
 
 let accounts: FolderRecordingAccounts;
+
+let codexAccounts: HomeRecordingCodexAccounts;
+
+let repository: EngineSettingsForTests;
 
 const TOKEN = "sk-ant-oat01-a-pasted-token_123";
 
@@ -69,7 +93,7 @@ async function account(engineId: string): Promise<unknown> {
 /** The hooks every test of both files runs. */
 function setUpEachTest(): void {
   beforeEach(async () => {
-    const repository = new EngineSettingsForTests();
+    repository = new EngineSettingsForTests();
     await repository.replace({
       ...(await repository.read()),
       engines: [
@@ -83,14 +107,17 @@ function setUpEachTest(): void {
           key: "",
           models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
         },
+        { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna", apiKey: null },
       ],
     });
     accounts = new FolderRecordingAccounts();
+    codexAccounts = new HomeRecordingCodexAccounts(accounts.folders);
     ({ app, url } = await startTestApplication({
       imports: [EventsModule, EventStreamModule, EngineAccountsModule],
       overrides: [
         { provide: EngineSettingsRepository, useValue: repository },
         { provide: ClaudeCodeAccounts, useValue: accounts },
+        { provide: CodexAccounts, useValue: codexAccounts },
       ],
     }));
     published = [];
@@ -121,11 +148,26 @@ async function addSecondAccount(service: EngineSettingsService): Promise<void> {
   });
 }
 
+/** Adds the Codex engine "Second OpenAI", whose id is `second-openai`. */
+async function addSecondOpenAi(service: EngineSettingsService): Promise<void> {
+  const stored = await service.current();
+  await service.change({
+    ...stored,
+    engines: [
+      ...stored.engines,
+      { name: "Second OpenAI", kind: "codex", defaultModel: "gpt-6-luna" },
+    ],
+  });
+}
+
+const API_KEY = CodexApiKey.of("sk-proj-an-openai-key_456");
+
 describe("/api/settings/engines/:engineId account and Sign in", () => {
   it("reads a Claude Code engine signed out until a Sign in takes its code", async () => {
     expect(await account("claude-code")).toEqual({
       signedIn: false,
       pastedToken: false,
+      apiKey: false,
       email: null,
       plan: null,
     });
@@ -138,6 +180,7 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
     expect(await account("claude-code")).toEqual({
       signedIn: true,
       pastedToken: false,
+      apiKey: false,
       email: "stand-in@example.com",
       plan: "max",
     });
@@ -225,5 +268,32 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
       message: expect.stringMatching(/start one again/),
     });
     expect((await post("claude-code/sign-in/code", { code: "  " })).status).toBe(400);
+  });
+
+  it("makes a Codex engine's folder when it is added, and removes it once its sessions have ended", async () => {
+    const service = app.get(EngineSettingsService);
+    await addSecondOpenAi(service);
+    await codexAccounts.setApiKey("second-openai", API_KEY);
+    const ended = app.get(RunningEngineSessions).started("second-openai");
+
+    await service.remove("second-openai", FIRST_CLAUDE_CODE_ENGINE.id);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(accounts.folders).toEqual(["made second-openai"]);
+
+    ended();
+    await expect
+      .poll(() => accounts.folders)
+      .toEqual(["made second-openai", "removed second-openai"]);
+    await expect(codexAccounts.account("second-openai")).resolves.toEqual({ signedIn: false });
+  });
+
+  it("keeps a listed Codex engine's folder as the service starts, and removes an unlisted one's", async () => {
+    await codexAccounts.setApiKey("codex", API_KEY);
+    await codexAccounts.setApiKey("left-behind-openai", API_KEY);
+
+    await app.get(EngineAccounts).onApplicationBootstrap();
+
+    expect(accounts.folders).toEqual(["removed left-behind-openai"]);
+    expect(await codexAccounts.engineIdsWithHomes()).toEqual(["codex"]);
   });
 });

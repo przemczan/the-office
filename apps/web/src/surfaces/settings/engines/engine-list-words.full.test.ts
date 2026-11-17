@@ -1,19 +1,33 @@
-import type { ApiEngine, ClaudeCodeEngine, EngineSettings } from "@the-office/contracts";
+import type {
+  ApiEngine,
+  ClaudeCodeEngine,
+  CodexEngine,
+  EngineSettings,
+} from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   apiEndpointSummary,
   claudeCodeEngineSummary,
+  codexEngineSummary,
+  draftedIdAt,
+  engineAt,
   engineCalled,
   engineProblem,
   engineSelectionsOf,
+  engineTabsOf,
+  ENGINE_KIND_LABELS,
   pricedModelsAt,
   saveHeldBy,
   shownSelection,
+  withEngineChanged,
+  withoutEngine,
 } from "./engine-list-words.ts";
 import {
+  draftedEngines,
   draftOf,
   NEW_API_ENDPOINT,
   newClaudeCodeEngine,
+  newCodexEngine,
   offeredModelKey,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
@@ -53,6 +67,27 @@ const SAVED: EngineSettings = {
 
 const CLAUDE_CODE_FIRST = { kind: "claude-code", index: 0 } as const;
 const STRATA_FIRST = { kind: "openai-compatible-api", index: 0 } as const;
+const CODEX_FIRST = { kind: "codex", index: 0 } as const;
+
+const CODEX: CodexEngine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+};
+
+const SAVED_WITH_CODEX: EngineSettings = {
+  ...SAVED,
+  engines: [CLAUDE_CODE, CODEX, STRATA],
+  modelPrices: [
+    { engineId: null, model: "claude-sonnet-5-5", price: null },
+    { engineId: null, model: "gpt-6-luna", price: null },
+    { engineId: null, model: "gpt-5.6-terra", price: null },
+    { engineId: null, model: "gpt-5.6-luna", price: null },
+    { engineId: "strata", model: "qwen3", price: null },
+    { engineId: "strata", model: "coder", price: null },
+  ],
+};
 
 function withHalfAPrice(draft: EngineSettingsDraft, key: string): EngineSettingsDraft {
   return {
@@ -91,7 +126,13 @@ describe("Settings › Engines' list", () => {
   });
 
   it("says whether a Claude Code engine is signed in, and its default model", () => {
-    const signedOut = { signedIn: false, pastedToken: false, email: null, plan: null };
+    const signedOut = {
+      signedIn: false,
+      pastedToken: false,
+      apiKey: false,
+      email: null,
+      plan: null,
+    };
 
     expect(claudeCodeEngineSummary("claude-sonnet-5-5", signedOut)).toBe("Signed out · Sonnet 5.5");
     expect(
@@ -136,6 +177,78 @@ describe("Settings › Engines' list", () => {
     ]);
     // Without a name it has no id yet to price its models by.
     expect(pricedModelsAt(draft, SAVED, { kind: "openai-compatible-api", index: 1 })).toEqual([]);
+  });
+});
+
+describe("Codex engines in Settings › Engines' list", () => {
+  it("lists the Codex engines after the Claude Code engines and before the endpoints", () => {
+    expect(engineSelectionsOf(draftOf(SAVED_WITH_CODEX))).toEqual([
+      CLAUDE_CODE_FIRST,
+      CODEX_FIRST,
+      STRATA_FIRST,
+    ]);
+    expect(engineAt(draftOf(SAVED_WITH_CODEX), CODEX_FIRST)).toEqual(CODEX);
+  });
+
+  it("calls the kind Codex, with an Account tab, and a new one by its kind", () => {
+    expect(ENGINE_KIND_LABELS.codex).toBe("Codex");
+    expect(Object.values(ENGINE_KIND_LABELS)).toEqual(["Claude Code", "Codex", "API endpoint"]);
+    expect(engineTabsOf("codex")).toEqual(["settings", "account", "prices"]);
+    expect(engineCalled(newCodexEngine(SAVED))).toBe("the new Codex engine");
+  });
+
+  it("says whether a Codex engine is signed in, by ChatGPT or an API key alike, and its default model", () => {
+    const apiKey = { signedIn: true, pastedToken: false, apiKey: true, email: null, plan: null };
+
+    expect(codexEngineSummary("gpt-6-luna", apiKey)).toBe("Signed in · gpt-6-luna");
+    expect(codexEngineSummary("gpt-6-luna", { ...apiKey, signedIn: false })).toBe(
+      "Signed out · gpt-6-luna",
+    );
+    expect(codexEngineSummary("gpt-5.6-terra", "not-saved")).toBe(
+      "Signed in once saved · gpt-5.6-terra",
+    );
+  });
+
+  it("prices the Codex models under a Codex engine, and leaves them out of the Claude models", () => {
+    const draft = draftOf(SAVED_WITH_CODEX);
+
+    expect(pricedModelsAt(draft, SAVED_WITH_CODEX, CODEX_FIRST)).toEqual([
+      { engineId: null, model: "gpt-6-luna" },
+      { engineId: null, model: "gpt-5.6-terra" },
+      { engineId: null, model: "gpt-5.6-luna" },
+    ]);
+    expect(pricedModelsAt(draft, SAVED_WITH_CODEX, CLAUDE_CODE_FIRST)).toEqual([
+      { engineId: null, model: "claude-sonnet-5-5" },
+    ]);
+  });
+
+  it("marks every Codex engine for a Codex model's price and names it on the Save bar", () => {
+    const draft = withHalfAPrice(
+      draftOf(SAVED_WITH_CODEX),
+      offeredModelKey({ engineId: null, model: "gpt-5.6-luna" }),
+    );
+
+    expect(engineProblem(draft, SAVED_WITH_CODEX, CODEX_FIRST)).toBe(
+      "A Codex model's price needs fixing",
+    );
+    expect(engineProblem(draft, SAVED_WITH_CODEX, CLAUDE_CODE_FIRST)).toBeUndefined();
+    expect(saveHeldBy(draft, SAVED_WITH_CODEX)).toEqual({
+      selection: CODEX_FIRST,
+      line: "A price under Models and prices of Codex needs fixing before Save.",
+    });
+    // With no Codex engine left, its models aren't offered, so their prices hold nothing.
+    expect(saveHeldBy({ ...draft, codexEngines: [] }, SAVED_WITH_CODEX)).toBeUndefined();
+  });
+
+  it("changes, removes and gives the id of the Codex engine selected, and no other", () => {
+    const draft = draftOf(SAVED_WITH_CODEX);
+    const renamed = { ...CODEX, name: "Work" };
+
+    expect(withEngineChanged(draft, CODEX_FIRST, renamed).codexEngines).toEqual([renamed]);
+    expect(withEngineChanged(draft, STRATA_FIRST, renamed)).toBe(draft);
+    expect(withoutEngine(draft, CODEX_FIRST).codexEngines).toEqual([]);
+    expect(withoutEngine(draft, CODEX_FIRST).claudeCodeEngines).toEqual([CLAUDE_CODE]);
+    expect(draftedIdAt(draftedEngines(draft, SAVED_WITH_CODEX), CODEX_FIRST)).toBe("codex");
   });
 });
 

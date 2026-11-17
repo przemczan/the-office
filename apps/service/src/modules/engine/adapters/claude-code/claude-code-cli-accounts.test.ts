@@ -32,6 +32,7 @@ describe("the Claude Code accounts through the binary", () => {
     await expect(accounts.account("work")).resolves.toEqual({
       signedIn: true,
       pastedToken: true,
+      apiKey: false,
       email: undefined,
       plan: undefined,
     });

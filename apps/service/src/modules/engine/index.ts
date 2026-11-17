@@ -71,9 +71,11 @@ export { EngineAccountsModule } from "./engine-accounts.module.js";
 export { ScriptedEngine, type StandInEngine } from "./adapters/scripted/scripted-engine.js";
 export { readRecording, type SessionScript } from "./adapters/scripted/session-script.js";
 export { ScriptedEngineModule } from "./scripted-engine.module.js";
-// So no end-to-end test runs the binary's login.
+// So no end-to-end test runs a binary's login.
 export { ClaudeCodeAccounts } from "./ports/claude-code-accounts.js";
 export { StandInClaudeCodeAccounts } from "./adapters/scripted/stand-in-claude-code-accounts.js";
+export { CodexAccounts } from "./ports/codex-accounts.js";
+export { StandInCodexAccounts } from "./adapters/scripted/stand-in-codex-accounts.js";
 // So a stand-in for these engines declares what it can't do, as the Role card names it.
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export { CODEX_CAPABILITIES } from "./adapters/codex/codex-engine.js";

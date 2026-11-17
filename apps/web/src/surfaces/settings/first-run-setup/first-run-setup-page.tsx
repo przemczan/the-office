@@ -8,6 +8,7 @@ import { closeFirstRunSetup, FIRST_RUN_SETUP } from "../../../api/users.ts";
 import { OfficeMark } from "../../../shell/office-mark.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { ClaudeCodeEngineAccount } from "../engines/claude-code-engine-account.tsx";
+import { CodexEngineAccount } from "../engines/codex-engine-account.tsx";
 import { GitHubCard } from "../office-identity/github-card.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import { TelemetryCard } from "../telemetry/telemetry-card.tsx";
@@ -121,7 +122,7 @@ export function FirstRunSetupPage(): ReactNode {
 }
 
 /**
- * The Office default engine's sign-in when it is a Claude Code engine; an API engine is set up in
+ * The Office default engine's sign-in when it is a Claude Code or Codex engine; an API engine is set up in
  * Settings › Engines, which the step links to.
  */
 function EngineStep(): ReactNode {
@@ -147,6 +148,14 @@ function EngineStep(): ReactNode {
               token made with <code>claude setup-token</code>.
             </p>
             <ClaudeCodeEngineAccount engineId={engine.id} />
+          </>
+        )}
+        {engine?.kind === "codex" && (
+          <>
+            <p className="settings-note">
+              {engine.name}, a Codex engine. Sign it in with ChatGPT, or with an OpenAI API key.
+            </p>
+            <CodexEngineAccount engineId={engine.id} />
           </>
         )}
         {engine?.kind === "openai-compatible-api" && (

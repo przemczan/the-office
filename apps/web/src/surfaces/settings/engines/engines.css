@@ -85,7 +85,10 @@
   color: var(--warning-fg);
 }
 
-/* A saved Claude Code engine's account: its line and actions, then what a Sign in or a token asks. */
+/*
+ * A saved Claude Code or Codex engine's account: its line and actions, then what a Sign in, a token
+ * or an API key asks.
+ */
 .engine-account {
   display: flex;
   flex-direction: column;
@@ -123,6 +126,14 @@
 
 .engine-account-link {
   color: var(--accent);
+}
+
+/* A Codex Sign in's code, entered on its page. */
+.engine-account-code {
+  align-self: flex-start;
+  font: var(--type-mono);
+  letter-spacing: 0.08em;
+  user-select: all;
 }
 
 .engine-account-entry {

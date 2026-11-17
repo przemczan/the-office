@@ -1,4 +1,10 @@
-import type { ApiEngine, ClaudeCodeEngine, EngineSettings } from "@the-office/contracts";
+import {
+  CODEX_MODELS,
+  type ApiEngine,
+  type ClaudeCodeEngine,
+  type CodexEngine,
+  type EngineSettings,
+} from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   draftChanged,
@@ -8,6 +14,7 @@ import {
   keyOnSave,
   NEW_API_ENDPOINT,
   newClaudeCodeEngine,
+  newCodexEngine,
   officeDefaultChoicesOf,
   offeredDefaultModel,
   offeredModelKey,
@@ -53,6 +60,30 @@ const SAVED: EngineSettings = {
 
 const STRATA_QWEN = offeredModelKey({ engineId: "strata", model: "qwen3" });
 
+const CODEX: CodexEngine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-5.6-terra",
+};
+
+/** Saved with a Codex engine: the service lists the Codex models under no engine after Claude's. */
+const SAVED_WITH_CODEX: EngineSettings = {
+  ...SAVED,
+  engines: [CLAUDE_CODE, CODEX, STRATA],
+  modelPrices: [
+    ...MODEL_PRICES.slice(0, 1),
+    {
+      engineId: null,
+      model: "gpt-6-luna",
+      price: { input: 1.25, output: 10, cacheWrites: 0, cacheReads: 0.125 },
+    },
+    { engineId: null, model: "gpt-5.6-terra", price: null },
+    { engineId: null, model: "gpt-5.6-luna", price: null },
+    ...MODEL_PRICES.slice(1),
+  ],
+};
+
 function setPrice(
   draft: EngineSettingsDraft,
   key: string,
@@ -65,6 +96,7 @@ describe("Settings › Engines' draft", () => {
   it("starts from the saved settings with every key and Model price kept", () => {
     expect(draftOf(SAVED)).toEqual({
       claudeCodeEngines: [CLAUDE_CODE],
+      codexEngines: [],
       apiEndpoints: [
         {
           id: "strata",
@@ -267,5 +299,116 @@ describe("Settings › Engines' draft", () => {
   it("has no Search endpoint while its base URL is empty", () => {
     expect(searchEndpointOf("  ")).toBeNull();
     expect(searchEndpointOf("http://searxng ")).toEqual({ baseUrl: "http://searxng" });
+  });
+
+  describe("with Codex engines", () => {
+    it("keeps the Codex engines apart, and their models out of the Claude models", () => {
+      const draft = draftOf(SAVED_WITH_CODEX);
+
+      expect(draft.codexEngines).toEqual([CODEX]);
+      expect(offeredModelsOf(draft, SAVED_WITH_CODEX)).toEqual([
+        { engineId: null, model: "claude-sonnet-5-5" },
+        ...CODEX_MODELS.map((model) => ({ engineId: null, model })),
+        { engineId: "strata", model: "qwen3" },
+      ]);
+    });
+
+    it("adds a Codex engine on the first one's default model, else the first Codex model", () => {
+      expect(newCodexEngine(SAVED_WITH_CODEX)).toEqual({
+        name: "",
+        kind: "codex",
+        defaultModel: "gpt-5.6-terra",
+      });
+      expect(newCodexEngine(SAVED)).toEqual({
+        name: "",
+        kind: "codex",
+        defaultModel: "gpt-6-luna",
+      });
+    });
+
+    it("offers the Codex models, one price each under no engine, once a Codex engine is drafted", () => {
+      expect(offeredModelsOf(draftOf(SAVED), SAVED)).toHaveLength(2);
+      const draft = {
+        ...draftOf(SAVED),
+        codexEngines: [{ ...newCodexEngine(SAVED), name: "Work" }],
+      };
+
+      expect(offeredModelsOf(draft, SAVED)).toEqual([
+        { engineId: null, model: "claude-sonnet-5-5" },
+        { engineId: null, model: "gpt-6-luna" },
+        { engineId: null, model: "gpt-5.6-terra" },
+        { engineId: null, model: "gpt-5.6-luna" },
+        { engineId: "strata", model: "qwen3" },
+      ]);
+      // Every Codex model unpriced is a change to save: none was offered before.
+      expect(draftChanged(draft, SAVED)).toBe(true);
+      expect(
+        offeredModelsOf({ ...draftOf(SAVED_WITH_CODEX), codexEngines: [] }, SAVED_WITH_CODEX),
+      ).toEqual([
+        { engineId: null, model: "claude-sonnet-5-5" },
+        { engineId: "strata", model: "qwen3" },
+      ]);
+    });
+
+    it("sends the Claude Code engines, then the Codex engines, then the endpoints, a Codex one with no key", () => {
+      const draft = {
+        ...draftOf(SAVED_WITH_CODEX),
+        codexEngines: [
+          ...draftOf(SAVED_WITH_CODEX).codexEngines,
+          { ...newCodexEngine(SAVED_WITH_CODEX), name: "Work" },
+        ],
+      };
+
+      const edit = engineSettingsEditOf(draft, SAVED_WITH_CODEX);
+      expect(edit?.engines.map(({ kind, name }) => `${kind} ${name}`)).toEqual([
+        "claude-code Claude Code",
+        "codex Codex",
+        "codex Work",
+        "openai-compatible-api Strata",
+      ]);
+      expect(edit?.engines[2]).toEqual({
+        name: "Work",
+        kind: "codex",
+        defaultModel: "gpt-5.6-terra",
+      });
+      expect(edit?.modelPrices.filter(({ engineId }) => engineId === null)).toEqual([
+        MODEL_PRICES[0],
+        ...SAVED_WITH_CODEX.modelPrices.slice(1, 4),
+      ]);
+    });
+
+    it("gives a new Codex engine its id after the Claude Code engines' and before the endpoints'", () => {
+      const draft = {
+        ...draftOf(SAVED),
+        claudeCodeEngines: [
+          ...draftOf(SAVED).claudeCodeEngines,
+          { ...newClaudeCodeEngine(SAVED), name: "Work" },
+        ],
+        codexEngines: [{ ...newCodexEngine(SAVED), name: "Work" }],
+        apiEndpoints: [{ ...NEW_API_ENDPOINT, name: "Work" }],
+      };
+
+      const drafted = draftedEngines(draft, SAVED);
+      expect(drafted.codexEngines.map(({ id }) => id)).toEqual(["work-2"]);
+      expect(drafted.apiEndpoints.map(({ id }) => id)).toEqual(["work-3"]);
+    });
+
+    it("offers a saved Codex engine for the Office default with the Codex models", () => {
+      const draft = {
+        ...draftOf(SAVED_WITH_CODEX),
+        codexEngines: [...draftOf(SAVED_WITH_CODEX).codexEngines, newCodexEngine(SAVED)],
+      };
+
+      expect(officeDefaultChoicesOf(draft, SAVED_WITH_CODEX)).toEqual([
+        {
+          id: "claude-code",
+          name: "Claude Code",
+          defaultModel: "claude-sonnet-5-5",
+          models: ["claude-sonnet-5-5"],
+        },
+        { id: "codex", name: "Codex", defaultModel: "gpt-5.6-terra", models: CODEX_MODELS },
+        { id: "strata", name: "Strata", defaultModel: "qwen3", models: ["qwen3"] },
+      ]);
+    });
   });
 });

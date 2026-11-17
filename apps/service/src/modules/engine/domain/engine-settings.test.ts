@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { changedEngineSettings } from "./engine-settings.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "./engines.js";
 import {
+  codex,
+  codexEdit,
   strata,
   stored,
   claudeCodeEdit,
@@ -37,6 +39,39 @@ describe("changedEngineSettings", () => {
       { ...strata, name: "Strata box" },
     ]);
     expect(cleared.engines).toEqual([FIRST_CLAUDE_CODE_ENGINE, { ...strata, key: "" }]);
+  });
+
+  it("adds a Codex engine with an id from its name and no API key, keeping both on a rename", () => {
+    const added = changedEngineSettings(
+      stored,
+      editOf([strataEdit(), codexEdit({ id: undefined, name: "OpenAI account" })]),
+    );
+    const renamed = changedEngineSettings(
+      added,
+      editOf([strataEdit(), codexEdit({ id: "openai-account", name: "Work OpenAI" })]),
+    );
+
+    expect(added.engines[2]).toEqual({
+      id: "openai-account",
+      name: "OpenAI account",
+      kind: "codex",
+      defaultModel: "gpt-6-luna",
+      apiKey: null,
+    });
+    expect(renamed.engines[2]).toEqual({ ...added.engines[2], name: "Work OpenAI" });
+  });
+
+  it("keeps a Codex engine's API key on a Save, which never carries it", () => {
+    const withCodex = { ...stored, engines: [...stored.engines, codex] };
+
+    const saved = changedEngineSettings(
+      withCodex,
+      editOf([strataEdit(), codexEdit({ name: "Renamed", defaultModel: "gpt-5.6-terra" })]),
+    );
+
+    const [, , savedCodex] = saved.engines;
+    expect(savedCodex?.kind === "codex" && savedCodex.apiKey?.reveal()).toBe("sk-codex-kept");
+    expect(savedCodex).toMatchObject({ name: "Renamed", defaultModel: "gpt-5.6-terra" });
   });
 
   it("refuses with every reason", () => {

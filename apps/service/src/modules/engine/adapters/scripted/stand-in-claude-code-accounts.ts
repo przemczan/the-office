@@ -14,6 +14,7 @@ export const STAND_IN_SIGN_IN_PAGE = "https://claude.com/cai/oauth/authorize?sta
 export const STAND_IN_ACCOUNT: EngineAccount = {
   signedIn: true,
   pastedToken: false,
+  apiKey: false,
   email: "stand-in@example.com",
   plan: "max",
 };
@@ -22,6 +23,7 @@ export const STAND_IN_ACCOUNT: EngineAccount = {
 export const STAND_IN_PASTED_TOKEN_ACCOUNT: EngineAccount = {
   signedIn: true,
   pastedToken: true,
+  apiKey: false,
   email: undefined,
   plan: undefined,
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { engineAccountLine } from "./engine-account-words.ts";
+import { codexAccountLine, engineAccountLine } from "./engine-account-words.ts";
 
-const SIGNED_OUT = { signedIn: false, pastedToken: false, email: null, plan: null };
+const SIGNED_OUT = { signedIn: false, pastedToken: false, apiKey: false, email: null, plan: null };
 
 describe("a Claude Code engine's account line", () => {
   it("says it is signed out", () => {
@@ -27,6 +27,28 @@ describe("a Claude Code engine's account line", () => {
   it("says a pasted token signs it in, with no email or plan", () => {
     expect(engineAccountLine({ ...SIGNED_OUT, signedIn: true, pastedToken: true })).toBe(
       "A pasted token signs it in",
+    );
+  });
+});
+
+describe("a Codex engine's account line", () => {
+  it("says it is signed out", () => {
+    expect(codexAccountLine(SIGNED_OUT)).toBe("Signed out");
+  });
+
+  it("gives the email and plan of a ChatGPT sign-in, as told", () => {
+    expect(
+      codexAccountLine({ ...SIGNED_OUT, signedIn: true, email: "ada@example.com", plan: "plus" }),
+    ).toBe("Signed in with ChatGPT as ada@example.com · ChatGPT Plus");
+    expect(codexAccountLine({ ...SIGNED_OUT, signedIn: true, email: "ada@example.com" })).toBe(
+      "Signed in with ChatGPT as ada@example.com",
+    );
+    expect(codexAccountLine({ ...SIGNED_OUT, signedIn: true })).toBe("Signed in with ChatGPT");
+  });
+
+  it("says an API key signs it in, with no email or plan", () => {
+    expect(codexAccountLine({ ...SIGNED_OUT, signedIn: true, apiKey: true })).toBe(
+      "Signed in with an API key",
     );
   });
 });

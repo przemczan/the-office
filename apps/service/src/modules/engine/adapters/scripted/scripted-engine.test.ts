@@ -31,6 +31,7 @@ const CODEX_ENGINE: Engine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  apiKey: null,
 };
 
 const NO_CAPABILITY: EngineCapabilities = {

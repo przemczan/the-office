@@ -35,7 +35,13 @@ const engines: readonly Engine[] = [
   },
   { id: "local", name: "Local models", kind: "claude-code", defaultModel: "", claudeCodeP: false },
 ];
-const codex: Engine = { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna" };
+const codex: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: null,
+};
 const onCodex = { engineId: codex.id, model: "gpt-6-luna" };
 /** What the Codex adapter declares it can't do. */
 const missingOnCodex = (

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { engineRemovalAmong, movedEngineModel, type EngineRemoval } from "./engine-removal.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type ApiEngine, type ClaudeCodeEngine } from "./engines.js";
+import {
+  FIRST_CLAUDE_CODE_ENGINE,
+  type ApiEngine,
+  type ClaudeCodeEngine,
+  type CodexEngine,
+} from "./engines.js";
 
 const strata: ApiEngine = {
   id: "strata",
@@ -51,6 +56,30 @@ describe("movedEngineModel", () => {
     const reference = { engineId: "second-account", model: "claude-haiku-5-5" };
 
     expect(movedEngineModel(reference, removal)).toBe(reference);
+  });
+
+  it("moves a Codex engine's reference to another Codex engine on its model, or a Claude Code engine on its default", () => {
+    const codex: CodexEngine = {
+      id: "codex",
+      name: "Codex",
+      kind: "codex",
+      defaultModel: "gpt-6-luna",
+      apiKey: null,
+    };
+    const otherCodex: CodexEngine = { ...codex, id: "other-codex", name: "Other Codex" };
+    const reference = { engineId: "codex", model: "gpt-5.6-terra" };
+
+    expect(movedEngineModel(reference, { engineId: "codex", replacement: otherCodex })).toEqual({
+      engineId: "other-codex",
+      model: "gpt-5.6-terra",
+    });
+    expect(
+      movedEngineModel(reference, { engineId: "codex", replacement: FIRST_CLAUDE_CODE_ENGINE }),
+    ).toEqual({ engineId: "claude-code", model: "claude-sonnet-5-5" });
+    expect(engineRemovalAmong([FIRST_CLAUDE_CODE_ENGINE, codex], "codex", "claude-code")).toEqual({
+      engineId: "codex",
+      replacement: FIRST_CLAUDE_CODE_ENGINE,
+    });
   });
 
   it("moves a reference to none when the only engine goes", () => {

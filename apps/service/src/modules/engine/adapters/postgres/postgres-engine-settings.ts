@@ -1,8 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
 import { FIRST_OFFICE_DEFAULT, type EngineSettings } from "../../domain/engine-settings.js";
-import type { Engine, EngineModel } from "../../domain/engines.js";
+import type { Engine, EngineId, EngineModel } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
 
@@ -58,6 +59,13 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       }
     });
   }
+
+  async setCodexApiKey(engineId: EngineId, key: CodexApiKey | null): Promise<void> {
+    await this.database
+      .update(engines)
+      .set({ key: key?.reveal() ?? null })
+      .where(and(eq(engines.id, engineId), eq(engines.kind, "codex")));
+  }
 }
 
 function officeDefaultOf({
@@ -78,7 +86,9 @@ function engineOf({
   models,
 }: EngineRow): Engine {
   if (kind === "claude-code") return { id, name, kind, defaultModel, claudeCodeP };
-  if (kind === "codex") return { id, name, kind, defaultModel };
+  if (kind === "codex") {
+    return { id, name, kind, defaultModel, apiKey: key === null ? null : CodexApiKey.of(key) };
+  }
   return {
     id,
     name,
@@ -97,7 +107,13 @@ function engineRowOf(engine: Engine, position: number): EngineRow {
     case "claude-code":
       return { ...common, claudeCodeP: engine.claudeCodeP, baseUrl: null, key: null, models: null };
     case "codex":
-      return { ...common, claudeCodeP: false, baseUrl: null, key: null, models: null };
+      return {
+        ...common,
+        claudeCodeP: false,
+        baseUrl: null,
+        key: engine.apiKey?.reveal() ?? null,
+        models: null,
+      };
     case "openai-compatible-api":
       return {
         ...common,

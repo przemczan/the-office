@@ -42,6 +42,7 @@ const ENGINE: Engine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  apiKey: null,
 };
 
 const READ_ONLY = {
@@ -476,7 +477,13 @@ const CODEX_FOLDER =
   (currentOperatingSystem().name === "Windows" ? undefined : "/root/.codex-engine-check");
 const WIRE_RECORDINGS = fileURLToPath(new URL("./recordings/", import.meta.url));
 const PORT_RECORDINGS = fileURLToPath(new URL("../scripted/recordings/codex/", import.meta.url));
-const LIVE_ENGINE: Engine = { id: "codex", name: "Codex", kind: "codex", defaultModel: LIVE_MODEL };
+const LIVE_ENGINE: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: LIVE_MODEL,
+  apiKey: null,
+};
 
 describe.runIf((MODE === "live" || MODE === "record") && CODEX_FOLDER !== undefined)(
   "CodexAppServerEngine on a live app-server",

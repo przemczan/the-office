@@ -19,6 +19,11 @@ const E2E_DAY_MS = 2000;
 const E2E_KEEP_ALIVE_MS = 10 * 60 * 1000;
 /** `POST` it to release a scripted session's `wait` step (`ScriptedSession.reach`). */
 const E2E_MARK_PATH = "/api/e2e/marks/:mark";
+/**
+ * `POST` it to approve the Sign in under way on a Codex engine, as the user would on the device
+ * page (`StandInCodexAccounts.approve`): 204, or 404 with none under way.
+ */
+const E2E_CODEX_APPROVAL_PATH = "/api/e2e/codex-sign-ins/:engineId/approval";
 if (!scripts) throw new Error("The end-to-end service needs OFFICE_ENGINE_SCRIPTS.");
 if (!hostKey) throw new Error("The end-to-end service needs OFFICE_E2E_HOST_KEY.");
 if (!officeCheckout) throw new Error("The end-to-end service needs OFFICE_E2E_CHECKOUT.");
@@ -31,12 +36,14 @@ await launch(
     const {
       ClaudeCodeAccounts,
       CODEX_CAPABILITIES,
+      CodexAccounts,
       EngineModule,
       OPENAI_COMPATIBLE_API_CAPABILITIES,
       readRecording,
       ScriptedEngine,
       ScriptedEngineModule,
       StandInClaudeCodeAccounts,
+      StandInCodexAccounts,
     } = await import("./modules/engine/index.js");
     const { UpdateSystem } = await import("./modules/office-updates/index.js");
     const { Schedule } = await import("./platform/schedule/schedule.js");
@@ -58,6 +65,7 @@ await launch(
     // what the engine can't do, for the Role card to name.
     const apiEngine = new ScriptedEngine([], OPENAI_COMPATIBLE_API_CAPABILITIES);
     const codexEngine = new ScriptedEngine([], CODEX_CAPABILITIES);
+    const codexAccounts = new StandInCodexAccounts();
     const moduleRef = await Test.createTestingModule({ imports: [appModule] })
       .overrideModule(EngineModule)
       .useModule(
@@ -70,6 +78,8 @@ await launch(
       )
       .overrideProvider(ClaudeCodeAccounts)
       .useValue(new StandInClaudeCodeAccounts())
+      .overrideProvider(CodexAccounts)
+      .useValue(codexAccounts)
       .overrideProvider(Schedule)
       .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
       .overrideProvider(HostKeyScanner)
@@ -97,6 +107,14 @@ await launch(
         for (const session of engine.sessions) session.reach(request.params.mark);
         response.status(204).end();
       });
+    app
+      .getHttpAdapter()
+      .post(
+        E2E_CODEX_APPROVAL_PATH,
+        (request: Request<{ engineId: string }>, response: Response) => {
+          response.status(codexAccounts.approve(request.params.engineId) ? 204 : 404).end();
+        },
+      );
     return app;
   },
   officeCheckout,

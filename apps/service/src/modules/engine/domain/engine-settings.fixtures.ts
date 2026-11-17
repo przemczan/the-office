@@ -4,12 +4,14 @@ import {
   FIRST_OFFICE_DEFAULT,
   type ApiEngineEdit,
   type ClaudeCodeEngineEdit,
+  type CodexEngineEdit,
   type EngineEdit,
   type EngineSettings,
   type EngineSettingsEdit,
 } from "./engine-settings.js";
+import { CodexApiKey } from "./codex-api-key.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type ApiEngine } from "./engines.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type ApiEngine, type CodexEngine } from "./engines.js";
 
 // What engine-settings.test.ts and engine-settings.full.test.ts share.
 
@@ -22,6 +24,20 @@ export const strata: ApiEngine = {
   key: "sk-strata",
   models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
 };
+
+/** A Codex engine signed in with an API key. */
+export const codex: CodexEngine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: CodexApiKey.of("sk-codex-kept"),
+};
+
+export function codexEdit(fields: Partial<CodexEngineEdit> = {}): CodexEngineEdit {
+  const { id, name, kind, defaultModel } = codex;
+  return { id, name, kind, defaultModel, ...fields };
+}
 
 export const stored: EngineSettings = {
   ...DEFAULT_ENGINE_SETTINGS,

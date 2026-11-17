@@ -10,6 +10,7 @@ import {
   type EngineReferences,
 } from "../../application/engine-reference-moves.js";
 import { EngineRemoved } from "../../domain/engine-events.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
 import type { EngineRemoval } from "../../domain/engine-removal.js";
 import { DEFAULT_ENGINE_SETTINGS, FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
@@ -124,6 +125,48 @@ describe("/api/settings/engines", () => {
       ],
     });
     expect((await repository.read()).engines[1]).toMatchObject({ id: "strata", key: KEY });
+  });
+
+  it("keeps a Codex engine, never sends its API key back, and keeps the key on a Save", async () => {
+    const codexKey = "sk-codex-never-sent-back";
+    const codex = { name: "OpenAI account", kind: "codex", defaultModel: "gpt-5.6-terra" };
+    const withCodex = { ...strataEdit, engines: [...strataEdit.engines, codex] };
+
+    const added = await put(withCodex);
+    await repository.setCodexApiKey("openai-account", CodexApiKey.of(codexKey));
+    const readText = await read();
+    const renamed = await put({
+      ...withCodex,
+      engines: [
+        ...strataEdit.engines.map((engine, index) =>
+          index === 1 ? { ...engine, id: "strata", key: undefined } : engine,
+        ),
+        { ...codex, id: "openai-account", name: "Work OpenAI", apiKey: "sk-from-the-body" },
+      ],
+    });
+    const renamedText = await renamed.text();
+
+    expect(added.status).toBe(200);
+    expect(renamed.status).toBe(200);
+    expect(readText).not.toContain(codexKey);
+    expect(renamedText).not.toContain(codexKey);
+    expect(readText).not.toContain("apiKey");
+    const sent = engineSettingsSchema.parse(JSON.parse(renamedText));
+    expect(sent.engines[2]).toEqual({
+      id: "openai-account",
+      name: "Work OpenAI",
+      kind: "codex",
+      defaultModel: "gpt-5.6-terra",
+    });
+    expect(sent.modelPrices.map(({ engineId, model }) => [engineId, model])).toEqual([
+      ...UNPRICED_CLAUDE_MODELS.map(({ model }) => [null, model]),
+      [null, "gpt-6-luna"],
+      [null, "gpt-5.6-terra"],
+      [null, "gpt-5.6-luna"],
+      ["strata", "qwen3.8-flash"],
+    ]);
+    const kept = (await repository.read()).engines[2];
+    expect(kept?.kind === "codex" && kept.apiKey?.reveal()).toBe(codexKey);
   });
 
   it("sends Sees images off for a model kept before it was asked", async () => {

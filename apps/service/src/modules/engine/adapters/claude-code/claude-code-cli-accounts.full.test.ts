@@ -26,6 +26,7 @@ describe("the Claude Code accounts through the binary", () => {
     await expect(accounts.account("work")).resolves.toEqual({
       signedIn: true,
       pastedToken: false,
+      apiKey: false,
       email: "ada@example.com",
       plan: "max",
     });
@@ -105,6 +106,7 @@ describe("the Claude Code accounts through the binary", () => {
     // The earlier Sign in's email, left in the folder, is not the token's account.
     await expect(accounts.account("work")).resolves.toMatchObject({
       pastedToken: true,
+      apiKey: false,
       email: undefined,
     });
   });

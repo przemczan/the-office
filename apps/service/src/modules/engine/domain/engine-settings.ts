@@ -2,6 +2,7 @@ import { movedEngineModel, type EngineRemoval } from "./engine-removal.js";
 import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
 import {
   CLAUDE_CODE_MODELS,
+  CODEX_MODELS,
   engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
   offeredModels,
@@ -64,8 +65,11 @@ export type ApiEngineEdit = Omit<ApiEngine, "id" | "key"> & {
   readonly key?: string;
 };
 
-/** A Codex engine as Settings › Engines saves it: without an `id` when it is new. */
-export type CodexEngineEdit = Omit<CodexEngine, "id"> & { readonly id?: EngineId };
+/**
+ * A Codex engine as Settings › Engines saves it: without an `id` when it is new, and never with
+ * its API key, which only signing it in sets (a Save keeps the one kept).
+ */
+export type CodexEngineEdit = Omit<CodexEngine, "id" | "apiKey"> & { readonly id?: EngineId };
 
 export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit | CodexEngineEdit;
 
@@ -87,7 +91,8 @@ export function apiEngines(engines: readonly Engine[]): readonly ApiEngine[] {
 
 /**
  * Every model that may be priced, in order, with its Model price or none: the Claude models while
- * there is a Claude Code engine, then each API engine's.
+ * there is a Claude Code engine, the Codex models while there is a Codex engine, then each API
+ * engine's.
  */
 export function offeredModelPrices({ engines, modelPrices }: EngineSettings): OfferedModel[] {
   const priceOf = (engineId: EngineId | null, model: string) =>
@@ -101,13 +106,19 @@ export function offeredModelPrices({ engines, modelPrices }: EngineSettings): Of
   );
 }
 
-/** The models priced under a price's `engineId`: null for the Claude models. */
+/**
+ * The models priced under a price's `engineId`: null for the Claude models while a Claude Code
+ * engine is listed, then the Codex models while a Codex engine is, each priced once for them all.
+ */
 function modelsPricedUnder(
   engines: readonly Engine[],
   engineId: EngineId | null,
 ): readonly string[] {
   if (engineId === null) {
-    return engines.some(({ kind }) => kind === "claude-code") ? CLAUDE_CODE_MODELS : [];
+    return [
+      ...(engines.some(({ kind }) => kind === "claude-code") ? CLAUDE_CODE_MODELS : []),
+      ...(engines.some(({ kind }) => kind === "codex") ? CODEX_MODELS : []),
+    ];
   }
   const engine = engines.find(({ id }) => id === engineId);
   return engine?.kind === "openai-compatible-api" ? offeredModels(engine) : [];
@@ -115,9 +126,9 @@ function modelsPricedUnder(
 
 /**
  * The settings `edit` makes of `stored`: the engines in its order, a new one given its id from its
- * name and an API engine keeping its key unless the edit gives one; the Office default; and the
- * Model prices of the models offered, a removed engine's kept (`keptModelPrices`). Refuses with
- * every reason when they break a rule.
+ * name, an API engine keeping its key unless the edit gives one and a Codex engine always keeping
+ * its API key; the Office default; and the Model prices of the models offered, a removed engine's
+ * kept (`keptModelPrices`). Refuses with every reason when they break a rule.
  */
 export function changedEngineSettings(
   stored: EngineSettings,
@@ -194,7 +205,9 @@ function changedEnginesOf(
     if (edit.kind === "claude-code") {
       return { ...common, kind: edit.kind, claudeCodeP: edit.claudeCodeP };
     }
-    if (edit.kind === "codex") return { ...common, kind: edit.kind };
+    if (edit.kind === "codex") {
+      return { ...common, kind: edit.kind, apiKey: kept?.kind === "codex" ? kept.apiKey : null };
+    }
     const keptKey = kept?.kind === "openai-compatible-api" ? kept.key : "";
     return {
       ...common,

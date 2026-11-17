@@ -944,7 +944,7 @@ test(
     });
     await page.reload();
     await expect(list).toHaveText(
-      "No engine yet. Add a Claude Code engine or an API endpoint with Add an engine.",
+      "No engine yet. Add a Claude Code engine, a Codex engine or an API endpoint with Add an engine.",
     );
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-settings-engines-empty.png"),

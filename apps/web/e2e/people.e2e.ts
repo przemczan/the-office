@@ -164,7 +164,10 @@ async function openEngine(
 }
 
 /** Adds an engine of the kind through "Add an engine", which selects it. */
-async function addEngine(page: Page, kind: "Claude Code" | "API endpoint"): Promise<void> {
+async function addEngine(
+  page: Page,
+  kind: "Claude Code" | "Codex" | "API endpoint",
+): Promise<void> {
   await page.getByRole("button", { name: "Add an engine" }).click();
   await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
 }
@@ -1060,6 +1063,136 @@ test(
     await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
 
     await removeEngine(page, name);
+  },
+);
+
+// Here for the same reason as the Claude Code engine's: a Save sends every engine, and Office
+// limits' Save names every engine, so the engine it adds is gone again at its end.
+test(
+  "the user adds a Codex engine, signs it in with ChatGPT and with an API key, prices a model, renames and removes it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const name = "Codex check";
+    const renamed = "Codex check renamed";
+    const savedEngines = async () =>
+      engineSettingsSchema.parse(await (await page.request.get("/api/settings/engines")).json())
+        .engines;
+    const saveSettings = async (): Promise<void> => {
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(
+        page.getByText("Engines saved. Sessions started from now on use them."),
+      ).toBeVisible();
+    };
+    const price = page.getByRole("group", { name: "Model price of gpt-6-luna" });
+    try {
+      await page.goto("/settings/engines");
+      await addEngine(page, "Codex");
+      const added = page.getByRole("group", { name: "the new Codex engine" });
+      await added.getByLabel("Name", { exact: true }).fill(name);
+      const engine = page.getByRole("group", { name, exact: true });
+      await engine.getByLabel("Default model").selectOption({ label: "gpt-5.6-terra" });
+      await page.getByRole("tab", { name: "Account" }).click();
+      await expect(engine.getByText("It has no folder to sign in yet")).toBeVisible();
+      await saveSettings();
+      const engineId = (await savedEngines()).find((saved) => saved.name === name)?.id ?? "";
+      expect(engineId).not.toBe("");
+
+      await page.reload();
+      await expect(
+        page.getByRole("navigation", { name: "Engines" }).getByRole("button", {
+          name: new RegExp(`^${name}`),
+        }),
+      ).toContainText("Codex");
+      await openEngine(page, name);
+      await expect(engine.getByLabel("Default model")).toHaveValue("gpt-5.6-terra");
+
+      // Sign in with ChatGPT: the device page and its code, then the user approves there.
+      await page.getByRole("tab", { name: "Account", exact: true }).click();
+      const account = engine.getByRole("group", { name: "Account" });
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+      await account.getByRole("button", { name: "Sign in with ChatGPT" }).click();
+      const signingIn = account.getByRole("group", { name: "Sign in with ChatGPT" });
+      await expect(signingIn.getByRole("link", { name: "the sign-in page" })).toHaveAttribute(
+        "href",
+        "https://auth.openai.com/codex/device",
+      );
+      await expect(signingIn.getByLabel("The code to enter")).toHaveText("STND-1NCODE");
+      await expect(signingIn.getByText("Waiting for the sign-in to finish…")).toBeVisible();
+      const approved = await page.request.post(
+        `/api/e2e/codex-sign-ins/${encodeURIComponent(engineId)}/approval`,
+      );
+      expect(approved.status()).toBe(204);
+      // Its end reaches the open page by `engine.account-changed`, without a reload.
+      await expect(
+        account.getByText("Signed in with ChatGPT as stand-in@example.com · ChatGPT Plus"),
+      ).toBeVisible();
+      await expect(signingIn).toHaveCount(0);
+
+      // An API key instead: kept, and never answered back.
+      const key = "sk-codex-e2e-stand-in-key";
+      await account.getByRole("button", { name: "Use an API key instead" }).click();
+      const keyBox = account.getByLabel("API key");
+      await expect(keyBox).toHaveAttribute("type", "password");
+      await keyBox.fill(key);
+      await account.getByRole("button", { name: "Save the key" }).click();
+      await expect(account.getByText("Signed in with an API key")).toBeVisible();
+      await expect(account.getByLabel("API key")).toHaveCount(0);
+      expect(await (await page.request.get("/api/settings/engines")).text()).not.toContain(key);
+
+      await account.getByRole("button", { name: "Sign out" }).click();
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+      await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+
+      // A Codex model's price, kept across a reload.
+      await page.getByRole("tab", { name: "Models and prices", exact: true }).click();
+      await expect(
+        engine.getByText("The Codex models' prices are shared by every Codex engine"),
+      ).toBeVisible();
+      await price.getByLabel("Input").fill("1.25");
+      await price.getByLabel("Output").fill("10");
+      await price.getByLabel("Cache writes").fill("0");
+      await price.getByLabel("Cache reads").fill("0.125");
+      await saveSettings();
+      await page.reload();
+      await openEngine(page, name, "Models and prices");
+      await expect(price.getByLabel("Input")).toHaveValue("1.25");
+      await expect(price.getByLabel("Cache reads")).toHaveValue("0.125");
+
+      // Later tests price nothing, so the price goes again with the rename's Save.
+      for (const kind of ["Input", "Output", "Cache writes", "Cache reads"]) {
+        await price.getByLabel(kind).fill("");
+      }
+
+      // Renamed, it keeps its id.
+      await page.getByRole("tab", { name: "Settings", exact: true }).click();
+      await engine.getByLabel("Name", { exact: true }).fill(renamed);
+      await saveSettings();
+      const kept = (await savedEngines()).find((saved) => saved.name === renamed);
+      expect(kept?.id).toBe(engineId);
+      expect((await savedEngines()).some((saved) => saved.name === name)).toBe(false);
+      await page.reload();
+      await openEngine(page, renamed, "Models and prices");
+      await expect(price.getByLabel("Input")).toHaveValue("");
+
+      // Removed through its dialog, onto the Office default's engine.
+      await page.getByRole("button", { name: `Remove ${renamed}` }).click();
+      const dialog = page.getByRole("dialog", { name: `Remove ${renamed}?` });
+      await dialog.getByLabel("Replacement").selectOption({ label: "Claude Code" });
+      await dialog.getByRole("button", { name: `Remove ${renamed}` }).click();
+      await expect(
+        page.getByText("Engine removed. What named it moved to the replacement."),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole("navigation", { name: "Engines" })
+          .getByRole("button", { name: new RegExp(`^${renamed}`) }),
+      ).toHaveCount(0);
+      expect((await savedEngines()).some((saved) => saved.id === engineId)).toBe(false);
+    } finally {
+      for (const each of await savedEngines()) {
+        if (each.name === name || each.name === renamed) await removeEngine(page, each.name);
+      }
+    }
   },
 );
 

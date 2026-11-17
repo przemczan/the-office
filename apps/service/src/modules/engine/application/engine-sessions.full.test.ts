@@ -663,6 +663,7 @@ describe("EngineSessions on each engine's adapter", () => {
         name: "Codex",
         kind: "codex",
         defaultModel: "gpt-6-luna",
+        apiKey: null,
       };
       const { sessions } = setUpOn(
         {

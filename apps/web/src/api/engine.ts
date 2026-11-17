@@ -17,7 +17,7 @@ import {
   sendToApi,
   sendToApiWithNoAnswer,
 } from "./api-client.ts";
-import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { useOfficeEvent, type EventInvalidations } from "./event-stream-provider.tsx";
 
 const ENGINE_SETTINGS = ["settings", "engines"] as const;
 
@@ -74,7 +74,10 @@ export function removeEngine(
   );
 }
 
-/** A saved Claude Code engine's account, as `claude auth status` gives it for its folder. */
+/**
+ * A saved Claude Code engine's account, as `claude auth status` gives it for its folder, or a saved
+ * Codex engine's, as its app-server reads it.
+ */
 export const engineAccountQuery = (engineId: string) =>
   queryOptions({
     queryKey: engineAccountKey(engineId),
@@ -82,7 +85,11 @@ export const engineAccountQuery = (engineId: string) =>
       getFromApi(`${enginePath(engineId)}/account`, engineAccountSchema, signal),
   });
 
-/** Starts a Sign in on the engine's folder, giving the sign-in page that gives the code. */
+/**
+ * Starts a Sign in on the engine's folder: on a Claude Code engine the sign-in page that gives the
+ * code; on a Codex engine the page with the code to enter there, its end announced as
+ * `engine.account-changed`.
+ */
 export function startEngineSignIn(engineId: string): Promise<EngineSignIn> {
   return sendToApi("POST", `${enginePath(engineId)}/sign-in`, {}, engineSignInSchema);
 }
@@ -97,9 +104,24 @@ export function pasteEngineToken(engineId: string, token: string): Promise<void>
   return sendToApiWithNoAnswer("PUT", `${enginePath(engineId)}/token`, { token });
 }
 
+/**
+ * "Use an API key instead" on a Codex engine: an OpenAI API key signs it in, replacing any ChatGPT
+ * sign-in, kept in the database and never sent back.
+ */
+export function setEngineApiKey(engineId: string, key: string): Promise<void> {
+  return sendToApiWithNoAnswer("PUT", `${enginePath(engineId)}/api-key`, { key });
+}
+
 /** Signs the engine out, whatever signed it in. */
 export function signOutOfEngine(engineId: string): Promise<void> {
   return deleteFromApi(`${enginePath(engineId)}/sign-in`);
+}
+
+/** Calls `onChanged` each time the engine's account changes, once it is being read again. */
+export function useEngineAccountChanged(engineId: string, onChanged: () => void): void {
+  useOfficeEvent("engine.account-changed", (event) => {
+    if (engineWebEventSchema.parse(event).engineId === engineId) onChanged();
+  });
 }
 
 /** An engine's account that changed is read again by its id. */

@@ -37,12 +37,48 @@ export function ClaudeModelPrices({
   readonly prices: PriceFields;
 }): ReactNode {
   return (
+    <SharedModelPrices
+      models={models}
+      prices={prices}
+      shared="The Claude models' prices are shared by every Claude Code engine: a change here is a change for all of them."
+    />
+  );
+}
+
+/**
+ * A Codex engine's Models and prices: the Codex models' prices, kept once (engine id null) and so
+ * shared by every Codex engine.
+ */
+export function CodexModelPrices({
+  models,
+  prices,
+}: {
+  readonly models: readonly PricedModel[];
+  readonly prices: PriceFields;
+}): ReactNode {
+  return (
+    <SharedModelPrices
+      models={models}
+      prices={prices}
+      shared="The Codex models' prices are shared by every Codex engine: a change here is a change for all of them."
+    />
+  );
+}
+
+function SharedModelPrices({
+  models,
+  prices,
+  shared,
+}: {
+  readonly models: readonly PricedModel[];
+  readonly prices: PriceFields;
+  /** Which engines share them. */
+  readonly shared: string;
+}): ReactNode {
+  return (
     <div className="engine-tab">
       <PricesNote />
-      <p className="settings-note">
-        The Claude models&apos; prices are shared by every Claude Code engine: a change here is a
-        change for all of them.
-      </p>
+      <p className="settings-note">{shared}</p>
       <div className="engine-prices">
         {models.map((model) => (
           <ModelPriceFields

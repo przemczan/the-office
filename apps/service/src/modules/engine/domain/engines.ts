@@ -1,4 +1,5 @@
 import type { ApiEndpointModel } from "./api-endpoints.js";
+import type { CodexApiKey } from "./codex-api-key.js";
 
 /** Made from the engine's name when it is added and kept on a rename (spec §5.4). */
 export type EngineId = string;
@@ -34,6 +35,11 @@ export interface ApiEngine extends EngineBase {
 /** An OpenAI account, whose sessions run on the pinned `codex app-server` (spec §5.4). */
 export interface CodexEngine extends EngineBase {
   readonly kind: "codex";
+  /**
+   * The OpenAI API key "Use an API key instead" signed it in with, kept so; null when a ChatGPT
+   * sign-in or nothing signs it in. Never sent back, and a Save of Settings › Engines keeps it.
+   */
+  readonly apiKey: CodexApiKey | null;
 }
 
 /** An engine the user lists in Settings › Engines (spec §5.4), which caps and usage are kept by. */

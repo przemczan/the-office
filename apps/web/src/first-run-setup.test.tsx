@@ -57,6 +57,7 @@ const AN_API_ENGINE: EngineSettings = {
 const SIGNED_OUT_OF_CLAUDE: EngineAccount = {
   signedIn: false,
   pastedToken: false,
+  apiKey: false,
   email: null,
   plan: null,
 };

@@ -16,7 +16,8 @@ import type { EngineId, EngineKind } from "../../domain/engines.js";
 
 /**
  * The engines Settings › Engines lists, in its order. The `-p` switch is a Claude Code engine's;
- * the base URL, key and models an API engine's, null on the other kind.
+ * the base URL, key and models an API engine's, null on the other kinds, but for a Codex engine's
+ * key: the OpenAI API key it is signed in with, null when none is (never empty).
  */
 export const engines = pgTable(
   "engines",
@@ -36,7 +37,7 @@ export const engines = pgTable(
     check("engines_id", sql`${table.id} <> ''`),
     check(
       "engines_kind",
-      sql`(${table.kind} = 'claude-code' AND ${table.baseUrl} IS NULL AND ${table.key} IS NULL AND ${table.models} IS NULL) OR (${table.kind} = 'openai-compatible-api' AND ${table.baseUrl} IS NOT NULL AND ${table.key} IS NOT NULL AND ${table.models} IS NOT NULL AND NOT ${table.claudeCodeP})`,
+      sql`(${table.kind} = 'claude-code' AND ${table.baseUrl} IS NULL AND ${table.key} IS NULL AND ${table.models} IS NULL) OR (${table.kind} = 'openai-compatible-api' AND ${table.baseUrl} IS NOT NULL AND ${table.key} IS NOT NULL AND ${table.models} IS NOT NULL AND NOT ${table.claudeCodeP}) OR (${table.kind} = 'codex' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> ''))`,
     ),
   ],
 );
@@ -65,7 +66,8 @@ export const engineSettings = pgTable(
 
 /**
  * Each priced model's Model price, in dollars per million tokens; a model with no row has none. A
- * Claude model's engine id is null, its price shared by every Claude Code engine.
+ * Claude model's engine id is null, its price shared by every Claude Code engine, and so is a Codex
+ * model's, shared by every Codex engine.
  */
 export const modelPrices = pgTable(
   "model_prices",

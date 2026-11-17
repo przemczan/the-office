@@ -28,6 +28,7 @@ const codex: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  apiKey: null,
 };
 
 describe("an engine", () => {
