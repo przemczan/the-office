@@ -14,6 +14,7 @@ import {
   PipelineRemoved,
   PipelineSaved,
 } from "../../domain/pipeline-library-events.js";
+import { straightLineFlow } from "../../domain/flow.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
@@ -69,7 +70,11 @@ describe("POST /api/pipelines", () => {
 
     const pipeline = await added(edit);
 
-    expect(pipeline).toEqual({ id: expect.any(String), ...edit });
+    expect(pipeline).toEqual({
+      id: expect.any(String),
+      ...edit,
+      stages: straightLineFlow(edit.stages),
+    });
     const read = await send("GET", `/pipelines/${pipeline.id}`);
     expect(pipelineSchema.parse(await read.json())).toEqual(pipeline);
     expect(publishedFor(PipelineAdded, pipeline.id)).toBe(true);
@@ -85,9 +90,11 @@ describe("POST /api/pipelines", () => {
     expect(response.status).toBe(422);
     const refusal = stagesEditRefusalSchema.parse(await response.json());
     expect(refusal.problems).toEqual([
-      { stageIndex: null, text: 'Another Pipeline is named "Full".' },
+      { stageKey: null, at: null, level: "problem", text: 'Another Pipeline is named "Full".' },
       {
-        stageIndex: 0,
+        stageKey: "review",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 1 · Implement: continuing a session needs the same Role or the same duty in the Stage before.",
       },
     ]);
@@ -102,7 +109,11 @@ describe("PUT /api/pipelines/:id", () => {
     const response = await send("PUT", `/pipelines/${pipeline.id}`, edit);
 
     expect(response.status).toBe(200);
-    expect(pipelineSchema.parse(await response.json())).toEqual({ id: pipeline.id, ...edit });
+    expect(pipelineSchema.parse(await response.json())).toEqual({
+      id: pipeline.id,
+      ...edit,
+      stages: straightLineFlow(edit.stages),
+    });
     expect(publishedFor(PipelineSaved, pipeline.id)).toBe(true);
   });
 
@@ -120,7 +131,9 @@ describe("PUT /api/pipelines/:id", () => {
     const later = randomUUID();
     pipelines.tasks.put(later, { state: "in-progress", pipelineId: pipeline.id });
 
-    expect((await taskStages.make(later, pipeline.id)).stages).toEqual(edit.stages);
+    expect((await taskStages.make(later, pipeline.id)).stages).toEqual(
+      straightLineFlow(edit.stages),
+    );
     expect((await taskStages.find(started))?.stages).toEqual(pipeline.stages);
   });
 
@@ -136,7 +149,9 @@ describe("PUT /api/pipelines/:id", () => {
       stages: [scriptStage({ key: "full", name: "Full tests", command: "test-full" })],
     });
     const problem = {
-      stageIndex: 0,
+      stageKey: "full",
+      at: { kind: "stage" },
+      level: "problem",
       text: "Stage 1 · Full tests: Site has no command test-full (it is its default Pipeline)",
     };
 
@@ -214,7 +229,6 @@ describe("an office-wide Pipeline with Project Pipelines built from it", () => {
 
     expect(pipelineCheckSchema.parse(await check.json())).toEqual({
       problems: [],
-      flags: [],
       breaks: [
         {
           projectPipelineId: projectPipeline.id,

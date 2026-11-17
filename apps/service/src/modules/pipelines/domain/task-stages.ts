@@ -1,3 +1,4 @@
+import { asFlow, pipelineOrder } from "./flow.js";
 import { stageProblems, problemOnStage, type Pipeline, type StageProblem } from "./pipeline.js";
 import {
   agentStageWorkers,
@@ -138,10 +139,11 @@ export function editProblems(
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
   const locked = lockedStageCount(own.stages, runs);
+  const ordered = pipelineOrder(asFlow(edited));
   return [
-    ...lockedStageProblems(own.stages, edited, locked),
-    ...stageProblems(edited),
-    ...staffingProblems(edited, locked, roles),
+    ...lockedStageProblems(own.stages, ordered, locked),
+    ...stageProblems(ordered),
+    ...staffingProblems(ordered, locked, roles),
   ];
 }
 
@@ -151,7 +153,7 @@ export function editTaskStages(
   edited: readonly Stage[],
 ): { readonly taskStages: TaskStages; readonly event: TaskStagesEdited } {
   return {
-    taskStages: { ...own, stages: edited, editedForTask: true },
+    taskStages: { ...own, stages: pipelineOrder(asFlow(edited)), editedForTask: true },
     event: new TaskStagesEdited(own.taskId, own.pipelineId),
   };
 }
@@ -173,8 +175,12 @@ function sameStage(stage: Stage, other: Stage): boolean {
   return comparable(stage) === comparable(other);
 }
 
-/** The Stage as JSON with its keys sorted and absent fields left out, wherever it was read from. */
-function comparable(stage: Stage): string {
+/**
+ * The Stage as JSON with its keys sorted and absent fields left out, wherever it was read from. Its
+ * routes and place are left out: the list editor redraws a straight line's routes when a Stage is
+ * inserted after a started one, and the walk doesn't follow routes yet.
+ */
+function comparable({ routes: _routes, place: _place, ...stage }: Stage): string {
   return JSON.stringify(stage, (_key, value: unknown) =>
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? Object.fromEntries(

@@ -41,7 +41,7 @@ function row(
     stageChange,
     broken: [],
     problems: [],
-    flags: [],
+    warnings: [],
   };
 }
 

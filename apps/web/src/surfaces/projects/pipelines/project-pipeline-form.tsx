@@ -22,7 +22,7 @@ import { projectPipelineUseLine } from "../../../shell/pipelines/pipeline-use-wo
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
 import { counted } from "../../../shell/pipelines/stage-change-words.ts";
 import { StageChangesView } from "../../../shell/pipelines/stage-changes-view.tsx";
-import { checkAwaited } from "../../../shell/pipelines/stages-check.ts";
+import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 
@@ -30,7 +30,7 @@ import { useToast } from "../../../shell/toasts.tsx";
  * The open Project Pipeline (docs/design/project-pipelines.html, "The editor"): its head, then its
  * name, base Pipeline and description, and what the Project gets in one view, saved or discarded as
  * a whole. The service builds and checks every edit; problems and Broken hold Save (a save never
- * leaves it Broken), flags don't.
+ * leaves it Broken), warnings don't.
  */
 export function ProjectPipelineForm({
   project,
@@ -61,7 +61,7 @@ export function ProjectPipelineForm({
   });
   // Until the check answers, the Stages as they were saved.
   const built = check.data ?? projectPipeline;
-  const problems = check.data?.problems ?? [];
+  const { problems, warnings } = byLevel(check.data?.problems);
   const broken = built.broken.length > 0;
   const baseName =
     officeWide.find(({ id }) => id === draft.basePipelineId)?.name ??
@@ -137,7 +137,7 @@ export function ProjectPipelineForm({
           stageChanges={draft.stageChanges}
           onChange={(stageChanges) => change({ stageChanges: [...stageChanges] })}
           problems={problems}
-          flags={check.data?.flags ?? []}
+          warnings={warnings}
           pending={checkAwaited(check)}
           roles={roles}
           duties={duties}

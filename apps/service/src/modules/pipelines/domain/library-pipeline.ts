@@ -1,5 +1,6 @@
 import { ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE } from "./built-in-pipelines.js";
-import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
+import { asFlow, pipelineOrder } from "./flow.js";
+import { pipelineProblem, stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { comparableName, pipelineNameProblems, type TakenName } from "./pipeline-names.js";
 import type { ProjectPipeline } from "./project-pipeline.js";
@@ -112,12 +113,15 @@ export function proposedStagesProblems(
   otherPipelines: readonly Pipeline[],
   projectPipelineNames: readonly TakenName[],
 ): StageProblem[] {
-  if (!sameAsKept(pipeline.stages, from)) {
-    return [{ text: `${pipeline.name}'s Stages changed since this was proposed.` }];
+  // A draft from before flows, or one sending a plain list, reads as its conversion.
+  if (!sameAsKept(flowInOrder(pipeline.stages), flowInOrder(from))) {
+    return [pipelineProblem(`${pipeline.name}'s Stages changed since this was proposed.`)];
   }
-  if (sameAsKept(from, to)) {
+  if (sameAsKept(flowInOrder(from), flowInOrder(to))) {
     return [
-      { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
+      pipelineProblem(
+        "Nothing changes: give the Pipeline's Stages as they should be, all of them.",
+      ),
     ];
   }
   return pipelineEditProblems(proposedEdit(pipeline, to), otherPipelines, projectPipelineNames);
@@ -320,6 +324,10 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
   return problems;
 }
 
+function flowInOrder(stages: readonly Stage[]): Stage[] {
+  return pipelineOrder(asFlow(stages));
+}
+
 function pipelineOf(id: string, { name, description, stages }: PipelineEdit): Pipeline {
-  return { id, name: name.trim(), description: description.trim(), stages };
+  return { id, name: name.trim(), description: description.trim(), stages: flowInOrder(stages) };
 }

@@ -6,6 +6,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PipelineAdded, PipelineRemoved } from "../../domain/pipeline-library-events.js";
+import { straightLineFlow } from "../../domain/flow.js";
 import { agentStage } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
@@ -58,7 +59,7 @@ describe("Project Pipelines over HTTP", () => {
       stageChanges: [
         { kind: "insert-after", stageKey: "tests", stageName: "Tests", stage: LINUX_CHECK },
       ],
-      stages: [...base.stages, LINUX_CHECK],
+      stages: straightLineFlow([...base.stages, LINUX_CHECK]),
       broken: [],
     });
     expect(pipelines.published.some((event) => event instanceof PipelineAdded)).toBe(true);
@@ -66,7 +67,11 @@ describe("Project Pipelines over HTTP", () => {
     const saved = await send("PUT", `/pipelines/${base.id}`, {
       name: base.name,
       description: base.description,
-      stages: [agentStage({ brief: "Implement it well." }), ...base.stages.slice(1)],
+      // Drawn again as a straight line, as the list editor sends it.
+      stages: straightLineFlow([
+        agentStage({ brief: "Implement it well." }),
+        ...base.stages.slice(1),
+      ]),
     });
     expect(saved.status).toBe(200);
 

@@ -3,6 +3,7 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
+import { straightLineFlow } from "../domain/flow.js";
 import type { Pipeline } from "../domain/pipeline.js";
 import { PipelineLibraryModule } from "../pipeline-library.module.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
@@ -40,7 +41,13 @@ describe("PipelineLibrary", () => {
   it("starts with the built-ins its migration seeded, in their order", async () => {
     const listed = await library.list();
 
-    expect(listed.slice(0, builtInPipelines.length)).toEqual(builtInPipelines);
+    // Migration 0162 converted the seeded Stages to flows, as straightLineFlow does.
+    expect(listed.slice(0, builtInPipelines.length)).toEqual(
+      builtInPipelines.map((pipeline) => ({
+        ...pipeline,
+        stages: straightLineFlow(pipeline.stages),
+      })),
+    );
   });
 
   it("finds a Pipeline by its id", async () => {
@@ -74,7 +81,10 @@ describe("PipelineLibrary", () => {
       stages: [{ kind: "gate", key: "look", name: "Look", optional: false } as const],
     };
     await repository.save(saved);
-    await expect(library.find(added.id)).resolves.toEqual(saved);
+    await expect(library.find(added.id)).resolves.toEqual({
+      ...saved,
+      stages: straightLineFlow(saved.stages),
+    });
 
     await repository.remove(added.id);
     await expect(library.has(added.id)).resolves.toBe(false);

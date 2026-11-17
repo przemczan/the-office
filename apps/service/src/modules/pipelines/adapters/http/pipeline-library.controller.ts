@@ -63,8 +63,7 @@ export class PipelineLibraryController {
   ): Promise<PipelineCheck> {
     const { problems, flags, breaks } = await this.editor.check(edit, pipelineId);
     return {
-      problems: problems.map(toStageProblemResponse),
-      flags: flags.map(toStageProblemResponse),
+      problems: [...problems, ...flags].map(toStageProblemResponse),
       breaks: breaks.map(toProjectPipelineBreakResponse),
     };
   }

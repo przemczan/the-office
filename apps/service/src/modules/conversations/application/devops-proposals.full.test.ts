@@ -170,10 +170,16 @@ describe("Devops' Proposals, through the scripted engine", () => {
       ],
       installInputs: [".nvmrc"],
     });
-    expect(pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`))).toEqual({
-      ...pipeline,
-      stages,
-    });
+    // Read back as the straight line the library converted the plain list to.
+    const saved = pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`));
+    expect(saved).toEqual({ ...pipeline, stages: expect.any(Array) });
+    expect(asPlainList(saved.stages)).toEqual(stages);
+    expect(saved.stages.map(({ routes }) => routes?.map(({ to }) => to))).toEqual([
+      ["tests"],
+      ["lint"],
+      ["publish"],
+      [null],
+    ]);
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
 
@@ -203,7 +209,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
         await chat.api("PUT", `/pipelines/${pipeline.id}`, {
           name: pipeline.name,
           description: pipeline.description,
-          stages: pipeline.stages.slice(0, 1),
+          stages: asPlainList(pipeline.stages).slice(0, 1),
         })
       ).json(),
     );
@@ -840,7 +846,7 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
     const project = await aProject();
     const base = await aPipeline();
     const projectPipeline = await aProjectPipeline(project, base);
-    const withoutTests = base.stages.filter(({ key }) => key !== "tests");
+    const withoutTests = asPlainList(base.stages).filter(({ key }) => key !== "tests");
 
     const answer = await chat.ninaCalls(PROPOSE_LIBRARY_PIPELINE_TOOL, {
       pipeline: base.id,
@@ -967,7 +973,17 @@ function withLint(stages: readonly Stage[]): Stage[] {
     optional: false,
     command: "lint",
   };
-  return [...stages.slice(0, -1), lint, ...stages.slice(-1)];
+  const plain = asPlainList(stages);
+  return [...plain.slice(0, -1), lint, ...plain.slice(-1)];
+}
+
+/**
+ * The Stages without their routes and places, as a Proposal sending a plain list gives them: the
+ * library converts them to a straight line, where Stages read back with routes would keep routes
+ * to Stages the Proposal moved or took away.
+ */
+function asPlainList(stages: readonly Stage[]): Stage[] {
+  return stages.map(({ routes: _routes, place: _place, ...stage }) => stage);
 }
 
 /** The Stages with each Agent Stage keeping only the Project's test command. */

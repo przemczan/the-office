@@ -4,7 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import type { DutyKey } from "../../people/index.js";
 import { TaskMovedToProject, TaskPipelineConfirmed, TaskStageEdits } from "../../work/index.js";
-import type { Pipeline, StageProblem } from "../domain/pipeline.js";
+import { pipelineProblem, type Pipeline, type StageProblem } from "../domain/pipeline.js";
 import {
   agentStageWorkers,
   mergedWorkers,
@@ -206,13 +206,15 @@ export class TaskStagesService implements OnModuleInit {
     const { state, projectId } = task;
     const pipelineId = followed ?? task.pipelineId;
     if (pipelineId === undefined) {
-      throw new StagesEditRefused([{ text: "The Task has no Pipeline yet: choose one first." }]);
+      throw new StagesEditRefused([
+        pipelineProblem("The Task has no Pipeline yet: choose one first."),
+      ]);
     }
     const own = await this.ownOrCopied(taskId, pipelineId, projectId);
     const runs = await this.runs.list(taskId);
     const keptBecause = whyStagesAreKept(state);
     const problems = keptBecause
-      ? [{ text: keptBecause }]
+      ? [pipelineProblem(keptBecause)]
       : [
           ...editProblems(own, edited, runs, await this.roleFillings.of(edited)),
           ...(await this.roleFillings.permissionProblems(
@@ -268,7 +270,7 @@ export class TaskStagesService implements OnModuleInit {
       ...newlyNamedWorkers(agentStageWorkers(edited), named),
       projectId,
     });
-    return problems.map((text) => ({ text }));
+    return problems.map(pipelineProblem);
   }
 
   private async ownOrCopied(
@@ -290,16 +292,16 @@ export class TaskStagesService implements OnModuleInit {
         return found.pipeline;
       case "broken":
         throw new StagesEditRefused([
-          {
-            text: `${found.name} is Broken: ${found.reasons.map(({ text }) => text).join(" ")} Fix its Stage changes first, or choose another Pipeline.`,
-          },
+          pipelineProblem(
+            `${found.name} is Broken: ${found.reasons.map(({ text }) => text).join(" ")} Fix its Stage changes first, or choose another Pipeline.`,
+          ),
         ]);
       case "unknown":
         // Neither the library nor the Task's Project has it, as with another Project's Pipeline.
         throw new StagesEditRefused([
-          {
-            text: `There is no Pipeline "${pipelineId}" that Task ${taskId}'s Project can follow; choose another Pipeline.`,
-          },
+          pipelineProblem(
+            `There is no Pipeline "${pipelineId}" that Task ${taskId}'s Project can follow; choose another Pipeline.`,
+          ),
         ]);
     }
   }

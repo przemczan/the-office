@@ -205,7 +205,6 @@ describe("ProposalCard on a Project Pipeline", () => {
       "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
       "/project-pipelines/check": {
         problems: [],
-        flags: [],
         rows: [
           {
             stage: TESTS,
@@ -279,7 +278,6 @@ describe("ProposalCard on a library Pipeline's Stages", () => {
       "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
       "/pipelines/check": {
         problems: [],
-        flags: [],
         breaks: [
           {
             projectPipelineId: "pp-linux",

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { straightLineFlow } from "./flow.js";
 import { gate } from "./stage.fixtures.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { TaskStagesEdited } from "./task-stages-events.js";
@@ -40,15 +41,21 @@ describe("editProblems", () => {
     const locked = "Stage 1 · Implement: it has started, so it stays as it is, where it is.";
 
     expect(editProblems(own, [{ ...implement, budget: 5 }, tests], started, roles)).toContainEqual({
-      stageIndex: 0,
+      stageKey: "implement",
+      at: { kind: "stage" },
+      level: "problem",
       text: locked,
     });
     expect(editProblems(own, [gate(), implement, tests], started, roles)).toContainEqual({
-      stageIndex: 0,
+      stageKey: "implement",
+      at: { kind: "stage" },
+      level: "problem",
       text: locked,
     });
     expect(editProblems(own, [tests, review], started, roles)).toContainEqual({
-      stageIndex: 0,
+      stageKey: "implement",
+      at: { kind: "stage" },
+      level: "problem",
       text: locked,
     });
   });
@@ -60,7 +67,11 @@ describe("editTaskStages", () => {
 
     const { taskStages, event } = editTaskStages(own, edited);
 
-    expect(taskStages).toEqual({ ...own, stages: edited, editedForTask: true });
+    expect(taskStages).toEqual({
+      ...own,
+      stages: straightLineFlow(edited),
+      editedForTask: true,
+    });
     // The event's time is its own, so only what it says is compared.
     expect(event).toBeInstanceOf(TaskStagesEdited);
     expect(event).toMatchObject({ taskId: "task-1", pipelineId: "full" });

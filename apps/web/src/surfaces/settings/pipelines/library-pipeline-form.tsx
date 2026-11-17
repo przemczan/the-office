@@ -13,7 +13,7 @@ import { projectQueries } from "../../../api/projects.ts";
 import { useLibraryCommands } from "../../../shell/pipelines/library-commands.ts";
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
 import { StageEditor } from "../../../shell/pipelines/stage-editor.tsx";
-import { checkAwaited } from "../../../shell/pipelines/stages-check.ts";
+import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { BreaksDialog } from "./breaks-dialog.tsx";
@@ -52,7 +52,7 @@ export function LibraryPipelineForm({
     ...pipelineQueries.libraryCheck({ ...draft, pipelineId: pipeline?.id }),
     placeholderData: keepPreviousData,
   });
-  const problems = check.data?.problems ?? [];
+  const { problems, warnings } = byLevel(check.data?.problems);
   const breaks = dirty ? (check.data?.breaks ?? []) : [];
   const projects = useQuery(projectQueries.list()).data ?? [];
   const commands = useLibraryCommands();
@@ -96,7 +96,7 @@ export function LibraryPipelineForm({
             onChange={(stages) => change({ stages: [...stages] })}
             lockedNotes={[]}
             problems={problems}
-            flags={check.data?.flags ?? []}
+            warnings={warnings}
             problemsTitle="The Pipeline can't be saved yet"
             roles={roles}
             duties={duties}

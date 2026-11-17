@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { Pipeline, StageProblem } from "./pipeline.js";
+import { pipelineProblem, type Pipeline, type StageProblem } from "./pipeline.js";
 import { UnknownProjectPipeline } from "./pipeline-library-refusals.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { pipelineNameProblems, type TakenName } from "./pipeline-names.js";
@@ -113,12 +113,13 @@ export function projectPipelineEditProblems(
   return [
     ...pipelineNameProblems(edit.name, takenByProjectPipeline(project, around)),
     ...basePipelineProblems(edit.basePipelineId, around),
-    ...emptyChangeIndexes(edit.stageChanges).map((index) => ({
-      text: `Stage change ${index + 1} gives no field: say what changes, or remove it.`,
-    })),
-    ...(built?.broken ?? []).map(({ stageIndex, text }) =>
-      stageIndex === undefined ? { text } : { stageIndex, text },
+    ...emptyChangeIndexes(edit.stageChanges).map((index) =>
+      pipelineProblem(`Stage change ${index + 1} gives no field: say what changes, or remove it.`),
     ),
+    ...(built?.broken ?? []).map(({ stageKey, at, text }): StageProblem => {
+      if (stageKey === undefined) return pipelineProblem(text);
+      return { ...pipelineProblem(text), stageKey, at: at ?? { kind: "stage" } };
+    }),
   ];
 }
 
@@ -133,16 +134,16 @@ export function proposedProjectPipelineProblems(
 ): StageProblem[] {
   if (pipelineId === null) return [];
   if (!saved || saved.projectId !== projectId) {
-    return [{ text: new UnknownProjectPipeline(pipelineId).message }];
+    return [pipelineProblem(new UnknownProjectPipeline(pipelineId).message)];
   }
   if (from === null || !sameFieldsAsKept(saved, from)) {
-    return [{ text: `${saved.name} changed since this was proposed.` }];
+    return [pipelineProblem(`${saved.name} changed since this was proposed.`)];
   }
   if (sameFieldsAsKept(from, to)) {
     return [
-      {
-        text: "Nothing changes: give the Project Pipeline's name, description, base Pipeline or Stage changes as they should be.",
-      },
+      pipelineProblem(
+        "Nothing changes: give the Project Pipeline's name, description, base Pipeline or Stage changes as they should be.",
+      ),
     ];
   }
   return [];
@@ -171,8 +172,12 @@ function fieldsAsKept(edit: ProjectPipelineEdit): unknown {
 function basePipelineProblems(basePipelineId: string, around: PipelinesAround): StageProblem[] {
   if (around.officeWide.some(({ id }) => id === basePipelineId)) return [];
   return around.projectPipelines.some(({ id }) => id === basePipelineId)
-    ? [{ text: "Its base Pipeline must be an office-wide Pipeline, never a Project Pipeline." }]
-    : [{ text: `There is no office-wide Pipeline "${basePipelineId}" to build it from.` }];
+    ? [
+        pipelineProblem(
+          "Its base Pipeline must be an office-wide Pipeline, never a Project Pipeline.",
+        ),
+      ]
+    : [pipelineProblem(`There is no office-wide Pipeline "${basePipelineId}" to build it from.`)];
 }
 
 /** The names a Project Pipeline can't take: the office-wide Pipelines' and its own Project's. */

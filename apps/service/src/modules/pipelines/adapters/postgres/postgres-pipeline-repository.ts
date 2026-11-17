@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { asFlow, pipelineOrder } from "../../domain/flow.js";
 import type { Pipeline } from "../../domain/pipeline.js";
 import { PipelineRepository } from "../../ports/pipeline-repository.js";
 import { pipelines } from "./pipelines.schema.js";
@@ -19,7 +20,11 @@ export class PostgresPipelineRepository extends PipelineRepository {
   }
 
   async list(): Promise<readonly Pipeline[]> {
-    return this.database.select(PIPELINE_COLUMNS).from(pipelines).orderBy(asc(pipelines.position));
+    const rows = await this.database
+      .select(PIPELINE_COLUMNS)
+      .from(pipelines)
+      .orderBy(asc(pipelines.position));
+    return rows.map(pipelineOf);
   }
 
   async find(id: string): Promise<Pipeline | undefined> {
@@ -27,7 +32,7 @@ export class PostgresPipelineRepository extends PipelineRepository {
       .select(PIPELINE_COLUMNS)
       .from(pipelines)
       .where(eq(pipelines.id, id));
-    return row;
+    return row && pipelineOf(row);
   }
 
   async add(pipeline: Pipeline): Promise<void> {
@@ -44,6 +49,12 @@ export class PostgresPipelineRepository extends PipelineRepository {
   }
 }
 
+/** A row's Pipeline, its Stages a flow even when a rolled-back release wrote them as a list. */
+function pipelineOf(row: Pipeline): Pipeline {
+  return { ...row, stages: asFlow(row.stages) };
+}
+
+/** The row of `pipeline`, its Stages in the Pipeline's order, as the previous release reads them. */
 function rowOf({ id, name, description, stages }: Pipeline) {
-  return { id, name, description, stages: [...stages] };
+  return { id, name, description, stages: pipelineOrder(asFlow(stages)) };
 }

@@ -60,8 +60,7 @@ export class ProjectPipelineLibraryController {
       projectPipelineId,
     });
     return {
-      problems: problems.map(toStageProblemResponse),
-      flags: flags.map(toStageProblemResponse),
+      problems: [...problems, ...flags].map(toStageProblemResponse),
       ...toBuiltStagesResponse(built ?? { rows: [], stages: [], broken: [] }),
     };
   }

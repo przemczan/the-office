@@ -50,6 +50,7 @@ export const STAGE_CHANGE_KIND_NAMES: Readonly<Record<StageChange["kind"], strin
   replace: "Replace",
   change: "Change",
   remove: "Remove",
+  "change-routes": "Change routes",
 };
 
 /** A row's mark: where its Stage comes from, and the tone of its edge. */
@@ -116,6 +117,8 @@ export function stageChangeLine(stageChange: StageChange): string {
       return `Changes ${named}: ${changedFieldsWords(Object.keys(stageChange.fields))}`;
     case "remove":
       return `Removes ${named}`;
+    case "change-routes":
+      return `Changes ${named}'s routes`;
   }
 }
 

@@ -315,12 +315,34 @@ export type TaskStages = z.infer<typeof taskStagesSchema>;
 export const taskStagesEditSchema = z.object({ stages: z.array(stageSchema) });
 export type TaskStagesEdit = z.infer<typeof taskStagesEditSchema>;
 
-/** Why a list of Stages can't be saved, on the Stage it concerns when there is one. */
+/**
+ * Where on its Stage a problem is: the Stage itself, one of its routes (by its index among the
+ * Stage's routes, and a test of its condition by its indexes, `[0, 1]`), or its on-failure setting.
+ */
+export const stageProblemAtSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("stage") }),
+  z.object({
+    kind: z.literal("route"),
+    routeIndex: z.int().nonnegative(),
+    testPath: z.array(z.int().nonnegative()).optional(),
+  }),
+  z.object({ kind: z.literal("onFailure") }),
+]);
+export type StageProblemAt = z.infer<typeof stageProblemAtSchema>;
+
+/**
+ * Why Stages can't be saved (`problem`), or what the editor warns about but saves (`warning`), on the
+ * Stage it concerns by its key, as the editor's draft may change before the answer comes back; both
+ * null for the Pipeline as a whole. Save is refused while a `problem` stands.
+ */
 export const stageProblemSchema = z.object({
-  stageIndex: z.int().nonnegative().nullable(),
+  stageKey: z.string().nullable(),
+  at: stageProblemAtSchema.nullable(),
+  level: z.enum(["problem", "warning"]),
   text: z.string(),
 });
 export type StageProblem = z.infer<typeof stageProblemSchema>;
+export type StageProblemLevel = StageProblem["level"];
 
 /**
  * POST /tasks/:id/stages/check: the Stages as the editor holds them, and `pipelineId`, the Pipeline
@@ -371,14 +393,14 @@ export const projectPipelineBreakSchema = z.object({
 export type ProjectPipelineBreak = z.infer<typeof projectPipelineBreakSchema>;
 
 /**
- * What saving a library Pipeline would be refused for, and what the editor flags but saves: an
- * Agent Stage whose Role nobody fills, which pauses a Task that reaches it. An office-wide one's
- * check lists the Project Pipelines its edit would leave Broken, which never refuses the save; a
- * Stage template's and a new Pipeline's list none.
+ * What saving a library Pipeline would be refused for, and what the editor warns about but saves,
+ * in one list by level: an Agent Stage whose Role nobody fills, which pauses a Task that reaches it,
+ * or a Stage whose routes all carry a condition. An office-wide one's check lists the Project
+ * Pipelines its edit would leave Broken, which never refuses the save; a Stage template's and a new
+ * Pipeline's list none.
  */
 export const pipelineCheckSchema = z.object({
   problems: z.array(stageProblemSchema),
-  flags: z.array(stageProblemSchema),
   breaks: z.array(projectPipelineBreakSchema),
 });
 export type PipelineCheck = z.infer<typeof pipelineCheckSchema>;
@@ -453,12 +475,12 @@ export const projectPipelineCheckRequestSchema = newProjectPipelineSchema.extend
 export type ProjectPipelineCheckRequest = z.infer<typeof projectPipelineCheckRequestSchema>;
 
 /**
- * What saving a Project Pipeline would be refused for (a Broken one among them), what the editor
- * flags but saves, and its Stages built from the edit; no rows without a known base Pipeline.
+ * What saving a Project Pipeline would be refused for (a Broken one among them) and what the editor
+ * warns about but saves, in one list by level, and its Stages built from the edit; no rows without
+ * a known base Pipeline.
  */
 export const projectPipelineCheckSchema = z.object({
   problems: z.array(stageProblemSchema),
-  flags: z.array(stageProblemSchema),
   ...builtFields,
 });
 export type ProjectPipelineCheck = z.infer<typeof projectPipelineCheckSchema>;

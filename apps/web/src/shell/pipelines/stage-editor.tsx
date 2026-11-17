@@ -19,12 +19,12 @@ import {
   addStageFrom,
   canMove,
   moveStage,
-  removeStage,
   STAGE_KIND_ICONS,
   STAGE_KIND_NAMES,
   withoutFailureRule,
   type AddedStage,
 } from "./stage-edits.ts";
+import { addToFlow, isStraightLine, removeFromFlow, straightLine } from "./stage-routes.ts";
 import { namedCommands, type StageCommandSource } from "./stage-commands.ts";
 import { StageForm } from "./stage-form.tsx";
 import "./stage-editor.css";
@@ -39,8 +39,8 @@ export interface StageEditorProps {
   readonly lockedNotes: readonly string[];
   /** What saving would be refused for, from the service. */
   readonly problems: readonly StageProblem[];
-  /** What the service flags but saves, such as a Role nobody fills in a library Pipeline. */
-  readonly flags?: readonly StageProblem[];
+  /** What the service warns about but saves, such as a Role nobody fills in a library Pipeline. */
+  readonly warnings?: readonly StageProblem[];
   /** The problems' heading: what can't be saved. */
   readonly problemsTitle?: string;
   /** Everyone hired, who may work an Agent Stage when their Task limit isn't none. */
@@ -54,7 +54,7 @@ export interface StageEditorProps {
 
 /**
  * The Stage editor (spec §2.3): a Pipeline's Stages to add, drop, reorder and set, one open at a
- * time, with what the service would refuse, or only flags, marked on its Stage. One editor serves
+ * time, with what the service would refuse, or only warns about, marked on its Stage. One editor serves
  * "Edit for this Task" and the library.
  */
 export function StageEditor(props: StageEditorProps): ReactNode {
@@ -63,19 +63,27 @@ export function StageEditor(props: StageEditorProps): ReactNode {
     onChange,
     lockedNotes,
     problems,
-    flags = [],
+    warnings = [],
     problemsTitle = "These Stages can't be saved yet",
   } = props;
   const [open, setOpen] = useState<number | undefined>();
   const lockedStages = lockedNotes.length;
-  const flagged = new Set([...problems, ...flags].map(({ stageIndex }) => stageIndex));
+  const flagged = new Set([...problems, ...warnings].map(({ stageKey }) => stageKey));
+  const straight = isStraightLine(stages);
   const openAdded = (added: AddedStage): void => {
     onChange(added.stages);
     setOpen(added.index);
   };
   return (
     <div className="stage-editor">
-      <StageCheckAlerts problems={problems} flags={flags} problemsTitle={problemsTitle} />
+      <StageCheckAlerts problems={problems} warnings={warnings} problemsTitle={problemsTitle} />
+      {!straight && (
+        <p className="stage-editor-rules">
+          <Icon name="info" size={14} />
+          These Stages' routes aren't a straight line, so their order can be changed only once the
+          flow editor comes. An added Stage goes after the last.
+        </p>
+      )}
       <ol className="stage-editor-stages" aria-label="Stages">
         {stages.map((stage, index) => (
           <StageEditorRow
@@ -83,15 +91,16 @@ export function StageEditor(props: StageEditorProps): ReactNode {
             {...props}
             index={index}
             lockedNote={lockedNotes[index]}
-            flagged={flagged.has(index)}
+            flagged={flagged.has(stage.key)}
+            straight={straight}
             open={open === index}
             onToggle={() => setOpen(open === index ? undefined : index)}
             onMove={(by) => {
-              onChange(moveStage(stages, index, by, lockedStages));
+              onChange(straightLine(moveStage(stages, index, by, lockedStages)));
               if (open === index) setOpen(index + by);
             }}
             onRemove={() => {
-              onChange(removeStage(stages, index));
+              onChange(removeFromFlow(stages, index));
               setOpen(undefined);
             }}
           />
@@ -105,13 +114,15 @@ export function StageEditor(props: StageEditorProps): ReactNode {
             size="sm"
             variant="secondary"
             iconLeft={<Icon name={STAGE_KIND_ICONS[kind]} size={14} />}
-            onClick={() => openAdded(addStage(stages, kind, lockedStages))}
+            onClick={() => openAdded(addToFlow(stages, addStage(stages, kind, lockedStages)))}
           >
             {STAGE_KIND_NAMES[kind]}
           </Button>
         ))}
         <FromTemplateMenu
-          onPick={(template) => openAdded(addStageFrom(stages, template, lockedStages))}
+          onPick={(template) =>
+            openAdded(addToFlow(stages, addStageFrom(stages, template, lockedStages)))
+          }
         />
       </div>
       <p className="stage-editor-rules">
@@ -128,6 +139,8 @@ interface StageEditorRowProps extends StageEditorProps {
   readonly index: number;
   readonly lockedNote: string | undefined;
   readonly flagged: boolean;
+  /** Whether the Stages are a straight line, the only flow whose order the list editor changes. */
+  readonly straight: boolean;
   readonly open: boolean;
   readonly onToggle: () => void;
   readonly onMove: (by: -1 | 1) => void;
@@ -135,7 +148,7 @@ interface StageEditorRowProps extends StageEditorProps {
 }
 
 function StageEditorRow(props: StageEditorRowProps): ReactNode {
-  const { stages, index, lockedNote, flagged, open, onToggle, onMove, onRemove } = props;
+  const { stages, index, lockedNote, flagged, straight, open, onToggle, onMove, onRemove } = props;
   const savingAsTemplate = useSaveAsTemplate();
   const stage = stages[index];
   if (!stage) return null;
@@ -183,14 +196,14 @@ function StageEditorRow(props: StageEditorRowProps): ReactNode {
             size="sm"
             icon={<Icon name="arrow-up" size={14} />}
             label={`Move ${name} up`}
-            disabled={!canMove(stages, index, -1, lockedStages)}
+            disabled={!straight || !canMove(stages, index, -1, lockedStages)}
             onClick={() => onMove(-1)}
           />
           <IconButton
             size="sm"
             icon={<Icon name="arrow-down" size={14} />}
             label={`Move ${name} down`}
-            disabled={!canMove(stages, index, 1, lockedStages)}
+            disabled={!straight || !canMove(stages, index, 1, lockedStages)}
             onClick={() => onMove(1)}
           />
           <IconButton

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { straightLineFlow } from "../domain/flow.js";
 import type { Stage } from "../domain/stage.js";
 import type { StagePermissions } from "../domain/stage-permissions.js";
 import { aStageRun } from "../domain/stage-run.fixtures.js";
@@ -60,7 +61,7 @@ describe("Edit for this Task", () => {
     expect(progress.editedForTask).toBe(true);
     expect(progress.stages.map(({ stage }) => stage.key)).toEqual(withGate.map(({ key }) => key));
     expect(eventsOf(TaskStagesEdited)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "quick-fix")).stages).toEqual(withGate);
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(straightLineFlow(withGate));
   });
 
   it("changes a running Task's Stages after the started ones, and refuses changing those", async () => {
@@ -111,7 +112,7 @@ describe("Edit for this Task", () => {
       mcpTools: { "github/merge": { kind: "never" } },
     });
     await service.edit(taskId, narrowing);
-    expect((await service.find(taskId))?.stages).toEqual(narrowing);
+    expect((await service.find(taskId))?.stages).toEqual(straightLineFlow(narrowing));
   });
 
   it("refuses a Script Stage whose command the Task's Project lacks", async () => {

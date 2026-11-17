@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
+import { straightLineFlow } from "../domain/flow.js";
 import { agentStage, scriptStage } from "../domain/stage.fixtures.js";
 import type { Pipeline } from "../domain/pipeline.js";
 import type { Stage } from "../domain/stage.js";
@@ -65,7 +66,9 @@ describe("Edit for this Task", () => {
   it("leaves the library Pipeline as it is", async () => {
     await service.edit(aTask(), withGate);
 
-    expect((await pipelines.app.get(PipelineLibrary).find("quick-fix"))?.stages).toEqual(quickFix);
+    expect((await pipelines.app.get(PipelineLibrary).find("quick-fix"))?.stages).toEqual(
+      straightLineFlow(quickFix),
+    );
   });
 
   it("refuses a duty whose holder only talks, with the reason", async () => {
@@ -90,7 +93,7 @@ describe("Edit for this Task", () => {
     const edited: Stage[] = [{ ...namingNobody, role: "translator" }, ...rest];
 
     expect(await service.check(taskId, edited)).toEqual([
-      { text: "The translator's engine can't work an Agent Stage." },
+      { level: "problem", text: "The translator's engine can't work an Agent Stage." },
     ]);
     expect(await refusalOf(service.edit(taskId, edited))).toEqual([
       "The translator's engine can't work an Agent Stage.",
@@ -132,7 +135,7 @@ describe("swapping the Pipeline before Start", () => {
 
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "full")).stages).toEqual(builtIn("full"));
+    expect((await service.make(taskId, "full")).stages).toEqual(straightLineFlow(builtIn("full")));
   });
 
   it("starts with the new Pipeline even when the copy wasn't set aside", async () => {
@@ -163,11 +166,12 @@ describe("checking a draft against the Pipeline it follows", () => {
     pipelines.people.people.set("translator", aPerson());
     pipelines.roleEngines.incapableRoles.add("translator");
     const taskId = aTaskWithNoPipeline();
+    const { duty: _implements, ...namingNobody } = implement;
 
     expect(await service.check(taskId, quickFix, "quick-fix")).toEqual([]);
     expect(
-      await service.check(taskId, [{ ...implement, role: "translator" }, ...rest], "quick-fix"),
-    ).toEqual([{ text: "The translator's engine can't work an Agent Stage." }]);
+      await service.check(taskId, [{ ...namingNobody, role: "translator" }, ...rest], "quick-fix"),
+    ).toEqual([{ level: "problem", text: "The translator's engine can't work an Agent Stage." }]);
     expect(await service.progress(taskId)).toBeUndefined();
   });
 
@@ -199,7 +203,9 @@ describe("moving the Task to another Project", () => {
 
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "quick-fix")).stages).toEqual(builtIn("quick-fix"));
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(
+      straightLineFlow(builtIn("quick-fix")),
+    );
   });
 });
 
@@ -235,7 +241,9 @@ describe("a Task on a Project Pipeline", () => {
     const taskId = randomUUID();
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id, projectId });
 
-    expect((await service.make(taskId, id)).stages).toEqual([agentStage(), scriptStage(), linux]);
+    expect((await service.make(taskId, id)).stages).toEqual(
+      straightLineFlow([agentStage(), scriptStage(), linux]),
+    );
   });
 
   it("is refused while it is Broken, naming the Pipeline and why", async () => {

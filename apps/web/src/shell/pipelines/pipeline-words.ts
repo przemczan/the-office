@@ -223,7 +223,7 @@ export function stageChanges(from: readonly Stage[], to: readonly Stage[]): Stag
 
 /**
  * A Project Pipeline's Stage change in the editor's words, its Stage named `stageName`: "Inserts
- * Verify on Linux after Tests", "Replaces Tests with Lint", "Changes Implement", "Removes Tests".
+ * Verify on Linux after Tests", "Replaces Tests with Lint", "Changes Implement", "Removes Tests", "Changes Review's routes".
  */
 export function stageChangeLine(stageChange: ProjectStageChange, stageName: string): string {
   switch (stageChange.kind) {
@@ -237,6 +237,8 @@ export function stageChangeLine(stageChange: ProjectStageChange, stageName: stri
       return `Changes ${stageName}`;
     case "remove":
       return `Removes ${stageName}`;
+    case "change-routes":
+      return `Changes ${stageName}'s routes`;
   }
 }
 

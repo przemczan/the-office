@@ -1,4 +1,4 @@
-import { singleStageProblems, type StageProblem } from "./pipeline.js";
+import { pipelineProblem, singleStageProblems, type StageProblem } from "./pipeline.js";
 import { sameAsKept, type Stage } from "./stage.js";
 import { StageTemplateAdded, StageTemplateSaved } from "./stage-template-events.js";
 import { stageStaffingProblem, type RoleFilling } from "./stage-staffing.js";
@@ -13,13 +13,14 @@ export interface StageTemplate {
 }
 
 /**
- * The Stage as a template keeps it: its name trimmed and without a loop target, since "on failure
- * go back" names an earlier Stage, which only a Pipeline has.
+ * The Stage as a template keeps it: its name trimmed and without a loop target, routes or place,
+ * since "on failure go back" and routes name other Stages, which only a Pipeline has.
  */
 export function templateStage(stage: Stage): Stage {
   const name = stage.name.trim();
-  if (stage.kind === "gate") return { ...stage, name };
-  const { onFailure: _onFailure, ...rest } = stage;
+  const { routes: _routes, place: _place, ...unplaced } = stage;
+  if (unplaced.kind === "gate") return { ...unplaced, name };
+  const { onFailure: _onFailure, ...rest } = unplaced;
   return { ...rest, name };
 }
 
@@ -54,10 +55,12 @@ export function proposedStageProblems(
   otherTemplates: readonly StageTemplate[],
 ): StageProblem[] {
   if (!sameAsKept(template.stage, from)) {
-    return [{ text: `The ${template.stage.name} Stage template changed since this was proposed.` }];
+    return [
+      pipelineProblem(`The ${template.stage.name} Stage template changed since this was proposed.`),
+    ];
   }
   if (sameAsKept(from, templateStage(to))) {
-    return [{ text: "Nothing changes: give the template's Stage as it should be, whole." }];
+    return [pipelineProblem("Nothing changes: give the template's Stage as it should be, whole.")];
   }
   return stageTemplateProblems(to, otherTemplates);
 }
@@ -76,7 +79,7 @@ export function stageTemplateFlags(
  * problem's, as a sentence of their own.
  */
 export function templateProblem(problem: string): StageProblem {
-  return { text: problem.charAt(0).toUpperCase() + problem.slice(1) };
+  return pipelineProblem(problem.charAt(0).toUpperCase() + problem.slice(1));
 }
 
 /** A template made from scratch or from a Stage, which `stageTemplateProblems` allowed. */

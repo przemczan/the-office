@@ -24,7 +24,9 @@ describe("staffingProblems", () => {
   it("flags a Role whose person only talks", () => {
     expect(staffingProblems([agentStage({ role: "cto" })], 0, roles)).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 1 · Implement: Nina's Task limit is none, so CTO only talks and can't work a Stage.",
       },
     ]);
@@ -37,7 +39,9 @@ describe("staffingProblems", () => {
 
     expect(staffingProblems([agentStage({ role: "devops" })], 0, letGo)).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 1 · Implement: Dana was let go from Devops; hire Dana back, hire someone else, or choose who works it.",
       },
     ]);
@@ -46,13 +50,17 @@ describe("staffingProblems", () => {
   it("flags a Role nobody has filled by its title", () => {
     expect(staffingProblems([agentStage({ role: "devops" })], 0, roles)).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 1 · Implement: nobody fills Devops; hire someone or choose who works it.",
       },
     ]);
     expect(staffingProblems([agentStage({ role: "designer" })], 0, roles)).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 1 · Implement: nobody fills designer; hire someone or choose who works it.",
       },
     ]);
@@ -64,7 +72,7 @@ describe("staffingProblems", () => {
       agentStage({ key: "fix", name: "Fix", role: "devops" }),
     ];
 
-    expect(staffingProblems(stages, 1, roles).map(({ stageIndex }) => stageIndex)).toEqual([1]);
+    expect(staffingProblems(stages, 1, roles).map(({ stageKey }) => stageKey)).toEqual(["fix"]);
   });
 
   it("leaves a Stage with nobody chosen to the Stage's own flag", () => {

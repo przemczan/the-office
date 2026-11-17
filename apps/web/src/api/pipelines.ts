@@ -49,7 +49,7 @@ export const pipelineQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${pipelinePath(pipelineId)}/use`, pipelineUseSchema, signal),
     }),
-  /** What saving a library Pipeline would be refused for and what it only flags. */
+  /** What saving a library Pipeline would be refused for and what it only warns about. */
   libraryCheck: (request: PipelineCheckRequest) =>
     queryOptions({
       queryKey: [...PIPELINES_KEY, "check", request],
@@ -116,7 +116,7 @@ export const projectPipelineQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${projectPipelinePath(projectPipelineId)}/use`, pipelineUseSchema, signal),
     }),
-  /** What saving the edit would be refused for and only flags, and the Stages it builds. */
+  /** What saving the edit would be refused for and only warned about, and the Stages it builds. */
   check: (request: ProjectPipelineCheckRequest) =>
     queryOptions({
       queryKey: [...PROJECT_PIPELINES_KEY, "check", request],
@@ -131,7 +131,7 @@ export const stageTemplateQueries = {
       queryKey: STAGE_TEMPLATES_KEY,
       queryFn: ({ signal }) => getFromApi("/stage-templates", stageTemplateListSchema, signal),
     }),
-  /** What saving a Stage template would be refused for and what it only flags. */
+  /** What saving a Stage template would be refused for and what it only warns about. */
   check: (request: StageTemplateCheckRequest) =>
     queryOptions({
       queryKey: [...STAGE_TEMPLATES_KEY, "check", request],

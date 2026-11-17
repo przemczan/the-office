@@ -7,6 +7,7 @@ import {
   type PipelineEdit,
   type ProjectPipeline,
 } from "@the-office/contracts";
+import { asStageList } from "./stage-list.ts";
 
 /**
  * An office-wide base Pipeline of its own, made through the API: Build, then Tests. Each test makes
@@ -65,7 +66,7 @@ export async function breakProjectPipelinesOf(page: Page, base: Pipeline): Promi
   const edit: PipelineEdit = {
     name: base.name,
     description: base.description,
-    stages: base.stages.filter(({ key }) => key !== "tests"),
+    stages: asStageList(base.stages.filter(({ key }) => key !== "tests")),
   };
   const response = await page.request.put(`/api/pipelines/${base.id}`, { data: edit });
   expect(response.status()).toBe(200);

@@ -1,4 +1,5 @@
 import type { UseQueryResult } from "@tanstack/react-query";
+import type { StageProblem } from "@the-office/contracts";
 
 /** The part of a Stages check query that says whether it has answered the Stages on show. */
 export type StagesCheckState = Pick<UseQueryResult, "isPending" | "isPlaceholderData">;
@@ -10,4 +11,17 @@ export type StagesCheckState = Pick<UseQueryResult, "isPending" | "isPlaceholder
  */
 export function checkAwaited(check: StagesCheckState): boolean {
   return check.isPending || check.isPlaceholderData;
+}
+
+/** A check's answer by level: problems, which hold Save, and warnings, which it saves anyway. */
+export interface StageProblemsByLevel {
+  readonly problems: readonly StageProblem[];
+  readonly warnings: readonly StageProblem[];
+}
+
+export function byLevel(found: readonly StageProblem[] = []): StageProblemsByLevel {
+  return {
+    problems: found.filter(({ level }) => level === "problem"),
+    warnings: found.filter(({ level }) => level === "warning"),
+  };
 }

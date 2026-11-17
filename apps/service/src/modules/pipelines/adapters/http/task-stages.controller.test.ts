@@ -7,6 +7,7 @@ import {
   type TaskStages,
 } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
+import { straightLineFlow } from "../../domain/flow.js";
 import type { Stage } from "../../domain/stage.js";
 import { aStageRun } from "../../domain/stage-run.fixtures.js";
 import {
@@ -134,7 +135,7 @@ describe("PUT /api/tasks/:id/stages", () => {
     expect(response.status).toBe(200);
     const saved = taskStagesSchema.parse(await response.json());
     expect(saved.editedForTask).toBe(true);
-    expect(saved.stages?.map(({ stage }) => stage)).toEqual(stages);
+    expect(saved.stages?.map(({ stage }) => stage)).toEqual(straightLineFlow(stages));
     expect(await stagesOf(taskId)).toEqual(saved);
   });
 
@@ -151,11 +152,15 @@ describe("PUT /api/tasks/:id/stages", () => {
     expect(response.status).toBe(422);
     expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "tests",
+        at: { kind: "onFailure" },
+        level: "problem",
         text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
       },
       {
-        stageIndex: 1,
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 2 · implement: continuing a session needs the same Role or the same duty in the Stage before.",
       },
     ]);

@@ -58,7 +58,7 @@ function serving(breaks: readonly ProjectPipelineBreak[]) {
   const fetched = vi.fn<typeof fetch>((input, init) => {
     const url = String(input);
     if (url.endsWith("/pipelines/check")) {
-      const check: PipelineCheck = { problems: [], flags: [], breaks: [...breaks] };
+      const check: PipelineCheck = { problems: [], breaks: [...breaks] };
       return Promise.resolve(Response.json(check));
     }
     if (init?.method === "PUT")

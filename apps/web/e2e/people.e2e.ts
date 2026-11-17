@@ -57,6 +57,7 @@ import {
   type TemporaryRepository,
 } from "./temporary-repository.ts";
 import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
+import { asStageList } from "./stage-list.ts";
 import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 import { createFromTopBar } from "./top-bar.ts";
 
@@ -1902,8 +1903,9 @@ test(
         await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
       );
       const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
-      const [libraryImplement, libraryTests, libraryPublish] = quickFix;
-      expect(own.stages?.map(({ stage }) => stage)).toEqual([
+      // Routes and places are the straight line the editor draws; this checks the fields.
+      const [libraryImplement, libraryTests, libraryPublish] = asStageList(quickFix);
+      expect(asStageList(own.stages?.map(({ stage }) => stage) ?? [])).toEqual([
         {
           ...libraryImplement,
           // Choosing the Reviewer clears the Implements duty the library's Stage names.
@@ -2858,7 +2860,7 @@ async function seedGatedStages(page: Page, taskId: string): Promise<void> {
   const library = pipelineListSchema.parse(await (await page.request.get("/api/pipelines")).json());
   const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
   const stages = [
-    ...quickFix.filter(({ key }) => key === "implement" || key === "tests"),
+    ...asStageList(quickFix.filter(({ key }) => key === "implement" || key === "tests")),
     { kind: "gate", key: "ui-acceptance", name: "UI acceptance", optional: false },
     { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
   ];
@@ -4606,7 +4608,11 @@ test(
         optional: false,
         command: "lint",
       };
-      const proposedStages = [...pipeline.stages.slice(0, -1), lint, ...pipeline.stages.slice(-1)];
+      const proposedStages = asStageList([
+        ...pipeline.stages.slice(0, -1),
+        lint,
+        ...pipeline.stages.slice(-1),
+      ]);
       await seedProposal(
         threadId,
         {
@@ -4894,7 +4900,7 @@ test(
           kind: "pipeline",
           pipelineId: base.id,
           from: base.stages,
-          to: base.stages.filter(({ key }) => key !== "tests"),
+          to: asStageList(base.stages.filter(({ key }) => key !== "tests")),
         },
         "devops",
       );
@@ -7230,8 +7236,10 @@ test(
       const library = pipelineListSchema.parse(
         await (await page.request.get("/api/pipelines")).json(),
       );
-      const implementOnly = (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
-        ({ key }) => key === "implement",
+      const implementOnly = asStageList(
+        (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
+          ({ key }) => key === "implement",
+        ),
       );
       const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
         data: { stages: implementOnly },

@@ -468,6 +468,9 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   await page.getByRole("button", { name: "Remove", exact: true }).click();
   await page.getByRole("button", { name: "Remove the Pipeline" }).click();
   await expect(page.getByText(`${name} (copy) removed from the library.`)).toBeVisible();
+  // The toast comes before the list refreshes and the form leaves the copy's address: a click
+  // on another Pipeline before then would be undone by that navigation.
+  await expect(page).toHaveURL(/\/settings\/pipelines$/);
   await expect(library.getByRole("link", { name: new RegExp(`^${name} \\(copy\\)`) })).toHaveCount(
     0,
   );

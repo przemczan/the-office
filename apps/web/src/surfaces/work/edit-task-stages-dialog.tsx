@@ -23,7 +23,7 @@ import {
 import { PipelinePicker } from "../../shell/pipelines/pipeline-picker.tsx";
 import { StageEditor } from "../../shell/pipelines/stage-editor.tsx";
 import type { StageCommandSource } from "../../shell/pipelines/stage-commands.ts";
-import { checkAwaited } from "../../shell/pipelines/stages-check.ts";
+import { byLevel, checkAwaited } from "../../shell/pipelines/stages-check.ts";
 import { useProjectPipelineChoices } from "../../shell/pipelines/use-pipelines.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -126,7 +126,7 @@ function EditTaskStagesForm({
     enabled: chosenPipelineId !== "",
     placeholderData: keepPreviousData,
   });
-  const problems = check.data?.problems ?? [];
+  const { problems, warnings } = byLevel(check.data?.problems);
   const queryClient = useQueryClient();
   const showToast = useToast();
   const swapping = useRecordChange(task, async (pipelineId: string) => {
@@ -228,6 +228,7 @@ function EditTaskStagesForm({
             }}
             lockedNotes={lockedNotes}
             problems={problems}
+            warnings={warnings}
             roles={roles}
             duties={duties}
             options={options}

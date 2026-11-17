@@ -212,7 +212,7 @@ function LibraryItem({
   const check = useQuery(
     pipelineQueries.libraryCheck({ name, description, stages, pipelineId: id }),
   );
-  const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const needsFixing = (check.data?.problems.length ?? 0) > 0;
   const builtOn = builtOnByTotal(pipeline);
   const broken = brokenBuiltOnByTotal(pipeline);
   return (
@@ -334,7 +334,7 @@ function StageTemplateItem({
 }): ReactNode {
   const { id, stage } = template;
   const check = useQuery(stageTemplateQueries.check({ stage, stageTemplateId: id }));
-  const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const needsFixing = (check.data?.problems.length ?? 0) > 0;
   return (
     <PickListItem
       picked={picked}

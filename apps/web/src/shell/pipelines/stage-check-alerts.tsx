@@ -3,16 +3,16 @@ import { Alert } from "@the-office/ui";
 import type { ReactNode } from "react";
 
 /**
- * What the service's check found: problems, which hold Save, and flags, which it saves anyway, such
- * as a Role nobody fills.
+ * What the service's check found: problems, which hold Save, and warnings, which it saves anyway,
+ * such as a Role nobody fills.
  */
 export function StageCheckAlerts({
   problems,
-  flags,
+  warnings,
   problemsTitle,
 }: {
   readonly problems: readonly StageProblem[];
-  readonly flags: readonly StageProblem[];
+  readonly warnings: readonly StageProblem[];
   /** The problems' heading: what can't be saved. */
   readonly problemsTitle: string;
 }): ReactNode {
@@ -27,10 +27,10 @@ export function StageCheckAlerts({
           </ul>
         </Alert>
       )}
-      {flags.length > 0 && (
-        <Alert tone="info" title="This can be saved, though nobody works these Stages yet">
-          <ul className="refusal-reasons" aria-label="Flags">
-            {flags.map(({ text }) => (
+      {warnings.length > 0 && (
+        <Alert tone="info" title="This can be saved, though worth a look first">
+          <ul className="refusal-reasons" aria-label="Warnings">
+            {warnings.map(({ text }) => (
               <li key={text}>{text}</li>
             ))}
           </ul>

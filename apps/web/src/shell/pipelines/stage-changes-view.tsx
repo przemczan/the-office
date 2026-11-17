@@ -79,9 +79,9 @@ export interface StageChangesViewProps {
   readonly stageChanges: readonly StageChange[];
   /** Absent for a view that only shows, such as a Proposal's. */
   readonly onChange?: (stageChanges: readonly StageChange[]) => void;
-  /** What saving would be refused for, and what is only flagged, from the service's check. */
+  /** What saving would be refused for, and what it only warns about, from the service's check. */
   readonly problems?: readonly StageProblem[];
-  readonly flags?: readonly StageProblem[];
+  readonly warnings?: readonly StageProblem[];
   /** While the service's answer is for an earlier edit: the edits that name a row by place wait. */
   readonly pending?: boolean;
   readonly roles: readonly Role[];
@@ -99,9 +99,17 @@ export interface StageChangesViewProps {
  * service builds again.
  */
 export function StageChangesView(props: StageChangesViewProps): ReactNode {
-  const { projectName, baseName, built, stageChanges, onChange, problems = [], flags = [] } = props;
+  const {
+    projectName,
+    baseName,
+    built,
+    stageChanges,
+    onChange,
+    problems = [],
+    warnings = [],
+  } = props;
   const [open, setOpen] = useState<string | undefined>();
-  const shown = stageChangesShown(built, stageChanges, problems, flags);
+  const shown = stageChangesShown(built, stageChanges, problems, warnings);
   const readOnly = onChange === undefined;
   const live = built.rows.filter(({ origin }) => origin !== "removed");
   const baseStages = built.rows.filter(({ origin }) => origin !== "inserted").length;
@@ -121,7 +129,7 @@ export function StageChangesView(props: StageChangesViewProps): ReactNode {
       </div>
       <StageCheckAlerts
         problems={shown.problems}
-        flags={shown.flags}
+        warnings={shown.warnings}
         problemsTitle="The Pipeline can't be saved yet"
       />
       {shown.brokenElsewhere.length > 0 && (
@@ -265,7 +273,7 @@ function StageChangesRowItem(props: RowProps): ReactNode {
             )}
           </div>
         ))}
-        {[...row.problems, ...row.flags].map(({ text }) => (
+        {[...row.problems, ...row.warnings].map(({ text }) => (
           <div key={text} className="stage-changes-flag">
             <Icon name="triangle-alert" size={14} />
             <span>{text}</span>

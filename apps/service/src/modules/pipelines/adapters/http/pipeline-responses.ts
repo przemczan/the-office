@@ -2,6 +2,7 @@ import type {
   BrokenReason as BrokenReasonResponse,
   BuiltOnBy as BuiltOnByResponse,
   BuiltStage as BuiltStageResponse,
+  ConditionGroup as ConditionGroupResponse,
   GateAction as GateActionResponse,
   KeptStageChange as KeptStageChangeResponse,
   OfficeWidePipeline as OfficeWidePipelineResponse,
@@ -9,8 +10,10 @@ import type {
   PipelineUse as PipelineUseResponse,
   ProjectPipeline as ProjectPipelineResponse,
   ProjectPipelineBreak as ProjectPipelineBreakResponse,
+  Route as RouteResponse,
   Stage as StageResponse,
   StageProblem as StageProblemResponse,
+  StageProblemAt as StageProblemAtResponse,
   StageRun as StageRunResponse,
   StageRunOutcome as StageRunOutcomeResponse,
   StageTemplate as StageTemplateResponse,
@@ -20,7 +23,8 @@ import type {
 import type { BuiltOnBy } from "../../application/pipeline-library.js";
 import type { ProjectPipelineBreak } from "../../application/pipeline-library-editor.js";
 import type { PipelineUse } from "../../domain/library-pipeline.js";
-import type { Pipeline, StageProblem } from "../../domain/pipeline.js";
+import type { Pipeline, StageProblem, StageProblemAt } from "../../domain/pipeline.js";
+import { isConditionGroup, type ConditionGroup, type Route } from "../../domain/route.js";
 import type { BuiltProjectPipeline } from "../../domain/project-pipeline.js";
 import type {
   BrokenReason,
@@ -144,15 +148,50 @@ function toStageChangeResponse(stageChange: StageChange): KeptStageChangeRespons
       return { kind: "change", ...named, fields: { ...stageChange.fields } };
     case "remove":
       return { kind: "remove", ...named };
+    case "change-routes":
+      return { kind: "change-routes", ...named, routes: stageChange.routes.map(toRouteResponse) };
   }
+}
+
+function toRouteResponse({ to, toName, condition }: Route): RouteResponse {
+  return {
+    to,
+    ...(toName === undefined ? {} : { toName }),
+    condition: condition ? toConditionGroupResponse(condition) : null,
+  };
+}
+
+function toConditionGroupResponse({ combine, tests }: ConditionGroup): ConditionGroupResponse {
+  return {
+    combine,
+    tests: tests.map((test) =>
+      isConditionGroup(test) ? toConditionGroupResponse(test) : { ...test },
+    ),
+  };
 }
 
 export function toStageTemplateResponse({ id, stage }: StageTemplate): StageTemplateResponse {
   return { id, stage: toStageResponse(stage) };
 }
 
-export function toStageProblemResponse({ stageIndex, text }: StageProblem): StageProblemResponse {
-  return { stageIndex: stageIndex ?? null, text };
+export function toStageProblemResponse({
+  stageKey,
+  at,
+  level,
+  text,
+}: StageProblem): StageProblemResponse {
+  return {
+    stageKey: stageKey ?? null,
+    at: at ? toStageProblemAtResponse(at) : null,
+    level,
+    text,
+  };
+}
+
+function toStageProblemAtResponse(at: StageProblemAt): StageProblemAtResponse {
+  if (at.kind !== "route") return { kind: at.kind };
+  const { routeIndex, testPath } = at;
+  return { kind: "route", routeIndex, ...(testPath ? { testPath: [...testPath] } : {}) };
 }
 
 /**
@@ -212,7 +251,13 @@ function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
 }
 
 function toStageResponse(stage: Stage): StageResponse {
-  const fields = { key: stage.key, name: stage.name, optional: stage.optional };
+  const fields = {
+    key: stage.key,
+    name: stage.name,
+    optional: stage.optional,
+    ...(stage.routes ? { routes: stage.routes.map(toRouteResponse) } : {}),
+    ...(stage.place ? { place: { ...stage.place } } : {}),
+  };
   switch (stage.kind) {
     case "agent":
       return {

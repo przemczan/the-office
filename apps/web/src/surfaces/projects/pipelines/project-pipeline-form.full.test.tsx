@@ -87,7 +87,6 @@ function serving(removal: Response) {
       const { stageChanges } = JSON.parse(String(init?.body)) as ProjectPipeline;
       const check: ProjectPipelineCheck = {
         problems: [],
-        flags: [],
         rows: SPEC_CHANGE.rows,
         stages: SPEC_CHANGE.stages,
         broken: stageChanges.some(({ stageKey }) => stageKey === "produce")

@@ -55,9 +55,9 @@ export interface StageChangeRow {
   readonly stageChange: StageChange | undefined;
   /** Why the built Stages are Broken on this row, such as a loop whose target is gone. */
   readonly broken: readonly BrokenReason[];
-  /** What saving would be refused for, and what is only flagged, on this row's Stage. */
+  /** What saving would be refused for, and what it is only warned about, on this row's Stage. */
   readonly problems: readonly StageProblem[];
-  readonly flags: readonly StageProblem[];
+  readonly warnings: readonly StageProblem[];
 }
 
 /** How a Stage change that doesn't apply is fixed in place, beside "Remove this Stage change". */
@@ -80,9 +80,12 @@ export interface StageChangesShown {
   readonly notApplying: readonly NotApplying[];
   /** Broken reasons on no row and no Stage change. */
   readonly brokenElsewhere: readonly BrokenReason[];
-  /** Problems and flags on no Stage, Broken reasons left out as they show where they are. */
+  /**
+   * Problems and warnings on no row's Stage, Broken reasons left out as they show where they are:
+   * the Pipeline's as a whole, and any on a Stage the draft no longer has.
+   */
   readonly problems: readonly StageProblem[];
-  readonly flags: readonly StageProblem[];
+  readonly warnings: readonly StageProblem[];
 }
 
 /** The service's built Stages, as its read and its check answer them. */
@@ -93,18 +96,23 @@ export interface BuiltRows {
 
 /**
  * Each built row with its number, the Stage change that marks it and what is wrong on it; the
- * Stage changes that don't apply apart, as they have no row. `problems` and `flags` name a Stage by
- * its index among the Stages a Task gets, as the service's check does.
+ * Stage changes that don't apply apart, as they have no row. `problems` and `warnings` name a Stage
+ * by its key, as the service's check does.
  */
 export function stageChangesShown(
   built: BuiltRows,
   stageChanges: readonly StageChange[],
   problems: readonly StageProblem[] = [],
-  flags: readonly StageProblem[] = [],
+  warnings: readonly StageProblem[] = [],
 ): StageChangesShown {
   const brokenTexts = new Set(built.broken.map(({ text }) => text));
-  const onStage = (list: readonly StageProblem[], index: number): StageProblem[] =>
-    list.filter(({ stageIndex, text }) => stageIndex === index && !brokenTexts.has(text));
+  const onStage = (list: readonly StageProblem[], key: string): StageProblem[] =>
+    list.filter(({ stageKey, text }) => stageKey === key && !brokenTexts.has(text));
+  const rowKeys = new Set(
+    built.rows.flatMap(({ origin, stage }) => (origin === "removed" ? [] : [stage.key])),
+  );
+  const onNoRow = ({ stageKey }: StageProblem): boolean =>
+    stageKey === null || !rowKeys.has(stageKey);
   let number = 0;
   const rows = built.rows.map((row): StageChangeRow => {
     if (row.origin === "removed") {
@@ -114,7 +122,7 @@ export function stageChangesShown(
         stageChange: stageChangeOf(stageChanges, row),
         broken: [],
         problems: [],
-        flags: [],
+        warnings: [],
       };
     }
     const stageIndex = number;
@@ -126,8 +134,8 @@ export function stageChangesShown(
       broken: built.broken.filter(
         (reason) => reason.stageChangeIndex === null && reason.stageIndex === stageIndex,
       ),
-      problems: onStage(problems, stageIndex),
-      flags: onStage(flags, stageIndex),
+      problems: onStage(problems, row.stage.key),
+      warnings: onStage(warnings, row.stage.key),
     };
   });
   const notApplying = built.broken.flatMap((reason): NotApplying[] => {
@@ -151,10 +159,8 @@ export function stageChangesShown(
         reason.stageIndex === null &&
         (reason.stageChangeIndex === null || !stageChanges[reason.stageChangeIndex]),
     ),
-    problems: problems.filter(
-      ({ stageIndex, text }) => stageIndex === null && !brokenTexts.has(text),
-    ),
-    flags: flags.filter(({ stageIndex }) => stageIndex === null),
+    problems: problems.filter((problem) => onNoRow(problem) && !brokenTexts.has(problem.text)),
+    warnings: warnings.filter(onNoRow),
   };
 }
 
@@ -182,7 +188,13 @@ function markingIndexes(stageChanges: readonly StageChange[], row: BuiltStage): 
         (stageChange) => stageChange.kind === "replace" && stageChange.stage.key === key,
       );
     case "changed":
-      return changeIndexes(stageChanges, key);
+      // A Change of its fields first, as the row's Stage form edits that one.
+      return [
+        ...changeIndexes(stageChanges, key),
+        ...matches(
+          (stageChange) => stageChange.kind === "change-routes" && stageChange.stageKey === key,
+        ),
+      ];
     case "removed":
       return matches(
         (stageChange) => stageChange.kind === "remove" && stageChange.stageKey === key,

@@ -97,7 +97,6 @@ const INSERT_LINUX: StageChange = {
 function checked(rows: ProjectPipelineCheck["rows"]): ProjectPipelineCheck {
   return {
     problems: [],
-    flags: [],
     rows,
     stages: rows.filter(({ origin }) => origin !== "removed").map(({ stage }) => stage),
     broken: [],

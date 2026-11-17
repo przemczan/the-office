@@ -16,7 +16,13 @@ import {
   type PipelineEdit,
   type PipelineUse,
 } from "../domain/library-pipeline.js";
-import type { Pipeline, StageProblem } from "../domain/pipeline.js";
+import {
+  asWarnings,
+  pipelineProblem,
+  stageWarnings,
+  type Pipeline,
+  type StageProblem,
+} from "../domain/pipeline.js";
 import type { TakenName } from "../domain/pipeline-names.js";
 import {
   addedProjectPipeline,
@@ -158,7 +164,7 @@ export class PipelineLibraryEditor {
   ): Promise<StageProblem[]> {
     const library = await this.repository.list();
     const pipeline = library.find((each) => each.id === id);
-    if (!pipeline) return [{ text: new UnknownPipeline(id).message }];
+    if (!pipeline) return [pipelineProblem(new UnknownPipeline(id).message)];
     return this.proposalProblems(pipeline, from, to, library);
   }
 
@@ -427,9 +433,8 @@ export class PipelineLibraryEditor {
         const built = buildStages({ name, stages }, projectPipeline.stageChanges);
         // Its Stages are the Project Pipeline's, not the edit's, so the problem sits on no Stage.
         return projectPipelineCommandProblems(projectPipeline, built.stages, project, runners).map(
-          ({ text }) => ({
-            text: `${project.name}'s ${projectPipeline.name}, built from it: ${text}`,
-          }),
+          ({ text }) =>
+            pipelineProblem(`${project.name}'s ${projectPipeline.name}, built from it: ${text}`),
         );
       }),
     ];
@@ -485,7 +490,7 @@ export class PipelineLibraryEditor {
   ): Promise<StageProblem[]> {
     const runners = await this.runners();
     const project = runners.projects.find(({ id }) => id === projectId);
-    if (!project) return [{ text: `There is no Project "${projectId}".` }];
+    if (!project) return [pipelineProblem(`There is no Project "${projectId}".`)];
     const built = builtEdit(edit, around.officeWide);
     if (!built) return projectPipelineEditProblems(edit, project, around);
     return [
@@ -523,14 +528,20 @@ export class PipelineLibraryEditor {
     return { projects, tasks, initiatives };
   }
 
-  /** What the editor flags but saves: Roles nobody fills, and permissions wider than the card's. */
+  /**
+   * What the editor warns about but saves: Roles nobody fills, permissions wider than the card's,
+   * and Stages whose routes all carry a condition.
+   */
   private async flagsOf(stages: readonly Stage[]): Promise<StageProblem[]> {
     return [
-      ...pipelineEditFlags(
-        { name: "", description: "", stages },
-        await this.roleFillings.of(stages),
-      ),
-      ...(await this.roleFillings.permissionProblems(stages, 0)),
+      ...asWarnings([
+        ...pipelineEditFlags(
+          { name: "", description: "", stages },
+          await this.roleFillings.of(stages),
+        ),
+        ...(await this.roleFillings.permissionProblems(stages, 0)),
+      ]),
+      ...stageWarnings(stages),
     ];
   }
 
@@ -575,7 +586,7 @@ export class PipelineLibraryEditor {
       ...newlyNamedWorkers(agentStageWorkers(stages), named),
       projectId,
     });
-    return problems.map((text) => ({ text }));
+    return problems.map(pipelineProblem);
   }
 }
 
