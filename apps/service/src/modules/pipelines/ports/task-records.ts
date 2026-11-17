@@ -14,6 +14,8 @@ export interface TaskRecord {
   readonly descriptionSection: string;
   readonly plan: string;
   readonly definitionOfDone: readonly string[];
+  /** The Task's Initiative; undefined when it is in none. */
+  readonly initiativeId: string | undefined;
   /**
    * The message of the one commit Publish lands the Task as (spec §2.3): the one written, or the
    * default, the title with a short summary below it, while none is (`written` false).

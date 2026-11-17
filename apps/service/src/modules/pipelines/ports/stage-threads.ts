@@ -36,6 +36,13 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
+  /** The Task's Initiative; undefined when the Task is in none. */
+  readonly initiativeId: string | undefined;
+  /** The Stage run's number, as the Task's Stage history counts them. */
+  readonly stageRun: number;
+  /** The Task's Pipeline's name, and its Project's, which the session's telemetry carries. */
+  readonly pipelineName: string;
+  readonly projectName: string;
   /** The Stage's own effort; undefined keeps the Role card's. */
   readonly effort: Effort | undefined;
   /**

@@ -615,6 +615,30 @@ _Avoid_: Dashboard, report, overview
 The main menu item showing The Office as an isometric pixel-art office, each person a figure doing what they are doing now: working, consulting, waiting on you, idle, joining or leaving.
 _Avoid_: Office map, visualisation, live office, dashboard
 
+**Stats**:
+The main menu item, between Projects and the Live view, showing how The Office performs, above all what it spends in tokens and Usage windows: always the Basic stats, and the Full stats once Grafana answers ([2.11](docs/spec/2.11-stats.md)).
+_Avoid_: Dashboard, analytics, statistics page, insights, reports
+
+**Basic stats**:
+What Stats shows from data The Office already keeps, with no cost: tokens per day by kind for the last 30 days and the Usage windows now, both Office-wide; the Tasks with the most tokens this week; and Tasks done and Stage retries this week.
+_Avoid_: Simple stats, local stats, summary
+
+**Full stats**:
+What Stats adds once Grafana answers, drawn by The Office itself from Grafana's data: tokens and estimated cost over time by model, Role, Stage, Pipeline or Project; the most expensive Tasks and Initiatives, with their cost per Stage and per retry; and how full the Usage windows were over time, beside what was running. They cover only what The Office has sent since its telemetry was added.
+_Avoid_: Grafana dashboards, panels, advanced stats, analytics
+
+**Grafana read address**:
+The address of the user's own Grafana that Stats reads the Full stats from, set in Settings › Telemetry beside the user's own endpoint. Stats reads the bundled Grafana at its own address, with no setting.
+_Avoid_: Grafana URL, dashboard address, query endpoint (the endpoint is where telemetry is sent)
+
+**Read token**:
+The Grafana Viewer service account token Stats reads the user's own Grafana with, set in Settings › Telemetry. Kept readable by The Office's owner only and never shown again once saved.
+_Avoid_: API key, Grafana token, access token, header (the export headers are for the endpoint)
+
+**Stage retry**:
+A Stage run whose Stage already had a run on the same Task, whenever that one ran: a loop-back, a Stage sent back at a Gate, or a failed Stage run again. Counted in the week its run started.
+_Avoid_: Rerun, attempt, repeat
+
 **Proposal**:
 A new or changed Role card or Office setting drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request

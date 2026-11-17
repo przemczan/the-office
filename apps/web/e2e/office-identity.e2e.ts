@@ -236,7 +236,7 @@ test.describe.serial("Sign in with GitHub", () => {
   );
 
   test(
-    "a clone shows its progress in its row, and a failed one its problem there with Try again",
+    "a picked repository clones with Clone, its progress in its row, and a failed one its problem there",
     { tag: "@full" },
     async ({ page }) => {
       const { held, letGo: start } = heldBack();
@@ -244,24 +244,31 @@ test.describe.serial("Sign in with GitHub", () => {
         await held;
         await route.continue();
       });
-      await openFromGitHub(page);
+      const dialog = await openFromGitHub(page);
       const list = repositoryList(page);
-      await list.getByRole("button", { name: "office-user/never-served" }).click();
+      const clone = dialog.getByRole("button", { name: "Clone" });
+      await expect(clone).toBeDisabled();
+      const neverServed = list.getByRole("button", { name: "office-user/never-served" });
+      await neverServed.click();
+      await expect(neverServed).toHaveAttribute("aria-pressed", "true");
+      await clone.click();
 
       // Its progress shows in its row while the others wait.
-      const failed = list.getByRole("group", { name: "office-user/never-served" });
-      await expect(failed.getByRole("progressbar")).toBeVisible();
-      await expect(failed).toContainText("Starting the clone");
+      const cloning = list.getByRole("group", { name: "office-user/never-served" });
+      await expect(cloning.getByRole("progressbar")).toBeVisible();
+      await expect(cloning).toContainText("Starting the clone");
       await expect(list.getByRole("button", { name: "office-user/left-alone" })).toBeDisabled();
       start();
-      await expect(failed.getByRole("alert")).toContainText("The clone failed:");
-      await expect(failed.getByRole("button", { name: "Try again" })).toBeVisible();
+      // Still picked, so Clone tries again.
+      await expect(neverServed).toContainText("The clone failed:");
+      await expect(neverServed).toHaveAttribute("aria-pressed", "true");
+      await expect(clone).toBeEnabled();
       await expect(list.getByRole("button", { name: "office-user/left-alone" })).toBeEnabled();
     },
   );
 
   test(
-    "picking a repository clones it in its row, then step 2 adds it with only a name",
+    "a picked repository clones with Clone, then step 2 adds it with only a name",
     { tag: "@full" },
     async ({ page }) => {
       const repository = await createTemporaryRepository();
@@ -271,6 +278,7 @@ test.describe.serial("Sign in with GitHub", () => {
         await repositoryList(page)
           .getByRole("button", { name: "office-user/picked-notes" })
           .click();
+        await dialog.getByRole("button", { name: "Clone" }).click();
 
         const source = dialog.getByRole("group", { name: "Where it is" });
         await expect(source).toContainText("From GitHub");
@@ -288,12 +296,14 @@ test.describe.serial("Sign in with GitHub", () => {
         }
         await page.emulateMedia({ colorScheme: "light" });
 
-        // Change forgets the clone; picking again clones again.
+        // Change forgets the clone and the pick; picking again and Clone clones again.
         await source.getByRole("button", { name: "Change" }).click();
         await expect(dialog.locator(".dialog-bar")).toContainText("Step 1 of 2");
+        await expect(dialog.getByRole("button", { name: "Clone" })).toBeDisabled();
         await repositoryList(page)
           .getByRole("button", { name: "office-user/picked-notes" })
           .click();
+        await dialog.getByRole("button", { name: "Clone" }).click();
         await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
         await expect(dialog).toContainText(
           "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.",

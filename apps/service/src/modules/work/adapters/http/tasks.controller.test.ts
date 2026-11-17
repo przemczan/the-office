@@ -501,6 +501,48 @@ describe("POST /api/tasks/:id/ready", () => {
       "Take or decline the proposed Pipeline before the Task can be Ready.",
     ]);
   });
+
+  it("marks an unplanned Task Ready when the user confirms its parts as they stand, and not with no body", async () => {
+    const task = await create();
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
+
+    const withoutBody = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    work.published.length = 0;
+    const confirming = await sendJson(work, "POST", `/tasks/${task.id}/ready`, {
+      confirmPlanAndDefinitionOfDone: true,
+    });
+
+    expect(workRefusalSchema.parse(await withoutBody.json()).reasons).toEqual([
+      "A Task needs a Plan before it can be Ready.",
+      "A Task needs a Definition of Done before it can be Ready.",
+    ]);
+    expect(confirming.status).toBe(200);
+    expect(taskSchema.parse(await confirming.json())).toMatchObject({
+      state: "ready",
+      plan: "",
+      planConfirmed: true,
+      definitionOfDone: [],
+      definitionOfDoneConfirmed: true,
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.plan-confirmed", taskId: task.id },
+      { type: "task.definition-of-done-confirmed", taskId: task.id },
+      { type: "task.state-changed", taskId: task.id, from: "backlog", to: "ready" },
+    ]);
+  });
+
+  it("still refuses confirming the parts while no Pipeline is chosen", async () => {
+    const task = await create();
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`, {
+      confirmPlanAndDefinitionOfDone: true,
+    });
+
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "Choose a Pipeline before the Task can be Ready.",
+    ]);
+    expect(await readTask(task.id)).toMatchObject({ state: "backlog", planConfirmed: false });
+  });
 });
 
 describe("POST /api/tasks/:id/move", () => {

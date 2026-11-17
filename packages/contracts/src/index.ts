@@ -25,6 +25,7 @@ export * from "./record-links.js";
 export * from "./run-environments.js";
 export * from "./skills.js";
 export * from "./stages.js";
+export * from "./stats.js";
 export * from "./telemetry.js";
 export * from "./users.js";
 export * from "./work.js";

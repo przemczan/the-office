@@ -16,6 +16,7 @@ import {
   definitionOfDoneChangeSchema,
   descriptionChangeSchema,
   makeAPlanSchema,
+  markReadyRequestSchema,
   newTaskSchema,
   pipelineChangeSchema,
   planChangeSchema,
@@ -29,6 +30,7 @@ import {
   type DefinitionOfDoneChange,
   type DescriptionChange,
   type MakeAPlan,
+  type MarkReadyRequest,
   type NewTask,
   type PipelineChange,
   type PlanChange,
@@ -212,15 +214,24 @@ export class TasksController {
 
   /**
    * Mark Ready, from Backlog or Planning: refused with the reasons until the Plan and Definition of
-   * Done are confirmed, no Pipeline proposal is open and no Decision is.
+   * Done are confirmed, no Pipeline proposal is open and no Decision is. With
+   * `confirmPlanAndDefinitionOfDone`, the user's answer to the dialog naming what is missing, the
+   * Plan and the Definition of Done are confirmed as they stand, even empty, in the same change; a
+   * request with no body is one without it.
    */
   @Post(":id/ready")
   @HttpCode(HttpStatus.OK)
   async markReady(
     @Param("id", ParseUUIDPipe) id: string,
+    @Body(
+      new ContractPipe(markReadyRequestSchema.default({ confirmPlanAndDefinitionOfDone: false })),
+    )
+    { confirmPlanAndDefinitionOfDone = false }: MarkReadyRequest,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.markReady(id, authorOf(signedIn)));
+    return toTaskResponse(
+      await this.planning.markReady(id, authorOf(signedIn), { confirmPlanAndDefinitionOfDone }),
+    );
   }
 
   /** The "Before Ready" checklist: what Mark Ready waits for, and what is met already. */

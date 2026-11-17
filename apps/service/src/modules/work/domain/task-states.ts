@@ -47,12 +47,16 @@ export const STARTED_STATES: readonly TaskState[] = ["in-progress", "waiting-on-
 
 /** Every reason the Task can't move to `to`; empty when it can or is already there. */
 export function stateChangeProblems(task: Task, to: TaskState): string[] {
-  if (task.state === to) return [];
-  if (!NEXT_STATES[task.state].includes(to)) {
-    const refusal = `A Task in ${TASK_STATE_NAMES[task.state]} can't move to ${TASK_STATE_NAMES[to]}`;
-    return [task.state === "shaping" ? `${refusal}: ${CONFIRM_ITS_INITIATIVE}` : `${refusal}.`];
-  }
+  const move = moveProblems(task, to);
+  if (move.length > 0 || task.state === to) return move;
   return to === "ready" ? readyProblems(task) : [];
+}
+
+/** Why the state rules refuse the move itself, whatever the Task's record holds. */
+export function moveProblems(task: Task, to: TaskState): string[] {
+  if (task.state === to || NEXT_STATES[task.state].includes(to)) return [];
+  const refusal = `A Task in ${TASK_STATE_NAMES[task.state]} can't move to ${TASK_STATE_NAMES[to]}`;
+  return [task.state === "shaping" ? `${refusal}: ${CONFIRM_ITS_INITIATIVE}` : `${refusal}.`];
 }
 
 /** One condition of Ready, as the "Before Ready" checklist names it; `problems` is empty once met. */
@@ -66,7 +70,8 @@ export interface ReadinessLine {
  * Ready requires a Plan and a Definition of Done, each confirmed by the user or by auto mode on
  * their behalf, a Pipeline chosen with no proposal left open (the user takes or declines it,
  * keeping the Pipeline the Task follows) and no Decision on the Task open (spec §2.1). The one list of conditions: the refusals and the checklist
- * both come from it.
+ * both come from it. Mark Ready confirming the parts as they stand (`markTaskReady`) weighs only
+ * the lines of `CONDITIONS_KEPT_WHEN_CONFIRMING`.
  */
 export function readinessLines(task: Task, openDecisions: number): ReadinessLine[] {
   return [
@@ -88,6 +93,12 @@ export function readinessLines(task: Task, openDecisions: number): ReadinessLine
     },
   ];
 }
+
+/** The conditions that still hold when the user marks a Task Ready confirming its parts as they stand. */
+export const CONDITIONS_KEPT_WHEN_CONFIRMING: readonly ReadinessLine["part"][] = [
+  "pipeline",
+  "decisions",
+];
 
 function planProblems(task: Task): string[] {
   if (task.plan.trim() === "") return ["A Task needs a Plan before it can be Ready."];

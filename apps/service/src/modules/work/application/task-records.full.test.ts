@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { attachmentSchema, taskSchema } from "@the-office/contracts";
+import { attachmentSchema, ideaSchema, initiativeSchema, taskSchema } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   sendJson,
@@ -52,6 +52,7 @@ describe("TaskRecords", () => {
         "## What the user wants, in their own words\n\nLet me name each device as I call it.",
       plan: "",
       definitionOfDone: [],
+      initiativeId: undefined,
       commitMessage: {
         text: "Rename a device\n\nLet me name each device as I call it.",
         written: false,
@@ -82,6 +83,32 @@ describe("TaskRecords", () => {
       initiativeBranch: undefined,
       publishingTask: false,
     });
+  });
+
+  it("carries the Initiative the Task is part of", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const idea = ideaSchema.parse(
+      await (
+        await sendJson(work, "POST", "/ideas", { title: "Usage exports", notes: "", projectId })
+      ).json(),
+    );
+    const initiative = initiativeSchema.parse(
+      await (await sendJson(work, "POST", `/ideas/${idea.id}/initiative`)).json(),
+    );
+    const task = taskSchema.parse(
+      await (
+        await sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
+          title: "Export endpoint",
+          projectId,
+          priority: "normal",
+          blockedBy: [],
+        })
+      ).json(),
+    );
+
+    const record = await work.app.get(TaskRecords).read(task.id);
+
+    expect(record.initiativeId).toBe(initiative.id);
   });
 
   it("lists no Attachment lines for a Task without any", async () => {

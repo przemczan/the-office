@@ -129,6 +129,11 @@ export class TaskService {
     return ids.length === 0 ? [] : this.repository.findAll(ids);
   }
 
+  /** The Tasks that moved to Done at or after `since`, each once, archived ones too. */
+  async doneSince(since: Date): Promise<readonly string[]> {
+    return this.repository.doneSince(since);
+  }
+
   /** The Task's kept state changes, oldest first, each with who or what made it. */
   async stateChangesOf(taskId: string): Promise<readonly StateChange[]> {
     return this.repository.stateChangesOf(taskId);

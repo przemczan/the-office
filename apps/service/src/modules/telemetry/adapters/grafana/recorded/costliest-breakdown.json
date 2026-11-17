@@ -1,0 +1,1043 @@
+{
+  "range": {
+    "from": "2026-11-17T10:00:00.000Z",
+    "to": "2026-11-17T11:00:00.000Z",
+    "stepSeconds": 600
+  },
+  "status": 200,
+  "body": {
+    "results": {
+      "taskCost": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "taskCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1.5]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.75]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.25]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
+                    "office_stage": "Review",
+                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.1]]
+            }
+          }
+        ]
+      },
+      "taskInput": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "taskInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1000]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [500]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [100]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
+                    "office_stage": "Review",
+                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [200]]
+            }
+          }
+        ]
+      },
+      "taskOutput": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "taskOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [200]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [100]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [50]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
+                    "office_stage": "Review",
+                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [40]]
+            }
+          }
+        ]
+      },
+      "taskCacheCreation": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "taskCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [300]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
+                    "office_stage": "Review",
+                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0]]
+            }
+          }
+        ]
+      },
+      "taskFirst": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "taskFirst",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1794910920000]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskFirst",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage": "Implement",
+                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1794911010000]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskFirst",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1794911050000]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "taskFirst",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
+                    "office_stage": "Review",
+                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1794911090000]]
+            }
+          }
+        ]
+      },
+      "initiativeCost": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "initiativeCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [2.5]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.4]]
+            }
+          }
+        ]
+      },
+      "initiativeInput": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "initiativeInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1600]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [300]]
+            }
+          }
+        ]
+      },
+      "initiativeOutput": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "initiativeOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [350]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [60]]
+            }
+          }
+        ]
+      },
+      "initiativeCacheCreation": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "initiativeCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [300]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0]]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

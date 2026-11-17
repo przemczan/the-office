@@ -17,10 +17,11 @@ import {
   EngineModule,
   ModelPrices,
   UsageWindowSamples,
+  UsageWindowsNow,
   UsageWindowState,
 } from "./modules/engine/index.js";
 import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
-import { NotificationsModule } from "./modules/notifications/index.js";
+import { DayTokenHistory, NotificationsModule } from "./modules/notifications/index.js";
 import {
   EngineCascade,
   EngineCascadeModule,
@@ -33,8 +34,10 @@ import {
   PipelineLibrary,
   PipelineLibraryModule,
   PipelinesModule,
+  RunningStageRuns,
   TaskStagesService,
   StageResultWords,
+  StageRunTotals,
   TaskGateRuns,
   UsageHistory,
   UsageHistoryModule,
@@ -56,6 +59,7 @@ import {
 } from "./modules/run-environments/index.js";
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
+import { GrafanaStatsSource, StatsModule } from "./modules/telemetry/index.js";
 import {
   CookieSignedInRequests,
   GitHubIdentityProvider,
@@ -180,6 +184,21 @@ export class AppModule {
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
       pipelineInitiatives: InitiativeService,
     });
+    // One instance, so Stats reads the same day figures Now counts.
+    const notifications = NotificationsModule.register({
+      imports: [work, conversations, pipelines, PeopleModule, EngineModule],
+      officeTasks: TaskService,
+      officeInitiatives: InitiativeService,
+      openDecisions: DecisionService,
+      taskStageProgress: TaskStagesService,
+      deskLimit: OfficeLimits,
+      startQueue: QueueService,
+      knownPeople: RoleCards,
+      accountUsage: UsageWindowState,
+      officeStatusCards: ThreadService,
+      officeFireAlarm: FireAlarmService,
+      resumePlans: AlarmResumes,
+    });
     return {
       module: AppModule,
       imports: [
@@ -204,20 +223,7 @@ export class AppModule {
           officeDataDirectory: config.officeDataDirectory,
           gitHubApiUrl: config.gitHub.apiUrl,
         }),
-        NotificationsModule.register({
-          imports: [work, conversations, pipelines, PeopleModule, EngineModule],
-          officeTasks: TaskService,
-          officeInitiatives: InitiativeService,
-          openDecisions: DecisionService,
-          taskStageProgress: TaskStagesService,
-          deskLimit: OfficeLimits,
-          startQueue: QueueService,
-          knownPeople: RoleCards,
-          accountUsage: UsageWindowState,
-          officeStatusCards: ThreadService,
-          officeFireAlarm: FireAlarmService,
-          resumePlans: AlarmResumes,
-        }),
+        notifications,
         PeopleModule,
         pipelines,
         projects,
@@ -228,6 +234,17 @@ export class AppModule {
         }),
         runEnvironments,
         SkillsModule,
+        StatsModule.register({
+          imports: [notifications, EngineModule, UsageHistoryModule, work, projects],
+          dayTokens: DayTokenHistory,
+          engineWindows: UsageWindowsNow,
+          stageRunTotals: StageRunTotals,
+          runningStageRuns: RunningStageRuns,
+          officeTasks: TaskService,
+          officeInitiatives: InitiativeService,
+          projectNames: ProjectService,
+          statsSource: GrafanaStatsSource,
+        }),
         TelemetryModule,
         TelemetryHttpModule,
         users,

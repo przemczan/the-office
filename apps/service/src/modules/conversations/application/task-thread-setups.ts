@@ -28,6 +28,14 @@ export function taskThreadRequest(thread: Thread, taskId: string): TaskThreadReq
 export interface TaskThreadSetup {
   /** The Task's Project, whose Memory notes the person's sessions read. */
   readonly projectId: string;
+  /** The Task's Initiative; undefined when it is in none. */
+  readonly initiativeId: string | undefined;
+  /**
+   * The names of the Task's Project and of its Pipeline, which its sessions' telemetry carries; the
+   * Pipeline's `""` while the Task has none.
+   */
+  readonly projectName: string;
+  readonly pipelineName: string;
   /**
    * The Task's worktree, which the session reads; undefined while the Task has none yet, as one
    * planned in its Initiative's Thread, when the session reads the Projects' checkouts instead.

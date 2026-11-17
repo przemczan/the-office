@@ -1,3 +1,8 @@
+import {
+  InMemoryLogRecordExporter,
+  LoggerProvider,
+  SimpleLogRecordProcessor,
+} from "@opentelemetry/sdk-logs";
 import { MeterProvider, MetricReader } from "@opentelemetry/sdk-metrics";
 import {
   InMemorySpanExporter,
@@ -23,6 +28,14 @@ export function setUp() {
   });
   const metricReader = new CollectingMetricReader();
   const meterProvider = new MeterProvider({ readers: [metricReader] });
-  const telemetry = new Telemetry(tracerProvider.getTracer("test"), meterProvider.getMeter("test"));
-  return { telemetry, spans, metricReader };
+  const records = new InMemoryLogRecordExporter();
+  const loggerProvider = new LoggerProvider({
+    processors: [new SimpleLogRecordProcessor({ exporter: records })],
+  });
+  const telemetry = new Telemetry(
+    tracerProvider.getTracer("test"),
+    meterProvider.getMeter("test"),
+    loggerProvider.getLogger("test"),
+  );
+  return { telemetry, spans, metricReader, records };
 }

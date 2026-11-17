@@ -23,6 +23,25 @@ export interface StageRunThread {
   readonly model: string;
 }
 
+/** A Stage run's tokens, and whether its Stage already had a run on the same Task before it. */
+export interface StartedStageRun {
+  readonly taskId: string;
+  readonly tokens: StageTokens;
+  /** True when an earlier run (a lower number) of the same Stage on the same Task exists. */
+  readonly retry: boolean;
+}
+
+/** An Agent Stage run that ran at some time in a range, with what its session ran on. */
+export interface RanAgentStageRun {
+  readonly engineId: string;
+  readonly taskId: string;
+  /** Its Stage's name in the Task's Stages now; its key when the Task no longer has the Stage. */
+  readonly stageName: string;
+  readonly startedAt: Date;
+  /** Undefined while it runs. */
+  readonly endedAt: Date | undefined;
+}
+
 /** Where each Task's Stage runs are kept. */
 export abstract class StageRunRepository {
   /**
@@ -87,4 +106,17 @@ export abstract class StageRunRepository {
    * before whole outputs were kept gives the filtered output it has. Undefined for no such run.
    */
   abstract commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined>;
+
+  /**
+   * Every run started at or after `since`, of any Task; a retry counts even when its Stage's first
+   * run started before `since`.
+   */
+  abstract startedSince(since: Date): Promise<readonly StartedStageRun[]>;
+
+  /**
+   * Every Agent Stage run, of any Task, that ran at some time between `from` and `to`: started
+   * before `to`, and not ended or ended after `from`; oldest first. A run that kept no engine (one
+   * kept before it was recorded, or one whose session never opened) is left out.
+   */
+  abstract ranBetween(from: Date, to: Date): Promise<readonly RanAgentStageRun[]>;
 }

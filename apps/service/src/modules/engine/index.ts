@@ -18,6 +18,11 @@ export {
   type UsedUpUsageWindow,
 } from "./application/usage-window-state.js";
 export { UsageWindowSamples } from "./application/usage-window-samples.js";
+export {
+  UsageWindowsNow,
+  type EngineUsageWindowsNow,
+  type EngineWindowsNow,
+} from "./application/usage-windows-now.js";
 export type { UsageWindowRatios } from "./domain/usage-window-samples.js";
 export {
   EngineAdded,

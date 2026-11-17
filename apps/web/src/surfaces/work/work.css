@@ -971,7 +971,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--task-page-gap);
-  padding: 16px var(--pad-page) var(--pad-page);
+  /* The same top as .work-page, so the Work tabs stay put when a Task or an Initiative opens. */
+  padding: var(--pad-page);
 }
 
 .task-page > .task-columns {

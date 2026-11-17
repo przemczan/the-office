@@ -1,0 +1,16 @@
+import type { GrafanaAccess } from "./stats-source.js";
+
+/**
+ * The Grafana Stats reads now: `none` unless one is chosen and telemetry isn't set by the
+ * environment; the bundled one while it starts or after it couldn't; `ready` once it can be read.
+ */
+export type GrafanaNow =
+  | { readonly kind: "none" }
+  | { readonly kind: "starting"; readonly address: string }
+  | { readonly kind: "failed"; readonly address: string; readonly problem: string }
+  | { readonly kind: "ready"; readonly access: GrafanaAccess };
+
+/** Which Grafana the full stats are read from, by Settings › Telemetry; an adapter binds it. */
+export abstract class GrafanaInUse {
+  abstract now(): Promise<GrafanaNow>;
+}

@@ -22,11 +22,12 @@ The spec is one file per section, so a session reads only the sections its task 
 - [2.8 Fire alarm](2.8-fire-alarm.md): the alarm and the all clear (tier 2).
 - [2.9 Sub-agents and processes](2.9-sub-agents-and-processes.md): what a session runs beside its Agent, what each engine reports, how long it is kept, how it streams live, the read-only view.
 - [2.10 Users and signing in](2.10-users-and-signing-in.md): users, the ways to sign in, linking, which ways work on which address, signed-in devices, slow-down and lockout, recovery, who did what, per user and shared.
+- [2.11 Stats](2.11-stats.md): its place on the rail, the basic stats from what The Office keeps, the full stats from Grafana, and the states between.
 
 ### Tiers and UX
 
 - [3. Capabilities by tier](3-capabilities-by-tier.md): what tier 1, 2 and 3 each hold, and what comes after them.
-- [4. UX direction](4-ux-direction.md): the six surfaces, the A3 · Desk shell, the Task page, themes, brand, copy.
+- [4. UX direction](4-ux-direction.md): the seven surfaces, the A3 · Desk shell, the Task page, themes, brand, copy.
 - [4.1 UI rules](4.1-ui-rules.md): how every screen is built: `packages/ui` components, windows in three sizes with an action bar, list and details, long text, words.
 
 ### 5. Architecture and stack
@@ -117,6 +118,7 @@ Where each default lives (the old §9):
 - The public address: [5.1 Shape](5.1-shape.md#defaults)
 - Users is its own module: [5.3 Modules](5.3-modules.md#defaults)
 - The Live view's read model lives in Conversations: [5.3 Modules](5.3-modules.md#defaults)
+- Telemetry owns Stats: [5.3 Modules](5.3-modules.md#defaults)
 - Password rules, the one-time password, slow-down and lockout, how long a device stays signed in, recovery codes, the authenticator, removing users, records from before users, Since you left per user: [2.10 Users and signing in](2.10-users-and-signing-in.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.

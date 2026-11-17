@@ -1,10 +1,7 @@
 import { Global, Module } from "@nestjs/common";
-import { metrics, trace } from "@opentelemetry/api";
+import { logs, metrics, trace } from "@opentelemetry/api";
 import { RunningTelemetrySettings } from "./telemetry-in-effect.js";
-import { Telemetry } from "./telemetry.js";
-
-// The instrumentation scope of the spans and metrics modules record through Telemetry.
-const SCOPE = "the-office";
+import { TELEMETRY_SCOPE as SCOPE, Telemetry } from "./telemetry.js";
 
 /**
  * Gives every module Telemetry over the SDK that launch.ts starts (a no-op one in tests, or when
@@ -15,7 +12,8 @@ const SCOPE = "the-office";
   providers: [
     {
       provide: Telemetry,
-      useFactory: () => new Telemetry(trace.getTracer(SCOPE), metrics.getMeter(SCOPE)),
+      useFactory: () =>
+        new Telemetry(trace.getTracer(SCOPE), metrics.getMeter(SCOPE), logs.getLogger(SCOPE)),
     },
     {
       provide: RunningTelemetrySettings,

@@ -34,6 +34,7 @@ import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
 import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
+import { ModelPrices } from "./model-prices.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
@@ -176,6 +177,7 @@ function setUpOn(
     running,
     new BusyWork(new EventBus()),
     languageServers,
+    new ModelPrices(settings),
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }

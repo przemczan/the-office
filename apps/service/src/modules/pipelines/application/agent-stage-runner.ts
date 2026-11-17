@@ -70,6 +70,7 @@ import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { TaskScreenshots } from "../ports/task-screenshots.js";
 import { TaskUsage } from "../ports/task-usage.js";
+import { PipelineLibrary } from "./pipeline-library.js";
 import { ResolveStageGit } from "./resolve-stage-git.js";
 import { StageCommandRuns } from "./stage-command-runs.js";
 import { StageRunWaits } from "./stage-run-waits.js";
@@ -149,6 +150,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly waits: StageRunWaits,
     private readonly commandRuns: StageCommandRuns,
     private readonly startedTasks: StartedTasks,
+    private readonly library: PipelineLibrary,
   ) {}
 
   onModuleInit(): void {
@@ -331,6 +333,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       projectId: task.project.id,
       roleKey: workingRole(stage),
       stageName: stage.name,
+      initiativeId: task.initiativeId,
+      stageRun: run.number,
+      pipelineName: await this.pipelineNameOf(run.taskId),
+      projectName: task.project.name,
       effort: stage.effort,
       ...stageSessionOf(stage, stages, earlierRuns),
       // What the user wrote that the held run's session ended before taking goes with this run.
@@ -367,6 +373,13 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         outputSchema: STAGE_RESULT_SCHEMA,
       },
     });
+  }
+
+  /** The name of the Pipeline the Task follows, for its telemetry; its id once it is gone. */
+  private async pipelineNameOf(taskId: string): Promise<string> {
+    const pipelineId = (await this.startedTasks.find(taskId))?.pipelineId;
+    if (pipelineId === undefined) return "";
+    return (await this.library.read(pipelineId))?.name ?? pipelineId;
   }
 
   /**

@@ -22,6 +22,11 @@ export interface RecordAction {
    * null for an action only the menu lists, as one another action's control already offers.
    */
   readonly control?: ReactNode;
+  /**
+   * The window the action opens, such as one asking first, while it is open: the record's More
+   * menu (`TaskMenu`) shows it, as the menu is there whether or not the button fits the row.
+   */
+  readonly dialog?: ReactNode;
 }
 
 /** The action as a button, or as its own control. */
