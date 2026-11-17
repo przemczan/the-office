@@ -17,7 +17,7 @@ export const WHERE_IT_IS_OPTIONS: readonly {
   {
     value: "github",
     label: "From GitHub",
-    hint: "The repositories The Office's GitHub App is installed on. Picking one clones it.",
+    hint: "The repositories The Office's GitHub App is installed on. Pick one, then Clone it.",
   },
 ];
 

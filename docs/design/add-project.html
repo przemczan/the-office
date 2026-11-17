@@ -1428,8 +1428,8 @@
         <ul>
           <li><strong>Pinned to the top:</strong> every window's top sits 7% from the top of the browser window (24px at least), where the large window already sits since it is 86% high and centred. The small one is pinned there too, so the whole app reads the same. Switch Window to “All three, outlined”.</li>
           <li><strong>One height:</strong> Add a Project keeps 640px, or less in a short browser window, as the Stage history keeps its height. Its body scrolls; its head and its bar stay. A short source leaves room under it, which is the price of not jumping.</li>
-          <li><strong>Two steps:</strong> step 1 is Where it is: a folder's path then Continue, a git URL then Clone, or a pick from GitHub, which clones at once. Step 2 shows the source as one line with Change, then the form's fields as today. Change goes back to step 1 and forgets the clone, as “Pick another repository” does today.</li>
-          <li><strong>From GitHub:</strong> the list is read when the window opens, so it is usually there by the time From GitHub is chosen; while it loads, rows shaped like the list hold its place. Each row shows the repository's name first, then its owner, default branch and when it was last pushed, then its description. A repository already added as a Project is marked Added, can't be picked, and sits at the end under Already added, so the top rows are ones that can be picked. Picking one shows the clone's progress in its row; a failed clone shows its problem in the row, with Try again.</li>
+          <li><strong>Two steps:</strong> step 1 is Where it is: a folder's path then Continue, a git URL then Clone, or a repository picked from GitHub then Clone. Step 2 shows the source as one line with Change, then the form's fields as today. Change goes back to step 1 and forgets the clone, as “Pick another repository” does today.</li>
+          <li><strong>From GitHub:</strong> the list is read when the window opens, so it is usually there by the time From GitHub is chosen; while it loads, rows shaped like the list hold its place. Each row shows the repository's name first, then its owner, default branch and when it was last pushed, then its description. A repository already added as a Project is marked Added, can't be picked, and sits at the end under Already added, so the top rows are ones that can be picked. Clicking one picks it, marked as selected, and clicking another moves the pick; Clone in the bar, held until one is picked, clones it and shows the clone's progress in its row. A failed clone shows its problem in the row, and Clone again tries again.</li>
           <li><strong>Three list designs</strong>, to choose one: Recent first (one list, most recently pushed on top), By owner (an owner filter in the list's head, recent first within it) and Search first (the five most recently pushed that aren't Projects yet, with the search reaching all of them).</li>
         </ul>
         <p>“Today”, “Proposed”, “Recent first”, “By owner”, “Search first”, “pinned to the top” and “source line” are this design's names, not glossary terms. The mock's data, owners and paths are made up. Like the chat drawer's page, it uses the Geist fonts only where they are installed.</p>
@@ -1514,7 +1514,7 @@
       const SOURCE_HINTS = {
         folder: "A git repository already on this workstation.",
         "git-url": "From any git host. The Office clones it into its data folder.",
-        github: "The repositories the Office's GitHub App is installed on. Picking one clones it.",
+        github: "The repositories the Office's GitHub App is installed on. Pick one, then Clone it.",
       };
       const MARK_COLOURS = ["teal", "violet", "gray", "ink"];
 

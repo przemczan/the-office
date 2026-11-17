@@ -39,6 +39,7 @@ import {
   type InitiativePauseAnswer,
   type InitiativePipelineChoice,
   type IdeaEdit,
+  type MarkReadyRequest,
   type NewIdea,
   type NewInitiativeTask,
   type NewLink,
@@ -585,9 +586,12 @@ export function takeOutOfInitiative(initiativeId: string, taskId: string): Promi
   return callOfficeAction(TAKE_OUT_OF_INITIATIVE_ACTION, { initiativeId, taskId });
 }
 
-/** Refused with the reasons until the Plan and the Definition of Done are confirmed. */
-export function markReady(id: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/ready`, {}, taskSchema);
+/**
+ * Refused with the reasons until the Plan and the Definition of Done are confirmed, unless the
+ * request confirms them as they stand; a Pipeline and no open Decision are needed either way.
+ */
+export function markReady(id: string, request: MarkReadyRequest = {}): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/ready`, request, taskSchema);
 }
 
 /**

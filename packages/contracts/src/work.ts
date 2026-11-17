@@ -467,6 +467,16 @@ export const pipelineChangeSchema = z.object({ pipelineId: z.string() });
 export type PipelineChange = z.infer<typeof pipelineChangeSchema>;
 
 /**
+ * POST /tasks/:id/ready: Mark Ready. `confirmPlanAndDefinitionOfDone`, once the user agreed to go on
+ * without them, confirms the Plan and the Definition of Done as they stand, even empty, in the same
+ * change; the Pipeline and Decision conditions still hold.
+ */
+export const markReadyRequestSchema = z.object({
+  confirmPlanAndDefinitionOfDone: z.boolean().default(false),
+});
+export type MarkReadyRequest = z.input<typeof markReadyRequestSchema>;
+
+/**
  * The query of GET /tasks/:id/move: the Project it would move to, which adds why its Initiative's
  * Pipeline can't run there; every Project when left out.
  */

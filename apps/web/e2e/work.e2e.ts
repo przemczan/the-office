@@ -1765,7 +1765,8 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
     "The CSV export uses the filters and the sort on screen.",
   );
 
-  // Before Ready shows in Backlog once a part is written, and Mark Ready once every line is met.
+  // Before Ready shows in Backlog once a part is written, and Mark Ready once a Pipeline is chosen
+  // and no Decision is open; with every line met, it marks the Task Ready without asking.
   const beforeReady = page.getByRole("region", { name: "Before Ready" });
   const readinessLine = (label: string): Locator =>
     beforeReady.getByRole("listitem").filter({ hasText: label });

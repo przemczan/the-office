@@ -4,8 +4,11 @@ import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js
 import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task } from "./task.js";
 import {
   TaskCreated,
+  TaskDefinitionOfDoneConfirmed,
   TaskHeldAtAllClear,
+  TaskMarkedReadyAsItStands,
   TaskPaused,
+  TaskPlanConfirmed,
   TaskPriorityChanged,
   TaskReordered,
   TaskResumed,
@@ -25,10 +28,13 @@ import {
 import { TaskRefused } from "./task-refused.js";
 import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "./written-parts.js";
 import {
+  CONDITIONS_KEPT_WHEN_CONFIRMING,
   NOT_STARTED_STATES,
   STARTED_STATES,
   TASK_STATE_NAMES,
+  moveProblems,
   openDecisionProblems,
+  readinessLines,
   stateChangeProblems,
 } from "./task-states.js";
 
@@ -136,6 +142,15 @@ export function changeTaskState(
   const problems = stateChangeProblems(task, to);
   if (problems.length > 0) throw new TaskRefused(problems);
   if (task.state === to) return undefined;
+  return stateMove(task, to, by);
+}
+
+/** The move to `to`, its conditions weighed already. */
+function stateMove(
+  task: Task,
+  to: Task["state"],
+  by: StateChangeCause,
+): TaskChange<TaskStateChanged> {
   return withStateChange(
     {
       task: { ...task, state: to, pausedBy: undefined, resumesAt: undefined },
@@ -213,20 +228,66 @@ export function moveToBacklogOnConfirm(task: Task, by: Author): TaskChange<TaskS
   );
 }
 
+/** How the user marks a Task Ready: `confirmPlanAndDefinitionOfDone` confirms both as they stand. */
+export interface MarkReadyChoice {
+  readonly confirmPlanAndDefinitionOfDone: boolean;
+}
+
 /**
  * Mark Ready: Backlog or Planning → Ready, refused with every reason, those of the Task's record and the
  * Decisions on it still open; by the user, or by auto mode on their behalf. Undefined when the Task
- * is Ready already.
+ * is Ready already. With `confirmPlanAndDefinitionOfDone`, the user's choice in the dialog naming
+ * what is missing (spec §2.1), the Plan and the Definition of Done not yet confirmed are confirmed
+ * as they stand, even empty, by `by`, in the same save; the Pipeline and the open Decisions still
+ * hold it back.
  */
 export function markTaskReady(
   task: Task,
   openDecisions: number,
   by: StateChangeCause,
-): TaskChange<TaskStateChanged> | undefined {
+): TaskChange<TaskStateChanged> | undefined;
+export function markTaskReady(
+  task: Task,
+  openDecisions: number,
+  by: StateChangeCause,
+  choice: MarkReadyChoice,
+): TaskChange<TaskMarkedReadyAsItStands> | undefined;
+export function markTaskReady(
+  task: Task,
+  openDecisions: number,
+  by: StateChangeCause,
+  choice?: MarkReadyChoice,
+): TaskChange<TaskStateChanged | TaskMarkedReadyAsItStands> | undefined {
   if (task.state === "ready") return undefined;
-  const problems = [...stateChangeProblems(task, "ready"), ...openDecisionProblems(openDecisions)];
+  if (!choice?.confirmPlanAndDefinitionOfDone) {
+    const problems = [
+      ...stateChangeProblems(task, "ready"),
+      ...openDecisionProblems(openDecisions),
+    ];
+    if (problems.length > 0) throw new TaskRefused(problems);
+    const ready = stateMove(task, "ready", by);
+    if (!choice) return ready;
+    return { ...ready, event: new TaskMarkedReadyAsItStands(task.id, [], ready.event) };
+  }
+  const problems = [
+    ...moveProblems(task, "ready"),
+    ...readinessLines(task, openDecisions)
+      .filter(({ part }) => CONDITIONS_KEPT_WHEN_CONFIRMING.includes(part))
+      .flatMap(({ problems: unmet }) => unmet),
+  ];
   if (problems.length > 0) throw new TaskRefused(problems);
-  return changeTaskState(task, "ready", by);
+  const confirmations: (TaskPlanConfirmed | TaskDefinitionOfDoneConfirmed)[] = [];
+  let confirmed = task;
+  if (!confirmed.planConfirmed) {
+    confirmed = { ...confirmed, planConfirmed: true };
+    confirmations.push(new TaskPlanConfirmed(task.id));
+  }
+  if (!confirmed.definitionOfDoneConfirmed) {
+    confirmed = { ...confirmed, definitionOfDoneConfirmed: true };
+    confirmations.push(new TaskDefinitionOfDoneConfirmed(task.id));
+  }
+  const ready = stateMove(confirmed, "ready", by);
+  return { ...ready, event: new TaskMarkedReadyAsItStands(task.id, confirmations, ready.event) };
 }
 
 /**

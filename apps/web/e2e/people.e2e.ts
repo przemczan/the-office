@@ -2152,8 +2152,8 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-planning.png") });
   await showPalette(page, "light");
 
-  // Mark Ready waits for every line of "Before Ready", read-only, each unmet line saying where it
-  // is settled, and each ticks as it is met.
+  // Mark Ready waits for a Pipeline and no open Decision; "Before Ready", read-only, says where each
+  // unmet line is settled, and each ticks as it is met.
   const markReady = page.getByRole("button", { name: "Mark Ready" });
   await expect(markReady).toBeDisabled();
   await expect(readinessLine("Plan confirmed")).toContainText("Confirm it on the Plan");
@@ -6421,7 +6421,8 @@ test(
       const task = await createdTask();
       if (!task) throw new Error("Jan created no Task.");
 
-      // Both parts landed as Jan wrote them, Not confirmed: Mark Ready waits for the user.
+      // Both parts landed as Jan wrote them, Not confirmed, and no Pipeline is chosen yet: Mark
+      // Ready waits for one.
       await page.goto(`/tasks/${task.id}`);
       const record = page.getByRole("region", { name: "Record" });
       const plan = record.getByRole("region", { name: "Plan", exact: true });
@@ -6440,7 +6441,7 @@ test(
       await expect(markReady).toHaveCount(0);
       await definitionOfDone.getByRole("button", { name: "Confirm", exact: true }).click();
       await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
-      // Nor has it a Pipeline: the user chooses one on the rail.
+      // It still has no Pipeline: the user chooses one on the rail.
       await expect(markReady).toHaveCount(0);
       await page
         .getByRole("region", { name: "Pipeline · Not chosen yet" })
