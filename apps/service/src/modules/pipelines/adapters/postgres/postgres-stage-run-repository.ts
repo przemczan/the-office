@@ -1,5 +1,19 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, exists, getTableColumns, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  getTableColumns,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.js";
@@ -15,10 +29,12 @@ import type {
 } from "../../domain/stage-run.js";
 import {
   StageRunRepository,
+  type RanAgentStageRun,
   type StageRunThread,
   type StartedStageRun,
 } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
+import { taskStages } from "./task-stages.schema.js";
 
 const { commandOutputs: _readOnlyByRun, ...stageRunColumns } = getTableColumns(stageRuns);
 
@@ -147,6 +163,52 @@ export class PostgresStageRunRepository extends StageRunRepository {
       })
       .from(stageRuns)
       .where(gte(stageRuns.startedAt, since));
+  }
+
+  async ranBetween(from: Date, to: Date): Promise<readonly RanAgentStageRun[]> {
+    const runs = await this.database
+      .select({
+        engineId: stageRuns.engineId,
+        taskId: stageRuns.taskId,
+        stageKey: stageRuns.stageKey,
+        startedAt: stageRuns.startedAt,
+        endedAt: stageRuns.endedAt,
+      })
+      .from(stageRuns)
+      .where(
+        and(
+          isNotNull(stageRuns.engineId),
+          lt(stageRuns.startedAt, to),
+          or(isNull(stageRuns.endedAt), gt(stageRuns.endedAt, from)),
+        ),
+      )
+      .orderBy(asc(stageRuns.startedAt), asc(stageRuns.taskId), asc(stageRuns.number));
+    const taskIds = [...new Set(runs.map(({ taskId }) => taskId))];
+    const stagesOfTasks =
+      taskIds.length === 0
+        ? []
+        : await this.database
+            .select({ taskId: taskStages.taskId, stages: taskStages.stages })
+            .from(taskStages)
+            .where(inArray(taskStages.taskId, taskIds));
+    const names = new Map(
+      stagesOfTasks.flatMap(({ taskId, stages }) =>
+        stages.map(({ key, name }) => [`${taskId} ${key}`, name] as const),
+      ),
+    );
+    return runs.flatMap(({ engineId, taskId, stageKey, startedAt, endedAt }) =>
+      engineId === null
+        ? []
+        : [
+            {
+              engineId,
+              taskId,
+              stageName: names.get(`${taskId} ${stageKey}`) ?? stageKey,
+              startedAt,
+              endedAt: endedAt ?? undefined,
+            },
+          ],
+    );
   }
 
   async commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined> {

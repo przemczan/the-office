@@ -1,0 +1,124 @@
+{
+  "range": {
+    "from": "2026-11-17T10:00:00.000Z",
+    "to": "2026-11-17T11:00:00.000Z",
+    "stepSeconds": 600
+  },
+  "status": 200,
+  "body": {
+    "results": {
+      "topTasks": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "topTasks",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [2.5]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "topTasks",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.1]]
+            }
+          }
+        ]
+      },
+      "topInitiatives": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "refId": "topInitiatives",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [2.9]]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

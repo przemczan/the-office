@@ -12,6 +12,7 @@ import {
   LINK_FAILED_PARAMETER,
   SIGN_IN_FAILED_PARAMETER,
   type BoardFilters,
+  type FullStatsRange,
 } from "@the-office/contracts";
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
@@ -22,6 +23,7 @@ import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
+import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
 import { StatsPage } from "./surfaces/stats/stats-page.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
@@ -418,10 +420,19 @@ const projectsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+/** Stats, its full stats over the range named, 7 d when none is (spec 2.11). */
+export interface StatsSearch {
+  readonly range?: FullStatsRange;
+}
+
 const statsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "stats",
   component: StatsPage,
+  validateSearch: (search: Record<string, unknown>): StatsSearch => {
+    const range = statsRangeOf(search["range"]);
+    return range === "7d" ? {} : { range };
+  },
   staticData: { title: "Stats" },
 });
 

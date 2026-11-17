@@ -79,6 +79,10 @@ function openStats(
   const sent = stubService({
     [path]: () => ({ status: 200, body: stats }),
     "GET /api/settings/telemetry": () => ({ status: 200, body: telemetry }),
+    "GET /api/stats/full?range=7d&split=model": () => ({
+      status: 200,
+      body: { state: "not-on" },
+    }),
   });
   return { sent, opened: openPage("/stats", pages) };
 }
@@ -210,7 +214,7 @@ describe("Stats", () => {
     expect(message?.textContent).toContain(step);
   });
 
-  it("shows no message with Bundled Grafana chosen", async () => {
+  it("shows no message with Bundled Grafana chosen and no answer from it", async () => {
     const { opened } = openStats(STATS, { ...OFF, saved: { kind: "bundled-grafana" } });
     const { page } = await opened;
     await until(() => expect(page.textContent).toContain("Add a filter"));

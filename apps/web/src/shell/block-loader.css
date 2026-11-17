@@ -33,6 +33,27 @@
   padding-top: 3px;
 }
 
+.block-loader-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.block-loader-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  height: 200px;
+}
+
+.block-loader-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-4);
+}
+
 /* The bars hold still; the fade stays, as it moves nothing. The design system's Skeleton sets its
    shimmer inline, so only !important overrides it. */
 @media (prefers-reduced-motion: reduce) {

@@ -314,6 +314,32 @@ export class InitiativeService implements OnModuleInit {
     return idea;
   }
 
+  /**
+   * The Initiatives of these ids that The Office knows, archived ones too, each with its name as
+   * its title and the Projects its Tasks are in, for Stats.
+   */
+  async titlesOf(ids: readonly string[]): Promise<
+    readonly {
+      readonly initiativeId: string;
+      readonly title: string;
+      readonly projectIds: readonly string[];
+    }[]
+  > {
+    if (ids.length === 0) return [];
+    const wanted = new Set(ids);
+    const [every, byInitiative] = await Promise.all([
+      this.repository.list(),
+      this.tasksByInitiative(),
+    ]);
+    return every
+      .filter(({ id }) => wanted.has(id))
+      .map(({ id, name }) => ({
+        initiativeId: id,
+        title: name,
+        projectIds: initiativeProjectIds(byInitiative.get(id) ?? []),
+      }));
+  }
+
   /** Every Initiative's Pipeline in each Project it spans that has one. */
   async withPipelines(): Promise<readonly InitiativeOnPipeline[]> {
     const [every, byInitiative] = await Promise.all([

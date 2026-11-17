@@ -20,6 +20,7 @@
 - An Agent Stage's `permissions` narrow its Role card's profile through People's `narrowedPermissionProfile` (in `AgentStageRunner.open` and `sessionAhead`, the Brief's commands too); absent keeps the card's, and Stages stored before carry none. A setting wider than the card is flagged in the library and refused for a Task (`RoleFillings.permissionProblems`, not `staffingProblems`, which holds Tasks); at run time the card's applies. MCP tools the Role's servers don't have are ignored.
 - An Agent Stage's `permissions.commands` is applied by Pipelines, not by `narrowedPermissionProfile`: the card has no list of commands. `stageProjectCommands` in `allowed-commands.ts` is its one source, read by `allowedCommands` (the Brief and the engine's allowed lines) and `commandKeyRefusal`, which `StageProjectCommands` (`run_project_command`) checks a key against, finding the running Stage with `walkedStages`; install is never refused there. Under the run permission anything a narrowing is only told, so a command line the Agent writes out, even one extending a kept command's, is judged by the session's rules alone and still runs; only its key is refused.
 - The built-ins live twice: `builtInPipelines` and the `pipelines` migration's seed, which `pipeline-library.test.ts` compares; a change to a built-in needs a migration too, as `0151` moved their Agent Stages from `developer` and `devops` to the duties `implements` and `onboards-projects`, in `pipelines` and `stage_templates` alike, wherever a built-in Stage still named its built-in Role (`stage-duties-migration.test.ts`). Once seeded, the table is the library, and the user's edits of a built-in stand.
+- `UsageHistoryModule` also gives Telemetry's Stats `StageRunTotals` (the basic stats' Stage runs started since a time) and `RunningStageRuns` (the full stats' lane: `StageRunRepository.ranBetween`, every Agent Stage run overlapping a range with its `stage_runs.engine_id` and its Stage's name in `task_stages` now, its key once the Task no longer has the Stage; a run with no engine kept is left out).
 - `UsageHistoryModule` holds `StageRunRepository` and `UsageHistory` apart, as `PipelineLibraryModule` holds the library, so Work can import it: it must never depend on a port bound to Work. Work names the done Tasks (`UsageHistory.of(doneTaskIds)`, each Stage's median tokens; `dollarsPerToken(doneTaskIds)`; window % is the Engine's, not kept per run), as Pipelines keeps no Project or done time; the latest 20 by their last run's end are kept.
 - The built-in Stage templates live twice too: `builtInStageTemplates`, worked out from `builtInPipelines` (the first Stage of each name, its key as the id), and `0107`'s seed, which `stage-template-library.test.ts` compares; a new built-in Stage needs a migration of its own.
 - A Stage template has no loop target: `templateStage` drops `onFailure` on every add and save, so none is stored or returned. Its checks (`stageTemplateProblems`) are a single Stage's (`singleStageProblems` in `pipeline.ts`, which a Pipeline's checks share) and a name unique among templates in any case; key, "continue" and loop rules wait for the Pipeline or Task it is added to. Its problems and flags carry no Stage index.
@@ -62,7 +63,7 @@
 
 ## Public entry (`index.ts`)
 
-AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateRuns, TaskStagesService, UsageHistory, StageRunTotals, StartedStageRun, StageUsage, StageUsages, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, UsageHistoryModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
+AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateRuns, TaskStagesService, UsageHistory, StageRunTotals, RunningStageRuns, RanAgentStageRun, StartedStageRun, StageUsage, StageUsages, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, UsageHistoryModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
 
 ## Domain events
 
@@ -193,6 +194,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `resolve-stage-git.ts`: ResolveBegun, ResolveStageGit
 - `role-fillings.ts`: RoleFillings
 - `roles-named-in-stages.ts`: RolesNamedInStages
+- `running-stage-runs.ts`: RunningStageRuns
 - `script-stage-runner.fixtures.ts`: aScriptStage, tests, passing, failing
 - `script-stage-runner.ts`: ScriptStageRunner
 - `staffing-holds.ts`: StaffingHolds
@@ -282,7 +284,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-decisions.ts`: StageDecisionRequest, OpenedStageDecision, StageDecisions
 - `stage-role-engines.ts`: NewlyNamedStageRoles, StageRoleEngines
-- `stage-run-repository.ts`: StageRunThread, StartedStageRun, StageRunRepository
+- `stage-run-repository.ts`: StageRunThread, StartedStageRun, RanAgentStageRun, StageRunRepository
 - `stage-template-repository.ts`: StageTemplateRepository
 - `stage-thread-messages.ts`: StageRunThreadWindow, StageThreadMessages
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads

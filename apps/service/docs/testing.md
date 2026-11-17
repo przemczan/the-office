@@ -26,6 +26,10 @@ The real Project the live checks run on (`OFFICE_TEST_PROJECT`): `notnullsoft-ad
 
 The checks that look up their traces read the bundled Grafana at `http://127.0.0.1:3300`: choose Bundled Grafana in the dev Office's Settings › Telemetry first, which starts it ([running-the-office.md](../../../docs/running-the-office.md#telemetry)). Task 12's check skips the lookup with `OFFICE_CHECK_GRAFANA=off`, on a machine without it.
 
+## The Grafana live check
+
+Stats' Grafana adapter (`modules/telemetry/adapters/grafana/`) reads Prometheus and Loki by names `grafana-queries.ts` holds, which are what grafana/otel-lgtm makes of what Telemetry sends; its default-run tests replay the answers in `recorded/*.json` on a fake Grafana. `grafana-stats-source.live.test.ts` checks those names on the real image: it runs a throwaway otel-lgtm container at the pinned image (`BUNDLED_GRAFANA_IMAGE`) on random `127.0.0.1` ports, named `office-grafana-live-check-<hex>` and never the bundled Grafana's Compose project, sends the scenario of `grafana-scenario.fixtures.ts` (tokens, cost, two Usage windows and its `office.engine.call` records) through the real `Telemetry` over OTLP, waits until Grafana holds it and reads it back through `GrafanaStatsSource`, anonymously, on the provisioned `prometheus` and `loki` uids. It needs Docker and runs only with `OFFICE_GRAFANA_LIVE_CHECK=1`, otherwise it skips: `OFFICE_GRAFANA_LIVE_CHECK=1 npx vitest run src/modules/telemetry/adapters/grafana/grafana-stats-source.live`. Run it on every bump of the otel-lgtm pin, with `OFFICE_GRAFANA_RERECORD=1` as well, which rewrites `recorded/*.json` from that Grafana's answers to the adapter's own queries; run `npm run format`, read the diff and commit them with the bump, then the default run checks the new recordings.
+
 ## The default run and the full run
 
 `npm run test` (and `npm run verify`) runs the **default run**: only the critical and the smoke tests. Every other test is in the **full run**, run on demand with `npm run test:full` (`npm run verify:full` runs every check on it), for example before a large refactor or when a full-run test's area changes.

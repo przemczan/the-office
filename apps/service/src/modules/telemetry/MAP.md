@@ -1,26 +1,35 @@
 # Telemetry: module map
 
-**Owns:** Stats (spec [2.11](../../../../../docs/spec/2.11-stats.md), [5.3](../../../../../docs/spec/5.3-modules.md#defaults)), whose Nest module is `StatsModule`: the basic stats (`BasicStats`, `GET /stats/basic`), read afresh on each request from what other modules already keep, with no table of its own: the last 30 office days' tokens, the Usage windows now, and this week's top Tasks, Tasks done and Stage retries (pure `domain/basic-stats.ts`: `weekStartOf`, `weekStatsOf`, `countedTokens`). The telemetry plumbing every module uses (the exporters, `Telemetry`, the logger, Settings › Telemetry) is not here but in `src/platform/telemetry/`.
+**Owns:** Stats (spec [2.11](../../../../../docs/spec/2.11-stats.md), [5.3](../../../../../docs/spec/5.3-modules.md#defaults)), whose Nest module is `StatsModule`, with no table of its own:
+- the basic stats (`BasicStats`, `GET /stats/basic`), read afresh on each request from what other modules already keep: the last 30 office days' tokens, the Usage windows now, and this week's top Tasks, Tasks done and Stage retries (pure `domain/basic-stats.ts`: `weekStartOf`, `weekStatsOf`, `countedTokens`);
+- the full stats (`FullStats`, `GET /stats/full?range&split&project`), read afresh on each request from the Grafana in use: its state (`GrafanaInUse`: not-on, starting, failed, then unreachable, rejected, no-data or full), tokens and estimated cost over time by the split, the 10 most expensive Tasks (per Stage and per try) and Initiatives (per Task and its own Threads), each engine's Usage windows over time and the lane of the Agent Stage runs that ran (pure `domain/full-stats.ts`: `fullStatsSpanOf`, `stepsOf`, `usageBucketsOf`, `costliestOf`, `windowsOverTimeOf`, `runningOf`, `holdsNoData`).
+The telemetry plumbing every module uses (the exporters, `Telemetry`, the logger, Settings › Telemetry, the bundled Grafana) is not here but in `src/platform/telemetry/`.
 
-**Talks to:** nothing calls it. It reads through its ports, bound in [app.module.ts](../../app.module.ts): `DayTokens` to Notifications' `DayTokenHistory` (`day_tokens`), `EngineWindows` to the Engine's `UsageWindowsNow` (`EngineModels.engines()` with `UsageWindowState`), `StageRunTotals` to Pipelines' `StageRunTotals` (from `UsageHistoryModule`: the Stage runs started since a time, each with its tokens and whether it is a Stage retry, worked out in the query), and `OfficeTasks` to Work's `TaskService` (`doneSince`, from `task_state_changes`, and `findAll` for titles and Projects). Each port answers the module's own small types; the bound services satisfy them structurally.
+**Talks to:** nothing calls it. It reads through its ports, bound in [app.module.ts](../../app.module.ts): `DayTokens` to Notifications' `DayTokenHistory` (`day_tokens`), `EngineWindows` to the Engine's `UsageWindowsNow` (`EngineModels.engines()` with `UsageWindowState`), `StageRunTotals` and `RunningStageRuns` to Pipelines' (from `UsageHistoryModule`: the Stage runs started since a time with their tokens and whether each is a Stage retry; the Agent Stage runs overlapping a range with their engine and Stage name), `OfficeTasks` to Work's `TaskService` (`doneSince`, from `task_state_changes`, and `findAll` for titles and Projects), `OfficeInitiatives` to Work's `InitiativeService` (`titlesOf`: name and the Projects its Tasks are in), `ProjectNames` to Projects' `ProjectService` (`namesOf`), and `StatsSource` to the Grafana adapter `GrafanaStatsSource` (`adapters/grafana/`; tests and the e2e service bind `ScriptedStatsSource`, set through `POST /api/e2e/stats-source`). `GrafanaInUse` is bound inside the module to `BundledGrafanaInUse` (`adapters/platform/`), over the platform's `SavedTelemetrySetting` and `BundledGrafanaKeeper.status` from `TelemetryHttpModule`, reading it at `BUNDLED_GRAFANA_READ_ADDRESS` with no token. Each port answers the module's own small types; the bound services satisfy them structurally.
 
 **Traps:**
-- Tokens per day and the Usage windows are Office-wide: the Project filter narrows only the top Tasks, Tasks done and Stage retries, through each Task's Project. A run or a done Task whose Task isn't found is left out.
-- The top Tasks count Stage runs only (`stage_runs.tokens`), so a Task's planning Thread, a person's own Thread on it and Consultations aren't in it; the basic and full totals aren't meant to match.
+- Tokens per day and the Usage windows (now and over time) are Office-wide: the basic stats' Project filter narrows only the top Tasks, Tasks done and Stage retries, through each Task's Project. A run or a done Task whose Task isn't found is left out.
+- The top Tasks count Stage runs only (`stage_runs.tokens`), so a Task's planning Thread, a person's own Thread on it and Consultations aren't in it, while the full stats' totals, from what The Office sent Grafana, include every engine call, chats and Consultations too: the basic and full totals aren't meant to match.
 - Every count leaves cache reads out (`countedTokens`); tokens per day still gives all four kinds, and a kind of a day below zero (a turn running over midnight) answers 0.
 - "This week" starts at `weekStartOf(now)` on The Office's clock (`Schedule.now`): local midnight of the Monday of the calendar day `officeDayOf` reads, so it agrees with "today" across a change of clock. A Stage retry is any run this week whose Stage already had a run on the Task, whenever that one ran.
-- An engine without Usage windows answers `none`; the web leaves it out.
-- Task 1262d7f3 adds the full stats beside the basic stats behind a `StatsSource` port (Grafana); nothing of them is here yet.
+- An engine without Usage windows answers `none`; the web leaves it out, and the full stats leave it out of the windows over time.
+- Task, Initiative and Stage run ids are only in Loki (the `office.engine.call` records), never in the metrics' attributes: the most expensive lists come from the logs, tokens and estimated cost over time from the metrics.
+- The full stats' Project filter narrows by the Project's name now (`office.project`), as the metrics and logs carry names: a renamed Project's data from before the rename falls outside it. The lane narrows by each Task's Project id instead. When none of the filter's Projects is known, usage and the most expensive aren't read and answer empty.
+- The full stats' buckets are fixed steps in UTC (24 h by the hour, 7 d by 6 h, 30 d by the day; the Usage windows by 15 min, 1 h, 6 h), aligned to the epoch, not office days.
+- The first failing read, in the order usage, most expensive, Usage windows, gives the state: unreachable or rejected wins over the reads that answered. No data means no usage point above zero, no Task or Initiative and no Usage window point.
+- A Task or Initiative The Office no longer knows is left out of the most expensive lists and the lane, so a list can hold fewer than 10.
+- The Prometheus and Loki metric, label and data source names the Grafana adapter reads live only in `adapters/grafana/grafana-queries.ts`, as grafana/otel-lgtm at the pinned image stores what Telemetry sends; on every bump of the pin the Grafana live check (`grafana-stats-source.live.test.ts`, [testing](../../../docs/testing.md#the-grafana-live-check)) confirms them and re-records `recorded/*.json`.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
 ## Public entry (`index.ts`)
 
-StatsModule
+GrafanaStatsSource, ScriptedStatsSource, StatsSource, StatsModule
 
 ## HTTP routes (under `/api`)
 
 - `GET /stats/basic`: StatsController.readBasic
+- `GET /stats/full`: StatsController.readFull
 
 ## Files
 
@@ -28,24 +37,52 @@ StatsModule
 
 - `stats.module.ts`: StatsModuleOptions, StatsModule
 
+### adapters/grafana/
+
+- `fake-grafana.fixtures.ts`: TakenRequest, FakeAnswer, FakeGrafana, closedPort
+- `grafana-data-sources.ts`: GrafanaDataSources, NamedDataSource, GrafanaDataSourceCache
+- `grafana-frames.ts`: dsQueryAnswerSchema, FramePoint, FrameSeries, QueryResults, NOT_GRAFANA, resultsOf, refusalWords, labelOf, lastValueOf
+- `grafana-http.ts`: GRAFANA_TIMEOUT_MS, GrafanaHttpAnswer, callGrafana, unansweredWords
+- `grafana-queries.ts`: PROMETHEUS_TYPE, LOKI_TYPE, DEFAULT_PROMETHEUS_UID, DEFAULT_LOKI_UID, LABELS, SPLIT_LABELS, REF, DataSourceRef, DsQuery, DsQueryBody, usageQueryBody, windowsQueryBody, costliestTopQueryBody, costliestBreakdownQueryBody, alternatives
+- `grafana-scenario.fixtures.ts`: SCENARIO, ScenarioCall, SCENARIO_CALLS, countedTokensOf, RecordedAnswer, RecordingName, recorded, rerecord, recordedRange
+- `grafana-stats-source.ts`: GrafanaStatsSource
+- Tests: grafana-stats-source.full.test.ts, grafana-stats-source.live.test.ts, grafana-stats-source.test.ts
+
 ### adapters/http/
 
-- `stats-responses.ts`: toBasicStatsResponse
+- `stats-responses.ts`: toBasicStatsResponse, toFullStatsResponse
 - `stats.controller.ts`: StatsController
 - Tests: stats.controller.test.ts
+
+### adapters/platform/
+
+- `bundled-grafana-in-use.ts`: BundledGrafanaInUse
+- Tests: bundled-grafana-in-use.test.ts
+
+### adapters/scripted/
+
+- `scripted-stats-source.ts`: ScriptedStatsFailure, ScriptedStats, ScriptedStatsCall, ScriptedStatsSource
 
 ### application/
 
 - `basic-stats.ts`: BasicStatsRead, BasicStats
+- `full-stats.ts`: FullStatsQuery, FullStatsFigures, FullStatsRead, FullStats
+- Tests: full-stats.test.ts
 
 ### domain/
 
 - `basic-stats.ts`: STATS_DAYS, TOP_TASKS, StatsTokens, StatsProjectFilter, StatsStageRun, StatsTask, TopTask, WeekStats, countedTokens, weekStartOf, weekStatsOf
-- Tests: basic-stats.full.test.ts, basic-stats.test.ts
+- `full-stats.ts`: FullStatsRange, FullStatsSplit, Spend, SeriesPoint, NamedSeries, UsageSeries, StageRunSpend, TaskSpend, InitiativeSpend, CostliestSpend, UsageWindowName, WindowSeries, StatsStageRunSpan, StatsInitiative, StatsProjectName, COSTLIEST, FullStatsSpan, fullStatsSpanOf, stepStartOf, stepEndOf, stepsOf, UsageBucket, usageBucketsOf, StageTry, StageSpend, CostliestTask, CostliestInitiative, Costliest, costliestOf, WindowPoint, WindowsOverTime, StatsEngineWithWindows, windowsOverTimeOf, RunningStageRun, runningOf, holdsNoData
+- Tests: basic-stats.full.test.ts, basic-stats.test.ts, full-stats.test.ts
 
 ### ports/
 
 - `day-tokens.ts`: StatsDay, DayTokens
 - `engine-windows.ts`: StatsUsageWindow, StatsEngineWindows, StatsEngine, EngineWindows
+- `grafana-in-use.ts`: GrafanaNow, GrafanaInUse
+- `office-initiatives.ts`: OfficeInitiatives
 - `office-tasks.ts`: OfficeTasks
+- `project-names.ts`: ProjectNames
+- `running-stage-runs.ts`: RunningStageRuns
 - `stage-run-totals.ts`: StageRunTotals
+- `stats-source.ts`: GrafanaAccess, SteppedRange, ProjectNamesFilter, UsageQuery, CostliestQuery, StatsSourceAnswer, StatsSource

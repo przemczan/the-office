@@ -1,20 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   BASIC_STATS_DAYS,
   countedTokens,
-  isCustomMarkColour,
   type BasicStats,
+  type FullStatsSplit,
   type Project,
   type StatsDay,
   type StatsEngine,
   type StatsTopTask,
 } from "@the-office/contracts";
-import { Alert, Badge, Button, Card, DataTable, Icon, Tooltip } from "@the-office/ui";
-import { useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { Alert, DataTable, Icon, Skeleton } from "@the-office/ui";
+import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { statsQueries, telemetryQueries } from "../../api/telemetry.ts";
-import { BlockLoader } from "../../shell/block-loader.tsx";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import {
   meterFilled,
@@ -26,6 +25,23 @@ import { ProjectChip } from "../../shell/project-chip.tsx";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { TokenCount } from "../../shell/token-count.tsx";
 import { NO_TOKENS, sumTokens } from "../../shell/token-words.ts";
+import {
+  CoverageLine,
+  FullStatsAlert,
+  FullStatsBlocks,
+  RangePicker,
+  SettingsLink,
+  useStatsRange,
+} from "./full-stats.tsx";
+import {
+  BarsChart,
+  OfficeWideBadge,
+  projectColourClass,
+  projectColourStyle,
+  StatsBlock,
+  TableToggle,
+  TipRow,
+} from "./stats-parts.tsx";
 import {
   CACHE_READS,
   DAY,
@@ -40,12 +56,7 @@ import {
   MESSAGE_WORDS,
   NO_USAGE_WINDOWS,
   NOT_READ_YET,
-  OFFICE_WIDE,
-  OFFICE_WIDE_WORDS,
-  SETTINGS_TELEMETRY,
   SEVEN_DAY_WINDOW,
-  SHOW_AS_CHART,
-  SHOW_AS_TABLE,
   sinceWords,
   STAGE_RETRIES,
   STAGE_RETRIES_TEXT,
@@ -69,127 +80,130 @@ import {
 import "./stats.css";
 
 /**
- * Stats (spec 2.11): the basic stats, from what The Office already keeps, read when the page opens
- * and every minute while it is open. Tokens per day and the Usage windows are Office-wide; the top
- * Tasks and This week follow the Project filter. The message at the foot says how to see more.
+ * Stats (spec 2.11): the basic stats, from what The Office already keeps, always; and the full
+ * stats from Grafana once it answers, with the range in the address. Tokens per day and the Usage
+ * windows are Office-wide; the rest follows the Project filter. Each is read when the page opens and
+ * every minute while it is open, the full stats every few seconds while Grafana starts.
  */
 export function StatsPage(): ReactNode {
   const { filter } = useProjectFilter();
+  const [range, setRange] = useStatsRange();
+  const [split, setSplit] = useState<FullStatsSplit>("model");
   const stats = useQuery(statsQueries.basic(filter));
+  const full = useQuery({
+    ...statsQueries.full(filter, range, split),
+    placeholderData: keepPreviousData,
+  });
   const telemetry = useQuery(telemetryQueries.settings());
   const projects = useQuery(projectQueries.list());
   const filtered = filter !== "all";
   const message = telemetry.data ? statsMessageOf(telemetry.data) : null;
+  const answered = full.data;
+  // Until the first answer, the full stats' loaders show where a Grafana is chosen.
+  const showsFull =
+    answered?.state === "full" ||
+    (answered === undefined && !full.error && telemetry.data !== undefined && message === null);
+  const fullLoading = answered === undefined || full.isPlaceholderData;
+  const showsMessage = message !== null && (answered === undefined || answered.state === "not-on");
+  const basicLoading = !stats.data && !stats.error;
+  const windowsNow = (className: string): ReactNode => (
+    <StatsBlock
+      id="windows-now"
+      className={className}
+      title={USAGE_WINDOWS_NOW}
+      badge={<OfficeWideBadge filtered={filtered} />}
+      loading={basicLoading}
+      loaderLabel={LOADING}
+    >
+      {stats.data && <UsageWindowsNow engines={stats.data.engines} />}
+    </StatsBlock>
+  );
+  const thisWeek = (className: string): ReactNode => (
+    <StatsBlock
+      id="week"
+      className={className}
+      title={THIS_WEEK}
+      when={stats.data && sinceWords(stats.data.weekStartsAt)}
+      loading={basicLoading}
+      loaderLabel={LOADING}
+    >
+      {stats.data && <ThisWeek stats={stats.data} />}
+    </StatsBlock>
+  );
   return (
     <div className="stats-page">
       <div className="stats-page-head">
-        <h2 className="stats-page-title">{STATS_TITLE}</h2>
-        <p className="stats-page-sub">{STATS_SUB}</p>
+        <div className="stats-page-words">
+          <h2 className="stats-page-title">{STATS_TITLE}</h2>
+          <p className="stats-page-sub">{STATS_SUB}</p>
+        </div>
+        {showsFull && <RangePicker range={range} onChange={setRange} />}
       </div>
+      {showsFull &&
+        (fullLoading ? (
+          <Skeleton width={340} height={12} style={{ maxWidth: "100%" }} />
+        ) : (
+          <CoverageLine />
+        ))}
+      {answered && (
+        <FullStatsAlert
+          stats={answered}
+          onTryAgain={() => void full.refetch()}
+          trying={full.isFetching}
+        />
+      )}
+      {full.error && <Alert tone="danger" title={full.error.message} />}
       {stats.error && <Alert tone="danger" title={stats.error.message} />}
       <div className="stats-blocks">
-        <StatsBlock
-          id="days"
-          className="stats-span-8"
-          title={TOKENS_PER_DAY}
-          badge={<OfficeWideBadge filtered={filtered} />}
-          loading={!stats.data && !stats.error}
-        >
-          {stats.data && <TokensPerDay days={stats.data.days} />}
-        </StatsBlock>
-        <StatsBlock
-          id="windows-now"
-          className="stats-span-4"
-          title={USAGE_WINDOWS_NOW}
-          badge={<OfficeWideBadge filtered={filtered} />}
-          loading={!stats.data && !stats.error}
-        >
-          {stats.data && <UsageWindowsNow engines={stats.data.engines} />}
-        </StatsBlock>
-        <StatsBlock
-          id="top"
-          className="stats-span-8"
-          title={TOP_TASKS}
-          when={stats.data && sinceWords(stats.data.weekStartsAt)}
-          loading={!stats.data && !stats.error}
-          foot={
-            <span className="stats-hint">
-              <Icon name="info" size={12} />
-              {TOP_TASKS_HINT}
-            </span>
-          }
-        >
-          {stats.data && <TopTasks tasks={stats.data.topTasks} projects={projects.data} />}
-        </StatsBlock>
-        <StatsBlock
-          id="week"
-          className="stats-span-4"
-          title={THIS_WEEK}
-          when={stats.data && sinceWords(stats.data.weekStartsAt)}
-          loading={!stats.data && !stats.error}
-        >
-          {stats.data && <ThisWeek stats={stats.data} />}
-        </StatsBlock>
-        {message && <FullStatsMessage message={message} />}
+        {showsFull ? (
+          <>
+            <FullStatsBlocks
+              stats={answered?.state === "full" ? answered : undefined}
+              loading={fullLoading}
+              range={range}
+              split={split}
+              onSplit={setSplit}
+              filtered={filtered}
+              projects={projects.data}
+            />
+            {windowsNow("stats-span-6")}
+            {thisWeek("stats-span-6")}
+          </>
+        ) : (
+          <>
+            <StatsBlock
+              id="days"
+              className="stats-span-8"
+              title={TOKENS_PER_DAY}
+              badge={<OfficeWideBadge filtered={filtered} />}
+              loading={basicLoading}
+              loaderLabel={LOADING}
+            >
+              {stats.data && <TokensPerDay days={stats.data.days} />}
+            </StatsBlock>
+            {windowsNow("stats-span-4")}
+            <StatsBlock
+              id="top"
+              className="stats-span-8"
+              title={TOP_TASKS}
+              when={stats.data && sinceWords(stats.data.weekStartsAt)}
+              loading={basicLoading}
+              loaderLabel={LOADING}
+              foot={
+                <span className="stats-hint">
+                  <Icon name="info" size={12} />
+                  {TOP_TASKS_HINT}
+                </span>
+              }
+            >
+              {stats.data && <TopTasks tasks={stats.data.topTasks} projects={projects.data} />}
+            </StatsBlock>
+            {thisWeek("stats-span-4")}
+            {showsMessage && message !== null && <FullStatsMessage message={message} />}
+          </>
+        )}
       </div>
     </div>
-  );
-}
-
-function StatsBlock({
-  id,
-  className,
-  title,
-  badge,
-  when,
-  tools,
-  loading,
-  foot,
-  children,
-}: {
-  readonly id: string;
-  readonly className: string;
-  readonly title: string;
-  readonly badge?: ReactNode;
-  readonly when?: string | undefined;
-  readonly tools?: ReactNode;
-  readonly loading: boolean;
-  readonly foot?: ReactNode;
-  readonly children: ReactNode;
-}): ReactNode {
-  const titleId = `stats-${id}-title`;
-  return (
-    <section className={`stats-block ${className}`} aria-labelledby={titleId}>
-      <Card footer={foot}>
-        <header className="stats-block-head">
-          <div className="stats-block-heading">
-            <h3 className="stats-block-title" id={titleId}>
-              {title}
-            </h3>
-            {badge}
-            {when && <span className="stats-block-when">{when}</span>}
-          </div>
-          {tools && <div className="stats-block-tools">{tools}</div>}
-        </header>
-        {loading ? <BlockLoader shape="rows" label={LOADING} /> : children}
-      </Card>
-    </section>
-  );
-}
-
-/** "Office-wide", and while a Project filter is set, why the filter doesn't narrow the block. */
-function OfficeWideBadge({ filtered }: { readonly filtered: boolean }): ReactNode {
-  if (!filtered) return <Badge>{OFFICE_WIDE}</Badge>;
-  return (
-    <Tooltip content={OFFICE_WIDE_WORDS} focusable>
-      <Badge>
-        <span className="stats-office-wide">
-          {OFFICE_WIDE}
-          <span className="visually-hidden">: {OFFICE_WIDE_WORDS}</span>
-          <Icon name="info" size={11} />
-        </span>
-      </Badge>
-    </Tooltip>
   );
 }
 
@@ -208,14 +222,7 @@ function TokensPerDay({ days }: { readonly days: readonly StatsDay[] }): ReactNo
           <span aria-hidden="true">·</span>
           <TokenCount tokens={today} label={TODAY} strong />
         </p>
-        <Button
-          variant="ghost"
-          size="sm"
-          iconLeft={<Icon name={asTable ? "chart-column" : "table"} size={13} />}
-          onClick={() => setAsTable(!asTable)}
-        >
-          {asTable ? SHOW_AS_CHART : SHOW_AS_TABLE}
-        </Button>
+        <TableToggle asTable={asTable} onToggle={() => setAsTable(!asTable)} />
       </div>
       <ul className="stats-legend">
         {KINDS.map((kind) => (
@@ -234,14 +241,6 @@ function TokensPerDay({ days }: { readonly days: readonly StatsDay[] }): ReactNo
   );
 }
 
-/** A round step for the axis: 1, 2, 2.5 or 5 times a power of ten. */
-function niceStep(value: number): number {
-  if (value <= 0) return 1;
-  const power = 10 ** Math.floor(Math.log10(value));
-  const scaled = value / power;
-  return (scaled <= 1 ? 1 : scaled <= 2 ? 2 : scaled <= 2.5 ? 2.5 : scaled <= 5 ? 5 : 10) * power;
-}
-
 /** The tokens an empty chart's axis is drawn as reaching, so it reads as a scale of tokens. */
 const EMPTY_AXIS_TOKENS = 100_000;
 
@@ -249,18 +248,12 @@ const EMPTY_AXIS_TOKENS = 100_000;
 const LABEL_EVERY = 5;
 
 /**
- * The 30 days stacked by kind, the cache reads in their own strip under them. One tab stop: the
- * arrow keys step from day to day, Home and End go to the first and today, each day's Tooltip
+ * The 30 days stacked by kind, the cache reads in their own strip under them, each day's Tooltip
  * giving all four kinds and its total.
  */
 function DaysChart({ days }: { readonly days: readonly StatsDay[] }): ReactNode {
-  const [picked, setPicked] = useState<number | null>(null);
   const counted = days.map(({ tokens }) => countedTokens(tokens));
   const most = Math.max(0, ...counted);
-  const step = niceStep((most || EMPTY_AXIS_TOKENS) / 4);
-  const top = Math.max(step, Math.ceil(most / step) * step);
-  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, index) => index * step);
-  const mostReads = Math.max(1, ...days.map(({ tokens }) => tokens.cacheRead));
   const reads = days.reduce((sum, { tokens }) => sum + tokens.cacheRead, 0);
   const last = days.length - 1;
   const busiest = counted.indexOf(most);
@@ -273,117 +266,30 @@ function DaysChart({ days }: { readonly days: readonly StatsDay[] }): ReactNode 
   }, ${tokensShort(counted[last] ?? 0)} today. Cache reads, ${tokensShort(
     reads,
   )}, are drawn apart and not counted. Use the arrow keys to read each day.`;
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const at = picked ?? last;
-    const by = event.shiftKey ? 10 : 1;
-    const next =
-      event.key === "ArrowLeft"
-        ? at - by
-        : event.key === "ArrowRight"
-          ? at + by
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? last
-              : null;
-    if (next === null) return;
-    event.preventDefault();
-    setPicked(Math.max(0, Math.min(last, next)));
-  };
   return (
-    <div
-      className="stats-chart"
-      role="img"
-      aria-label={summary}
-      tabIndex={0}
-      onKeyDown={onKeyDown}
-      onFocus={() => setPicked((at) => at ?? last)}
-      onBlur={() => setPicked(null)}
-      onMouseLeave={() => setPicked(null)}
-    >
-      <div className="stats-chart-main">
-        <div className="stats-chart-axis" aria-hidden="true">
-          {ticks.map((tick) => (
-            <span key={tick} style={{ bottom: `${(tick / top) * 100}%` }}>
-              {tokensShort(tick)}
-            </span>
-          ))}
-        </div>
-        <div className="stats-chart-plot">
-          {ticks.map((tick) => (
-            <i
-              key={tick}
-              className={`stats-chart-grid${tick === 0 ? " stats-chart-base" : ""}`}
-              style={{ bottom: `${(tick / top) * 100}%` }}
-              aria-hidden="true"
-            />
-          ))}
-          {days.map((day, index) => (
-            <Tooltip
-              key={day.day}
-              open={picked === index}
-              content={<DayTip day={day} today={index === last} />}
-            >
-              <span
-                className="stats-chart-day"
-                data-picked={picked === index || undefined}
-                onMouseEnter={() => setPicked(index)}
-              >
-                <DayBar day={day} top={top} />
-              </span>
-            </Tooltip>
-          ))}
-        </div>
-      </div>
-      <div className="stats-chart-labels" aria-hidden="true">
-        {days.map((day, index) => {
-          const fromToday = last - index;
-          const labelled = fromToday % LABEL_EVERY === 0;
+    <BarsChart
+      steps={days.map((day, index) => {
+        const fromToday = last - index;
+        const labelled = fromToday % LABEL_EVERY === 0;
+        return {
+          key: day.day,
+          label: labelled ? dayLabel(day.day) : "",
           // Every other label gives way on a narrow chart, so the ones left don't run together.
-          const minor = labelled && fromToday % (2 * LABEL_EVERY) !== 0;
-          return (
-            <span key={day.day} className={minor ? "is-minor" : undefined}>
-              {labelled ? dayLabel(day.day) : ""}
-            </span>
-          );
-        })}
-      </div>
-      <div className="stats-chart-under" aria-hidden="true">
-        <span className="stats-chart-under-label">
-          {CACHE_READS} · {tokensShort(reads)} in {days.length} days
-        </span>
-        <div className="stats-chart-under-bars">
-          {days.map((day, index) => (
-            <span key={day.day} data-picked={picked === index || undefined}>
-              <i style={{ height: `${(day.tokens.cacheRead / mostReads) * 100}%` }} />
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** One day's stack, input at the bottom, each kind's share of the axis's top. */
-function DayBar({ day, top }: { readonly day: StatsDay; readonly top: number }): ReactNode {
-  const heights = KINDS.map((kind) => (day.tokens[kind] / top) * 100);
-  return (
-    <svg viewBox="0 0 10 100" preserveAspectRatio="none" aria-hidden="true">
-      {KINDS.map((kind, index) => {
-        const height = heights[index] ?? 0;
-        const below = heights.slice(0, index).reduce((sum, each) => sum + each, 0);
-        return height > 0 ? (
-          <rect
-            key={kind}
-            className={`stats-kind-${kind}`}
-            x="0"
-            y={100 - below - height}
-            width="10"
-            height={height}
-          />
-        ) : null;
+          minor: labelled && fromToday % (2 * LABEL_EVERY) !== 0,
+          tip: <DayTip day={day} today={index === last} />,
+        };
       })}
-    </svg>
+      stacks={days.map((day) =>
+        KINDS.map((kind) => ({ className: `stats-kind-${kind}`, value: day.tokens[kind] })),
+      )}
+      axisWords={tokensShort}
+      emptyTop={EMPTY_AXIS_TOKENS}
+      summary={summary}
+      under={{
+        label: `${CACHE_READS} · ${tokensShort(reads)} in ${days.length} days`,
+        values: days.map(({ tokens }) => tokens.cacheRead),
+      }}
+    />
   );
 }
 
@@ -397,37 +303,18 @@ function DayTip({ day, today }: { readonly day: StatsDay; readonly today: boolea
       {KINDS.map((kind) => (
         <TipRow
           key={kind}
-          kind={kind}
+          className={`stats-kind-${kind}`}
           name={KIND_NAMES[kind]}
           value={tokensShort(day.tokens[kind])}
         />
       ))}
       <TipRow name={TOTAL} value={tokensShort(countedTokens(day.tokens))} total />
-      <TipRow kind="cacheRead" name={CACHE_READS} value={tokensShort(day.tokens.cacheRead)} muted />
-    </span>
-  );
-}
-
-function TipRow({
-  kind,
-  name,
-  value,
-  total = false,
-  muted = false,
-}: {
-  readonly kind?: string;
-  readonly name: string;
-  readonly value: string;
-  readonly total?: boolean;
-  readonly muted?: boolean;
-}): ReactNode {
-  return (
-    <span
-      className={`stats-tip-row${total ? " stats-tip-total" : ""}${muted ? " stats-muted" : ""}`}
-    >
-      {kind ? <i className={`stats-kind-${kind}`} /> : <i />}
-      <span>{name}</span>
-      <b>{value}</b>
+      <TipRow
+        className="stats-kind-cacheRead"
+        name={CACHE_READS}
+        value={tokensShort(day.tokens.cacheRead)}
+        muted
+      />
     </span>
   );
 }
@@ -497,9 +384,9 @@ function TopTasks({
           </div>
           <div className="stats-bar-track" aria-hidden="true">
             <i
-              className={projectBarClass(projectOf(task))}
+              className={projectColourClass(projectOf(task))}
               style={{
-                ...projectBarStyle(projectOf(task)),
+                ...projectColourStyle(projectOf(task)),
                 width: `${first > 0 ? (task.tokens / first) * 100 : 0}%`,
               }}
             />
@@ -508,20 +395,6 @@ function TopTasks({
       ))}
     </ol>
   );
-}
-
-/** The bar takes its Project's mark colour through the same `mark-colour-*` class a mark uses. */
-function projectBarClass(project: Project | undefined): string | undefined {
-  if (project === undefined) return undefined;
-  const { colour } = project.mark;
-  return `mark-colour-${isCustomMarkColour(colour) ? "custom" : colour}`;
-}
-
-function projectBarStyle(project: Project | undefined): CSSProperties {
-  const colour = project?.mark.colour;
-  return colour !== undefined && isCustomMarkColour(colour)
-    ? ({ "--mark-bg": colour } as CSSProperties)
-    : {};
 }
 
 function UsageWindowsNow({ engines }: { readonly engines: readonly StatsEngine[] }): ReactNode {
@@ -611,12 +484,7 @@ function WeekFigure({
 
 /** At the foot of the basic stats while there are no full stats: how to see more. */
 function FullStatsMessage({ message }: { readonly message: StatsMessage }): ReactNode {
-  const link = (
-    <Link to="/settings/telemetry" className="stats-settings-link">
-      {SETTINGS_TELEMETRY}
-      <Icon name="arrow-right" size={13} />
-    </Link>
-  );
+  const link = <SettingsLink />;
   return (
     <section className="stats-message stats-span-12" aria-label={FULL_STATS}>
       <span className="stats-message-icon">
