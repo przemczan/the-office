@@ -1,0 +1,4221 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stats · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, copied as they were on 2026-11-17) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-600: #d4320a;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --flare-500: #ff9a1f;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        /* design-system/tokens/charts.css */
+        --chart-1: var(--ember-500);
+        --chart-2: var(--blue-500);
+        --chart-3: var(--teal-500);
+        --chart-4: var(--flare-500);
+        --chart-5: var(--violet-500);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --text-xl: 18px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-tight: -0.01em;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --control-sm: 28px;
+        --control-md: 32px;
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        /* packages/ui/src/appearance/densities/comfortable.css */
+        --pad-page: 24px;
+        --gap-card: 12px;
+        --gap-panel: 20px;
+      }
+      /* packages/ui/src/appearance/palettes/light.css over the design system's light aliases */
+      :root[data-palette="light"] {
+        color-scheme: light;
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --sidebar-bg: var(--gray-50);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --fg-inverse: var(--white);
+        --fg-on-accent: var(--white);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --border-focus: var(--ember-500);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+        --chart-6: var(--gray-400);
+        --chart-grid: var(--gray-100);
+        --chart-axis: var(--gray-500);
+        --chart-track: var(--gray-100);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.06);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css over the design system's dark aliases */
+      :root[data-palette="dark"] {
+        color-scheme: dark;
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --sidebar-bg: #161615;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --fg-on-accent: var(--white);
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --border-focus: var(--ember-500);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --success: var(--green-500);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning: var(--amber-500);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger: var(--red-500);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info: var(--blue-500);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+        --chart-6: var(--gray-500);
+        --chart-grid: var(--gray-800);
+        --chart-axis: var(--gray-400);
+        --chart-track: var(--gray-800);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 40%, transparent);
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+      }
+      p {
+        margin: 0;
+      }
+      :is(button, a, input, select, [tabindex]):focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      svg.i {
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- The proposal's own frame (not part of the design) ---------- */
+      .proposal-bar,
+      .scenario-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 18px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .proposal-bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+      .proposal-bar h1 {
+        margin: 0 8px 0 0;
+        font: 600 15px/1.3 var(--font-sans);
+      }
+      .proposal-bar h1 span {
+        font-weight: 400;
+        color: var(--fg-3);
+      }
+      .control {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+      }
+      .control-label {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .switch {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .switch button {
+        padding: 4px 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .switch button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: 0 0 0 1px var(--border-strong);
+      }
+      .play-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .play-button:disabled {
+        opacity: 0.7;
+        cursor: progress;
+      }
+      .scenario-note {
+        flex-basis: 100%;
+        max-width: 110ch;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .stage {
+        padding: 22px 18px 8px;
+        overflow-x: auto;
+      }
+      .frame-wrap {
+        margin: 0 auto 26px;
+      }
+      .frame-wrap.wide {
+        width: clamp(1180px, 100%, 1440px);
+      }
+      .frame-caption {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin: 0 0 8px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .frame-caption b {
+        font: 600 var(--text-xs) / 1 var(--font-mono);
+        color: var(--fg-2);
+      }
+      .frame {
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .doc {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 6px 18px 64px;
+      }
+      .doc h2 {
+        margin: 30px 0 10px;
+        font: 600 18px/1.3 var(--font-sans);
+      }
+      .doc ol,
+      .doc ul {
+        margin: 0;
+        padding-left: 22px;
+      }
+      .doc li {
+        max-width: 84ch;
+        margin: 6px 0;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+        line-height: 1.55;
+      }
+      .doc strong {
+        color: var(--fg-1);
+      }
+      .doc code {
+        padding: 1px 4px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-sunken);
+        font: 400 12px/1.4 var(--font-mono);
+        color: var(--fg-1);
+      }
+
+      /* ---------- The mocked shell (apps/web/src/shell, as built) ---------- */
+      .app {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 56px auto minmax(0, 1fr);
+        min-height: 780px;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .rail {
+        grid-row: 1 / 4;
+        grid-column: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 0;
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        margin-bottom: 8px;
+        border-radius: var(--radius-md);
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        font: 700 13px/1 var(--font-sans);
+      }
+      .rail-item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border: 0;
+        border-radius: 10px;
+        background: none;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .rail-item:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .rail-item.active {
+        background: var(--surface);
+        color: var(--fg-1);
+      }
+      .rail-item.active::before {
+        content: "";
+        position: absolute;
+        top: 12px;
+        left: -8px;
+        width: 3px;
+        height: 16px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .rail-spacer {
+        flex: 1;
+      }
+      .top {
+        grid-row: 1;
+        grid-column: 2;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 0 var(--pad-page);
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+      }
+      .top h1 {
+        margin: 0;
+        font: var(--type-section-title);
+        letter-spacing: var(--tracking-tight);
+        white-space: nowrap;
+      }
+      .crumb {
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .search {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: 220px;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+      }
+      .search kbd {
+        margin-left: auto;
+        font: var(--type-overline);
+        color: var(--fg-3);
+      }
+      .avatar {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--gray-700);
+        color: var(--white);
+        font: 600 11px/1 var(--font-sans);
+      }
+      .avatar.sm {
+        width: 16px;
+        height: 16px;
+        font-size: 8px;
+        background: #b4568f;
+      }
+      .main {
+        grid-row: 3;
+        grid-column: 2;
+        min-width: 0;
+      }
+      .page {
+        padding: 22px var(--pad-page) 36px;
+      }
+      .w-tablet .search,
+      .w-phone .search {
+        display: none;
+      }
+      .w-phone .top-words,
+      .w-phone .crumb {
+        display: none;
+      }
+      .w-phone {
+        --pad-page: 14px;
+      }
+      .w-phone .top {
+        gap: 8px;
+      }
+      .w-phone .top .btn {
+        padding: 0 8px;
+      }
+
+      /* ---------- The status strip (shell.css as adopted from docs/design/status-strip.html), in brief ---------- */
+      .ps {
+        grid-row: 2;
+        grid-column: 2;
+        min-width: 0;
+        overflow-x: clip;
+        container: strip / inline-size;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .ps-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 52px;
+        padding: 0 var(--pad-page);
+      }
+      .ps-row.second {
+        display: none;
+      }
+      .figs {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 16px;
+      }
+      .figs.right {
+        flex: 0 1 auto;
+        min-width: 0;
+      }
+      .fig {
+        display: inline-flex;
+        flex: none;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        margin: 0 -8px;
+        padding: 5px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--fg-2);
+        text-align: left;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .fig:hover {
+        background: var(--surface-sunken);
+      }
+      .fig.static {
+        cursor: default;
+      }
+      .fig.static:hover {
+        background: transparent;
+      }
+      .fig-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font: 500 var(--text-2xs) / 14px var(--font-sans);
+        color: var(--fg-3);
+      }
+      .fig-value {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 18px;
+        font: var(--type-body-sm);
+      }
+      .fig-value b {
+        font: 600 15px/1 var(--font-sans);
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: var(--tracking-tight);
+      }
+      .fig-value b.warning {
+        color: var(--warning-fg);
+      }
+      .fig-value b.danger {
+        color: var(--danger-fg);
+      }
+      .fig.needs.alert {
+        margin: 0;
+        padding: 5px 12px;
+        background: var(--accent);
+        color: var(--fg-on-accent);
+      }
+      .fig.needs.alert:hover {
+        background: var(--accent-hover);
+      }
+      .fig.needs.alert .fig-label {
+        color: color-mix(in oklab, var(--fg-on-accent) 82%, transparent);
+      }
+      .fig.needs.alert b {
+        color: inherit;
+        font-weight: 700;
+      }
+      .fig.needs.calm {
+        color: var(--fg-3);
+      }
+      .fig-sep {
+        flex: none;
+        width: 1px;
+        height: 28px;
+        background: var(--border);
+      }
+      .engines {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .engine {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .dot {
+        display: inline-block;
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .dot.running {
+        background: var(--success);
+      }
+      .live-dot {
+        position: relative;
+        display: inline-block;
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .live-dot::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: currentColor;
+        animation: live 1.6s var(--ease-out) infinite;
+      }
+      @keyframes live {
+        from {
+          transform: scale(1);
+          opacity: 0.6;
+        }
+        to {
+          transform: scale(2.6);
+          opacity: 0;
+        }
+      }
+      .faint {
+        color: var(--fg-3);
+      }
+      .meter {
+        display: inline-block;
+        flex: none;
+        width: 18px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--chart-track);
+      }
+      .meter i {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--fg-3);
+      }
+      .meter.warning i {
+        background: var(--warning);
+      }
+      .meter.danger i {
+        background: var(--danger);
+      }
+      .slot {
+        display: grid;
+        flex: 0 1 auto;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        column-gap: 9px;
+        width: var(--slot-width, 300px);
+        min-width: 168px;
+        height: 40px;
+        padding: 0 8px 0 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: inset 3px 0 0 var(--tone);
+        color: var(--fg-1);
+        text-align: left;
+        cursor: pointer;
+      }
+      .slot:hover {
+        background: var(--surface-sunken);
+      }
+      .slot-icon {
+        display: grid;
+        color: var(--tone);
+      }
+      .slot-text {
+        display: grid;
+        gap: 1px;
+        min-width: 0;
+      }
+      .slot-short {
+        overflow: hidden;
+        font: 500 var(--text-sm) / 17px var(--font-sans);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .slot-meta {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        overflow: hidden;
+        font: var(--type-caption);
+        line-height: 15px;
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .slot-end {
+        display: inline-flex;
+        color: var(--fg-3);
+      }
+      .tone-warning {
+        --tone: var(--warning);
+      }
+      .tone-danger {
+        --tone: var(--danger);
+      }
+      .label-short,
+      .short {
+        display: none;
+      }
+      @container strip (max-width: 1179px) {
+        .ps-row {
+          --slot-width: 260px;
+        }
+        .ws-cores {
+          display: none;
+        }
+      }
+      @container strip (max-width: 899px) {
+        .ps-row {
+          --slot-width: 216px;
+        }
+        .ps-row,
+        .figs {
+          gap: 12px;
+        }
+        .resets-label,
+        .ws-label-long {
+          display: none;
+        }
+        .short {
+          display: inline;
+        }
+      }
+      @container strip (max-width: 599px) {
+        .ps-row {
+          height: 50px;
+          gap: 14px;
+        }
+        .ps-row.second {
+          display: flex;
+          height: 44px;
+          padding-bottom: 6px;
+        }
+        .ps-row.first .right,
+        .ps-row.first .grow {
+          display: none;
+        }
+        .figs {
+          flex: 1;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .fig-sep,
+        .label-long,
+        .fig .meter {
+          display: none;
+        }
+        .label-short {
+          display: inline;
+        }
+        .engines {
+          gap: 6px;
+        }
+        .ps-row.second .slot {
+          flex: 1;
+          width: auto;
+          min-width: 0;
+          height: 36px;
+        }
+        .ps-row.second .slot-meta {
+          display: none;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: button, badge, segmented control, select, input, alert, card ---------- */
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 11px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-label);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: var(--control-hover);
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+        font-size: var(--text-xs);
+      }
+      .btn.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--fg-on-accent);
+      }
+      .btn.primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .btn.ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn.danger-ghost {
+        border-color: transparent;
+        background: transparent;
+        color: var(--danger-fg);
+      }
+      .btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .btn[aria-busy="true"] {
+        opacity: 0.8;
+        cursor: progress;
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: var(--control-sm);
+        height: var(--control-sm);
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .spin {
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-badge);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge[data-tip] {
+        cursor: help;
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .segmented {
+        display: inline-flex;
+        flex: none;
+        gap: 2px;
+        max-width: 100%;
+        height: var(--control-sm);
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: var(--surface-sunken);
+      }
+      .segmented button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background var(--duration-fast), color var(--duration-fast);
+      }
+      .segmented button:hover {
+        color: var(--fg-1);
+      }
+      .segmented button[aria-selected="true"] {
+        background: var(--surface);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+        color: var(--fg-1);
+      }
+      .segmented .seg-figure {
+        font-variant-numeric: tabular-nums;
+        color: var(--fg-3);
+      }
+      .select {
+        position: relative;
+        display: inline-flex;
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .select select {
+        width: 100%;
+        min-width: 120px;
+        height: var(--control-sm);
+        padding: 0 28px 0 10px;
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        font: var(--type-body-sm);
+        text-overflow: ellipsis;
+        appearance: none;
+        cursor: pointer;
+      }
+      .select svg {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        color: var(--fg-3);
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      .field-label {
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+      .field-hint {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .input-wrap {
+        position: relative;
+        display: flex;
+      }
+      .input {
+        width: 100%;
+        min-width: 0;
+        height: var(--control-md);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        font: 400 13px/1 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .input::placeholder {
+        color: var(--fg-3);
+      }
+      .input:focus {
+        border-color: var(--border-focus);
+        box-shadow: var(--focus-ring);
+        outline: none;
+      }
+      .input.with-suffix {
+        padding-right: 36px;
+      }
+      .input-suffix {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+      .radios {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      .radios legend {
+        margin-bottom: 8px;
+        padding: 0;
+      }
+      .radios label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+        cursor: pointer;
+      }
+      .radios input {
+        margin: 0;
+        accent-color: var(--accent);
+      }
+      .alert {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-card);
+        background: var(--info-subtle);
+        --alert-fg: var(--info-fg);
+      }
+      .alert.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        --alert-fg: var(--success-fg);
+      }
+      .alert.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        --alert-fg: var(--warning-fg);
+      }
+      .alert.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        --alert-fg: var(--danger-fg);
+      }
+      .alert-icon {
+        display: grid;
+        flex: none;
+        margin-top: 2px;
+        color: var(--alert-fg);
+      }
+      .alert-words {
+        flex: 1 1 240px;
+        min-width: 0;
+      }
+      .alert-title {
+        font: 600 13px/20px var(--font-sans);
+        color: var(--fg-1);
+        overflow-wrap: anywhere;
+      }
+      .alert-text {
+        font: var(--type-body-sm);
+        line-height: 20px;
+        color: var(--fg-2);
+        overflow-wrap: anywhere;
+      }
+      .alert-action {
+        display: flex;
+        flex: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+      .w-phone .alert-words {
+        flex-basis: 0;
+      }
+      .w-phone .alert-action {
+        flex-basis: 100%;
+        padding-left: 26px;
+      }
+      .card {
+        min-width: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--accent);
+        font: var(--type-label);
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .link:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .task-link {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-1);
+        font: 500 var(--text-sm) / 1.35 var(--font-sans);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .task-link:hover {
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      /* A Project's chip: its mark in its colour, then its name. */
+      .project-chip {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 5px;
+        height: 20px;
+        padding: 0 7px 0 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .project-mark {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        background: var(--mark);
+        color: var(--white);
+        font: 700 7px/1 var(--font-sans);
+        letter-spacing: 0.02em;
+      }
+      .top .project-mark {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        font-size: 8px;
+      }
+      /* packages/ui/src/tooltip.css */
+      .tooltip {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 70;
+        width: max-content;
+        max-width: min(300px, calc(100vw - 16px));
+        padding: 5px 8px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-inverse);
+        box-shadow: var(--shadow-2);
+        font: 500 12px/1.35 var(--font-sans);
+        color: var(--fg-inverse);
+        pointer-events: none;
+      }
+      /* The charts' own Tip (design-system/components/charts) */
+      .chart-tip {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 70;
+        min-width: 170px;
+        max-width: min(320px, calc(100vw - 16px));
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        pointer-events: none;
+      }
+      .tip-title {
+        margin-bottom: 6px;
+        font: 500 12px/1.3 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .tip-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: var(--type-body-sm);
+        line-height: 20px;
+        color: var(--fg-1);
+      }
+      .tip-row i {
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+      .tip-row span {
+        flex: 1;
+        color: var(--fg-2);
+      }
+      .tip-row b {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .tip-row.total {
+        margin-top: 4px;
+        padding-top: 4px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .tip-row.total span {
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .tip-row.muted,
+      .tip-row.muted b {
+        color: var(--fg-3);
+        font-weight: 400;
+      }
+      .tip-line {
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .tip-line + .tip-line {
+        margin-top: 2px;
+      }
+      .tip-line.muted {
+        color: var(--fg-3);
+      }
+      .toast {
+        position: fixed;
+        bottom: 22px;
+        left: 50%;
+        z-index: 80;
+        max-width: min(560px, calc(100vw - 32px));
+        padding: 10px 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        font: var(--type-body-sm);
+        box-shadow: var(--shadow-3);
+        transform: translateX(-50%);
+        animation: pop-in var(--duration-fast) var(--ease-out);
+      }
+      @keyframes pop-in {
+        from {
+          opacity: 0;
+          transform: translate(-50%, 4px);
+        }
+      }
+      /* The shared loader (block-loader.tsx): unseen for its first 200ms, then a 160ms fade. */
+      .block-loader {
+        animation: block-loader-in 160ms ease-out 200ms both;
+      }
+      @keyframes block-loader-in {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .skeleton {
+        display: block;
+        flex: none;
+        border-radius: 4px;
+        background: linear-gradient(90deg, var(--surface-sunken) 0%, var(--border-subtle) 50%, var(--surface-sunken) 100%);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s ease-in-out infinite;
+      }
+      @keyframes shimmer {
+        from {
+          background-position: 100% 0;
+        }
+        to {
+          background-position: -100% 0;
+        }
+      }
+
+      /* ---------- Stats (apps/web/src/surfaces/stats, proposed) ---------- */
+      .page-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px 24px;
+        margin-bottom: 6px;
+      }
+      .page-head-words {
+        flex: 1 1 320px;
+        min-width: 0;
+      }
+      .page-title {
+        margin: 0;
+        font: 600 var(--text-xl) / 1.3 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+      .page-sub {
+        margin-top: 2px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .range {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .coverage {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .coverage svg {
+        flex: none;
+      }
+      .w-phone .range {
+        flex-basis: 100%;
+      }
+      .w-phone .range .select {
+        flex: 1;
+      }
+      .state-banner {
+        margin-top: 16px;
+      }
+      .blocks {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        grid-auto-flow: row dense;
+        align-items: start;
+        gap: 16px;
+        margin-top: 18px;
+      }
+      .span-12 {
+        grid-column: span 12;
+      }
+      .span-8 {
+        grid-column: span 8;
+      }
+      .span-4 {
+        grid-column: span 4;
+      }
+      .pair {
+        grid-column: span 6;
+      }
+      .w-tablet .span-8,
+      .w-tablet .span-4 {
+        grid-column: span 12;
+      }
+      .w-tablet .span-4.t-6 {
+        grid-column: span 6;
+      }
+      .w-phone .blocks > * {
+        grid-column: span 12;
+      }
+      .w-phone .blocks {
+        gap: 12px;
+      }
+      .block {
+        display: flex;
+        flex-direction: column;
+      }
+      .block-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 16px;
+        padding: 14px 16px 0;
+      }
+      .block-heading {
+        display: flex;
+        flex: 1 1 220px;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        min-width: 0;
+      }
+      .block-title {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .block-when {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .block-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+      }
+      .tool-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .tool-label {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        white-space: nowrap;
+      }
+      .block-figure {
+        padding: 4px 16px 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        font-variant-numeric: tabular-nums;
+      }
+      .block-figure b {
+        font: 600 var(--text-lg) / 1.4 var(--font-sans);
+        color: var(--fg-1);
+        letter-spacing: var(--tracking-tight);
+      }
+      .block-body {
+        padding: 12px 16px 16px;
+        min-width: 0;
+      }
+      .block-foot {
+        padding: 10px 16px 12px;
+        border-top: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .empty {
+        padding: 18px 4px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+        margin: 0 0 10px;
+        padding: 0;
+        list-style: none;
+      }
+      .legend li {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .legend li i {
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+      }
+      .legend li i.line {
+        width: 14px;
+        height: 2px;
+        border-radius: 1px;
+      }
+      .legend li i.guide {
+        width: 14px;
+        height: 0;
+        border-top: 1.5px dashed var(--c);
+        border-radius: 0;
+      }
+      .legend li i.dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .legend li b {
+        font-weight: 600;
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+      }
+      .legend li.muted {
+        color: var(--fg-3);
+      }
+      .chart {
+        position: relative;
+        min-width: 0;
+        border-radius: var(--radius-sm);
+        outline: none;
+      }
+      .chart:focus-visible {
+        box-shadow: var(--focus-ring);
+      }
+      .chart svg {
+        display: block;
+        overflow: visible;
+      }
+      .chart .grid {
+        stroke: var(--chart-grid);
+      }
+      .chart .grid.dash {
+        stroke-dasharray: 3 3;
+      }
+      .chart .vgrid {
+        stroke: var(--chart-grid);
+      }
+      .chart .axis {
+        font: 400 11px var(--font-sans);
+        fill: var(--chart-axis);
+        font-variant-numeric: tabular-nums;
+      }
+      .chart .hatch-line {
+        stroke: var(--border-strong);
+        stroke-width: 1.5;
+      }
+      .chart .hatch-words {
+        font: 500 11px var(--font-sans);
+        fill: var(--fg-2);
+      }
+      .chart .hatch-words-bg {
+        fill: var(--surface);
+      }
+      .chart .hi-band {
+        fill: var(--surface-sunken);
+      }
+      .chart .under-label {
+        font: 400 11px var(--font-sans);
+        fill: var(--fg-3);
+      }
+      .chart .under-bar {
+        fill: var(--chart-6);
+        opacity: 0.45;
+      }
+      .chart .under-bar.on {
+        opacity: 0.8;
+      }
+      .chart .guide {
+        stroke-width: 1;
+        stroke-dasharray: 4 4;
+      }
+      .chart .guide.warning {
+        stroke: var(--warning);
+      }
+      .chart .guide.danger {
+        stroke: var(--danger);
+      }
+      .chart .guide-words {
+        font: 500 10px var(--font-sans);
+      }
+      .chart .guide-words.warning {
+        fill: var(--warning-fg);
+      }
+      .chart .guide-words.danger {
+        fill: var(--danger-fg);
+      }
+      .chart .now-line {
+        stroke: var(--fg-3);
+        stroke-dasharray: 2 3;
+      }
+      .chart .now-words {
+        font: 500 10px var(--font-sans);
+        fill: var(--fg-3);
+      }
+      .chart .cross {
+        stroke: var(--border-strong);
+      }
+      .chart .lane-label {
+        font: 400 11px var(--font-sans);
+        fill: var(--fg-2);
+      }
+      .chart .lane-sep {
+        stroke: var(--border-subtle);
+      }
+      .chart .call {
+        cursor: pointer;
+      }
+      .chart .call.on {
+        stroke: var(--fg-1);
+        stroke-width: 1.5;
+      }
+      .chart .calls.dim .call:not(.on) {
+        opacity: 0.55;
+      }
+      .chart-empty {
+        display: grid;
+        place-items: center;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-md);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+        text-align: center;
+        padding: 12px;
+      }
+      .table-scroll {
+        max-height: 360px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+        font-variant-numeric: tabular-nums;
+      }
+      .data-table th,
+      .data-table td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--border-subtle);
+        text-align: right;
+        white-space: nowrap;
+      }
+      .data-table th:first-child,
+      .data-table td:first-child {
+        text-align: left;
+      }
+      .data-table td.text {
+        text-align: left;
+        white-space: normal;
+        min-width: 160px;
+      }
+      .data-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--surface-sunken);
+        font: 600 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .data-table tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      .data-table td.muted {
+        color: var(--fg-3);
+      }
+      .data-table td.nothing {
+        color: var(--fg-3);
+        text-align: left;
+        font-style: italic;
+      }
+      .data-table th i {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 6px;
+        border-radius: 2px;
+      }
+
+      /* Loaders shaped like the blocks they stand for */
+      .sk-head {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .sk-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 2.5%;
+        padding: 0 8px 0 44px;
+        border-bottom: 1px solid var(--chart-grid);
+      }
+      .sk-bars .skeleton {
+        flex: 1;
+        border-radius: 3px 3px 0 0;
+      }
+      .sk-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .sk-row:last-child {
+        border-bottom: 0;
+      }
+      .sk-words {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 7px;
+        min-width: 0;
+      }
+
+      /* Tokens per day's cache reads, and the top Tasks' bars */
+      .bar-track {
+        height: 4px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: var(--chart-track);
+      }
+      .bar-track i {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--c, var(--fg-3));
+      }
+      .top-list,
+      .x-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .top-row {
+        padding: 9px 0;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .top-row:first-child {
+        padding-top: 2px;
+      }
+      .top-row:last-child {
+        border-bottom: 0;
+      }
+      .top-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        margin-bottom: 6px;
+      }
+      .rank {
+        flex: none;
+        width: 16px;
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+      }
+      .top-row .bar-track {
+        margin-left: 24px;
+      }
+      .top-tokens {
+        flex: none;
+        margin-left: auto;
+        font: 600 var(--text-sm) / 1 var(--font-sans);
+        font-variant-numeric: tabular-nums;
+      }
+      .hint {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .hint svg {
+        margin-top: 1px;
+      }
+
+      /* Usage windows now */
+      .engine-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .engine-block + .engine-block {
+        padding-top: 14px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .engine-name {
+        margin-bottom: 8px;
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+        overflow-wrap: anywhere;
+      }
+      .window-row {
+        display: grid;
+        grid-template-columns: 96px minmax(60px, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        margin-top: 6px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .window-row .meter {
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+      }
+      .window-row .meter i {
+        background: var(--fg-2);
+      }
+      .window-row .meter.warning i {
+        background: var(--warning);
+      }
+      .window-row .meter.danger i {
+        background: var(--danger);
+      }
+      .window-value {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .window-value b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .window-value b.warning {
+        color: var(--warning-fg);
+      }
+      .window-value b.danger {
+        color: var(--danger-fg);
+      }
+      .not-read {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .w-phone .window-row {
+        grid-template-columns: 84px minmax(40px, 1fr);
+      }
+      .w-phone .window-row .window-value {
+        grid-column: 2;
+        margin-top: -4px;
+      }
+
+      /* This week */
+      .week-figs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .week-fig {
+        padding: 12px 14px 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .week-label {
+        font: 500 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .week-num {
+        margin: 4px 0 6px;
+        font: 600 30px/1.1 var(--font-sans);
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .week-text {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* The message at the foot of the basic stats */
+      .message {
+        display: flex;
+        gap: 14px;
+        padding: 16px 18px;
+        background: var(--surface-sunken);
+        border-style: dashed;
+        border-color: var(--border-strong);
+      }
+      .message-icon {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: 0 0 0 1px var(--border);
+        color: var(--fg-2);
+      }
+      .message-words {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        min-width: 0;
+      }
+      .message-title {
+        font: 600 var(--text-md) / 1.4 var(--font-sans);
+      }
+      .message-text {
+        max-width: 72ch;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .message-step {
+        margin-top: 4px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+
+      /* The most expensive Tasks and Initiatives */
+      .x-headrow,
+      .x-line {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) 96px 92px;
+        align-items: center;
+        column-gap: 10px;
+      }
+      .x-headrow {
+        padding: 0 0 8px;
+        border-bottom: 1px solid var(--border);
+        font: 500 var(--text-2xs) / 1.3 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .x-headrow span:nth-child(n + 3) {
+        text-align: right;
+      }
+      .x-row {
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .x-row:last-child {
+        border-bottom: 0;
+      }
+      .x-line {
+        padding: 10px 0 8px;
+      }
+      .fold {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+      }
+      .fold:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .fold svg {
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .fold[aria-expanded="true"] svg {
+        transform: rotate(90deg);
+      }
+      .x-main {
+        min-width: 0;
+      }
+      .x-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        min-width: 0;
+      }
+      .x-title .task-link {
+        max-width: 100%;
+      }
+      .x-meta {
+        margin-top: 3px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .x-retry {
+        color: var(--warning-fg);
+      }
+      .x-cost,
+      .x-tokens {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .x-cost {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+      }
+      .x-tokens {
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .x-row > .bar-track {
+        height: 3px;
+        margin: 0 0 10px 38px;
+      }
+      .x-fold {
+        margin: 0 0 12px 38px;
+        padding: 6px 12px;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .cs-row {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr) 72px;
+        align-items: baseline;
+        gap: 4px 12px;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-body-sm);
+      }
+      .cs-row:last-child {
+        border-bottom: 0;
+      }
+      .cs-name {
+        min-width: 0;
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .cs-name .task-link {
+        display: inline-block;
+        max-width: 100%;
+        vertical-align: bottom;
+      }
+      .cs-runs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 6px;
+        min-width: 0;
+        color: var(--fg-2);
+      }
+      .run {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 7px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-badge);
+        background: var(--surface);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        color: var(--fg-2);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .run.retry {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .cs-cost {
+        text-align: right;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .cs-row.quiet .cs-name {
+        color: var(--fg-2);
+        font-weight: 400;
+      }
+      .w-phone .x-headrow {
+        grid-template-columns: 24px minmax(0, 1fr) auto;
+      }
+      .w-phone .x-headrow span:nth-child(4) {
+        display: none;
+      }
+      .w-phone .x-line {
+        grid-template-columns: 24px minmax(0, 1fr) auto;
+        align-items: start;
+      }
+      .w-phone .x-tokens {
+        grid-column: 3;
+        font-size: var(--text-xs);
+      }
+      .w-phone .x-row > .bar-track,
+      .w-phone .x-fold {
+        margin-left: 0;
+      }
+      .w-phone .cs-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .w-phone .cs-runs {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
+
+      /* The Usage windows over time and the lane of what was running */
+      .lane-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 16px;
+        margin: 18px 0 8px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .sub-title {
+        flex: 1 1 200px;
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+      }
+      .lane-head .legend {
+        flex-basis: 100%;
+        order: 3;
+        margin: 0;
+      }
+
+      /* ---------- Settings (section-layout.css and telemetry.css, as built, plus the proposed Stats group) ---------- */
+      .section-layout {
+        display: grid;
+        grid-template-columns: 200px minmax(0, 1fr);
+        gap: var(--gap-panel);
+        align-items: start;
+      }
+      .section-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .section-menu a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 36px;
+        padding: 0 10px;
+        border-radius: 8px;
+        font: var(--type-label);
+        color: var(--fg-2);
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .section-menu a:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .section-menu a.active {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+      .section-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+        max-width: 1100px;
+      }
+      .w-tablet .section-layout,
+      .w-phone .section-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .w-tablet .section-menu,
+      .w-phone .section-menu {
+        flex-direction: row;
+        overflow-x: auto;
+      }
+      .w-tablet .section-menu a,
+      .w-phone .section-menu a {
+        flex: none;
+        white-space: nowrap;
+      }
+      .tel-head {
+        padding: 18px 20px 0;
+      }
+      .tel-title {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .tel-sub {
+        margin-top: 2px;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .tel-body,
+      .tel-endpoint,
+      .tel-headers,
+      .tel-stats {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+      .tel-body {
+        gap: var(--gap-card);
+        padding: 14px 20px 20px;
+      }
+      .tel-subtitle {
+        font: var(--type-label);
+      }
+      .tel-header-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        align-items: end;
+        gap: var(--space-2);
+      }
+      .tel-header-row .icon-button {
+        margin-bottom: 2px;
+      }
+      .tel-headers > .btn,
+      .tel-test > .btn {
+        align-self: flex-start;
+      }
+      .tel-note {
+        margin: 0;
+        font: var(--type-body);
+        color: var(--fg-2);
+        overflow-wrap: anywhere;
+      }
+      .tel-note.small {
+        margin-top: -6px;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .tel-stats {
+        margin-top: 4px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .tel-two {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+      }
+      .w-phone .tel-two {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .tel-test {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+      .tel-test-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+      }
+      .tel-test-row .field-hint {
+        flex: 1 1 200px;
+      }
+      .tel-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+        padding-top: 4px;
+      }
+      .tel-actions-state {
+        flex: 1 1 260px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .tel-grafana {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+      .tel-grafana .tel-note {
+        font: var(--type-body-sm);
+      }
+      .disabled-wrap {
+        display: inline-flex;
+        border-radius: var(--radius-control);
+      }
+      /* Last, so a selected or current control's own shadow never hides the focus ring. */
+      .segmented button[aria-selected="true"]:focus-visible,
+      .switch button[aria-pressed="true"]:focus-visible,
+      .rail-item.active:focus-visible {
+        box-shadow: var(--focus-ring);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="proposal-bar" id="bar-main"></div>
+    <div class="scenario-line" id="bar-second"></div>
+    <div class="stage" id="stage"></div>
+
+    <div class="doc" id="doc">
+<h2>What it proposes</h2>
+      <ol>
+        <li><strong>Two levels.</strong> The basic stats are always there, from what The Office already keeps (<code>day_tokens</code>, <code>stage_runs.tokens</code>, <code>task_state_changes</code>, <code>UsageWindowState</code>), with no cost anywhere; the full stats show once Grafana answers, and the range picker and the coverage line come with them.</li>
+        <li><strong>Drawn by The Office, never embedded panels.</strong> Every chart is the design system's bar or line chart over Grafana's data, so it follows the palette, the Project filter and the UI rules. Each has a Tooltip per bar or point on hover and on keyboard focus (one tab stop; the arrow keys step, Shift for ten, Home and End), <code>role="img"</code> with a summary, and Show as a table.</li>
+        <li><strong>Office-wide says so.</strong> Tokens per day, the Usage windows now and the Usage windows over time with their lane carry an "Office-wide" badge; while a Project filter is set, its Tooltip says the filter doesn't narrow them. The filter narrows the top Tasks, Tasks done and Stage retries, tokens and cost over time, and the most expensive.</li>
+        <li><strong>Cache reads are shown, never counted:</strong> a strip of their own under tokens per day, a line in every token Tooltip, a column in the tables.</li>
+        <li><strong>Estimated cost only in the full stats,</strong> always called estimated, priced from Settings › Engines › Model prices.</li>
+        <li><strong>The states keep the basic stats.</strong> The three Basic states say their words in the message at the foot, with the link; Grafana's problems say theirs in an Alert at the top with their next step; a query that fails partway puts Unreachable's words only in the blocks it fed.</li>
+        <li><strong>Settings › Telemetry gains a Stats group</strong> under the export fields, with Your own endpoint picked: Grafana read address, Read token and Test. They apply as soon as they're saved, with no restart; the export fields still apply at the next start, and the actions line says both.</li>
+      </ol>
+      <h2>Open for the Gate</h2>
+      <ul>
+        <li><strong>The lane of what was running is Office-wide</strong>, as the windows above it are, so the Project filter doesn't narrow it. It could instead fade the other Projects' rows.</li>
+        <li><strong>7 d is the default range:</strong> long enough to show the week's rhythm and the 7-day window's reset, short enough that the lane stays readable.</li>
+        <li><strong>Engines without Usage windows are left out</strong> of both windows blocks rather than listed with "No Usage windows".</li>
+      </ul>
+      <p style="margin-top:18px;font:var(--type-caption);color:var(--fg-3)">The mock's data is made up and drawn from a seeded generator, the same on every load; today is Tue 17 Nov 2026, 14:05. Like the other pages, it uses the Geist fonts only where they are installed, and makes no network requests. The address keeps every switch and the page's own choices.</p>
+    </div>
+
+    <script>
+      /* ---------- Icons (Lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+        kanban: '<path d="M6 5v11"/><path d="M12 5v6"/><path d="M18 5v14"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        folderGit: '<path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><path d="M18 19c-2.8 0-5-2.2-5-5v8"/><circle cx="20" cy="19" r="2"/>',
+        chartColumn: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+        building: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+        settings: '<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+        palette:
+          '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
+        panelOpen: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
+        layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+        chevronDown: '<path d="m6 9 6 6 6-6"/>',
+        chevronRight: '<path d="m9 18 6-6-6-6"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        siren: '<path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/>',
+        chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+        info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+        circleAlert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+        circleCheck: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+        triangleAlert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+        loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+        table: '<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
+        arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+        rotate: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+        externalLink: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3"/>',
+        gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+        cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+        route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+        briefcase: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
+        sparkles: '<path d="M9.94 14.06 12 21l2.06-6.94L21 12l-6.94-2.06L12 3l-2.06 6.94L3 12z"/><path d="M20 3v4"/><path d="M22 5h-4"/>',
+        plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+        logIn: '<path d="m10 17 5-5-5-5"/><path d="M15 12H3"/><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>',
+        fingerprint: '<path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2v2"/>',
+        scroll: '<path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>',
+        bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+        refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+        play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+        calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name]}</svg>`;
+      const esc = (text) =>
+        String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const sum = (list) => list.reduce((a, b) => a + b, 0);
+
+      /* ---------- Time: minutes on the service's clock from Mon 19 Oct 2026, 00:00 ---------- */
+      const DAY = 1440;
+      const DAYS = 30; // the 30 office days ending today: 19 Oct to 17 Nov
+      const NOW = 29 * DAY + 14 * 60 + 5; // Tue 17 Nov 2026, 14:05
+      const SENT_FROM = 15 * DAY; // 3 Nov: the first data point Grafana holds
+      const WEEK_FROM = 28 * DAY; // this week: Mon 16 Nov, 00:00
+      const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const dayDate = (day) => new Date(Date.UTC(2026, 9, 19 + day));
+      const dayLabel = (day) => {
+        const date = dayDate(day);
+        return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
+      };
+      const weekdayOf = (day) => ((day % 7) + 7) % 7;
+      const dayLong = (day) => `${WEEKDAYS[weekdayOf(day)]} ${dayLabel(day)}`;
+      const hhmm = (minutes) => {
+        const m = ((Math.round(minutes) % DAY) + DAY) % DAY;
+        return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+      };
+      const whenLong = (minutes) => `${dayLong(Math.floor(minutes / DAY))}, ${hhmm(minutes)}`;
+
+      /* ---------- Figures ---------- */
+      function fmtTokens(value) {
+        if (value >= 999500) return `${(value / 1e6).toFixed(1).replace(/\.0$/, "")}M`;
+        if (value >= 1000) return `${Math.round(value / 1000)}k`;
+        return String(Math.round(value));
+      }
+      const fmtUsd = (value) => (value >= 1000 ? `$${Math.round(value).toLocaleString("en-US")}` : `$${value.toFixed(2)}`);
+      const fmtUsdAxis = (value) =>
+        value === 0 ? "$0" : value < 1 ? `$${value.toFixed(2)}` : Number.isInteger(value) ? `$${value}` : `$${value.toFixed(1)}`;
+      const fmtPercent = (value) => `${Math.round(value)}%`;
+      const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+      function niceStep(x) {
+        if (x <= 0) return 1;
+        const power = Math.pow(10, Math.floor(Math.log10(x)));
+        const n = x / power;
+        return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * power;
+      }
+
+      /* ---------- A seeded generator, so the page is the same on every load ---------- */
+      function mulberry32(seed) {
+        return function next() {
+          seed = (seed + 0x6d2b79f5) | 0;
+          let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      const rand = mulberry32(20261117);
+      const between = (a, b) => a + (b - a) * rand();
+      const whole = (a, b) => Math.floor(between(a, b + 1));
+      const chance = (p) => rand() < p;
+
+      /* ---------- The Office's people, Projects, Pipelines, models and engines ---------- */
+      const ROLES = {
+        developer: "Developer",
+        planner: "Planner",
+        cto: "CTO",
+        "ui-ux-designer": "UI/UX Designer",
+        devops: "DevOps",
+        reviewer: "Reviewer",
+        "office-manager": "Office Manager",
+      };
+      const PEOPLE = {
+        developer: "Jim",
+        planner: "Angela",
+        cto: "Michael",
+        "ui-ux-designer": "Stanley",
+        devops: "Dwight",
+        reviewer: "Oscar",
+        "office-manager": "Pam",
+      };
+      const PROJECTS = {
+        "the-office": { mark: "TO", color: "var(--chart-1)" },
+        "not-astray": { mark: "NA", color: "var(--chart-3)" },
+        notnullsoft: { mark: "NN", color: "var(--chart-5)" },
+      };
+      const PIPELINES = {
+        Full: ["Plan", "Build", "Review & fix", "Verify on Linux", "Publish"],
+        Design: ["Plan", "Create a design", "Review & fix", "Publish"],
+        "Quick fix": ["Build", "Review & fix", "Publish"],
+      };
+      const STAGE_ORDER = ["Plan", "Create a design", "Build", "Review & fix", "Verify on Linux"];
+      /* Publish runs commands only: it makes no engine call. */
+      const STAGES = {
+        Plan: { role: "planner", model: "claude-opus-5-5", calls: [4, 7], size: 15000, minutes: [25, 60], retry: 0.08 },
+        "Create a design": { role: "ui-ux-designer", model: "claude-opus-5-5", calls: [5, 9], size: 20000, minutes: [40, 90], retry: 0.3 },
+        Build: { role: "developer", model: "claude-sonnet-5-5", calls: [6, 12], size: 17000, minutes: [45, 130], retry: 0.35 },
+        "Review & fix": { role: "reviewer", model: "claude-opus-5-5", calls: [4, 8], size: 13000, minutes: [30, 80], retry: 0.25 },
+        "Verify on Linux": { role: "devops", model: "claude-haiku-5-5", calls: [2, 5], size: 6000, minutes: [12, 35], retry: 0.3 },
+      };
+      /* Settings › Engines › Model prices, US dollars per million tokens: input, output, cache writes, cache reads. */
+      const PRICES = {
+        "claude-opus-5-5": [5, 25, 6.25, 0.5],
+        "claude-sonnet-5-5": [3, 15, 3.75, 0.3],
+        "claude-haiku-5-5": [1, 5, 1.25, 0.1],
+        "gpt-5-codex": [1.25, 10, 0, 0.125],
+      };
+      /* In Settings › Engines' order. */
+      const ENGINES = {
+        "claude-max": { name: "Claude Max · przemek", windows: true },
+        "claude-pro-team": { name: "Claude Pro · team", windows: true },
+        "codex-plus": { name: "Codex · ChatGPT Plus", windows: true },
+        "codex-api": { name: "Codex · API key", windows: false },
+        "local-qwen": { name: "Local Qwen (OpenAI-compatible)", windows: false },
+      };
+      const ENGINE_SETS = {
+        two: ["claude-max", "codex-plus"],
+        five: ["claude-max", "claude-pro-team", "codex-plus", "codex-api", "local-qwen"],
+        none: ["codex-api", "local-qwen"],
+      };
+      /* How full each engine's windows are now, as UsageWindowState gives them: null is "Not read yet".
+         reset5 is the minute today the 5-hour window resets; reset7 the weekday its 7-day window resets at 09:00. */
+      const WINDOWS_NOW = {
+        two: {
+          "claude-max": { five: 91, reset5: 16 * 60 + 40, seven: 71, reset7: 3 },
+          "codex-plus": { five: 41, reset5: 17 * 60 + 10, seven: 23, reset7: 0 },
+        },
+        five: {
+          "claude-max": { five: 91, reset5: 16 * 60 + 40, seven: 71, reset7: 3 },
+          "claude-pro-team": null,
+          "codex-plus": { five: 100, reset5: 15 * 60 + 30, seven: 64, reset7: 0 },
+        },
+        none: {},
+      };
+      const INITIATIVES = {
+        statistics: { title: "Statistics" },
+        "offline-sync": { title: "Offline sync" },
+        "user-authentication": { title: "User authentication" },
+      };
+      /* id, title, Project, Pipeline, Initiative, when it started [day, hour, minute], whether Build runs on Codex */
+      const TASK_LIST = [
+        ["t1", "Sign in with a passkey", "the-office", "Full", "user-authentication", [15, 9, 40]],
+        ["t2", "Session tokens for the API", "notnullsoft", "Full", "user-authentication", [15, 13, 10], true],
+        ["t3", "Invoice PDF export", "notnullsoft", "Full", null, [16, 10, 5]],
+        ["t4", "Continue with GitHub", "the-office", "Full", "user-authentication", [17, 9, 20]],
+        ["t5", "Trail difficulty badges", "not-astray", "Design", null, [18, 11, 0]],
+        ["t6", "Fix the route import from GPX files", "not-astray", "Quick fix", null, [21, 9, 15]],
+        ["t7", "Sync API endpoints", "notnullsoft", "Full", "offline-sync", [21, 14, 30], true],
+        ["t8", "Spec and design the Stats section", "the-office", "Design", "statistics", [22, 10, 0]],
+        ["t9", "Dark palette for the landing page", "notnullsoft", "Design", null, [23, 9, 30]],
+        ["t10", "Map tiles cache", "not-astray", "Full", null, [24, 10, 40]],
+        ["t11", "Upgrade to Node 22.12", "notnullsoft", "Quick fix", null, [25, 15, 20], true],
+        ["t12", "Offline sync queue", "not-astray", "Full", "offline-sync", [25, 16, 10]],
+        ["t13", "Send Grafana the telemetry the full stats need", "the-office", "Full", "statistics", [28, 8, 50]],
+        ["t14", "Stats section with the basic stats", "the-office", "Full", "statistics", [28, 9, 5]],
+        ["t15", "Conflict resolution screen", "not-astray", "Design", "offline-sync", [28, 9, 30]],
+        ["t16", "Retry failed GitHub pushes", "the-office", "Quick fix", null, [28, 10, 15]],
+        ["t17", "Recover a lost passkey", "the-office", "Full", "user-authentication", [28, 11, 0]],
+        ["t18", "Webhooks for paid invoices", "notnullsoft", "Full", null, [28, 13, 20], true],
+        ["t19", "Read Grafana for the full stats", "the-office", "Full", "statistics", [29, 8, 40]],
+        ["t20", "Elevation profile on the route page", "not-astray", "Design", null, [29, 9, 10]],
+        ["t21", "Rate limits for the public API", "notnullsoft", "Quick fix", null, [29, 9, 45], true],
+        ["t22", "Usage windows over time chart", "the-office", "Design", "statistics", [29, 10, 30]],
+      ];
+      const TASKS = TASK_LIST.map(([id, title, project, pipeline, initiative, [d, h, m], codex]) => ({
+        id, title, project, pipeline, initiative, codex: Boolean(codex), start: d * DAY + h * 60 + m, doneAt: null,
+      }));
+      const TASK_BY_ID = Object.fromEntries(TASKS.map((task) => [task.id, task]));
+
+      /* ---------- The engine calls Grafana holds (office.engine.call), from 3 Nov ---------- */
+      const CALLS = [];
+      const RUNS = [];
+      function engineFor(model) {
+        if (model === "gpt-5-codex") return chance(0.3) ? "codex-api" : "codex-plus";
+        return chance(0.2) ? "claude-pro-team" : "claude-max";
+      }
+      function addCall(fields, start, minutes, counted) {
+        const end = Math.round(start + minutes);
+        if (start < SENT_FROM || end > NOW) return;
+        const codex = fields.model === "gpt-5-codex";
+        const output = Math.round(counted * between(0.12, 0.2));
+        const input = codex ? counted - output : Math.round(counted * between(0.38, 0.52));
+        const writes = codex ? 0 : Math.max(0, counted - input - output);
+        const reads = Math.round(counted * between(3.5, 7.5));
+        const price = PRICES[fields.model];
+        const cost = (input * price[0] + output * price[1] + writes * price[2] + reads * price[3]) / 1e6;
+        CALLS.push({
+          stage: null, run: 0, task: null, initiative: null, pipeline: null, project: null,
+          ...fields, engine: engineFor(fields.model), start: Math.round(start), end, input, output, writes, reads, counted, cost,
+        });
+      }
+      /* The next time someone is there to pass a Gate: weekdays, 08:30 to 19:00. */
+      function workTime(t) {
+        for (let guard = 0; guard < 8; guard++) {
+          const day = Math.floor(t / DAY);
+          const minute = t - day * DAY;
+          if (weekdayOf(day) >= 5) t = (day + 7 - weekdayOf(day)) * DAY + 9 * 60 + whole(0, 50);
+          else if (minute > 19 * 60) t = (day + 1) * DAY + 9 * 60 + whole(0, 50);
+          else if (minute < 8 * 60) t = day * DAY + 8 * 60 + 30 + whole(0, 50);
+          else break;
+        }
+        return t;
+      }
+      for (const task of TASKS) {
+        // Every call on a Task carries its Project and Pipeline, in a Stage or not.
+        const shared = { task: task.id, project: task.project, initiative: task.initiative, pipeline: task.pipeline };
+        // Its planning, before the first Stage: outside a Stage.
+        let at = task.start - whole(30, 70);
+        for (let k = whole(1, 3); k > 0; k--) {
+          addCall({ ...shared, kind: "outside", role: "planner", person: PEOPLE.planner, model: "claude-opus-5-5" }, at, whole(2, 6), Math.round(between(5000, 14000)));
+          at += whole(6, 15);
+        }
+        let cursor = task.start;
+        let stopped = false;
+        for (const stage of PIPELINES[task.pipeline]) {
+          if (cursor >= NOW || stopped) break;
+          if (stage === "Publish") {
+            const done = cursor + whole(3, 8);
+            if (done <= NOW) task.doneAt = done;
+            break;
+          }
+          const spec = STAGES[stage];
+          const model = stage === "Build" && task.codex ? "gpt-5-codex" : spec.model;
+          let run = 1;
+          let runStart = cursor;
+          for (;;) {
+            if (runStart >= NOW) {
+              stopped = true;
+              break;
+            }
+            RUNS.push({ task: task.id, project: task.project, stage, run, start: runStart });
+            const minutes = between(spec.minutes[0], spec.minutes[1]);
+            const n = whole(spec.calls[0], spec.calls[1]);
+            for (let i = 0; i < n; i++) {
+              addCall(
+                { ...shared, kind: "stage", role: spec.role, person: PEOPLE[spec.role], model, stage, run, pipeline: task.pipeline },
+                runStart + (minutes * i) / n + between(0, 2),
+                (minutes / n) * between(0.55, 0.9),
+                Math.round(spec.size * between(0.5, 1.6) * (run > 1 ? 0.7 : 1)),
+              );
+            }
+            const runEnd = runStart + minutes;
+            if (run < 3 && chance(spec.retry / run)) {
+              run += 1;
+              runStart = runEnd + whole(4, 20);
+              continue;
+            }
+            cursor = runEnd;
+            break;
+          }
+          if (stopped) break;
+          // A person's own Thread on the Task, now and then: outside a Stage too.
+          if (chance(0.18)) {
+            addCall({ ...shared, kind: "outside", role: "cto", person: PEOPLE.cto, model: "claude-opus-5-5" }, cursor + whole(5, 30), whole(3, 7), Math.round(between(6000, 18000)));
+          }
+          cursor = workTime(cursor + whole(15, 160));
+        }
+      }
+      /* Chats, on no Task. */
+      const CHATTERS = [
+        { role: "cto", model: "claude-opus-5-5" },
+        { role: "office-manager", model: "claude-haiku-5-5" },
+        { role: "planner", model: "claude-sonnet-5-5" },
+      ];
+      for (let day = 15; day < DAYS; day++) {
+        const n = weekdayOf(day) >= 5 ? whole(0, 2) : whole(3, 7);
+        for (let i = 0; i < n; i++) {
+          const who = CHATTERS[whole(0, 2)];
+          addCall({ kind: "chat", role: who.role, person: PEOPLE[who.role], model: who.model }, day * DAY + whole(8 * 60, 20 * 60), whole(1, 5), Math.round(between(3000, 16000)));
+        }
+      }
+      /* The Initiatives' own Threads, on no Task and no Project. */
+      const INITIATIVE_DAYS = { statistics: [21, 22, 28, 29], "offline-sync": [21, 25, 28], "user-authentication": [15, 17, 24] };
+      for (const [initiative, days] of Object.entries(INITIATIVE_DAYS)) {
+        for (const day of days) {
+          for (let k = whole(2, 4); k > 0; k--) {
+            const role = chance(0.6) ? "planner" : "cto";
+            addCall({ kind: "initiative", role, person: PEOPLE[role], model: "claude-opus-5-5", initiative }, day * DAY + whole(8 * 60 + 30, 18 * 60), whole(3, 9), Math.round(between(8000, 26000)));
+          }
+        }
+      }
+      CALLS.sort((a, b) => a.start - b.start);
+
+      /* ---------- What The Office already keeps: day_tokens, stage_runs.tokens, task_state_changes ---------- */
+      const zeroDay = () => ({ input: 0, output: 0, writes: 0, reads: 0, counted: 0 });
+      const BASIC_DAYS = Array.from({ length: DAYS }, zeroDay);
+      for (const call of CALLS) {
+        const day = BASIC_DAYS[Math.floor(call.end / DAY)];
+        if (!day) continue;
+        day.input += call.input;
+        day.output += call.output;
+        day.writes += call.writes;
+        day.reads += call.reads;
+        day.counted += call.counted;
+      }
+      {
+        // day_tokens goes back before Grafana's data: the two weeks before 3 Nov, at the same pace.
+        const mean = (days) => sum(days.map((d) => BASIC_DAYS[d].counted)) / days.length;
+        const weekday = mean([15, 16, 17, 18, 21, 22, 23, 24, 25]);
+        const weekend = Math.max(mean([19, 20, 26, 27]), weekday * 0.08);
+        const spikes = { 3: 1.45, 8: 1.75 };
+        for (let d = 0; d < 15; d++) {
+          const counted = Math.round((weekdayOf(d) >= 5 ? weekend : weekday) * between(0.72, 1.25) * (spikes[d] || 1));
+          const input = Math.round(counted * between(0.4, 0.5));
+          const output = Math.round(counted * between(0.13, 0.18));
+          BASIC_DAYS[d] = { input, output, writes: counted - input - output, reads: Math.round(counted * between(4.5, 6.5)), counted };
+        }
+      }
+      /* A fresh install: three days of chats, no Stage run. */
+      const FRESH_DAYS = Array.from({ length: DAYS }, zeroDay);
+      for (const [d, counted] of [[27, 62400], [28, 38100], [29, 21300]]) {
+        const input = Math.round(counted * 0.46);
+        const output = Math.round(counted * 0.15);
+        FRESH_DAYS[d] = { input, output, writes: counted - input - output, reads: Math.round(counted * 5.2), counted };
+      }
+      const RUN_TOKENS = new Map();
+      for (const call of CALLS) {
+        if (call.kind !== "stage") continue;
+        const key = `${call.task}|${call.stage}|${call.run}`;
+        RUN_TOKENS.set(key, (RUN_TOKENS.get(key) || 0) + call.counted);
+      }
+
+      /* ---------- The proposal's switches and the page's own choices, kept in the address ---------- */
+      const SCENARIOS = [
+        { key: "basic", label: "Basic · a busy week", kind: "basic", message: "off",
+          note: "Telemetry is Off: the basic stats only, from what The Office already keeps, with no cost anywhere, and the message at the foot." },
+        { key: "fresh", label: "Basic · a fresh install", kind: "basic", message: "off", fresh: true,
+          note: "Installed on Sunday: three days of chats, no Stage run this week, and no engine's Usage windows read yet. Each block says what would fill it." },
+        { key: "own", label: "Basic · your own endpoint, no read address", kind: "basic", message: "own",
+          note: "Telemetry goes to the user's own endpoint, but Settings › Telemetry has no Grafana read address: the message says to add it." },
+        { key: "env", label: "Set by the environment", kind: "basic", message: "env",
+          note: "OTEL_ variables set telemetry, so The Office can't tell which Grafana to read: the basic stats only." },
+        { key: "starting", label: "Grafana starting", kind: "banner", banner: "starting",
+          note: "Bundled Grafana is chosen and starting: its words above the basic stats. Play it: Grafana runs after about 4 seconds, the full stats show their loaders, then their charts." },
+        { key: "failed", label: "The bundled Grafana couldn't start", kind: "banner", banner: "failed",
+          note: "Bundled Grafana is chosen and couldn't start: its problem as Settings › Telemetry says it, and the link to where Try again is." },
+        { key: "unreachable", label: "Unreachable", kind: "banner", banner: "unreachable",
+          note: "The bundled Grafana runs but didn't answer within 10 seconds. Try again: it answers, and the full stats show." },
+        { key: "rejected", label: "Read token rejected", kind: "banner", banner: "rejected",
+          note: "The user's own Grafana answered 401 to the Read token." },
+        { key: "nodata", label: "Full · no data yet", kind: "banner", banner: "nodata",
+          note: "Grafana answers but holds nothing The Office sent: its words, then the basic stats as in Basic, with no message." },
+        { key: "full", label: "Full", kind: "full",
+          note: "Grafana answers with data from 3 Nov. Try the range, the measure, Split by, Tasks and Initiatives, a row's cost per Stage, the engine picker and Show as a table; hover or focus a chart and use the arrow keys." },
+        { key: "partial", label: "Full · one query failed", kind: "partial",
+          note: "The logs answered and the metrics didn't: the most expensive Tasks and the lane show; tokens and cost over time and the Usage windows over time say Unreachable's words." },
+      ];
+      const OPTIONS = {
+        screen: [
+          { key: "stats", label: "Stats" },
+          { key: "settings", label: "Settings › Telemetry" },
+        ],
+        scenario: SCENARIOS,
+        engines: [
+          { key: "two", label: "Two" },
+          { key: "five", label: "Five" },
+          { key: "none", label: "None with windows" },
+        ],
+        filter: [
+          { key: "all", label: "All Projects" },
+          { key: "not-astray", label: "not-astray" },
+        ],
+        width: [
+          { key: "wide", label: "Wide" },
+          { key: "900", label: "900px" },
+          { key: "390", label: "390px" },
+        ],
+        palette: [
+          { key: "light", label: "Light" },
+          { key: "dark", label: "Dark" },
+        ],
+        tel: [
+          { key: "own-empty", label: "Your own, nothing yet" },
+          { key: "own-saved", label: "Your own, saved" },
+          { key: "bundled", label: "Bundled Grafana running" },
+        ],
+        test: [
+          { key: "reachable", label: "Reachable" },
+          { key: "rejected", label: "Rejected" },
+          { key: "unreachable", label: "Unreachable" },
+          { key: "none", label: "No data sources" },
+        ],
+        range: [
+          { key: "24h", label: "24 h" },
+          { key: "7d", label: "7 d" },
+          { key: "30d", label: "30 d" },
+        ],
+        split: [
+          { key: "model", label: "Model" },
+          { key: "role", label: "Role" },
+          { key: "stage", label: "Stage" },
+          { key: "pipeline", label: "Pipeline" },
+          { key: "project", label: "Project" },
+        ],
+        measure: [
+          { key: "tokens", label: "Tokens" },
+          { key: "cost", label: "Estimated cost" },
+        ],
+        list: [
+          { key: "tasks", label: "Tasks" },
+          { key: "initiatives", label: "Initiatives" },
+        ],
+      };
+      const DEFAULTS = {
+        screen: "stats", scenario: "basic", engines: "two", filter: "all", width: "wide", palette: "light",
+        tel: "own-empty", test: "reachable", range: "7d", split: "model", measure: "tokens", list: "tasks", engine: "",
+      };
+      const state = { ...DEFAULTS };
+      /* What happens in the page and isn't kept in the address. */
+      const live = { answered: false, loading: false, playing: false, retrying: false, timers: [] };
+      const tables = new Set();
+      const folds = new Set();
+      let form = null;
+
+      const scenario = () => SCENARIOS.find(({ key }) => key === state.scenario);
+      const phone = () => state.width === "390";
+      const inFilter = (project) => state.filter === "all" || project === state.filter;
+      function view() {
+        const s = scenario();
+        if (live.answered) return { s, kind: "full", loading: live.loading };
+        return { s, kind: s.kind, loading: false };
+      }
+
+      /* ---------- The basic stats ---------- */
+      function weekFigures() {
+        const runs = RUNS.filter((run) => run.start >= WEEK_FROM && run.start < NOW && inFilter(run.project));
+        const byTask = new Map();
+        for (const run of runs) {
+          const tokens = RUN_TOKENS.get(`${run.task}|${run.stage}|${run.run}`) || 0;
+          byTask.set(run.task, (byTask.get(run.task) || 0) + tokens);
+        }
+        const top = [...byTask.entries()]
+          .filter(([, tokens]) => tokens > 0)
+          .map(([id, tokens]) => ({ task: TASK_BY_ID[id], tokens }))
+          .sort((a, b) => b.tokens - a.tokens)
+          .slice(0, 10);
+        const done = TASKS.filter((task) => task.doneAt !== null && task.doneAt >= WEEK_FROM && inFilter(task.project)).length;
+        const retries = runs.filter((run) => run.run > 1).length;
+        return { top, done, retries };
+      }
+      const resolveEngine = (engine) =>
+        state.engines === "two" ? ({ "claude-pro-team": "claude-max", "codex-api": "codex-plus" })[engine] || engine : engine;
+      /* The engines with Usage windows, in Settings › Engines' order, with how full they are now. */
+      function windowEngines() {
+        return ENGINE_SETS[state.engines]
+          .filter((id) => ENGINES[id].windows)
+          .map((id) => ({ id, name: ENGINES[id].name, now: state.screen === "stats" && scenario().fresh ? null : WINDOWS_NOW[state.engines][id] || null }));
+      }
+      const toneOf = (percent) => (percent >= 100 ? "danger" : percent >= 90 ? "warning" : "");
+      const reset7Words = (weekday) => `${WEEKDAYS[weekday]} 09:00`;
+
+      /* ---------- The full stats: what Grafana's metrics and logs answer ---------- */
+      function rangeOf() {
+        if (state.range === "24h") {
+          const last = Math.floor(NOW / 60) * 60;
+          return { key: "24h", step: 60, from: last - 23 * 60, to: last + 60, n: 24, words: "24 hours", unit: "hour" };
+        }
+        const days = state.range === "7d" ? 7 : 30;
+        return { key: state.range, step: DAY, from: (DAYS - days) * DAY, to: DAYS * DAY, n: days, words: `${days} days`, unit: "day" };
+      }
+      const stepLabel = (r, i) => (r.step === 60 ? hhmm(r.from + i * 60) : dayLabel(r.from / DAY + i));
+      const stepLong = (r, i) =>
+        r.step === 60
+          ? `${dayLong(Math.floor((r.from + i * 60) / DAY))}, ${hhmm(r.from + i * 60)}–${hhmm(r.from + (i + 1) * 60)}`
+          : `${dayLong(r.from / DAY + i)}${r.from / DAY + i === DAYS - 1 ? " · today" : ""}`;
+      const hatchedSteps = (r) => {
+        let n = 0;
+        while (n < r.n && r.from + (n + 1) * r.step <= SENT_FROM) n += 1;
+        return n;
+      };
+      const DIMENSIONS = {
+        model: (call) => call.model,
+        role: (call) => ROLES[call.role],
+        stage: (call) => call.stage || "Not in a Stage",
+        pipeline: (call) => call.pipeline || "No Pipeline",
+        project: (call) => call.project || "No Project",
+      };
+      /* Tokens or estimated cost per step, split by the chosen attribute: the five largest values and Other. */
+      function spend(r) {
+        const calls = CALLS.filter((call) => call.end >= r.from && call.end < r.to && inFilter(call.project));
+        const valueOf = DIMENSIONS[state.split];
+        const measure = state.measure === "cost" ? (call) => call.cost : (call) => call.counted;
+        const totals = new Map();
+        for (const call of calls) totals.set(valueOf(call), (totals.get(valueOf(call)) || 0) + measure(call));
+        const names = [...totals.keys()].sort((a, b) => totals.get(b) - totals.get(a));
+        const named = names.length > 6 ? names.slice(0, 5) : names;
+        const colorOf = (name, k) =>
+          state.split === "project" ? (PROJECTS[name] ? PROJECTS[name].color : "var(--chart-6)") : `var(--chart-${k + 1})`;
+        const series = named.map((name, k) => ({ name, color: colorOf(name, k), data: Array(r.n).fill(0), total: 0 }));
+        if (names.length > 6) series.push({ name: "Other", color: "var(--chart-6)", data: Array(r.n).fill(0), total: 0 });
+        const tokens = Array(r.n).fill(0);
+        const cost = Array(r.n).fill(0);
+        const reads = Array(r.n).fill(0);
+        for (const call of calls) {
+          const i = Math.min(r.n - 1, Math.floor((call.end - r.from) / r.step));
+          const k = named.indexOf(valueOf(call));
+          const s = series[k === -1 ? series.length - 1 : k];
+          s.data[i] += measure(call);
+          s.total += measure(call);
+          tokens[i] += call.counted;
+          cost[i] += call.cost;
+          reads[i] += call.reads;
+        }
+        return { series, tokens, cost, reads, tokenTotal: sum(tokens), costTotal: sum(cost), calls: calls.length };
+      }
+      function costPerStage(calls) {
+        const stages = new Map();
+        let outside = 0;
+        for (const call of calls) {
+          if (!call.stage) {
+            outside += call.cost;
+            continue;
+          }
+          if (!stages.has(call.stage)) stages.set(call.stage, new Map());
+          const runs = stages.get(call.stage);
+          runs.set(call.run, (runs.get(call.run) || 0) + call.cost);
+        }
+        const list = STAGE_ORDER.filter((stage) => stages.has(stage)).map((stage) => {
+          const runs = [...stages.get(stage).entries()].sort((a, b) => a[0] - b[0]).map(([run, cost]) => ({ run, cost }));
+          return { stage, runs, cost: sum(runs.map((run) => run.cost)) };
+        });
+        const runCount = sum(list.map((s) => s.runs.length));
+        const retries = list.flatMap((s) => s.runs.filter((run) => run.run > 1));
+        return { list, outside, runCount, retryCount: retries.length, retryCost: sum(retries.map((run) => run.cost)) };
+      }
+      function expensiveTasks(r) {
+        const byTask = new Map();
+        for (const call of CALLS) {
+          if (!call.task || call.end < r.from || !inFilter(call.project)) continue;
+          if (!byTask.has(call.task)) byTask.set(call.task, []);
+          byTask.get(call.task).push(call);
+        }
+        return [...byTask.entries()]
+          .map(([id, calls]) => ({ task: TASK_BY_ID[id], cost: sum(calls.map((c) => c.cost)), tokens: sum(calls.map((c) => c.counted)), ...costPerStage(calls) }))
+          .sort((a, b) => b.cost - a.cost)
+          .slice(0, 10);
+      }
+      function expensiveInitiatives(r) {
+        return Object.entries(INITIATIVES)
+          .map(([id, initiative]) => {
+            const tasks = TASKS.filter((task) => task.initiative === id);
+            if (!tasks.some((task) => inFilter(task.project))) return null;
+            const calls = CALLS.filter((call) => call.initiative === id && call.end >= r.from);
+            if (calls.length === 0) return null;
+            const threads = calls.filter((call) => !call.task);
+            const perTask = tasks
+              .map((task) => {
+                const own = calls.filter((call) => call.task === task.id);
+                return { task, cost: sum(own.map((c) => c.cost)), tokens: sum(own.map((c) => c.counted)), ...costPerStage(own) };
+              })
+              .filter((row) => row.tokens > 0)
+              .sort((a, b) => b.cost - a.cost);
+            const projects = Object.keys(PROJECTS).filter((p) => tasks.some((task) => task.project === p));
+            return {
+              id, title: initiative.title, projects, perTask,
+              threads: sum(threads.map((c) => c.cost)),
+              cost: sum(calls.map((c) => c.cost)),
+              tokens: sum(calls.map((c) => c.counted)),
+              runCount: sum(perTask.map((row) => row.runCount)),
+              retryCount: sum(perTask.map((row) => row.retryCount)),
+              retryCost: sum(perTask.map((row) => row.retryCost)),
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.cost - a.cost)
+          .slice(0, 10);
+      }
+      /* How full an engine's windows were (office.usage_window.used), from the calls it made: each window
+         fills with them and drops at its reset; the window running now ends at what UsageWindowState says. */
+      function windowModel(engineId) {
+        const now = WINDOWS_NOW[state.engines][engineId];
+        if (!now) return null;
+        const mine = CALLS.filter((call) => resolveEngine(call.engine) === engineId).sort((a, b) => a.end - b.end);
+        const ends = mine.map((call) => call.end);
+        const prefix = [0];
+        for (const call of mine) prefix.push(prefix[prefix.length - 1] + call.counted);
+        const upTo = (t) => {
+          let lo = 0;
+          let hi = ends.length;
+          while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (ends[mid] <= t) lo = mid + 1;
+            else hi = mid;
+          }
+          return lo;
+        };
+        const used = (a, b) => prefix[upTo(b)] - prefix[upTo(a)];
+        const R5 = 29 * DAY + now.reset5;
+        const start5 = (t) => R5 - 300 + Math.floor((t - (R5 - 300)) / 300) * 300;
+        const start7 = (t) => {
+          let d = Math.floor(t / DAY);
+          while (!(weekdayOf(d) === now.reset7 && d * DAY + 540 <= t)) d -= 1;
+          return d * DAY + 540;
+        };
+        const cur5 = R5 - 300;
+        const cur7 = start7(NOW);
+        let max5 = 0;
+        for (let s = start5(SENT_FROM); s < cur5; s += 300) max5 = Math.max(max5, used(s, s + 300));
+        let max7 = 0;
+        for (let s = start7(SENT_FROM); s < cur7; s += 7 * DAY) max7 = Math.max(max7, used(s, s + 7 * DAY));
+        const cap5 = Math.max(max5 / 0.96, 1);
+        const cap7 = Math.max(max7 / 0.9, 1);
+        const raw5 = (used(cur5, NOW) / cap5) * 100;
+        const raw7 = (used(cur7, NOW) / cap7) * 100;
+        const value = (t) => {
+          if (t < SENT_FROM || t > NOW) return null;
+          const s5 = start5(t);
+          let five = (used(s5, t) / cap5) * 100;
+          if (s5 === cur5) five = raw5 > 0.5 ? (five * now.five) / raw5 : (now.five * (t - cur5)) / (NOW - cur5);
+          const s7 = start7(t);
+          let seven = (used(s7, t) / cap7) * 100;
+          if (s7 === cur7) seven = raw7 > 0.5 ? (seven * now.seven) / raw7 : (now.seven * (t - cur7)) / (NOW - cur7);
+          return { five: Math.min(100, five), seven: Math.min(100, seven) };
+        };
+        return { now, value, start5, start7, R5 };
+      }
+      function windowPoints(model, r) {
+        const step = r.key === "24h" ? 10 : r.key === "7d" ? 30 : 120;
+        const times = new Set();
+        for (let t = r.from; t <= NOW; t += step) times.add(t);
+        times.add(NOW);
+        // Each reset as a drop: a point just before it and one at it.
+        for (let s = model.start5(Math.max(r.from, SENT_FROM)) + 300; s <= NOW; s += 300) {
+          times.add(s - 1);
+          times.add(s);
+        }
+        for (let s = model.start7(Math.max(r.from, SENT_FROM)) + 7 * DAY; s <= NOW; s += 7 * DAY) {
+          times.add(s - 1);
+          times.add(s);
+        }
+        return [...times]
+          .filter((t) => t >= r.from && t <= NOW)
+          .sort((a, b) => a - b)
+          .map((t) => ({ t, ...(model.value(t) || { five: null, seven: null }) }));
+      }
+      /* The engines with Usage windows, the fullest first. */
+      function pickerEngines() {
+        const fullness = (engine) => (engine.now ? Math.max(engine.now.five, engine.now.seven) : -1);
+        return windowEngines().sort((a, b) => fullness(b) - fullness(a));
+      }
+      function laneOf(engineId, r) {
+        const calls = CALLS.filter((call) => resolveEngine(call.engine) === engineId && call.end >= r.from && call.start < r.to);
+        const rows = [];
+        const rowOf = new Map();
+        for (const call of calls) {
+          const key = call.task || "threads";
+          if (key === "threads" || rowOf.has(key)) continue;
+          rowOf.set(key, rows.length);
+          const task = TASK_BY_ID[key];
+          rows.push({ label: task.title, color: PROJECTS[task.project].color });
+        }
+        if (calls.some((call) => !call.task)) {
+          rowOf.set("threads", rows.length);
+          rows.push({ label: "Chats and Initiatives", color: "var(--chart-6)" });
+        }
+        const items = calls.map((call) => ({ call, row: rowOf.get(call.task || "threads") }));
+        return { rows, items };
+      }
+      function callWords(call) {
+        const who = `${call.person} (${ROLES[call.role]})`;
+        const tokens = `${fmtTokens(call.counted)} tokens`;
+        if (call.kind === "stage") return { title: TASK_BY_ID[call.task].title, line: `${call.stage}, run ${call.run} · ${who} · ${tokens}` };
+        if (call.kind === "outside") return { title: TASK_BY_ID[call.task].title, line: `Outside a Stage · ${who} · ${tokens}` };
+        if (call.kind === "initiative") return { title: INITIATIVES[call.initiative].title, line: `The Initiative's Threads · ${who} · ${tokens}` };
+        return { title: "A chat", line: `${who} · ${tokens}` };
+      }
+      function openWords(call) {
+        if (call.task) return `Opens the Task “${TASK_BY_ID[call.task].title}”.`;
+        if (call.initiative) return `Opens the Initiative “${INITIATIVES[call.initiative].title}”.`;
+        return `Opens ${call.person}'s chat.`;
+      }
+
+      /* ---------- Charts, drawn as the design system's BarChart and LineChart draw them ---------- */
+      const PL = 44;
+      const PR = 8;
+      const UNDER = 50; // the cache reads' strip under Tokens per day
+      let CHART_SPECS = {};
+      /* A chart's place: one tab stop, its words for a screen reader, and a fixed height so nothing jumps. */
+      function chart(id, kind, spec) {
+        CHART_SPECS[id] = { kind, ...spec };
+        const height = spec.height + (spec.under ? UNDER : 0);
+        return `<div class="chart" data-chart="${id}" tabindex="0" role="img" aria-label="${esc(spec.summary)}" style="height:${height}px"></div>`;
+      }
+      function drawCharts() {
+        for (const host of document.querySelectorAll("[data-chart]")) {
+          const spec = CHART_SPECS[host.dataset.chart];
+          if (!spec || host.clientWidth === 0) continue;
+          if (spec.kind === "bars") drawBars(host, spec);
+          else if (spec.kind === "lines") drawLines(host, spec);
+          else drawLane(host, spec);
+        }
+      }
+      const hatchDefs = (id) =>
+        `<defs><pattern id="${id}-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="hatch-line" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>`;
+      function hatchRect(id, x, y, width, height) {
+        if (width <= 0) return "";
+        const words = width > 110
+          ? `<rect class="hatch-words-bg" x="${x + width / 2 - 52}" y="${y + height / 2 - 10}" width="104" height="20" rx="4"/><text class="hatch-words" x="${x + width / 2}" y="${y + height / 2}" dy="0.32em" text-anchor="middle">Nothing sent yet</text>`
+          : "";
+        return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-hatch)"/>${words}`;
+      }
+      /* Ticks under a time axis: hours for 24 h, days for 7 d and 30 d. */
+      function timeTicks(r, X, pw) {
+        const lines = [];
+        const labels = [];
+        if (r.key === "24h") {
+          const every = [1, 2, 3, 4, 6, 8, 12].find((k) => (pw / 24) * k >= 48) || 12;
+          for (let i = 0; i <= 24; i++) {
+            const t = r.from + i * 60;
+            if (i % 6 === 0) lines.push(X(t));
+            if (i < 24 && (23 - i) % every === 0) labels.push({ x: X(t + 30), text: hhmm(t) });
+          }
+        } else {
+          const every = Math.max(1, Math.ceil(52 / (pw / r.n)));
+          for (let i = 0; i <= r.n; i++) {
+            const t = r.from + i * DAY;
+            if (pw / r.n >= 8) lines.push(X(t));
+            if (i < r.n && (r.n - 1 - i) % every === 0) labels.push({ x: X(t + DAY / 2), text: dayLabel(r.from / DAY + i) });
+          }
+        }
+        return { lines, labels };
+      }
+
+      function drawBars(host, spec) {
+        const id = host.dataset.chart;
+        const w = host.clientWidth;
+        const H = spec.height;
+        const n = spec.labels.length;
+        const pt = 8;
+        const pb = 24;
+        const pw = Math.max(0, w - PL - PR);
+        const ph = H - pt - pb;
+        const band = pw / n;
+        const gw = Math.max(2, Math.min(band * 0.64, 40));
+        const totals = spec.labels.map((_, i) => sum(spec.series.map((s) => s.data[i] || 0)));
+        const max = Math.max(0, ...totals);
+        const step = niceStep((max || spec.emptyTop || 1) / 4);
+        const top = Math.max(step, Math.ceil(max / step) * step);
+        const Y = (v) => pt + ph - (v / top) * ph;
+        let g = hatchDefs(id);
+        g += hatchRect(id, PL, pt, band * (spec.hatch || 0), ph);
+        for (let k = 0; k <= Math.round(top / step); k++) {
+          const y = Y(k * step);
+          g += `<line class="grid${k ? " dash" : ""}" x1="${PL}" x2="${w - PR}" y1="${y}" y2="${y}"/><text class="axis" x="${PL - 8}" y="${y}" dy="0.32em" text-anchor="end">${spec.fmtAxis(k * step)}</text>`;
+        }
+        g += `<rect class="hi-band" x="-9999" y="${pt}" width="${band}" height="${ph}"/>`;
+        for (let i = 0; i < n; i++) {
+          const x = PL + band * i + band / 2 - gw / 2;
+          let acc = 0;
+          let last = -1;
+          spec.series.forEach((s, si) => {
+            if ((s.data[i] || 0) > 0) last = si;
+          });
+          spec.series.forEach((s, si) => {
+            const v = s.data[i] || 0;
+            if (v <= 0) return;
+            const h = (v / top) * ph;
+            const y = Y(acc + v);
+            acc += v;
+            const r = Math.min(2, h / 2, gw / 2);
+            const d = si === last
+              ? `M${x} ${y + h}V${y + r}q0 ${-r} ${r} ${-r}h${gw - 2 * r}q${r} 0 ${r} ${r}V${y + h}Z`
+              : `M${x} ${y}h${gw}v${h}h${-gw}Z`;
+            g += `<path d="${d}" style="fill:${s.color}"/>`;
+          });
+        }
+        const every = Math.max(1, Math.ceil(n / Math.max(1, pw / 52)));
+        for (let i = 0; i < n; i++) {
+          if ((n - 1 - i) % every !== 0) continue;
+          g += `<text class="axis" x="${PL + band * i + band / 2}" y="${H - 6}" text-anchor="middle">${spec.labels[i]}</text>`;
+        }
+        let height = H;
+        if (spec.under) {
+          const u = spec.under;
+          const umax = Math.max(1, ...u.data);
+          const uy = H + 18;
+          const uh = 26;
+          g += `<text class="under-label" x="${PL}" y="${H + 10}">${esc(u.label)}</text>`;
+          g += `<line class="grid" x1="${PL}" x2="${w - PR}" y1="${uy + uh}" y2="${uy + uh}"/>`;
+          for (let i = 0; i < n; i++) {
+            const h = (u.data[i] / umax) * uh;
+            if (h > 0) g += `<rect class="under-bar" data-u="${i}" x="${PL + band * i + band / 2 - gw / 2}" y="${uy + uh - h}" width="${gw}" height="${h}" rx="1"/>`;
+          }
+          height = H + UNDER;
+        }
+        host.innerHTML = `<svg width="${w}" height="${height}" aria-hidden="true">${g}</svg>`;
+        const svg = host.querySelector("svg");
+        wire(host, {
+          count: n,
+          start: n - 1,
+          at: (x) => (x < PL || x > w - PR ? null : Math.max(0, Math.min(n - 1, Math.floor((x - PL) / band)))),
+          xOf: (i) => PL + band * i + band / 2 + gw / 2,
+          yOf: () => pt,
+          tip: spec.tip,
+          mark(i) {
+            svg.querySelector(".hi-band").setAttribute("x", i === null ? -9999 : PL + band * i);
+            svg.querySelectorAll(".under-bar.on").forEach((el) => el.classList.remove("on"));
+            if (i !== null) svg.querySelector(`.under-bar[data-u="${i}"]`)?.classList.add("on");
+          },
+        });
+      }
+
+      function drawLines(host, spec) {
+        const id = host.dataset.chart;
+        const w = host.clientWidth;
+        const H = spec.height;
+        const pl = spec.pl;
+        const pt = 10;
+        const pb = 8;
+        const pw = Math.max(0, w - pl - PR);
+        const ph = H - pt - pb;
+        const r = spec.range;
+        const X = (t) => pl + ((t - r.from) / (r.to - r.from)) * pw;
+        const Y = (v) => pt + ph - (v / 100) * ph;
+        const points = spec.points;
+        let g = hatchDefs(id);
+        if (r.from < SENT_FROM) g += hatchRect(id, X(r.from), pt, X(Math.min(SENT_FROM, r.to)) - X(r.from), ph);
+        for (const v of [0, 25, 50, 75, 100]) {
+          g += `<line class="grid${v ? " dash" : ""}" x1="${pl}" x2="${w - PR}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${pl - 8}" y="${Y(v)}" dy="0.32em" text-anchor="end">${v}%</text>`;
+        }
+        for (const x of timeTicks(r, X, pw).lines) g += `<line class="vgrid" x1="${x}" x2="${x}" y1="${pt}" y2="${pt + ph}" opacity="0.6"/>`;
+        g += `<line class="guide warning" x1="${pl}" x2="${w - PR}" y1="${Y(90)}" y2="${Y(90)}"/><text class="guide-words warning" x="${w - PR - 2}" y="${Y(90) + 11}" text-anchor="end">90%</text>`;
+        g += `<line class="guide danger" x1="${pl}" x2="${w - PR}" y1="${Y(100)}" y2="${Y(100)}"/>`;
+        const pathOf = (key) => {
+          const segments = [];
+          let current = [];
+          for (const p of points) {
+            if (p[key] === null) {
+              if (current.length) segments.push(current);
+              current = [];
+            } else current.push(p);
+          }
+          if (current.length) segments.push(current);
+          return segments;
+        };
+        for (const s of spec.series) {
+          for (const seg of pathOf(s.key)) {
+            const d = seg.map((p, i) => `${i ? "L" : "M"}${X(p.t).toFixed(1)} ${Y(p[s.key]).toFixed(1)}`).join(" ");
+            if (s.area) g += `<path d="${d} L${X(seg[seg.length - 1].t).toFixed(1)} ${Y(0)} L${X(seg[0].t).toFixed(1)} ${Y(0)} Z" style="fill:${s.color}" fill-opacity="0.08"/>`;
+            g += `<path d="${d}" fill="none" style="stroke:${s.color}" stroke-width="${s.width || 2}" stroke-linejoin="round" stroke-linecap="round"/>`;
+          }
+        }
+        g += `<line class="now-line" x1="${X(NOW)}" x2="${X(NOW)}" y1="${pt}" y2="${pt + ph}"/><text class="now-words" x="${X(NOW) - 4}" y="${pt + 9}" text-anchor="end">Now</text>`;
+        g += `<g class="hover" style="display:none"><line class="cross" y1="${pt}" y2="${pt + ph}"/>${spec.series
+          .map((s) => `<circle data-s="${s.key}" r="4" style="fill:var(--surface);stroke:${s.color}" stroke-width="2"/>`)
+          .join("")}</g>`;
+        host.innerHTML = `<svg width="${w}" height="${H}" aria-hidden="true">${g}</svg>`;
+        const svg = host.querySelector("svg");
+        const valid = points.map((p, i) => (p.five === null ? -1 : i)).filter((i) => i >= 0);
+        wire(host, {
+          count: valid.length,
+          start: valid.length - 1,
+          at(x) {
+            if (x < pl || x > w - PR || valid.length === 0) return null;
+            const t = r.from + ((x - pl) / pw) * (r.to - r.from);
+            let best = 0;
+            for (let k = 1; k < valid.length; k++) {
+              if (Math.abs(points[valid[k]].t - t) < Math.abs(points[valid[best]].t - t)) best = k;
+            }
+            return best;
+          },
+          xOf: (k) => X(points[valid[k]].t),
+          yOf: () => pt,
+          tip: (k) => spec.tip(points[valid[k]]),
+          mark(k) {
+            const hover = svg.querySelector(".hover");
+            if (k === null) {
+              hover.style.display = "none";
+              return;
+            }
+            const p = points[valid[k]];
+            hover.style.display = "";
+            hover.querySelector(".cross").setAttribute("x1", X(p.t));
+            hover.querySelector(".cross").setAttribute("x2", X(p.t));
+            for (const s of spec.series) {
+              const dot = hover.querySelector(`[data-s="${s.key}"]`);
+              dot.setAttribute("cx", X(p.t));
+              dot.setAttribute("cy", Y(p[s.key]));
+            }
+          },
+        });
+      }
+
+      function drawLane(host, spec) {
+        const id = host.dataset.chart;
+        const w = host.clientWidth;
+        const pl = spec.pl;
+        const r = spec.range;
+        const rowH = 18;
+        const top = 4;
+        const pw = Math.max(0, w - pl - PR);
+        const laneH = spec.rows.length * rowH;
+        const H = spec.height;
+        const X = (t) => pl + ((t - r.from) / (r.to - r.from)) * pw;
+        const ticks = timeTicks(r, X, pw);
+        let g = hatchDefs(id);
+        if (r.from < SENT_FROM) g += hatchRect(id, X(r.from), top, X(Math.min(SENT_FROM, r.to)) - X(r.from), laneH);
+        for (const x of ticks.lines) g += `<line class="vgrid" x1="${x}" x2="${x}" y1="${top}" y2="${top + laneH}" opacity="0.6"/>`;
+        const chars = Math.floor((pl - 18) / 6.1);
+        spec.rows.forEach((row, k) => {
+          const y = top + k * rowH;
+          g += `<line class="lane-sep" x1="${pl}" x2="${w - PR}" y1="${y + rowH}" y2="${y + rowH}"/>`;
+          if (pl > 60) {
+            const label = row.label.length > chars ? `${row.label.slice(0, chars - 1).trimEnd()}…` : row.label;
+            g += `<rect x="2" y="${y + rowH / 2 - 3}" width="6" height="6" rx="1.5" style="fill:${row.color}"/><text class="lane-label" x="14" y="${y + rowH / 2}" dy="0.32em">${esc(label)}</text>`;
+          } else {
+            g += `<rect x="${pl - 14}" y="${y + rowH / 2 - 3}" width="6" height="6" rx="1.5" style="fill:${row.color}"/>`;
+          }
+        });
+        g += `<g class="calls">${spec.items
+          .map(({ call, row }, k) => {
+            const x = X(call.start);
+            const width = Math.max(2, X(call.end) - x);
+            return `<rect class="call" data-k="${k}" x="${x.toFixed(1)}" y="${top + row * rowH + 4}" width="${width.toFixed(1)}" height="10" rx="2" style="fill:${spec.rows[row].color}"/>`;
+          })
+          .join("")}</g>`;
+        g += `<line class="now-line" x1="${X(NOW)}" x2="${X(NOW)}" y1="${top}" y2="${top + laneH}"/>`;
+        for (const label of ticks.labels) g += `<text class="axis" x="${label.x}" y="${H - 6}" text-anchor="middle">${label.text}</text>`;
+        host.innerHTML = `<svg width="${w}" height="${H}" aria-hidden="true">${g}</svg>`;
+        const svg = host.querySelector("svg");
+        wire(host, {
+          count: spec.items.length,
+          start: spec.items.length - 1,
+          at: (x, y, target) => (target && target.dataset && target.dataset.k !== undefined ? Number(target.dataset.k) : null),
+          xOf(k) {
+            const { call } = spec.items[k];
+            return (X(call.start) + Math.max(2, X(call.end) - X(call.start))) + 4;
+          },
+          yOf: (k) => top + spec.items[k].row * rowH,
+          tip: (k) => spec.tip(spec.items[k].call),
+          open: (k) => toast(openWords(spec.items[k].call)),
+          mark(k) {
+            const calls = svg.querySelector(".calls");
+            calls.querySelectorAll(".call.on").forEach((el) => el.classList.remove("on"));
+            calls.classList.toggle("dim", k !== null);
+            if (k !== null) calls.querySelector(`[data-k="${k}"]`).classList.add("on");
+          },
+        });
+      }
+
+      /* Hover, focus and the arrow keys: one Tooltip per bar or point, as the charts' Tip shows it. */
+      function wire(host, geo) {
+        const svg = host.querySelector("svg");
+        const show = (i, clientX) => {
+          host._i = i;
+          geo.mark(i);
+          const box = svg.getBoundingClientRect();
+          showChartTip(geo.tip(i), clientX ?? box.left + geo.xOf(i), box.top + geo.yOf(i));
+        };
+        const hide = () => {
+          geo.mark(null);
+          hideChartTip();
+        };
+        host.onpointermove = (event) => {
+          if (geo.count === 0) return;
+          const box = svg.getBoundingClientRect();
+          const i = geo.at(event.clientX - box.left, event.clientY - box.top, event.target);
+          if (i === null) {
+            if (document.activeElement !== host) hide();
+            return;
+          }
+          show(i, geo.open ? undefined : event.clientX);
+        };
+        // Keyboard focus keeps its Tooltip; a press of the mouse doesn't.
+        const keyboard = () => host.matches(":focus-visible");
+        host.onpointerleave = () => {
+          if (keyboard() && host._i !== undefined) show(host._i);
+          else hide();
+        };
+        host.onfocus = () => {
+          if (geo.count === 0 || !keyboard()) return;
+          show(host._i !== undefined && host._i < geo.count ? host._i : geo.start);
+        };
+        host.onblur = hide;
+        host.onkeydown = (event) => {
+          if (geo.count === 0) return;
+          const i = host._i ?? geo.start;
+          const step = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[event.key];
+          let next = null;
+          if (step) next = Math.max(0, Math.min(geo.count - 1, i + step * (event.shiftKey ? 10 : 1)));
+          if (event.key === "Home") next = 0;
+          if (event.key === "End") next = geo.count - 1;
+          if (next !== null) {
+            event.preventDefault();
+            show(next);
+          } else if ((event.key === "Enter" || event.key === " ") && geo.open) {
+            event.preventDefault();
+            geo.open(i);
+          }
+        };
+        host.onclick = (event) => {
+          if (!geo.open) return;
+          const box = svg.getBoundingClientRect();
+          const i = geo.at(event.clientX - box.left, event.clientY - box.top, event.target);
+          if (i !== null) geo.open(i);
+        };
+      }
+      let chartTip = null;
+      function showChartTip(html, clientX, clientY) {
+        if (!chartTip) {
+          chartTip = document.createElement("div");
+          chartTip.className = "chart-tip";
+          chartTip.setAttribute("role", "tooltip");
+          document.body.append(chartTip);
+        }
+        chartTip.innerHTML = html;
+        chartTip.style.display = "block";
+        const width = chartTip.offsetWidth;
+        const height = chartTip.offsetHeight;
+        let left = clientX + 14;
+        if (left + width > window.innerWidth - 8) left = clientX - 14 - width;
+        const top = Math.max(8, Math.min(clientY, window.innerHeight - height - 8));
+        chartTip.style.left = `${Math.max(8, left)}px`;
+        chartTip.style.top = `${top}px`;
+      }
+      function hideChartTip() {
+        if (chartTip) chartTip.style.display = "none";
+      }
+      const tipRow = (name, color, value, extra = "") =>
+        `<div class="tip-row${extra ? ` ${extra}` : ""}">${color ? `<i style="background:${color}"></i>` : ""}<span>${esc(name)}</span><b>${value}</b></div>`;
+      /* A chart's figures as a table, in its place. */
+      function tableHtml(head, rows) {
+        return `<div class="table-scroll"><table class="data-table"><thead><tr>${head.map((h) => `<th scope="col">${h}</th>`).join("")}</tr></thead><tbody>${rows
+          .map((cells) => `<tr>${cells.map((c, i) => (i === 0 ? `<th scope="row" style="font-weight:500">${c}</th>` : typeof c === "object" ? `<td class="${c.cls}"${c.span ? ` colspan="${c.span}"` : ""}>${c.html}</td>` : `<td>${c}</td>`)).join("")}</tr>`)
+          .join("")}</tbody></table></div>`;
+      }
+
+      /* ---------- Parts every block uses ---------- */
+      const chip = (project) =>
+        `<span class="project-chip"><span class="project-mark" style="--mark:${PROJECTS[project].color}">${PROJECTS[project].mark}</span>${project}</span>`;
+      const OFFICE_WIDE_WORDS = "The Project filter doesn't narrow this: these figures belong to The Office as a whole.";
+      const officeWide = () =>
+        state.filter === "all"
+          ? '<span class="badge">Office-wide</span>'
+          : `<span class="badge" tabindex="0" data-tip="${esc(OFFICE_WIDE_WORDS)}">Office-wide<span class="sr-only">: ${esc(OFFICE_WIDE_WORDS)}</span>${icon("info", 11)}</span>`;
+      const sinceMonday = '<span class="block-when">since Mon 16 Nov</span>';
+      const segmented = (key, label, options = OPTIONS[key]) =>
+        `<div class="segmented" role="tablist" aria-label="${esc(label)}">${options
+          .map((o) => `<button type="button" role="tab" aria-selected="${state[key] === o.key}" data-set="${key}" data-value="${o.key}">${esc(o.label)}</button>`)
+          .join("")}</div>`;
+      const selectControl = (key, label, options = OPTIONS[key]) =>
+        `<label class="select"><select data-select="${key}" aria-label="${esc(label)}">${options
+          .map((o) => `<option value="${o.key}"${state[key] === o.key ? " selected" : ""}>${esc(o.label)}</option>`)
+          .join("")}</select>${icon("chevronDown", 14)}</label>`;
+      const tableToggle = (id) =>
+        `<button type="button" class="btn ghost sm" data-table="${id}">${icon(tables.has(id) ? "chartColumn" : "table", 13)}${tables.has(id) ? "Show as a chart" : "Show as a table"}</button>`;
+      const settingsLink = (words = "Settings › Telemetry") =>
+        `<button type="button" class="link" data-toast="Opens Settings › Telemetry.">${words}${icon("arrowRight", 13)}</button>`;
+      const spinner = (size = 16, cls = "alert-icon") => `<span class="${cls} spin" style="display:inline-grid" aria-hidden="true">${icon("loader", size)}</span>`;
+      function alertBox(tone, title, text, action, busy) {
+        const icons = { info: "info", success: "circleCheck", warning: "triangleAlert", danger: "circleAlert" };
+        return `<div class="alert ${tone}" role="${tone === "danger" ? "alert" : "status"}">${busy ? spinner() : `<span class="alert-icon">${icon(icons[tone], 16)}</span>`}<div class="alert-words"><div class="alert-title">${title}</div>${text ? `<div class="alert-text">${text}</div>` : ""}</div>${action ? `<div class="alert-action">${action}</div>` : ""}</div>`;
+      }
+      const tryAgain = () =>
+        live.retrying
+          ? `<button type="button" class="btn secondary sm" aria-busy="true" disabled>${spinner(13, "")}Try again</button>`
+          : `<button type="button" class="btn secondary sm" data-action="retry">${icon("rotate", 13)}Try again</button>`;
+      const unreachableAlert = () =>
+        alertBox("danger", "Couldn't reach Grafana at http://127.0.0.1:3300", "No answer within 10 seconds.", `${tryAgain()}${settingsLink()}`);
+      function block({ id, cls, title, badge = "", when = "", tools = "", figure = "", body, foot = "" }) {
+        return `<section class="card block ${cls}" aria-labelledby="${id}-title">
+          <header class="block-head">
+            <div class="block-heading"><h3 class="block-title" id="${id}-title">${title}</h3>${badge}${when}</div>
+            ${tools ? `<div class="block-tools">${tools}</div>` : ""}
+          </header>
+          ${figure ? `<p class="block-figure">${figure}</p>` : ""}
+          <div class="block-body">${body}</div>
+          ${foot ? `<footer class="block-foot">${foot}</footer>` : ""}
+        </section>`;
+      }
+      const legend = (items) =>
+        `<ul class="legend">${items
+          .map((item) => `<li class="${item.muted ? "muted" : ""}"><i class="${item.shape || ""}" style="${item.shape === "guide" ? `--c:${item.color}` : `background:${item.color}`}"></i>${esc(item.name)}${item.value ? ` <b>${item.value}</b>` : ""}</li>`)
+          .join("")}</ul>`;
+
+      /* ---------- Loaders shaped like the blocks (BlockLoader) ---------- */
+      function loaderBars(height) {
+        const bars = Array.from({ length: 16 }, (_, i) => 28 + ((i * 41) % 60));
+        return `<div class="block-loader" role="status"><span class="sr-only">Loading…</span><div class="sk-head"><span class="skeleton" style="width:150px;height:14px"></span><span class="skeleton" style="width:90px;height:14px"></span></div><div class="sk-bars" style="height:${height}px">${bars.map((h) => `<span class="skeleton" style="height:${h}%"></span>`).join("")}</div></div>`;
+      }
+      function loaderRows(n) {
+        return `<div class="block-loader" role="status"><span class="sr-only">Loading…</span>${Array.from({ length: n }, (_, i) => `<div class="sk-row"><span class="skeleton" style="width:16px;height:16px"></span><span class="sk-words"><span class="skeleton" style="width:${62 - ((i * 13) % 30)}%;height:12px"></span><span class="skeleton" style="width:${30 + ((i * 7) % 18)}%;height:10px"></span></span><span class="skeleton" style="width:56px;height:12px"></span><span class="skeleton" style="width:48px;height:12px"></span></div>`).join("")}</div>`;
+      }
+      function loaderLines() {
+        return `<div class="block-loader" role="status"><span class="sr-only">Loading…</span><span class="skeleton" style="width:100%;height:170px;border-radius:6px"></span><div style="display:flex;flex-direction:column;gap:6px;margin-top:16px">${Array.from({ length: 5 }, (_, i) => `<span class="skeleton" style="width:${40 + ((i * 17) % 50)}%;height:10px;margin-left:${8 + ((i * 23) % 30)}%"></span>`).join("")}</div></div>`;
+      }
+
+      /* ---------- Basic stats ---------- */
+      const KIND_COLORS = { input: "var(--chart-2)", output: "var(--chart-5)", writes: "var(--chart-3)" };
+      function tokensPerDayBlock() {
+        const days = scenario().fresh ? FRESH_DAYS : BASIC_DAYS;
+        const total = sum(days.map((d) => d.counted));
+        const reads = sum(days.map((d) => d.reads));
+        const today = days[DAYS - 1].counted;
+        const busiest = days.reduce((best, d, i) => (d.counted > days[best].counted ? i : best), 0);
+        const kinds = [
+          { key: "input", name: "Input" },
+          { key: "output", name: "Output" },
+          { key: "writes", name: "Cache writes" },
+        ];
+        const figure = `<b>${fmtTokens(total)}</b> tokens in 30 days · <b>${fmtTokens(today)}</b> today`;
+        const legendHtml = legend([
+          ...kinds.map((k) => ({ name: k.name, color: KIND_COLORS[k.key], value: fmtTokens(sum(days.map((d) => d[k.key]))) })),
+          { name: "Cache reads, not counted", color: "var(--chart-6)", value: fmtTokens(reads), muted: true },
+        ]);
+        let body;
+        if (tables.has("days")) {
+          body = tableHtml(
+            ["Day", "Input", "Output", "Cache writes", "Total", "Cache reads, not counted"],
+            days.map((d, i) => [dayLong(i), fmtTokens(d.input), fmtTokens(d.output), fmtTokens(d.writes), `<b>${fmtTokens(d.counted)}</b>`, { cls: "muted", html: fmtTokens(d.reads) }]),
+          );
+        } else {
+          body = chart("days", "bars", {
+            height: phone() ? 170 : 210,
+            labels: days.map((_, i) => dayLabel(i)),
+            series: kinds.map((k) => ({ name: k.name, color: KIND_COLORS[k.key], data: days.map((d) => d[k.key]) })),
+            under: { label: `Cache reads, not counted · ${fmtTokens(reads)} in 30 days`, data: days.map((d) => d.reads) },
+            fmtAxis: fmtTokens,
+            emptyTop: 100000,
+            summary: `Tokens per day, the last 30 office days: ${fmtTokens(total)} in all, the most on ${dayLong(busiest)} with ${fmtTokens(days[busiest].counted)}, ${fmtTokens(today)} today. Cache reads, ${fmtTokens(reads)}, are drawn apart and not counted. Use the arrow keys to read each day.`,
+            tip: (i) => {
+              const d = days[i];
+              return `<div class="tip-title">${dayLong(i)}${i === DAYS - 1 ? " · today" : ""}</div>${kinds
+                .map((k) => tipRow(k.name, KIND_COLORS[k.key], fmtTokens(d[k.key])))
+                .join("")}${tipRow("Total", "", fmtTokens(d.counted), "total")}${tipRow("Cache reads, not counted", "var(--chart-6)", fmtTokens(d.reads), "muted")}`;
+            },
+          });
+        }
+        return block({
+          id: "days", cls: "span-8", title: "Tokens per day", badge: officeWide(), tools: tableToggle("days"), figure,
+          body: `${legendHtml}${body}`,
+        });
+      }
+      function topTasksBlock() {
+        const { top } = scenario().fresh ? { top: [] } : weekFigures();
+        const body = top.length === 0
+          ? '<p class="empty">No Stage has run this week yet.</p>'
+          : `<ol class="top-list">${top
+              .map((row, i) => `<li class="top-row">
+                  <div class="top-line"><span class="rank">${i + 1}</span><a class="task-link" tabindex="0" role="link" data-toast="Opens the Task “${esc(row.task.title)}”.">${esc(row.task.title)}</a>${chip(row.task.project)}<span class="top-tokens">${fmtTokens(row.tokens)}</span></div>
+                  <div class="bar-track" style="--c:${PROJECTS[row.task.project].color}"><i style="width:${((row.tokens / top[0].tokens) * 100).toFixed(1)}%"></i></div>
+                </li>`)
+              .join("")}</ol>`;
+        return block({
+          id: "top", cls: "span-8", title: "The Tasks with the most tokens this week", when: sinceMonday, body,
+          foot: `<span class="hint">${icon("info", 12)}Stage runs only: a Task's other Threads and Consultations aren't counted.</span>`,
+        });
+      }
+      function windowRow(label, percent, resets) {
+        const tone = toneOf(percent);
+        return `<div class="window-row"><span>${label}</span><span class="meter ${tone}" role="meter" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" aria-label="${label}"><i style="width:${Math.min(100, percent)}%"></i></span><span class="window-value"><b class="${tone}">${percent}%</b> · resets ${resets}</span></div>`;
+      }
+      function windowsNowBlock(cls) {
+        const engines = windowEngines();
+        const body = engines.length === 0
+          ? '<p class="empty">None of your engines has Usage windows.</p>'
+          : `<div class="engine-list">${engines
+              .map((e) => `<div class="engine-block"><div class="engine-name">${esc(e.name)}</div>${e.now
+                ? `${windowRow("5-hour window", e.now.five, hhmm(e.now.reset5))}${windowRow("7-day window", e.now.seven, reset7Words(e.now.reset7))}`
+                : `<span class="not-read">${icon("gauge", 13)}Not read yet</span>`}</div>`)
+              .join("")}</div>`;
+        return block({ id: "windows-now", cls, title: "Usage windows now", badge: officeWide(), body });
+      }
+      function thisWeekBlock(cls) {
+        const { done, retries } = scenario().fresh ? { done: 0, retries: 0 } : weekFigures();
+        return block({
+          id: "week", cls, title: "This week", when: sinceMonday,
+          body: `<div class="week-figs">
+            <div class="week-fig"><div class="week-label">Tasks done</div><div class="week-num">${done}</div><p class="week-text">Tasks that moved to Done this week, each counted once.</p></div>
+            <div class="week-fig"><div class="week-label">Stage retries</div><div class="week-num">${retries}</div><p class="week-text">A Stage run whose Stage already had a run on the same Task.</p></div>
+          </div>`,
+        });
+      }
+      const FULL_ADDS = "Estimated cost by model, Role, Stage, Pipeline and Project, the most expensive Tasks and Initiatives, and how full the Usage windows were over time.";
+      const MESSAGES = {
+        off: { words: "Turn on Grafana in Settings › Telemetry to see more.", step: settingsLink() },
+        own: { words: "Add your Grafana's read address in Settings › Telemetry to see more.", step: settingsLink() },
+        env: {
+          words: "The environment sets telemetry, so Stats shows the basic stats only.",
+          step: `<span class="message-step">Remove the OTEL_ variables to choose in ${settingsLink()}</span>`,
+        },
+      };
+      function messageBlock(key) {
+        const m = MESSAGES[key];
+        return `<section class="card message span-12" aria-label="The full stats"><span class="message-icon">${icon("chartColumn", 18)}</span><div class="message-words"><p class="message-title">${m.words}</p><p class="message-text">${FULL_ADDS}</p>${m.step}</div></section>`;
+      }
+      function bannerHtml(key) {
+        if (key === "starting") {
+          return alertBox("info", "Grafana is starting…", "The first start pulls its image, which can take a few minutes.", "", true);
+        }
+        if (key === "failed") {
+          return alertBox("danger", "The bundled Grafana couldn't start", "Docker isn't installed, or The Office can't reach it.", settingsLink());
+        }
+        if (key === "unreachable") return unreachableAlert();
+        if (key === "rejected") {
+          return alertBox("danger", "Grafana refused the read token", "Grafana at https://grafana.example.com answered 401. Give a Viewer service account token in Settings › Telemetry.", settingsLink());
+        }
+        return alertBox("info", "Grafana has no data from The Office yet.", "The full stats start with the next engine call.");
+      }
+
+      /* ---------- Full stats ---------- */
+      function spendBlock(loading, failed) {
+        const r = rangeOf();
+        const title = "Tokens and estimated cost over time";
+        if (loading) return block({ id: "spend", cls: "span-12", title, body: loaderBars(phone() ? 170 : 220) });
+        if (failed) return block({ id: "spend", cls: "span-12", title, body: unreachableAlert() });
+        const data = spend(r);
+        const cost = state.measure === "cost";
+        const fmt = cost ? fmtUsd : fmtTokens;
+        const hatch = hatchedSteps(r);
+        const splitLabel = OPTIONS.split.find((o) => o.key === state.split).label;
+        const tools = `${segmented("measure", "Measure")}<span class="tool-group"><span class="tool-label">Split by</span>${phone() ? selectControl("split", "Split by") : segmented("split", "Split by")}</span>${tableToggle("spend")}`;
+        const figure = `<b>${fmtTokens(data.tokenTotal)}</b> tokens · <b>${fmtUsd(data.costTotal)}</b> estimated · ${r.words}`;
+        const legendHtml = legend(data.series.map((s) => ({ name: s.name, color: s.color, value: fmt(s.total) })));
+        let body;
+        if (data.calls === 0) {
+          body = `<p class="empty">No engine call in the last ${r.words}${state.filter === "all" ? "" : ` on ${state.filter}`}.</p>`;
+        } else if (tables.has("spend")) {
+          body = tableHtml(
+            [r.unit === "hour" ? "Hour" : "Day", ...data.series.map((s) => `<i style="background:${s.color}"></i>${esc(s.name)}`), cost ? "Estimated cost" : "Total", ...(cost ? [] : ["Cache reads, not counted"])],
+            Array.from({ length: r.n }, (_, i) =>
+              i < hatch
+                ? [stepLong(r, i), { cls: "nothing", html: "Nothing sent yet", span: data.series.length + (cost ? 1 : 2) }]
+                : [stepLong(r, i), ...data.series.map((s) => fmt(s.data[i])), `<b>${fmt(cost ? data.cost[i] : data.tokens[i])}</b>`, ...(cost ? [] : [{ cls: "muted", html: fmtTokens(data.reads[i]) }])],
+            ),
+          );
+        } else {
+          const top = data.series[0];
+          body = chart("spend", "bars", {
+            height: phone() ? 190 : 240,
+            labels: Array.from({ length: r.n }, (_, i) => stepLabel(r, i)),
+            series: data.series,
+            hatch,
+            fmtAxis: cost ? fmtUsdAxis : fmtTokens,
+            emptyTop: cost ? 1 : 100000,
+            summary: `${cost ? "Estimated cost" : "Tokens"} over the last ${r.words} by ${r.unit}, split by ${splitLabel.toLowerCase()}: ${cost ? fmtUsd(data.costTotal) : fmtTokens(data.tokenTotal)} in all, the most from ${top.name} with ${fmt(top.total)}.${hatch ? ` Nothing was sent before 3 Nov.` : ""} Use the arrow keys to read each ${r.unit}.`,
+            tip: (i) => {
+              if (i < hatch) return `<div class="tip-title">${stepLong(r, i)}</div><div class="tip-line muted">Nothing sent yet</div>`;
+              const rows = data.series.filter((s) => s.data[i] > 0).map((s) => tipRow(s.name, s.color, fmt(s.data[i]))).join("");
+              return `<div class="tip-title">${stepLong(r, i)}${cost ? " · estimated" : ""}</div>${rows || '<div class="tip-line muted">Nothing ran</div>'}${tipRow(cost ? "Estimated cost" : "Total", "", fmt(cost ? data.cost[i] : data.tokens[i]), "total")}${cost ? tipRow("Tokens", "", fmtTokens(data.tokens[i]), "muted") : tipRow("Cache reads, not counted", "", fmtTokens(data.reads[i]), "muted")}`;
+            },
+          });
+        }
+        return block({ id: "spend", cls: "span-12", title, tools, figure, body: `${data.calls ? legendHtml : ""}${body}` });
+      }
+      const runsWords = (row) =>
+        `${plural(row.runCount, "Stage run", "Stage runs")}${row.retryCount ? ` · ${plural(row.retryCount, "retry", "retries")}` : ""}`;
+      const retryWords = (row) =>
+        row.retryCount && row.cost > 0 ? ` · <span class="x-retry">Retries: ${fmtUsd(row.retryCost)}, ${Math.round((row.retryCost / row.cost) * 100)}%</span>` : "";
+      function stageRows(row) {
+        const rows = row.list.map(
+          (s) => `<div class="cs-row"><span class="cs-name">${esc(s.stage)}</span><span class="cs-runs">${s.runs
+            .map((run) => `<span class="run${run.run > 1 ? " retry" : ""}">Run ${run.run}${run.run > 1 ? " · retry" : ""} · ${fmtUsd(run.cost)}</span>`)
+            .join("")}</span><span class="cs-cost">${fmtUsd(s.cost)}</span></div>`,
+        );
+        if (row.outside > 0) rows.push(`<div class="cs-row quiet"><span class="cs-name">Outside a Stage</span><span class="cs-runs"></span><span class="cs-cost">${fmtUsd(row.outside)}</span></div>`);
+        return rows.join("");
+      }
+      function expensiveRow(key, { title, chips, link, cost, tokens, meta, fold, first }) {
+        const open = folds.has(key);
+        return `<li class="x-row">
+          <div class="x-line">
+            <button type="button" class="fold" data-fold="${key}" aria-expanded="${open}" aria-label="Cost per Stage: ${esc(title)}">${icon("chevronRight", 14)}</button>
+            <div class="x-main"><div class="x-title"><a class="task-link" tabindex="0" role="link" data-toast="${esc(link)}">${esc(title)}</a>${chips}</div><div class="x-meta">${meta}</div></div>
+            <span class="x-cost">${fmtUsd(cost)}</span>
+            <span class="x-tokens">${fmtTokens(tokens)}${phone() ? " tokens" : ""}</span>
+          </div>
+          <div class="bar-track"><i style="width:${first > 0 ? ((cost / first) * 100).toFixed(1) : 0}%;background:var(--fg-3)"></i></div>
+          ${open ? `<div class="x-fold">${fold}</div>` : ""}
+        </li>`;
+      }
+      function expensiveBlock(loading) {
+        const r = rangeOf();
+        const tasks = state.list === "tasks";
+        const title = "The most expensive";
+        const tools = segmented("list", "Show");
+        if (loading) return block({ id: "expensive", cls: "span-12", title, tools, body: loaderRows(5) });
+        const rows = tasks ? expensiveTasks(r) : expensiveInitiatives(r);
+        const first = rows.length ? rows[0].cost : 0;
+        const list = rows
+          .map((row) =>
+            tasks
+              ? expensiveRow(`task:${row.task.id}`, {
+                  title: row.task.title, chips: chip(row.task.project), link: `Opens the Task “${row.task.title}”.`,
+                  cost: row.cost, tokens: row.tokens, first, meta: `${runsWords(row)}${retryWords(row)}`, fold: stageRows(row),
+                })
+              : expensiveRow(`initiative:${row.id}`, {
+                  title: row.title, chips: row.projects.map(chip).join(""), link: `Opens the Initiative “${row.title}”.`,
+                  cost: row.cost, tokens: row.tokens, first, meta: `${plural(row.perTask.length, "Task", "Tasks")} · ${runsWords(row)}${retryWords(row)}`,
+                  fold: `${row.threads > 0 ? `<div class="cs-row quiet"><span class="cs-name">The Initiative's Threads</span><span class="cs-runs"></span><span class="cs-cost">${fmtUsd(row.threads)}</span></div>` : ""}${row.perTask
+                    .map((t) => `<div class="cs-row"><span class="cs-name"><a class="task-link" tabindex="0" role="link" data-toast="Opens the Task “${esc(t.task.title)}”.">${esc(t.task.title)}</a></span><span class="cs-runs">${chip(t.task.project)}<span class="faint">${runsWords(t)}</span></span><span class="cs-cost">${fmtUsd(t.cost)}</span></div>`)
+                    .join("")}`,
+                }),
+          )
+          .join("");
+        const body = rows.length === 0
+          ? `<p class="empty">No ${tasks ? "Task" : "Initiative"} has had an engine call in the last ${r.words}${state.filter === "all" ? "" : ` on ${state.filter}`}.</p>`
+          : `<div class="x-headrow"><span></span><span>${tasks ? "Task" : "Initiative"}</span><span>Estimated cost</span><span>Tokens</span></div><ul class="x-list">${list}</ul>`;
+        return block({
+          id: "expensive", cls: "span-12", title, tools,
+          when: `<span class="block-when">the ${rows.length || 10} with the most estimated cost in ${r.words}</span>`, body,
+        });
+      }
+      function windowsOverTimeBlock(loading, failed) {
+        const r = rangeOf();
+        const title = "Usage windows over time";
+        const engines = pickerEngines();
+        if (engines.length === 0) {
+          return block({ id: "windows", cls: "span-12", title, badge: officeWide(), body: '<p class="empty">None of your engines has Usage windows.</p>' });
+        }
+        const picked = engines.find((e) => e.id === state.engine) || engines[0];
+        const pickerOptions = engines.map((e) => ({ key: e.id, label: e.name }));
+        const picker = engines.length > 1
+          ? `<span class="tool-group"><span class="tool-label">Engine</span>${phone() ? selectControl("engine", "Engine", pickerOptions) : `<div class="segmented" role="tablist" aria-label="Engine">${pickerOptions
+              .map((o) => `<button type="button" role="tab" aria-selected="${o.key === picked.id}" data-set="engine" data-value="${o.key}">${esc(o.label)}</button>`)
+              .join("")}</div>`}</span>`
+          : "";
+        const pl = phone() ? PL : 176;
+        const tools = `${picker}${loading || failed || !picked.now ? "" : tableToggle("windows")}`;
+        if (loading) return block({ id: "windows", cls: "span-12", title, badge: officeWide(), tools: picker, body: loaderLines() });
+        // The lines: office.usage_window.used, from the metrics.
+        let lines;
+        const model = picked.now ? windowModel(picked.id) : null;
+        const points = model ? windowPoints(model, r) : [];
+        if (failed) lines = unreachableAlert();
+        else if (!model) lines = `<div class="chart-empty" style="height:120px">Not read yet: Grafana holds no reading of this engine's Usage windows.</div>`;
+        else if (tables.has("windows")) {
+          const stride = r.key === "24h" ? 6 : r.key === "7d" ? 6 : 12;
+          const rows = points.filter((p, i) => p.five !== null && (i % stride === 0 || p.t === NOW));
+          lines = tableHtml(["When", "5-hour window", "7-day window"], rows.map((p) => [whenLong(p.t), fmtPercent(p.five), fmtPercent(p.seven)]));
+        } else {
+          const valid = points.filter((p) => p.five !== null);
+          const peak = valid.reduce((best, p) => (p.five > best.five ? p : best), valid[0]);
+          lines = chart("windows", "lines", {
+            height: phone() ? 160 : 190,
+            pl,
+            range: r,
+            points,
+            series: [
+              { key: "seven", name: "7-day window", color: "var(--chart-5)", width: 1.75 },
+              { key: "five", name: "5-hour window", color: "var(--chart-2)", area: true },
+            ],
+            summary: `How full ${picked.name}'s Usage windows were over the last ${r.words}: the 5-hour window at most ${fmtPercent(peak.five)} on ${whenLong(peak.t)}, now ${model.now.five}%; the 7-day window now ${model.now.seven}%. Lines mark 90% and 100%. Use the arrow keys to read each point.`,
+            tip: (p) =>
+              `<div class="tip-title">${whenLong(p.t)}${p.t === NOW ? " · now" : ""}</div>${tipRow("5-hour window", "var(--chart-2)", fmtPercent(p.five))}${tipRow("7-day window", "var(--chart-5)", fmtPercent(p.seven))}`,
+          });
+        }
+        const linesLegend = failed || !model ? "" : legend([
+          { name: "5-hour window", color: "var(--chart-2)", shape: "line", value: `${model.now.five}% · resets ${hhmm(model.now.reset5)}` },
+          { name: "7-day window", color: "var(--chart-5)", shape: "line", value: `${model.now.seven}% · resets ${reset7Words(model.now.reset7)}` },
+          { name: "90%", color: "var(--warning)", shape: "guide" },
+          { name: "100%", color: "var(--danger)", shape: "guide" },
+        ]);
+        // The lane: office.engine.call, from the logs.
+        const lane = laneOf(picked.id, r);
+        const projectsInLane = Object.keys(PROJECTS).filter((p) => lane.rows.some((row) => row.color === PROJECTS[p].color));
+        const laneLegend = legend([
+          ...projectsInLane.map((p) => ({ name: p, color: PROJECTS[p].color, shape: "dot" })),
+          ...(lane.rows.some((row) => row.label === "Chats and Initiatives") ? [{ name: "Chats and Initiatives", color: "var(--chart-6)", shape: "dot" }] : []),
+        ]);
+        let laneBody;
+        if (lane.items.length === 0) laneBody = `<p class="empty">Nothing ran on ${esc(picked.name)} in the last ${r.words}.</p>`;
+        else if (tables.has("lane")) {
+          laneBody = tableHtml(
+            ["When", "Task or Thread", "Stage and run", "Person", "Tokens"],
+            [...lane.items].reverse().map(({ call }) => {
+              const words = callWords(call);
+              return [
+                `${whenLong(call.start)}–${hhmm(call.end)}`,
+                { cls: "text", html: esc(words.title) },
+                { cls: "text", html: call.kind === "stage" ? `${esc(call.stage)}, run ${call.run}` : call.kind === "outside" ? "Outside a Stage" : call.kind === "initiative" ? "The Initiative's Threads" : "Chat" },
+                { cls: "text", html: `${call.person} (${ROLES[call.role]})` },
+                fmtTokens(call.counted),
+              ];
+            }),
+          );
+        } else {
+          laneBody = chart("lane", "lane", {
+            height: 4 + lane.rows.length * 18 + 26,
+            pl,
+            range: r,
+            rows: lane.rows,
+            items: lane.items,
+            summary: `What was running on ${picked.name} over the last ${r.words}: ${plural(lane.items.length, "engine call", "engine calls")} on ${plural(lane.rows.length, "row", "rows")}, one per Task and one for chats and Initiatives. Use the arrow keys to read each call, and Enter to open its Task.`,
+            tip: (call) => {
+              const words = callWords(call);
+              return `<div class="tip-title">${whenLong(call.start)}–${hhmm(call.end)}</div><div class="tip-line"><b>${esc(words.title)}</b></div><div class="tip-line">${esc(words.line)}</div><div class="tip-line muted">${fmtUsd(call.cost)} estimated · ${call.model}</div>`;
+            },
+          });
+        }
+        return block({
+          id: "windows", cls: "span-12", title, badge: officeWide(), tools,
+          body: `${linesLegend}${lines}<div class="lane-head"><span class="sub-title">What was running on ${esc(picked.name)}</span>${tableToggle("lane")}${laneLegend}</div>${laneBody}`,
+        });
+      }
+
+      /* ---------- The Stats page ---------- */
+      function statsPage() {
+        const v = view();
+        const full = v.kind === "full" || v.kind === "partial";
+        const failed = v.kind === "partial";
+        const range = full
+          ? `<div class="range">${phone() ? selectControl("range", "Range") : segmented("range", "Range")}</div>`
+          : "";
+        const coverage = full
+          ? `<p class="coverage">${v.loading ? '<span class="skeleton" style="width:340px;max-width:100%;height:12px"></span>' : `${icon("calendar", 13)}The full stats cover what The Office has sent Grafana since 3 Nov, when it started sending it.`}</p>`
+          : "";
+        const banner = v.kind === "banner" ? `<div class="state-banner">${bannerHtml(v.s.banner)}</div>` : "";
+        const blocks = full
+          ? [spendBlock(v.loading, failed), expensiveBlock(v.loading), windowsOverTimeBlock(v.loading, failed), windowsNowBlock("pair"), thisWeekBlock("pair")]
+          : [tokensPerDayBlock(), windowsNowBlock("span-4 t-6"), topTasksBlock(), thisWeekBlock("span-4 t-6"), v.kind === "basic" ? messageBlock(v.s.message) : ""];
+        return `<div class="page">
+          <div class="page-head"><div class="page-head-words"><h2 class="page-title">Stats</h2><p class="page-sub">How The Office performs: what it spends in tokens and Usage windows.</p></div>${range}</div>
+          ${coverage}${banner}
+          <div class="blocks">${blocks.join("")}</div>
+        </div>`;
+      }
+
+      /* ---------- The shell around the page ---------- */
+      function rail() {
+        const items = [
+          ["inbox", "Now"],
+          ["kanban", "Work"],
+          ["users", "People"],
+          ["folderGit", "Projects"],
+          ["chartColumn", "Stats"],
+          ["building", "Live view"],
+        ];
+        const on = state.screen === "stats" ? "Stats" : "Settings";
+        const item = ([name, label]) =>
+          `<button type="button" class="rail-item${label === on ? " active" : ""}" aria-label="${label}"${label === on ? ' aria-current="page"' : ""} data-tip="${label}" data-rail="${label}">${icon(name, 20)}</button>`;
+        const foot = ([name, label, words]) =>
+          `<button type="button" class="rail-item" aria-label="${label}" data-tip="${label}" data-toast="${words}">${icon(name, 20)}</button>`;
+        return `<nav class="rail" aria-label="Surfaces"><span class="rail-mark" aria-label="The Office">O</span>${items.map(item).join("")}<span class="rail-spacer"></span>${item(["settings", "Settings"])}${foot(["palette", "Theme", "Opens the Theme menu."])}${foot(["panelOpen", "Expand sidebar", "Expands the rail to show each surface's name."])}</nav>`;
+      }
+      function topBar() {
+        const filter = state.filter === "all"
+          ? `${icon("layers")}<span class="top-words">All Projects</span>`
+          : `<span class="project-mark" style="--mark:${PROJECTS["not-astray"].color}">NA</span><span class="top-words">not-astray</span>`;
+        const title = state.screen === "stats" ? "<h1>Stats</h1>" : '<h1>Settings</h1><span class="crumb">› Telemetry</span>';
+        return `<header class="top">${title}<span class="grow"></span>
+          <button type="button" class="btn top-btn" data-action="filter" aria-label="Project filter: ${state.filter === "all" ? "All Projects" : "not-astray"}" data-tip="Project filter: a press switches it in this mock">${filter}${icon("chevronDown", 12)}</button>
+          <span class="search">${icon("search")}<span>Search</span><kbd>/</kbd></span>
+          <button type="button" class="btn top-btn" data-toast="Opens Create.">${icon("plus")}<span class="top-words">Create</span></button>
+          <button type="button" class="btn danger-ghost top-btn" data-tip="Fire alarm: pause all automated work" data-toast="Opens the fire alarm.">${icon("siren")}<span class="top-words">Sound the alarm</span></button>
+          <span class="avatar" data-tip="Przemysław">PT</span>
+          <button type="button" class="btn top-btn" data-toast="Opens the chat drawer.">${icon("chat")}<span class="top-words">Chat</span></button>
+        </header>`;
+      }
+      function strip() {
+        const fresh = state.screen === "stats" && scenario().fresh;
+        const days = fresh ? FRESH_DAYS : BASIC_DAYS;
+        const needs = fresh ? 0 : 2;
+        const read = windowEngines().filter((e) => e.now);
+        const usage = read.length
+          ? `<span class="fig-sep"></span><button type="button" class="fig" data-toast="Opens Usage by engine." aria-label="5-hour window: ${esc(read.map((e) => `${e.name} ${e.now.five}%`).join(", "))}">
+              <span class="fig-label"><span class="label-long">5-hour window</span><span class="label-short">5h window</span><span class="resets-label">· ${plural(read.length, "engine", "engines")}</span></span>
+              <span class="fig-value"><span class="engines">${read
+                .map((e) => `<span class="engine" data-tip="${esc(e.name)}: ${e.now.five}%"><span class="meter ${toneOf(e.now.five)}"><i style="width:${e.now.five}%"></i></span><b class="${toneOf(e.now.five)}">${e.now.five}%</b></span>`)
+                .join("")}</span></span>
+            </button>`
+          : "";
+        const used = read.find((e) => e.now.five >= 100);
+        const nearly = read.find((e) => e.now.five >= 90);
+        const message = used
+          ? { tone: "danger", short: `${used.name} used up until ${hhmm(used.now.reset5)}`, at: "13:12" }
+          : nearly
+            ? { tone: "warning", short: `${nearly.name}: ${nearly.now.five}% of 5-hour window`, at: "13:05" }
+            : null;
+        const slot = (where) =>
+          message
+            ? `<button type="button" class="slot tone-${message.tone}" data-toast="Opens the Office Notifications." aria-label="Office Notifications: ${esc(message.short)}" data-slot="${where}">
+                <span class="slot-icon">${icon("gauge", 16)}</span>
+                <span class="slot-text"><span class="slot-short">${esc(message.short)}</span><span class="slot-meta"><span class="avatar sm" aria-hidden="true">P</span>Pam · ${message.at}</span></span>
+                <span class="slot-end">${icon("chevronDown", 12)}</span>
+              </button>`
+            : "";
+        const workstation = `<button type="button" class="fig" data-toast="Opens the Workstation panel." aria-label="Workstation: 23% CPU, 16 logical cores"><span class="fig-label"><span class="ws-label-long">Workstation</span><span class="short">CPU</span></span><span class="fig-value">${icon("cpu", 13)}<b>23%</b><span class="ws-cores faint">· 16 cores</span></span></button>`;
+        const figs = `<span class="figs">
+            <button type="button" class="fig needs ${needs ? "alert" : "calm"}" data-toast="Opens the Needs you panel."><span class="fig-label">${needs ? '<span class="live-dot"></span>' : ""}Needs you</span><span class="fig-value"><b>${needs}</b></span></button>
+            ${usage}
+            <span class="fig-sep"></span>
+            <span class="fig static"><span class="fig-label"><span class="label-long">Desks in use</span><span class="label-short">Desks</span></span><span class="fig-value"><span class="dot ${fresh ? "" : "running"}"></span><b>${fresh ? 0 : 2}</b><span class="faint">/ 3</span></span></span>
+            <span class="fig-sep"></span>
+            <span class="fig static"><span class="fig-label"><span class="label-long">Tokens today</span><span class="label-short">Tokens</span></span><span class="fig-value"><b>${fmtTokens(days[DAYS - 1].counted)}</b></span></span>
+          </span>`;
+        return `<div class="ps" role="status" aria-label="Status strip">
+          <div class="ps-row first">${figs}<span class="grow"></span><span class="figs right">${workstation}${slot("a")}</span></div>
+          <div class="ps-row second">${workstation}${slot("b")}</div>
+        </div>`;
+      }
+
+      /* ---------- Settings › Telemetry (telemetry-card.tsx as built, plus the proposed Stats group) ---------- */
+      const SETTINGS_SECTIONS = [
+        ["route", "Pipelines"], ["briefcase", "Duties"], ["sparkles", "Skills"], ["plug", "MCP servers"], ["cpu", "Engines"],
+        ["users", "Users"], ["logIn", "Signing in"], ["fingerprint", "Office identity"], ["gauge", "Office limits"],
+        ["scroll", "Office instructions"], ["bell", "Notifications"], ["activity", "Telemetry"], ["refresh", "Updates"],
+      ];
+      const OWN_ENDPOINT = "https://otlp-gateway-prod-eu-west-2.grafana.net/otlp";
+      function freshForm() {
+        const saved = state.tel === "own-saved";
+        return {
+          kind: state.tel === "bundled" ? "bundled-grafana" : "own-endpoint",
+          address: saved ? "https://grafana.example.com" : "",
+          token: "",
+          testing: false,
+          answer: null,
+          tested: "",
+        };
+      }
+      function testAnswer() {
+        const a = esc(form.tested);
+        if (form.answer === "reachable") return alertBox("success", `Grafana answered at ${a}.`, "Found Prometheus “grafanacloud-prom” and Loki “grafanacloud-logs”.");
+        if (form.answer === "rejected") return alertBox("danger", "Grafana refused the read token (401).", "");
+        if (form.answer === "unreachable") return alertBox("danger", `Couldn't reach Grafana at ${a}: no answer within 10 seconds.`, "");
+        return alertBox("warning", `Grafana answered at ${a}, but it has no Prometheus and Loki data sources the token can query.`, "");
+      }
+      function testButton() {
+        if (form.testing) return `<button type="button" class="btn secondary sm" aria-busy="true" disabled>${spinner(13, "")}Test</button>`;
+        const empty = form.address.trim() === "";
+        const button = `<button type="button" class="btn secondary sm" data-action="test"${empty ? " disabled" : ""}>${icon("activity", 13)}Test</button>`;
+        return empty ? `<span class="disabled-wrap" tabindex="0" data-tip="Give the Grafana read address to test it.">${button}</span>` : button;
+      }
+      const field = ({ label, value = "", placeholder = "", hint = "", type = "text", name = "", suffix = "", mono = false }) =>
+        `<label class="field"><span class="field-label">${label}</span><span class="input-wrap"><input class="input${suffix ? " with-suffix" : ""}" type="${type}" autocomplete="off" spellcheck="false" value="${esc(value)}" placeholder="${esc(placeholder)}"${name ? ` data-field="${name}"` : ""}${mono ? ' style="font-family:var(--font-mono)"' : ""} />${suffix ? `<span class="input-suffix">${suffix}</span>` : ""}</span>${hint ? `<span class="field-hint">${hint}</span>` : ""}</label>`;
+      function telemetryCard() {
+        if (!form) form = freshForm();
+        const savedOwn = state.tel !== "bundled";
+        const kinds = [
+          ["off", "Off: nothing is exported"],
+          ["bundled-grafana", "Bundled Grafana, on this computer at http://127.0.0.1:4318"],
+          ["own-endpoint", "Your own endpoint, over OTLP/HTTP"],
+        ];
+        const radios = `<fieldset class="radios"><legend class="field-label">Where telemetry goes</legend>${kinds
+          .map(([value, label]) => `<label><input type="radio" name="telemetry-kind" value="${value}" data-kind${form.kind === value ? " checked" : ""} />${label}</label>`)
+          .join("")}</fieldset>`;
+        const bundled = !savedOwn && form.kind === "bundled-grafana"
+          ? `<div class="tel-grafana" role="group" aria-label="Bundled Grafana">${alertBox("success", "Bundled Grafana: Running", "At http://localhost:3300.", '<button type="button" class="link" data-toast="Opens Grafana in a new tab.">Open Grafana</button>')}<p class="tel-note">Stats reads this Grafana at http://127.0.0.1:3300, with no token.</p></div>`
+          : "";
+        const tokenSaved = state.tel === "own-saved";
+        const own = form.kind === "own-endpoint"
+          ? `<div class="tel-endpoint">
+              ${field({ label: "Endpoint URL", value: savedOwn ? OWN_ENDPOINT : "", placeholder: "https://otlp.example.com", hint: "The OTLP/HTTP base address: /v1/traces, /v1/metrics and /v1/logs are added to it." })}
+              <div class="tel-headers" role="group" aria-label="Headers">
+                <span class="tel-subtitle">Headers</span>
+                ${savedOwn
+                  ? `<div class="tel-header-row">${field({ label: "Header 1 name", value: "Authorization", placeholder: "Authorization" })}${field({ label: "Header 1 value", type: "password", placeholder: "Saved" })}<button type="button" class="icon-button" aria-label="Remove the header Authorization" data-tip="Remove the header Authorization" data-toast="Removes the header Authorization.">${icon("x", 14)}</button></div><p class="field-hint" style="margin-top:-6px">Saved, never shown. Leave it empty to keep it.</p>`
+                  : '<p class="tel-note">None. Add one when the endpoint needs a key, such as Authorization.</p>'}
+                <button type="button" class="btn secondary sm" data-toast="Adds a header row.">${icon("plus", 14)}Add a header</button>
+              </div>
+              ${field({ label: "Export timeout", placeholder: "10000", suffix: "ms", hint: "How long one export may take; empty is 10 seconds." })}
+              <div class="tel-stats" role="group" aria-labelledby="tel-stats-title">
+                <span class="tel-subtitle" id="tel-stats-title">Stats</span>
+                <p class="tel-note small">Where Stats reads the full stats from. Optional: without it, Stats shows the basic stats.</p>
+                <div class="tel-two">
+                  ${field({ label: "Grafana read address", value: form.address, placeholder: "https://grafana.example.com", hint: "The Grafana your endpoint feeds.", name: "address" })}
+                  ${field({ label: "Read token", type: "password", value: form.token, placeholder: tokenSaved ? "Saved" : "", hint: tokenSaved ? "Saved, never shown. Leave it empty to keep it." : "A Viewer service account token, made in Grafana under Administration › Service accounts.", name: "token" })}
+                </div>
+                <div class="tel-test">
+                  <div class="tel-test-row" id="test-row">${testButton()}<span class="field-hint">Tries the address and token as typed, before Save.</span></div>
+                  ${form.answer ? testAnswer() : ""}
+                </div>
+              </div>
+            </div>`
+          : "";
+        const running = savedOwn ? `Now: exporting to ${OWN_ENDPOINT}.` : "Now: exporting to http://127.0.0.1:4318.";
+        const applies = form.kind === "own-endpoint"
+          ? "Export settings apply the next time The Office starts. Stats' read address and token apply as soon as they're saved."
+          : "Applies the next time The Office starts.";
+        return `<section class="card tel-card" aria-labelledby="tel-title">
+          <header class="tel-head"><h3 class="tel-title" id="tel-title">${icon("activity", 15)}Telemetry</h3><p class="tel-sub">Where The Office sends its traces, metrics and logs, for a dashboard such as Grafana.</p></header>
+          <div class="tel-body">
+            ${radios}${bundled}${own}
+            <p class="tel-note">${running}</p>
+            <div class="tel-actions"><span class="tel-actions-state">${applies}</span><button type="button" class="btn primary sm" data-action="save">Save</button></div>
+          </div>
+        </section>`;
+      }
+      function settingsPage() {
+        return `<div class="page"><div class="section-layout">
+          <nav class="section-menu" aria-label="Settings">${SETTINGS_SECTIONS
+            .map(([name, label]) => `<a class="${label === "Telemetry" ? "active" : ""}" tabindex="0" role="link"${label === "Telemetry" ? ' aria-current="page"' : ` data-toast="Opens Settings › ${label}."`}>${icon(name, 16)}${label}</a>`)
+            .join("")}</nav>
+          <div class="section-body">${telemetryCard()}</div>
+        </div></div>`;
+      }
+
+      /* ---------- The frame and the proposal's bar ---------- */
+      function frameHtml() {
+        const bucket = state.width === "390" ? "w-phone" : state.width === "900" ? "w-tablet" : "w-wide";
+        const px = state.width === "wide" ? 0 : Number(state.width);
+        const caption = px ? `${px}px` : "Wide";
+        const words = px
+          ? `the page ${px - 56}px beside the rail${px === 390 ? ", the strip on two rows, one column" : ", fewer columns"}`
+          : "1,180 to 1,440px, as the window is";
+        const page = state.screen === "stats" ? statsPage() : settingsPage();
+        return `<div class="frame-wrap${px ? "" : " wide"}"${px ? ` style="width:${px}px"` : ""}>
+          <div class="frame-caption"><b>${caption}</b><span>${words}</span></div>
+          <div class="frame"><div class="app ${bucket}">${rail()}${topBar()}${strip()}<main class="main">${page}</main></div></div>
+        </div>`;
+      }
+      const control = (label, key) =>
+        `<span class="control"><span class="control-label">${label}</span><span class="switch">${OPTIONS[key]
+          .map((o) => `<button type="button" data-set="${key}" data-value="${o.key}" aria-pressed="${state[key] === o.key}">${esc(o.label)}</button>`)
+          .join("")}</span></span>`;
+      function renderBar() {
+        document.getElementById("bar-main").innerHTML = `<h1>Stats <span>· design proposal</span></h1>${control("Screen", "screen")}${control("Width", "width")}${control("Palette", "palette")}`;
+        let second;
+        let note;
+        if (state.screen === "stats") {
+          const play = state.scenario === "starting"
+            ? `<button type="button" class="play-button" data-action="play"${live.playing ? " disabled" : ""}>${live.playing ? spinner(13, "") : icon("play", 13)}${live.playing ? "Grafana is starting…" : live.answered ? "Play it again" : "Play it"}</button>`
+            : "";
+          second = `${control("Scenario", "scenario")}${control("Engines", "engines")}${control("Project filter", "filter")}${play}`;
+          note = scenario().note;
+        } else {
+          second = `${control("Telemetry", "tel")}${control("Test answers", "test")}`;
+          note = "Settings › Telemetry with Your own endpoint picked gains a Stats group under the export fields; with the bundled Grafana running, it says where Stats reads it. Test answers as the bar says.";
+        }
+        document.getElementById("bar-second").innerHTML = `${second}<span class="scenario-note">${esc(note)}</span>`;
+      }
+
+      /* ---------- Rendering, the address and what the page does ---------- */
+      function render() {
+        document.documentElement.dataset.palette = state.palette;
+        document.documentElement.dataset.theme = state.palette;
+        CHART_SPECS = {};
+        hideChartTip();
+        hideTip();
+        renderBar();
+        document.getElementById("stage").innerHTML = frameHtml();
+        drawCharts();
+        writeHash();
+      }
+      function readHash() {
+        const params = new URLSearchParams(location.hash.slice(1));
+        for (const key of Object.keys(DEFAULTS)) {
+          const value = params.get(key);
+          const ok = key === "engine" ? value !== null && Boolean(ENGINES[value]) : value !== null && OPTIONS[key].some((o) => o.key === value);
+          state[key] = ok ? value : DEFAULTS[key];
+        }
+      }
+      function writeHash() {
+        const params = new URLSearchParams();
+        for (const key of Object.keys(DEFAULTS)) if (state[key] !== DEFAULTS[key]) params.set(key, state[key]);
+        const hash = params.toString();
+        if (`#${hash}` !== location.hash && !(hash === "" && location.hash === "")) {
+          history.replaceState(null, "", hash ? `#${hash}` : `${location.pathname}${location.search}`);
+        }
+      }
+      function later(fn, ms) {
+        live.timers.push(setTimeout(fn, ms));
+      }
+      function resetLive() {
+        live.timers.forEach(clearTimeout);
+        Object.assign(live, { answered: false, loading: false, playing: false, retrying: false, timers: [] });
+      }
+      let toastTimer;
+      function toast(words) {
+        document.querySelector(".toast")?.remove();
+        const el = document.createElement("div");
+        el.className = "toast";
+        el.setAttribute("role", "status");
+        el.textContent = words;
+        document.body.append(el);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.remove(), 2600);
+      }
+      /* packages/ui's Tooltip: on hover and keyboard focus. */
+      let tipEl = null;
+      function showTip(target) {
+        if (!tipEl) {
+          tipEl = document.createElement("div");
+          tipEl.className = "tooltip";
+          tipEl.setAttribute("role", "tooltip");
+          document.body.append(tipEl);
+        }
+        tipEl.textContent = target.dataset.tip;
+        tipEl.style.display = "block";
+        const box = target.getBoundingClientRect();
+        const width = tipEl.offsetWidth;
+        const height = tipEl.offsetHeight;
+        const left = Math.max(8, Math.min(box.left + box.width / 2 - width / 2, window.innerWidth - width - 8));
+        const top = box.top - height - 6 < 8 ? box.bottom + 6 : box.top - height - 6;
+        tipEl.style.left = `${left}px`;
+        tipEl.style.top = `${top}px`;
+      }
+      function hideTip() {
+        if (tipEl) tipEl.style.display = "none";
+      }
+
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-set], [data-action], [data-table], [data-fold], [data-rail], [data-toast]");
+        if (!target) return;
+        if (target.dataset.set) {
+          const key = target.dataset.set;
+          state[key] = target.dataset.value;
+          if (key === "scenario") resetLive();
+          if (key === "tel" || key === "screen") form = null;
+          render();
+          document.querySelector(`[data-set="${key}"][data-value="${CSS.escape(target.dataset.value)}"]`)?.focus();
+          return;
+        }
+        if (target.dataset.table) {
+          const id = target.dataset.table;
+          if (tables.has(id)) tables.delete(id);
+          else tables.add(id);
+          render();
+          document.querySelector(`[data-table="${id}"]`)?.focus();
+          return;
+        }
+        if (target.dataset.fold) {
+          const key = target.dataset.fold;
+          if (folds.has(key)) folds.delete(key);
+          else folds.add(key);
+          render();
+          document.querySelector(`[data-fold="${CSS.escape(key)}"]`)?.focus();
+          return;
+        }
+        if (target.dataset.rail) {
+          const label = target.dataset.rail;
+          if (label === "Stats" || label === "Settings") {
+            state.screen = label === "Stats" ? "stats" : "settings";
+            form = null;
+            render();
+          } else toast(`Opens ${label}.`);
+          return;
+        }
+        const action = target.dataset.action;
+        if (action === "filter") {
+          state.filter = state.filter === "all" ? "not-astray" : "all";
+          render();
+          document.querySelector('[data-action="filter"]')?.focus();
+        } else if (action === "play") {
+          if (live.playing) return;
+          resetLive();
+          live.playing = true;
+          render();
+          later(() => {
+            Object.assign(live, { playing: false, answered: true, loading: true });
+            render();
+            later(() => {
+              live.loading = false;
+              render();
+            }, 1600);
+          }, 4000);
+        } else if (action === "retry") {
+          if (live.retrying) return;
+          live.retrying = true;
+          render();
+          later(() => {
+            Object.assign(live, { retrying: false, answered: true, loading: false });
+            render();
+            if (state.screen === "stats") toast("Grafana answered");
+          }, 1200);
+        } else if (action === "test") {
+          const tested = form;
+          form.testing = true;
+          form.answer = null;
+          render();
+          later(() => {
+            // The form was left (another screen or Telemetry state): its answer has nowhere to go.
+            if (form !== tested) return;
+            form.testing = false;
+            form.answer = state.test;
+            form.tested = form.address.trim();
+            render();
+          }, 1000);
+        } else if (action === "save") {
+          toast(
+            form && form.kind === "own-endpoint"
+              ? "Telemetry was saved: Stats reads Grafana with it now, and the export settings apply the next time The Office starts."
+              : "Telemetry was saved: it applies the next time The Office starts.",
+          );
+        } else if (target.dataset.toast) {
+          toast(target.dataset.toast);
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if ((event.key === "Enter" || event.key === " ") && event.target.matches?.('[role="link"][data-toast]')) {
+          event.preventDefault();
+          toast(event.target.dataset.toast);
+        }
+        if (event.key === "Escape") {
+          hideTip();
+          hideChartTip();
+        }
+      });
+      document.addEventListener("change", (event) => {
+        const select = event.target.closest("[data-select]");
+        if (select) {
+          state[select.dataset.select] = select.value;
+          render();
+          document.querySelector(`[data-select="${select.dataset.select}"]`)?.focus();
+          return;
+        }
+        if (event.target.matches("[data-kind]")) {
+          form.kind = event.target.value;
+          render();
+          document.querySelector(`[data-kind][value="${form.kind}"]`)?.focus();
+        }
+      });
+      document.addEventListener("input", (event) => {
+        const name = event.target.dataset?.field;
+        if (!name || !form) return;
+        form[name] = event.target.value;
+        if (name === "address" && !form.testing) document.getElementById("test-row").firstElementChild.outerHTML = testButton();
+      });
+      document.addEventListener("pointerover", (event) => {
+        const target = event.target.closest?.("[data-tip]");
+        if (target) showTip(target);
+      });
+      document.addEventListener("pointerout", (event) => {
+        const target = event.target.closest?.("[data-tip]");
+        if (target && !target.contains(event.relatedTarget)) hideTip();
+      });
+      document.addEventListener("focusin", (event) => {
+        const target = event.target.closest?.("[data-tip]");
+        if (target) showTip(target);
+      });
+      document.addEventListener("focusout", (event) => {
+        if (event.target.closest?.("[data-tip]")) hideTip();
+      });
+      window.addEventListener("scroll", () => {
+        hideTip();
+        hideChartTip();
+      }, { passive: true, capture: true });
+      let resizeTimer;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(drawCharts, 120);
+      });
+      window.addEventListener("hashchange", () => {
+        readHash();
+        resetLive();
+        form = null;
+        render();
+      });
+      readHash();
+      render();
+    </script>
+  </body>
+</html>

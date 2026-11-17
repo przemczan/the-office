@@ -27,6 +27,93 @@ Pages here are **proposals**: interactive mock-ups to look at and compare before
 - [**Session context**](session-context.html), proposed for the Task "Session context size", from the user's note: show a session's current context size under each Thread, above the message input. A reading, "41k of 200k" with a small meter marking the 80% where The Office asks for a Handover note, sits at the right end of the row above the message input, beside the Sub-agents and processes line, in the chat drawer, the Task page's and an Initiative's conversation and a running run's Thread tab in the Stage history, and an ended run's Thread tab keeps the run's last reading ("Ended at 132k of 200k"); the size leaves the Context bar's words. A switcher shows Today, Proposed and one alternative (a context line of its own) in seven states (no session yet, small, large, near the fresh start, handed over and started fresh, a turn running, an engine that can't report), with the Sub-agents and processes line on and off and a run running or ended, at wide, 900px and 390px, in the Light and Dark palettes; the hand-off steps and replays, a running turn's reading climbs live, and each reading's Tooltip says it whole. See [Session context: what it proposes](#session-context-what-it-proposes).
 - [**The Live view**](live-view.html), **adopted** by the Task "Web: the Live view page", which built it in place with day light only (movement was built by the Task "Web: movement in the Live view", fd27cb9e, and the hours, day and night, by the Task "Web: day and night in the Live view", a5cefa95) and took the Gate's defaults: asleep at the desk after 30 minutes idle, last on the rail, the Project filter left aside; proposed for the Task "Design the Live view" of the Initiative "Office visualisation": a new main menu item, last on the rail, showing The Office as an isometric pixel-art office where each person is a figure doing what they are doing now, generated from their Role key in their Avatar's tint, with their Avatar on a nameplate. A working prototype on a plain 2D canvas, set up as PixiJS would set it up (textures per palette, depth-sorted sprites, one ticker), with its art drawn by its own script. A switcher shows an office of 3, 8 (today's) and 30 people, in a normal afternoon and with each state in place (working with one, two and three lit monitors and a tag past three, consulting with the walk there, the talk and the walk back, waiting on you, idle in the chill area, asleep at the desk, joining and leaving through the door), at day, dusk, night and dawn with a time-of-day slider, in the still office under reduced motion or by a switch, by mouse or by touch, at wide, 900px and 390px, in the Light and Dark palettes; pan and zoom, hover, click, the popover, the list and Show on the floor work. Under the frame, the sheet of every figure with a field to try any Role key, the layers and the six tints, how the floor grows from 3 to 30, and the day's sunrise and sunset. See [Live view: what it proposes](#live-view-what-it-proposes).
 - [**The Decision form card**](decision-form.html), **adopted at the Gate of the Task "Design: the Decision form card"** of the Initiative "Multiquestion form"; for the Decision card, this page is the UI spec, and the click-through is local and wasn't changed. It draws [spec 2.4](../spec/2.4-conversations.md)'s Decision as a form: choices with the recommended option preselected and its reason, open questions, a comment per question, the general comment, Submit, Ask me again and Accept, a compact card and a Large window for long forms, the answered, asked again and closed states, and the approval card beside it. A switcher shows it in a Task's Needs you, the Task's Thread, the Needs you panel over Now, an Initiative's planning Thread and inline in the chat drawer, in sixteen scenarios (one choice, a Request, three questions, 8 questions in the card and in Open details, with Attachments, Submit not ready, Ask me again, The Office's own, answered by you, another user, a Consultant or Pam at your request, asked again, closed, put to a Consultant, still answering, refused, and with an approval), with the window as list and details or one scrolling form, at wide, 900px and 390px, in the Light and Dark palettes; picking, the comments, Submit, Ask me again, Accept, the progress line's jump, the window, Show all, Allow once and Deny work on a small model, and a draft follows the Decision from place to place. See [The Decision form card: what it proposes](#the-decision-form-card-what-it-proposes).
+- [**Stats**](stats.html), proposed for the Task "Spec and design the Stats section" of the Initiative "Statistics", with its spec section, [2.11 Stats](../spec/2.11-stats.md), the telemetry and Grafana reading in [5.2](../spec/5.2-stack.md), the module in [5.3](../spec/5.3-modules.md#defaults) and six glossary entries. Stats is a new main menu item between Projects and the Live view. It shows how The Office performs, above all what it spends in tokens and Usage windows:
+  - the **basic stats**, always, from what The Office already keeps, with no cost;
+  - the **full stats**, once Grafana answers: drawn by The Office itself from Grafana's data, with estimated cost by model, Role, Stage, Pipeline or Project, the most expensive Tasks and Initiatives, and the Usage windows over time beside a lane of what was running.
+
+  A switcher shows eleven scenarios: two Basic, your own endpoint with no read address, set by the environment, Grafana starting, couldn't start, unreachable, read token rejected, no data yet, Full, and one query failed. They come with two engines, five, or none with Usage windows, with the Project filter off or set, and Settings › Telemetry with its new Stats group and Test's four answers, at wide, 900px and 390px, in the Light and Dark palettes. The range, Tokens or Estimated cost, Split by, Tasks or Initiatives, the folds, the engine picker, Show as a table, Play it, Try again and Test work. See [Stats: what it proposes](#stats-what-it-proposes).
+
+## Stats: what it proposes
+
+From the Initiative "Statistics", whose outcome is a Stats section that shows what The Office spends, so the user can make it cheaper, and from the choices settled while planning it ([2.11](../spec/2.11-stats.md#settled-while-planning-the-initiative-2026-11-17)). One recommendation for each open point, with why.
+
+1. **Two levels, and the basic stats never go away.** The basic stats use only what The Office already keeps: `day_tokens`, `stage_runs.tokens`, `task_state_changes` and `UsageWindowState`. So they work on every install from the first day, with nothing new collected. They show no cost, as estimated cost isn't stored, only sent as telemetry.
+
+   The full stats come with Grafana. Whatever goes wrong with Grafana, the basic stats stay underneath, so Stats is never an empty page with an error.
+2. **The Office draws every chart itself; Grafana is a data source, not a dashboard.** The charts are inline SVG in the design system's chart look, coloured from `--chart-1…6`, so they follow the palette, the Project filter, Stats' words and the UI rules. Embedded Grafana panels were weighed: they would need Grafana's cookies or an anonymous viewer, they would follow neither the palette nor the filter, and they would show ids instead of titles.
+
+   Every chart has:
+   - a `Tooltip` per bar or point, on hover and on keyboard focus (one tab stop; the arrow keys step, Shift steps by ten, Home and End jump);
+   - `role="img"` with a one-line summary;
+   - **Show as a table**, which gives its figures as a table, so nothing is readable by colour alone.
+3. **Office-wide says so.** Tokens per day, the Usage windows now, and the Usage windows over time with their lane carry an **"Office-wide"** badge, because `day_tokens` and the windows have no Project. While a Project filter is set, the badge's `Tooltip` says the filter doesn't narrow them.
+
+   The filter narrows what belongs to a Task: the top Tasks, Tasks done and Stage retries, tokens and estimated cost over time (by `office.project`), and the most expensive Tasks and Initiatives. An Initiative stays whole, with its whole totals, when any of its Tasks is in the filter.
+4. **Tokens count as everywhere: cache reads are shown, never counted.** Tokens per day stacks input, output and cache writes, and draws cache reads in a slim strip of their own underneath, "Cache reads, not counted". Stacking them in would make every bar several times taller than what the day counts. Every token `Tooltip` lists them.
+5. **The top Tasks this week count Stage runs only.** That is what `stage_runs.tokens` holds. A hint says so, so the user doesn't expect it to match the full stats, which count every engine call.
+6. **Usage windows now: each engine that has windows, in Settings › Engines' order.** Each has a 5-hour and a 7-day meter with how full it is and its reset time, amber from 90% and red when used up, as on the status strip. An engine not read yet says "Not read yet". An engine with no Usage windows isn't listed (open for the Gate), and when none has any the block says so.
+7. **This week starts Monday 00:00 on the service's clock** (`officeDayOf`), so it agrees with "today" and tokens per day. Its blocks say "since Mon 16 Nov". A **Stage retry** is a Stage run whose Stage already had a run on the same Task, whenever that one ran, so a retry on Monday of a Stage first run last Friday counts.
+8. **The full stats:**
+   - **A range of 24 h, 7 d (the default) or 30 d** (open for the Gate), with a **coverage line** under it. The full stats cover only what was sent since the telemetry was added, so the time before the first data point is hatched "Nothing sent yet", and the basic stats still cover it.
+   - **Tokens and estimated cost over time**, Split by model, Role, Stage, Pipeline or Project: the five largest values and "Other", each value's total in the legend.
+   - **The most expensive Tasks or Initiatives**, each opening to its cost per Stage and per run, with what its retries cost ("Retries: $4.10, 18%"). This is where to look first to make The Office cheaper.
+   - **The Usage windows over time** for one engine at a time, the fullest first, with the 90% and 100% guides. Under them, on the same time axis, the **lane of what was running**: one row per Task in its Project's colour, one bar per engine call. It answers "what filled this window?"
+
+   In the full state, tokens per day and the top Tasks give way to their full versions, and the Usage windows now and This week stay underneath.
+9. **Each state says what happened and what to do next.**
+   - The three Basic states (Off, your own endpoint with no read address, set by the environment) say their words once, in the message at the foot of the basic stats, each with its own words and the link to Settings › Telemetry.
+   - Grafana's problems say theirs in an `Alert` at the top, with their next step: starting (and it moves to the full stats by itself), couldn't start, unreachable (Try again), read token rejected and no data yet.
+   - A query that fails partway puts Unreachable's words only in the blocks it fed.
+10. **Estimated cost only in the full stats, always called estimated**, and priced from Settings › Engines › Model prices, as Daily caps and Usage estimates are. The engine's reported cost is used only for a model with no price. Codex and OpenAI-compatible engines report 0, so this is what gives them a cost at all.
+11. **Settings › Telemetry gains a Stats group** under the export fields, with Your own endpoint picked: **Grafana read address**, **Read token** (a Viewer service account token, kept as the export headers are and never shown again) and **Test**. Test answers Reachable (naming the data sources it found), Rejected, Unreachable, or reachable with no data sources the token can query.
+
+    They apply as soon as they're saved, as only Stats reads them, so the actions line now says which fields apply when. With the bundled Grafana running, the card says Stats reads it at `http://127.0.0.1:3300` with no token.
+12. **The rail's icon is `chart-column`.** Live view stays last.
+
+**This design's names**, not glossary terms: the coverage line, the lane of what was running, the message, the Stats group, Show as a table. **Stats**, **Basic stats**, **Full stats**, **Grafana read address**, **Read token** and **Stage retry** are glossary terms; Usage window, Model price and Project filter are used as they are.
+
+### Open for the Gate
+
+- **Engines without Usage windows are left out** of both windows blocks (recommended), or listed with "No Usage windows". Leaving them out keeps the block about the limits that can stop work; listing them says where each engine went.
+- **The lane of what was running is Office-wide** (recommended), as the windows above it are, since the window is filled by every Project. Alternatively, with a filter set it could fade the other Projects' rows.
+- **7 d is the default range** (recommended): long enough to show a week's rhythm and the 7-day window's reset, short enough for the lane to stay readable. Alternatively 24 h.
+
+### What the build needs
+
+- **Send Grafana the telemetry the full stats need** (Task `932b4d4d-485d-49d9-82a7-a476a6420140`) builds spec 5.2's telemetry, as its Plan already says, with one addition: **`office.engine.call.duration_ms`** on the `office.engine.call` record. The lane draws each call from its end and duration, and the record is written only at the call's end. Its Plan's `office.cost.estimated_usd` and `office.cost.engine_reported_usd` are the spec's names. An attribute that doesn't apply is `""`, on the metrics and on the record alike. A Task's calls outside a Stage carry its Pipeline and Project names, as its Plan's `TaskThreadSetup` gives them. `office.engine` (the engine's id) is the one id on a metric, which spec 5.2 now says.
+- **Stats section with the basic stats** (Task `0c360644-84f3-4b27-bdda-412b0898d12a`) builds the basic stats as its Plan says. The page's Basic scenarios are its UI spec. What the page settles beyond its Plan:
+  - the "Office-wide" badges and their `Tooltip` while a filter is set;
+  - the cache reads strip under tokens per day;
+  - each block's empty words;
+  - an engine without Usage windows left out, and "None of your engines has Usage windows.";
+  - the message's words by state: "Turn on Grafana in Settings › Telemetry to see more" with telemetry Off or your own endpoint, and the environment's own words, "The environment sets telemetry, so Stats shows the basic stats only.", with "Remove the OTEL_ variables to choose in Settings › Telemetry". The own-endpoint words change with `a4d49cf2`.
+
+  Charts and components:
+  - The charts are drawn in the page's style. The design system's `BarChart` and `LineChart` have neither a focusable `Tooltip` per bar nor a table fallback, so the build extends them in `packages/ui` (a stacked `BarChart` with per-bar focus and `Tooltip`, and Show as a table through `DataTable`) rather than drawing a chart set of its own.
+  - The meters are `ProgressBar`, the This week figures `StatCard`, and the head controls `SegmentedControl`, a `Select` under 600px.
+- **Full stats in Stats from the bundled Grafana** (Task `1262d7f3-082b-4c92-ab87-2bf01e69f490`) builds:
+  - the `StatsSource` port, its Grafana adapter reading `http://127.0.0.1:3300` with no token, and its scripted adapter;
+  - the range in the address and the coverage line from the first data point Grafana holds;
+  - the three full blocks: Split by, the most expensive with cost per Stage and run and Outside a Stage, and the windows over time with the lane;
+  - the states Grafana starting (read every few seconds, then the full stats by themselves), couldn't start, unreachable with Try again, no data yet, and one query failed;
+  - each full block's `BlockLoader` shape while it loads.
+
+  It adds the chart parts the full blocks need beyond `0c360644`'s: the hatched "Nothing sent yet" range, the line chart's 90% and 100% guides, and the lane, a small timeline in `packages/ui` or in the surface.
+- **Full stats from your own Grafana** (Task `a4d49cf2-16c1-4056-a340-f675d26a43ef`) builds:
+  - Settings › Telemetry's Stats group (the Grafana read address, the Read token kept owner-only and never sent back, Test with its four answers, saving without a restart, the actions line);
+  - the read token rejected state;
+  - the own-endpoint message "Add your Grafana's read address in Settings › Telemetry to see more."
+
+  One point for its Plan: Test names the Prometheus and Loki data sources it found. If a Viewer token can't list data sources on the user's Grafana, the Stats group takes their names as two more fields instead.
+
+### About the mock
+
+- Today is Tue 17 Nov 2026, 14:05, so "this week" is since Mon 16 Nov. The telemetry was "sent since 3 Nov", so the 30 d range hatches 19 Oct to 2 Nov.
+- Every figure is summed from one set of engine calls, made by a seeded generator and the same on every load: 22 Tasks across the-office, not-astray and notnullsoft, three Pipelines, chats and the Initiatives' own Threads. Tokens per day, the top Tasks, Tasks done, Stage retries, both cost views, the windows and the lane all agree with one another. Costs use made-up Model prices.
+- The people are Jim (Developer), Angela (Planner), Michael (CTO), Stanley (UI/UX Designer), Dwight (Devops), Oscar (Reviewer) and Pam (Office Manager). The engines are Claude Max and Codex on ChatGPT Plus, with, in the Five set, Claude Pro (Not read yet), Codex on an API key and a local OpenAI-compatible engine (neither listed, having no Usage windows).
+- Play it (Grafana starting) shows the full stats after about 4 seconds, their loaders first. Try again succeeds after a moment, with a toast "Grafana answered". Test answers what the bar picks. Links and lane bars show a toast saying what would open.
+- The address keeps the screen, scenario, engines, filter, width, palette and the page's own choices. Like the other pages, it uses the Geist fonts only where they are installed, and makes no network requests.
+- It was written in a Stage that can't open a browser, so its script was proofread by hand and has no screenshots yet.
 
 ## The Decision form card: what it proposes
 
