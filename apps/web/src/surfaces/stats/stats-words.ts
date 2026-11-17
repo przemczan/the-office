@@ -46,7 +46,10 @@ export const FULL_STATS_ADD =
   "Estimated cost by model, Role, Stage, Pipeline and Project, the most expensive Tasks and Initiatives, and how full the Usage windows were over time.";
 export const SETTINGS_TELEMETRY = "Settings › Telemetry";
 
-/** Which message the foot of the basic stats shows; none while Bundled Grafana is chosen. */
+/**
+ * Which message the foot of the basic stats shows; none while Bundled Grafana, or an own endpoint
+ * with a Grafana read address, is chosen.
+ */
 export type StatsMessage = "off" | "own-endpoint" | "environment";
 
 export function statsMessageOf(
@@ -54,8 +57,7 @@ export function statsMessageOf(
 ): StatsMessage | null {
   if (settings.setByEnvironment) return "environment";
   if (settings.saved.kind === "off") return "off";
-  // No Grafana read address can be given yet, so an own endpoint always has none.
-  if (settings.saved.kind === "own-endpoint") return "own-endpoint";
+  if (settings.saved.kind === "own-endpoint" && !settings.saved.grafana) return "own-endpoint";
   return null;
 }
 

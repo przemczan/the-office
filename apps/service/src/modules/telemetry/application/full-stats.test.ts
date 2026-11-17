@@ -33,6 +33,9 @@ class GrafanaForTests extends GrafanaInUse {
   now(): Promise<GrafanaNow> {
     return Promise.resolve(this.grafana);
   }
+  savedReadToken(): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
 }
 
 class EnginesForTests extends EngineWindows {
@@ -280,8 +283,8 @@ describe("FullStats.read", () => {
     const read = await stats.read(QUERY, ["office", "unknown"]);
 
     expect(
-      source.calls.flatMap(({ kind, query }) =>
-        kind === "windows" ? [] : [(query as { projectNames: unknown }).projectNames],
+      source.calls.flatMap((call) =>
+        call.kind === "usage" || call.kind === "costliest" ? [call.query.projectNames] : [],
       ),
     ).toEqual([["The Office"], ["The Office"]]);
     expect(read).toMatchObject({

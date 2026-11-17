@@ -14,12 +14,17 @@ import type {
 import {
   StatsSource,
   type CostliestQuery,
+  type DataSourcesFound,
   type GrafanaAccess,
   type StatsSourceAnswer,
   type SteppedRange,
   type UsageQuery,
 } from "../../ports/stats-source.js";
-import { GrafanaDataSourceCache, type GrafanaDataSources } from "./grafana-data-sources.js";
+import {
+  checkDataSources,
+  GrafanaDataSourceCache,
+  type GrafanaDataSources,
+} from "./grafana-data-sources.js";
 import {
   labelOf,
   lastValueOf,
@@ -54,7 +59,7 @@ const USAGE_WINDOWS: readonly UsageWindowName[] = ["five_hour", "seven_day"];
 @Injectable()
 export class GrafanaStatsSource extends StatsSource {
   private timeoutMs = GRAFANA_TIMEOUT_MS;
-  private readonly dataSources = new GrafanaDataSourceCache();
+  private readonly dataSourceCache = new GrafanaDataSourceCache();
 
   /** One that waits less for an answer, for tests. */
   static withTimeout(timeoutMs: number): GrafanaStatsSource {
@@ -65,7 +70,11 @@ export class GrafanaStatsSource extends StatsSource {
 
   /** Which Prometheus and Loki data sources the reads go to, as `GET /api/datasources` found them. */
   findDataSources(access: GrafanaAccess): Promise<StatsSourceAnswer<GrafanaDataSources>> {
-    return this.dataSources.of(access, this.timeoutMs);
+    return this.dataSourceCache.of(access, this.timeoutMs);
+  }
+
+  override dataSources(access: GrafanaAccess): Promise<StatsSourceAnswer<DataSourcesFound>> {
+    return checkDataSources(access, this.timeoutMs);
   }
 
   override async usage(
@@ -135,13 +144,13 @@ export class GrafanaStatsSource extends StatsSource {
     bodyOf: (sources: GrafanaDataSources) => DsQueryBody | undefined,
     valueOf: (results: QueryResults) => T,
   ): Promise<StatsSourceAnswer<T>> {
-    const sources = await this.dataSources.of(access, this.timeoutMs);
+    const sources = await this.dataSourceCache.of(access, this.timeoutMs);
     if (sources.kind !== "read") return sources;
     const body = bodyOf(sources.value);
     if (body === undefined) return { kind: "read", value: valueOf(new Map()) };
     const answer = resultsOf(await callGrafana(access, "/api/ds/query", this.timeoutMs, body));
     if (answer.kind !== "read") {
-      this.dataSources.forget(access);
+      this.dataSourceCache.forget(access);
       return answer;
     }
     return { kind: "read", value: valueOf(answer.value) };

@@ -2,9 +2,10 @@ import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nes
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { TelemetryHttpModule } from "../../platform/telemetry/telemetry-http.module.js";
 import { StatsController } from "./adapters/http/stats.controller.js";
-import { BundledGrafanaInUse } from "./adapters/platform/bundled-grafana-in-use.js";
+import { SettingsGrafanaInUse } from "./adapters/platform/settings-grafana-in-use.js";
 import { BasicStats } from "./application/basic-stats.js";
 import { FullStats } from "./application/full-stats.js";
+import { GrafanaCheck } from "./application/grafana-check.js";
 import { DayTokens } from "./ports/day-tokens.js";
 import { EngineWindows } from "./ports/engine-windows.js";
 import { GrafanaInUse } from "./ports/grafana-in-use.js";
@@ -63,9 +64,10 @@ export class StatsModule {
         { provide: OfficeInitiatives, useExisting: officeInitiatives },
         { provide: ProjectNames, useExisting: projectNames },
         { provide: StatsSource, useClass: statsSource },
-        { provide: GrafanaInUse, useClass: BundledGrafanaInUse },
+        { provide: GrafanaInUse, useClass: SettingsGrafanaInUse },
         BasicStats,
         FullStats,
+        GrafanaCheck,
       ],
     };
   }

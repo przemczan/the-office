@@ -2,9 +2,12 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   basicStatsSchema,
   fullStatsSchema,
+  grafanaCheckAnswerSchema,
   telemetrySettingsSchema,
   type FullStatsRange,
   type FullStatsSplit,
+  type GrafanaCheck,
+  type GrafanaCheckAnswer,
   type ProjectFilter,
   type TelemetryChoice,
   type TelemetrySettings,
@@ -94,4 +97,12 @@ export function startBundledGrafana(): Promise<TelemetrySettings> {
     {},
     telemetrySettingsSchema,
   );
+}
+
+/**
+ * Settings › Telemetry's Test: whether Stats could read the user's own Grafana at the address with
+ * the read token as typed, the saved token when it is left empty.
+ */
+export function checkGrafana(check: GrafanaCheck): Promise<GrafanaCheckAnswer> {
+  return sendToApi("POST", "/stats/grafana-check", check, grafanaCheckAnswerSchema);
 }

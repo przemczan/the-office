@@ -47,6 +47,12 @@ export type StatsSourceAnswer<T> =
   | { readonly kind: "unreachable"; readonly problem: string }
   | { readonly kind: "rejected" };
 
+/** The names of the data sources the full stats would read in a Grafana; undefined for one it lacks. */
+export interface DataSourcesFound {
+  readonly prometheus?: string | undefined;
+  readonly loki?: string | undefined;
+}
+
 /** Where the full stats' data is read from: Grafana's metrics and logs; an adapter binds it. */
 export abstract class StatsSource {
   /** Tokens (cache reads left out) and estimated cost over time, by the split's values. */
@@ -57,6 +63,12 @@ export abstract class StatsSource {
     access: GrafanaAccess,
     query: CostliestQuery,
   ): Promise<StatsSourceAnswer<CostliestSpend>>;
+
+  /**
+   * Which data sources the Grafana has, asked afresh: unreachable too for an address that answers,
+   * but not as Grafana does.
+   */
+  abstract dataSources(access: GrafanaAccess): Promise<StatsSourceAnswer<DataSourcesFound>>;
 
   /** How full each engine's Usage windows were, Office-wide. */
   abstract windows(

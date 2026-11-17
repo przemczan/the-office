@@ -15,6 +15,7 @@ import { TELEMETRY_OFF, type TelemetryInEffect } from "./telemetry-settings.js";
 import { TelemetryModule } from "./telemetry.module.js";
 
 const SECRET = "Basic c2VjcmV0LXRva2Vu";
+const READ_TOKEN = "glsa_c2VjcmV0LXJlYWQ";
 
 const NOT_WANTED = {
   state: "not-wanted",
@@ -141,6 +142,39 @@ describe("the telemetry setting's routes", { timeout: 30_000 }, () => {
       ],
     });
     expect(keptOne).toMatchObject({ headers: [{ name: "Authorization", value: SECRET }] });
+  });
+
+  it("saves the own Grafana's read token owner-only, never answering it, applying at once", async () => {
+    const own = { kind: "own-endpoint", endpoint: "https://otlp.example.com" } as const;
+    await start({
+      kind: "export",
+      endpoint: own.endpoint,
+      headers: [],
+      timeoutMilliseconds: 10_000,
+    });
+    await put(own);
+
+    const saved = await put({
+      ...own,
+      grafana: { readAddress: "https://grafana.example.com", readToken: READ_TOKEN },
+    });
+    const text = await saved.text();
+
+    expect(saved.status).toBe(200);
+    expect(text).not.toContain(READ_TOKEN);
+    expect(telemetrySettingsSchema.parse(JSON.parse(text))).toMatchObject({
+      saved: { grafana: { readAddress: "https://grafana.example.com", hasReadToken: true } },
+      appliesAtNextStart: false,
+    });
+    expect(JSON.stringify(await settings())).not.toContain(READ_TOKEN);
+    expect(JSON.parse(await readFile(filePath(), "utf8"))).toMatchObject({
+      grafana: { readToken: READ_TOKEN },
+    });
+    expect(await isOwnerOnly(filePath())).toBe(true);
+
+    await put({ ...own, grafana: null });
+
+    expect((await settings()).saved).not.toHaveProperty("grafana");
   });
 
   it("tells that a saved choice which is what runs now applies already", async () => {

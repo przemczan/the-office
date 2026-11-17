@@ -5,10 +5,28 @@ export const telemetryHeaderSchema = z.object({ name: z.string(), value: z.strin
 export type TelemetryHeader = z.infer<typeof telemetryHeaderSchema>;
 
 /**
+ * Where Stats reads the user's own Grafana: its address and a read token (a Viewer service
+ * account's), sent as Bearer. A `readToken` left out or empty keeps the saved one.
+ */
+export const ownGrafanaSchema = z.object({
+  readAddress: z.string(),
+  readToken: z.string().optional(),
+});
+export type OwnGrafana = z.infer<typeof ownGrafanaSchema>;
+
+/** The user's own Grafana as the browser sees it: whether a read token is saved, never the token. */
+export const savedOwnGrafanaSchema = z.object({
+  readAddress: z.string(),
+  hasReadToken: z.boolean(),
+});
+export type SavedOwnGrafana = z.infer<typeof savedOwnGrafanaSchema>;
+
+/**
  * `PUT /settings/telemetry`: where The Office exports its traces, metrics and logs from its next
  * start. Off; the bundled Grafana's OTLP endpoint; or the user's own OTLP over HTTP endpoint, with
  * `headers` left out to keep the saved ones (a header sent with an empty value keeps the saved value
- * of the header of that name), and an export timeout in milliseconds.
+ * of the header of that name), and an export timeout in milliseconds. Its `grafana` is where Stats
+ * reads the full stats, applying at once: left out keeps the saved one, `null` removes it.
  */
 export const telemetryChoiceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("off") }),
@@ -18,11 +36,15 @@ export const telemetryChoiceSchema = z.discriminatedUnion("kind", [
     endpoint: z.string(),
     headers: z.array(telemetryHeaderSchema).optional(),
     timeoutMilliseconds: z.number().int().positive().optional(),
+    grafana: ownGrafanaSchema.nullable().optional(),
   }),
 ]);
 export type TelemetryChoice = z.infer<typeof telemetryChoiceSchema>;
 
-/** The saved choice as the browser sees it: the own endpoint's headers by name alone. */
+/**
+ * The saved choice as the browser sees it: the own endpoint's headers by name alone, and its
+ * Grafana with whether a read token is saved.
+ */
 export const savedTelemetryChoiceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("off") }),
   z.object({ kind: z.literal("bundled-grafana") }),
@@ -31,6 +53,7 @@ export const savedTelemetryChoiceSchema = z.discriminatedUnion("kind", [
     endpoint: z.string(),
     headerNames: z.array(z.string()),
     timeoutMilliseconds: z.number().int().positive().optional(),
+    grafana: savedOwnGrafanaSchema.optional(),
   }),
 ]);
 export type SavedTelemetryChoice = z.infer<typeof savedTelemetryChoiceSchema>;
