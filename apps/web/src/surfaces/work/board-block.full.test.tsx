@@ -62,10 +62,9 @@ async function rendered(props: Partial<InitiativeBlockProps> = {}): Promise<HTML
           outlined={false}
           landing={false}
           onOutline={() => {}}
+          renderCard={(task) => <article key={task.id}>{task.id}</article>}
           {...props}
-        >
-          <article>The cards</article>
-        </InitiativeBlock>
+        />
       ),
     }),
     history: createMemoryHistory({ initialEntries: ["/"] }),
@@ -79,6 +78,9 @@ async function rendered(props: Partial<InitiativeBlockProps> = {}): Promise<HTML
 }
 
 const block = (page: HTMLElement): HTMLElement | null => page.querySelector('[role="group"]');
+const cardsShown = (page: HTMLElement): (string | null)[] =>
+  [...page.querySelectorAll("article")].map((article) => article.textContent);
+const foldButton = (page: HTMLElement): HTMLButtonElement | null => page.querySelector("button");
 const count = (page: HTMLElement): HTMLElement | null =>
   page.querySelector(".initiative-block-count");
 
@@ -95,7 +97,7 @@ describe("InitiativeBlock", () => {
     expect(
       page.querySelector('section, [role="region"], h1, h2, h3, h4, [role="heading"]'),
     ).toBeNull();
-    expect(block(page)?.querySelector("article")?.textContent).toBe("The cards");
+    expect(cardsShown(page)).toEqual(["a", "b"]);
   });
 
   it("heads it with the flag and its name, a link to the Initiative", async () => {
@@ -157,6 +159,36 @@ describe("InitiativeBlock", () => {
     expect(onOutline).toHaveBeenLastCalledWith(undefined);
     act(() => page.querySelector("a")?.focus());
     expect(onOutline).toHaveBeenLastCalledWith(INITIATIVE.id);
+  });
+
+  it("in Done, folds a block of more than one card to its first, unfolded by the button at its foot", async () => {
+    const page = await rendered({
+      column: column("done"),
+      cards: [card("a"), card("b"), card("c")],
+    });
+
+    expect(cardsShown(page)).toEqual(["a"]);
+    expect(count(page)?.textContent).toBe("3");
+    expect(foldButton(page)?.textContent).toMatch(/^Show 2 more/);
+    expect(foldButton(page)?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => foldButton(page)?.click());
+    expect(cardsShown(page)).toEqual(["a", "b", "c"]);
+    expect(foldButton(page)?.textContent).toMatch(/^Show fewer/);
+    expect(foldButton(page)?.getAttribute("aria-expanded")).toBe("true");
+
+    act(() => foldButton(page)?.click());
+    expect(cardsShown(page)).toEqual(["a"]);
+  });
+
+  it("never folds a block of one card in Done, nor a block in another column", async () => {
+    const one = await rendered({ column: column("done"), cards: [card("a")] });
+    expect(cardsShown(one)).toEqual(["a"]);
+    expect(foldButton(one)).toBeNull();
+
+    const ready = await rendered();
+    expect(cardsShown(ready)).toEqual(["a", "b"]);
+    expect(foldButton(ready)).toBeNull();
   });
 
   it("shows itself outlined, and where a dragged card lands", async () => {
