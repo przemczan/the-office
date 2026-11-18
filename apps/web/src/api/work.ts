@@ -37,7 +37,7 @@ import {
   type Idea,
   type Initiative,
   type InitiativePauseAnswer,
-  type InitiativePipelineChoice,
+  type InitiativePipelinesChange,
   type IdeaEdit,
   type MarkReadyRequest,
   type NewIdea,
@@ -55,7 +55,6 @@ import {
   type Readiness,
   type ReadyTasksStarted,
   type SavedView,
-  type ShortNameChange,
   type QueuedTask,
   type StartAnswer,
   type StartCheck,
@@ -455,20 +454,15 @@ export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promi
 }
 
 /**
- * The Initiative's Pipeline in one Project it spans, an office-wide Pipeline, one of that Project's
- * own or None (null), chosen while it is being shaped.
+ * The Initiative's Pipelines block saved as a whole while it is being shaped: each Project's
+ * Pipeline, an office-wide one, one of that Project's own or None (null), and the Short name its
+ * branch is named by.
  */
-export function chooseInitiativePipeline(
+export function setInitiativePipelines(
   id: string,
-  choice: InitiativePipelineChoice,
+  change: InitiativePipelinesChange,
 ): Promise<Initiative> {
-  return sendToApi("PUT", `${initiativePath(id)}/pipeline`, choice, initiativeSchema);
-}
-
-/** The Short name its branches are named by, edited while it is being shaped with a Pipeline. */
-export function writeShortName(id: string, shortName: string): Promise<Initiative> {
-  const change: ShortNameChange = { shortName };
-  return sendToApi("PUT", `${initiativePath(id)}/short-name`, change, initiativeSchema);
+  return sendToApi("PUT", `${initiativePath(id)}/pipelines`, change, initiativeSchema);
 }
 
 /**
@@ -740,6 +734,7 @@ export const workEventInvalidations: Readonly<
   "initiative.state-changed": () => [INITIATIVES],
   "initiative.outcome-written": () => [INITIATIVES],
   "initiative.pipeline-chosen": () => [INITIATIVES],
+  "initiative.pipelines-set": () => [INITIATIVES],
   "initiative.short-name-written": () => [INITIATIVES],
   "initiative.branch-made": () => [INITIATIVES],
   "initiative.archived": () => [INITIATIVES],

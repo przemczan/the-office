@@ -21,6 +21,7 @@ import {
   InitiativeCreated,
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
+  InitiativePipelinesSet,
   InitiativePlanningStarted,
   InitiativePaused,
   InitiativeRestored,
@@ -168,6 +169,13 @@ export class WorkWebEvents implements OnModuleInit {
       InitiativePipelineChosen,
       (event): WebEventOf<"initiative.pipeline-chosen"> => ({
         type: "initiative.pipeline-chosen",
+        initiativeId: event.initiativeId,
+      }),
+    );
+    this.forwarding.forward(
+      InitiativePipelinesSet,
+      (event): WebEventOf<"initiative.pipelines-set"> => ({
+        type: "initiative.pipelines-set",
         initiativeId: event.initiativeId,
       }),
     );

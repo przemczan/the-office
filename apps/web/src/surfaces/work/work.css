@@ -2268,31 +2268,6 @@
   color: var(--fg-3);
 }
 
-/* The Pipelines card's Short name, edited while shaping (its other rules are at the end). */
-.initiative-short-name {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.initiative-short-name code {
-  font-family: var(--font-mono);
-}
-
-.initiative-short-name-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.initiative-short-name-label {
-  font: var(--type-overline);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
-
 .task-commit-message {
   max-width: 72ch;
   margin: 0;
@@ -3515,24 +3490,79 @@
   color: var(--fg-2);
 }
 
-/* ---- The Initiative page's Pipelines card (docs/design/initiative-page.html, Proposed): the shaping
-   line and Short name, then a block per Project with its own Pipeline, or None, and its track. */
+/* ---- The Initiative page's Pipelines card (docs/design/initiative-pipelines-block.html): the facts,
+   the Initiative's branch first, then a block per Project with a Pipeline and its track; after Edit,
+   the editor's three steps. */
 .initiative-pipelines {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
 }
 
-.initiative-pipelines-choice {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-subtle);
+.initiative-pipelines-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
-.initiative-pipelines-intro,
+.initiative-pipelines-facts dt,
+.initiative-pipelines-facts dd {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.initiative-pipelines-facts dt:first-of-type,
+.initiative-pipelines-facts dt:first-of-type + dd {
+  border-top: 0;
+}
+
+.initiative-pipelines-facts dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-sunken);
+  font: var(--type-label);
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.initiative-pipelines-facts dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.initiative-pipelines-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font: 500 var(--text-xs) / 1.5 var(--font-mono);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.initiative-pipelines-branch svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-quiet {
+  color: var(--fg-3);
+}
+
 .initiative-pipelines-foot {
   margin: 0;
   font: var(--type-body-sm);
@@ -3596,11 +3626,16 @@
 
 .initiative-pipelines-none-line {
   margin: 0;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-md);
   font: var(--type-body-sm);
-  color: var(--fg-3);
+  color: var(--fg-2);
+}
+
+.initiative-pipelines-none-line b {
+  font-weight: 600;
+  color: var(--fg-1);
 }
 
 .initiative-pipelines-none {
@@ -3644,29 +3679,209 @@
   color: var(--success-fg);
 }
 
-.initiative-pipelines-branch {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  color: var(--fg-3);
-}
-
-.initiative-pipelines-branch code {
-  font: 500 11.5px/1.4 var(--font-mono);
-  color: var(--fg-2);
-  overflow-wrap: anywhere;
-}
-
-.initiative-pipelines-branch-note {
-  font: 400 var(--text-xs) / 1.4 var(--font-sans);
-}
-
 .initiative-pipelines-wait {
   margin: 0;
   font: var(--type-caption);
   color: var(--warning-fg);
+}
+
+/* The editor: numbered steps joined by a line, in the order they are decided. */
+.initiative-pipelines-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.initiative-pipelines-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 0 12px;
+  padding-bottom: 20px;
+}
+
+.initiative-pipelines-step:not(:last-of-type)::before {
+  content: "";
+  position: absolute;
+  top: 28px;
+  bottom: 4px;
+  left: 11.5px;
+  border-left: 1px solid var(--border);
+}
+
+.initiative-pipelines-step-number {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  font: 600 var(--text-xs) / 1 var(--font-sans);
+  color: var(--accent-subtle-fg);
+}
+
+.initiative-pipelines-step[data-off="true"] .initiative-pipelines-step-number {
+  background: var(--neutral-subtle);
+  color: var(--fg-3);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.initiative-pipelines-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.initiative-pipelines-step-title {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  font: 600 var(--text-sm) / 1.45 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.initiative-pipelines-step[data-off="true"] .initiative-pipelines-step-title {
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-required {
+  font-weight: 600;
+  color: var(--danger-fg);
+}
+
+.initiative-pipelines-step-hint {
+  margin: -6px 0 0;
+  max-width: 68ch;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-switches {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  list-style: none;
+  overflow: hidden;
+}
+
+.initiative-pipelines-switch {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.initiative-pipelines-switch:first-child {
+  border-top: 0;
+}
+
+.initiative-pipelines-switch:hover {
+  background: var(--surface-hover);
+}
+
+.initiative-pipelines-switch code {
+  font-family: var(--font-mono);
+  color: var(--fg-2);
+}
+
+.initiative-pipelines-short-name {
+  max-width: 520px;
+}
+
+.initiative-pipelines-branch-prefix {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 var(--text-sm) / 1 var(--font-mono);
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.initiative-pipelines-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.initiative-pipelines-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.initiative-pipelines-row-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.initiative-pipelines-row-extra {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* At 390px a fact's label sits above its value, and a Project's name above its Pipeline. */
+@container page (max-width: 639px) {
+  .initiative-pipelines-facts,
+  .initiative-pipelines-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .initiative-pipelines-facts dt {
+    padding-block: 6px;
+  }
+
+  .initiative-pipelines-facts dd {
+    border-top: 0;
+  }
+
+  .initiative-pipelines-row-extra {
+    grid-column: 1;
+  }
+}
+
+.initiative-pipelines-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--danger-fg);
+}
+
+.initiative-pipelines-error svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.initiative-pipelines-off-note {
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.initiative-pipelines-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* A Project's track: across, its Stages on a line, or stacked, a Stage a row down one. */

@@ -6,6 +6,8 @@ import {
   pipelinesFoldedLine,
   pipelinesFootWords,
   pipelinesStartOpen,
+  shortNameFormProblem,
+  shortNameFromTitle,
   stackedLoopBackWords,
   trackLayout,
   trackStageWords,
@@ -175,5 +177,22 @@ describe("whether the Pipelines card starts open", () => {
         pipelines: [...none, { projectId: "c", pipelineId: "full" }],
       }),
     ).toBe(true);
+  });
+});
+
+describe("the branch name the editor fills in and checks", () => {
+  it("makes it from the title as the service does: accents dropped, one - between words, cut at a word", () => {
+    expect(shortNameFromTitle("Gęślą jaźń: Café!")).toBe("gesla-jazn-cafe");
+    expect(shortNameFromTitle("  --Sync, now!-- ")).toBe("sync-now");
+    expect(shortNameFromTitle("word ".repeat(10))).toBe("word-word-word-word-word-word-word-word");
+    expect(shortNameFromTitle("a".repeat(50))).toBe("a".repeat(40));
+  });
+
+  it("asks for a name, then lower-case words joined by single dashes", () => {
+    expect(shortNameFormProblem("usage-exports-2")).toBeUndefined();
+    expect(shortNameFormProblem("")).toContain("Name the branch");
+    for (const outOfForm of ["Usage", "usage exports", "-usage", "usage--exports", "usage-"]) {
+      expect(shortNameFormProblem(outOfForm)).toContain("Use only lower-case");
+    }
   });
 });

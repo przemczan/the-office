@@ -1,10 +1,11 @@
-import type {
-  Initiative,
-  InitiativeState,
-  Project,
-  Stage,
-  TaskStage,
-  TaskState,
+import {
+  SHORT_NAME_MAX_LENGTH,
+  type Initiative,
+  type InitiativeState,
+  type Project,
+  type Stage,
+  type TaskStage,
+  type TaskState,
 } from "@the-office/contracts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import {
@@ -159,11 +160,44 @@ export function pipelinesStartOpen(initiative: Pick<Initiative, "state" | "pipel
   );
 }
 
-/** What a Project with None does, in its block's dashed line. */
-export function noneLineWords(shaping: boolean): string {
-  return shaping
-    ? "None: its Tasks publish on their own, each as it is done. Choose a Pipeline to publish this Project's whole change at once, after its last Task, through the Stages it has."
-    : "Its Tasks publish on their own, each as it is done: no Initiative's branch here, and no Publishing Task.";
+/** A Pipeline as the card reads it: its name and its Stages. */
+export interface PipelineShown {
+  readonly name: string;
+  readonly stages: readonly Stage[];
+}
+
+/** What the shaping card says while no Project works on an Initiative's branch. */
+export const NO_BRANCH_WHILE_SHAPING =
+  "Each Task publishes into its Project's base branch on its own, as it is done. Press Edit to work on an Initiative's branch instead and publish the whole change at once, through a Pipeline.";
+
+/** The Short name's form: lower-case words of a–z and 0–9, one `-` between each (spec 5.5). */
+const SHORT_NAME_FORM = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * The Short name the editor fills in from the title, as the service derives it (spec 5.5): accents
+ * dropped, lower-case, each run of other characters one `-`, at most 40 characters cut at a word.
+ * One another Initiative holds is refused on Save.
+ */
+export function shortNameFromTitle(title: string): string {
+  const slug = title
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (slug.length <= SHORT_NAME_MAX_LENGTH) return slug;
+  const cut = slug.slice(0, SHORT_NAME_MAX_LENGTH + 1).lastIndexOf("-");
+  return cut > 0 ? slug.slice(0, cut) : slug.slice(0, SHORT_NAME_MAX_LENGTH);
+}
+
+/** Why the Short name can't be saved as written; undefined when its form is right. */
+export function shortNameFormProblem(shortName: string): string | undefined {
+  if (shortName === "") {
+    return "Name the branch: the Initiative works on it in each Project switched on.";
+  }
+  return SHORT_NAME_FORM.test(shortName)
+    ? undefined
+    : "Use only lower-case a–z, 0–9 and -, with no - at either end or two in a row.";
 }
 
 /** Beside the Initiative's branch: "made at Confirm" while shaping, "kept for you to delete" once ended. */

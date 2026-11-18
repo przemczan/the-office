@@ -125,6 +125,22 @@ export const initiativePipelineChoiceSchema = z.object({
 });
 export type InitiativePipelineChoice = z.infer<typeof initiativePipelineChoiceSchema>;
 
+/**
+ * PUT /initiatives/:id/pipelines: the Pipelines block saved as a whole while shaping, so a refusal
+ * leaves nothing half-saved: the Pipeline in each Project, null for None, each Project once, and
+ * the Short name its branch is named by, null to keep the one it has or derive one from the title.
+ */
+export const initiativePipelinesChangeSchema = z.object({
+  pipelines: z
+    .array(initiativePipelineChoiceSchema)
+    .refine(
+      (choices) => new Set(choices.map(({ projectId }) => projectId)).size === choices.length,
+      "Name each Project once.",
+    ),
+  shortName: z.string().nullable(),
+});
+export type InitiativePipelinesChange = z.infer<typeof initiativePipelinesChangeSchema>;
+
 /** PUT /initiatives/:id/short-name: the user's Short name, edited while shaping. */
 export const shortNameChangeSchema = z.object({ shortName: z.string() });
 export type ShortNameChange = z.infer<typeof shortNameChangeSchema>;
@@ -1009,6 +1025,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.pipeline-chosen"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.pipelines-set"), initiativeId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("initiative.short-name-written"),
     initiativeId: z.uuid(),

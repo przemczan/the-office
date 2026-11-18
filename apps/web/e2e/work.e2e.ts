@@ -3810,7 +3810,7 @@ function revisionIn(repositoryPath: string, revision: string): string {
 }
 
 test(
-  "a shaping Initiative takes a Pipeline and a Short name, and Confirm makes its branch at the base",
+  "a shaping Initiative's Pipelines block, edited as a whole, takes a branch, its name and a Pipeline, and Confirm makes the branch at the base",
   { tag: "@full" },
   async ({ page }) => {
     // A repository of its own, as the branch is made in it and Short names are Office-wide.
@@ -3829,26 +3829,32 @@ test(
 
       await page.goto(`/work/initiatives/${initiativeId}`);
       const block = page.getByRole("region", { name: "Pipelines", exact: true });
-      // Each Project the Initiative spans has a block of its own, choosing its own Pipeline.
+      // Edit opens the block as one form: the branch per Project, its name, then its Pipeline.
+      await block.getByRole("button", { name: "Edit", exact: true }).click();
+      await block
+        .getByRole("list", { name: "Initiative's branch, per Project" })
+        .getByRole("listitem")
+        .filter({ hasText: project.name })
+        .getByRole("switch")
+        .click();
       const projectBlock = block.getByRole("listitem", { name: project.name, exact: true });
       const picker = `${project.name}'s Pipeline`;
-      const choice = projectBlock.getByRole("combobox", { name: picker, exact: true });
-      await expect(choice).toHaveText("None");
       await pickPipeline(projectBlock, picker, "Full");
-      await expect(choice).toHaveText("Full");
-
+      await expect(projectBlock.getByRole("combobox", { name: picker, exact: true })).toHaveText(
+        "Full",
+      );
       const shortName = `branched-${word}`;
-      await block.getByRole("button", { name: "Edit", exact: true }).click();
       await block.getByLabel("Short name").fill(shortName);
+      await screenshotScenario(page, "initiative-pipelines-editing", { fullPage: true });
       await block.getByRole("button", { name: "Save", exact: true }).click();
       await expect(block.getByText(`initiative/${shortName}`, { exact: true })).toBeVisible();
+      await expect(projectBlock.getByText(/^Full · \d+ Stages/)).toBeVisible();
       await screenshotScenario(page, "initiative-pipelines-shaping", { fullPage: true });
 
       await page.getByRole("button", { name: "Confirm the Initiative" }).click();
+      await expect(block.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
       await expect(projectBlock.getByText(/^Full · \d+ Stages/)).toBeVisible();
-      await expect(
-        projectBlock.getByText(`initiative/${shortName}`, { exact: true }),
-      ).toBeVisible();
+      await expect(block.getByText(`initiative/${shortName}`, { exact: true })).toBeVisible();
       await expect(block.getByRole("combobox")).toHaveCount(0);
       expect(revisionIn(own.path, `initiative/${shortName}`)).toBe(base);
     } finally {

@@ -14,6 +14,7 @@ import {
 import {
   archivedInitiativesQuerySchema,
   initiativePipelineChoiceSchema,
+  initiativePipelinesChangeSchema,
   initiativePlanningSchema,
   newInitiativeTaskSchema,
   outcomeChangeSchema,
@@ -24,6 +25,7 @@ import {
   type Initiative as InitiativeResponse,
   type InitiativePauseAnswer,
   type InitiativePipelineChoice,
+  type InitiativePipelinesChange,
   type InitiativePlanningRequest,
   type NewInitiativeTask,
   type OutcomeChange,
@@ -129,6 +131,19 @@ export class InitiativesController {
     return this.respond(
       await this.initiatives.choosePipeline(id, projectId, pipelineId, "straight"),
     );
+  }
+
+  /**
+   * The user's Pipelines block saved as a whole: every Project's Pipeline and the Short name, all
+   * or nothing; refused once the Initiative is no longer being shaped.
+   */
+  @Put(":id/pipelines")
+  async setPipelines(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(initiativePipelinesChangeSchema))
+    { pipelines, shortName }: InitiativePipelinesChange,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.setPipelines(id, pipelines, shortName));
   }
 
   /** The user's own Short name; refused once the Initiative is no longer being shaped. */
