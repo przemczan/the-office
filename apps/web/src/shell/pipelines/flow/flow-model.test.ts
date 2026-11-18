@@ -2,6 +2,7 @@ import type { ConditionGroup, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   asFlow,
+  canDropAt,
   canMoveRoute,
   canMoveStage,
   earlierStages,
@@ -293,5 +294,57 @@ describe("removing a Stage", () => {
       ["plan", 0, 0],
       ["publish", 1, 0],
     ]);
+  });
+});
+
+describe("a Task's flow, its started Stages locked", () => {
+  const flow = asFlow([plan, tests, review, publish]);
+  const started = new Set(["plan", "tests"]);
+
+  it("adds a Stage after a locked one after the frozen columns, so no locked Stage moves", () => {
+    const added = withStageAdded(flow, gate, "plan", started);
+    expect(places(added.stages)).toEqual([
+      ["plan", 0, 0],
+      ["tests", 1, 0],
+      ["gate", 2, 1],
+      ["review", 3, 0],
+      ["publish", 4, 0],
+    ]);
+    expect(places(withStageAdded(flow, gate, "plan").stages)).toContainEqual(["tests", 2, 0]);
+  });
+
+  it("puts a Stage on a route into a frozen column after the frozen ones", () => {
+    const added = withStageOnRoute(flow, "plan", 0, gate, started);
+    expect(places(added.stages).slice(0, 3)).toEqual([
+      ["plan", 0, 0],
+      ["tests", 1, 0],
+      ["gate", 2, 0],
+    ]);
+  });
+
+  it("never closes up a frozen column when a Stage that hasn't started goes", () => {
+    const locked = new Set(["plan", "review"]);
+    expect(places(withStageRemovedFromFlow(flow, "tests", locked))).toEqual([
+      ["plan", 0, 0],
+      ["review", 2, 0],
+      ["publish", 3, 0],
+    ]);
+    expect(places(withStageRemovedFromFlow(flow, "tests"))).toContainEqual(["review", 1, 0]);
+  });
+
+  it("offers no drop into a new column among the frozen ones, and moves no locked Stage", () => {
+    expect(canDropAt(flow, { column: 1, row: 0, newColumn: true }, started)).toBe(false);
+    expect(canDropAt(flow, { column: 2, row: 0, newColumn: true }, started)).toBe(true);
+    expect(canDropAt(flow, { column: 1, row: 1, newColumn: false }, started)).toBe(true);
+    expect(withStageDropped(flow, "publish", { column: 0, row: 0, newColumn: true }, started)).toBe(
+      flow,
+    );
+    expect(withStageDropped(flow, "tests", { column: 3, row: 1, newColumn: false }, started)).toBe(
+      flow,
+    );
+    expect(canMoveStage(flow, "tests", "later", started)).toBe(false);
+    expect(canMoveStage(flow, "review", "earlier", started)).toBe(false);
+    expect(canMoveStage(flow, "review", "later", started)).toBe(true);
+    expect(withStageStepped(flow, "review", -1, started)).toBe(flow);
   });
 });

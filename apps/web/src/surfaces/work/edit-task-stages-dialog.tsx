@@ -10,7 +10,7 @@ import type {
   TaskStages,
 } from "@the-office/contracts";
 import { Alert, Button, Dialog } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { editTaskStages, pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -21,7 +21,8 @@ import {
   type PipelineChoiceGroup,
 } from "../../shell/pipelines/pipeline-choices.ts";
 import { PipelinePicker } from "../../shell/pipelines/pipeline-picker.tsx";
-import { StageEditor } from "../../shell/pipelines/stage-editor.tsx";
+import { asWholeFlow } from "../../shell/pipelines/flow/flow-model.ts";
+import { TaskFlowEditor } from "../../shell/pipelines/flow/task-flow-editor.tsx";
 import type { StageCommandSource } from "../../shell/pipelines/stage-commands.ts";
 import { byLevel, checkAwaited } from "../../shell/pipelines/stages-check.ts";
 import { useProjectPipelineChoices } from "../../shell/pipelines/use-pipelines.ts";
@@ -33,7 +34,7 @@ import { STAGE_STATE_WORDS } from "./stage-words.ts";
 import { taskPublishingWords } from "./task-publishing.ts";
 
 /**
- * "Edit for this Task": the Stage editor on the Task's own copy of its Pipeline, and the Pipeline
+ * "Edit for this Task": the flow editor on the Task's own copy of its Pipeline, and the Pipeline
  * swapped for another its Project can follow while the Task hasn't started. All of it is a draft
  * until Save; closing the window drops it. The Pipeline itself stays as it is.
  */
@@ -110,9 +111,11 @@ function EditTaskStagesForm({
   readonly onClose: () => void;
 }): ReactNode {
   const stagesOf = (pipelineId: string): readonly Stage[] =>
-    (pipelineId === task.pipelineId ? taskStages.stages?.map(({ stage }) => stage) : undefined) ??
-    choiceById(groups, pipelineId)?.stages ??
-    [];
+    asWholeFlow(
+      (pipelineId === task.pipelineId ? taskStages.stages?.map(({ stage }) => stage) : undefined) ??
+        choiceById(groups, pipelineId)?.stages ??
+        [],
+    );
   // "" while a Task with no Pipeline has none chosen yet.
   const followed = task.pipelineId ?? "";
   const notChosen = task.pipelineId === null;
@@ -156,12 +159,11 @@ function EditTaskStagesForm({
   });
   const notStarted = NOT_STARTED.includes(task.state);
   const editWaits = edited && (problems.length > 0 || checkAwaited(check));
-  const lockedNotes = (taskStages.stages ?? [])
-    .slice(0, taskStages.lockedStages)
-    .map(({ state }) => `${STAGE_STATE_WORDS[state]}: started, so it can't be changed`);
+  const started = useMemo(() => startedStages(taskStages), [taskStages]);
   return (
     <Dialog
-      size="medium"
+      size="large"
+      keepsHeight
       title={notChosen ? `Choose a Pipeline for ${task.title}` : `Stages of ${task.title}`}
       unsavedChanges={edited || swapped}
       onClose={onClose}
@@ -186,7 +188,7 @@ function EditTaskStagesForm({
             {pipeline
               ? `The ${pipeline.name} Pipeline itself stays as it is.`
               : "Its Pipeline was removed from the library."}
-            {lockedNotes.length > 0 && " Stages already started are locked."}
+            {started.size > 0 && " Started Stages, and the routes out of them, are locked."}
           </Alert>
         )}
         {notStarted && (
@@ -220,13 +222,13 @@ function EditTaskStagesForm({
           />
         )}
         {chosenPipelineId !== "" && (
-          <StageEditor
+          <TaskFlowEditor
             stages={stages}
             onChange={(changed) => {
               setStages(changed);
               setEdited(true);
             }}
-            lockedNotes={lockedNotes}
+            started={started}
             problems={problems}
             warnings={warnings}
             roles={roles}
@@ -237,6 +239,15 @@ function EditTaskStagesForm({
         )}
       </div>
     </Dialog>
+  );
+}
+
+/** The Stages that have started, any run making one so, by key with their state's words. */
+function startedStages({ stages }: TaskStages): ReadonlyMap<string, string> {
+  return new Map(
+    (stages ?? [])
+      .filter(({ runs }) => runs.length > 0)
+      .map(({ stage, state }): [string, string] => [stage.key, STAGE_STATE_WORDS[state]]),
   );
 }
 

@@ -1,5 +1,13 @@
-import { asFlow, pipelineOrder } from "./flow.js";
-import { stageProblems, problemOnStage, type Pipeline, type StageProblem } from "./pipeline.js";
+import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
+import {
+  stageProblems,
+  problemOnStage,
+  type Pipeline,
+  type StageProblem,
+  type StageProblemAt,
+} from "./pipeline.js";
+import { isResolveStage } from "./resolve-stages.js";
+import { unnamedRoutes, type Route, type StagePlace } from "./route.js";
 import {
   agentStageWorkers,
   mergedWorkers,
@@ -129,6 +137,16 @@ export function firstStageToWork(stages: readonly Stage[], runs: readonly StageR
 }
 
 /**
+ * The keys of the Stages that have started (spec §2.3): every Stage with a run of the Task's, ended
+ * or not, held, interrupted or skipped. Resolve's Stages aren't the Task's own and are left aside.
+ */
+export function startedStageKeys(runs: readonly StageRun[]): ReadonlySet<string> {
+  return new Set(
+    runs.map(({ stageKey }) => stageKey).filter((stageKey) => !isResolveStage({ key: stageKey })),
+  );
+}
+
+/**
  * Every reason the edited Stages can't replace the Task's own, so the editor flags them all at
  * once; empty when they can.
  */
@@ -138,12 +156,12 @@ export function editProblems(
   runs: readonly StageRun[],
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
-  const locked = lockedStageCount(own.stages, runs);
+  const started = startedStageKeys(runs);
   const ordered = pipelineOrder(asFlow(edited));
   return [
-    ...lockedStageProblems(own.stages, ordered, locked),
+    ...lockedStageProblems(pipelineOrder(asFlow(own.stages)), ordered, started),
     ...stageProblems(ordered),
-    ...staffingProblems(ordered, locked, roles),
+    ...staffingProblems(ordered, started, roles),
   ];
 }
 
@@ -158,34 +176,74 @@ export function editTaskStages(
   };
 }
 
+/**
+ * Started Stages, and the routes out of them, are locked (spec §2.3): each started Stage must still
+ * be there, by its key, with the same fields, routes out and place. Routes into it aren't locked.
+ */
 function lockedStageProblems(
-  stages: readonly Stage[],
-  edited: readonly Stage[],
-  locked: number,
+  stages: readonly FlowStage[],
+  edited: readonly FlowStage[],
+  started: ReadonlySet<string>,
 ): StageProblem[] {
-  return stages.slice(0, locked).flatMap((stage, stageIndex) => {
-    const kept = edited[stageIndex];
-    return kept && sameStage(stage, kept)
-      ? []
-      : [problemOnStage(stage, stageIndex, "it has started, so it stays as it is, where it is.")];
-  });
+  return stages
+    .filter(({ key }) => started.has(key))
+    .flatMap((stage) => {
+      const stageIndex = edited.findIndex(({ key }) => key === stage.key);
+      const kept = edited[stageIndex];
+      if (!kept) {
+        const ownIndex = stages.indexOf(stage);
+        return [problemOnStage(stage, ownIndex, "it has started, so it can't be removed.")];
+      }
+      const routesAt = changedRoutesAt(stage.routes, kept.routes);
+      return [
+        ...(comparable(stage) === comparable(kept)
+          ? []
+          : [problemOnStage(kept, stageIndex, "it has started, so it stays as it is.")]),
+        ...(routesAt ? [problemOnStage(kept, stageIndex, ROUTES_OUT_LOCKED, routesAt)] : []),
+        ...(samePlace(stage.place, kept.place)
+          ? []
+          : [problemOnStage(kept, stageIndex, "it has started, so it stays where it is.")]),
+      ];
+    });
 }
 
-function sameStage(stage: Stage, other: Stage): boolean {
-  return comparable(stage) === comparable(other);
+const ROUTES_OUT_LOCKED =
+  "it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.";
+
+/**
+ * Where the routes out changed: on the first route that differs in where it leads or its
+ * condition, on the Stage when one was added or removed; undefined when they are the same. The
+ * Stages' names in routes are for their words alone and don't count.
+ */
+function changedRoutesAt(
+  routes: readonly Route[],
+  edited: readonly Route[],
+): StageProblemAt | undefined {
+  if (routes.length !== edited.length) return { kind: "stage" };
+  const [one, other] = [unnamedRoutes(routes), unnamedRoutes(edited)];
+  const routeIndex = one.findIndex((route, index) => sorted(route) !== sorted(other[index]));
+  return routeIndex < 0 ? undefined : { kind: "route", routeIndex };
+}
+
+function samePlace(place: StagePlace, other: StagePlace): boolean {
+  return place.column === other.column && place.row === other.row;
 }
 
 /**
- * The Stage as JSON with its keys sorted and absent fields left out, wherever it was read from. Its
- * routes and place are left out: the list editor redraws a straight line's routes when a Stage is
- * inserted after a started one, and the walk doesn't follow routes yet.
+ * The Stage's own fields as `sorted` JSON, wherever it was read from. Its routes and place are
+ * weighed apart (`changedRoutesAt`, `samePlace`), each giving its own problem.
  */
 function comparable({ routes: _routes, place: _place, ...stage }: Stage): string {
-  return JSON.stringify(stage, (_key, value: unknown) =>
-    value !== null && typeof value === "object" && !Array.isArray(value)
+  return sorted(stage);
+}
+
+/** `value` as JSON with its objects' keys sorted and absent fields left out. */
+function sorted(value: unknown): string {
+  return JSON.stringify(value, (_key, field: unknown) =>
+    field !== null && typeof field === "object" && !Array.isArray(field)
       ? Object.fromEntries(
-          Object.entries(value).toSorted(([one], [other]) => one.localeCompare(other)),
+          Object.entries(field).toSorted(([one], [other]) => one.localeCompare(other)),
         )
-      : value,
+      : field,
   );
 }

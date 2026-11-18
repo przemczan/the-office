@@ -3,9 +3,8 @@ import { PUBLISH_COMMAND } from "./stage-commands.ts";
 import { withPermissions } from "./stage-permissions.ts";
 
 /**
- * The Stage editor's changes to a list of Stages, each answering the new list. Stages before
- * `lockedStages` have started: no change moves, drops or puts a Stage among them. What makes a list
- * unusable is the service's to say (`stagesCheck`), so these only keep it well formed.
+ * Changes to a list of Stages, each answering the new list. What makes a list unusable is the
+ * service's to say (`stagesCheck`), so these only keep it well formed.
  */
 
 export type StageKind = Stage["kind"];
@@ -19,7 +18,7 @@ export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
   gate: "Gate",
 };
 
-/** Each kind's icon, in the Stage editor and the Stage templates' list. */
+/** Each kind's icon, in the flow editor and the Stage templates' list. */
 export const STAGE_KIND_ICONS: Readonly<Record<StageKind, string>> = {
   agent: "user",
   script: "terminal",
@@ -39,12 +38,8 @@ const NEW_STAGE_NAMES: Readonly<Record<StageKind, string>> = {
  * A new Stage of `kind` added where it usually goes, with a key and name no other Stage has: a Gate
  * before the last Stage, which usually publishes; anything else at the end.
  */
-export function addStage(
-  stages: readonly Stage[],
-  kind: StageKind,
-  lockedStages: number,
-): AddedStage {
-  return placed(stages, newStage(kind, "", NEW_STAGE_NAMES[kind]), lockedStages);
+export function addStage(stages: readonly Stage[], kind: StageKind): AddedStage {
+  return placed(stages, newStage(kind, "", NEW_STAGE_NAMES[kind]));
 }
 
 /**
@@ -52,12 +47,8 @@ export function addStage(
  * link: it gets its own key, keeps its name unless another Stage has it, and has no failure rule,
  * which only names a Stage of the list it goes into.
  */
-export function addStageFrom(
-  stages: readonly Stage[],
-  template: StageTemplate,
-  lockedStages: number,
-): AddedStage {
-  return placed(stages, withoutFailureRule(template.stage), lockedStages);
+export function addStageFrom(stages: readonly Stage[], template: StageTemplate): AddedStage {
+  return placed(stages, withoutFailureRule(template.stage));
 }
 
 /** A Stage as a Stage template keeps it: no failure rule, which only a Pipeline gives meaning. */
@@ -73,9 +64,8 @@ export interface AddedStage {
   readonly index: number;
 }
 
-function placed(stages: readonly Stage[], stage: Stage, lockedStages: number): AddedStage {
-  const index =
-    stage.kind === "gate" && stages.length > lockedStages ? stages.length - 1 : stages.length;
+function placed(stages: readonly Stage[], stage: Stage): AddedStage {
+  const index = stage.kind === "gate" && stages.length > 0 ? stages.length - 1 : stages.length;
   return { stages: stages.toSpliced(index, 0, namedAmong(stage, stages)), index };
 }
 
@@ -116,27 +106,6 @@ export function removeStage(stages: readonly Stage[], index: number): readonly S
         ? { ...stage, onFailure: undefined }
         : stage,
     );
-}
-
-export function canMove(
-  stages: readonly Stage[],
-  index: number,
-  by: -1 | 1,
-  lockedStages: number,
-): boolean {
-  const to = index + by;
-  return index >= lockedStages && to >= lockedStages && to < stages.length;
-}
-
-export function moveStage(
-  stages: readonly Stage[],
-  index: number,
-  by: -1 | 1,
-  lockedStages: number,
-): readonly Stage[] {
-  const stage = stages[index];
-  if (!stage || !canMove(stages, index, by, lockedStages)) return stages;
-  return stages.toSpliced(index, 1).toSpliced(index + by, 0, stage);
 }
 
 export function replaceStage(

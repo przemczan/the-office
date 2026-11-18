@@ -41,7 +41,7 @@ import {
   type ScriptStage,
 } from "./stage-edits.ts";
 import { StagePermissionFields } from "./stage-permission-fields.tsx";
-import "./stage-editor.css";
+import "./stage-form.css";
 
 /** The most times a failure may go back, as the click-through offers. */
 const MOST_ROUNDS = 9;
@@ -77,8 +77,8 @@ export interface StageFormProps {
 }
 
 /**
- * One Stage's fields (spec §2.3), the same in the Stage editor and for a Stage template, each change
- * answering the list with the Stage replaced.
+ * One Stage's fields (spec §2.3), the same in the flow editor's panel and for a Stage template, each
+ * change answering the list with the Stage replaced.
  */
 export function StageForm(props: StageFormProps): ReactNode {
   const { stages, index } = props;
@@ -91,7 +91,7 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
   const { stage, stages, index, onChange, template = false, onFailureApart = false } = props;
   const change = (changed: Stage): void => onChange(replaceStage(stages, index, changed));
   return (
-    <div className="stage-editor-form">
+    <div className="stage-form">
       <Input
         label="Name"
         hint={
@@ -118,7 +118,7 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
       )}
       {stage.kind === "agent" && <AgentFields {...props} stage={stage} change={change} />}
       {stage.kind !== "gate" && !template && !onFailureApart && (
-        <div className="stage-editor-wide">
+        <div className="stage-form-wide">
           <Field label="On failure">
             <FailureFields {...props} stage={stage} change={change} />
           </Field>
@@ -252,7 +252,7 @@ function AgentFields({
         ]}
         onChange={(effort) => change({ ...stage, effort: effortSchema.safeParse(effort).data })}
       />
-      <div className="stage-editor-wide">
+      <div className="stage-form-wide">
         <Textarea
           label="Brief"
           hint="Filled with the Task's Plan, Definition of Done and earlier results"
@@ -370,7 +370,7 @@ function FailureFields({
     });
   }
   return (
-    <div className="stage-editor-failure">
+    <div className="stage-form-failure">
       <Select
         aria-label="On failure"
         value={onFailure?.goBackTo ?? ""}

@@ -765,13 +765,30 @@ test(
       await page.goto(`/tasks/${taskId}`);
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       const dialog = page.getByRole("dialog");
-      await dialog.getByRole("button", { name: "From a template" }).click();
-      await dialog.getByRole("menu").getByRole("button", { name: templateName }).click();
+      const taskFlow = dialog.getByRole("region", { name: "Flow" });
+      // The Add a Stage menu lists the templates under From a template, after the kinds.
+      await dialog.getByRole("button", { name: "Add a Stage" }).click();
+      const addMenu = page.getByRole("menu");
+      await expect(addMenu).toContainText("From a template");
+      await addMenu.getByRole("button", { name: templateName }).click();
       // The Task's Stages already hold the Pipeline's copy, so this one is named apart.
       const copyName = `${templateName} 2`;
-      await expect(
-        dialog.getByRole("listitem", { name: copyName, exact: true }).getByLabel("Publishes"),
-      ).toHaveValue("branch-only");
+      const copyPanel = dialog.getByRole("region", { name: copyName, exact: true });
+      await expect(copyPanel.getByLabel("Publishes")).toHaveValue("branch-only");
+      // Added unconnected after the last Stage: the Pipeline's copy leads to it, and it to End.
+      await expect(dialog.getByRole("button", { name: "Save for this Task" })).toBeDisabled();
+      await taskFlow.getByRole("button", { name: templateName, exact: true }).click();
+      await dialog
+        .getByRole("region", { name: templateName, exact: true })
+        .getByRole("button", { name: /→ End/ })
+        .click();
+      await dialog
+        .getByRole("region", { name: "Route" })
+        .getByLabel("Goes to")
+        .selectOption({ label: copyName });
+      await taskFlow.getByRole("button", { name: copyName, exact: true }).click();
+      await copyPanel.getByRole("button", { name: "Add a route" }).click();
+      await expect(dialog.getByRole("list", { name: "Problems" })).toHaveCount(0);
       await page.screenshot({
         path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-from-template.png"),
       });

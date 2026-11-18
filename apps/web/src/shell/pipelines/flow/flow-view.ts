@@ -115,6 +115,7 @@ export function markTone(mark: FlowStageMark): "success" | "info" | "warning" | 
     case "routes-changed":
       return "warning";
     case "removed":
+    case "locked":
       return "neutral";
   }
 }

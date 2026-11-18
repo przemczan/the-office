@@ -4,9 +4,7 @@ import {
   addStage,
   addStageFrom,
   canContinue,
-  canMove,
   failureTargets,
-  moveStage,
   removeStage,
   withCommand,
   withDuty,
@@ -45,11 +43,11 @@ const keysOf = (stages: readonly Stage[]): string[] => stages.map(({ key }) => k
 
 describe("the Stage editor's changes", () => {
   it("adds a Gate before the last Stage and anything else at the end, each with its own key and name", () => {
-    const gate = addStage(quickFix, "gate", 0);
+    const gate = addStage(quickFix, "gate");
     expect(gate.index).toBe(2);
     expect(keysOf(gate.stages)).toEqual(["implement", "tests", "gate", "publish"]);
 
-    const second = addStage(gate.stages, "gate", 0);
+    const second = addStage(gate.stages, "gate");
     expect(second.stages[3]).toEqual({
       kind: "gate",
       key: "gate-2",
@@ -57,7 +55,7 @@ describe("the Stage editor's changes", () => {
       optional: false,
     });
 
-    const agent = addStage(quickFix, "agent", 0);
+    const agent = addStage(quickFix, "agent");
     expect(agent.index).toBe(3);
     expect(agent.stages[3]).toMatchObject({
       kind: "agent",
@@ -67,13 +65,9 @@ describe("the Stage editor's changes", () => {
     });
   });
 
-  it("adds a Gate at the end once every Stage has started", () => {
-    expect(addStage(quickFix, "gate", 3).index).toBe(3);
-  });
-
   it("adds a Stage template as a copy where its kind goes, with its own key and no failure rule", () => {
     const template = { id: "tests", stage: { ...tests, key: "tests", name: "Lint first" } };
-    const added = addStageFrom(quickFix, template, 0);
+    const added = addStageFrom(quickFix, template);
     expect(added.index).toBe(3);
     expect(added.stages[3]).toEqual({
       kind: "script",
@@ -84,26 +78,17 @@ describe("the Stage editor's changes", () => {
     });
 
     const uiAcceptance: Stage = { kind: "gate", key: "ui", name: "UI acceptance", optional: false };
-    expect(addStageFrom(quickFix, { id: "ui", stage: uiAcceptance }, 0).index).toBe(2);
+    expect(addStageFrom(quickFix, { id: "ui", stage: uiAcceptance }).index).toBe(2);
   });
 
   it("names a Stage template's copy apart from the Stages it joins", () => {
-    const added = addStageFrom(quickFix, { id: "tests", stage: tests }, 0);
+    const added = addStageFrom(quickFix, { id: "tests", stage: tests });
     expect(added.stages[3]).toMatchObject({ key: "tests-2", name: "Tests 2" });
     expect(added.stages[3]).not.toHaveProperty("onFailure");
-    expect(addStageFrom(quickFix, { id: "implement", stage: implement }, 3).index).toBe(3);
   });
 
   it("drops a Stage with every failure rule that went back to it", () => {
     expect(removeStage(quickFix, 0)).toEqual([{ ...tests, onFailure: undefined }, publish]);
-  });
-
-  it("moves a Stage only among those that haven't started", () => {
-    expect(keysOf(moveStage(quickFix, 2, -1, 0))).toEqual(["implement", "publish", "tests"]);
-    expect(canMove(quickFix, 1, -1, 1)).toBe(false);
-    expect(canMove(quickFix, 0, 1, 1)).toBe(false);
-    expect(canMove(quickFix, 2, 1, 0)).toBe(false);
-    expect(moveStage(quickFix, 1, -1, 1)).toBe(quickFix);
   });
 
   it("continues a session only after the same Role, and starts fresh once the Role changes", () => {
@@ -144,7 +129,7 @@ describe("the Stage editor's changes", () => {
   });
 
   it("goes back on failure only to earlier Stages that aren't Gates", () => {
-    const gated = addStage(quickFix, "gate", 0).stages;
+    const gated = addStage(quickFix, "gate").stages;
     expect(keysOf(failureTargets(gated, 3))).toEqual(["implement", "tests"]);
     expect(failureTargets(gated, 0)).toEqual([]);
   });

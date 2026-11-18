@@ -11,6 +11,7 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { TaskStagesService } from "./task-stages-service.js";
 import { quickFix, withGate, refusalOf } from "./task-stages-service.fixtures.js";
 
@@ -84,7 +85,7 @@ describe("Edit for this Task", () => {
       await refusalOf(
         service.edit(taskId, [{ ...implement, effort: "low" }, ...withGate.slice(1)]),
       ),
-    ).toEqual(["Stage 1 · Implement: it has started, so it stays as it is, where it is."]);
+    ).toEqual(["Stage 1 · Implement: it has started, so it stays as it is."]);
   });
 
   it("refuses Stage permissions wider than the Role card's, and keeps those that narrow it", async () => {
@@ -132,6 +133,33 @@ describe("Edit for this Task", () => {
 
     expect(await refusalOf(service.edit(aTask(), [...quickFix, fullTests]))).toEqual([
       `Stage ${quickFix.length + 1} · Full tests: its Project, Site, has no command test-full.`,
+    ]);
+  });
+
+  it("leaves a started Stage's permissions and commands unchecked, as it keeps what it ran with", async () => {
+    pipelines.projects.projects.push({
+      id: "test-project",
+      name: "Site",
+      defaultPipeline: "full",
+      commands: [{ key: "build" }, { key: "test" }],
+    });
+    const [implement, ...rest] = quickFix;
+    if (implement?.kind !== "agent") throw new Error("Quick fix starts with an Agent Stage.");
+    const kept: Stage[] = [
+      { ...implement, permissions: { run: "anything", commands: ["test-full"] } },
+      ...rest,
+    ];
+    const taskId = aTask("in-progress");
+    const own = await service.make(taskId, "quick-fix");
+    await pipelines.app.get(TaskStagesRepository).save({ ...own, stages: straightLineFlow(kept) });
+    await pipelines.app
+      .get(StageRunRepository)
+      .saveNew(aStageRun({ id: randomUUID(), taskId, stageKey: "implement" }));
+
+    expect((await service.edit(taskId, kept)).editedForTask).toBe(true);
+    expect(await refusalOf(service.edit(aTask(), kept))).toEqual([
+      "Stage 1 · Implement: the run permission can only be narrowed from the Role card's.",
+      "Stage 1 · Implement: its Project, Site, has no command test-full.",
     ]);
   });
 });

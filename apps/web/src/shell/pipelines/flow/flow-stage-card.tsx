@@ -3,6 +3,7 @@ import { Badge, Icon } from "@the-office/ui";
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { STAGE_KIND_ICONS } from "../stage-edits.ts";
 import type { FlowGridCell } from "./flow-layout.ts";
+import { FlowLock } from "./flow-locked.tsx";
 import type { FlowStageMark } from "./flow-marks.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import {
@@ -26,6 +27,8 @@ export interface FlowStageCardProps {
   /** The warnings on this Stage, whose words "When none holds, you're asked" shows on hover. */
   readonly warningWords: string;
   readonly mark: FlowStageMark | undefined;
+  /** Why a Task's started Stage is locked, shown as its lock. */
+  readonly lockedNote: string | undefined;
   readonly listsRoutes: boolean;
   readonly showsHandle: boolean;
   readonly draggable: boolean;
@@ -52,7 +55,10 @@ const WRAPPING_BADGE: CSSProperties = {
   flex: "0 1 auto",
 };
 
-/** A Stage on the canvas: its kind, name and who works it, its routes out when it lists them, its +. */
+/**
+ * A Stage on the canvas: its kind, name and who works it, its mark (and lock, when started), its
+ * routes out when it lists them, its +.
+ */
 export function FlowStageCard(props: FlowStageCardProps): ReactNode {
   const { stage, cell, mark, dragging } = props;
   const removed = mark?.tone === "removed";
@@ -75,11 +81,14 @@ export function FlowStageCard(props: FlowStageCardProps): ReactNode {
       }}
     >
       <StagePick {...props} />
-      {mark && (
+      {(mark || props.lockedNote !== undefined) && (
         <span className="flow-canvas-stage-tag">
-          <Badge tone={markTone(mark)} size="sm" style={WRAPPING_BADGE}>
-            {mark.label}
-          </Badge>
+          {props.lockedNote !== undefined && <FlowLock note={props.lockedNote} />}
+          {mark && (
+            <Badge tone={markTone(mark)} size="sm" style={WRAPPING_BADGE}>
+              {mark.label}
+            </Badge>
+          )}
         </span>
       )}
       {props.listsRoutes && !removed && <RouteRows {...props} />}

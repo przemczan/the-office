@@ -129,6 +129,11 @@
   border-left: 3px solid var(--edge);
 }
 
+/* A Task's started Stage: locked, its edge grey beside the marks' colours. */
+.flow-canvas-stage--locked {
+  border-left: 3px solid var(--border-strong);
+}
+
 .flow-canvas-stage--removed {
   border-style: dashed;
   background: transparent;
@@ -218,7 +223,16 @@
    style, as the Badge styles itself inline) */
 .flow-canvas-stage-tag {
   display: flex;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
+}
+
+.flow-lock {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--fg-3);
 }
 
 /* The routes out, in the order they are weighed, each with its port on the card's edge */
@@ -576,6 +590,10 @@
 .flow-list-row--changed,
 .flow-list-row--routes-changed {
   box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.flow-list-row--locked {
+  box-shadow: inset 3px 0 0 var(--border-strong);
 }
 
 .flow-list-row--removed .flow-canvas-stage-name {

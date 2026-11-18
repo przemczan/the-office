@@ -18,11 +18,11 @@ const roles = new Map<string, RoleFilling>([
 
 describe("staffingProblems", () => {
   it("passes Stages whose Role someone with a Task limit fills", () => {
-    expect(staffingProblems([agentStage(), scriptStage()], 0, roles)).toEqual([]);
+    expect(staffingProblems([agentStage(), scriptStage()], new Set(), roles)).toEqual([]);
   });
 
   it("flags a Role whose person only talks", () => {
-    expect(staffingProblems([agentStage({ role: "cto" })], 0, roles)).toEqual([
+    expect(staffingProblems([agentStage({ role: "cto" })], new Set(), roles)).toEqual([
       {
         stageKey: "implement",
         at: { kind: "stage" },
@@ -37,7 +37,7 @@ describe("staffingProblems", () => {
       ["devops", { title: "Devops", person: undefined, letGoPerson: "Dana" }],
     ]);
 
-    expect(staffingProblems([agentStage({ role: "devops" })], 0, letGo)).toEqual([
+    expect(staffingProblems([agentStage({ role: "devops" })], new Set(), letGo)).toEqual([
       {
         stageKey: "implement",
         at: { kind: "stage" },
@@ -48,7 +48,7 @@ describe("staffingProblems", () => {
   });
 
   it("flags a Role nobody has filled by its title", () => {
-    expect(staffingProblems([agentStage({ role: "devops" })], 0, roles)).toEqual([
+    expect(staffingProblems([agentStage({ role: "devops" })], new Set(), roles)).toEqual([
       {
         stageKey: "implement",
         at: { kind: "stage" },
@@ -56,7 +56,7 @@ describe("staffingProblems", () => {
         text: "Stage 1 · Implement: nobody fills Devops; hire someone or choose who works it.",
       },
     ]);
-    expect(staffingProblems([agentStage({ role: "designer" })], 0, roles)).toEqual([
+    expect(staffingProblems([agentStage({ role: "designer" })], new Set(), roles)).toEqual([
       {
         stageKey: "implement",
         at: { kind: "stage" },
@@ -72,11 +72,13 @@ describe("staffingProblems", () => {
       agentStage({ key: "fix", name: "Fix", role: "devops" }),
     ];
 
-    expect(staffingProblems(stages, 1, roles).map(({ stageKey }) => stageKey)).toEqual(["fix"]);
+    expect(
+      staffingProblems(stages, new Set(["implement"]), roles).map(({ stageKey }) => stageKey),
+    ).toEqual(["fix"]);
   });
 
   it("leaves a Stage with nobody chosen to the Stage's own flag", () => {
-    expect(staffingProblems([agentStage({ role: "" })], 0, roles)).toEqual([]);
+    expect(staffingProblems([agentStage({ role: "" })], new Set(), roles)).toEqual([]);
   });
 });
 
@@ -125,7 +127,7 @@ describe("staffingProblems on a Stage naming a duty", () => {
 
   function problemOf(filling: RoleFilling): string | undefined {
     const fillings = new Map([[implementsKey, filling]]);
-    return staffingProblems([dutyStage("implements")], 0, fillings)[0]?.text;
+    return staffingProblems([dutyStage("implements")], new Set(), fillings)[0]?.text;
   }
 
   it("passes a duty held by someone with a Task limit", () => {
@@ -135,7 +137,7 @@ describe("staffingProblems on a Stage naming a duty", () => {
   });
 
   it("flags a duty nobody holds, pointing to Settings › Duties", () => {
-    expect(staffingProblems([dutyStage("implements")], 0, new Map())[0]?.text).toBe(
+    expect(staffingProblems([dutyStage("implements")], new Set(), new Map())[0]?.text).toBe(
       "Stage 1 · Implement: nobody holds Implements; choose who in Settings › Duties, or choose who works it.",
     );
   });
@@ -155,7 +157,7 @@ describe("staffingProblems on a Stage naming a duty", () => {
   it("weighs a staffed Stage by the Role it runs as, still naming the duty", () => {
     const staffed = { ...dutyStage("implements"), role: "cto" };
 
-    expect(staffingProblems([staffed], 0, roles)[0]?.text).toBe(
+    expect(staffingProblems([staffed], new Set(), roles)[0]?.text).toBe(
       "Stage 1 · Implement: Nina holds Implements, but their Task limit is none, so CTO only talks and can't work a Stage; choose who holds it in Settings › Duties, or choose who works it.",
     );
   });

@@ -26,8 +26,8 @@ import {
   routePaths,
   startPath,
 } from "./flow-layout.ts";
-import type { FlowOverlay, FlowStageMarks } from "./flow-marks.ts";
-import { canMoveStage, inFlowOrder, stepInOrder } from "./flow-model.ts";
+import { type FlowLocks, type FlowOverlay, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
+import { canDropAt, canMoveStage, inFlowOrder, stepInOrder } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import { FlowStageCard } from "./flow-stage-card.tsx";
 import {
@@ -60,6 +60,8 @@ export interface FlowCanvasProps {
   readonly draggable?: boolean;
   readonly marks?: FlowStageMarks;
   readonly overlay?: FlowOverlay;
+  /** A Task's started Stages: each with its lock, none dragged, moved or drawn from. */
+  readonly locked?: FlowLocks;
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
 }
 
@@ -71,7 +73,7 @@ const NO_MARKS: FlowStageMarks = new Map();
  * boxes the grid laid out. It asks the host for every edit through `onEdit`.
  */
 export function FlowCanvas(props: FlowCanvasProps): ReactNode {
-  const { stages, readOnly = false, draggable = true, marks = NO_MARKS } = props;
+  const { stages, readOnly = false, draggable = true, marks = NO_MARKS, locked = NO_LOCKS } = props;
   const canvas = useRef<HTMLDivElement>(null);
   const view = useFlowMeasure(canvas);
   const orientation = orientationFor(view.width);
@@ -89,8 +91,15 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const loopLines = loopPaths(loops, view.measure, orientation);
   const size = flowGridSize(stages);
   const canDrag = (key: string): boolean =>
-    !readOnly && draggable && orientation === "across" && !removed.has(key);
-  const dragging = useFlowDrag({ canvas, canDrag, canDraw: !readOnly, onEdit: props.onEdit });
+    !readOnly && draggable && orientation === "across" && !removed.has(key) && !locked.has(key);
+  const canDraw = (key: string): boolean => !readOnly && !locked.has(key);
+  const dragging = useFlowDrag({
+    canvas,
+    canDrag,
+    canDrop: (drop) => canDropAt(stages, drop, locked),
+    canDraw,
+    onEdit: props.onEdit,
+  });
   const focusAfter = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
     const key = focusAfter.current;
@@ -105,7 +114,12 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
     if (!direction) return;
     event.preventDefault();
     if (event.shiftKey) {
-      if (readOnly || !draggable || removed.has(key) || !canMoveStage(stages, key, direction))
+      if (
+        readOnly ||
+        !draggable ||
+        removed.has(key) ||
+        !canMoveStage(stages, key, direction, locked)
+      )
         return;
       focusAfter.current = key;
       props.onPick?.({ kind: "stage", key });
@@ -149,8 +163,9 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
             problems={props.problems}
             warningWords={warningWords(props.warnings, stage.key)}
             mark={marks.get(stage.key)}
+            lockedNote={locked.get(stage.key)}
             listsRoutes={listsRoutes(stage)}
-            showsHandle={!readOnly}
+            showsHandle={canDraw(stage.key)}
             draggable={canDrag(stage.key)}
             dragging={stageOffset(dragging.drag, stage.key)}
             target={dragging.drag?.kind === "route" && dragging.drag.target === stage.key}
@@ -243,7 +258,7 @@ function removeRouteByKey(event: KeyboardEvent<HTMLElement>, props: FlowCanvasPr
       : props.picked?.kind === "route"
         ? props.picked
         : undefined;
-  if (!route) return;
+  if (!route || props.locked?.has(route.key)) return;
   event.preventDefault();
   props.onEdit({ kind: "remove-route", key: route.key, routeIndex: route.routeIndex });
 }

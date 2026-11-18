@@ -6,6 +6,7 @@ import {
   type FlowPoint,
   type FlowTracks,
 } from "./flow-layout.ts";
+import type { FlowDrop } from "./flow-model.ts";
 import type { FlowCanvasEdit } from "./flow-view.ts";
 
 /** A Stage being dragged to a place: how far it moved, and where it would drop. */
@@ -50,7 +51,10 @@ export interface FlowDragging {
 export interface FlowDragOptions {
   readonly canvas: RefObject<HTMLElement | null>;
   readonly canDrag: (key: string) => boolean;
-  readonly canDraw: boolean;
+  /** Whether a dragged Stage may drop there: not among a Task's frozen columns. */
+  readonly canDrop: (drop: FlowDrop) => boolean;
+  /** Whether a route may be drawn from the Stage: not from a Task's started one. */
+  readonly canDraw: (key: string) => boolean;
   readonly onEdit: ((edit: FlowCanvasEdit) => void) | undefined;
 }
 
@@ -102,7 +106,7 @@ export function useFlowDrag(options: FlowDragOptions): FlowDragging {
       });
     },
     onHandlePointer: (event, key) => {
-      if (event.button > 0 || !options.canDraw) return;
+      if (event.button > 0 || !options.canDraw(key)) return;
       event.stopPropagation();
       event.currentTarget.setPointerCapture?.(event.pointerId);
       dragged.current = false;
@@ -128,19 +132,14 @@ export function useFlowDrag(options: FlowDragOptions): FlowDragging {
 function movedStage(
   drag: StageDrag,
   event: PointerEvent<HTMLElement>,
-  { canvas }: FlowDragOptions,
+  { canvas, canDrop }: FlowDragOptions,
 ): StageDrag {
   const dx = event.clientX - drag.x0;
   const dy = event.clientY - drag.y0;
   if (!drag.moved && Math.hypot(dx, dy) < DRAG_START) return drag;
   const grid = canvas.current?.querySelector<HTMLElement>(".flow-canvas-grid");
-  return {
-    ...drag,
-    moved: true,
-    dx,
-    dy,
-    at: grid ? dropOn(canvas.current, grid, event) : undefined,
-  };
+  const at = grid ? dropOn(canvas.current, grid, event) : undefined;
+  return { ...drag, moved: true, dx, dy, at: at && canDrop(at.drop) ? at : undefined };
 }
 
 function dropOn(

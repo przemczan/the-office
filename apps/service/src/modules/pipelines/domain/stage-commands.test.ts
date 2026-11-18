@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { missingCommandProblems } from "./library-pipeline.js";
+import { missingCommandsOnStages } from "./stage-commands.js";
 import { commandKeysNamedBy } from "./stage.js";
 import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 
@@ -186,5 +187,18 @@ describe("missingCommandProblems", () => {
     ];
 
     expect(missingCommandProblems("mine", stages, projects, [], [])).toEqual([]);
+  });
+});
+
+describe("missingCommandsOnStages", () => {
+  it("skips the Stages by key, wherever they stand", () => {
+    const lint = scriptStage({ key: "lint", name: "Lint", command: "lint" });
+    const stages = [fullTests, agentStage(), lint];
+
+    expect(
+      missingCommandsOnStages(stages, [], new Set(["full"]), (keys) => keys.join()).map(
+        ({ stageKey }) => stageKey,
+      ),
+    ).toEqual(["lint"]);
   });
 });

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../toasts.tsx";
 import type { StageCommandSource } from "../stage-commands.ts";
 import { OfficeFlowEditor } from "./office-flow-editor.tsx";
+import { TaskFlowEditor } from "./task-flow-editor.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -81,11 +82,45 @@ function Host({
   );
 }
 
+/** "Edit for this Task" with `started` Stages locked. */
+function TaskHost({
+  stages,
+  started,
+  problems,
+}: {
+  readonly stages: readonly Stage[];
+  readonly started: ReadonlyMap<string, string>;
+  readonly problems: readonly StageProblem[];
+}): ReactNode {
+  const [draft, setDraft] = useState(stages);
+  return (
+    <TaskFlowEditor
+      stages={draft}
+      onChange={(changed) => {
+        seen.stages = changed;
+        setDraft(changed);
+      }}
+      started={started}
+      problems={problems}
+      warnings={[]}
+      roles={[]}
+      duties={[]}
+      // An Agent Stage's panel reads the Roles it may name.
+      options={{ knownRoles: [] } as unknown as RoleCardOptions}
+      commands={LIBRARY}
+    />
+  );
+}
+
 async function rendered(
   stages: readonly Stage[] = [IMPLEMENT, TESTS, PUBLISH],
   problems: readonly StageProblem[] = [],
   warnings: readonly StageProblem[] = [],
 ): Promise<HTMLElement> {
+  return mounted(<Host stages={stages} problems={problems} warnings={warnings} />);
+}
+
+async function mounted(content: ReactNode): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
@@ -94,9 +129,7 @@ async function rendered(
   await act(async () => {
     createRoot(page).render(
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <Host stages={stages} problems={problems} warnings={warnings} />
-        </ToastProvider>
+        <ToastProvider>{content}</ToastProvider>
       </QueryClientProvider>,
     );
   });
@@ -353,5 +386,128 @@ describe("the flow editor's problems", () => {
     await press(LOOP_WARNING.text, document.querySelector('[aria-label="Warnings"]') ?? document);
     const loop = document.querySelector('section[aria-label="On failure"]');
     expect(loop?.className).toContain("flow-panel-section--picked");
+  });
+});
+
+const placesOf = (stages: readonly Stage[]) =>
+  stages.map(({ key, place }) => [key, place?.column, place?.row]);
+
+async function renderedTask(
+  started: Readonly<Record<string, string>>,
+  problems: readonly StageProblem[] = [],
+): Promise<void> {
+  seen.stages = [IMPLEMENT, TESTS, PUBLISH];
+  await mounted(
+    <TaskHost
+      stages={[IMPLEMENT, TESTS, PUBLISH]}
+      started={new Map(Object.entries(started))}
+      problems={problems}
+    />,
+  );
+}
+
+function buttonsNamed(name: string): HTMLButtonElement[] {
+  return [...document.querySelectorAll("button")].filter(
+    (button) => button.getAttribute("aria-label") === name || wordsOf(button) === name,
+  );
+}
+
+describe("the flow editor for a Task, its started Stages locked", () => {
+  const DONE = "Done: started, so it can't be changed";
+  const ROUTES_LOCKED: StageProblem = {
+    stageKey: "tests",
+    at: { kind: "route", routeIndex: 0 },
+    level: "problem",
+    text: "Stage 2 · Tests: it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.",
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json([]))),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("shows a locked Stage's lock and state, with no +, no Move or Remove, and its routes and loop read only", async () => {
+    await renderedTask({ implement: "Done" });
+    expect(
+      document.querySelector(`[aria-label="Flow"] [role="img"][aria-label="${DONE}"]`),
+    ).not.toBeNull();
+    expect(document.querySelector('[data-flow-stage="implement"]')?.textContent).toContain("Done");
+    expect(buttonsNamed("Draw a route from Implement")).toEqual([]);
+    expect(buttonsNamed("Draw a route from Tests")).toHaveLength(1);
+
+    await press("Implement");
+    for (const direction of ["earlier", "later", "up", "down"]) {
+      const move = buttonNamed(`Move Implement ${direction}`);
+      expect(move.disabled).toBe(true);
+      expect(move.title).toBe(DONE);
+    }
+    expect(buttonsNamed("More for Implement")).toEqual([]);
+    const add = buttonNamed("Add a route");
+    expect([add.disabled, add.title]).toEqual([true, DONE]);
+    expect(buttonNamed("Remove the route to Tests").disabled).toBe(true);
+    expect(
+      document.querySelector<HTMLFieldSetElement>('section[aria-label="Implement"] fieldset')
+        ?.disabled,
+    ).toBe(true);
+    const loop = document.querySelector<HTMLFieldSetElement>(
+      'section[aria-label="On failure"] fieldset',
+    );
+    expect([loop?.disabled, loop?.title]).toEqual([true, DONE]);
+
+    await press("List");
+    const list = document.querySelector('[aria-label="Stages in the Pipeline\'s order"]');
+    expect(list?.querySelector(`[role="img"][aria-label="${DONE}"]`)).not.toBeNull();
+    for (const move of buttonsNamed("Move Implement later")) expect(move.disabled).toBe(true);
+    expect(buttonsNamed("Move Tests later").some(({ disabled }) => !disabled)).toBe(true);
+  });
+
+  it("draws a route from a Stage that hasn't started into a locked one", async () => {
+    await renderedTask({ publish: "Done" });
+    await press("Implement");
+    await press("Add a route");
+    expect(seen.stages.find(({ key }) => key === "implement")?.routes?.map(({ to }) => to)).toEqual(
+      ["publish", "tests"],
+    );
+  });
+
+  it("adds a Stage after a locked one after the frozen columns, the locked Stages staying where they are", async () => {
+    await renderedTask({ implement: "Done", tests: "Done" });
+    await press("Implement");
+    await press("Add a Stage");
+    await press("Gate");
+    expect(placesOf(seen.stages)).toEqual([
+      ["implement", 0, 0],
+      ["tests", 1, 0],
+      ["gate", 2, 1],
+      ["publish", 3, 0],
+    ]);
+  });
+
+  it("links the check's problem on a locked Stage's route to the route, read only, with no Insert", async () => {
+    await renderedTask({ tests: "Failed" }, [ROUTES_LOCKED]);
+    await press(ROUTES_LOCKED.text, document.querySelector('[aria-label="Problems"]') ?? document);
+    expect(routePanel().textContent).toContain("Route from Tests to Publish");
+    const insert = buttonNamed("Insert a Stage on this route", routePanel());
+    expect([insert.disabled, insert.title]).toEqual([
+      true,
+      "Failed: started, so it can't be changed",
+    ]);
+    expect(buttonNamed("Remove route", routePanel()).disabled).toBe(true);
+    expect(routePanel().querySelector("fieldset")?.disabled).toBe(true);
   });
 });

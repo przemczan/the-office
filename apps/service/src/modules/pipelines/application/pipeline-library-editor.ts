@@ -529,7 +529,7 @@ export class PipelineLibraryEditor {
           { name: "", description: "", stages },
           await this.roleFillings.of(stages),
         ),
-        ...(await this.roleFillings.permissionProblems(stages, 0)),
+        ...(await this.roleFillings.permissionProblems(stages, new Set())),
       ]),
       ...stageWarnings(stages),
     ];

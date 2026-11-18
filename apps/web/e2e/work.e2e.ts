@@ -1825,8 +1825,9 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline-open.png") });
   await pipelines.getByRole("option", { name: "Quick fix", exact: true }).click();
   // Its Stages show at once, to edit for this Task in the same window before Save.
-  const draftStages = choosing.getByRole("list", { name: "Stages" });
-  await expect(draftStages.getByRole("listitem")).toHaveCount(3);
+  const draftFlow = choosing.getByRole("region", { name: "Flow" });
+  const draftStages = draftFlow.locator("[data-flow-stage]");
+  await expect(draftStages).toHaveCount(3);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline.png") });
   // The edit is checked against the chosen Pipeline as it goes, before the Task follows it.
   const checked = page.waitForRequest(
@@ -1835,11 +1836,22 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
       request.url().endsWith("/stages/check") &&
       request.postDataJSON()?.stages?.length === 2,
   );
-  await draftStages.getByRole("button", { name: "Remove Tests" }).click();
-  await expect(draftStages.getByRole("listitem")).toHaveCount(2);
+  const removeStage = async (name: string): Promise<void> => {
+    await draftFlow.getByRole("button", { name, exact: true }).click();
+    await choosing
+      .getByRole("region", { name, exact: true })
+      .getByRole("button", { name: `More for ${name}` })
+      .click();
+    await page
+      .getByRole("menu")
+      .getByRole("button", { name: `Remove ${name}` })
+      .click();
+  };
+  await removeStage("Tests");
+  await expect(draftStages).toHaveCount(2);
   expect((await checked).postDataJSON()).toMatchObject({ pipelineId: "quick-fix" });
-  await draftStages.getByRole("button", { name: "Remove Implement" }).click();
-  await expect(draftStages.getByRole("listitem")).toHaveCount(1);
+  await removeStage("Implement");
+  await expect(draftStages).toHaveCount(1);
   await choosing.getByRole("button", { name: "Save for this Task" }).click();
   await expect(page.getByText("Export keeps the filters follows Quick fix.")).toBeVisible();
   const quickFixRail = page.getByRole("region", { name: /^Pipeline · Quick fix/ });

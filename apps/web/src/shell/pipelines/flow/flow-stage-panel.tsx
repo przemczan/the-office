@@ -5,8 +5,10 @@ import { RefusalAlert } from "../../refusal-alert.tsx";
 import { STAGE_KIND_ICONS, STAGE_KIND_NAMES } from "../stage-edits.ts";
 import { StageForm } from "../stage-form.tsx";
 import { shownName, useSaveAsTemplate } from "../use-save-as-template.ts";
+import { FlowLockedFields, FlowLockedNote, lockedTitle } from "./flow-locked.tsx";
 import { FlowOnFailure } from "./flow-on-failure.tsx";
 import { canMoveStage, inFlowOrder, type MoveDirection, withStageMoved } from "./flow-model.ts";
+import { NO_LOCKS } from "./flow-marks.ts";
 import type { FlowPanelProps } from "./flow-panel.tsx";
 import { FlowProblemAlert } from "./flow-problem-alert.tsx";
 import { FlowRoutesOut } from "./flow-routes-out.tsx";
@@ -22,13 +24,15 @@ const MOVES: readonly { direction: MoveDirection; icon: string }[] = [
 
 /**
  * The picked Stage's panel: its place in the Pipeline's order with Move earlier, later, up and down
- * and its ⋯ menu; its fields as the Stage form has them; then Routes out and On failure.
+ * and its ⋯ menu; its fields as the Stage form has them; then Routes out and On failure. A locked
+ * Stage's (a Task's started one) reads only: its Moves disabled, no ⋯ menu.
  */
 export function FlowStagePanel(
   props: FlowPanelProps & { readonly stage: Stage; readonly onFailurePicked: boolean },
 ): ReactNode {
-  const { stage, stages, onEdited, problems } = props;
+  const { stage, stages, onEdited, problems, locked = NO_LOCKS } = props;
   const name = shownName(stage);
+  const note = locked.get(stage.key);
   const order = inFlowOrder(stages);
   const index = stages.indexOf(stage);
   const saving = useSaveAsTemplate();
@@ -52,19 +56,25 @@ export function FlowStagePanel(
               size="sm"
               icon={<Icon name={icon} size={13} />}
               label={`Move ${name} ${direction}`}
-              disabled={!canMoveStage(stages, stage.key, direction)}
-              onClick={() => onEdited({ stages: withStageMoved(stages, stage.key, direction) })}
+              {...lockedTitle(note)}
+              disabled={note !== undefined || !canMoveStage(stages, stage.key, direction, locked)}
+              onClick={() =>
+                onEdited({ stages: withStageMoved(stages, stage.key, direction, locked) })
+              }
             />
           ))}
-          <StageMenu
-            name={name}
-            saving={saving.isPending}
-            onSave={() => saving.mutate(stage)}
-            onRemove={() => onEdited(stageRemoved(stages, stage.key))}
-          />
+          {note === undefined && (
+            <StageMenu
+              name={name}
+              saving={saving.isPending}
+              onSave={() => saving.mutate(stage)}
+              onRemove={() => onEdited(stageRemoved(stages, stage.key, locked))}
+            />
+          )}
         </span>
       </div>
       <div className="flow-panel-body">
+        {note !== undefined && <FlowLockedNote note={note} />}
         <FlowProblemAlert problems={stageProblemsOf(problems, stage.key)} />
         {saving.error && saving.variables && (
           <RefusalAlert
@@ -73,18 +83,20 @@ export function FlowStagePanel(
             error={saving.error}
           />
         )}
-        <StageForm
-          stages={stages}
-          index={index}
-          onChange={(changed) => onEdited({ stages: changed })}
-          roles={props.roles}
-          duties={props.duties}
-          options={props.options}
-          commands={props.commands}
-          onFailureApart
-        />
-        <FlowRoutesOut {...props} />
-        {stage.kind !== "gate" && <FlowOnFailure {...props} stage={stage} />}
+        <FlowLockedFields note={note}>
+          <StageForm
+            stages={stages}
+            index={index}
+            onChange={(changed) => onEdited({ stages: changed })}
+            roles={props.roles}
+            duties={props.duties}
+            options={props.options}
+            commands={props.commands}
+            onFailureApart
+          />
+        </FlowLockedFields>
+        <FlowRoutesOut {...props} note={note} />
+        {stage.kind !== "gate" && <FlowOnFailure {...props} stage={stage} note={note} />}
       </div>
     </section>
   );

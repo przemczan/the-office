@@ -7,6 +7,10 @@ import { namedAmong, removeStage } from "../stage-edits.ts";
  * bottom. After an edit that moves places, the Stages come back in that order with empty columns and
  * rows closed up. What makes a flow unusable (a route leading back, a Stage no route reaches) is the
  * service's check to say, so these never refuse an edit for it: the check names it, in words.
+ *
+ * A Task's started Stages are locked (`LockedStages`): no edit moves one, and the columns up to the
+ * last holding one are frozen, so none is made or closed up there and the locked Stages keep their
+ * places. What still breaks a lock, such as a Stage put on a locked Stage's route, the check names.
  */
 
 export type MoveDirection = "earlier" | "later" | "up" | "down";
@@ -35,6 +39,11 @@ export interface RouteDrawn {
   readonly stages: readonly Stage[];
   readonly routeIndex: number;
 }
+
+/** The keys of a Task's started Stages, which stay where they are: a Set, or a Map by key. */
+export type LockedStages = Pick<ReadonlySet<string>, "has">;
+
+export const NOTHING_LOCKED: LockedStages = new Set<string>();
 
 /** A Stage with no place yet sorts after every placed one; only `asFlow` gives it one. */
 const UNPLACED: StagePlace = { column: Number.MAX_SAFE_INTEGER, row: 0 };
@@ -74,6 +83,14 @@ export function asFlow(stages: readonly Stage[]): readonly Stage[] {
 }
 
 /**
+ * The Stages as they are when each has its place and routes, else as `asFlow` gives them: a flow
+ * already whole isn't closed up, so a Task's started Stages keep the places the service has.
+ */
+export function asWholeFlow(stages: readonly Stage[]): readonly Stage[] {
+  return stages.every(({ place, routes }) => place && routes) ? stages : asFlow(stages);
+}
+
+/**
  * The Stages with `stage` added, a name and key no other has, unconnected: in a column of its own
  * right after the picked Stage's, a row below it, or with none picked after the last, on row 0.
  */
@@ -81,13 +98,30 @@ export function withStageAdded(
   stages: readonly Stage[],
   stage: Stage,
   afterKey: string | undefined,
+  locked: LockedStages = NOTHING_LOCKED,
 ): StageAddedToFlow {
   const picked = afterKey === undefined ? undefined : stageNamed(stages, afterKey);
-  const place = picked
-    ? { column: placeOf(picked).column + 1, row: placeOf(picked).row + 1 }
-    : { column: lastColumn(stages) + 1, row: 0 };
+  const column = picked ? placeOf(picked).column + 1 : lastColumn(stages) + 1;
+  const place = {
+    column: Math.max(column, frozenColumns(stages, locked)),
+    row: picked ? placeOf(picked).row + 1 : 0,
+  };
   const added: Stage = { ...namedAmong(stage, stages), routes: [], place };
-  return { stages: closedUp([...shiftedFrom(stages, place.column), added]), key: added.key };
+  return {
+    stages: closedUp([...shiftedFrom(stages, place.column), added], locked),
+    key: added.key,
+  };
+}
+
+/**
+ * How many columns, from the first, are frozen: up to the last holding a locked Stage, none when
+ * none is locked.
+ */
+export function frozenColumns(stages: readonly Stage[], locked: LockedStages): number {
+  return Math.max(
+    0,
+    ...stages.flatMap((stage) => (locked.has(stage.key) ? [placeOf(stage).column + 1] : [])),
+  );
 }
 
 /**
@@ -98,36 +132,39 @@ export function canMoveStage(
   stages: readonly Stage[],
   key: string,
   direction: MoveDirection,
+  locked: LockedStages = NOTHING_LOCKED,
 ): boolean {
-  return !samePlaces(stages, withStageMoved(stages, key, direction));
+  return !samePlaces(stages, withStageMoved(stages, key, direction, locked));
 }
 
 /**
  * The Stages with one moved a step without dragging. Alone in its column, earlier and later swap its
  * column with the neighbouring one, so a straight line keeps a Stage a column; sharing its column,
  * it goes into the neighbouring column (a new first one before the first). Up and down swap it
- * with the Stage on the neighbouring row of its column, if any.
+ * with the Stage on the neighbouring row of its column, if any. A locked Stage stays, and so does a
+ * frozen column.
  */
 export function withStageMoved(
   stages: readonly Stage[],
   key: string,
   direction: MoveDirection,
+  locked: LockedStages = NOTHING_LOCKED,
 ): readonly Stage[] {
   const stage = stageNamed(stages, key);
-  if (!stage) return stages;
+  if (!stage || locked.has(key)) return stages;
   const { column, row } = placeOf(stage);
   switch (direction) {
     case "up":
-      return row === 0 ? stages : withRowSwapped(stages, stage, row - 1);
+      return row === 0 ? stages : withRowSwapped(stages, stage, row - 1, locked);
     case "down":
-      return withRowSwapped(stages, stage, row + 1);
+      return withRowSwapped(stages, stage, row + 1, locked);
     case "earlier":
     case "later": {
       const to = direction === "earlier" ? column - 1 : column + 1;
-      if (isAlone(stages, stage)) return withColumnsSwapped(stages, column, to);
+      if (isAlone(stages, stage)) return withColumnsSwapped(stages, column, to, locked);
       return to < 0
-        ? withStageDropped(stages, key, { column: 0, row, newColumn: true })
-        : withStageDropped(stages, key, { column: to, row, newColumn: false });
+        ? withStageDropped(stages, key, { column: 0, row, newColumn: true }, locked)
+        : withStageDropped(stages, key, { column: to, row, newColumn: false }, locked);
     }
   }
 }
@@ -135,20 +172,28 @@ export function withStageMoved(
 /**
  * The Stages with one dropped where it was dragged: into the cell, or the first free row below it
  * in that column, or with `newColumn` into a new column at `column`, later columns shifting right.
+ * A locked Stage stays, and no new column goes in among the frozen ones (`canDropAt`).
  */
 export function withStageDropped(
   stages: readonly Stage[],
   key: string,
-  { column, row, newColumn }: FlowDrop,
+  drop: FlowDrop,
+  locked: LockedStages = NOTHING_LOCKED,
 ): readonly Stage[] {
+  const { column, row, newColumn } = drop;
   const moving = stageNamed(stages, key);
-  if (!moving) return stages;
+  if (!moving || locked.has(key) || !canDropAt(stages, drop, locked)) return stages;
   const at = Math.max(0, column);
   const others = stages.filter((stage) => stage !== moving);
   const around = newColumn ? shiftedFrom(others, at) : others;
   let free = Math.max(0, row);
   while (around.some((stage) => samePlace(placeOf(stage), { column: at, row: free }))) free += 1;
-  return closedUp([...around, placedAt(moving, { column: at, row: free })]);
+  return closedUp([...around, placedAt(moving, { column: at, row: free })], locked);
+}
+
+/** Whether a drop is offered: anywhere but a new column before the last frozen one. */
+export function canDropAt(stages: readonly Stage[], drop: FlowDrop, locked: LockedStages): boolean {
+  return !drop.newColumn || drop.column >= frozenColumns(stages, locked);
 }
 
 /** The key of the Stage before (-1) or after (1) `key` in the Pipeline's order, if any. */
@@ -158,22 +203,27 @@ export function stepInOrder(stages: readonly Stage[], key: string, by: -1 | 1): 
   return index < 0 ? undefined : order[index + by]?.key;
 }
 
-/** The Stages with one swapping places with its neighbour in the Pipeline's order, as List's arrows do. */
+/**
+ * The Stages with one swapping places with its neighbour in the Pipeline's order, as List's arrows
+ * do; neither may be locked.
+ */
 export function withStageStepped(
   stages: readonly Stage[],
   key: string,
   by: -1 | 1,
+  locked: LockedStages = NOTHING_LOCKED,
 ): readonly Stage[] {
   const stage = stageNamed(stages, key);
   const neighbourKey = stepInOrder(stages, key, by);
   const neighbour = neighbourKey === undefined ? undefined : stageNamed(stages, neighbourKey);
-  if (!stage || !neighbour) return stages;
+  if (!stage || !neighbour || locked.has(stage.key) || locked.has(neighbour.key)) return stages;
   return closedUp(
     stages.map((other) => {
       if (other === stage) return placedAt(other, placeOf(neighbour));
       if (other === neighbour) return placedAt(other, placeOf(stage));
       return other;
     }),
+    locked,
   );
 }
 
@@ -307,29 +357,31 @@ export function withRouteCondition(
 /**
  * The Stages with `stage` put on a route: the route leads to it, its condition kept, and it leads
  * on where the route led, by one route that always holds. It takes a column of its own right after
- * the route's Stage, on its row. With no such route, nothing changes and `key` stays the route's
- * Stage's.
+ * the route's Stage (or after the frozen ones), on its row. With no such route, nothing changes and
+ * `key` stays the route's Stage's.
  */
 export function withStageOnRoute(
   stages: readonly Stage[],
   key: string,
   routeIndex: number,
   stage: Stage,
+  locked: LockedStages = NOTHING_LOCKED,
 ): StageAddedToFlow {
   const from = stageNamed(stages, key);
   const route = from?.routes?.[routeIndex];
   if (!from || !route) return { stages, key };
   const { column, row } = placeOf(from);
   const onward: Route = { ...route, condition: null };
+  const at = Math.max(column + 1, frozenColumns(stages, locked));
   const added: Stage = {
     ...namedAmong(stage, stages),
     routes: [onward],
-    place: { column: column + 1, row },
+    place: { column: at, row },
   };
-  const flow = withRoutes(shiftedFrom(stages, column + 1), key, (routes) =>
+  const flow = withRoutes(shiftedFrom(stages, at), key, (routes) =>
     routesWithTarget(routes, routeIndex, added.key),
   );
-  return { stages: closedUp([...flow, added]), key: added.key };
+  return { stages: closedUp([...flow, added], locked), key: added.key };
 }
 
 /**
@@ -338,7 +390,11 @@ export function withStageOnRoute(
  * routes out, or none, the routes into it go, and the check says where a route is now missing.
  * Every On failure going back to it is cleared.
  */
-export function withStageRemovedFromFlow(stages: readonly Stage[], key: string): readonly Stage[] {
+export function withStageRemovedFromFlow(
+  stages: readonly Stage[],
+  key: string,
+  locked: LockedStages = NOTHING_LOCKED,
+): readonly Stage[] {
   const index = stages.findIndex((stage) => stage.key === key);
   const gone = stages[index];
   if (!gone) return stages;
@@ -350,6 +406,7 @@ export function withStageRemovedFromFlow(stages: readonly Stage[], key: string):
         ? { ...stage, routes: [...carried(stage.routes, key, onward)] }
         : stage,
     ),
+    locked,
   );
 }
 
@@ -390,8 +447,15 @@ function withRoutes(
   );
 }
 
-function withRowSwapped(stages: readonly Stage[], stage: Stage, row: number): readonly Stage[] {
+function withRowSwapped(
+  stages: readonly Stage[],
+  stage: Stage,
+  row: number,
+  locked: LockedStages,
+): readonly Stage[] {
   const { column, row: own } = placeOf(stage);
+  const there = stages.find((other) => samePlace(placeOf(other), { column, row }));
+  if (there && locked.has(there.key)) return stages;
   return closedUp(
     stages.map((other) => {
       if (other === stage) return placedAt(other, { column, row });
@@ -399,6 +463,7 @@ function withRowSwapped(stages: readonly Stage[], stage: Stage, row: number): re
         ? placedAt(other, { column, row: own })
         : other;
     }),
+    locked,
   );
 }
 
@@ -406,8 +471,11 @@ function withColumnsSwapped(
   stages: readonly Stage[],
   one: number,
   other: number,
+  locked: LockedStages,
 ): readonly Stage[] {
-  if (Math.min(one, other) < 0 || Math.max(one, other) > lastColumn(stages)) return stages;
+  const first = Math.min(one, other);
+  if (first < frozenColumns(stages, locked) || Math.max(one, other) > lastColumn(stages))
+    return stages;
   return closedUp(
     stages.map((stage) => {
       const { column, row } = placeOf(stage);
@@ -415,6 +483,7 @@ function withColumnsSwapped(
       if (column === other) return placedAt(stage, { column: one, row });
       return stage;
     }),
+    locked,
   );
 }
 
@@ -445,21 +514,48 @@ function byColumn(
 /**
  * The Stages in the Pipeline's order with the columns and rows no Stage stands in closed up, each
  * numbered from 0. Rows close up across the flow, not column by column, so a Stage put a row below
- * another stays below it.
+ * another stays below it. The frozen columns, and the rows a Stage in them stands in, stay as they
+ * are, so the locked Stages keep their places.
  */
-function closedUp(stages: readonly Stage[]): readonly Stage[] {
-  const columns = distinct(stages.map((stage) => placeOf(stage).column));
-  const rows = distinct(stages.map((stage) => placeOf(stage).row));
+function closedUp(
+  stages: readonly Stage[],
+  locked: LockedStages = NOTHING_LOCKED,
+): readonly Stage[] {
+  const frozen = frozenColumns(stages, locked);
+  const frozenRows = new Set(
+    stages.flatMap((stage) => (placeOf(stage).column < frozen ? [placeOf(stage).row] : [])),
+  );
+  const columns = closing(
+    stages.map((stage) => placeOf(stage).column),
+    (column) => column < frozen,
+  );
+  const rows = closing(
+    stages.map((stage) => placeOf(stage).row),
+    (row) => frozenRows.has(row),
+  );
   return inFlowOrder(
     stages.map((stage) => {
       const { column, row } = placeOf(stage);
-      return placedAt(stage, { column: columns.indexOf(column), row: rows.indexOf(row) });
+      return placedAt(stage, { column: columns.get(column) ?? column, row: rows.get(row) ?? row });
     }),
   );
 }
 
-function distinct(numbers: readonly number[]): readonly number[] {
-  return [...new Set(numbers)].toSorted((one, other) => one - other);
+/**
+ * Each of `numbers` renumbered from 0 with the gaps closed, but a `kept` one staying as it is; as
+ * a number never grows by it, the order holds and none takes a kept one's.
+ */
+function closing(
+  numbers: readonly number[],
+  kept: (number: number) => boolean,
+): ReadonlyMap<number, number> {
+  const renumbered = new Map<number, number>();
+  let previous = -1;
+  for (const number of [...new Set(numbers)].toSorted((one, other) => one - other)) {
+    previous = kept(number) ? number : previous + 1;
+    renumbered.set(number, previous);
+  }
+  return renumbered;
 }
 
 function placeOf(stage: Stage): StagePlace {

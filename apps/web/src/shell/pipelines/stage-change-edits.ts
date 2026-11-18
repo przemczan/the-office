@@ -411,8 +411,7 @@ export function newStageAmong(
     ...rows.map(({ stage }) => stage),
     ...stageChanges.filter(bringsStage).map(({ stage }) => stage),
   ];
-  const added =
-    typeof from === "string" ? addStage(stages, from, 0) : addStageFrom(stages, from, 0);
+  const added = typeof from === "string" ? addStage(stages, from) : addStageFrom(stages, from);
   const stage = added.stages[added.index];
   if (!stage) throw new Error("The added Stage isn't among the Stages.");
   return stage;

@@ -99,7 +99,7 @@ export function pipelineEditFlags(
   edit: PipelineEdit,
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
-  return staffingProblems(edit.stages, 0, roles);
+  return staffingProblems(edit.stages, new Set(), roles);
 }
 
 /**
@@ -236,7 +236,7 @@ export function missingCommandProblems(
       ? missingCommandsOnStages(
           stages,
           project.commands,
-          0,
+          new Set(),
           (keys) => `${project.name} has no ${commandsWords(keys)} (${why})`,
         )
       : [];

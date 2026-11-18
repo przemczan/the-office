@@ -1697,7 +1697,6 @@ test(
   },
 );
 
-/** A Stage's row in the open Stage editor, which the user opens to change its fields. */
 /** A Stage among the rail's, not a run of its history. */
 /** A window narrow enough that the Stages of `seedGatedStages` don't fit across the rail. */
 const NARROW_WIDTH_PX = 640;
@@ -1749,11 +1748,34 @@ function stageOnRail(rail: Locator, name: string): Locator {
     .filter({ has: rail.page().getByRole("button", { name, exact: true }) });
 }
 
-function editorRow(page: Page, name: string) {
-  return page.getByRole("dialog").getByRole("list", { name: "Stages" }).getByRole("listitem", {
-    name,
-    exact: true,
-  });
+/** The flow editor's panel for the picked Stage (named after it) or route ("Route"). */
+function flowPanel(window: Locator, name: string): Locator {
+  return window.getByRole("region", { name, exact: true });
+}
+
+/**
+ * Edit for this Task, open on `window`, in Light and Dark at 1600, 900 and 390 wide: nothing in the
+ * window or the page scrolls sideways. Left in Light at 1600.
+ */
+async function editForThisTaskScreenshots(page: Page, window: Locator): Promise<void> {
+  for (const palette of ["light", "dark"] as const) {
+    await showPalette(page, palette);
+    for (const width of [1600, 900, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => windowOverflow(page)).toBe(0);
+      expect(
+        await window
+          .locator(".dialog-body")
+          .evaluate((body) => body.scrollWidth - body.clientWidth),
+      ).toBe(0);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `${palette}-${width}-edit-for-this-task.png`),
+        style: ".toasts { visibility: hidden; }",
+      });
+    }
+  }
+  await showPalette(page, "light");
+  await page.setViewportSize({ width: 1600, height: 900 });
 }
 
 /** Chooses the person whose Role title is `title` among the people in the Stage's "Who works it". */
@@ -1786,10 +1808,17 @@ test(
 
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       const dialog = page.getByRole("dialog");
+      const flow = dialog.getByRole("region", { name: "Flow" });
+      const onFlow = (name: string): Locator => flow.getByRole("button", { name, exact: true });
+      const panel = (name: string): Locator => flowPanel(dialog, name);
+      const addAStage = async (kind: string): Promise<void> => {
+        await dialog.getByRole("button", { name: "Add a Stage" }).click();
+        await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
+      };
       await expect(dialog).toContainText("Changes apply to Keep the filters on reload only.");
       await pickPipeline(dialog, "Pipeline", "Quick fix");
-      await expect(editorRow(page, "Publish")).toBeVisible();
-      await expect(editorRow(page, "Review & fix")).toHaveCount(0);
+      await expect(onFlow("Publish")).toBeVisible();
+      await expect(onFlow("Review & fix")).toHaveCount(0);
 
       // Another Pipeline is a draft: closing the window leaves the Task as it was.
       await dialog.getByRole("button", { name: "Close", exact: true }).click();
@@ -1813,12 +1842,20 @@ test(
         "Quick fix",
       );
 
-      // A Gate goes before Publish, opened to be named.
-      await dialog.getByRole("button", { name: "Gate", exact: true }).click();
-      await editorRow(page, "Gate").getByLabel("Name", { exact: true }).fill("UI acceptance");
+      // A Gate goes on the route from Tests to Publish, picked to be named.
+      await onFlow("Tests").click();
+      await panel("Tests")
+        .getByRole("region", { name: "Routes out" })
+        .getByRole("button", { name: /→ Publish/ })
+        .click();
+      await expect(panel("Route")).toContainText("Route from Tests to Publish");
+      await panel("Route").getByRole("button", { name: "Insert a Stage on this route" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Gate", exact: true }).click();
+      await panel("Gate").getByLabel("Name", { exact: true }).fill("UI acceptance");
+      await expect(onFlow("UI acceptance")).toBeVisible();
 
-      const implement = editorRow(page, "Implement");
-      await implement.getByRole("button", { name: "Edit Implement" }).click();
+      await onFlow("Implement").click();
+      const implement = panel("Implement");
       await chooseWhoWorks(implement, "Reviewer");
       // A Stage has no model of its own: the engine cascade gives it.
       await expect(implement.getByLabel("Model")).toHaveCount(0);
@@ -1847,48 +1884,75 @@ test(
       await expect(implement.getByRole("group", { name: "Project commands" })).toContainText(
         "test",
       );
-      await expect(implement).toContainText("Project commands: test");
       await implement
         .getByText("Only these of the Project's commands; never install")
         .scrollIntoViewIfNeeded();
       await page.screenshot({
-        path: path.join(SCREENSHOTS, "light-1600-stage-editor-project-commands.png"),
+        path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-project-commands.png"),
       });
 
-      // An Agent Stage moved up behind Implement continues its session with the same Role.
-      await dialog.getByRole("button", { name: "Agent Stage", exact: true }).click();
-      const added = editorRow(page, "New Stage");
-      for (let move = 0; move < 3; move += 1) {
-        await added.getByRole("button", { name: "Move New Stage up" }).click();
-      }
+      // An Agent Stage added beside Implement comes unconnected: the check's problems hold Save.
+      const save = dialog.getByRole("button", { name: "Save for this Task" });
+      const problems = dialog.getByRole("list", { name: "Problems" });
+      await addAStage("Agent Stage");
+      const added = panel("New Stage");
+      await expect(added).toContainText("2 of 5 in the Pipeline's order");
+      await expect(problems).toContainText("New Stage: give it a route out");
+      await expect(save).toBeDisabled();
+      // Moved later it goes after Tests, earlier back before it, and up into Implement's row.
+      await added.getByRole("button", { name: "Move New Stage later" }).click();
+      await expect(added).toContainText("3 of 5 in the Pipeline's order");
+      await added.getByRole("button", { name: "Move New Stage earlier" }).click();
+      await expect(added).toContainText("2 of 5 in the Pipeline's order");
+      await added.getByRole("button", { name: "Move New Stage up" }).click();
+      await expect(added.getByRole("button", { name: "Move New Stage up" })).toBeDisabled();
+      // Implement's route leads to it, and it on to Tests.
+      await onFlow("Implement").click();
+      await implement
+        .getByRole("region", { name: "Routes out" })
+        .getByRole("button", { name: /→ Tests/ })
+        .click();
+      await panel("Route").getByLabel("Goes to").selectOption({ label: "New Stage" });
+      await onFlow("New Stage").click();
+      await added.getByRole("button", { name: "Add a route" }).click();
+      await expect(panel("Route")).toContainText("Route from New Stage to Tests");
+      await expect(problems).not.toContainText("give it a route out");
+      // It continues Implement's session with the same Role, and with someone to work it the
+      // problems go.
+      await onFlow("New Stage").click();
       await chooseWhoWorks(added, "Reviewer");
+      await expect(problems).toHaveCount(0);
       await added.getByLabel("Session").selectOption("continue");
       // A Stage is no longer optional: the walk follows its routes, and the form offers no Optional.
       await expect(added.getByText(/^Optional/)).toHaveCount(0);
       await added.getByLabel("Name", { exact: true }).fill("Review");
 
-      const tests = editorRow(page, "Tests");
-      await tests.getByRole("button", { name: "Edit Tests" }).click();
-      await tests.getByLabel("On failure").selectOption("new-stage");
-      await tests.getByLabel("Rounds").selectOption("2");
+      // On failure, Tests goes back to Review, offered only the Stages before it.
+      await onFlow("Tests").click();
+      const tests = panel("Tests");
+      const onFailure = tests
+        .getByRole("region", { name: "On failure" })
+        .getByRole("combobox", { name: "On failure" });
+      await expect(onFailure.locator("option")).toHaveText([
+        "No loop",
+        "Go back to Implement",
+        "Go back to Review",
+      ]);
+      await onFailure.selectOption({ label: "Go back to Review" });
       await tests.getByLabel("Project command").selectOption("lint");
-
-      // Tests can't go back to Review from above it: the editor flags it, and Save waits.
-      const save = dialog.getByRole("button", { name: "Save for this Task" });
-      await tests.getByRole("button", { name: "Move Tests up" }).click();
-      await expect(dialog.getByRole("list", { name: "Problems" })).toContainText(
-        "Stage 2 · Tests: on failure it can only go back to an earlier Stage.",
+      await expect(tests.getByRole("list", { name: "When Tests fails" })).toContainText(
+        "Back to Review while it has rounds left: at most 2 times.",
       );
-      await expect(save).toBeDisabled();
-      await tests.getByRole("button", { name: "Move Tests down" }).click();
-      await expect(dialog.getByRole("list", { name: "Problems" })).toHaveCount(0);
 
-      // A Script Stage added and dropped again leaves nothing behind.
-      await dialog.getByRole("button", { name: "Script Stage", exact: true }).click();
-      await editorRow(page, "Script").getByRole("button", { name: "Remove Script" }).click();
-      await expect(editorRow(page, "Script")).toHaveCount(0);
+      // A Script Stage added and removed again leaves nothing behind.
+      await addAStage("Script Stage");
+      await panel("Script").getByRole("button", { name: "More for Script" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Remove Script" }).click();
+      await expect(onFlow("Script")).toHaveCount(0);
+      await expect(problems).toHaveCount(0);
 
-      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-editor.png") });
+      await onFlow("Tests").click();
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task.png") });
       await save.click();
       // The window closes on saving: the swap's toast, in the same words, may still be up.
       await expect(dialog).toHaveCount(0);
@@ -1903,10 +1967,10 @@ test(
       const own = taskStagesSchema.parse(
         await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
       );
+      const ownStages = own.stages?.map(({ stage }) => stage) ?? [];
       const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
-      // Routes and places are the straight line the editor draws; this checks the fields.
       const [libraryImplement, libraryTests, libraryPublish] = asStageList(quickFix);
-      expect(asStageList(own.stages?.map(({ stage }) => stage) ?? [])).toEqual([
+      expect(asStageList(ownStages)).toEqual([
         {
           ...libraryImplement,
           // Choosing the Reviewer clears the Implements duty the library's Stage names.
@@ -1931,6 +1995,14 @@ test(
         { kind: "gate", key: "gate", name: "UI acceptance", optional: false },
         libraryPublish,
       ]);
+      // The routes are the line drawn: Implement, Review, Tests, UI acceptance, Publish, End.
+      expect(ownStages.map(({ key, routes }) => [key, routes?.map(({ to }) => to)])).toEqual([
+        ["implement", ["new-stage"]],
+        ["new-stage", ["tests"]],
+        ["tests", ["gate"]],
+        ["gate", ["publish"]],
+        ["publish", [null]],
+      ]);
       // The library's Quick fix stays as it was.
       expect(
         pipelineListSchema
@@ -1940,14 +2012,15 @@ test(
 
       // The editor opens on what was saved.
       await page.getByRole("button", { name: "Edit for this Task" }).click();
-      await editorRow(page, "Implement").getByRole("button", { name: "Edit Implement" }).click();
-      await expect(editorRow(page, "Implement").getByLabel("Effort")).toHaveValue("high");
-      await expect(editorRow(page, "Implement").getByLabel("Budget")).toHaveValue("120");
-      await expect(editorRow(page, "Implement").getByLabel("Runs", { exact: true })).toHaveValue(
-        "read-only-git",
-      );
-      await expect(editorRow(page, "Tests")).toContainText("on failure back to Review, at most 2×");
-      await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+      await onFlow("Implement").click();
+      await expect(implement.getByLabel("Effort")).toHaveValue("high");
+      await expect(implement.getByLabel("Budget")).toHaveValue("120");
+      await expect(implement.getByLabel("Runs", { exact: true })).toHaveValue("read-only-git");
+      await onFlow("Tests").click();
+      await expect(onFailure).toHaveValue("new-stage");
+      await expect(onFlow("Review")).toBeVisible();
+      await expect(onFlow("UI acceptance")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
       // From the board card's menu, selecting and typing in the editor leaves the card where it is.
       await page.goto("/work");
@@ -1959,20 +2032,20 @@ test(
         .getByRole("menu")
         .getByRole("button", { name: "Edit Stages for this Task" })
         .click();
-      const fromBoard = editorRow(page, "Implement");
-      await fromBoard.getByRole("button", { name: "Edit Implement" }).click();
-      const brief = fromBoard.getByLabel("Brief");
+      await onFlow("Implement").click();
+      const brief = implement.getByLabel("Brief");
+      await brief.scrollIntoViewIfNeeded();
       const box = await brief.boundingBox();
       if (!box) throw new Error("The Brief isn't shown.");
       await page.mouse.move(box.x + 8, box.y + 10);
       await page.mouse.down();
       await page.mouse.move(box.x + 120, box.y + 10, { steps: 5 });
       await page.mouse.up();
-      await fromBoard.getByLabel("Name", { exact: true }).press("End");
+      await implement.getByLabel("Name", { exact: true }).press("End");
       await page.keyboard.type(" again");
       await expect(page).toHaveURL(/\/work$/);
-      await expect(editorRow(page, "Implement again")).toBeVisible();
-      await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+      await expect(onFlow("Implement again")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
     } finally {
       await repository.remove();
@@ -2030,8 +2103,12 @@ test(
       await page.goto(`/tasks/${taskId}`);
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       await pickPipeline(page.getByRole("dialog"), "Pipeline", "Quick fix");
-      const implement = editorRow(page, "Implement");
-      await implement.getByRole("button", { name: "Edit Implement" }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("region", { name: "Flow" })
+        .getByRole("button", { name: "Implement", exact: true })
+        .click();
+      const implement = flowPanel(page.getByRole("dialog"), "Implement");
       await chooseWhoWorks(implement, "Reviewer");
       await expect(
         implement.getByLabel(`MCP tool ${server}/environment-variable`).locator("option"),
@@ -2854,7 +2931,7 @@ async function seedGateFirst(page: Page, taskId: string): Promise<void> {
 }
 
 /**
- * Edits the Task's Stages for it before it starts, as the Stage editor saves them: Quick fix's
+ * Edits the Task's Stages for it before it starts, as Edit for this Task saves them: Quick fix's
  * Implement and Tests, then a Gate before a Build.
  */
 async function seedGatedStages(page: Page, taskId: string): Promise<void> {
@@ -3145,23 +3222,99 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       [{ gateKey: "ui-acceptance", feedback: GATE_FEEDBACK }, null],
     ]);
 
-    // Edit for this Task while it runs: the started Stages are locked, Build after them changes,
-    // and the library's Quick fix stays as it is.
+    // Edit for this Task while it runs, on the flow: the started Stages are locked with their state,
+    // Build after them changes, and the library's Quick fix stays as it is.
     const library = await (await page.request.get("/api/pipelines")).json();
     await rail.getByRole("button", { name: "Edit for this Task" }).click();
-    for (const name of ["Implement", "Tests", "UI acceptance"]) {
-      await expect(editorRow(page, name)).toContainText("started, so it can't be changed");
-      await expect(editorRow(page, name).getByRole("button", { name: `Edit ${name}` })).toHaveCount(
-        0,
-      );
+    const stagesWindow = page.getByRole("dialog", {
+      name: "Stages of Settings keep their changes",
+    });
+    await expect(stagesWindow).toContainText(
+      "Started Stages, and the routes out of them, are locked.",
+    );
+    const flow = stagesWindow.getByRole("region", { name: "Flow" });
+    const panelOf = (name: string): Locator => flowPanel(stagesWindow, name);
+    for (const [key, name, state] of [
+      ["implement", "Implement", "Done"],
+      ["tests", "Tests", "Done"],
+      ["ui-acceptance", "UI acceptance", "Waiting on you"],
+    ] as const) {
+      const card = flow.locator(`[data-flow-stage="${key}"]`);
+      await expect(
+        card.getByRole("img", { name: `${state}: started, so it can't be changed`, exact: true }),
+      ).toBeVisible();
+      await expect(card).toContainText(state);
+      await expect(card.getByRole("button", { name: `Draw a route from ${name}` })).toHaveCount(0);
+      await flow.getByRole("button", { name, exact: true }).click();
+      await expect(
+        panelOf(name).getByRole("button", { name: `Move ${name} later` }),
+      ).toBeDisabled();
+      await expect(panelOf(name).getByRole("button", { name: `More for ${name}` })).toHaveCount(0);
     }
-    const build = editorRow(page, "Build");
-    await expect(build.getByRole("button", { name: "Move Build up" })).toBeDisabled();
-    await build.getByRole("button", { name: "Edit Build" }).click();
-    await build.getByLabel("Project command").selectOption("lint");
-    await page.getByRole("dialog").getByRole("button", { name: "Save for this Task" }).click();
+    await expect(
+      flow
+        .locator('[data-flow-stage="build"]')
+        .getByRole("button", { name: "Draw a route from Build" }),
+    ).toHaveCount(1);
+    await editForThisTaskScreenshots(page, stagesWindow);
+    // Build comes after the locked columns, so it can't move before them.
+    await flow.getByRole("button", { name: "Build", exact: true }).click();
+    await expect(
+      panelOf("Build").getByRole("button", { name: "Move Build earlier" }),
+    ).toBeDisabled();
+    await panelOf("Build").getByLabel("Project command").selectOption("lint");
+    await stagesWindow.getByRole("button", { name: "Save for this Task" }).click();
     await expect(page.getByText("Stages saved for Settings keep their changes.")).toBeVisible();
+    await expect(stagesWindow).toHaveCount(0);
     expect(await (await page.request.get("/api/pipelines")).json()).toEqual(library);
+    const savedStages = taskStagesSchema.parse(
+      await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+    ).stages;
+    expect(
+      savedStages?.map(({ stage }) => [stage.key, stage.kind === "script" ? stage.command : null]),
+    ).toEqual([
+      ["implement", null],
+      ["tests", "test"],
+      ["ui-acceptance", null],
+      ["build", "lint"],
+    ]);
+
+    // Nothing goes straight after UI acceptance: the route out of it can't take a Stage, and
+    // removing Build, which would carry UI acceptance's route to End, is refused by the check.
+    await rail.getByRole("button", { name: "Edit for this Task" }).click();
+    await flow.getByRole("button", { name: "UI acceptance", exact: true }).click();
+    await panelOf("UI acceptance")
+      .getByRole("region", { name: "Routes out" })
+      .getByRole("button", { name: /→ Build/ })
+      .click();
+    const routePanel = panelOf("Route");
+    await expect(routePanel).toContainText("Route from UI acceptance to Build");
+    const insertOnRoute = routePanel.getByRole("button", { name: "Insert a Stage on this route" });
+    await expect(insertOnRoute).toBeDisabled();
+    await expect(insertOnRoute).toHaveAttribute(
+      "title",
+      "Waiting on you: started, so it can't be changed",
+    );
+    await flow.getByRole("button", { name: "Build", exact: true }).click();
+    await panelOf("Build").getByRole("button", { name: "More for Build" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Remove Build" }).click();
+    await expect(flow.getByRole("button", { name: "Build", exact: true })).toHaveCount(0);
+    const routesOutLocked =
+      "Stage 3 · UI acceptance: it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.";
+    const problems = stagesWindow.getByRole("list", { name: "Problems" });
+    await expect(problems).toContainText(routesOutLocked);
+    await expect(stagesWindow.getByRole("button", { name: "Save for this Task" })).toBeDisabled();
+    // The problem opens the route it is on, read only.
+    await problems.getByRole("button", { name: routesOutLocked }).click();
+    await expect(routePanel).toContainText("Route from UI acceptance to End");
+    // Close drops the draft: Build is still there.
+    await stagesWindow.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(stagesWindow).toHaveCount(0);
+    expect(
+      taskStagesSchema
+        .parse(await (await page.request.get(`/api/tasks/${taskId}/stages`)).json())
+        .stages?.map(({ stage }) => stage.key),
+    ).toEqual(["implement", "tests", "ui-acceptance", "build"]);
 
     // Continue from the Needs you panel, over the Projects page.
     await page.goto("/projects");

@@ -24,6 +24,7 @@ export function FlowAddMenu({
   templates = false,
   variant = "secondary",
   disabled = false,
+  title,
   onAdd,
 }: {
   /** The button's words, such as "Add a Stage". */
@@ -33,6 +34,8 @@ export function FlowAddMenu({
   readonly templates?: boolean;
   readonly variant?: "secondary" | "ghost";
   readonly disabled?: boolean;
+  /** Why it is disabled, as its tooltip. */
+  readonly title?: string | undefined;
   readonly onAdd: (stage: Stage) => void;
 }): ReactNode {
   const [open, setOpen] = useState(false);
@@ -76,6 +79,7 @@ export function FlowAddMenu({
           size="sm"
           variant={variant}
           disabled={disabled}
+          title={title}
           iconLeft={<Icon name="plus" size={12} />}
           aria-haspopup="menu"
           aria-expanded={open}

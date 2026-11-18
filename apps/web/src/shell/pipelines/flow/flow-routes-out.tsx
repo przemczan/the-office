@@ -2,6 +2,7 @@ import type { Stage } from "@the-office/contracts";
 import { Button, Icon, IconButton } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { routeTargetName, routeWhen } from "./condition-words.ts";
+import { lockedTitle } from "./flow-locked.tsx";
 import { canMoveRoute, laterStages, withRouteMoved } from "./flow-model.ts";
 import type { FlowPanelProps } from "./flow-panel.tsx";
 import { routeProblems } from "./flow-view.ts";
@@ -10,10 +11,14 @@ import { routeDrawn, routeRemoved } from "./office-flow-edits.ts";
 /**
  * Routes out (docs/design/pipeline-flow.html): the Stage's routes in the order the walk weighs them,
  * each picked to set its condition, moved up or down, or removed; Add a route draws one to the first
- * later Stage it has none to, or End.
+ * later Stage it has none to, or End. A locked Stage's are only picked, every change disabled with
+ * why (`note`).
  */
-export function FlowRoutesOut(props: FlowPanelProps & { readonly stage: Stage }): ReactNode {
-  const { stage, stages, onEdited, onPick, problems } = props;
+export function FlowRoutesOut(
+  props: FlowPanelProps & { readonly stage: Stage; readonly note?: string | undefined },
+): ReactNode {
+  const { stage, stages, onEdited, onPick, problems, note } = props;
+  const locked = note !== undefined;
   const routes = stage.routes ?? [];
   const addTo =
     laterStages(stages, stage.key).find(({ key }) => !routes.some(({ to }) => to === key))?.key ??
@@ -26,6 +31,8 @@ export function FlowRoutesOut(props: FlowPanelProps & { readonly stage: Stage })
           size="sm"
           variant="secondary"
           iconLeft={<Icon name="plus" size={12} />}
+          disabled={locked}
+          title={note}
           onClick={() => onEdited(routeDrawn(stages, stage.key, addTo))}
         >
           Add a route
@@ -60,7 +67,8 @@ export function FlowRoutesOut(props: FlowPanelProps & { readonly stage: Stage })
                     size="sm"
                     icon={<Icon name="chevron-up" size={12} />}
                     label={`Move the route to ${target} up`}
-                    disabled={!canMoveRoute(stages, stage.key, index, -1)}
+                    {...lockedTitle(note)}
+                    disabled={locked || !canMoveRoute(stages, stage.key, index, -1)}
                     onClick={() =>
                       onEdited({ stages: withRouteMoved(stages, stage.key, index, -1) })
                     }
@@ -69,7 +77,8 @@ export function FlowRoutesOut(props: FlowPanelProps & { readonly stage: Stage })
                     size="sm"
                     icon={<Icon name="chevron-down" size={12} />}
                     label={`Move the route to ${target} down`}
-                    disabled={!canMoveRoute(stages, stage.key, index, 1)}
+                    {...lockedTitle(note)}
+                    disabled={locked || !canMoveRoute(stages, stage.key, index, 1)}
                     onClick={() =>
                       onEdited({ stages: withRouteMoved(stages, stage.key, index, 1) })
                     }
@@ -78,6 +87,8 @@ export function FlowRoutesOut(props: FlowPanelProps & { readonly stage: Stage })
                     size="sm"
                     icon={<Icon name="trash-2" size={12} />}
                     label={`Remove the route to ${target}`}
+                    {...lockedTitle(note)}
+                    disabled={locked}
                     onClick={() => onEdited(routeRemoved(stages, stage.key, index))}
                   />
                 </span>

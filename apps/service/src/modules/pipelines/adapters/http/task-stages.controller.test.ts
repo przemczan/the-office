@@ -21,6 +21,8 @@ import {
 } from "../../pipelines-application.fixtures.js";
 import { aCommandRun, recordedRun } from "../../ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
+import { TaskStagesService } from "../../application/task-stages-service.js";
+import { gate } from "../../domain/stage.fixtures.js";
 import { tests } from "./task-stages.controller.fixtures.js";
 
 let pipelines: PipelinesApplication | undefined;
@@ -164,5 +166,33 @@ describe("PUT /api/tasks/:id/stages", () => {
         text: "Stage 2 · implement: continuing a session needs the same Role or the same duty in the Stage before.",
       },
     ]);
+  });
+
+  it("refuses a Stage inserted straight after a started one, on the started Stage's route, as its check does", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "quick-fix" });
+    const own = await pipelines.app.get(TaskStagesService).make(taskId, "quick-fix");
+    await pipelines.app
+      .get(StageRunRepository)
+      .saveNew(aStageRun({ id: randomUUID(), taskId, stageKey: "implement" }));
+    const [implement, ...rest] = own.stages;
+    if (!implement) throw new Error("Quick fix has Stages.");
+    const inserted = straightLineFlow([implement, gate({ key: "look", name: "Look" }), ...rest]);
+    const refused = [
+      {
+        stageKey: "implement",
+        at: { kind: "route", routeIndex: 0 },
+        level: "problem",
+        text: "Stage 1 · Implement: it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.",
+      },
+    ];
+
+    const response = await edit(taskId, inserted);
+    const check = await send("POST", `/api/tasks/${taskId}/stages/check`, inserted);
+
+    expect(response.status).toBe(422);
+    expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual(refused);
+    expect((await check.json()) as unknown).toMatchObject({ problems: refused });
   });
 });

@@ -6,7 +6,7 @@ import { FlowCanvas, type FlowCanvasEdit } from "./flow-canvas.tsx";
 import { type FlowEditorView, howToHint } from "./flow-editor-words.ts";
 import { type FlowOrientation, orientationFor } from "./flow-layout.ts";
 import { FlowList } from "./flow-list.tsx";
-import type { FlowOverlay, FlowStageMarks } from "./flow-marks.ts";
+import type { FlowLocks, FlowOverlay, FlowStageMarks } from "./flow-marks.ts";
 import { type FlowPick, pickOfProblem } from "./flow-pick.ts";
 import "./flow-editor.css";
 
@@ -53,6 +53,11 @@ export interface FlowEditorProps {
   readonly draggable?: boolean;
   readonly marks?: FlowStageMarks;
   readonly overlay?: FlowOverlay;
+  /**
+   * "Edit for this Task": the Task's started Stages, by key, with why each is locked. None is
+   * dragged, moved or removed, and no route is drawn or changed out of one; routes into one are.
+   */
+  readonly locked?: FlowLocks;
   /** Under the head, what the lines mean; the office-wide legend without. */
   readonly legend?: ReactNode;
   /** The hint's words when no edit has said anything; the office-wide words without. */
@@ -89,6 +94,7 @@ export function FlowEditor(props: FlowEditorProps): ReactNode {
     readOnly,
     draggable: props.draggable,
     marks: props.marks,
+    locked: props.locked,
     onEdit: props.onEdit,
   };
   const words = controls.hint ?? (props.howTo ?? defaultHowTo(readOnly))(view, orientation);

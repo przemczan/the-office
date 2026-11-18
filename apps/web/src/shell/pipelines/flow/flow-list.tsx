@@ -3,7 +3,8 @@ import { Badge, Icon, IconButton } from "@the-office/ui";
 import type { KeyboardEvent, ReactNode } from "react";
 import { STAGE_KIND_ICONS } from "../stage-edits.ts";
 import "./flow-canvas.css";
-import type { FlowStageMarks } from "./flow-marks.ts";
+import { FlowLock, lockedTitle } from "./flow-locked.tsx";
+import { type FlowLocks, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
 import { inFlowOrder, stepInOrder } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import {
@@ -30,6 +31,8 @@ export interface FlowListProps {
   /** False hides the arrows, as a Project Pipeline's Stages keep the base Pipeline's places. */
   readonly draggable?: boolean;
   readonly marks?: FlowStageMarks;
+  /** A Task's started Stages: each with its lock, its arrows disabled. */
+  readonly locked?: FlowLocks;
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
 }
 
@@ -89,6 +92,7 @@ function FlowListRow(props: FlowListRowProps): ReactNode {
     .filter(Boolean)
     .join(" ");
   const ghost = mark?.tone === "removed";
+  const lockedNote = (props.locked ?? NO_LOCKS).get(stage.key);
   return (
     <li className={rowClass}>
       <span className="flow-list-number">{props.number}</span>
@@ -109,6 +113,7 @@ function FlowListRow(props: FlowListRowProps): ReactNode {
             {own[0] && <span className="flow-list-problem"> · {own[0].text}</span>}
           </span>
         </span>
+        {lockedNote !== undefined && <FlowLock note={lockedNote} />}
         {mark && (
           <Badge tone={markTone(mark)} size="sm">
             {mark.label}
@@ -125,10 +130,12 @@ function FlowListRow(props: FlowListRowProps): ReactNode {
   );
 }
 
-function MoveArrows({ stage, stages, marks, onEdit }: FlowListRowProps): ReactNode {
+/** The arrows, disabled with why on a locked Stage. */
+function MoveArrows({ stage, stages, marks, locked, onEdit }: FlowListRowProps): ReactNode {
   const live = stages.filter(({ key }) => marks.get(key)?.tone !== "removed");
-  const first = stepInOrder(live, stage.key, -1) === undefined;
-  const last = stepInOrder(live, stage.key, 1) === undefined;
+  const note = locked?.get(stage.key);
+  const first = note !== undefined || stepInOrder(live, stage.key, -1) === undefined;
+  const last = note !== undefined || stepInOrder(live, stage.key, 1) === undefined;
   return (
     <span className="flow-list-tools">
       <IconButton
@@ -136,6 +143,7 @@ function MoveArrows({ stage, stages, marks, onEdit }: FlowListRowProps): ReactNo
         variant="ghost"
         icon={<Icon name="chevron-up" size={12} />}
         label={`Move ${stage.name} earlier`}
+        {...lockedTitle(note)}
         disabled={first}
         onClick={() => onEdit?.({ kind: "move", key: stage.key, direction: "earlier" })}
       />
@@ -144,6 +152,7 @@ function MoveArrows({ stage, stages, marks, onEdit }: FlowListRowProps): ReactNo
         variant="ghost"
         icon={<Icon name="chevron-down" size={12} />}
         label={`Move ${stage.name} later`}
+        {...lockedTitle(note)}
         disabled={last}
         onClick={() => onEdit?.({ kind: "move", key: stage.key, direction: "later" })}
       />
@@ -208,7 +217,7 @@ function removeRouteByKey(event: KeyboardEvent<HTMLElement>, props: FlowListProp
   if (props.readOnly || !props.onEdit) return;
   const line = (event.target as Element).closest<HTMLElement>("[data-flow-route]");
   const [key, index] = line?.dataset.flowRoute?.split(":") ?? [];
-  if (key === undefined || index === undefined) return;
+  if (key === undefined || index === undefined || props.locked?.has(key)) return;
   event.preventDefault();
   props.onEdit({ kind: "remove-route", key, routeIndex: Number(index) });
 }

@@ -8,6 +8,8 @@ import {
   routeRemovedHint,
 } from "./flow-editor-words.ts";
 import {
+  type LockedStages,
+  NOTHING_LOCKED,
   stageNamed,
   withRouteDrawn,
   withRouteRemoved,
@@ -23,6 +25,7 @@ import type { FlowCanvasEdit } from "./flow-view.ts";
 /**
  * An office-wide Pipeline's edits in the flow editor (Settings › Pipelines): each applied to its
  * Stages with flow-model, answering the new Stages, what to pick after it and what the hint says.
+ * "Edit for this Task" makes the same edits with the Task's started Stages locked.
  */
 export interface FlowEdited {
   readonly stages: readonly Stage[];
@@ -30,22 +33,27 @@ export interface FlowEdited {
   readonly hint?: string;
 }
 
-export function canvasEdited(stages: readonly Stage[], edit: FlowCanvasEdit): FlowEdited {
+export function canvasEdited(
+  stages: readonly Stage[],
+  edit: FlowCanvasEdit,
+  locked: LockedStages = NOTHING_LOCKED,
+): FlowEdited {
   switch (edit.kind) {
     case "move":
       return {
-        stages: withStageMoved(stages, edit.key, edit.direction),
+        stages: withStageMoved(stages, edit.key, edit.direction, locked),
         pick: { kind: "stage", key: edit.key },
       };
     case "drop":
       return {
-        stages: withStageDropped(stages, edit.key, edit.drop),
+        stages: withStageDropped(stages, edit.key, edit.drop, locked),
         pick: { kind: "stage", key: edit.key },
       };
+    // The routes out of a locked Stage stay as they are.
     case "draw-route":
-      return routeDrawn(stages, edit.from, edit.to);
+      return locked.has(edit.from) ? { stages } : routeDrawn(stages, edit.from, edit.to);
     case "remove-route":
-      return routeRemoved(stages, edit.key, edit.routeIndex);
+      return locked.has(edit.key) ? { stages } : routeRemoved(stages, edit.key, edit.routeIndex);
   }
 }
 
@@ -84,9 +92,10 @@ export function stageAdded(
   stages: readonly Stage[],
   stage: Stage,
   picked: FlowPick | undefined,
+  locked: LockedStages = NOTHING_LOCKED,
 ): FlowEdited {
   const beside = picked === undefined ? undefined : stageNamed(stages, picked.key);
-  const added = withStageAdded(stages, stage, beside?.key);
+  const added = withStageAdded(stages, stage, beside?.key, locked);
   const fresh = stageNamed(added.stages, added.key);
   return {
     stages: added.stages,
@@ -100,9 +109,10 @@ export function stageOnRoute(
   key: string,
   routeIndex: number,
   stage: Stage,
+  locked: LockedStages = NOTHING_LOCKED,
 ): FlowEdited {
   const from = stageNamed(stages, key);
-  const added = withStageOnRoute(stages, key, routeIndex, stage);
+  const added = withStageOnRoute(stages, key, routeIndex, stage, locked);
   const fresh = stageNamed(added.stages, added.key);
   if (!from || !fresh || added.key === key) return { stages };
   return {
@@ -112,11 +122,15 @@ export function stageOnRoute(
   };
 }
 
-export function stageRemoved(stages: readonly Stage[], key: string): FlowEdited {
+export function stageRemoved(
+  stages: readonly Stage[],
+  key: string,
+  locked: LockedStages = NOTHING_LOCKED,
+): FlowEdited {
   const gone = stageNamed(stages, key);
-  if (!gone) return { stages };
+  if (!gone || locked.has(key)) return { stages };
   return {
-    stages: withStageRemovedFromFlow(stages, key),
+    stages: withStageRemovedFromFlow(stages, key, locked),
     pick: undefined,
     hint: removedHint(gone),
   };

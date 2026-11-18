@@ -1,6 +1,7 @@
 import type { Duty, Role, RoleCardOptions, Stage, StageProblem } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import type { StageCommandSource } from "../stage-commands.ts";
+import type { FlowLocks } from "./flow-marks.ts";
 import { stageNamed } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import { FlowRoutePanel } from "./flow-route-panel.tsx";
@@ -18,6 +19,8 @@ export interface FlowPanelProps {
   readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   readonly commands?: StageCommandSource;
+  /** A Task's started Stages: their panels, and their routes', read only. */
+  readonly locked?: FlowLocks;
 }
 
 /**

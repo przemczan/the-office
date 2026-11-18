@@ -366,3 +366,18 @@
     grid-row: 1;
   }
 }
+
+/* A locked Stage's or route's panel: why it is locked, and its fields disabled as one. */
+.flow-locked-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.flow-locked-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

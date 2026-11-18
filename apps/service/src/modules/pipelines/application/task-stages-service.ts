@@ -4,6 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import type { DutyKey } from "../../people/index.js";
 import { TaskMovedToProject, TaskPipelineConfirmed, TaskStageEdits } from "../../work/index.js";
+import { asFlow, pipelineOrder } from "../domain/flow.js";
 import { pipelineProblem, type Pipeline, type StageProblem } from "../domain/pipeline.js";
 import {
   agentStageWorkers,
@@ -25,6 +26,7 @@ import {
   followsPipeline,
   lockedStageCount,
   makeTaskStages,
+  startedStageKeys,
   whyStagesAreKept,
   type TaskStages,
   type TaskTrace,
@@ -150,8 +152,8 @@ export class TaskStagesService implements OnModuleInit {
     if (!own) return [];
     const runs = await this.runs.list(taskId);
     const stages = walkedStages(await this.roleFillings.staffed(own.stages, runs), runs);
-    const fromIndex = firstStageToWork(stages, runs);
-    return staffingProblems(stages, fromIndex, await this.roleFillings.of(stages));
+    const before = stages.slice(0, firstStageToWork(stages, runs)).map(({ key }) => key);
+    return staffingProblems(stages, new Set(before), await this.roleFillings.of(stages));
   }
 
   /**
@@ -198,7 +200,7 @@ export class TaskStagesService implements OnModuleInit {
     shown: readonly Stage[],
     followed?: string,
   ): Promise<ReviewedEdit> {
-    const edited = withoutResolveStages(shown);
+    const edited = pipelineOrder(asFlow(withoutResolveStages(shown)));
     const task = await this.tasks.read(taskId);
     const { state, projectId } = task;
     const pipelineId = followed ?? task.pipelineId;
@@ -209,29 +211,23 @@ export class TaskStagesService implements OnModuleInit {
     }
     const own = await this.ownOrCopied(taskId, pipelineId, projectId);
     const runs = await this.runs.list(taskId);
+    const started = startedStageKeys(runs);
     const keptBecause = whyStagesAreKept(state);
     const problems = keptBecause
       ? [pipelineProblem(keptBecause)]
       : [
           ...editProblems(own, edited, runs, await this.roleFillings.of(edited)),
-          ...(await this.roleFillings.permissionProblems(
-            edited,
-            lockedStageCount(own.stages, runs),
-          )),
+          ...(await this.roleFillings.permissionProblems(edited, started)),
           ...(await this.roleEngineProblems(edited, own, projectId)),
-          ...(await this.missingCommandProblems(
-            edited,
-            lockedStageCount(own.stages, runs),
-            projectId,
-          )),
+          ...(await this.missingCommandProblems(edited, started, projectId)),
         ];
     return { own, runs, problems };
   }
 
-  /** The commands the Stages not locked yet name that the Task's Project lacks. */
+  /** The commands the Stages not started yet name that the Task's Project lacks. */
   private async missingCommandProblems(
     edited: readonly Stage[],
-    fromIndex: number,
+    started: ReadonlySet<string>,
     projectId: string,
   ): Promise<StageProblem[]> {
     const project = (await this.projects.list()).find(({ id }) => id === projectId);
@@ -239,7 +235,7 @@ export class TaskStagesService implements OnModuleInit {
     return missingCommandsOnStages(
       edited,
       project.commands,
-      fromIndex,
+      started,
       (keys) => `its Project, ${project.name}, has no ${commandsWords(keys)}.`,
     );
   }

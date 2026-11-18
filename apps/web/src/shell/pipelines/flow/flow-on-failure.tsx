@@ -5,6 +5,7 @@ import { replaceStage } from "../stage-edits.ts";
 import { routeTargetName } from "./condition-words.ts";
 import { flowFailureTargets } from "./flow-model.ts";
 import type { FlowPanelProps } from "./flow-panel.tsx";
+import { FlowLockedFields } from "./flow-locked.tsx";
 import { FlowProblemAlert } from "./flow-problem-alert.tsx";
 
 /** The most times a failure may go back. */
@@ -20,10 +21,15 @@ type WorkingStage = Exclude<Stage, { kind: "gate" }>;
 /**
  * On failure (docs/design/pipeline-flow.html): "No loop" or "Go back to Implement", only earlier
  * Stages offered, "at most [3] times, then as below", and When Tests fails, in the order spec 2.3
- * says. Pressing a loop's mark or a problem on it opens the Stage here, the section marked.
+ * says. Pressing a loop's mark or a problem on it opens the Stage here, the section marked. A locked
+ * Stage's reads only, disabled with why (`note`).
  */
 export function FlowOnFailure(
-  props: FlowPanelProps & { readonly stage: WorkingStage; readonly onFailurePicked: boolean },
+  props: FlowPanelProps & {
+    readonly stage: WorkingStage;
+    readonly onFailurePicked: boolean;
+    readonly note?: string | undefined;
+  },
 ): ReactNode {
   const { stage, stages, onEdited, problems, onFailurePicked } = props;
   const section = useRef<HTMLElement>(null);
@@ -63,36 +69,38 @@ export function FlowOnFailure(
         <span className="flow-panel-overline">On failure</span>
       </div>
       <FlowProblemAlert problems={own} />
-      <div className="flow-loop-row">
-        <Select
-          size="sm"
-          aria-label="On failure"
-          value={onFailure?.goBackTo ?? NO_LOOP}
-          options={choices}
-          onChange={(goBackTo) =>
-            change({
-              ...stage,
-              onFailure:
-                goBackTo === NO_LOOP
-                  ? undefined
-                  : { goBackTo, rounds: onFailure?.rounds ?? NEW_ROUNDS },
-            })
-          }
-        />
-        {onFailure && (
-          <>
-            <span>at most</span>
-            <Stepper
-              label="Rounds"
-              value={onFailure.rounds}
-              min={1}
-              max={MOST_ROUNDS}
-              onChange={(rounds) => change({ ...stage, onFailure: { ...onFailure, rounds } })}
-            />
-            <span>{onFailure.rounds === 1 ? "time" : "times"}, then as below</span>
-          </>
-        )}
-      </div>
+      <FlowLockedFields note={props.note}>
+        <div className="flow-loop-row">
+          <Select
+            size="sm"
+            aria-label="On failure"
+            value={onFailure?.goBackTo ?? NO_LOOP}
+            options={choices}
+            onChange={(goBackTo) =>
+              change({
+                ...stage,
+                onFailure:
+                  goBackTo === NO_LOOP
+                    ? undefined
+                    : { goBackTo, rounds: onFailure?.rounds ?? NEW_ROUNDS },
+              })
+            }
+          />
+          {onFailure && (
+            <>
+              <span>at most</span>
+              <Stepper
+                label="Rounds"
+                value={onFailure.rounds}
+                min={1}
+                max={MOST_ROUNDS}
+                onChange={(rounds) => change({ ...stage, onFailure: { ...onFailure, rounds } })}
+              />
+              <span>{onFailure.rounds === 1 ? "time" : "times"}, then as below</span>
+            </>
+          )}
+        </div>
+      </FlowLockedFields>
       <p className="flow-panel-hint">
         A loop, not a route: it runs only when {stage.name} fails, going back before any route is
         weighed, and it is drawn apart from the routes, as a dashed red line.
