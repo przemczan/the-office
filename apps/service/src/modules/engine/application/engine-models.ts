@@ -1,10 +1,11 @@
 import { Injectable } from "@nestjs/common";
+import type { EngineSettings } from "../domain/engine-settings.js";
 import { offeredModels, type Engine, type EngineId, type EngineModel } from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 
 /**
  * The engines listed now, each Claude Code engine telling whether an API key signs it in, the
- * models each offers, by their ids there, and the Office default.
+ * models each offers, by their ids there, the Office default and the Stand-in Engines.
  */
 @Injectable()
 export class EngineModels {
@@ -18,7 +19,20 @@ export class EngineModels {
   constructor(private readonly settings: EngineSettingsRepository) {}
 
   async engines(): Promise<readonly Engine[]> {
-    return (await this.settings.read()).engines.map((engine) =>
+    return this.listed((await this.settings.read()).engines);
+  }
+
+  /**
+   * The engines listed now with the Stand-in Engines and the context size above which a switch of
+   * a running Stage asks first, from one read, for `engineToRunOn`.
+   */
+  async standIns(): Promise<StandInEngineSettings> {
+    const { engines, standInEngines, askBeforeSwitchAbove } = await this.settings.read();
+    return { engines: this.listed(engines), standInEngines, askBeforeSwitchAbove };
+  }
+
+  private listed(engines: readonly Engine[]): readonly Engine[] {
+    return engines.map((engine) =>
       engine.kind === "claude-code" && this.signedInByApiKey.has(engine.id)
         ? { ...engine, signedInByApiKey: true }
         : engine,
@@ -58,3 +72,8 @@ export class EngineModels {
     return (await this.settings.read()).officeDefault;
   }
 }
+
+export type StandInEngineSettings = Pick<
+  EngineSettings,
+  "engines" | "standInEngines" | "askBeforeSwitchAbove"
+>;

@@ -37,6 +37,8 @@ const CLAUDE_CODE: EngineSettings = {
   officeDefault: { engineId: "claude-code", model: "claude-opus" },
   searchEndpoint: null,
   modelPrices: [],
+  standInEngines: [],
+  askBeforeSwitchAbove: 100_000,
 };
 const AN_API_ENGINE: EngineSettings = {
   engines: [
@@ -53,6 +55,8 @@ const AN_API_ENGINE: EngineSettings = {
   officeDefault: { engineId: "local", model: "qwen" },
   searchEndpoint: null,
   modelPrices: [],
+  standInEngines: [],
+  askBeforeSwitchAbove: 100_000,
 };
 const SIGNED_OUT_OF_CLAUDE: EngineAccount = {
   signedIn: false,

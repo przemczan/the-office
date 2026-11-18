@@ -51,6 +51,8 @@ describe("changedEngineSettings", () => {
       officeDefault: FIRST_OFFICE_DEFAULT,
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
   });
 
@@ -202,6 +204,8 @@ describe("settingsWithoutEngine", () => {
       officeDefault: FIRST_OFFICE_DEFAULT,
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
   });
 

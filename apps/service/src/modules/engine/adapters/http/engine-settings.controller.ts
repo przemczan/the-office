@@ -65,7 +65,7 @@ export class EngineSettingsController {
 }
 
 function response(settings: EngineSettings): EngineSettingsResponse {
-  const { engines, officeDefault, searchEndpoint } = settings;
+  const { engines, officeDefault, searchEndpoint, standInEngines, askBeforeSwitchAbove } = settings;
   return {
     engines: engines.map(engineResponse),
     officeDefault: officeDefault && { ...officeDefault },
@@ -75,6 +75,8 @@ function response(settings: EngineSettings): EngineSettingsResponse {
       model,
       price: price && { ...price },
     })),
+    standInEngines: [...standInEngines],
+    askBeforeSwitchAbove,
   };
 }
 

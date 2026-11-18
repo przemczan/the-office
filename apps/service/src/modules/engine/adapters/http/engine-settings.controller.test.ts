@@ -61,6 +61,13 @@ function put(body: unknown): Promise<Response> {
   });
 }
 
+/** The reasons a PUT of Strata's settings with `fields` changed is refused with. */
+async function reasonsOf(fields: Partial<EngineSettingsEdit>): Promise<string[]> {
+  const refused = await put({ ...strataEdit, ...fields });
+  expect(refused.status).toBe(422);
+  return engineSettingsRefusalSchema.parse(await refused.json()).reasons;
+}
+
 /** References that move by `move` and tell of no move beforehand. */
 function moving(move: EngineReferences["move"]): EngineReferences {
   return { movesOf: async () => [], move };
@@ -123,6 +130,8 @@ describe("/api/settings/engines", () => {
         ...UNPRICED_CLAUDE_MODELS,
         { engineId: "strata", model: "qwen3.8-flash", price: null },
       ],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
     expect((await repository.read()).engines[1]).toMatchObject({ id: "strata", key: KEY });
   });
@@ -186,6 +195,53 @@ describe("/api/settings/engines", () => {
     expect(sent.engines[1]).toMatchObject({
       models: [{ id: "qwen3.8-flash", contextWindow: 100_000, seesImages: false }],
     });
+  });
+
+  it("sends no Stand-in Engine and asks above 100,000 tokens until the user sets them", async () => {
+    const sent = engineSettingsSchema.parse(JSON.parse(await read()));
+
+    expect(sent).toMatchObject({ standInEngines: [], askBeforeSwitchAbove: 100_000 });
+  });
+
+  it("keeps the Stand-in Engines in order and the ask-above size, and keeps both on a PUT without them", async () => {
+    const saved = await put({
+      ...strataEdit,
+      standInEngines: ["strata", "claude-code"],
+      askBeforeSwitchAbove: 40_000,
+    });
+    const savedSettings = engineSettingsSchema.parse(await saved.json());
+    const kept = await put({
+      ...strataEdit,
+      engines: strataEdit.engines.map((engine, index) =>
+        index === 1 ? { ...engine, id: "strata" } : engine,
+      ),
+    });
+
+    expect(saved.status).toBe(200);
+    expect(savedSettings).toMatchObject({
+      standInEngines: ["strata", "claude-code"],
+      askBeforeSwitchAbove: 40_000,
+    });
+    expect(kept.status).toBe(200);
+    expect(engineSettingsSchema.parse(JSON.parse(await read()))).toMatchObject({
+      standInEngines: ["strata", "claude-code"],
+      askBeforeSwitchAbove: 40_000,
+    });
+  });
+
+  it("refuses an unknown or twice-listed Stand-in Engine and a size that isn't a whole number of 0 or more, in words", async () => {
+    expect(await reasonsOf({ standInEngines: ["gone"] })).toEqual([
+      "Pick each Stand-in Engine among the engines listed.",
+    ]);
+    expect(await reasonsOf({ standInEngines: ["claude-code", "claude-code"] })).toEqual([
+      '"Claude Code" is listed twice as a Stand-in Engine.',
+    ]);
+    for (const askBeforeSwitchAbove of [-1, 2.5, 3_000_000_000]) {
+      expect(await reasonsOf({ askBeforeSwitchAbove })).toEqual([
+        "Give the context size to ask above as a whole number of tokens from 0 to 10,000,000 (0 always asks).",
+      ]);
+    }
+    expect(await repository.read()).toEqual(DEFAULT_ENGINE_SETTINGS);
   });
 
   it("refuses settings that break a rule with every reason, keeping none", async () => {

@@ -20,6 +20,9 @@ import {
   offeredModelKey,
   offeredModelsOf,
   searchEndpointOf,
+  standInsOf,
+  switchSizeOf,
+  withStandInMoved,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { NO_PRICE_TEXT, type ModelPriceText } from "./model-price-fields.ts";
@@ -56,6 +59,8 @@ const SAVED: EngineSettings = {
   officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
   searchEndpoint: null,
   modelPrices: MODEL_PRICES,
+  standInEngines: ["strata"],
+  askBeforeSwitchAbove: 100_000,
 };
 
 const STRATA_QWEN = offeredModelKey({ engineId: "strata", model: "qwen3" });
@@ -117,6 +122,8 @@ describe("Settings › Engines' draft", () => {
           cacheReads: "0.3",
         },
       },
+      standInEngines: ["strata"],
+      askBeforeSwitchAbove: "100000",
     });
   });
 
@@ -299,6 +306,64 @@ describe("Settings › Engines' draft", () => {
   it("has no Search endpoint while its base URL is empty", () => {
     expect(searchEndpointOf("  ")).toBeNull();
     expect(searchEndpointOf("http://searxng ")).toEqual({ baseUrl: "http://searxng" });
+  });
+
+  describe("Stand-in Engines", () => {
+    it("sends the Stand-in Engines in order and the switch's context size, each a change to save", () => {
+      const draft = {
+        ...draftOf(SAVED),
+        standInEngines: ["claude-code", "strata"],
+        askBeforeSwitchAbove: " 0 ",
+      };
+
+      expect(draftChanged(draft, SAVED)).toBe(true);
+      expect(engineSettingsEditOf(draft, SAVED)).toMatchObject({
+        standInEngines: ["claude-code", "strata"],
+        askBeforeSwitchAbove: 0,
+      });
+      expect(draftChanged({ ...draftOf(SAVED), standInEngines: [] }, SAVED)).toBe(true);
+      expect(draftChanged({ ...draftOf(SAVED), askBeforeSwitchAbove: "200000" }, SAVED)).toBe(true);
+      expect(draftChanged({ ...draftOf(SAVED), askBeforeSwitchAbove: "100000 " }, SAVED)).toBe(
+        false,
+      );
+      expect(engineSettingsEditOf(draftOf(SAVED), SAVED)).toMatchObject({
+        standInEngines: ["strata"],
+        askBeforeSwitchAbove: 100_000,
+      });
+    });
+
+    it("holds Save while the context size isn't a whole number of tokens", () => {
+      for (const text of ["", "1.5", "-1", "10k", "1e5"]) {
+        expect(switchSizeOf(text)).toBeUndefined();
+        const draft = { ...draftOf(SAVED), askBeforeSwitchAbove: text };
+        expect(engineSettingsEditOf(draft, SAVED)).toBeUndefined();
+        expect(draftChanged(draft, SAVED)).toBe(true);
+      }
+      expect(switchSizeOf("250000")).toBe(250_000);
+    });
+
+    it("lists the Stand-in Engines by name and offers the saved engines not listed, never a new one", () => {
+      const draft = {
+        ...draftOf(SAVED),
+        claudeCodeEngines: [
+          ...draftOf(SAVED).claudeCodeEngines,
+          { ...newClaudeCodeEngine(SAVED), name: "New" },
+        ],
+      };
+
+      expect(standInsOf(draft, SAVED)).toEqual({
+        listed: [{ id: "strata", name: "Strata" }],
+        addable: [{ id: "claude-code", name: "Claude Code" }],
+      });
+      expect(standInsOf({ ...draft, standInEngines: [] }, SAVED).addable).toHaveLength(2);
+    });
+
+    it("moves a Stand-in Engine up or down, never past either end", () => {
+      expect(withStandInMoved(["a", "b", "c"], 1, -1)).toEqual(["b", "a", "c"]);
+      expect(withStandInMoved(["a", "b", "c"], 1, 1)).toEqual(["a", "c", "b"]);
+      expect(withStandInMoved(["a", "b"], 0, -1)).toEqual(["a", "b"]);
+      expect(withStandInMoved(["a", "b"], 1, 1)).toEqual(["a", "b"]);
+    });
   });
 
   describe("with Codex engines", () => {

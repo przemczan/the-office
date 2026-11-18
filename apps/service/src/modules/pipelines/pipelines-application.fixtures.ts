@@ -17,7 +17,7 @@ import {
   ScriptedEngineModule,
   type EngineId,
   type SessionScript,
-  type StandInEngine,
+  type ScriptedEngineProcess,
 } from "../engine/index.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
 import type { Stage } from "./domain/stage.js";
@@ -86,15 +86,15 @@ class TelemetryForTestsModule {
 }
 
 /**
- * Agent Stages' sessions replay `scripts` in order, one per Stage, each with a real `standIn`
- * engine process when a test gives one; spans go to `telemetry` when a test gives one.
+ * Agent Stages' sessions replay `scripts` in order, one per Stage, each with a real
+ * `engineProcess` when a test gives one; spans go to `telemetry` when a test gives one.
  */
 export async function startPipelinesApplication(
   scripts: readonly SessionScript[] = [],
-  standIn?: StandInEngine,
+  engineProcess?: ScriptedEngineProcess,
   telemetry?: Telemetry,
 ): Promise<PipelinesApplication> {
-  return startOn(new ScriptedEngine(scripts, {}, standIn), [], telemetry);
+  return startOn(new ScriptedEngine(scripts, {}, engineProcess), [], telemetry);
 }
 
 /**

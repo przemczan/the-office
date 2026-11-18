@@ -45,14 +45,16 @@ import {
   offeredModelKey,
   priceTextIn,
   savedApiEngines,
+  standInsOf,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { RemoveEngineDialog } from "./remove-engine-dialog.tsx";
+import { StandInEnginesCard } from "./stand-in-engines-card.tsx";
 import "./engines.css";
 
 /**
- * Settings › Engines: the Defaults (the Office default and the Search endpoint) above the list of
- * engines beside the selected one's tabs, one draft saved whole.
+ * Settings › Engines: the Defaults (the Office default and the Search endpoint) and the Stand-in
+ * Engines above the list of engines beside the selected one's tabs, one draft saved whole.
  */
 export function EnginesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Engines" });
@@ -123,6 +125,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     setDraft(withoutEngine(draft, at));
   };
   const drafted = draftedEngines(draft, saved);
+  const standIns = standInsOf(draft, saved);
   return (
     <>
       <DefaultsCard
@@ -131,6 +134,15 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
         searchEndpoint={draft.searchEndpoint}
         changeOfficeDefault={(officeDefault) => setDraft({ ...draft, officeDefault })}
         changeSearchEndpoint={(searchEndpoint) => setDraft({ ...draft, searchEndpoint })}
+      />
+      <StandInEnginesCard
+        listed={standIns.listed}
+        addable={standIns.addable}
+        askBeforeSwitchAbove={draft.askBeforeSwitchAbove}
+        changeStandInEngines={(standInEngines) => setDraft({ ...draft, standInEngines })}
+        changeAskBeforeSwitchAbove={(askBeforeSwitchAbove) =>
+          setDraft({ ...draft, askBeforeSwitchAbove })
+        }
       />
       <div className="settings-split">
         <EngineList

@@ -11,7 +11,10 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import type { ApiEndpointModel } from "../../domain/api-endpoints.js";
-import { FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
+import {
+  DEFAULT_ASK_BEFORE_SWITCH_ABOVE,
+  FIRST_OFFICE_DEFAULT,
+} from "../../domain/engine-settings.js";
 import type { EngineId, EngineKind } from "../../domain/engines.js";
 
 /**
@@ -54,6 +57,15 @@ export const engineSettings = pgTable(
       .$type<EngineId>()
       .default(FIRST_OFFICE_DEFAULT.engineId),
     officeDefaultModel: text("office_default_model").default(FIRST_OFFICE_DEFAULT.model),
+    /** The Stand-in Engines in order; an id no longer listed is left out as it is read. */
+    standInEngineIds: text("stand_in_engine_ids")
+      .$type<EngineId>()
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    askBeforeSwitchAbove: integer("ask_before_switch_above")
+      .notNull()
+      .default(DEFAULT_ASK_BEFORE_SWITCH_ABOVE),
   },
   (table) => [
     check("engine_settings_one_row", sql`${table.id} = 1`),
@@ -61,6 +73,7 @@ export const engineSettings = pgTable(
       "engine_settings_office_default_whole",
       sql`(${table.officeDefaultEngineId} IS NULL) = (${table.officeDefaultModel} IS NULL)`,
     ),
+    check("engine_settings_ask_before_switch_above", sql`${table.askBeforeSwitchAbove} >= 0`),
   ],
 );
 

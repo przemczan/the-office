@@ -62,18 +62,18 @@ export class ScriptMismatch extends Error {
 }
 
 /**
- * A real process standing in for each scripted session's engine, started and ended as the Agent
+ * A real process playing each scripted session's engine, started and ended as the Agent
  * SDK adapter starts and ends the engine's, so a test can see what a session leaves running ended
  * with it. It runs until its standard input closes, as the engine does once its session closes.
  */
-export interface StandInEngine {
+export interface ScriptedEngineProcess {
   readonly command: string;
   readonly args: readonly string[];
   readonly processTrees: ProcessTrees;
 }
 
-/** A session's stand-in engine at work. */
-interface RunningStandIn {
+/** A session's engine process at work. */
+interface RunningEngineProcess {
   readonly process: EngineProcess;
   readonly input: Writable;
 }
@@ -96,7 +96,7 @@ export class ScriptedEngine extends AgentEngine {
   constructor(
     scripts: readonly SessionScript[],
     capabilities: Partial<EngineCapabilities> = {},
-    private readonly standIn?: StandInEngine,
+    private readonly engineProcess?: ScriptedEngineProcess,
   ) {
     super();
     this.scripts = [...scripts];
@@ -166,7 +166,7 @@ export class ScriptedEngine extends AgentEngine {
       script,
       this.capabilities,
       new McpServerConnections(options.mcpServers, this.mcpClient),
-      this.standIn && startStandIn(this.standIn),
+      this.engineProcess && startEngineProcess(this.engineProcess),
     );
     this.sessions.push(session);
     session.open(opening);
@@ -174,7 +174,11 @@ export class ScriptedEngine extends AgentEngine {
   }
 }
 
-function startStandIn({ command, args, processTrees }: StandInEngine): RunningStandIn {
+function startEngineProcess({
+  command,
+  args,
+  processTrees,
+}: ScriptedEngineProcess): RunningEngineProcess {
   const engineProcess = new EngineProcess(processTrees);
   const { stdin } = engineProcess.spawn({
     command,
@@ -280,7 +284,7 @@ export class ScriptedSession implements EngineSession {
     script: SessionScript,
     private readonly capabilities: EngineCapabilities,
     private readonly mcpServers: McpServerConnections,
-    private readonly standIn?: RunningStandIn,
+    private readonly engineProcess?: RunningEngineProcess,
   ) {
     this.rules = scriptedSessionRules(options);
     const steps = script.map((step) => inPlaces(step, { folder: options.folder, home: homedir() }));
@@ -360,9 +364,9 @@ export class ScriptedSession implements EngineSession {
     } finally {
       await this.mcpServers.close();
       await removeSessionTemporaryFolder(currentOperatingSystem().paths, this.id);
-      if (this.standIn) {
-        this.standIn.input.end();
-        await this.standIn.process.endWithLeftovers();
+      if (this.engineProcess) {
+        this.engineProcess.input.end();
+        await this.engineProcess.process.endWithLeftovers();
       }
     }
   }

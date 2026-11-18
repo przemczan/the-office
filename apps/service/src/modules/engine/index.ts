@@ -34,7 +34,7 @@ export {
   UsageWindowsRead,
   UsageWindowUsedUp,
 } from "./domain/engine-events.js";
-export { EngineModels } from "./application/engine-models.js";
+export { EngineModels, type StandInEngineSettings } from "./application/engine-models.js";
 export { usageWindowWords } from "./domain/usage-window-words.js";
 export { showsFree } from "./domain/usage-windows.js";
 export type { UsageWindowName } from "./ports/session-events.js";
@@ -62,6 +62,7 @@ export {
   type EngineId,
   type EngineModel,
 } from "./domain/engines.js";
+export { engineToRunOn } from "./domain/stand-in-engines.js";
 export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";
 export { ModelPrices } from "./application/model-prices.js";
@@ -74,7 +75,7 @@ export { RUN_PROJECT_COMMAND_TOOL } from "./domain/container-runtime-commands.js
 export { EngineModule } from "./engine.module.js";
 export { EngineAccountsModule } from "./engine-accounts.module.js";
 // For other modules' tests: sessions replay scripts, with no model calls.
-export { ScriptedEngine, type StandInEngine } from "./adapters/scripted/scripted-engine.js";
+export { ScriptedEngine, type ScriptedEngineProcess } from "./adapters/scripted/scripted-engine.js";
 export { readRecording, type SessionScript } from "./adapters/scripted/session-script.js";
 export { ScriptedEngineModule } from "./scripted-engine.module.js";
 // So no end-to-end test runs a binary's login.

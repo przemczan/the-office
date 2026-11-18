@@ -63,6 +63,8 @@ const SAVED: EngineSettings = {
     { engineId: "strata", model: "qwen3", price: null },
     { engineId: "strata", model: "coder", price: null },
   ],
+  standInEngines: [],
+  askBeforeSwitchAbove: 100_000,
 };
 
 const CLAUDE_CODE_FIRST = { kind: "claude-code", index: 0 } as const;
@@ -238,6 +240,13 @@ describe("Codex engines in Settings › Engines' list", () => {
     });
     // With no Codex engine left, its models aren't offered, so their prices hold nothing.
     expect(saveHeldBy({ ...draft, codexEngines: [] }, SAVED_WITH_CODEX)).toBeUndefined();
+  });
+
+  it("says on the Save bar when the Stand-in Engines' context size holds Save", () => {
+    expect(saveHeldBy({ ...draftOf(SAVED), askBeforeSwitchAbove: "" }, SAVED)).toEqual({
+      selection: undefined,
+      line: "The context size under Stand-in Engines needs fixing before Save.",
+    });
   });
 
   it("changes, removes and gives the id of the Codex engine selected, and no other", () => {

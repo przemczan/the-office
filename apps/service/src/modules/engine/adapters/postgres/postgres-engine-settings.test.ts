@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
-import type { EngineSettings } from "../../domain/engine-settings.js";
+import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from "../../domain/engine-settings.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type CodexEngine, type Engine } from "../../domain/engines.js";
-import { engines } from "./engine-settings.schema.js";
+import { engines, engineSettings } from "./engine-settings.schema.js";
 import { PostgresEngineSettings } from "./postgres-engine-settings.js";
 
 let app: INestApplication;
@@ -25,7 +25,7 @@ afterAll(async () => {
 
 describe("PostgresEngineSettings", () => {
   // Every test file shares the database, so the settings kept before are put back.
-  it("keeps the engines in their order, an API engine with its key, the Office default, the search endpoint and the Model prices", async () => {
+  it("keeps the engines in their order, an API engine with its key, the Office default, the search endpoint, the Model prices and the Stand-in Engines in order", async () => {
     const before = await settings.read();
     const changed: EngineSettings = {
       engines: [
@@ -66,6 +66,8 @@ describe("PostgresEngineSettings", () => {
           price: { input: 0.000_001, output: 0, cacheWrites: 0, cacheReads: 0 },
         },
       ],
+      standInEngines: ["lab", "claude-code"],
+      askBeforeSwitchAbove: 50_000,
     };
     try {
       await settings.replace(changed);
@@ -75,12 +77,31 @@ describe("PostgresEngineSettings", () => {
         officeDefault: { engineId: "strata", model: "org/coder:q4" },
         searchEndpoint: null,
         modelPrices: [],
+        standInEngines: ["claude-code", "lab", "strata"],
+        askBeforeSwitchAbove: 0,
       };
       await settings.replace(reversed);
       const replaced = await settings.read();
 
       expect(kept).toEqual(changed);
       expect(replaced).toEqual(reversed);
+    } finally {
+      await settings.replace(before);
+    }
+  });
+
+  it("reads the defaults with no settings row, and leaves out a Stand-in Engine no longer listed", async () => {
+    const before = await settings.read();
+    const database = app.get<Database>(DATABASE);
+    try {
+      await database.delete(engineSettings);
+      const withoutRow = await settings.read();
+      await settings.replace(DEFAULT_ENGINE_SETTINGS);
+      await database.update(engineSettings).set({ standInEngineIds: ["gone", "claude-code"] });
+      const withGone = await settings.read();
+
+      expect(withoutRow).toMatchObject({ standInEngines: [], askBeforeSwitchAbove: 100_000 });
+      expect(withGone.standInEngines).toEqual(["claude-code"]);
     } finally {
       await settings.replace(before);
     }
@@ -113,6 +134,8 @@ describe("PostgresEngineSettings", () => {
           price: { input: 2, output: 8, cacheWrites: 0, cacheReads: 0.5 },
         },
       ],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     };
     try {
       await settings.replace(changed);

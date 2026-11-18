@@ -11,6 +11,7 @@ import {
   modelsOf,
   offeredModelsOf,
   priceTextIn,
+  switchSizeOf,
   type DraftedEngines,
   type EngineSettingsDraft,
   type PricedModel,
@@ -286,6 +287,12 @@ export function saveHeldBy(
     return {
       selection: undefined,
       line: "A Claude model's price needs fixing before Save: add a Claude Code engine to show it, or Discard.",
+    };
+  }
+  if (switchSizeOf(draft.askBeforeSwitchAbove) === undefined) {
+    return {
+      selection: undefined,
+      line: "The context size under Stand-in Engines needs fixing before Save.",
     };
   }
   return undefined;

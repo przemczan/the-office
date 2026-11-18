@@ -503,6 +503,10 @@ _Avoid_: Provider, backend, account (as the thing picked), engine id
 The Engine and model every session runs on unless a more specific level names another; set in Settings › Engines.
 _Avoid_: Global engine, default engine setting
 
+**Stand-in Engine**:
+An Engine in the one Office-wide ordered list in Settings › Engines, which takes over for another Engine that has run out of its 5-hour or 7-day Usage window: the first in order that serves the same model and has room. A switch keeps the model, so in practice Claude Code Engines stand in for each other on a Claude model. Beside the list, the context size above which a switch of a running Stage asks the user first.
+_Avoid_: Fallback engine, backup engine, failover
+
 **Project default**:
 The Engine and model a Project's sessions run on, set in the Project page's Engine block; with "Use for every Role" it applies to every Role in the Project over their Office-wide Role overrides.
 _Avoid_: Project engine, project override

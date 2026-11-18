@@ -20,7 +20,7 @@ import {
 import { asOwnUser } from "./own-user.ts";
 import { addedBasePipeline, addedProjectPipeline } from "./project-pipelines.ts";
 import { createTemporaryRepository } from "./temporary-repository.ts";
-import { screenshotScenario } from "./task-screenshots.ts";
+import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -1200,6 +1200,105 @@ test(
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-settings-engines-empty.png"),
     });
+  },
+);
+
+// The engines' settings are routed, never saved: people.e2e.ts adds and removes engines meanwhile,
+// and a Save sends every engine whole. The PUT is checked and answered as the service answers it.
+test(
+  "Settings › Engines' Stand-in Engines are added, reordered and saved with the switch's context size",
+  { tag: "@full" },
+  async ({ page }) => {
+    const nightRuns = {
+      id: "night-runs",
+      name: "Night runs",
+      kind: "claude-code",
+      defaultModel: "claude-sonnet-5-5",
+      claudeCodeP: false,
+    } as const;
+    let stored: Pick<EngineSettings, "standInEngines" | "askBeforeSwitchAbove"> | undefined;
+    const sent: unknown[] = [];
+    await page.route("**/api/settings/engines", async (route) => {
+      // Read apart from the page, which page.route doesn't reach.
+      const saved = (await (
+        await page.request.get("/api/settings/engines")
+      ).json()) as EngineSettings;
+      const shown: EngineSettings = {
+        ...saved,
+        engines: [...saved.engines, nightRuns],
+        standInEngines: [],
+        ...stored,
+      };
+      if (route.request().method() === "PUT") {
+        const edit = route.request().postDataJSON() as Pick<
+          EngineSettings,
+          "standInEngines" | "askBeforeSwitchAbove"
+        >;
+        sent.push(edit);
+        stored = {
+          standInEngines: edit.standInEngines,
+          askBeforeSwitchAbove: edit.askBeforeSwitchAbove,
+        };
+        return route.fulfill({ json: { ...shown, ...stored } });
+      }
+      return route.fulfill({ json: shown });
+    });
+    await page.goto("/settings/engines");
+    const firstSaved = (
+      (await (await page.request.get("/api/settings/engines")).json()) as EngineSettings
+    ).engines[0];
+    expect(firstSaved).toBeDefined();
+    const firstName = firstSaved?.name ?? "";
+
+    const card = page
+      .locator("section")
+      .filter({ has: page.locator(".stand-in-engines") })
+      .last();
+    await expect(card).toContainText("No Stand-in Engine yet");
+    const add = card.getByLabel("Add a stand-in");
+    await add.selectOption({ label: nightRuns.name });
+    await add.selectOption({ label: firstName });
+    const rows = card.getByRole("list", { name: "Stand-in Engines" }).getByRole("listitem");
+    await expect(rows).toHaveText([`1${nightRuns.name}`, `2${firstName}`]);
+    // Every saved engine is listed: nothing is left to add.
+    await expect(add).toBeDisabled();
+    await expect(card.getByRole("button", { name: `Move ${nightRuns.name} up` })).toBeDisabled();
+    await expect(card.getByRole("button", { name: `Move ${firstName} down` })).toBeDisabled();
+    await card.getByRole("button", { name: `Move ${firstName} up` }).click();
+    await expect(rows).toHaveText([`1${firstName}`, `2${nightRuns.name}`]);
+
+    const size = card.getByLabel("Ask before switching a Stage whose context is over");
+    await expect(size).toHaveValue("100000");
+    // A size that isn't a whole number of tokens holds Save.
+    await size.fill("150k");
+    await expect(card).toContainText("Give a whole number of tokens");
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await expect(page.locator(".settings-actions").getByRole("status")).toContainText(
+      "The context size under Stand-in Engines needs fixing before Save.",
+    );
+    await size.fill("150000");
+    await size.blur();
+    await card.scrollIntoViewIfNeeded();
+    await card.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "settings-engines-stand-in-engines.png"),
+    });
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    expect(sent).toEqual([
+      expect.objectContaining({
+        standInEngines: [firstSaved?.id, nightRuns.id],
+        askBeforeSwitchAbove: 150_000,
+      }),
+    ]);
+
+    await page.reload();
+    await expect(rows).toHaveText([`1${firstName}`, `2${nightRuns.name}`]);
+    await expect(size).toHaveValue("150000");
+    await card
+      .getByRole("button", { name: `Remove ${nightRuns.name} from the Stand-in Engines` })
+      .click();
+    await expect(rows).toHaveText([`1${firstName}`]);
+    await expect(add).toBeEnabled();
   },
 );
 

@@ -35,6 +35,13 @@ export interface EngineSettingsDraft {
    * offered, so only those offered when Saving are sent.
    */
   readonly modelPrices: Readonly<Record<string, ModelPriceText>>;
+  /** The Stand-in Engines in order, each a saved engine's id. */
+  readonly standInEngines: readonly EngineId[];
+  /**
+   * The context size in tokens above which switching a running Stage to a Stand-in Engine asks
+   * first, as its field reads: text, since an emptied field isn't a size yet.
+   */
+  readonly askBeforeSwitchAbove: string;
 }
 
 /** A model an engine's Models and prices lists; a Claude or Codex model's engine is null. */
@@ -57,6 +64,8 @@ export function draftOf({
   officeDefault,
   searchEndpoint,
   modelPrices,
+  standInEngines,
+  askBeforeSwitchAbove,
 }: EngineSettings): EngineSettingsDraft {
   return {
     claudeCodeEngines: engines.flatMap((engine) =>
@@ -74,6 +83,8 @@ export function draftOf({
         offered.price ? [[offeredModelKey(offered), priceTextOf(offered.price)]] : [],
       ),
     ),
+    standInEngines: [...standInEngines],
+    askBeforeSwitchAbove: String(askBeforeSwitchAbove),
   };
 }
 
@@ -169,7 +180,10 @@ export function priceTextIn(draft: EngineSettingsDraft, offered: PricedModel): M
   return draft.modelPrices[offeredModelKey(offered)] ?? NO_PRICE_TEXT;
 }
 
-/** What Save sends, or undefined while a Model price's fields don't read as one. */
+/**
+ * What Save sends, or undefined while a Model price's fields or the switch's context size don't
+ * read as one.
+ */
 export function engineSettingsEditOf(
   draft: EngineSettingsDraft,
   saved: EngineSettings,
@@ -180,6 +194,8 @@ export function engineSettingsEditOf(
     if (price === undefined) return undefined;
     modelPrices.push({ ...offered, price });
   }
+  const askBeforeSwitchAbove = switchSizeOf(draft.askBeforeSwitchAbove);
+  if (askBeforeSwitchAbove === undefined) return undefined;
   return {
     engines: [
       ...draft.claudeCodeEngines,
@@ -189,7 +205,58 @@ export function engineSettingsEditOf(
     officeDefault: draft.officeDefault,
     searchEndpoint: draft.searchEndpoint,
     modelPrices,
+    standInEngines: [...draft.standInEngines],
+    askBeforeSwitchAbove,
   };
+}
+
+/** What's wrong with the switch's context size as typed, or undefined: a whole number of tokens. */
+export function switchSizeProblem(text: string): string | undefined {
+  const trimmed = text.trim();
+  return /^\d+$/.test(trimmed) && Number.isSafeInteger(Number(trimmed))
+    ? undefined
+    : "Give a whole number of tokens, such as 100000, or 0 to always ask.";
+}
+
+/** The switch's context size the field gives, or undefined while it doesn't read as one. */
+export function switchSizeOf(text: string): number | undefined {
+  return switchSizeProblem(text) === undefined ? Number(text.trim()) : undefined;
+}
+
+/** An engine that may be listed as a Stand-in Engine, by its name. */
+export interface StandInChoice {
+  readonly id: EngineId;
+  readonly name: string;
+}
+
+/**
+ * The Stand-in Engines as listed, by name, and the engines "Add a stand-in" offers: those saved,
+ * still drafted and not listed yet, since a new engine has no id until Save.
+ */
+export function standInsOf(
+  draft: EngineSettingsDraft,
+  saved: EngineSettings,
+): { readonly listed: readonly StandInChoice[]; readonly addable: readonly StandInChoice[] } {
+  const choices = officeDefaultChoicesOf(draft, saved).map(({ id, name }) => ({ id, name }));
+  return {
+    listed: draft.standInEngines.map(
+      (id) => choices.find((choice) => choice.id === id) ?? { id, name: id },
+    ),
+    addable: choices.filter(({ id }) => !draft.standInEngines.includes(id)),
+  };
+}
+
+/** The Stand-in Engines with the one at `index` moved by `by` places, kept within the list. */
+export function withStandInMoved(
+  standInEngines: readonly EngineId[],
+  index: number,
+  by: -1 | 1,
+): readonly EngineId[] {
+  const to = index + by;
+  if (index < 0 || to < 0 || to >= standInEngines.length) return standInEngines;
+  const moved = [...standInEngines];
+  [moved[index], moved[to]] = [moved[to] as EngineId, moved[index] as EngineId];
+  return moved;
 }
 
 function withOfferedDefaultModel(endpoint: ApiEngineEdit): ApiEngineEdit {
@@ -282,6 +349,9 @@ function whatSaveSees(draft: EngineSettingsDraft, saved: EngineSettings): unknow
     officeDefault: draft.officeDefault,
     searchEndpoint: draft.searchEndpoint,
     modelPrices: offeredModelsOf(draft, saved).map((offered) => priceTextIn(draft, offered)),
+    standInEngines: draft.standInEngines,
+    askBeforeSwitchAbove:
+      switchSizeOf(draft.askBeforeSwitchAbove) ?? draft.askBeforeSwitchAbove.trim(),
   };
 }
 

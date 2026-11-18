@@ -2,7 +2,11 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
-import { FIRST_OFFICE_DEFAULT, type EngineSettings } from "../../domain/engine-settings.js";
+import {
+  DEFAULT_ENGINE_SETTINGS,
+  FIRST_OFFICE_DEFAULT,
+  type EngineSettings,
+} from "../../domain/engine-settings.js";
 import type { Engine, EngineId, EngineModel } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
@@ -25,11 +29,17 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       // The Claude models first, as Settings › Engines lists them.
       .orderBy(sql`${modelPrices.engineId} ASC NULLS FIRST`, asc(modelPrices.model));
     const searchEndpointUrl = row?.searchEndpointUrl ?? null;
+    const listed = rows.map(engineOf);
     return {
-      engines: rows.map(engineOf),
+      engines: listed,
       officeDefault: row ? officeDefaultOf(row) : FIRST_OFFICE_DEFAULT,
       searchEndpoint: searchEndpointUrl === null ? null : { baseUrl: searchEndpointUrl },
       modelPrices: prices.map(({ engineId, model, ...price }) => ({ engineId, model, price })),
+      standInEngines: (row?.standInEngineIds ?? DEFAULT_ENGINE_SETTINGS.standInEngines).filter(
+        (engineId) => listed.some(({ id }) => id === engineId),
+      ),
+      askBeforeSwitchAbove:
+        row?.askBeforeSwitchAbove ?? DEFAULT_ENGINE_SETTINGS.askBeforeSwitchAbove,
     };
   }
 
@@ -38,8 +48,12 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
     officeDefault,
     searchEndpoint,
     modelPrices: priced,
+    standInEngines,
+    askBeforeSwitchAbove,
   }: EngineSettings): Promise<void> {
     const settingsRow = {
+      standInEngineIds: [...standInEngines],
+      askBeforeSwitchAbove,
       searchEndpointUrl: searchEndpoint?.baseUrl ?? null,
       officeDefaultEngineId: officeDefault?.engineId ?? null,
       officeDefaultModel: officeDefault?.model ?? null,

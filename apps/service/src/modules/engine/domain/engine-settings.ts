@@ -38,7 +38,20 @@ export interface EngineSettings {
   readonly searchEndpoint: SearchEndpoint | null;
   /** Only the models offered now that have a Model price. */
   readonly modelPrices: readonly PricedModel[];
+  /** The Stand-in Engines, each listed once, in the order `engineToRunOn` tries them. */
+  readonly standInEngines: readonly EngineId[];
+  /** The context size, in tokens, above which a switch of a running Stage asks first; 0 always asks. */
+  readonly askBeforeSwitchAbove: number;
 }
+
+/**
+ * A switch loses the prompt cache, so the whole context is written again: above this many tokens
+ * that costs enough to ask first.
+ */
+export const DEFAULT_ASK_BEFORE_SWITCH_ABOVE = 100_000;
+
+/** Above any model's context window, and within the `integer` column it is kept in. */
+export const ASK_BEFORE_SWITCH_ABOVE_MOST = 10_000_000;
 
 /** The first Claude Code engine on its default model, as the upgrade leaves it. */
 export const FIRST_OFFICE_DEFAULT: EngineModel = {
@@ -51,6 +64,8 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   officeDefault: FIRST_OFFICE_DEFAULT,
   searchEndpoint: null,
   modelPrices: [],
+  standInEngines: [],
+  askBeforeSwitchAbove: DEFAULT_ASK_BEFORE_SWITCH_ABOVE,
 };
 
 /** A Claude Code engine as Settings › Engines saves it: without an `id` when it is new. */
@@ -80,6 +95,10 @@ export interface EngineSettingsEdit {
   readonly officeDefault: EngineModel | null;
   readonly searchEndpoint: SearchEndpoint | null;
   readonly modelPrices: readonly OfferedModel[];
+  /** Left out, the stored list is kept. */
+  readonly standInEngines?: readonly EngineId[];
+  /** Left out, the stored size is kept. */
+  readonly askBeforeSwitchAbove?: number;
 }
 
 export const ENGINE_NAME_LENGTH = 40;
@@ -128,7 +147,8 @@ function modelsPricedUnder(
  * The settings `edit` makes of `stored`: the engines in its order, a new one given its id from its
  * name, an API engine keeping its key unless the edit gives one and a Codex engine always keeping
  * its API key; the Office default; and the Model prices of the models offered, a removed engine's
- * kept (`keptModelPrices`). Refuses with every reason when they break a rule.
+ * kept (`keptModelPrices`); the Stand-in Engines and the ask-above size, the stored ones when left
+ * out. Refuses with every reason when they break a rule.
  */
 export function changedEngineSettings(
   stored: EngineSettings,
@@ -139,7 +159,8 @@ export function changedEngineSettings(
 
 /**
  * The settings once the removal is done: the engine gone and the Office default moved by
- * `movedEngineModel`, to none with the only engine, the rest kept. Refuses with every reason when they break a rule.
+ * `movedEngineModel`, to none with the only engine, the engine dropped from the Stand-in Engines,
+ * the rest kept. Refuses with every reason when they break a rule.
  */
 export function settingsWithoutEngine(
   stored: EngineSettings,
@@ -150,6 +171,8 @@ export function settingsWithoutEngine(
     officeDefault: stored.officeDefault && movedEngineModel(stored.officeDefault, removal),
     searchEndpoint: stored.searchEndpoint,
     modelPrices: stored.modelPrices,
+    standInEngines: stored.standInEngines.filter((engineId) => engineId !== removal.engineId),
+    askBeforeSwitchAbove: stored.askBeforeSwitchAbove,
   };
   return settingsOf(stored, edit, []);
 }
@@ -176,8 +199,45 @@ function settingsOf(
     (engineId) => modelsPricedUnder(stored.engines, engineId),
     offeredNow,
   );
+  const standInEngines = edit.standInEngines ?? stored.standInEngines;
+  problems.push(...standInEngineProblems(standInEngines, engines));
+  const askBeforeSwitchAbove = edit.askBeforeSwitchAbove ?? stored.askBeforeSwitchAbove;
+  if (
+    !Number.isInteger(askBeforeSwitchAbove) ||
+    askBeforeSwitchAbove < 0 ||
+    askBeforeSwitchAbove > ASK_BEFORE_SWITCH_ABOVE_MOST
+  ) {
+    problems.push(
+      `Give the context size to ask above as a whole number of tokens from 0 to ${ASK_BEFORE_SWITCH_ABOVE_MOST.toLocaleString("en-US")} (0 always asks).`,
+    );
+  }
   if (problems.length > 0) throw new EngineSettingsRefused([...new Set(problems)]);
-  return { engines, officeDefault, searchEndpoint, modelPrices: [...edited, ...kept] };
+  return {
+    engines,
+    officeDefault,
+    searchEndpoint,
+    modelPrices: [...edited, ...kept],
+    standInEngines: [...standInEngines],
+    askBeforeSwitchAbove,
+  };
+}
+
+function standInEngineProblems(
+  standInEngines: readonly EngineId[],
+  engines: readonly Engine[],
+): string[] {
+  const problems: string[] = [];
+  const seen = new Set<EngineId>();
+  for (const engineId of standInEngines) {
+    const engine = engines.find(({ id }) => id === engineId);
+    if (engine === undefined) {
+      problems.push("Pick each Stand-in Engine among the engines listed.");
+    } else if (seen.has(engineId)) {
+      problems.push(`"${engine.name}" is listed twice as a Stand-in Engine.`);
+    }
+    seen.add(engineId);
+  }
+  return problems;
 }
 
 function changedEnginesOf(

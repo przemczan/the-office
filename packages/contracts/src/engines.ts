@@ -130,6 +130,13 @@ export const engineSettingsSchema = z.object({
   searchEndpoint: searchEndpointSchema.nullable(),
   /** Every model offered now: the Claude models first, then the Codex models, then each API engine's. */
   modelPrices: z.array(offeredModelSchema),
+  /**
+   * The Stand-in Engines, in the order one is picked to take over for an engine whose usage window
+   * is used up; a switch keeps the model, so only one serving it takes over.
+   */
+  standInEngines: z.array(engineIdSchema),
+  /** The context size, in tokens, above which a switch of a running Stage asks first; 0 always asks. */
+  askBeforeSwitchAbove: z.number(),
 });
 export type EngineSettings = z.infer<typeof engineSettingsSchema>;
 
@@ -168,9 +175,10 @@ export const engineEditSchema = z.discriminatedUnion("kind", [
 export type EngineEdit = z.infer<typeof engineEditSchema>;
 
 /**
- * PUT /settings/engines: every engine, in order, the Office default, the search endpoint and the
- * Model prices. A saved engine left out is refused (422): DELETE /settings/engines/:engineId removes
- * one. A price of a model the saved engines no longer offer is dropped.
+ * PUT /settings/engines: every engine, in order, the Office default, the search endpoint, the
+ * Model prices, the Stand-in Engines and the ask-above size. A saved engine left out is refused
+ * (422): DELETE /settings/engines/:engineId removes one. A price of a model the saved engines no
+ * longer offer is dropped.
  */
 export const engineSettingsEditSchema = z.object({
   engines: z.array(engineEditSchema),
@@ -178,6 +186,12 @@ export const engineSettingsEditSchema = z.object({
   officeDefault: engineModelSchema.nullable(),
   searchEndpoint: searchEndpointSchema.nullable(),
   modelPrices: z.array(offeredModelSchema),
+  /**
+   * Left out, the stored list is kept. An engine not listed or named twice is refused (422).
+   */
+  standInEngines: z.array(engineIdSchema).optional(),
+  /** Left out, the stored size is kept. One that isn't a whole number 0–10,000,000 is refused (422). */
+  askBeforeSwitchAbove: z.number().optional(),
 });
 export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
 

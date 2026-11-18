@@ -116,6 +116,8 @@ describe("/api/settings/engines", () => {
       officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
       searchEndpoint: null,
       modelPrices: UNPRICED_CLAUDE_MODELS,
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
   });
 

@@ -239,9 +239,9 @@ describe("AgentStageRunner after the session", () => {
   it("ends what the session left running, such as a dev server, before git reads the worktree", async () => {
     const folder = await mkdtemp(join(tmpdir(), "office-stage-leftovers-"));
     const pidFile = join(folder, "dev-server.pid");
-    // The stand-in engine starts a dev server that outlives it, as a background Bash call does:
+    // The scripted engine process starts a dev server that outlives it, as a background Bash call does:
     // detached on Windows, where Node ends its non-detached children with it; in its group on Linux.
-    const standInEngine = `
+    const engineProcess = `
       const devServer = require("node:child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore", detached: process.platform === "win32" });
       devServer.unref();
       require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(devServer.pid));
@@ -250,7 +250,7 @@ describe("AgentStageRunner after the session", () => {
     try {
       pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())], {
         command: process.execPath,
-        args: ["-e", standInEngine],
+        args: ["-e", engineProcess],
         processTrees: currentOperatingSystem().processTrees,
       });
       let devServer = 0;
