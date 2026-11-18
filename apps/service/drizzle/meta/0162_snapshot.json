@@ -1,6 +1,6 @@
 {
-  "id": "4eaba573-7a5a-4896-897a-0daa19a2e712",
-  "prevId": "29d16ec4-e99a-432c-948a-fdcc5e89d061",
+  "id": "89b4842f-8f1c-447e-85aa-3ebbf98fbe02",
+  "prevId": "0bb8e1f8-1ad9-4544-878f-d21b31156de1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -5617,6 +5617,18 @@
         },
         "ended_at": {
           "name": "ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usage_window_engine_id": {
+          "name": "usage_window_engine_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usage_window_paused_at": {
+          "name": "usage_window_paused_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

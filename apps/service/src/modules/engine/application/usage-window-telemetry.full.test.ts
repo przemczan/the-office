@@ -12,7 +12,7 @@ async function windowsRecorded(...readings: [string, UsageWindows][]) {
   const events = new EventBus();
   new UsageWindowTelemetry(events, telemetry).onModuleInit();
   for (const [engineId, windows] of readings) {
-    await events.publish(new UsageWindowsRead(engineId, windows, new Date()));
+    await events.publish(new UsageWindowsRead(engineId, windows, new Date(), true));
   }
   const { resourceMetrics } = await metricReader.collect();
   const used = resourceMetrics.scopeMetrics

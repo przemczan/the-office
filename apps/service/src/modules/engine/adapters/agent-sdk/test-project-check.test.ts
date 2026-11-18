@@ -28,6 +28,7 @@ import { UsageWindowsChanged } from "../../domain/engine-events.js";
 import { DayUsageForTests } from "../../ports/day-usage-repository.fixtures.js";
 import { UsageWindowSamplesForTests } from "../../ports/usage-window-sample-repository.fixtures.js";
 import { UsageWindowSamples } from "../../application/usage-window-samples.js";
+import { UsageWindowReadings } from "../../application/usage-window-readings.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionEvent, ToolCallEvent } from "../../ports/session-events.js";
 import { NoLanguageServers } from "../scripted/no-language-servers.js";
@@ -91,6 +92,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
         events.subscribe(UsageWindowsChanged, (event) => {
           windowsChanged.push(event);
         });
+        const usageWindows = new UsageWindowState(events, new ManualSchedule());
         const sessions = new EngineSessions(
           new AgentEngines({
             "agent-sdk": engine,
@@ -100,10 +102,14 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           }),
           new Telemetry(tracing.getTracer("the-office"), metering.getMeter("the-office")),
           events,
-          new UsageWindowState(events, new ManualSchedule()),
+          usageWindows,
           new OfficeToolRegistry(),
           new DayUsage(new DayUsageForTests(), new ManualSchedule()),
-          new UsageWindowSamples(new UsageWindowSamplesForTests()),
+          new UsageWindowReadings(
+            usageWindows,
+            new UsageWindowSamples(new UsageWindowSamplesForTests()),
+            new ManualSchedule(),
+          ),
           new EngineModels(new EngineSettingsForTests()),
           new RunningEngineSessions(),
           new BusyWork(events),

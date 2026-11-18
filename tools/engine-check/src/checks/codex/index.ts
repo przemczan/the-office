@@ -7,6 +7,7 @@ import { codexOutputSchemaCheck } from "./output-schema.ts";
 import { codexResumeCheck } from "./resume.ts";
 import { codexSandboxCheck } from "./sandbox.ts";
 import { codexStartCheck } from "./start.ts";
+import { codexUsageReadAloneCheck } from "./usage-read-alone.ts";
 import { codexUsageReadingCheck } from "./usage-reading.ts";
 
 /**
@@ -20,6 +21,7 @@ export const codexChecks: readonly Check[] = [
   codexOfficeToolCheck,
   codexOutputSchemaCheck,
   codexUsageReadingCheck,
+  codexUsageReadAloneCheck,
   codexInterruptCheck,
   codexResumeCheck,
   codexBargeInCheck,

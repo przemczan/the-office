@@ -21,8 +21,10 @@ import {
   type StageChange,
 } from "../pipelines/pipeline-words.ts";
 import { COMMAND_KIND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine } from "../project-words.ts";
+import type { ProposedStageRoutes } from "../pipelines/flow/proposal-flow.ts";
 import { SkillUpdateDiff } from "../skill-update-diff.tsx";
 import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
+import { RoutesOutChange } from "./proposed-route-changes.tsx";
 
 type ProposedSkillInstall = Extract<ProposedChange, { kind: "skill-install" }>;
 type ProposedSkillUpdate = Extract<ProposedChange, { kind: "skill-update" }>;
@@ -223,6 +225,9 @@ export function ProposedProjectPipelineFields({
                   stageChangeIndexes.includes(index),
                 )}
                 rows={proposed?.rows ?? []}
+                routes={routesOf(change, stageChange)}
+                was={was?.stages ?? proposed?.stages ?? []}
+                proposed={proposed?.stages ?? []}
                 roles={roles}
                 duties={duties}
               />
@@ -243,12 +248,18 @@ export function ProposedProjectPipelineFields({
   );
 }
 
-/** One Stage change as proposed: its line in the editor's words, Kept or New, and a Change's fields. */
+/**
+ * One Stage change as proposed: its line in the editor's words, Kept or New, and a Change's fields
+ * or a Change routes' routes out as Was and Proposed.
+ */
 function ProposedStageChange({
   stageChange,
   kept,
   row,
   rows,
+  routes,
+  was,
+  proposed,
   roles,
   duties,
 }: {
@@ -257,6 +268,11 @@ function ProposedStageChange({
   /** The built Stage it made, once read. */
   readonly row: BuiltStage | undefined;
   readonly rows: readonly BuiltStage[];
+  /** A Change routes' Stage's routes as they were and as proposed, when it changes them. */
+  readonly routes: ProposedStageRoutes | undefined;
+  /** The Stages the Project gets now and as proposed, which name where routes lead. */
+  readonly was: readonly Stage[];
+  readonly proposed: readonly Stage[];
   readonly roles: readonly Role[];
   readonly duties: readonly Duty[] | undefined;
 }): ReactNode {
@@ -280,9 +296,23 @@ function ProposedStageChange({
             ))}
           </ul>
         )}
+        {routes && (
+          <ul className="proposal-changes">
+            <RoutesOutChange change={routes} was={was} proposed={proposed} />
+          </ul>
+        )}
       </dd>
     </div>
   );
+}
+
+/** The routes a Change routes Stage change gives its Stage, as the Proposal words them. */
+function routesOf(
+  change: ProposedProjectPipeline,
+  stageChange: ProjectStageChange,
+): ProposedStageRoutes | undefined {
+  if (stageChange.kind !== "change-routes") return undefined;
+  return change.routes?.stages.find(({ stageKey }) => stageKey === stageChange.stageKey);
 }
 
 /** The values a change of a Project Pipeline rewrites, as was → proposed. */

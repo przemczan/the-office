@@ -185,6 +185,11 @@ export class CodexSession {
     return this.connection.stderr;
   }
 
+  /** The app-server's process id, undefined when it didn't start. */
+  get processId(): number | undefined {
+    return this.connection.processId;
+  }
+
   /** Every notification and server request, in order. */
   get messages(): readonly CodexMessage[] {
     return this.connection.messages;
@@ -410,6 +415,10 @@ class AppServerConnection {
 
   get stderr(): string {
     return this.stderrChunks.join("");
+  }
+
+  get processId(): number | undefined {
+    return this.child.pid;
   }
 
   request(method: string, params: unknown): Promise<unknown> {

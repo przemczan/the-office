@@ -11,9 +11,13 @@ import { currentOperatingSystem } from "../../../../platform/os/current-operatin
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
 import type { CodexEngine, Engine } from "../../domain/engines.js";
-import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
+import {
+  describeAgentEngineContract,
+  SESSIONLESS_SCENARIOS,
+} from "../../ports/agent-engine.contract.js";
 import {
   type AgentEngine,
+  EngineReadTimedOut,
   ModelNotOffered,
   SessionSkillsDiffer,
 } from "../../ports/agent-engine.js";
@@ -259,6 +263,49 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
     await expect(session.readUsageWindows()).resolves.toBeUndefined();
     const [run] = await fakeAppServerRuns(report);
     expect(run?.received.map(({ method }) => method)).not.toContain("account/rateLimits/read");
+  });
+
+  it("reads the engine's usage windows on an app-server of its own on the engine's folder, starting no thread, then ends it", async () => {
+    await expect(
+      engineOn().readUsageWindows(ENGINE, new AbortController().signal),
+    ).resolves.toEqual({
+      fiveHour: { percentUsed: 12, resetsAt: new Date(FAKE_FIVE_HOUR_RESET * 1000) },
+      sevenDay: { percentUsed: 30, resetsAt: new Date(FAKE_SEVEN_DAY_RESET * 1000) },
+      source: "usage-endpoint",
+    });
+
+    const [run, ...more] = await fakeAppServerRuns(report);
+    if (run === undefined) throw new Error("The app-server never started.");
+    expect(more).toEqual([]);
+    expect(run.received.map(({ method }) => method)).toEqual([
+      "initialize",
+      "initialized",
+      "account/rateLimits/read",
+    ]);
+    expect(run.env["CODEX_HOME"]).toBe(join(officeData, "engines", ENGINE.id));
+    expect(isRunning(run.processId)).toBe(false);
+  });
+
+  it("ends the read's app-server when it doesn't answer in time, throwing EngineReadTimedOut", async () => {
+    const engine = engineOn({ ...fakeAppServer(report, { silent: true }), readTimeoutMs: 300 });
+
+    await expect(
+      engine.readUsageWindows(ENGINE, new AbortController().signal),
+    ).rejects.toBeInstanceOf(EngineReadTimedOut);
+
+    const [run] = await fakeAppServerRuns(report);
+    if (run === undefined) throw new Error("The app-server never started.");
+    expect(isRunning(run.processId)).toBe(false);
+  });
+
+  it("reads no engine usage windows on an API key, starting no app-server", async () => {
+    await expect(
+      engineOn().readUsageWindows(
+        { ...ENGINE, apiKey: CodexApiKey.of("sk-test") },
+        new AbortController().signal,
+      ),
+    ).resolves.toBeUndefined();
+    expect(await fakeAppServerRuns(report)).toEqual([]);
   });
 
   it("reports each rate-limit update as a reading of the fullest window", async () => {
@@ -600,7 +647,11 @@ describe.runIf((MODE === "live" || MODE === "record") && CODEX_FOLDER !== undefi
       },
       afterScenario: async (scenario, engine) => {
         // A check of a missing capability runs on `reply` too; the reply's own recording stays.
-        if (engine instanceof RecordingEngine && !saved.has(scenario)) {
+        if (
+          engine instanceof RecordingEngine &&
+          !saved.has(scenario) &&
+          !SESSIONLESS_SCENARIOS.includes(scenario)
+        ) {
           saved.add(scenario);
           await recorder.save(join(WIRE_RECORDINGS, `${scenario}.jsonl`));
           await mkdir(PORT_RECORDINGS, { recursive: true });

@@ -79,6 +79,7 @@ import {
   type InitiativesFilters,
 } from "./surfaces/work/initiative-columns.ts";
 import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
+import { proposalSearchOf } from "./shell/conversation/proposal-search.ts";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
@@ -479,6 +480,7 @@ const projectPipelineRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "pipelines/$projectPipelineId",
   component: ProjectPipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Projects" },
 });
 
@@ -545,6 +547,7 @@ const settingsPipelineRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/$pipelineId",
   component: PipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Settings" },
 });
 

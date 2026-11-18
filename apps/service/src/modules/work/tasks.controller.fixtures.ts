@@ -11,7 +11,12 @@ import {
 } from "@the-office/contracts";
 import { expect } from "vitest";
 import type { ProviderOverride } from "../../../test/test-application.js";
-import { FIRST_CLAUDE_CODE_ENGINE, UsageWindowsRead, type EngineId } from "../engine/index.js";
+import {
+  FIRST_CLAUDE_CODE_ENGINE,
+  showsFree,
+  UsageWindowsRead,
+  type EngineId,
+} from "../engine/index.js";
 import { DATABASE, type Database } from "../../platform/database/database.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
@@ -271,15 +276,10 @@ export function tasksHttp(current: () => TasksHttpTest) {
     const readAt = work().app.get(Schedule).now();
     setReading(engineId, { ...reading, readAt });
     const { fiveHour, sevenDay } = reading;
+    const windows = { fiveHour, sevenDay, source: "rate-limit-headers" } as const;
     await work()
       .app.get(EventBus)
-      .publish(
-        new UsageWindowsRead(
-          engineId,
-          { fiveHour, sevenDay, source: "rate-limit-headers" },
-          readAt,
-        ),
-      );
+      .publish(new UsageWindowsRead(engineId, windows, readAt, showsFree(windows)));
   }
 
   /** The Claude Code engine's Daily caps set, with desks to spare. */

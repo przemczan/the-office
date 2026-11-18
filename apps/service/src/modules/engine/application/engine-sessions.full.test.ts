@@ -60,6 +60,7 @@ import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowSamples } from "./usage-window-samples.js";
+import { UsageWindowReadings } from "./usage-window-readings.js";
 import { UsageWindowState } from "./usage-window-state.js";
 
 // What engine-sessions.test.ts and engine-sessions.full.test.ts share.
@@ -192,7 +193,7 @@ function setUpOn(
     usageWindows,
     officeTools,
     dayUsage,
-    windowSamples,
+    new UsageWindowReadings(usageWindows, windowSamples, schedule),
     new EngineModels(settings),
     running,
     new BusyWork(new EventBus()),

@@ -54,6 +54,15 @@
   border-top: 1.5px dashed var(--danger);
 }
 
+/* A Proposal's lines, as the canvas draws them: proposed dashed in the accent, taken away dotted. */
+.flow-editor-legend-line--proposed {
+  border-top: 2px dashed var(--accent);
+}
+
+.flow-editor-legend-line--taken-away {
+  border-top: 2px dotted var(--fg-3);
+}
+
 .flow-editor-hint {
   display: flex;
   gap: 6px;

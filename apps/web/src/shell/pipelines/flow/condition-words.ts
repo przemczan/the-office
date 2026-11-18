@@ -8,6 +8,9 @@ import { isGroup, type DefinitionOfDoneIs, type StageTestIs } from "./condition-
  * of `stage: null` names; `stages` the flow, which names every other.
  */
 
+/** What words need of the Stage a route leaves: its name, and its routes for their order. */
+export type RouteSource = Pick<Stage, "name" | "routes">;
+
 /** The second select of a Stage test, and its words after the Stage's name. */
 export const STAGE_TEST_WORDS: Readonly<Record<StageTestIs, string>> = {
   done: "ended Done",
@@ -49,7 +52,7 @@ export function stageNameOrGone(
 
 export function testWords(
   test: ConditionTest,
-  from: Stage,
+  from: RouteSource,
   stages: readonly Stage[],
   { short = false }: WordsOptions = {},
 ): string {
@@ -75,7 +78,7 @@ export function testWords(
  */
 export function groupWords(
   group: ConditionGroup,
-  from: Stage,
+  from: RouteSource,
   stages: readonly Stage[],
   options: WordsOptions = {},
 ): string {
@@ -93,7 +96,7 @@ export function routeTargetName(route: Route, stages: readonly Stage[]): string 
  */
 export function routeWhen(
   route: Route,
-  from: Stage,
+  from: RouteSource,
   stages: readonly Stage[],
   routeIndex = indexOf(route, from),
 ): string {
@@ -121,7 +124,7 @@ export function followedWhen(
 
 function nestedWords(
   group: ConditionGroup,
-  from: Stage,
+  from: RouteSource,
   stages: readonly Stage[],
   options: WordsOptions,
   depth: number,
@@ -148,6 +151,6 @@ function listJoin(parts: readonly string[], word: string): string {
 }
 
 /** The route's index among its Stage's; a route that isn't one of them counts as the first. */
-function indexOf(route: Route, from: Stage): number {
+function indexOf(route: Route, from: RouteSource): number {
   return Math.max(0, from.routes?.indexOf(route) ?? 0);
 }

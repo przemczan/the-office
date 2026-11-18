@@ -24,6 +24,14 @@ export interface UsageWindows {
   readonly source: ReadingSource | undefined;
 }
 
+/**
+ * Whether a reading shows the engine free: every window below 100%. The one judgement of it, which
+ * the early reset and Work's early resume both read (spec §5.4).
+ */
+export function showsFree(windows: UsageWindows): boolean {
+  return windows.fiveHour.percentUsed < 100 && windows.sevenDay.percentUsed < 100;
+}
+
 export function sameUsageWindows(one: UsageWindows, other: UsageWindows): boolean {
   return sameWindow(one.fiveHour, other.fiveHour) && sameWindow(one.sevenDay, other.sevenDay);
 }

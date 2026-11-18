@@ -596,7 +596,7 @@ export function withoutRoutesChanged(
 }
 
 /** Two lists of routes alike, the names kept for their words alone left out. */
-function sameRoutes(one: readonly Route[], other: readonly Route[]): boolean {
+export function sameRoutes(one: readonly Route[], other: readonly Route[]): boolean {
   return JSON.stringify(one, unnamedKeys) === JSON.stringify(other, unnamedKeys);
 }
 

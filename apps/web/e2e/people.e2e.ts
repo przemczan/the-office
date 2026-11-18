@@ -4797,6 +4797,108 @@ test(
 );
 
 test(
+  "the user reads Nina's Proposal of a Pipeline's routes as a flow, shows it on the flow and applies it from there",
+  { tag: "@full" },
+  async ({ page }) => {
+    const quickFix = pipelineSchema.parse(
+      await (await page.request.get("/api/pipelines/quick-fix")).json(),
+    );
+    const pipeline = pipelineSchema.parse(
+      await (
+        await page.request.post("/api/pipelines", {
+          data: { name: `Routed ${Date.now()}`, description: "", stages: quickFix.stages },
+        })
+      ).json(),
+    );
+    const [implement, tests, publish] = pipeline.stages;
+    if (!implement || !tests || !publish) throw new Error("Quick fix has three Stages.");
+    const nina = chatWith(page, "Nina");
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
+    await page.getByRole("button", { name: "Ask Nina", exact: true }).click();
+    await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
+      `Can you propose a change to the ${pipeline.name} Pipeline? `,
+    );
+    const threadId = await chatThreadShown(page);
+
+    // Tests runs only when Implement changed files; otherwise the Task goes straight to Publish.
+    const proposedRoutes = [
+      {
+        to: tests.key,
+        condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
+      },
+      { to: publish.key, condition: null },
+    ];
+    await seedProposal(
+      threadId,
+      {
+        kind: "pipeline",
+        pipelineId: pipeline.id,
+        from: pipeline.stages,
+        to: [{ ...implement, routes: proposedRoutes }, tests, publish],
+        routes: {
+          stages: [
+            {
+              stageKey: implement.key,
+              stageName: implement.name,
+              from: implement.routes,
+              to: proposedRoutes,
+            },
+          ],
+          check: [],
+        },
+      },
+      "devops",
+    );
+    await page.goto(`/settings/pipelines/${pipeline.id}?chat=devops&thread=${threadId}`);
+
+    const card = nina.getByRole("region", {
+      name: `Proposal: Change the ${pipeline.name} Pipeline`,
+    });
+    await expect(
+      card.getByRole("list", { name: "Was: routes out of Implement" }).getByRole("listitem"),
+    ).toHaveText(["→ Tests, always"]);
+    await expect(
+      card.getByRole("list", { name: "Proposed: routes out of Implement" }).getByRole("listitem"),
+    ).toHaveText(["→ Tests when Implement changed files", "→ Publish otherwise"]);
+    const flow = card.getByRole("region", { name: `${pipeline.name}, as proposed` });
+    await expect(flow).toContainText("Checked: every Stage is reached");
+    await expect(flow.locator(".flow-canvas-route-line--proposed")).toHaveCount(2);
+    await expect(flow.locator(".flow-canvas-route-line--taken-away")).toHaveCount(1);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-routes-proposal.png") });
+
+    await flow.getByRole("button", { name: "Show it on the flow" }).click();
+    await expect(page).toHaveURL(new RegExp(`/settings/pipelines/${pipeline.id}\\?proposal=`));
+    const banner = page.getByRole("status", {
+      name: `Nina's Proposal, shown on ${pipeline.name}`,
+    });
+    await expect(banner).toContainText(
+      "Routes out of Implement: to Tests when Implement changed files, otherwise to Publish.",
+    );
+    await expect(banner.getByRole("button", { name: "Back to the Thread" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "What the lines mean" })).toHaveText(
+      /As it is\s*Proposed by Nina\s*Taken away/,
+    );
+    // At wide width the chat stays open beside the flow.
+    await expect(card).toBeVisible();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-routes-proposal-on-flow.png"),
+    });
+
+    await banner.getByRole("button", { name: "Apply change" }).click();
+    await expect(
+      page.getByText(`${pipeline.name} changed. Tasks that haven't started follow it.`),
+    ).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/settings/pipelines/${pipeline.id}$`));
+    await expect(banner).toHaveCount(0);
+    await expect(card).toContainText("Applied");
+    const saved = pipelineSchema.parse(
+      await (await page.request.get(`/api/pipelines/${pipeline.id}`)).json(),
+    );
+    expect(saved.stages[0]?.routes?.map(({ to }) => to)).toEqual([tests.key, publish.key]);
+  },
+);
+
+test(
   "the user applies Nina's new Project Pipeline and her change to one; a stale one is refused, and a library Pipeline's Proposal warns what it breaks",
   { tag: "@full" },
   async ({ page }) => {

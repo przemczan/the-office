@@ -6,7 +6,8 @@ import { McpClient } from "../../../../platform/mcp/mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
-import { CODEX_MODELS, hasUsageWindows } from "../../domain/engines.js";
+import { CODEX_MODELS, hasUsageWindows, type Engine } from "../../domain/engines.js";
+import type { UsageWindows } from "../../domain/usage-windows.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,
@@ -19,6 +20,7 @@ import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import type { EngineCommand } from "../claude-code/engine-process.js";
+import { engineRead, serviceVariables } from "../claude-code/engine-read.js";
 import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import {
   officeToolCall,
@@ -34,9 +36,10 @@ import { CodexApprovals, codexShellTool } from "./codex-approvals.js";
 import { codexAppServerArguments, codexEnvironment, codexMcpServers } from "./codex-arguments.js";
 import { pinnedCodexPath } from "./codex-binary.js";
 import type { CodexThreadSettings } from "./codex-protocol.js";
-import { CodexAppServer, type CodexWireTap } from "./codex-rpc.js";
+import { CodexAppServer, CodexRpcError, METHOD_NOT_FOUND, type CodexWireTap } from "./codex-rpc.js";
 import { codexEffort, CodexSession, type CodexConnect } from "./codex-session.js";
 import { CodexThreadFile } from "./codex-thread-file.js";
+import { codexUsageWindows, codexWindowsOf } from "./codex-usage-windows.js";
 import { SessionMcpEndpoint } from "./session-mcp-endpoint.js";
 
 /**
@@ -81,6 +84,8 @@ export interface CodexEngineSetup {
   readonly codexHome?: string;
   /** Called as each app-server starts: told every line of it, as a recording keeps them. */
   readonly wire?: (process: CodexWireProcess) => CodexWireTap;
+  /** How long an engine-level read may take, `ENGINE_READ_TIMEOUT_MS` unless given. */
+  readonly readTimeoutMs?: number;
 }
 
 /** Binds a `CodexEngineSetup` for tests; the service binds none. */
@@ -122,6 +127,52 @@ export class CodexAppServerEngine extends AgentEngine {
     this.requireFor(options);
     const threadId = await this.threadFile(sessionId).read();
     return this.open(sessionId, options, threadId);
+  }
+
+  /**
+   * On an app-server started for the read alone, on the engine's folder: `account/rateLimits/read`,
+   * which starts no thread, so no model call and no thread left behind. None on an API key, and
+   * none for an account whose windows the port doesn't name, such as ChatGPT Free's 30 days.
+   */
+  async readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
+    if (engine.kind !== "codex" || !hasUsageWindows(engine)) return undefined;
+    const codexHome =
+      this.setup.codexHome ?? (await preparedEngineConfigFolder(this.officeData, engine.id));
+    const command: EngineCommand = {
+      command: this.setup.appServer?.command ?? pinnedCodexPath(this.operatingSystem.codexBinary),
+      args: [...(this.setup.appServer?.args ?? []), ...codexAppServerArguments()],
+      cwd: codexHome,
+      env: codexEnvironment(serviceVariables(), codexHome),
+    };
+    let server: CodexAppServer | undefined;
+    return engineRead(
+      {
+        what: `Reading the usage windows of the engine ${engine.id}`,
+        signal,
+        timeoutMs: this.setup.readTimeoutMs,
+      },
+      async () => {
+        server = CodexAppServer.start(this.operatingSystem.processTrees, command, {
+          notification: () => undefined,
+          serverRequest: ({ method }) =>
+            Promise.reject(
+              new CodexRpcError(METHOD_NOT_FOUND, `The Office doesn't answer ${method}.`),
+            ),
+        });
+        await server.rpc.request("initialize", {
+          clientInfo: CLIENT_INFO,
+          capabilities: { experimentalApi: true, requestAttestation: false },
+        });
+        server.rpc.notify("initialized");
+        const { rateLimits } = await server.rpc.request("account/rateLimits/read", undefined);
+        return codexWindowsOf(rateLimits).length === 0
+          ? undefined
+          : codexUsageWindows(rateLimits, "usage-endpoint");
+      },
+      async () => {
+        await server?.kill();
+      },
+    );
   }
 
   private threadFile(sessionId: string): CodexThreadFile {

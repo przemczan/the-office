@@ -39,6 +39,7 @@ export const CONTRACT_SCENARIOS = [
   "resume",
   "output-schema",
   "usage-windows",
+  "engine-usage-windows",
   "context-usage",
   "mcp-tool",
   "background",
@@ -49,6 +50,12 @@ export const CONTRACT_SCENARIOS = [
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
+
+/**
+ * The scenarios that open no session, so leave no recording: a scripted engine answers them from
+ * what its test sets, such as `ScriptedEngine.setUsageWindows`.
+ */
+export const SESSIONLESS_SCENARIOS: readonly ContractScenario[] = ["engine-usage-windows"];
 
 export interface EngineUnderContract {
   /** What the adapter declares; scenarios for a missing capability check its refusal instead. */
@@ -512,6 +519,19 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       under.timeoutMs,
     );
 
+    it.runIf(can.usageWindows && under.fiveHourAndSevenDayWindows !== false)(
+      "reads the account's usage windows with no session",
+      scenario("engine-usage-windows", async (engine) => {
+        const windows = await engine.readUsageWindows(under.engine, new AbortController().signal);
+        expect(windows).toBeDefined();
+        for (const window of [windows?.fiveHour, windows?.sevenDay]) {
+          expect(window?.percentUsed).toBeGreaterThanOrEqual(0);
+          expect(window?.percentUsed).toBeLessThanOrEqual(100);
+        }
+      }),
+      under.timeoutMs,
+    );
+
     it.runIf(under.usageWindowUsedUp === true)(
       "ends a turn refused for a used-up usage window as such, naming the window and its reset",
       scenario("usage-window-used-up", async (engine, options) => {
@@ -584,6 +604,16 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
             new CapabilityMissing("usageWindows"),
           );
         });
+      }),
+      under.timeoutMs,
+    );
+
+    it.skipIf(can.usageWindows)(
+      "reads no usage windows with no session without the usageWindows capability",
+      scenario("engine-usage-windows", async (engine) => {
+        await expect(
+          engine.readUsageWindows(under.engine, new AbortController().signal),
+        ).resolves.toBeUndefined();
       }),
       under.timeoutMs,
     );

@@ -1640,6 +1640,131 @@
   padding: 6px 0 0;
 }
 
+/* A Stage's routes out, as they were (struck through) and as proposed, in the order weighed. */
+.proposal-route-values {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.proposal-route-side {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.proposal-route-side > span:first-child {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.proposal-route-side ol {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
+.proposal-changes .proposal-route-side li {
+  display: list-item;
+}
+
+.proposal-route-side--from ol {
+  color: var(--fg-3);
+  text-decoration: line-through;
+}
+
+.proposal-route-side--to ol {
+  font-weight: 600;
+}
+
+.proposal-route-side--to .proposal-route-when {
+  font-weight: 400;
+  color: var(--fg-2);
+}
+
+.proposal-route-none {
+  margin: 0;
+  color: var(--fg-3);
+}
+
+/* "Full, as proposed": the flow small, then what the check found when it was drafted. */
+.proposal-flow {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.proposal-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.proposal-checked {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--success-fg);
+}
+
+.proposal-checked--warning {
+  color: var(--warning-fg);
+}
+
+.proposal-checked svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* A Proposal shown on the flow: the ember banner above the read-only editor. */
+.proposal-on-flow {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.proposal-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
+}
+
+.proposal-banner > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.proposal-banner-words {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.proposal-banner-words p {
+  margin: 0;
+  color: var(--fg-1);
+}
+
+.proposal-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .proposal-breaks p {
   margin: 0 0 4px;
 }

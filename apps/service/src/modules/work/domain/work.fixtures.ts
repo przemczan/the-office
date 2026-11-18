@@ -77,6 +77,8 @@ export function aTask(fields: Partial<Task> = {}): Task {
     personRole: undefined,
     pausedBy: undefined,
     resumesAt: undefined,
+    usageWindowEngineId: undefined,
+    usageWindowPausedAt: undefined,
     madeFor: undefined,
     blockedBy: [],
     originIdeaId: undefined,

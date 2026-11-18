@@ -93,7 +93,7 @@ async function aTask(transaction: Transaction, stages: readonly Stage[]): Promis
 
 async function applyMigration(transaction: Transaction): Promise<void> {
   const migration = await readFile(
-    new URL("../../../../../drizzle/0162_pipeline_flows.sql", import.meta.url),
+    new URL("../../../../../drizzle/0163_pipeline_flows.sql", import.meta.url),
     "utf8",
   );
   for (const statement of migration.split("--> statement-breakpoint")) {

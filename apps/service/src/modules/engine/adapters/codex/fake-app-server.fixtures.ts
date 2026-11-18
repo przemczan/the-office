@@ -22,15 +22,17 @@ export const FAKE_SEVEN_DAY_RESET = 1_800_500_000;
  * - `used up`: notifies the 5-hour window at 100%, then fails the turn as Codex fails one refused
  *   for a used-up usage window;
  * - anything else: answers "ok".
- * Each turn's model call counts 100 input tokens, 40 of them cached, and 10 output tokens. The
- * script appends to the file its first argument names, one JSON line each: how it started (its
+ * Each turn's model call counts 100 input tokens, 40 of them cached, and 10 output tokens. Run
+ * `silent` (`fakeAppServer`'s option), it answers nothing and runs on after its input closes, until
+ * it is ended. The script appends to the file its first argument names, one JSON line each: how it started (its
  * process id, its arguments and its environment) and every message it received.
  */
 export const FAKE_APP_SERVER = `
 const fs = require("node:fs");
 const report = process.argv[1];
 const log = (entry) => fs.appendFileSync(report, JSON.stringify(entry) + "\\n");
-log({ started: process.pid, argv: process.argv.slice(2), env: process.env });
+const silent = process.argv[2] === "silent";
+log({ started: process.pid, argv: process.argv.slice(silent ? 3 : 2), env: process.env });
 const out = (message) => process.stdout.write(JSON.stringify(message) + "\\n");
 const answers = new Map();
 let nextId = 1000;
@@ -102,6 +104,7 @@ async function play(turnId, text) {
 }
 
 function handle(m) {
+  if (silent) return;
   if (m.method === undefined) { answers.get(m.id)?.(m.result ?? m.error); return; }
   switch (m.method) {
     case "initialize":
@@ -144,12 +147,21 @@ lines.on("line", (line) => {
   log({ received: m });
   handle(m);
 });
-lines.on("close", () => process.exit(0));
+if (silent) setInterval(() => undefined, 1000);
+else lines.on("close", () => process.exit(0));
 `;
 
-/** Runs `FAKE_APP_SERVER` as the app-server, reporting to `reportFile`. */
-export function fakeAppServer(reportFile: string): CodexEngineSetup {
-  return { appServer: { command: process.execPath, args: ["-e", FAKE_APP_SERVER, reportFile] } };
+/** Runs `FAKE_APP_SERVER` as the app-server, reporting to `reportFile`; `silent`, it answers nothing. */
+export function fakeAppServer(
+  reportFile: string,
+  { silent = false }: { readonly silent?: boolean } = {},
+): CodexEngineSetup {
+  return {
+    appServer: {
+      command: process.execPath,
+      args: ["-e", FAKE_APP_SERVER, reportFile, ...(silent ? ["silent"] : [])],
+    },
+  };
 }
 
 /** What the stand-in reported, by process: how it started and what it received. */

@@ -9,6 +9,7 @@ import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { PathRules } from "../../../../platform/os/path-rules.js";
+import { hasUsageWindows, type Engine } from "../../domain/engines.js";
 import type { OfficeRules } from "../../domain/office-rules.js";
 import {
   AgentEngine,
@@ -37,7 +38,9 @@ import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
+import { serviceVariables } from "../claude-code/engine-read.js";
 import { sdkMcpConfig, sdkOptions, type SdkSession } from "./sdk-options.js";
+import { readUsageWindowsOnSdk } from "./usage-window-read.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived
@@ -73,6 +76,19 @@ export class AgentSdkEngine extends AgentEngine {
     this.require("resume");
     this.requireFor(options);
     return this.open(sessionId, true, options);
+  }
+
+  /** On a query opened for the read alone, on the engine's config folder. */
+  async readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
+    if (!this.capabilities.usageWindows || !hasUsageWindows(engine)) return undefined;
+    return readUsageWindowsOnSdk(
+      {
+        configFolder: await preparedEngineConfigFolder(this.officeData, engine.id),
+        environment: serviceVariables(),
+        processTrees: this.operatingSystem.processTrees,
+      },
+      { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+    );
   }
 
   /** Refuses, before any message reaches it, a session without exactly its skills (spec §5.6). */
