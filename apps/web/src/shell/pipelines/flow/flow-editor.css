@@ -1,0 +1,359 @@
+/* The flow editor around the canvas (docs/design/pipeline-flow.html): head, hint, panel, condition
+   builder. Colours from the tokens only; everything wraps, so nothing scrolls sideways at 390px. */
+
+.flow-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  min-width: 0;
+}
+
+.flow-editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-editor-title {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.flow-editor-title span {
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
+.flow-editor-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
+.flow-editor-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flow-editor-legend-line {
+  width: 18px;
+  border-top: 1.5px solid var(--fg-3);
+}
+
+.flow-editor-legend-line--loop {
+  border-top: 1.5px dashed var(--danger);
+}
+
+.flow-editor-hint {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  color: var(--fg-2);
+  font: var(--type-caption);
+}
+
+.flow-editor-hint svg {
+  margin-top: 2px;
+}
+
+.flow-editor-panel {
+  min-width: 0;
+}
+
+/* The panel under the canvas */
+
+.flow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.flow-panel--empty {
+  gap: 2px;
+  align-items: flex-start;
+  background: var(--surface-sunken);
+  color: var(--fg-2);
+  font: var(--type-caption);
+}
+
+.flow-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.flow-panel-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.flow-panel-title small {
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
+.flow-panel-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.flow-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.flow-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.flow-panel-section--picked {
+  margin: 0 -8px;
+  padding: 12px 8px 8px;
+  border-radius: var(--radius-md);
+  background: var(--danger-subtle);
+}
+
+.flow-panel-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.flow-panel-overline {
+  color: var(--fg-3);
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.flow-panel-hint,
+.flow-panel-empty-block,
+.flow-panel-choice-words {
+  margin: 0;
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
+.flow-panel-choice-words {
+  display: block;
+}
+
+.flow-route-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-route-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.flow-route-row--problem {
+  border-color: var(--danger);
+}
+
+.flow-route-row-number {
+  color: var(--fg-3);
+  font: var(--type-caption);
+  text-align: center;
+}
+
+.flow-route-row-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--fg-1);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.flow-route-row-words span {
+  color: var(--fg-2);
+}
+
+.flow-route-row-words .flow-route-row-why {
+  flex-basis: 100%;
+  color: var(--danger-fg);
+  font: var(--type-caption);
+}
+
+.flow-loop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--fg-2);
+}
+
+.flow-when-fails {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--fg-2);
+  font: var(--type-caption);
+}
+
+.flow-condition-reads {
+  margin: 0;
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+/* The condition builder */
+
+.condition-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.condition-group .condition-group {
+  background: var(--surface);
+}
+
+.condition-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.condition-group-words {
+  flex: 1;
+  color: var(--fg-2);
+  font: var(--type-caption);
+}
+
+.condition-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.condition-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.condition-join {
+  color: var(--fg-3);
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.condition-test {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: start;
+}
+
+.condition-test--times {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+}
+
+.condition-test-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
+.condition-empty,
+.condition-why {
+  margin: 0;
+  font: var(--type-caption);
+}
+
+.condition-empty {
+  color: var(--fg-3);
+}
+
+.condition-why {
+  color: var(--danger-fg);
+}
+
+.condition-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 560px) {
+  /* The selects and the Stepper stack, with Remove this test beside the first. */
+  .condition-test,
+  .condition-test--times {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .condition-test > :not(button, p) {
+    grid-column: 1;
+  }
+
+  .condition-test > .stepper {
+    justify-self: start;
+  }
+
+  .condition-test > button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}

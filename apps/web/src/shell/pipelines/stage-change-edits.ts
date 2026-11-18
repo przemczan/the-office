@@ -1,6 +1,7 @@
 import type {
   BrokenReason,
   BuiltStage,
+  Route,
   Stage,
   StageChange,
   StageFieldChanges,
@@ -61,6 +62,8 @@ export interface StageChangeRow {
   readonly number: number | undefined;
   /** The Stage change that marks it; undefined for a Stage of the base Pipeline as it is. */
   readonly stageChange: StageChange | undefined;
+  /** Whether the draft has a Change routes Stage change of its Stage, found by its key. */
+  readonly routesChanged: boolean;
   /** Why the built Stages are Broken on this row, such as a loop whose target is gone. */
   readonly broken: readonly BrokenReason[];
   /** What saving would be refused for, and what it is only warned about, on this row's Stage. */
@@ -128,6 +131,7 @@ export function stageChangesShown(
         built: row,
         number: undefined,
         stageChange: stageChangeOf(stageChanges, row),
+        routesChanged: false,
         broken: [],
         problems: [],
         warnings: [],
@@ -139,6 +143,7 @@ export function stageChangesShown(
       built: row,
       number,
       stageChange: stageChangeOf(stageChanges, row),
+      routesChanged: routesChangeOf(stageChanges, row.stage.key) !== undefined,
       broken: built.broken.filter(
         (reason) => reason.stageChangeIndex === null && reason.stageIndex === stageIndex,
       ),
@@ -534,6 +539,69 @@ export function insertPlaces(
       { kind: "insert-before", stage },
       { kind: "insert-after", stage },
     ]);
+}
+
+/** The Change routes Stage change of the Stage with `key`, found by the key it names. */
+export function routesChangeOf(
+  stageChanges: readonly StageChange[],
+  key: string,
+): Extract<StageChange, { kind: "change-routes" }> | undefined {
+  return stageChanges.find(
+    (stageChange): stageChange is Extract<StageChange, { kind: "change-routes" }> =>
+      stageChange.kind === "change-routes" && stageChange.stageKey === key,
+  );
+}
+
+/**
+ * The Stage changes once the user edited the routes out of the Stage with `key`, on the built rows:
+ * one Change routes Stage change giving them whole, last, so it applies to the Stages as they are
+ * shown, with every Stage change before it applied; none once they are the routes the Stage would
+ * have without it again. Those are the row's routes while it has none yet, and the base Pipeline's
+ * Stage's once it has one (an inserted Stage's are only dropped by Undo).
+ */
+export function withRoutesChanged(
+  stageChanges: readonly StageChange[],
+  rows: readonly BuiltStage[],
+  key: string,
+  routes: readonly Route[],
+): StageChange[] {
+  const row = rows.find(({ origin, stage }) => origin !== "removed" && stage.key === key);
+  const without = withoutRoutesChanged(stageChanges, key);
+  const had = without.length !== stageChanges.length;
+  const routesWithout = !had
+    ? row?.stage.routes
+    : row?.origin === "inserted"
+      ? undefined
+      : row?.baseStage?.routes;
+  if (routesWithout !== undefined && sameRoutes(routesWithout, routes)) return without;
+  return [
+    ...without,
+    {
+      kind: "change-routes",
+      stageKey: key,
+      stageName: row?.stage.name ?? key,
+      routes: [...routes],
+    },
+  ];
+}
+
+/** Undo of a Change routes: the Stage's routes as its Stage changes but that one give them. */
+export function withoutRoutesChanged(
+  stageChanges: readonly StageChange[],
+  key: string,
+): StageChange[] {
+  return stageChanges.filter(
+    (stageChange) => !(stageChange.kind === "change-routes" && stageChange.stageKey === key),
+  );
+}
+
+/** Two lists of routes alike, the names kept for their words alone left out. */
+function sameRoutes(one: readonly Route[], other: readonly Route[]): boolean {
+  return JSON.stringify(one, unnamedKeys) === JSON.stringify(other, unnamedKeys);
+}
+
+function unnamedKeys(key: string, value: unknown): unknown {
+  return key === "toName" || key === "stageName" ? undefined : sortedKeys(key, value);
 }
 
 /** The values of two fields alike whatever order their keys came in. */

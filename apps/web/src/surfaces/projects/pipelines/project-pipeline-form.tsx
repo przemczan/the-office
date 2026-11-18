@@ -20,16 +20,17 @@ import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
 import { projectCommandsOf } from "../../../shell/pipelines/library-commands.ts";
 import { projectPipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
+import { flowProblems } from "../../../shell/pipelines/flow/flow-checks.ts";
+import { ProjectFlowEditor } from "../../../shell/pipelines/flow/project-flow-editor.tsx";
 import { counted } from "../../../shell/pipelines/stage-change-words.ts";
-import { StageChangesView } from "../../../shell/pipelines/stage-changes-view.tsx";
 import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 
 /**
  * The open Project Pipeline (docs/design/project-pipelines.html, "The editor"): its head, then its
- * name, base Pipeline and description, and what the Project gets in one view, saved or discarded as
- * a whole. The service builds and checks every edit; problems and Broken hold Save (a save never
+ * name, base Pipeline and description, and what the Project gets on the flow editor, saved or
+ * discarded as a whole. The service builds and checks every edit; problems and Broken hold Save (a save never
  * leaves it Broken), warnings don't.
  */
 export function ProjectPipelineForm({
@@ -61,7 +62,10 @@ export function ProjectPipelineForm({
   });
   // Until the check answers, the Stages as they were saved.
   const built = check.data ?? projectPipeline;
-  const { problems, warnings } = byLevel(check.data?.problems);
+  const { problems, warnings } = byLevel([
+    ...(check.data?.problems ?? []),
+    ...flowProblems(built.stages),
+  ]);
   const broken = built.broken.length > 0;
   const baseName =
     officeWide.find(({ id }) => id === draft.basePipelineId)?.name ??
@@ -130,7 +134,7 @@ export function ProjectPipelineForm({
             />
           </div>
         </div>
-        <StageChangesView
+        <ProjectFlowEditor
           projectName={project.name}
           baseName={baseName}
           built={built}

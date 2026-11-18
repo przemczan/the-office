@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type {
   Duty,
   Role,
@@ -9,9 +9,8 @@ import type {
 } from "@the-office/contracts";
 import { Button, Icon, IconButton, Menu } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { addStageTemplate, stageTemplateQueries } from "../../api/pipelines.ts";
+import { stageTemplateQueries } from "../../api/pipelines.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
-import { useToast } from "../toasts.tsx";
 import { stageDetailsLine, whoWorks } from "./pipeline-words.ts";
 import { StageCheckAlerts } from "./stage-check-alerts.tsx";
 import {
@@ -21,12 +20,12 @@ import {
   moveStage,
   STAGE_KIND_ICONS,
   STAGE_KIND_NAMES,
-  withoutFailureRule,
   type AddedStage,
 } from "./stage-edits.ts";
 import { addToFlow, isStraightLine, removeFromFlow, straightLine } from "./stage-routes.ts";
 import { namedCommands, type StageCommandSource } from "./stage-commands.ts";
 import { StageForm } from "./stage-form.tsx";
+import { shownName, useSaveAsTemplate } from "./use-save-as-template.ts";
 import "./stage-editor.css";
 
 export interface StageEditorProps {
@@ -281,19 +280,6 @@ function FromTemplateMenu({
   );
 }
 
-/** Save as template: the Stage added to the templates as it is, without its failure rule. */
-function useSaveAsTemplate() {
-  const queryClient = useQueryClient();
-  const showToast = useToast();
-  return useMutation({
-    mutationFn: (stage: Stage) => addStageTemplate(withoutFailureRule(stage)),
-    onSuccess: async ({ stage }) => {
-      await queryClient.invalidateQueries(stageTemplateQueries.list());
-      showToast(`${shownName(stage)} saved as a Stage template.`);
-    },
-  });
-}
-
 /** "Implement · Ada" over "fresh session · 250k budget · on failure back to …". */
 function StageSummary({
   stage,
@@ -315,9 +301,4 @@ function StageSummary({
       {details !== "" && <div className="stage-editor-detail">{details}</div>}
     </>
   );
-}
-
-/** A Stage's name, or its kind's while it has none. */
-function shownName(stage: Stage): string {
-  return stage.name.trim() || STAGE_KIND_NAMES[stage.kind];
 }

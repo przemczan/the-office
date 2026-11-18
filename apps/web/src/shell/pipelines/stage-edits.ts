@@ -76,13 +76,18 @@ export interface AddedStage {
 function placed(stages: readonly Stage[], stage: Stage, lockedStages: number): AddedStage {
   const index =
     stage.kind === "gate" && stages.length > lockedStages ? stages.length - 1 : stages.length;
+  return { stages: stages.toSpliced(index, 0, namedAmong(stage, stages)), index };
+}
+
+/** The Stage with a name and a key none of `stages` has, its own kept where they're free. */
+export function namedAmong(stage: Stage, stages: readonly Stage[]): Stage {
   const name = unique(
     stage.name.trim() || NEW_STAGE_NAMES[stage.kind],
     stages.map((other) => other.name),
     " ",
   );
   const key = keyAmong({ ...stage, name }, stages);
-  return { stages: stages.toSpliced(index, 0, { ...stage, key, name }), index };
+  return { ...stage, key, name };
 }
 
 /** A key for the Stage, from its name, that none of `stages` has. */

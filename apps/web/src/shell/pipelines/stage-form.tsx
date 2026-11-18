@@ -72,6 +72,8 @@ export interface StageFormProps {
   readonly commands?: StageCommandSource;
   /** A Stage template's form has no "On failure": going back names an earlier Stage of a Pipeline. */
   readonly template?: boolean;
+  /** The flow editor sets On failure in a section of its own, so the form leaves it out. */
+  readonly onFailureApart?: boolean;
 }
 
 /**
@@ -86,7 +88,7 @@ export function StageForm(props: StageFormProps): ReactNode {
 }
 
 function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNode {
-  const { stage, stages, index, onChange, template = false } = props;
+  const { stage, stages, index, onChange, template = false, onFailureApart = false } = props;
   const change = (changed: Stage): void => onChange(replaceStage(stages, index, changed));
   return (
     <div className="stage-editor-form">
@@ -115,7 +117,7 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
         />
       )}
       {stage.kind === "agent" && <AgentFields {...props} stage={stage} change={change} />}
-      {stage.kind !== "gate" && !template && (
+      {stage.kind !== "gate" && !template && !onFailureApart && (
         <div className="stage-editor-wide">
           <Field label="On failure">
             <FailureFields {...props} stage={stage} change={change} />

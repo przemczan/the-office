@@ -58,12 +58,26 @@ export interface OriginWords {
   readonly text: string;
 }
 
-/** "From Full", "Inserted after Review & fix", "Replaces Tests", "Changed: Brief, Effort", "Removed". */
+/**
+ * "From Full", "Inserted after Review & fix", "Replaces Tests", "Changed: Brief, Effort", "Routes
+ * changed", "Changed: Brief, and its routes", "Removed".
+ */
 export function originWords(row: StageChangeRow, baseName: string): OriginWords {
-  const { built, stageChange } = row;
+  const { built, stageChange, routesChanged } = row;
   switch (built.origin) {
     case "base":
-      return { tone: "plain", text: `From ${baseName}` };
+    case "changed": {
+      const fields = changedFieldsWords(built.origin === "changed" ? built.changedFields : []);
+      if (fields === "") {
+        return routesChanged
+          ? { tone: "warning", text: ROUTES_CHANGED }
+          : { tone: "plain", text: `From ${baseName}` };
+      }
+      return {
+        tone: "warning",
+        text: `Changed: ${fields}${routesChanged ? ", and its routes" : ""}`,
+      };
+    }
     case "inserted":
       return {
         tone: "success",
@@ -74,11 +88,19 @@ export function originWords(row: StageChangeRow, baseName: string): OriginWords 
       };
     case "replaced":
       return { tone: "info", text: `Replaces ${stageChange?.stageName ?? built.baseStage?.name}` };
-    case "changed":
-      return { tone: "warning", text: `Changed: ${changedFieldsWords(built.changedFields)}` };
     case "removed":
       return { tone: "neutral", text: "Removed" };
   }
+}
+
+/** The mark of a Stage of the base Pipeline whose routes alone a Change routes changes. */
+export const ROUTES_CHANGED = "Routes changed";
+
+/** "Undo: give Review & fix Full's routes back"; an inserted Stage's "Undo: give … its routes back". */
+export function routesUndoWords(stageName: string, baseName: string | undefined): string {
+  return baseName === undefined
+    ? `Undo: give ${stageName} its routes back`
+    : `Undo: give ${stageName} ${baseName}'s routes back`;
 }
 
 /**
