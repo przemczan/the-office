@@ -308,6 +308,20 @@ export class TaskResumed extends DomainEvent {
   }
 }
 
+/**
+ * A Stage of the Task went on on the Stand-in Engine `standInId` in place of the cascade's engine
+ * `engineId`, whose usage window was used up (spec 5.4): the run's later Stages open on it too.
+ */
+export class TaskWentOnOnStandIn extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly engineId: string,
+    readonly standInId: string,
+  ) {
+    super();
+  }
+}
+
 /** The Task must now wait for `blockerId` to be Done before it can start. */
 export class TaskDependencyAdded extends DomainEvent {
   constructor(

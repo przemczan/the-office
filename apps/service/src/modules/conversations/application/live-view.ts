@@ -18,6 +18,7 @@ import {
   DeliveryMarked,
   LiveViewChanged,
   MessagesLogged,
+  ThreadSessionMovedToEngine,
   ThreadStarted,
   TurnEnded,
 } from "../domain/conversation-events.js";
@@ -30,6 +31,8 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 const LIVE_VIEW_CHANGES: readonly DomainEventClass[] = [
   ThreadStarted,
   TurnEnded,
+  // An Agent's session moved to a Stand-in Engine, which the view names.
+  ThreadSessionMovedToEngine,
   DecisionOpened,
   DecisionAnswered,
   DecisionClosed,

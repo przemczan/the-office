@@ -55,6 +55,7 @@ export const CODEX_CAPABILITIES: EngineCapabilities = {
   officeTools: true,
   outputSchema: true,
   languageServers: false,
+  carrySession: false,
 };
 
 /** One app-server process of a session, as a recording names its places. */

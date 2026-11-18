@@ -121,6 +121,58 @@ describe("PostgresStageRunRepository's engine", () => {
 
     expect((await runOf(taskId))?.standInFor).toBeUndefined();
   });
+
+  it("appends each switch to a Stand-in Engine in order, with the engine the session runs on now", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+    expect((await runOf(run.taskId))?.engineSwitches).toEqual([]);
+    const toPersonal = {
+      fromEngineId: "work",
+      fromEngineName: "Work",
+      toEngineId: "personal",
+      toEngineName: "Personal",
+      windowWords: "5-hour window",
+      resetsAt: "2026-11-13T14:00:00.000Z",
+      at: "2026-11-13T12:00:00.000Z",
+    };
+    const toSpare = {
+      ...toPersonal,
+      fromEngineId: "personal",
+      fromEngineName: "Personal",
+      toEngineId: "spare",
+      toEngineName: "Spare",
+      at: "2026-11-13T12:30:00.000Z",
+    };
+    const standInFor = { engineId: "work", engineName: "Work", reason: "Its window was used up." };
+
+    await runs.saveEngineSwitch(run.id, toPersonal, {
+      engineId: "personal",
+      engineName: "Personal",
+      standInFor,
+    });
+    await runs.saveEngineSwitch(run.id, toSpare, {
+      engineId: "spare",
+      engineName: "Spare",
+      standInFor,
+    });
+
+    expect(await runOf(run.taskId)).toMatchObject({
+      engineId: "spare",
+      engineName: "Spare",
+      standInFor,
+      engineSwitches: [toPersonal, toSpare],
+    });
+  });
+
+  it("reads a run kept before switches were recorded as having none", async () => {
+    const taskId = randomUUID();
+    await database.execute(
+      sql`INSERT INTO "stage_runs" ("id", "task_id", "stage_key", "number", "started_at")
+        VALUES (${randomUUID()}, ${taskId}, 'implement', 1, now())`,
+    );
+
+    expect((await runOf(taskId))?.engineSwitches).toEqual([]);
+  });
 });
 
 function commandRun(commandLine: string, wholeOutput: string) {

@@ -45,6 +45,7 @@ function aRun(fields: Pick<StageRun, "id" | "number" | "startedAt" | "endedAt">)
     threadId: null,
     session: null,
     engine: null,
+    engineSwitches: [],
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,
@@ -218,6 +219,51 @@ describe("a run's head", () => {
   it("names no engine for a run whose session never opened", () => {
     const page = showRun(secondRun, []);
     expect(head(page)?.textContent).not.toContain("Opus");
+  });
+});
+
+describe("a run that went on on a Stand-in Engine", () => {
+  it("says each switch on a line of its own, the run's engine being the last stand-in", () => {
+    const resetsAt = "2026-11-04T14:00:00.000Z";
+    const switchOf = (from: string, to: string, at: string) => ({
+      fromEngineId: from.toLowerCase(),
+      fromEngineName: from,
+      toEngineId: to.toLowerCase(),
+      toEngineName: to,
+      windowWords: "5-hour window",
+      resetsAt,
+      at,
+    });
+    const page = showRun(
+      {
+        ...secondRun,
+        engine: {
+          engineId: "spare",
+          engineName: "Spare",
+          model: "claude-opus-5-5",
+          standInFor: {
+            engineId: "work",
+            engineName: "Work",
+            reason: "Work's window was used up.",
+          },
+        },
+        engineSwitches: [
+          switchOf("Work", "Personal", "2026-11-04T11:20:00.010Z"),
+          switchOf("Personal", "Spare", "2026-11-04T11:20:00.050Z"),
+        ],
+      },
+      [],
+    );
+
+    const lines = [...page.querySelectorAll(".run-engine-switch")].map(
+      ({ textContent }) => textContent,
+    );
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(
+      /^ Work's 5-hour window was used up until \d\d:00, so the Stage went on on Personal$/,
+    );
+    expect(lines[1]).toMatch(/so the Stage went on on Spare$/);
+    expect(head(page)?.textContent).toContain(" · Opus 5.5 on Spare");
   });
 });
 

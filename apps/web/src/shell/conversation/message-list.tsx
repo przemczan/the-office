@@ -18,7 +18,7 @@ import { OpenPageChip } from "../open-page-chip.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
 import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
-import { usageWindowUsedUpWords } from "../usage-window-words.ts";
+import { engineSwitchedWords, usageWindowUsedUpWords } from "../usage-window-words.ts";
 import { userName, useSignedInUserId, useUserName, type UserNamer } from "../use-user-name.ts";
 import { contextLabel, earlierSessionLabel, newSessionLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
@@ -694,6 +694,13 @@ function MessageItem({
         <div className="message-office">
           <Icon name="pause" size={12} />
           <span>{usageWindowUsedUpWords(message)}</span>
+        </div>
+      );
+    case "engine-switched":
+      return (
+        <div className="message-office">
+          <Icon name="refresh-cw" size={12} />
+          <span>{engineSwitchedWords(message)}</span>
         </div>
       );
     case "held":

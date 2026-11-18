@@ -18,6 +18,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.js";
 import type {
+  EngineSwitch,
   GateAction,
   PublishedWork,
   StageRun,
@@ -59,6 +60,26 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database
       .update(stageRuns)
       .set({ ...thread, ...standInColumns(standInFor) })
+      .where(eq(stageRuns.id, runId));
+  }
+
+  async saveEngineSwitch(
+    runId: string,
+    engineSwitch: EngineSwitch,
+    {
+      engineId,
+      engineName,
+      standInFor,
+    }: Pick<StageRunThread, "engineId" | "engineName" | "standInFor">,
+  ): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({
+        engineId,
+        engineName,
+        ...standInColumns(standInFor),
+        engineSwitches: sql`${stageRuns.engineSwitches} || ${JSON.stringify([engineSwitch])}::jsonb`,
+      })
       .where(eq(stageRuns.id, runId));
   }
 

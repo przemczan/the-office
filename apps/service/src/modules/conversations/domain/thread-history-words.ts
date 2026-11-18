@@ -4,7 +4,7 @@ import {
   type Decision,
   type DecisionAnswer,
 } from "./decision.js";
-import { usageWindowUsedUpWords, type Message } from "./message.js";
+import { engineSwitchedWords, usageWindowUsedUpWords, type Message } from "./message.js";
 import type { Proposal, ProposedChange } from "./proposal.js";
 import { userWords } from "./user.js";
 
@@ -138,6 +138,8 @@ function speakerAndText(
       return { speaker: THE_OFFICE, text: `Couldn't answer: ${message.reason}` };
     case "usage-window-used-up":
       return { speaker: THE_OFFICE, text: usageWindowUsedUpWords(message) };
+    case "engine-switched":
+      return { speaker: THE_OFFICE, text: engineSwitchedWords(message) };
     case "held":
       return { speaker: THE_OFFICE, text: message.text };
   }

@@ -11,6 +11,7 @@ export const engineCapabilitySchema = z.enum([
   "officeTools",
   "outputSchema",
   "languageServers",
+  "carrySession",
 ]);
 export type EngineCapability = z.infer<typeof engineCapabilitySchema>;
 

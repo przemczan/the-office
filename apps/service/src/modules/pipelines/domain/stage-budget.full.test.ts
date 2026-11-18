@@ -33,6 +33,7 @@ function aRun(stageKey: string, decisions: StageRunDecision[]): StageRun {
     engineName: undefined,
     model: undefined,
     standInFor: undefined,
+    engineSwitches: [],
     decisions,
     heldBy: undefined,
     heldByUser: undefined,

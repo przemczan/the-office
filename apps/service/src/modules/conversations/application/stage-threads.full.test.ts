@@ -607,6 +607,26 @@ describe("StageThreads", () => {
         started(...aTurn({ status: "needs_decision" })),
         started(...aTurn({ status: "done" }, "Going on.")),
       );
+      const OTHER = { ...FIRST_CLAUDE_CODE_ENGINE, id: "other", name: "Other" };
+      const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE, SPARE, OTHER);
+      const first = await aStageRun(aStage({ roleKey: ada, engineStandIns: [STAND_IN] }));
+      cascade.set(ada, { engineId: OTHER.id, model: "claude-haiku-5-5" }, "admin-panel");
+
+      const again = await aStageRun(
+        aStage({ roleKey: ada, declared: undefined, previousThreadId: first.stageThread.threadId }),
+      );
+
+      expect(again.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
+      expect(again.stageThread.engine).toBe(OTHER.id);
+      expect(again.stageThread.standInFor).toBeUndefined();
+      expect(receivedSteps()).not.toContain("resume");
+    });
+
+    it("goes on on the stand-in once the Task's Start chose none, as the engine it stands in for is the cascade's", async () => {
+      await startWith(
+        started(...aTurn({ status: "needs_decision" })),
+        resumed(...aTurn({ status: "done" }, "Going on.")),
+      );
       const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE, SPARE);
       const first = await aStageRun(aStage({ roleKey: ada, engineStandIns: [STAND_IN] }));
 
@@ -614,10 +634,11 @@ describe("StageThreads", () => {
         aStage({ roleKey: ada, declared: undefined, previousThreadId: first.stageThread.threadId }),
       );
 
-      expect(again.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
-      expect(again.stageThread.engine).toBe(FIRST_CLAUDE_CODE_ENGINE.id);
-      expect(again.stageThread.standInFor).toBeUndefined();
-      expect(receivedSteps()).not.toContain("resume");
+      expect(again.stageThread).toMatchObject({
+        move: { move: "resume" },
+        engine: SPARE.id,
+        standInFor: STAND_IN_FOR,
+      });
     });
 
     it("falls back to the cascade's engine once the stand-in is no longer listed", async () => {

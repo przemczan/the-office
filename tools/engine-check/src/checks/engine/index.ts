@@ -13,6 +13,7 @@ import { officeToolCheck } from "./office-tool.ts";
 import { parallelSessionsCheck } from "./parallel-sessions.ts";
 import { rateLimitEventCheck } from "./rate-limit-event.ts";
 import { resumeCacheCheck } from "./resume-cache.ts";
+import { sessionCarryOverCheck } from "./session-carry-over.ts";
 import { turnUsageCheck } from "./turn-usage.ts";
 import { usageReadAloneCheck } from "./usage-read-alone.ts";
 import { usageWindowRefusalCheck } from "./usage-window-refusal.ts";
@@ -27,6 +28,7 @@ export const engineChecks: readonly Check[] = [
   longOfficeToolCheck,
   decisionWaitCheck,
   resumeCacheCheck,
+  sessionCarryOverCheck,
   rateLimitEventCheck,
   usageWindowRefusalCheck,
   usageReadAloneCheck,

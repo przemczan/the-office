@@ -79,7 +79,11 @@ export { RUN_PROJECT_COMMAND_TOOL } from "./domain/container-runtime-commands.js
 export { EngineModule } from "./engine.module.js";
 export { EngineAccountsModule } from "./engine-accounts.module.js";
 // For other modules' tests: sessions replay scripts, with no model calls.
-export { ScriptedEngine, type ScriptedEngineProcess } from "./adapters/scripted/scripted-engine.js";
+export {
+  ScriptedEngine,
+  type CarriedSession,
+  type ScriptedEngineProcess,
+} from "./adapters/scripted/scripted-engine.js";
 export { readRecording, type SessionScript } from "./adapters/scripted/session-script.js";
 export { ScriptedEngineModule } from "./scripted-engine.module.js";
 // So no end-to-end test runs a binary's login.
@@ -91,6 +95,6 @@ export { StandInCodexAccounts } from "./adapters/scripted/stand-in-codex-account
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export { CODEX_CAPABILITIES } from "./adapters/codex/codex-engine.js";
 export type { NewSession } from "./ports/agent-engine.js";
-export { NoEngineListed } from "./ports/agent-engine.js";
+export { NoEngineListed, SessionNotCarried } from "./ports/agent-engine.js";
 export type { EngineSession } from "./ports/engine-session.js";
 export type { ApprovalCall, ApprovalHold } from "./ports/session-options.js";

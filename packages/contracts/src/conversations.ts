@@ -851,6 +851,20 @@ export const messageSchema = z.discriminatedUnion("kind", [
     resetsAt: z.iso.datetime(),
   }),
   /**
+   * The engine `fromName` refused a Stage's turn as its usage window `window` is used up until
+   * `resetsAt`, so the Stage went on with its session on the Stand-in Engine `toName`: The Office's
+   * notice, such as "Claude Code's 5-hour window was used up until 14:00, so the Stage went on on
+   * Claude Code 2". `window` as in `usage-window-used-up`.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("engine-switched"),
+    fromName: z.string(),
+    toName: z.string(),
+    window: z.string(),
+    resetsAt: z.iso.datetime(),
+  }),
+  /**
    * The user held the Stage with Pause or Stop, the fire alarm held it, or a used-up usage window
    * did, which is no failure: The Office's line.
    */

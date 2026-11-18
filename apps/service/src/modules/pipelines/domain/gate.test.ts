@@ -53,6 +53,7 @@ function aRun(stageKey: string, gateAction?: GateAction): StageRun {
     engineName: undefined,
     model: undefined,
     standInFor: undefined,
+    engineSwitches: [],
     decisions: [],
     heldBy: undefined,
     heldByUser: undefined,

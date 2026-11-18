@@ -146,7 +146,7 @@
 - `unified-diff-view.tsx`: UnifiedDiffView
 - `unified-diff.ts`: DiffLineKind, DiffLine, diffLines
 - `usage-figure.tsx`: UsageFigure
-- `usage-window-words.ts`: pausedByUsageWindowWords, usageWindowUsedUpWords
+- `usage-window-words.ts`: pausedByUsageWindowWords, usageWindowUsedUpWords, engineSwitchedWords
 - `use-clock.ts`: useClock
 - `use-closed-from-outside.ts`: useClosedFromOutside
 - `use-duty-holder.ts`: DutyHolder, useDutyHolder, dutyHolderOf, dutyUnheldWords

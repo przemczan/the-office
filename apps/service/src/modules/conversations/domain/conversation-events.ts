@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineId } from "../../engine/index.js";
 import type { Decision } from "./decision.js";
 import type { LiveView } from "./live-view.js";
 import type { Message, MessageDelivery } from "./message.js";
@@ -89,6 +90,23 @@ export class ContextRead extends DomainEvent {
     readAt: Date,
   ) {
     super(readAt);
+  }
+}
+
+/**
+ * A Stage's session moved from the engine `from` to the Stand-in Engine `to`, as `from` refused a
+ * turn for a used-up usage window (spec 5.4): it goes on there, and the Thread logged a line saying
+ * so (`messages`).
+ */
+export class ThreadSessionMovedToEngine extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly from: EngineId,
+    readonly to: EngineId,
+    readonly messages: readonly Message[],
+    movedAt: Date,
+  ) {
+    super(movedAt);
   }
 }
 

@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineId } from "../../engine/index.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
   answerProblems,
@@ -22,16 +23,18 @@ import {
   MessagesLogged,
   ProposalDrafted,
   ThreadRenamed,
+  ThreadSessionMovedToEngine,
   ThreadStarted,
   TokensCounted,
   TurnEnded,
 } from "./conversation-events.js";
-import type {
-  Message,
-  MessageDelivery,
-  MessageDraft,
-  MessageImage,
-  StageWorkClosing,
+import {
+  engineSwitchedWords,
+  type Message,
+  type MessageDelivery,
+  type MessageDraft,
+  type MessageImage,
+  type StageWorkClosing,
 } from "./message.js";
 import type { OpenPage } from "./open-page.js";
 import { proposedChangeProblems, type Proposal, type ProposedChange } from "./proposal.js";
@@ -1034,6 +1037,100 @@ export function readRunningContext(
   if (thread.state !== "answering" || !thread.session) return undefined;
   const read: Thread = { ...thread, session: { ...thread.session, contextTokens } };
   return { thread: read, logged: [], event: new ContextRead(read, readAt) };
+}
+
+/**
+ * A Stage's session going on on a Stand-in Engine as its engine refused a turn for a used-up usage
+ * window (spec 5.4): the engines by their ids and their names now, the window by the engine port's
+ * name, and the id of the line that says so.
+ */
+export interface SessionMoveToEngine {
+  readonly messageId: string;
+  readonly from: EngineId;
+  readonly to: EngineId;
+  readonly fromName: string;
+  readonly toName: string;
+  readonly window: string;
+  readonly resetsAt: Date;
+}
+
+/**
+ * Moves the Thread's session to the engine `to`, which it now stands in for `from` on, and logs the
+ * `engine-switched` line. The session's files are carried to `to` before, and it resumes there after.
+ */
+export function moveSessionToEngine(
+  thread: Thread,
+  { messageId, from, to, fromName, toName, window, resetsAt }: SessionMoveToEngine,
+  movedAt: Date,
+): ThreadChange<ThreadSessionMovedToEngine> {
+  const { session } = thread;
+  if (session?.engineId !== from) {
+    throw new Error(`Thread ${thread.id}'s session doesn't run on the engine ${from}.`);
+  }
+  const words = { fromName, toName, window, resetsAt: resetsAt.toISOString() };
+  const line: Message = {
+    id: messageId,
+    threadId: thread.id,
+    at: movedAt,
+    kind: "engine-switched",
+    ...words,
+  };
+  // A second switch still stands in for the engine the session first ran on, as the run does.
+  const original = session.standInFor ?? { engineId: from, engineName: fromName };
+  const { standInFor: _earlier, ...rest } = session;
+  const moved: Thread = {
+    ...thread,
+    session: {
+      ...rest,
+      engineId: to,
+      ...(original.engineId !== to && {
+        standInFor: {
+          engineId: original.engineId,
+          engineName: original.engineName,
+          reason: engineSwitchedWords(words),
+        },
+      }),
+    },
+  };
+  return {
+    thread: moved,
+    logged: [line],
+    event: new ThreadSessionMovedToEngine(moved, from, to, [line], movedAt),
+  };
+}
+
+/**
+ * Puts the Thread's session back on the engine it ran on before `moveSessionToEngine`, with the
+ * Stand-in it recorded then, when its resume on the Stand-in Engine failed: it is resumed there
+ * later. Logs nothing. Undefined when the session is no longer on `from`.
+ */
+export function moveSessionBack(
+  thread: Thread,
+  {
+    from,
+    to,
+  }: {
+    readonly from: EngineId;
+    readonly to: Pick<ThreadSession, "engineId" | "standInFor">;
+  },
+  movedAt: Date,
+): ThreadChange<ThreadSessionMovedToEngine> | undefined {
+  const { session } = thread;
+  if (session?.engineId !== from) return undefined;
+  const { standInFor: _moved, ...rest } = session;
+  const back: Thread = {
+    ...thread,
+    session: {
+      ...rest,
+      engineId: to.engineId,
+      ...(to.standInFor !== undefined && { standInFor: to.standInFor }),
+    },
+  };
+  return {
+    thread: back,
+    logged: [],
+    event: new ThreadSessionMovedToEngine(back, from, to.engineId, [], movedAt),
+  };
 }
 
 /**

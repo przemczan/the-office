@@ -45,6 +45,7 @@ export const OPENAI_COMPATIBLE_API_CAPABILITIES: EngineCapabilities = {
   officeTools: true,
   outputSchema: true,
   languageServers: false,
+  carrySession: false,
 };
 
 /** An API endpoint and the id of the model there that a session runs on. */

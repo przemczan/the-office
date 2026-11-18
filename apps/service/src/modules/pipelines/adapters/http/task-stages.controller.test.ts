@@ -91,6 +91,7 @@ describe("GET /api/tasks/:id/stages", () => {
           model: "scripted",
           standInFor: null,
         },
+        engineSwitches: [],
         tokens: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },
         context: null,
         carriedFailure: null,

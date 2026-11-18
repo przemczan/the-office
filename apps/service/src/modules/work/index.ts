@@ -60,6 +60,7 @@ export {
   TaskStateChanged,
   TaskStopped,
   TaskTakenOutOfInitiative,
+  TaskWentOnOnStandIn,
 } from "./domain/task-events.js";
 export { TaskRefused } from "./domain/task-refused.js";
 export { STARTED_STATES, TASK_STATE_NAMES } from "./domain/task-states.js";

@@ -22,6 +22,12 @@ export interface CheckContext {
   readonly sandbox: Sandbox;
   /** Aborted when the check times out. */
   readonly signal: AbortSignal;
+  /**
+   * A second signed-in Claude Code config folder, which a check runs sessions in with
+   * `CLAUDE_CONFIG_DIR`, beside the account the other checks run on; undefined when the run was
+   * given none.
+   */
+  readonly secondClaudeConfig: string | undefined;
   /** Starts a session the runner closes, counts tokens for and deletes after the check. */
   startSession(spec: SessionSpec): Promise<ProbeSession>;
   /** The same for a session on the pinned binary in `-p`, the fallback's route (spec §5.4 Defaults). */

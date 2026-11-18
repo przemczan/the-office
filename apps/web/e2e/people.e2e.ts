@@ -7951,3 +7951,123 @@ test.describe("the Live view's comings and goings", { tag: "@full" }, () => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
   });
 });
+
+// The engine replays the last two sessions in e2e/sessions.jsonl: Implement's turn refused on the
+// first engine, its 5-hour window used up (reset a few seconds on, so later files find it free),
+// then the same session resumed on the Stand-in Engine, where it holds at a mark mid-turn and then
+// does the work.
+test.describe("a Stage on a Stand-in Engine", { tag: "@full" }, () => {
+  // A zone with no place keeps noon's light in the Live view.
+  test.use({ timezoneId: "Etc/UTC" });
+
+  test("a Stage refused for a used-up usage window goes on on a Stand-in Engine in the same run, and its Stage history says so", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const standInName = "Stand-in account";
+    const repository = await createTemporaryRepository();
+    try {
+      await saveEngines(page, (engines) => [
+        ...engines,
+        {
+          kind: "claude-code",
+          name: standInName,
+          defaultModel: "claude-sonnet-5-5",
+          claudeCodeP: false,
+        },
+      ]);
+      const settings = engineSettingsSchema.parse(
+        await (await page.request.get("/api/settings/engines")).json(),
+      );
+      const standInId = await engineIdOf(page, standInName);
+      const engineName = settings.engines.find(({ id }) => id === "claude-code")?.name ?? "";
+      expect(engineName).not.toBe("");
+      const standIns = await page.request.put("/api/settings/engines", {
+        data: {
+          ...settings,
+          engines: settings.engines.map((engine) =>
+            engine.kind === "claude-code" ? engine : { ...engine, keySet: undefined },
+          ),
+          standInEngines: [standInId],
+        },
+      });
+      expect(standIns.ok()).toBe(true);
+
+      const project = await addedProject(page, repository, "Sorted export", "SE", PASSING_COMMANDS);
+      const title = "Sorted export keeps its sort order";
+      const taskId = await readyTask(page, project.id, title);
+      const library = pipelineListSchema.parse(
+        await (await page.request.get("/api/pipelines")).json(),
+      );
+      const implementOnly = asStageList(
+        (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
+          ({ key }) => key === "implement",
+        ),
+      );
+      const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
+        data: { stages: implementOnly },
+      });
+      expect(edited.status()).toBe(200);
+      await page.goto(`/tasks/${taskId}`);
+      await page.getByRole("button", { name: "Start", exact: true }).click();
+
+      // The Task goes on Running on the stand-in, never paused, and its head names it as it happens.
+      const head = page.locator(".task-head");
+      await expect(
+        head.getByText(`On a Stand-in Engine: ${standInName} for ${engineName}`),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+      const running = taskSchema.parse(
+        await (await page.request.get(`/api/tasks/${taskId}`)).json(),
+      );
+      expect(running).toMatchObject({ state: "in-progress", pausedBy: null });
+      expect(running.engineStandIns).toMatchObject([{ engineId: "claude-code", standInId }]);
+      await screenshotScenario(page, "stand-in-switch-task-page");
+
+      // The run's head names the stand-in, and its Summary says why the Stage went on there.
+      const switchWords = new RegExp(
+        `^ ?${engineName}'s 5-hour window was used up until \\d\\d:\\d\\d, so the Stage went on on ${standInName}$`,
+      );
+      const rail = page.getByRole("region", { name: /^Pipeline · / });
+      await rail.getByRole("button", { name: "Implement", exact: true }).click();
+      const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+      const run = history.getByRole("region", { name: "Run 1" });
+      await expect(run.locator(".run-details-head")).toContainText(`on ${standInName}`);
+      await expect(run.locator(".run-details-head")).toContainText(`Stand-in for ${engineName}`);
+      await history.getByRole("tab", { name: "Thread" }).click();
+      await expect(run.locator(".message-office").filter({ hasText: switchWords })).toBeVisible();
+      await history.getByRole("tab", { name: "Summary" }).click();
+      await expect(run.locator(".run-engine-switch")).toHaveText(switchWords);
+      await screenshotScenario(page, "stand-in-switch-stage-history");
+      await page.keyboard.press("Escape");
+
+      // The Live view says Ada works on the stand-in, standing in for the first engine.
+      await page.goto("/live-view");
+      await page.getByRole("button", { name: "List" }).click();
+      await expect(
+        page.getByRole("complementary", { name: "People" }).getByRole("link", {
+          name: new RegExp(`on ${standInName}, standing in for ${engineName}$`),
+        }),
+      ).toBeVisible();
+
+      // Let the stand-in's turn end: the Stage is done in the run the refusal came in.
+      expect((await page.request.post("/api/e2e/marks/stand-in-turn-ends")).status()).toBe(204);
+      await page.goto(`/tasks/${taskId}`);
+      await expect(head.getByText("Done", { exact: true })).toBeVisible({ timeout: 60_000 });
+      const stages = taskStagesSchema.parse(
+        await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+      );
+      const [implement] = stages.stages ?? [];
+      expect(implement?.runs).toHaveLength(1);
+      expect(implement?.runs[0]).toMatchObject({
+        outcome: { status: "done" },
+        engine: { engineId: standInId, standInFor: { engineId: "claude-code" } },
+        engineSwitches: [{ fromEngineId: "claude-code", toEngineId: standInId }],
+      });
+    } finally {
+      await removeEngine(page, standInName);
+      await repository.remove();
+    }
+  });
+});

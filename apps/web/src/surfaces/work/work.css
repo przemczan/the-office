@@ -1822,6 +1822,16 @@
   color: var(--danger-fg);
 }
 
+/* A switch to a Stand-in Engine is no failure: it reads as the Thread's notice of it does. */
+.run-engine-switch {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
 .run-label {
   margin: 0;
   font-weight: 600;

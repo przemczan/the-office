@@ -85,6 +85,15 @@ export class UsageWindowState {
     return !held && showsFree(reading);
   }
 
+  /**
+   * Whether `engineId`'s latest reading shows it free, as `UsageWindowsRead` tells it, a hold
+   * included; true while it hasn't been read, as nothing shows it isn't.
+   */
+  latestShowsFree(engineId: EngineId): boolean {
+    const latest = this.readings.get(engineId);
+    return latest === undefined || this.showsFree(engineId, latest);
+  }
+
   private async resetEarly(engineId: EngineId, readAt: Date): Promise<void> {
     const usedUp = this.usedUp.get(engineId);
     if (usedUp === undefined || readAt <= usedUp.since) return;

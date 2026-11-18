@@ -105,6 +105,18 @@ const EVERY_KIND: {
     },
     "Claude Code's 5-hour window is used up until",
   ],
+  "engine-switched": [
+    {
+      at,
+      id: "7s",
+      kind: "engine-switched",
+      fromName: "Claude Code",
+      toName: "Claude Code 2",
+      window: "five-hour",
+      resetsAt: at,
+    },
+    "so the Stage went on on Claude Code 2",
+  ],
   held: [{ at, id: "8", kind: "held", heldBy: "pause", text: "Paused here" }, "Paused here"],
   decision: [{ at, id: "9", kind: "decision", roleKey: "developer", decision }, "A Decision card"],
   "decision-answer": [

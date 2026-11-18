@@ -2,6 +2,7 @@ import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "dri
 import type { StageCommandRun } from "../../domain/stage-command-run.js";
 import type {
   CarriedFailure,
+  EngineSwitch,
   GateAction,
   SentBack,
   PublishedWork,
@@ -48,6 +49,8 @@ export const stageRuns = pgTable(
     standInForEngineId: text("stand_in_for_engine_id"),
     standInForEngineName: text("stand_in_for_engine_name"),
     standInReason: text("stand_in_reason"),
+    /** Each move of the run's session to a Stand-in Engine during the run, in order. */
+    engineSwitches: jsonb("engine_switches").$type<readonly EngineSwitch[]>().notNull().default([]),
     /** Where The Office left the Task's branch after the run. */
     headCommit: text("head_commit"),
     /**

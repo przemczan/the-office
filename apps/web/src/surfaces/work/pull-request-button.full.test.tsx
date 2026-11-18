@@ -40,6 +40,7 @@ function publishStage(...outcomes: readonly StageRun["outcome"][]): TaskStage {
       threadId: null,
       session: null,
       engine: null,
+      engineSwitches: [],
       tokens: NO_TOKENS,
       context: null,
       carriedFailure: null,

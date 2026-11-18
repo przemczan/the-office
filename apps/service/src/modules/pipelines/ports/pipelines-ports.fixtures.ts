@@ -4,7 +4,12 @@ import { dirname } from "node:path";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
-import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE, type EngineId } from "../../engine/index.js";
+import {
+  EngineSessions,
+  FIRST_CLAUDE_CODE_ENGINE,
+  type EngineId,
+  type EngineModel,
+} from "../../engine/index.js";
 import { DUTIES, permissionNarrowingProblems, PipelineRoleSources } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStageEdits, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
@@ -31,6 +36,7 @@ import {
   type ResumedOrDroppedBy,
   type StartedTask,
   type TaskBlocker,
+  type StandInTakingOver,
   type UsageWindowRefusal,
   type WalkTaskState,
 } from "./started-tasks.js";
@@ -46,7 +52,7 @@ import type { StagePermissions } from "../domain/stage-permissions.js";
 import type { PublishTarget } from "../domain/stage.js";
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
-import type { StageRunContext, StageSessionMove } from "../domain/stage-run.js";
+import type { StageRunContext, StageRunStandIn, StageSessionMove } from "../domain/stage-run.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import {
   TaskCommands,
@@ -216,6 +222,18 @@ export class StartedTasksForTests extends StartedTasks {
       new TaskPaused(taskId, task.state as "in-progress", "usage-window", refusal),
     );
     return this.read(taskId);
+  }
+
+  /** Each Stand-in Engine a running Stage went on on, in order. */
+  readonly standInsTakenOver: { readonly taskId: string; readonly standIn: StandInTakingOver }[] =
+    [];
+  /** Told of each, as a test sets it, such as to give the Task's record the stand-in. */
+  whenWentOnOnStandIn: ((taskId: string, standIn: StandInTakingOver) => void) | undefined =
+    undefined;
+
+  async wentOnOnStandIn(taskId: string, standIn: StandInTakingOver): Promise<void> {
+    this.standInsTakenOver.push({ taskId, standIn });
+    this.whenWentOnOnStandIn?.(taskId, standIn);
   }
 
   async holdForFireAlarm(taskId: string): Promise<boolean> {
@@ -464,6 +482,14 @@ export class StageThreadsForTests extends StageThreads {
     [];
   /** The Decision each Thread found left running had opened, by its Thread, as a test puts it. */
   readonly leftAsking = new Map<string, AskedDecision>();
+  /** Each Stage session moved to a Stand-in Engine, in order, by its Thread. */
+  readonly switched: ({ readonly threadId: string; readonly standIn: EngineModel } & {
+    readonly why: Parameters<StageThread["switchTo"]>[1];
+  })[] = [];
+  /** What `switchTo` fails with, as a test sets it: it moves the session, unless set. */
+  switchFails: Error | undefined = undefined;
+  /** Told as a session moves to a Stand-in Engine, such as for the user to pause meanwhile. */
+  whileSwitching: ((threadId: string) => void | Promise<void>) | undefined = undefined;
 
   constructor(
     private readonly sessions: EngineSessions,
@@ -499,8 +525,8 @@ export class StageThreadsForTests extends StageThreads {
     const threadId = randomUUID();
     // A Stand-in Engine the Task's Start chose for the engine runs in its place, as Conversations'.
     const standIn = request.engineStandIns.find(({ engineId }) => engineId === this.engineId);
-    const engine = standIn?.standInId ?? this.engineId;
-    const standInFor = standIn && {
+    let engine = standIn?.standInId ?? this.engineId;
+    let standInFor: StageRunStandIn | undefined = standIn && {
       engineId: standIn.engineId,
       engineName: standIn.engineName,
       reason: standIn.reason,
@@ -565,10 +591,23 @@ export class StageThreadsForTests extends StageThreads {
       threadId,
       // A new session every Stage, unless a test says the Stage went on in one.
       move: { move: this.move },
-      engine,
+      get engine() {
+        return engine;
+      },
       model,
-      ...(standInFor && { standInFor }),
+      get standInFor() {
+        return standInFor;
+      },
       nextTurn,
+      contextTokens: () => this.contextAfterTurn?.tokens ?? 0,
+      // The scripted session goes on as it is, as though resumed on the stand-in.
+      switchTo: async (to, why) => {
+        this.switched.push({ threadId, standIn: to, why });
+        if (this.switchFails) throw this.switchFails;
+        await this.whileSwitching?.(threadId);
+        standInFor = { engineId: engine, engineName: engine, reason: "Its window is used up." };
+        engine = to.engineId;
+      },
       askedDecision: async () => asked,
       send: (text, why) => {
         this.sent.push({ threadId, text, why });

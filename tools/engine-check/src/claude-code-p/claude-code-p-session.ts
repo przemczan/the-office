@@ -43,6 +43,8 @@ export interface ClaudeCodePSessionSpec extends SessionSpecBase<ClaudeCodePSessi
   readonly jsonSchema?: Record<string, unknown>;
   /** Where the hook calls go in place of the session's endpoint, to see what a hook nobody answers does. */
   readonly hookUrl?: string;
+  /** Variables set over the Office's environment, such as `CLAUDE_CONFIG_DIR` naming a second account. */
+  readonly environment?: Readonly<Record<string, string>>;
 }
 
 /** The usage windows the engine reports, as far as the checks read them; undeclared by the SDK for `-p`. */
@@ -186,7 +188,11 @@ export class ClaudeCodePSession extends RecordedSession {
     });
     const child = spawn(pinnedBinaryPath(), args, {
       cwd: spec.repository,
-      env: { ...sessionEnvironment(), [TOKEN_VARIABLE]: this.endpoints.token },
+      env: {
+        ...sessionEnvironment(),
+        ...spec.environment,
+        [TOKEN_VARIABLE]: this.endpoints.token,
+      },
       stdio: "pipe",
       windowsHide: true,
     });

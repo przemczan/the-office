@@ -38,6 +38,8 @@ export interface CodexSessionTranscript {
 export interface RunOptions {
   /** The signed-in Codex folder the `codex.*` checks run with as `CODEX_HOME`; they are skipped without one. */
   readonly codexHome?: string;
+  /** A second signed-in Claude Code config folder, for the checks that carry a session to another account. */
+  readonly secondClaudeConfig?: string;
 }
 
 export interface CheckOutcome {
@@ -80,6 +82,7 @@ export async function runCheck(
       check.run({
         sandbox,
         signal,
+        secondClaudeConfig: options.secondClaudeConfig,
         startSession: async (spec) => {
           const session = await ProbeSession.start(sandbox, spec, signal);
           sessions.push(session);

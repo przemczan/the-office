@@ -1,5 +1,6 @@
 import {
   countedTokens,
+  type EngineSwitch,
   type GateAction,
   type Role,
   type StageRun,
@@ -152,12 +153,39 @@ export function runResultText({ stage, state }: TaskStage, run: StageRun): strin
   }
 }
 
-/** A run held by a used-up usage window, its reset in local time (the service words it in UTC). */
+/**
+ * A run held by a used-up usage window, its reset in local time (the service words it in UTC). One
+ * whose session could go on on a Stand-in Engine but is over the size Settings › Engines asks first
+ * above waits for the user's choice instead.
+ */
 function usageWindowHeldWords(
-  { engineName, windowWords, resetsAt }: NonNullable<FailedOutcome["refusedTurn"]>,
+  { engineName, windowWords, resetsAt, standInChoice }: NonNullable<FailedOutcome["refusedTurn"]>,
   now: Date = new Date(),
 ): string {
-  return `Paused: ${engineName}'s ${windowWords} is used up until ${momentWords(resetsAt, now)}. The engine refused the Agent's turn, which is no failure: the Stage's uncommitted edits stay in the worktree, and it goes on by itself once the window resets.`;
+  const held = `Paused: ${engineName}'s ${windowWords} is used up until ${momentWords(resetsAt, now)}. The engine refused the Agent's turn, which is no failure: the Stage's uncommitted edits stay in the worktree`;
+  if (standInChoice) return `${held}. ${standInChoiceWords(standInChoice)}`;
+  return `${held}, and it goes on by itself once the window resets.`;
+}
+
+type StandInChoice = NonNullable<NonNullable<FailedOutcome["refusedTurn"]>["standInChoice"]>;
+
+/**
+ * "Its context of 182,000 tokens is over the 100,000 set in Settings › Engines, so it waits for your
+ * choice to go on on Claude Code 2, or the reset."
+ */
+function standInChoiceWords({ engineName, contextTokens, askAbove }: StandInChoice): string {
+  return `Its context of ${contextTokens.toLocaleString("en-US")} tokens is over the ${askAbove.toLocaleString("en-US")} set in Settings › Engines, so it waits for your choice to go on on ${engineName}, or the reset.`;
+}
+
+/**
+ * A run's session that went on on a Stand-in Engine, the reset in local time: "Claude Code's
+ * 5-hour window was used up until 14:00, so the Stage went on on Claude Code 2".
+ */
+export function engineSwitchWords(
+  { fromEngineName, toEngineName, windowWords, resetsAt }: EngineSwitch,
+  now: Date = new Date(),
+): string {
+  return `${fromEngineName}'s ${windowWords} was used up until ${momentWords(resetsAt, now)}, so the Stage went on on ${toEngineName}`;
 }
 
 /** A run in the Stage history's list says what it came to in plain words, whatever else it holds. */

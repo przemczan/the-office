@@ -7,6 +7,7 @@ export { TaskStagesService } from "./application/task-stages-service.js";
 export { UsageHistory } from "./application/usage-history.js";
 export { StageRunTotals } from "./application/stage-run-totals.js";
 export { RunningStageRuns } from "./application/running-stage-runs.js";
+export { StandInChoices, type WaitingStandInChoice } from "./application/stand-in-choices.js";
 export type { RanAgentStageRun, StartedStageRun } from "./ports/stage-run-repository.js";
 export type { StageUsage, StageUsages } from "./domain/usage-history.js";
 export {
@@ -17,6 +18,7 @@ export {
   NoRetriesLeft,
   PipelineCompleted,
   SentBackFromGate,
+  StageAwaitsStandInChoice,
   StageRunEnded,
   StageRunStarted,
   WentBackToStage,

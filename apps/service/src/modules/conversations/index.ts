@@ -24,6 +24,7 @@ export {
   type StageThreadRequest,
   type StageTurn,
 } from "./application/stage-threads.js";
+export { SwitchFailed } from "./domain/switch-failed.js";
 export { StageThreadMessages } from "./application/stage-thread-messages.js";
 export type { StageRunWindow } from "./application/thread-history.js";
 export { TaskTokens } from "./application/task-tokens.js";
@@ -59,6 +60,7 @@ export {
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  ThreadSessionMovedToEngine,
   TokensCounted,
   TurnEnded,
 } from "./domain/conversation-events.js";

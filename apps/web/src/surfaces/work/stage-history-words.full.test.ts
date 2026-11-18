@@ -6,6 +6,7 @@ import {
   carriedFailureWords,
   commandMarkWords,
   commandTimeWords,
+  engineSwitchWords,
   gateChoiceWords,
   openingRunTab,
   runBadge,
@@ -51,6 +52,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     threadId: null,
     session: null,
     engine: null,
+    engineSwitches: [],
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,
@@ -222,6 +224,7 @@ describe("runResultText", () => {
         windowWords: "5-hour window",
         resetsAt,
         sessionLeft: true,
+        standInChoice: null,
       },
     });
 
@@ -231,6 +234,32 @@ describe("runResultText", () => {
       `Paused: Claude Code's 5-hour window is used up until ${momentWords(resetsAt, new Date())}. `,
     );
     expect(text).not.toMatch(/UTC/);
+    expect(text).toMatch(/it goes on by itself once the window resets\.$/);
+  });
+
+  it("says a held run whose session is too large to switch waits for the user's choice", () => {
+    const resetsAt = "2026-11-13T14:00:00.000Z";
+    const outcome = failed({
+      interrupted: "usage-window",
+      refusedTurn: {
+        engineName: "Claude Code",
+        windowWords: "5-hour window",
+        resetsAt,
+        sessionLeft: true,
+        standInChoice: {
+          engineId: "claude-code-2",
+          engineName: "Claude Code 2",
+          contextTokens: 182_000,
+          askAbove: 100_000,
+        },
+      },
+    });
+
+    const text = runResultText(aTaskStage(implement), aRun({ outcome }));
+
+    expect(text).toBe(
+      `Paused: Claude Code's 5-hour window is used up until ${momentWords(resetsAt, new Date())}. The engine refused the Agent's turn, which is no failure: the Stage's uncommitted edits stay in the worktree. Its context of 182,000 tokens is over the 100,000 set in Settings › Engines, so it waits for your choice to go on on Claude Code 2, or the reset.`,
+    );
   });
 
   it("gives a failure's whole error, or the budget it reached", () => {
@@ -255,6 +284,26 @@ describe("runResultText", () => {
     expect(runResultText(aTaskStage(look), aRun({ outcome }))).toBeUndefined();
     expect(runResultText(aTaskStage(look, { state: "waiting-on-you" }), aRun())).toMatch(/^Waits/);
     expect(runResultText(aTaskStage(implement, { state: "running" }), aRun())).toBe("Working now.");
+  });
+});
+
+describe("engineSwitchWords", () => {
+  it("says which window was used up, until when in local time, and where the Stage went on", () => {
+    const resetsAt = "2026-11-13T14:00:00.000Z";
+    const words = engineSwitchWords({
+      fromEngineId: "claude-code",
+      fromEngineName: "Claude Code",
+      toEngineId: "claude-code-2",
+      toEngineName: "Claude Code 2",
+      windowWords: "5-hour window",
+      resetsAt,
+      at: "2026-11-13T11:00:00.000Z",
+    });
+
+    expect(words).toBe(
+      `Claude Code's 5-hour window was used up until ${momentWords(resetsAt, new Date())}, so the Stage went on on Claude Code 2`,
+    );
+    expect(words).not.toMatch(/UTC/);
   });
 });
 

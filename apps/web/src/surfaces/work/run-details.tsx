@@ -27,6 +27,7 @@ import {
   carriedFailureWords,
   commandMarkWords,
   commandTimeWords,
+  engineSwitchWords,
   gateChoiceWords,
   runBadge,
   runOfHandoverNote,
@@ -68,7 +69,14 @@ export function RunDetails({
 }): ReactNode {
   const { stage } = taskStage;
   const summary = (
-    <RunSummary taskStage={taskStage} run={run} roles={roles} names={names} onClose={onClose} />
+    <RunSummary
+      taskStage={taskStage}
+      run={run}
+      roles={roles}
+      names={names}
+      now={now}
+      onClose={onClose}
+    />
   );
   const head = <RunHead taskStage={taskStage} run={run} now={now} />;
   if (stage.kind !== "agent" || run.threadId === null) {
@@ -250,16 +258,18 @@ function RunSummary({
   run,
   roles,
   names,
+  now,
   onClose,
 }: {
   readonly taskStage: TaskStage;
   readonly run: StageRun;
   readonly roles: readonly Role[] | undefined;
   readonly names: StageNames;
+  readonly now: Date;
   readonly onClose: () => void;
 }): ReactNode {
   const { stage, state } = taskStage;
-  const { carriedFailure, sentBack, gateAction, outcome } = run;
+  const { carriedFailure, sentBack, gateAction, outcome, engineSwitches } = run;
   const result = runResultText(taskStage, run);
   return (
     <div className="run-summary">
@@ -268,6 +278,11 @@ function RunSummary({
           <Icon name="rotate-ccw" size={12} /> {carriedFailureWords(carriedFailure, names)}
         </p>
       )}
+      {engineSwitches.map((engineSwitch) => (
+        <p key={engineSwitch.at} className="run-engine-switch">
+          <Icon name="refresh-cw" size={12} /> {engineSwitchWords(engineSwitch, now)}
+        </p>
+      ))}
       {sentBack && (
         <div>
           <p className="run-label">Sent back from {names(sentBack.gateKey)}</p>

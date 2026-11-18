@@ -32,6 +32,7 @@ function aRun(fields: Partial<StageRun>): StageRun {
     threadId: null,
     session: null,
     engine: null,
+    engineSwitches: [],
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     context: null,
     carriedFailure: null,

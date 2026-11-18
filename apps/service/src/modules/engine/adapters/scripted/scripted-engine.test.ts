@@ -48,6 +48,7 @@ const NO_CAPABILITY: EngineCapabilities = {
   officeTools: false,
   outputSchema: false,
   languageServers: false,
+  carrySession: false,
 };
 
 describeAgentEngineContract("ScriptedEngine replaying the recordings", {

@@ -20,6 +20,7 @@ import {
   SubAgentOrProcessChanged,
   ThreadRenamed,
   ThreadSeen,
+  ThreadSessionMovedToEngine,
   ThreadStarted,
   TokensCounted,
   TurnEnded,
@@ -65,6 +66,14 @@ export class ThreadWebEvents implements OnModuleInit {
       type: "thread.messages-logged",
       ...namesOf(event.thread),
     }));
+    // The web reads the Thread again, its `engine-switched` line and session's engine with it.
+    this.forwarding.forward(
+      ThreadSessionMovedToEngine,
+      (event): WebEventOf<"thread.messages-logged"> => ({
+        type: "thread.messages-logged",
+        ...namesOf(event.thread),
+      }),
+    );
     this.forwarding.forward(DeliveryMarked, (event): WebEventOf<"thread.delivery-marked"> => ({
       type: "thread.delivery-marked",
       ...namesOf(event.thread),

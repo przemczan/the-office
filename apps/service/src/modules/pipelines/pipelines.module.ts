@@ -12,6 +12,7 @@ import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-sta
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { StageBranchUpdate } from "./application/stage-branch-update.js";
 import { StageCommandRuns } from "./application/stage-command-runs.js";
+import { StandInChoices } from "./application/stand-in-choices.js";
 import { StageHistory } from "./application/stage-history.js";
 import { StageProjectCommands } from "./application/stage-project-commands.js";
 import { StageRunEnvironmentDefinitions } from "./application/stage-run-environment-definitions.js";
@@ -174,10 +175,11 @@ export class PipelinesModule {
         GateService,
         PipelineProposals,
         StageHistory,
+        StandInChoices,
         PipelineOfficeTools,
         PipelinesWebEvents,
       ],
-      exports: [PipelineLibraryModule, TaskStagesService, AlarmResumes],
+      exports: [PipelineLibraryModule, TaskStagesService, AlarmResumes, StandInChoices],
     };
   }
 }

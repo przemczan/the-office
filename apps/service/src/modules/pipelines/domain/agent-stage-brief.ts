@@ -462,6 +462,20 @@ function capitalized(words: string): string {
 }
 
 /**
+ * What a Stage's session is sent on the Stand-in Engine it went on on, after its engine refused the
+ * Stage's work for a used-up usage window (spec 5.4): the work again, as the session holds it.
+ */
+export function workSentAgain(refused: NonNullable<HeldRun["refused"]>): string {
+  return `## Gone on on a Stand-in Engine
+
+Your engine refused your last turn because a usage window of its account was used up, so The Office moved this session to a Stand-in Engine, where it goes on now. Your edits are in the worktree as you left them.
+
+${REFUSED_HALF_DONE}
+
+${refusedMessageWords(refused)}`;
+}
+
+/**
  * The message the engine refused, sent again: the Stage's work, or the correction of its result.
  */
 function refusedMessageWords({ message, problems }: NonNullable<HeldRun["refused"]>): string {

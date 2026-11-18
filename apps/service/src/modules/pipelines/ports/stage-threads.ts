@@ -1,3 +1,4 @@
+import type { EngineModel, UsageWindowName } from "../../engine/index.js";
 import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import type { Effort, StageSession } from "../domain/stage.js";
@@ -105,13 +106,29 @@ export interface StageThread {
   readonly threadId: string;
   /** The Context policy's move that began the Stage's session. */
   readonly move: { readonly move: StageSessionMove };
-  /** The engine the session runs on, by its id, and the session's model, by its id there. */
+  /**
+   * The engine the session runs on now, by its id, which `switchTo` changes, and the session's
+   * model, by its id there, which it keeps.
+   */
   readonly engine: string;
   readonly model: string;
-  /** The cascade's engine `engine` stands in for; undefined when it is the cascade's own. */
+  /** The engine `engine` stands in for now; undefined when it is the cascade's own. */
   readonly standInFor?: StageRunStandIn;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
+  /** The session's context: the last turn's reading, else the Thread session's; 0 with none. */
+  contextTokens(): number;
+  /**
+   * Moves the session, idle after its engine refused a turn for the used-up window `why`, to the
+   * Stand-in Engine `standIn` on the same model (spec 5.4): the Thread logs why, and the session
+   * goes on there with its context, the user's waiting messages going with the next turn. Throws
+   * `SwitchFailed` (Conversations) when the session couldn't be carried over or resumed there; the
+   * Thread then stays on `engine`, where its session resumes later.
+   */
+  switchTo(
+    standIn: EngineModel,
+    why: { readonly window: UsageWindowName; readonly resetsAt: Date },
+  ): Promise<void>;
   /**
    * The latest Decision the person opened in the Thread since the Stage's work began, with an
    * Office tool (`open_decision` or `consult`), answered or not: the user may answer it while the

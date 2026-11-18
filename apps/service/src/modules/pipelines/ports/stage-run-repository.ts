@@ -1,5 +1,6 @@
 import type { StageCommandRunWithOutput } from "../domain/stage-command-run.js";
 import type {
+  EngineSwitch,
   GateAction,
   PublishedWork,
   StageRun,
@@ -60,6 +61,16 @@ export abstract class StageRunRepository {
   abstract saveNew(run: StageRun): Promise<boolean>;
 
   abstract saveThread(runId: string, thread: StageRunThread): Promise<void>;
+
+  /**
+   * Appends `engineSwitch` to the run's switches and saves the engine its session runs on now, with
+   * the cascade's engine that one stands in for, together.
+   */
+  abstract saveEngineSwitch(
+    runId: string,
+    engineSwitch: EngineSwitch,
+    now: Pick<StageRunThread, "engineId" | "engineName" | "standInFor">,
+  ): Promise<void>;
 
   /** Saves the commit HEAD moved to while the run runs, by a base update The Office made. */
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;

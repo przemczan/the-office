@@ -27,7 +27,8 @@ export interface BargeInsAfterTurn {
 export class BargeIns {
   private ended = false;
   private readonly held: BargeInMessage[] = [];
-  private readonly sent = new Set<string>();
+  /** The messages sent and not yet taken, by id: those the caller sent itself without a message. */
+  private readonly sent = new Map<string, BargeInMessage | undefined>();
   private latestWriter: UserRef | undefined;
 
   /** `turnRunning` is false when the session that takes the messages hasn't started its turn yet. */
@@ -60,7 +61,7 @@ export class BargeIns {
    * session's Brief: until a turn takes it, the turn running ends with one to follow.
    */
   sentAfterTurn(messageId: string): void {
-    if (!this.ended) this.sent.add(messageId);
+    if (!this.ended) this.sent.set(messageId, undefined);
   }
 
   /** The message that starts a turn has been sent: the held messages follow it. */
@@ -80,17 +81,33 @@ export class BargeIns {
     return { delivered, stillToLand };
   }
 
+  /**
+   * Another session took over from the one the messages were sent into, between turns, as a Stage's
+   * on a Stand-in Engine: the messages the old one never took are held again, before those held,
+   * and go once its next turn starts.
+   */
+  sessionReplaced(): void {
+    this.turnRunning = false;
+    const again: BargeInMessage[] = [];
+    for (const [id, message] of this.sent) {
+      if (!message) continue;
+      this.sent.delete(id);
+      again.push(message);
+    }
+    this.held.unshift(...again);
+  }
+
   /** The session ends: the messages that never landed, which won't any more. */
   end(): readonly string[] {
     this.ended = true;
-    const undelivered = [...this.sent, ...this.held.map((message) => message.id)];
+    const undelivered = [...this.sent.keys(), ...this.held.map((message) => message.id)];
     this.sent.clear();
     this.held.length = 0;
     return undelivered;
   }
 
   private send(message: BargeInMessage): void {
-    this.sent.add(message.id);
+    this.sent.set(message.id, message);
     this.sendNext(message);
   }
 }

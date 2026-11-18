@@ -38,6 +38,42 @@ export class StageRunWaiting extends DomainEvent {
   }
 }
 
+/**
+ * An Agent Stage run's session went on on a Stand-in Engine, its engine having refused a turn for a
+ * used-up usage window (spec 5.4): the run goes on Running there.
+ */
+export class StageRunEngineSwitched extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly runId: string,
+    readonly stageKey: string,
+    readonly fromEngineId: string,
+    readonly toEngineId: string,
+  ) {
+    super();
+  }
+}
+
+/**
+ * An Agent Stage run was held as its engine refused a turn for a used-up usage window, though a
+ * Stand-in Engine had room: its session's context is over the size Settings › Engines asks first
+ * above (spec 5.4), so the Task waits Paused for the user's choice, or the window's reset.
+ */
+export class StageAwaitsStandInChoice extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly runId: string,
+    readonly stageKey: string,
+    readonly threadId: string,
+    readonly fromEngineId: string,
+    readonly standInEngineId: string,
+    readonly contextTokens: number,
+    readonly resetsAt: Date,
+  ) {
+    super();
+  }
+}
+
 /** A Stage run ended done, needing a Decision, or failed. */
 export class StageRunEnded extends DomainEvent {
   constructor(

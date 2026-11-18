@@ -297,6 +297,7 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     threadId: run.threadId ?? null,
     session: run.session ?? null,
     engine: toStageRunEngineResponse(run),
+    engineSwitches: run.engineSwitches.map((engineSwitch) => ({ ...engineSwitch })),
     tokens: run.tokens,
     context: run.context
       ? { contextTokens: run.context.tokens, contextWindow: run.context.window }
@@ -382,6 +383,14 @@ function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
               windowWords: outcome.refused.windowWords,
               resetsAt: outcome.refused.resetsAt,
               sessionLeft: outcome.refused.sessionLeft,
+              standInChoice: outcome.refused.standInChoice
+                ? {
+                    engineId: outcome.refused.standInChoice.engineId,
+                    engineName: outcome.refused.standInChoice.engineName,
+                    contextTokens: outcome.refused.standInChoice.contextTokens,
+                    askAbove: outcome.refused.standInChoice.askAbove,
+                  }
+                : null,
             }
           : null,
         afterPublishingFailed: outcome.afterPublishingFailed

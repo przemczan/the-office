@@ -760,6 +760,7 @@ export const workEventInvalidations: Readonly<
   "task.paused": () => [TASKS],
   "task.stopped": () => [TASKS],
   "task.resumed": () => [TASKS],
+  "task.went-on-on-stand-in": () => [TASKS],
   "task.queued": () => [TASKS],
   "task.left-queue": () => [TASKS],
   "task.queue-reasons-changed": () => [TASKS],

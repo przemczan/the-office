@@ -14,8 +14,10 @@ import {
   TaskResumed,
   TaskStateChanged,
   TaskStopped,
+  TaskWentOnOnStandIn,
   type UsageWindowRefusal,
 } from "./task-events.js";
+import type { EngineStandIn } from "./stand-ins-at-start.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import {
   BY_THE_FIRE_ALARM,
@@ -383,6 +385,33 @@ export function pauseTaskForUsageWindow(
     task,
     BY_THE_USAGE_WINDOW,
   );
+}
+
+/**
+ * A running Stage of the Task went on on a Stand-in Engine as its engine's usage window was used up
+ * (spec 5.4): `standIn` replaces the Task's entry for the same cascade's engine, or is added, so the
+ * run's later Stages open on it; back on the cascade's engine itself, the entry goes. The next Start
+ * chooses the list afresh. Undefined for a Task not In progress or Waiting on you, and when the list
+ * already says so.
+ */
+export function taskWentOnOnStandIn(
+  task: Task,
+  standIn: EngineStandIn,
+): TaskChange<TaskWentOnOnStandIn> | undefined {
+  if (task.state !== "in-progress" && task.state !== "waiting-on-you") return undefined;
+  const kept = task.engineStandIns.find(({ engineId }) => engineId === standIn.engineId);
+  const backOnItsOwn = standIn.standInId === standIn.engineId;
+  if (backOnItsOwn ? kept === undefined : kept?.standInId === standIn.standInId) return undefined;
+  const others = task.engineStandIns.filter((entry) => entry !== kept);
+  const engineStandIns = backOnItsOwn
+    ? others
+    : kept
+      ? task.engineStandIns.map((entry) => (entry === kept ? standIn : entry))
+      : [...task.engineStandIns, standIn];
+  return {
+    task: { ...task, engineStandIns },
+    event: new TaskWentOnOnStandIn(task.id, standIn.engineId, standIn.standInId),
+  };
 }
 
 /**

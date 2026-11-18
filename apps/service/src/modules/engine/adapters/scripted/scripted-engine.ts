@@ -51,7 +51,15 @@ const EVERY_CAPABILITY: EngineCapabilities = {
   officeTools: true,
   outputSchema: true,
   languageServers: true,
+  carrySession: true,
 };
+
+/** A session `carrySession` carried over, by the ids of the engines it went from and to. */
+export interface CarriedSession {
+  readonly sessionId: string;
+  readonly from: EngineId;
+  readonly to: EngineId;
+}
 
 /** The caller did something other than what the script has next, or more than it has. */
 export class ScriptMismatch extends Error {
@@ -88,6 +96,9 @@ export class ScriptedEngine extends AgentEngine {
   readonly sessions: ScriptedSession[] = [];
   /** The engines whose usage windows were read with no session, by id, in order. */
   readonly usageWindowReads: EngineId[] = [];
+  /** The sessions carried over from one engine to another (`carrySession`), in order. */
+  readonly carried: CarriedSession[] = [];
+  private carryFailure: Error | undefined;
   private readonly scripts: SessionScript[];
   private readonly mcpClient: McpClient = new SdkMcpClient();
   /** What a read of each engine's usage windows answers, or fails with; none unless a test sets it. */
@@ -137,6 +148,24 @@ export class ScriptedEngine extends AgentEngine {
     const set = this.engineWindows.get(engine.id);
     if (set instanceof Error) throw set;
     return set;
+  }
+
+  /**
+   * Makes `carrySession` fail with `error` from now on, or carry again when undefined. Not part of
+   * the port: a test calls it.
+   */
+  failSessionCarries(error: Error | undefined): void {
+    this.carryFailure = error;
+  }
+
+  /**
+   * Records the carry in `carried` and copies nothing, as a scripted session keeps no transcript:
+   * the next script is what the stand-in's resume replays. Fails with what `failSessionCarries` set.
+   */
+  override async carrySession(sessionId: string, from: Engine, to: Engine): Promise<void> {
+    this.require("carrySession");
+    if (this.carryFailure !== undefined) throw this.carryFailure;
+    this.carried.push({ sessionId, from: from.id, to: to.id });
   }
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {

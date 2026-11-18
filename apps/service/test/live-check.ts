@@ -67,6 +67,8 @@ export function messageLine(message: Message): string {
       return `failure: ${message.reason}`;
     case "usage-window-used-up":
       return `usage window used up: ${message.engineName}'s ${message.window} until ${message.resetsAt}`;
+    case "engine-switched":
+      return `engine switched: ${message.fromName}'s ${message.window} until ${message.resetsAt}, on ${message.toName}`;
     case "held":
       return `held (${message.heldBy}): ${message.text}`;
     case "decision":

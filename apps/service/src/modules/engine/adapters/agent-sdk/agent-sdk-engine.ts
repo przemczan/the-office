@@ -37,6 +37,7 @@ import { usageWindows } from "../claude-code/sdk-events.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
+import { carrySessionOver } from "../claude-code/session-carry-over.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
 import { serviceVariables } from "../claude-code/engine-read.js";
@@ -58,6 +59,7 @@ export class AgentSdkEngine extends AgentEngine {
     officeTools: true,
     outputSchema: true,
     languageServers: true,
+    carrySession: true,
   };
 
   private readonly operatingSystem = currentOperatingSystem();
@@ -90,6 +92,11 @@ export class AgentSdkEngine extends AgentEngine {
       },
       { what: `Reading the usage windows of the engine ${engine.id}`, signal },
     );
+  }
+
+  /** From one Claude Code engine's config folder to another's (`carrySessionOver`). */
+  override carrySession(sessionId: string, from: Engine, to: Engine): Promise<void> {
+    return carrySessionOver(this.officeData, sessionId, from, to);
   }
 
   /** Refuses, before any message reaches it, a session without exactly its skills (spec §5.6). */

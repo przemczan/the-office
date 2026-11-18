@@ -118,6 +118,39 @@ export interface RefusedTurn {
   readonly windowWords: string;
   /** When the window resets, as an ISO time: the run is kept as JSON. */
   readonly resetsAt: string;
+  /**
+   * Set when a Stand-in Engine had room but the session's context was over the size Settings ›
+   * Engines asks first above (spec 5.4): the run waits for the user's choice of going on there or
+   * waiting for the reset.
+   */
+  readonly standInChoice?: StandInChoice;
+}
+
+/** The Stand-in Engine a held run could go on on, and why The Office asks first. */
+export interface StandInChoice {
+  /** The Stand-in Engine with room, by its id and its name at the time. */
+  readonly engineId: string;
+  readonly engineName: string;
+  /** The session's context when its turn was refused, in tokens. */
+  readonly contextTokens: number;
+  /** The size above which Settings › Engines asks before a switch, in tokens. */
+  readonly askAbove: number;
+}
+
+/**
+ * A run's session moved to a Stand-in Engine as its engine refused a turn for a used-up usage
+ * window (spec 5.4): from which engine to which, each by its id and its name at the time, the
+ * window's words, its reset as an ISO time, and when it moved.
+ */
+export interface EngineSwitch {
+  readonly fromEngineId: string;
+  readonly fromEngineName: string;
+  readonly toEngineId: string;
+  readonly toEngineName: string;
+  /** The used-up window as the user reads it, such as "5-hour window". */
+  readonly windowWords: string;
+  readonly resetsAt: string;
+  readonly at: string;
 }
 
 /**
@@ -389,6 +422,11 @@ export interface StageRun {
    * runs kept before it was recorded.
    */
   readonly standInFor: StageRunStandIn | undefined;
+  /**
+   * Each time its session moved to a Stand-in Engine during the run, in order; `engineId` is the
+   * engine it moved to last. None for a run that stayed on one engine.
+   */
+  readonly engineSwitches: readonly EngineSwitch[];
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;
   /**

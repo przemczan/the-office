@@ -1038,6 +1038,11 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.paused"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.stopped"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.resumed"), taskId: z.uuid() }),
+  /**
+   * A running Stage of the Task went on on a Stand-in Engine as its engine's usage window was used
+   * up: the Task's Stand-in Engines changed.
+   */
+  webEventSchema.extend({ type: z.literal("task.went-on-on-stand-in"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.queued"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.left-queue"),

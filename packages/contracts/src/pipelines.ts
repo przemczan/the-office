@@ -156,6 +156,19 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
         windowWords: z.string(),
         resetsAt: z.iso.datetime(),
         sessionLeft: z.boolean(),
+        /**
+         * Set when a Stand-in Engine had room but the session's context was over the size
+         * Settings › Engines asks first above: the Task waits Paused for the user's choice of going
+         * on there, or the reset.
+         */
+        standInChoice: z
+          .object({
+            engineId: z.string(),
+            engineName: z.string(),
+            contextTokens: z.int().nonnegative(),
+            askAbove: z.int().nonnegative(),
+          })
+          .nullable(),
       })
       .nullable(),
     /**
@@ -246,6 +259,22 @@ export const stageRunEngineSchema = z.object({
 });
 export type StageRunEngine = z.infer<typeof stageRunEngineSchema>;
 
+/**
+ * A run's session moved to a Stand-in Engine as its engine refused a turn for a used-up usage
+ * window, each engine with its name at the time.
+ */
+export const engineSwitchSchema = z.object({
+  fromEngineId: z.string(),
+  fromEngineName: z.string(),
+  toEngineId: z.string(),
+  toEngineName: z.string(),
+  /** The used-up window as the user reads it, such as "5-hour window". */
+  windowWords: z.string(),
+  resetsAt: z.iso.datetime(),
+  at: z.iso.datetime(),
+});
+export type EngineSwitch = z.infer<typeof engineSwitchSchema>;
+
 /** One run of one of a Task's Stages. */
 export const stageRunSchema = z.object({
   id: z.uuid(),
@@ -264,6 +293,11 @@ export const stageRunSchema = z.object({
   session: contextMoveSchema.nullable(),
   /** What its session ran on; null for a run that opened none, and for runs kept before it was. */
   engine: stageRunEngineSchema.nullable(),
+  /**
+   * Each move of its session to a Stand-in Engine during the run, in order (`engine` is the last
+   * one's); none for a run that stayed on one engine.
+   */
+  engineSwitches: z.array(engineSwitchSchema),
   tokens: tokenTotalsSchema,
   /**
    * Its session's context after the run's latest turn, against its model's window, kept with the
@@ -568,6 +602,17 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     taskId: z.uuid(),
     stageKey: z.string(),
     waiting: z.boolean(),
+  }),
+  /**
+   * An Agent Stage run's session went on on a Stand-in Engine, its engine's usage window used up:
+   * the run goes on Running there.
+   */
+  webEventSchema.extend({
+    type: z.literal("stage-run.engine-switched"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
+    fromEngineId: z.string(),
+    toEngineId: z.string(),
   }),
   webEventSchema.extend({
     type: z.literal("stage-run.ended"),

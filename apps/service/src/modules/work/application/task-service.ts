@@ -20,8 +20,10 @@ import {
   resumeTaskAtReset,
   resumeTaskFreedByUsageWindow,
   stopTask,
+  taskWentOnOnStandIn,
   type TaskChange,
 } from "../domain/task-changes.js";
+import type { EngineStandIn } from "../domain/stand-ins-at-start.js";
 import { archiveTask, restoreTask } from "../domain/task-archive.js";
 import { unfinishedPublishingTask } from "../domain/publishing-task.js";
 import {
@@ -340,6 +342,15 @@ export class TaskService {
   async pauseForUsageWindow(id: string, refusal: UsageWindowRefusal): Promise<Task> {
     const now = this.schedule.now();
     return this.update(id, (task) => pauseTaskForUsageWindow(task, refusal, now));
+  }
+
+  /**
+   * A running Stage of the Task went on on a Stand-in Engine (spec 5.4): the Task's entry for that
+   * cascade's engine names it now, so the run's later Stages open on it; a Task no longer running
+   * keeps its list.
+   */
+  async wentOnOnStandIn(id: string, standIn: EngineStandIn): Promise<Task> {
+    return this.update(id, (task) => taskWentOnOnStandIn(task, standIn));
   }
 
   /**

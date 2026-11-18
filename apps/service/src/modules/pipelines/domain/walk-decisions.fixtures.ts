@@ -50,6 +50,7 @@ export function aRun(
     engineName: undefined,
     model: undefined,
     standInFor: undefined,
+    engineSwitches: [],
     decisions,
     heldBy: undefined,
     heldByUser: undefined,

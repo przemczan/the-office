@@ -2,6 +2,7 @@ import { STAGE_KIND_NAMES, type Stage } from "./stage.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import type {
+  EngineSwitch,
   GateAction,
   PublishedWork,
   RefusedTurn,
@@ -170,6 +171,9 @@ function runParts(
     ...gateActionLines(stages, run.gateAction),
     ...decisionLines(run.decisions),
     ...engineLines(run),
+    ...run.engineSwitches.map(
+      (engineSwitch) => `Engine switch: ${engineSwitchWords(engineSwitch)}`,
+    ),
     tokensLine(run),
     ...threadLines,
   ];
@@ -281,10 +285,49 @@ function failedWhy(outcome: Extract<StageOutcome, { status: "failed" }>): string
   return reasons.length === 0 ? "" : ` (${reasons.join("; ")})`;
 }
 
-/** "the engine refused the correction: Claude Code's 5-hour window is used up until …". */
-function refusedWords({ message, engineName, windowWords, resetsAt }: RefusedTurn): string {
+/**
+ * "the engine refused the correction: Claude Code's 5-hour window is used up until …", and when a
+ * Stand-in Engine had room but the context was over the size to ask first above, why it waits.
+ */
+function refusedWords({
+  message,
+  engineName,
+  windowWords,
+  resetsAt,
+  standInChoice,
+}: RefusedTurn): string {
   const refused = message === "work" ? "the Stage's work" : "the correction";
-  return `the engine refused ${refused}: ${engineName}'s ${windowWords} is used up until ${resetsAt}`;
+  const words = `the engine refused ${refused}: ${engineName}'s ${windowWords} is used up until ${resetsAt}`;
+  return standInChoice ? `${words}; ${standInChoiceWords(standInChoice)}` : words;
+}
+
+/**
+ * "its context of 182,000 tokens is over the 100,000 set in Settings › Engines, so it waits for the
+ * user's choice to go on on Claude Code 2, or the reset".
+ */
+export function standInChoiceWords({
+  engineName,
+  contextTokens,
+  askAbove,
+}: NonNullable<RefusedTurn["standInChoice"]>): string {
+  return `its context of ${tokenCount(contextTokens)} tokens is over the ${tokenCount(askAbove)} set in Settings › Engines, so it waits for the user's choice to go on on ${engineName}, or the reset`;
+}
+
+/**
+ * "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on Claude
+ * Code 2.", the reset worded as a Stage Thread's line words it.
+ */
+export function engineSwitchWords({
+  fromEngineName,
+  toEngineName,
+  windowWords,
+  resetsAt,
+}: EngineSwitch): string {
+  return `${fromEngineName}'s ${windowWords} was used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC, so the Stage went on on ${toEngineName}.`;
+}
+
+function tokenCount(tokens: number): string {
+  return tokens.toLocaleString("en-US");
 }
 
 function publishedWords({ kind, branch, pullRequestUrl }: PublishedWork): string {

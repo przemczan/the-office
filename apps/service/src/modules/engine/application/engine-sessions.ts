@@ -12,6 +12,7 @@ import {
   type EngineModel,
 } from "../domain/engines.js";
 import { withLeftOutLanguageServers } from "../domain/language-servers.js";
+import { engineToRunOn } from "../domain/stand-in-engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
@@ -165,6 +166,60 @@ export class EngineSessions {
         engine.resume(sessionId, options),
       );
     });
+  }
+
+  /**
+   * Carries the session `sessionId` over from the engine listed as `fromId` to the one listed as
+   * `toId`, so a resume on `toId` goes on with its conversation (a Stand-in Engine taking over a
+   * Stage, spec §5.4). Only called for an idle session, after its turn was refused and its engine
+   * session ended: nothing may write its transcript meanwhile. Both engines must be listed
+   * (`EngineNotListed`), Claude Code engines with the `carrySession` capability (`CapabilityMissing`);
+   * throws `SessionNotCarried` when `fromId` holds no such session. The session counts as running on
+   * `toId` while it is copied, so removing that engine waits for the copy. Idempotent: a carry cut
+   * short is carried again.
+   */
+  async carrySession(sessionId: string, fromId: EngineId, toId: EngineId): Promise<void> {
+    const ended = this.running.started(toId);
+    try {
+      const from = await this.listed(fromId);
+      const to = await this.listed(toId);
+      for (const engine of [from, to]) {
+        if (!this.carriesSessions(engine)) throw new CapabilityMissing("carrySession");
+      }
+      await this.engines.of(from).carrySession(sessionId, from, to);
+    } finally {
+      ended();
+    }
+  }
+
+  /**
+   * The Stand-in Engine a session running on `running` goes on on once its turn was refused for a
+   * used-up usage window: the first in the order of Settings › Engines that serves the same model
+   * and has room (`engineToRunOn`), never `running` itself; null when none has, or when a session
+   * on `running` can't be carried. An engine has room when it is a Claude Code engine with the
+   * `carrySession` capability, its usage window isn't used up and its latest reading shows it free
+   * or it hasn't been read yet.
+   */
+  async standInFor(running: EngineModel): Promise<EngineModel | null> {
+    const settings = await this.engineModels.standIns();
+    const engineOf = (engineId: EngineId) => settings.engines.find(({ id }) => id === engineId);
+    const runningEngine = engineOf(running.engineId);
+    if (runningEngine === undefined || !this.carriesSessions(runningEngine)) return null;
+    return engineToRunOn(running, settings, (engineId) => {
+      if (engineId === running.engineId) return false;
+      const engine = engineOf(engineId);
+      return (
+        engine !== undefined &&
+        this.carriesSessions(engine) &&
+        this.usageWindows.usedUpUntil(engineId) === undefined &&
+        this.usageWindows.latestShowsFree(engineId)
+      );
+    });
+  }
+
+  /** Whether a session on `engine` can be carried to or from another: Claude Code's alone. */
+  private carriesSessions(engine: Engine): boolean {
+    return engine.kind === "claude-code" && this.engines.of(engine).capabilities.carrySession;
   }
 
   /**

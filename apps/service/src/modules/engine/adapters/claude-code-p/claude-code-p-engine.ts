@@ -34,6 +34,7 @@ import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
+import { carrySessionOver } from "../claude-code/session-carry-over.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import {
   initProblems,
@@ -71,6 +72,7 @@ export const CLAUDE_CODE_P_CAPABILITIES: EngineCapabilities = {
   officeTools: true,
   outputSchema: true,
   languageServers: true,
+  carrySession: true,
 };
 
 /** What a session opens beside its engine's process, which ending it closes. */
@@ -132,6 +134,11 @@ export class ClaudeCodePEngine extends AgentEngine {
       this.operatingSystem.processTrees,
       { what: `Reading the usage windows of the engine ${engine.id}`, signal },
     );
+  }
+
+  /** From one Claude Code engine's config folder to another's (`carrySessionOver`). */
+  override carrySession(sessionId: string, from: Engine, to: Engine): Promise<void> {
+    return carrySessionOver(this.officeData, sessionId, from, to);
   }
 
   /** Refuses, before any message reaches it, a session without exactly its skills (spec §5.6). */

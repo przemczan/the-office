@@ -883,7 +883,7 @@ describe("EngineSessions on each engine's adapter", () => {
     });
   });
 
-  it("reads a Codex engine's capabilities from the Codex adapter, missing only language servers", async () => {
+  it("reads a Codex engine's capabilities from the Codex adapter, missing language servers and carrying a session", async () => {
     const officeData = await mkdtemp(join(tmpdir(), "office-codex-capabilities-"));
     try {
       const codex: CodexEngine = {
@@ -904,7 +904,7 @@ describe("EngineSessions on each engine's adapter", () => {
       );
 
       await expect(sessions.capabilitiesOf(codex.id)).resolves.toEqual(CODEX_CAPABILITIES);
-      expect(sessions.missingCapabilitiesOf(codex)).toEqual(["languageServers"]);
+      expect(sessions.missingCapabilitiesOf(codex)).toEqual(["languageServers", "carrySession"]);
     } finally {
       await rm(officeData, { recursive: true, force: true });
     }

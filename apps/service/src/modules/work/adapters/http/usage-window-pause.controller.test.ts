@@ -31,6 +31,7 @@ import { HOUR, MANY_REQUESTS_TEST_MS, tasksHttp } from "../../tasks.controller.f
 import {
   sendJson,
   startWorkApplication,
+  webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
@@ -421,5 +422,49 @@ describe("A Codex engine's used-up usage window", { timeout: MANY_REQUESTS_TEST_
     expect(answer.queued?.reasons).toEqual(["Codex's 5-hour window is used up until 14:00."]);
     await clock().advanceTo(RESET);
     expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+});
+
+describe("TaskService.wentOnOnStandIn: a running Stage went on on a Stand-in Engine (spec 5.4)", () => {
+  const onHome = {
+    engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+    engineName: "Claude Code",
+    standInId: "home",
+    standInName: "Home",
+    reason:
+      "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on Home.",
+    short: "5-hour window used up",
+  };
+
+  it("names the stand-in for the cascade's engine, replaces it on the next switch, and drops it back on the engine itself", async () => {
+    const task = await startedTask();
+    const tasks = work.app.get(TaskService);
+    work.published.length = 0;
+
+    await tasks.wentOnOnStandIn(task.id, onHome);
+    expect((await readTask(task.id)).engineStandIns).toEqual([onHome]);
+    // The web reads the Task again, so its page names the stand-in.
+    expect(webEventsOf(work)).toEqual([{ type: "task.went-on-on-stand-in", taskId: task.id }]);
+
+    const onSpare = { ...onHome, standInId: "spare", standInName: "Spare" };
+    await tasks.wentOnOnStandIn(task.id, onSpare);
+    expect((await readTask(task.id)).engineStandIns).toEqual([onSpare]);
+    expect((await readTask(task.id)).state).toBe("in-progress");
+
+    await tasks.wentOnOnStandIn(task.id, {
+      ...onHome,
+      standInId: FIRST_CLAUDE_CODE_ENGINE.id,
+      standInName: "Claude Code",
+    });
+    expect((await readTask(task.id)).engineStandIns).toEqual([]);
+  });
+
+  it("leaves a Task no longer running as it is", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+
+    await work.app.get(TaskService).wentOnOnStandIn(task.id, onHome);
+
+    expect((await readTask(task.id)).engineStandIns).toEqual([]);
   });
 });
