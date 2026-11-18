@@ -68,6 +68,13 @@ export function withStateChange<Event extends DomainEvent>(
   };
 }
 
+/** A Task the usage window doesn't hold: no resume of its own, no engine and no pause time kept. */
+const NO_USAGE_WINDOW_RESUME = {
+  resumesAt: undefined,
+  usageWindowEngineId: undefined,
+  usageWindowPausedAt: undefined,
+} as const satisfies Partial<Task>;
+
 /** What The Office sets on a new Task. */
 export interface NewTaskSetting {
   readonly order: string;
@@ -112,7 +119,7 @@ export function createTask(
     hasPlanningThread: false,
     personRole: undefined,
     pausedBy: undefined,
-    resumesAt: undefined,
+    ...NO_USAGE_WINDOW_RESUME,
     madeFor: undefined,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
@@ -153,7 +160,7 @@ function stateMove(
 ): TaskChange<TaskStateChanged> {
   return withStateChange(
     {
-      task: { ...task, state: to, pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: to, pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskStateChanged(task.id, task.state, to),
     },
     task,
@@ -318,7 +325,7 @@ export function pauseTask(task: Task, by: StateChangeCause): TaskChange<TaskPaus
   refuseUnlessRunning(task, "paused");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: "paused", pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, task.state, "user", undefined, userBehind(by)),
     },
     task,
@@ -346,13 +353,15 @@ export function pauseTaskForAlarm(task: Task): TaskChange<TaskPaused> | undefine
 /**
  * A pause by the usage window (spec §2.1): a Stage's turn was refused because its engine's usage
  * window is used up, so a Task In progress or Waiting on you is held Paused until the window's
- * reset, its Stage's run already ended held. One paused by the usage window has its resume moved to
+ * reset, its Stage's run already ended held, keeping the engine that refused and when (`now`, by
+ * The Office's clock) for an early resume. One paused by the usage window has its resume moved to
  * the new reset. Undefined for any other: a Task the user, the alarm or its Initiative holds stays
  * theirs.
  */
 export function pauseTaskForUsageWindow(
   task: Task,
   refusal: UsageWindowRefusal,
+  now: Date,
 ): TaskChange<TaskPaused> | undefined {
   const pausedByTheWindow = task.state === "paused" && task.pausedBy === "usage-window";
   if (!pausedByTheWindow && task.state !== "in-progress" && task.state !== "waiting-on-you") {
@@ -360,7 +369,14 @@ export function pauseTaskForUsageWindow(
   }
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: "usage-window", resumesAt: refusal.resetsAt },
+      task: {
+        ...task,
+        state: "paused",
+        pausedBy: "usage-window",
+        resumesAt: refusal.resetsAt,
+        usageWindowEngineId: refusal.engineId,
+        usageWindowPausedAt: now,
+      },
       event: new TaskPaused(task.id, task.state, "usage-window", refusal),
     },
     task,
@@ -371,7 +387,8 @@ export function pauseTaskForUsageWindow(
 /**
  * The usage window's reset, for a Task it paused: the Task goes on In progress, where its Pipeline
  * was held, or, while the fire alarm is on, is held by the alarm until the all clear, as a Resume
- * then is. Undefined for any other Task, and before its reset.
+ * then is. Undefined for any other Task, among them one an early resume took on already, and
+ * before its reset.
  */
 export function resumeTaskAtReset(
   task: Task,
@@ -379,9 +396,38 @@ export function resumeTaskAtReset(
 ): TaskChange<TaskResumed | TaskPaused> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "usage-window") return undefined;
   if (task.resumesAt !== undefined && task.resumesAt > now) return undefined;
+  return resumedFromUsageWindow(task, fireAlarmOn);
+}
+
+/**
+ * A reading of `engineId`'s usage windows, taken at `readAt`, that Engine judges free: a Task that
+ * engine's usage window paused before then resumes now, before its reset, as at the reset. Undefined
+ * for any other Task: paused by another engine, by none kept (paused before engines were kept), or
+ * after the reading was taken.
+ */
+export function resumeTaskFreedByUsageWindow(
+  task: Task,
+  {
+    fireAlarmOn,
+    engineId,
+    readAt,
+  }: { readonly fireAlarmOn: boolean; readonly engineId: string; readonly readAt: Date },
+): TaskChange<TaskResumed | TaskPaused> | undefined {
+  if (task.state !== "paused" || task.pausedBy !== "usage-window") return undefined;
+  if (task.usageWindowEngineId !== engineId) return undefined;
+  if (task.usageWindowPausedAt === undefined || task.usageWindowPausedAt >= readAt) {
+    return undefined;
+  }
+  return resumedFromUsageWindow(task, fireAlarmOn);
+}
+
+function resumedFromUsageWindow(
+  task: Task,
+  fireAlarmOn: boolean,
+): TaskChange<TaskResumed | TaskPaused> {
   if (fireAlarmOn) {
     return {
-      task: { ...task, pausedBy: "alarm", resumesAt: undefined },
+      task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, "paused", "alarm"),
     };
   }
@@ -397,7 +443,7 @@ export function stopTask(task: Task, by: Author): TaskChange<TaskStopped> {
   if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: "paused", pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskStopped(task.id, task.state, userBehind(by)),
     },
     task,
@@ -451,7 +497,7 @@ export function resumeTaskForInitiative(
   }
   if (fireAlarmOn) {
     return {
-      task: { ...task, pausedBy: "alarm", resumesAt: undefined },
+      task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, "paused", "alarm"),
     };
   }
@@ -486,7 +532,7 @@ export function resumeTask(
     throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
   }
   return {
-    task: { ...task, pausedBy: "alarm", resumesAt: undefined },
+    task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
     event: new TaskPaused(task.id, "paused", "alarm"),
   };
 }
@@ -494,7 +540,7 @@ export function resumeTask(
 function resumed(task: Task, by: StateChangeCause): TaskChange<TaskResumed> {
   return withStateChange(
     {
-      task: { ...task, state: "in-progress", pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: "in-progress", pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskResumed(task.id),
     },
     task,

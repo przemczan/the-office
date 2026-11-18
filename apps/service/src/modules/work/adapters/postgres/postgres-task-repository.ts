@@ -66,6 +66,20 @@ export class PostgresTaskRepository extends TaskRepository {
     return (await this.database.select().from(tasks)).map(toTask);
   }
 
+  async pausedByUsageWindowOn(engineId: string): Promise<readonly Task[]> {
+    const rows = await this.database
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.state, "paused"),
+          eq(tasks.pausedBy, "usage-window"),
+          eq(tasks.usageWindowEngineId, engineId),
+        ),
+      );
+    return rows.map(toTask);
+  }
+
   async droppedIds(): Promise<readonly string[]> {
     const rows = await this.database
       .select({ id: tasks.id })

@@ -7,8 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { fakeStdioMcpServer } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../domain/engines.js";
-import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
+import {
+  describeAgentEngineContract,
+  SESSIONLESS_SCENARIOS,
+  type ContractScenario,
+} from "../../ports/agent-engine.contract.js";
 import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-engine.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -54,8 +59,7 @@ describeAgentEngineContract("ScriptedEngine replaying the recordings", {
   backgroundCommands: true,
   usageWindowUsedUp: true,
   failedTurns: true,
-  engineFor: async (scenario) =>
-    new ScriptedEngine(await readRecording(join(RECORDINGS, `${scenario}.jsonl`))),
+  engineFor: (scenario) => replaying(RECORDINGS, scenario),
 });
 
 describeAgentEngineContract("ScriptedEngine without capabilities", {
@@ -67,8 +71,7 @@ describeAgentEngineContract("ScriptedEngine without capabilities", {
   backgroundCommands: true,
   usageWindowUsedUp: true,
   failedTurns: true,
-  engineFor: async (scenario) =>
-    new ScriptedEngine(await readRecording(join(RECORDINGS, `${scenario}.jsonl`)), NO_CAPABILITY),
+  engineFor: (scenario) => replaying(RECORDINGS, scenario, NO_CAPABILITY),
 });
 
 describeAgentEngineContract("ScriptedEngine replaying the Codex recordings", {
@@ -80,12 +83,32 @@ describeAgentEngineContract("ScriptedEngine replaying the Codex recordings", {
   fiveHourAndSevenDayWindows: false,
   mcpServer: CONTRACT_MCP_SERVER,
   backgroundCommands: false,
-  engineFor: async (scenario) =>
-    new ScriptedEngine(
-      await readRecording(join(CODEX_RECORDINGS, `${scenario}.jsonl`)),
-      CODEX_CAPABILITIES,
-    ),
+  engineFor: (scenario) => replaying(CODEX_RECORDINGS, scenario, CODEX_CAPABILITIES),
 });
+
+/**
+ * A scenario's engine: on its recording, or with the account's windows set for a scenario that
+ * opens no session and so has none.
+ */
+async function replaying(
+  recordings: string,
+  scenario: ContractScenario,
+  capabilities: Partial<EngineCapabilities> = {},
+): Promise<ScriptedEngine> {
+  if (!SESSIONLESS_SCENARIOS.includes(scenario)) {
+    return new ScriptedEngine(
+      await readRecording(join(recordings, `${scenario}.jsonl`)),
+      capabilities,
+    );
+  }
+  const engine = new ScriptedEngine([], capabilities);
+  engine.setUsageWindows(FIRST_CLAUDE_CODE_ENGINE.id, {
+    fiveHour: { percentUsed: 12, resetsAt: new Date("2027-01-15T10:00:00Z") },
+    sevenDay: { percentUsed: 30, resetsAt: new Date("2027-01-20T10:00:00Z") },
+    source: "usage-endpoint",
+  });
+  return engine;
+}
 
 let folder: string;
 
@@ -387,6 +410,47 @@ describe("ScriptedEngine", () => {
       "the script has its caller end next, but the caller asked to interrupt.",
     );
     await expect(reading).rejects.toBeInstanceOf(ScriptMismatch);
+  });
+
+  it("answers an engine's usage windows as the test sets them or fails them, counting each read", async () => {
+    const engine = new ScriptedEngine([]);
+    const signal = new AbortController().signal;
+    const windows = {
+      fiveHour: { percentUsed: 100, resetsAt: new Date("2027-01-15T10:00:00Z") },
+      sevenDay: { percentUsed: 30, resetsAt: undefined },
+      source: "usage-endpoint",
+    } as const;
+
+    await expect(
+      engine.readUsageWindows(FIRST_CLAUDE_CODE_ENGINE, signal),
+    ).resolves.toBeUndefined();
+    engine.setUsageWindows(FIRST_CLAUDE_CODE_ENGINE.id, windows);
+    await expect(engine.readUsageWindows(FIRST_CLAUDE_CODE_ENGINE, signal)).resolves.toEqual(
+      windows,
+    );
+    engine.failUsageWindowReads(FIRST_CLAUDE_CODE_ENGINE.id, new Error("No answer."));
+    await expect(engine.readUsageWindows(FIRST_CLAUDE_CODE_ENGINE, signal)).rejects.toThrow(
+      "No answer.",
+    );
+    // A Codex account on an API key has no windows to read.
+    await expect(
+      engine.readUsageWindows(
+        {
+          id: "codex",
+          name: "Codex",
+          kind: "codex",
+          defaultModel: "gpt-6-luna",
+          apiKey: CodexApiKey.of("sk-test"),
+        },
+        signal,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(engine.usageWindowReads).toEqual([
+      FIRST_CLAUDE_CODE_ENGINE.id,
+      FIRST_CLAUDE_CODE_ENGINE.id,
+      FIRST_CLAUDE_CODE_ENGINE.id,
+    ]);
   });
 
   it("refuses a session no script is left for, and a request once the script has ended", async () => {

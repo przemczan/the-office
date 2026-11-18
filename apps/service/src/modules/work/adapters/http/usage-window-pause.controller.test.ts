@@ -5,8 +5,15 @@ import { join } from "node:path";
 import { startAnswerSchema, type Task } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ProviderOverride } from "../../../../../test/test-application.js";
-import { EngineModels, FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../../engine/index.js";
+import {
+  EngineModels,
+  FIRST_CLAUDE_CODE_ENGINE,
+  UsageWindowsRead,
+  type Engine,
+  type EngineId,
+} from "../../../engine/index.js";
 import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
+import { EventBus } from "../../../../platform/events/event-bus.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
@@ -101,6 +108,23 @@ async function refused(
     window: "five-hour",
     resetsAt,
   });
+}
+
+/** Engine's reading of `engineId`'s usage windows, taken at `readAt`, judged `free` or not. */
+async function read(engineId: EngineId, readAt: Date, free: boolean): Promise<void> {
+  const percentUsed = free ? 40 : 100;
+  await work.app.get(EventBus).publish(
+    new UsageWindowsRead(
+      engineId,
+      {
+        fiveHour: { percentUsed, resetsAt: RESET },
+        sevenDay: { percentUsed: 10, resetsAt: undefined },
+        source: "rate-limit-headers",
+      },
+      readAt,
+      free,
+    ),
+  );
 }
 
 describe("A pause by the usage window", { timeout: MANY_REQUESTS_TEST_MS }, () => {
@@ -210,6 +234,88 @@ describe("A pause by the usage window", { timeout: MANY_REQUESTS_TEST_MS }, () =
     // The reset passing resumes none of them.
     await clock().advanceTo(RESET);
     expect((await readTask(stopped.id)).state).toBe("paused");
+  });
+});
+
+describe("A free reading before the reset", { timeout: MANY_REQUESTS_TEST_MS }, () => {
+  const ENGINE = FIRST_CLAUDE_CODE_ENGINE.id;
+
+  it("resumes the Tasks that engine's usage window paused, and the reset then does nothing", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    work.published.length = 0;
+
+    await clock().advanceTo(new Date(NOW.getTime() + 10 * 60_000));
+    await read(ENGINE, clock().now(), true);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "in-progress",
+      pausedBy: null,
+      resumesAt: null,
+    });
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      usageWindowEngineId: undefined,
+      usageWindowPausedAt: undefined,
+    });
+    expect(work.published.filter((event) => event instanceof TaskResumed)).toHaveLength(1);
+
+    // The Task goes on and is paused by the user; the reset passing leaves it to them.
+    await sendJson(work, "POST", `/tasks/${task.id}/pause`);
+    work.published.length = 0;
+    await clock().advanceTo(RESET);
+    expect((await readTask(task.id)).state).toBe("paused");
+    expect(work.published.some((event) => event instanceof TaskResumed)).toBe(false);
+  });
+
+  it("keeps the engine and when it paused, and resumes none on a reading of another engine, one not free, or one taken before the pause", async () => {
+    const task = await startedTask();
+    await clock().advanceTo(new Date(NOW.getTime() + 5 * 60_000));
+    const pausedAt = clock().now();
+    await refused(task.id);
+
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      usageWindowEngineId: ENGINE,
+      usageWindowPausedAt: pausedAt,
+    });
+
+    await clock().advanceTo(new Date(NOW.getTime() + 10 * 60_000));
+    await read("codex", clock().now(), true);
+    await read(ENGINE, clock().now(), false);
+    await read(ENGINE, NOW, true);
+    await read(ENGINE, pausedAt, true);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "paused",
+      pausedBy: "usage-window",
+      resumesAt: RESET.toISOString(),
+    });
+    await clock().advanceTo(RESET);
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+
+  it("leaves the Task held by the alarm when the alarm is on", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    await sound();
+
+    await read(ENGINE, new Date(NOW.getTime() + 60_000), true);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "paused",
+      pausedBy: "alarm",
+      resumesAt: null,
+    });
+  });
+
+  it("resumes, after a restart, a Task paused before it, on the first free reading", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+
+    await work.app.close();
+    await startApplication();
+    await read(ENGINE, new Date(NOW.getTime() + 60_000), true);
+
+    expect((await readTask(task.id)).state).toBe("in-progress");
   });
 });
 

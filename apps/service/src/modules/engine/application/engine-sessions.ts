@@ -5,12 +5,7 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown, SkillCalled } from "../domain/engine-events.js";
 import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
-import {
-  hasUsageWindows,
-  type Engine,
-  type EngineId,
-  type EngineModel,
-} from "../domain/engines.js";
+import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
 import { withLeftOutLanguageServers } from "../domain/language-servers.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
@@ -29,8 +24,6 @@ import type {
   UserMessage,
 } from "../ports/engine-session.js";
 import {
-  addedTokens,
-  NO_TOKENS,
   type SessionEvent,
   type TokenUsage,
   type TurnEndedEvent,
@@ -47,7 +40,7 @@ import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
-import { UsageWindowSamples } from "./usage-window-samples.js";
+import { UsageWindowReadings } from "./usage-window-readings.js";
 import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.js";
 
 /**
@@ -87,8 +80,6 @@ export interface SessionStart {
 export class EngineSessions {
   private readonly logger = new Logger(EngineSessions.name);
   private readonly costs = new SessionCosts();
-  /** Every turn's tokens on each engine since the service started, which its readings carry. */
-  private readonly officeTokensSoFar = new Map<EngineId, TokenUsage>();
 
   constructor(
     private readonly engines: AgentEngines,
@@ -97,7 +88,7 @@ export class EngineSessions {
     private readonly usageWindows: UsageWindowState,
     private readonly officeTools: OfficeToolRegistry,
     private readonly dayUsage: DayUsage,
-    private readonly windowSamples: UsageWindowSamples,
+    private readonly readings: UsageWindowReadings,
     private readonly engineModels: EngineModels,
     private readonly running: RunningEngineSessions,
     private readonly busyWork: BusyWork,
@@ -123,7 +114,7 @@ export class EngineSessions {
 
   /** Whether `engine`'s sessions read its account's usage windows: it has them and reads them. */
   readsUsageWindows(engine: Engine): boolean {
-    return hasUsageWindows(engine) && this.engines.of(engine).capabilities.usageWindows;
+    return this.engines.readsUsageWindows(engine);
   }
 
   /** What `engine` declares it can't do, which the Role card names under its Engine field. */
@@ -286,31 +277,12 @@ export class EngineSessions {
       return undefined;
     }
     if (windows === undefined) return undefined;
-    const reading: UsageWindowReading = {
-      ...windows,
-      readAt: new Date(),
-      officeTokensSoFar: this.officeTokensSoFar.get(engineId) ?? NO_TOKENS,
-    };
-    await this.usageWindows.update(engine, reading);
-    await this.keepSample(engineId, reading);
-    return reading;
-  }
-
-  /** A failure to keep a pair of readings is logged: the reading stands. */
-  private async keepSample(engineId: EngineId, reading: UsageWindowReading): Promise<void> {
-    try {
-      await this.windowSamples.add(engineId, reading);
-    } catch (error) {
-      this.logger.error(`Keeping a pair of usage readings failed: ${messageOf(error)}`);
-    }
+    return this.readings.keep(engine, windows);
   }
 
   /** A failure to keep the day's use is logged: the session runs on, and its turn is reported. */
   private async turnEnded({ engineId, model }: EngineModel, usage: TokenUsage): Promise<void> {
-    this.officeTokensSoFar.set(
-      engineId,
-      addedTokens(this.officeTokensSoFar.get(engineId) ?? NO_TOKENS, usage),
-    );
+    this.readings.turnEnded(engineId, usage);
     try {
       await this.dayUsage.add({ engineId, model }, usage);
     } catch (error) {

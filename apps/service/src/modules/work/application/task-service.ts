@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
 import type { StateChange } from "../domain/state-change.js";
@@ -17,6 +18,7 @@ import {
   reorderTask,
   resumeTask,
   resumeTaskAtReset,
+  resumeTaskFreedByUsageWindow,
   stopTask,
   type TaskChange,
 } from "../domain/task-changes.js";
@@ -63,6 +65,7 @@ export class TaskService {
     private readonly initiativeBranching: InitiativeBranching,
     private readonly initiatives: InitiativeRepository,
     private readonly events: EventBus,
+    private readonly schedule: Schedule,
   ) {}
 
   /**
@@ -335,25 +338,52 @@ export class TaskService {
    * at the window's reset (UsageWindowResumes). One paused by it already has its resume moved on.
    */
   async pauseForUsageWindow(id: string, refusal: UsageWindowRefusal): Promise<Task> {
-    return this.update(id, (task) => pauseTaskForUsageWindow(task, refusal));
+    const now = this.schedule.now();
+    return this.update(id, (task) => pauseTaskForUsageWindow(task, refusal, now));
   }
 
   /**
    * The usage window's reset, for a Task it paused: resumed, so its Pipeline walks on where it was
    * held; while the fire alarm is on the alarm holds it instead, until the all clear. A Task the
-   * user, the alarm or its Initiative holds by now, or whose reset moved on, stays as it is.
+   * user, the alarm or its Initiative holds by now, one a free reading resumed already
+   * (`resumeFreedByUsageWindow`), or one whose reset moved on, stays as it is.
    */
   async resumeAtReset(id: string, now: Date): Promise<Task> {
     const fireAlarmOn = await this.fireAlarmOn();
-    const { task, event } = await this.repository.update(id, (held) =>
-      resumeTaskAtReset(held, { fireAlarmOn, now }),
-    );
+    return (
+      await this.resumeFromUsageWindow(id, (held) => resumeTaskAtReset(held, { fireAlarmOn, now }))
+    ).task;
+  }
+
+  /**
+   * A reading of `engineId`'s usage windows taken at `readAt` that Engine judged free: every Task
+   * that engine's usage window paused before then resumes now, as at its reset, or is held by the
+   * fire alarm while it is on. A Task paused before the engine was kept waits for its reset. Answers
+   * the ids of the Tasks it took off the usage window.
+   */
+  async resumeFreedByUsageWindow(engineId: string, readAt: Date): Promise<readonly string[]> {
+    const fireAlarmOn = await this.fireAlarmOn();
+    const freed: string[] = [];
+    for (const { id } of await this.repository.pausedByUsageWindowOn(engineId)) {
+      const { changed } = await this.resumeFromUsageWindow(id, (held) =>
+        resumeTaskFreedByUsageWindow(held, { fireAlarmOn, engineId, readAt }),
+      );
+      if (changed) freed.push(id);
+    }
+    return freed;
+  }
+
+  private async resumeFromUsageWindow(
+    id: string,
+    change: (task: Task) => TaskChange<TaskResumed | TaskPaused> | undefined,
+  ): Promise<{ readonly task: Task; readonly changed: boolean }> {
+    const { task, event } = await this.repository.update(id, change);
     // Read again after the save, as a Resume does: an alarm sounded meanwhile passed it by as Paused.
     if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
-      return this.update(id, pauseTaskForAlarm);
+      return { task: await this.update(id, pauseTaskForAlarm), changed: true };
     }
     if (event) await this.events.publish(event);
-    return task;
+    return { task, changed: event !== undefined };
   }
 
   /** Holds the Task now; TaskStopped tells Pipelines to interrupt the Stage running. */

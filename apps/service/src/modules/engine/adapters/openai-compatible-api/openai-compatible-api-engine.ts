@@ -5,6 +5,7 @@ import { currentOperatingSystem } from "../../../../platform/os/current-operatin
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import { withoutContainerRuntimeVariables } from "../../domain/container-runtime-commands.js";
 import type { ApiEngine } from "../../domain/engines.js";
+import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SearchEndpoint } from "../../domain/engine-settings.js";
 import type { ToolDecision } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
@@ -107,6 +108,11 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       conversationFile,
       kept: await conversationFile.read(),
     });
+  }
+
+  /** An API endpoint has no usage windows. */
+  readUsageWindows(): Promise<UsageWindows | undefined> {
+    return Promise.resolve(undefined);
   }
 
   private conversationFile(sessionId: string): ConversationFile {

@@ -1,4 +1,4 @@
-import type { Engine } from "../domain/engines.js";
+import { hasUsageWindows, type Engine } from "../domain/engines.js";
 import type { AgentEngine } from "../ports/agent-engine.js";
 
 /**
@@ -25,5 +25,10 @@ export class AgentEngines {
       case "claude-code":
         return this.adapters[engine.claudeCodeP ? "claude-code-p" : "agent-sdk"];
     }
+  }
+
+  /** Whether `engine`'s account has usage windows and its adapter reads them. */
+  readsUsageWindows(engine: Engine): boolean {
+    return hasUsageWindows(engine) && this.of(engine).capabilities.usageWindows;
   }
 }

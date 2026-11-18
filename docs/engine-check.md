@@ -37,6 +37,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | every check but the slow one, with the read fence off and `claudeMdExcludes` in the Office's options (task 33 step 2); `permissions.file-tool-fence` and `skills.plugin-folder-reads` retired, `permissions.hook-sees-every-call` re-recorded |
 | Ubuntu 24.04 x64 (linux), the Office's own machine | 2026-11-06 | `skills.overrides-library` added and recorded, no model call; not run on Windows yet |
 | (pending) | | `skills.skill-command` added (skill commands), not yet run on either platform: it needs a signed-in machine |
+| (pending) | | `engine.usage-read-alone` and `codex.usage-read-alone` added (the engine-level read of the usage windows, every 5 minutes with no session), not yet run on either platform: they need a signed-in machine |
 | Ubuntu 24.04 x64 (linux), the Office's own machine | 2026-11-16 | the 9 `codex.*` checks added (Codex engine task) and recorded on `gpt-6-luna`, a ChatGPT sign-in (Free plan) in a folder made for the check; a second run matches. A full run takes about 3 minutes and about 80k input, 1k output and 390k cache-read tokens. Not run on Windows yet |
 
 | Windows 11 (win32), the workstation | 2026-10-31 | the OpenAI-compatible API engine live on Strata (task 35 step 9): five contract scenarios, then a chat and a Stage on the Test Project (task 35's check); see [the OpenAI-compatible API](#the-openai-compatible-api) |
@@ -295,6 +296,14 @@ Added 2026-11-13 (Task 3de35a58). **Not run live yet:** no window of the account
   - Overloaded (529) and server errors (5xx) end with `error: "overloaded"` or `"server_error"` after the engine's own retries (`system:api_retry` messages); no rejected `rate_limit_event` is made for them, as the info is read only from a 429's headers.
 - **Meaning:** a turn is refused for a used-up window when it ends with an error after a `rate_limit_event` with `status: "rejected"` in the same turn; the window and the reset come from that event. `error: "rate_limit"` without a rejected event, and any error after an `allowed` event, stay ordinary failures (§5.4, the spec amendment of Task 3de35a58).
 
+### engine.usage-read-alone
+
+Added 2026-11-18. **Not run live yet:** an Agent's session has no signed-in engine to run it with; the user records it.
+
+- **Run:** what the Agent SDK adapter's `readUsageWindows` does every 5 minutes while nothing runs on the engine (spec §5.4): a `query()` opened for the read alone, on the account's config folder as its working folder, with no tools (`tools: []`), no settings (`settingSources: []`), `strictMcpConfig`, `persistSession: false` (the SDK passes `--no-session-persistence`) and a prompt that never sends a message; the usage query with `skipBehaviors: true`; then the prompt and the query closed. The files under the config folder's `projects/` are listed before and after, and the engine's process is started by the check's own `spawnClaudeCodeProcess`, so its end is seen.
+- **Expected:** the usage query answers both windows (`utilization` and `resets_at`) as in `engine.rate-limit-event`; no `assistant` or `result` message comes (`modelCalled` false), so no model call; no new file under `projects/` (`newTranscriptFiles` 0); the process ends once the query is closed (`processEnded` true).
+- **Meaning:** the usage windows are read with no session, no transcript and no quota spent, so a used-up window found free again is known while every Task on the engine is paused (§5.4). The `-p` adapter reads the same way on the pinned binary (`--no-session-persistence`, `--tools=`, `--setting-sources=`, `--strict-mcp-config`, the `get_usage` control request before any message); not checked separately, as the binary is the one the SDK runs.
+
 ### engine.parallel-sessions
 
 - **Run:** three sessions in three worktrees of one repository, each held inside a tool call by a hook barrier until all three arrive.
@@ -453,6 +462,14 @@ Each check records facts that hold run to run. A check whose model skipped a ste
 - **Run:** `account/rateLimits/read`, one turn, `account/rateLimits/read` again.
 - **Observed (ChatGPT Free):** one window, limit id `codex`, `primary` 43,200 minutes (30 days) with `usedPercent` and a `resetsAt` ahead, no `secondary`; the plan is given. `account/rateLimits/updated` comes during the turn with the same shape. `thread/tokenUsage/updated` gives `inputTokens` (cached included), `cachedInputTokens`, `cacheWriteInputTokens`, `outputTokens` (reasoning included), `reasoningOutputTokens`, `totalTokens` and `modelContextWindow`. No window was used up, so no refused turn was seen; the protocol marks one `codexErrorInfo: "usageLimitExceeded"`.
 - **Meaning:** `usageWindows` and `contextUsage` hold on a ChatGPT sign-in. Which windows there are follows the plan, so the record holds for the Free plan; a paid plan's windows are recorded when the check runs on one.
+
+### codex.usage-read-alone
+
+Added 2026-11-18. **Not run live yet:** an Agent's session has no signed-in Codex folder; the user records it with `--codex-home`.
+
+- **Run:** what the Codex adapter's `readUsageWindows` does every 5 minutes while nothing runs on the engine (spec §5.4): an app-server started for the read alone on the account folder, `initialize` (the check's session also sends `account/read`, which the adapter doesn't), `account/rateLimits/read`, no `thread/start`, then the app-server closed. The files under the folder's `sessions/` and `archived_sessions/` are listed after its start and after its end.
+- **Expected:** the snapshot as in `codex.usage-reading`; no `thread/tokenUsage/updated` notification (`modelCalled` false) and no thread started; no new thread file (`newThreadFiles` 0); the process ended with the close (`processEnded` true).
+- **Meaning:** the usage windows of a ChatGPT sign-in are read with no thread, no model call and nothing left in the account folder (§5.4). On ChatGPT Free the one 30-day window is left unread by the adapter, as by a session.
 
 ### codex.interrupt
 

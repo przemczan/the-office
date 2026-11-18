@@ -12,6 +12,8 @@ import { OfficeToolRegistry } from "./application/office-tool-registry.js";
 import { ChangedAccountUsage } from "./application/changed-account-usage.js";
 import { RemovedEngineUsage } from "./application/removed-engine-usage.js";
 import { UsageWindowSamples } from "./application/usage-window-samples.js";
+import { UsageWindowChecks } from "./application/usage-window-checks.js";
+import { UsageWindowReadings } from "./application/usage-window-readings.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import { UsageWindowTelemetry } from "./application/usage-window-telemetry.js";
 import { UsageWindowsNow } from "./application/usage-windows-now.js";
@@ -45,6 +47,8 @@ export class ScriptedEngineModule {
         DayUsage,
         { provide: UsageWindowSampleRepository, useClass: PostgresUsageWindowSamples },
         UsageWindowSamples,
+        UsageWindowReadings,
+        UsageWindowChecks,
         RemovedEngineUsage,
         ChangedAccountUsage,
         UsageWindowTelemetry,

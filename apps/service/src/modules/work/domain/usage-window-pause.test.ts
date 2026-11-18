@@ -9,6 +9,7 @@ import {
   resumeTask,
   resumeTaskAtReset,
   resumeTaskForInitiative,
+  resumeTaskFreedByUsageWindow,
   stopTask,
 } from "./task-changes.js";
 import { TaskPaused, TaskResumed } from "./task-events.js";
@@ -26,16 +27,29 @@ const REFUSAL = {
   resetsAt: RESET,
 };
 
-const pausedByTheWindow = aTask({ state: "paused", pausedBy: "usage-window", resumesAt: RESET });
+const pausedByTheWindow = aTask({
+  state: "paused",
+  pausedBy: "usage-window",
+  resumesAt: RESET,
+  usageWindowEngineId: "claude-code",
+  usageWindowPausedAt: NOW,
+});
+const CLEARED = {
+  resumesAt: undefined,
+  usageWindowEngineId: undefined,
+  usageWindowPausedAt: undefined,
+};
 
 describe("pauseTaskForUsageWindow", () => {
   it("pauses a running Task by the usage window until the reset, by the usage window", () => {
-    const change = pauseTaskForUsageWindow(aTask({ state: "in-progress" }), REFUSAL);
+    const change = pauseTaskForUsageWindow(aTask({ state: "in-progress" }), REFUSAL, NOW);
 
     expect(change?.task).toMatchObject({
       state: "paused",
       pausedBy: "usage-window",
       resumesAt: RESET,
+      usageWindowEngineId: "claude-code",
+      usageWindowPausedAt: NOW,
     });
     expect(change?.event).toBeInstanceOf(TaskPaused);
     expect(change?.event).toMatchObject({
@@ -45,18 +59,23 @@ describe("pauseTaskForUsageWindow", () => {
     });
     expect(change?.stateChange?.by).toEqual({ kind: "usage-window" });
     expect(
-      pauseTaskForUsageWindow(aTask({ state: "waiting-on-you" }), REFUSAL)?.task.pausedBy,
+      pauseTaskForUsageWindow(aTask({ state: "waiting-on-you" }), REFUSAL, NOW)?.task.pausedBy,
     ).toBe("usage-window");
   });
 
   it("moves the resume of a Task it paused already on to the new reset", () => {
-    const change = pauseTaskForUsageWindow(pausedByTheWindow, {
-      ...REFUSAL,
-      window: "seven-day",
-      resetsAt: LATER_RESET,
-    });
+    const later = new Date(NOW.getTime() + 60_000);
+    const change = pauseTaskForUsageWindow(
+      pausedByTheWindow,
+      { ...REFUSAL, window: "seven-day", resetsAt: LATER_RESET },
+      later,
+    );
 
-    expect(change?.task.resumesAt).toEqual(LATER_RESET);
+    expect(change?.task).toMatchObject({
+      resumesAt: LATER_RESET,
+      usageWindowEngineId: "claude-code",
+      usageWindowPausedAt: later,
+    });
     expect(change?.event).toMatchObject({ from: "paused", by: "usage-window" });
     expect(change?.stateChange).toBeUndefined();
   });
@@ -68,7 +87,7 @@ describe("pauseTaskForUsageWindow", () => {
       aTask({ state: "paused", pausedBy: "initiative" }),
       aTask({ state: "ready" }),
     ]) {
-      expect(pauseTaskForUsageWindow(task, REFUSAL)).toBeUndefined();
+      expect(pauseTaskForUsageWindow(task, REFUSAL, NOW)).toBeUndefined();
     }
   });
 });
@@ -77,11 +96,7 @@ describe("resumeTaskAtReset", () => {
   it("resumes a Task the usage window paused at its reset, by the usage window", () => {
     const change = resumeTaskAtReset(pausedByTheWindow, { fireAlarmOn: false, now: RESET });
 
-    expect(change?.task).toMatchObject({
-      state: "in-progress",
-      pausedBy: undefined,
-      resumesAt: undefined,
-    });
+    expect(change?.task).toMatchObject({ state: "in-progress", pausedBy: undefined, ...CLEARED });
     expect(change?.event).toBeInstanceOf(TaskResumed);
     expect(change?.stateChange?.by).toEqual({ kind: "usage-window" });
   });
@@ -91,8 +106,21 @@ describe("resumeTaskAtReset", () => {
 
     const held = resumeTaskAtReset(pausedByTheWindow, { fireAlarmOn: true, now: RESET });
 
-    expect(held?.task).toMatchObject({ state: "paused", pausedBy: "alarm", resumesAt: undefined });
+    expect(held?.task).toMatchObject({ state: "paused", pausedBy: "alarm", ...CLEARED });
     expect(held?.event).toMatchObject({ from: "paused", by: "alarm" });
+  });
+
+  it("does nothing for a Task a free reading resumed before the reset", () => {
+    const early = resumeTaskFreedByUsageWindow(pausedByTheWindow, {
+      fireAlarmOn: false,
+      engineId: "claude-code",
+      readAt: new Date(NOW.getTime() + 60_000),
+    });
+
+    expect(early?.task.state).toBe("in-progress");
+    expect(
+      resumeTaskAtReset(early?.task ?? pausedByTheWindow, { fireAlarmOn: false, now: RESET }),
+    ).toBeUndefined();
   });
 
   it("leaves a Task anyone else holds by now", () => {
@@ -103,6 +131,52 @@ describe("resumeTaskAtReset", () => {
     ]) {
       expect(resumeTaskAtReset(task, { fireAlarmOn: false, now: RESET })).toBeUndefined();
     }
+  });
+});
+
+describe("resumeTaskFreedByUsageWindow", () => {
+  const AFTER = new Date(NOW.getTime() + 60_000);
+
+  it("resumes a Task that engine's usage window paused before the free reading was taken", () => {
+    const change = resumeTaskFreedByUsageWindow(pausedByTheWindow, {
+      fireAlarmOn: false,
+      engineId: "claude-code",
+      readAt: AFTER,
+    });
+
+    expect(change?.task).toMatchObject({ state: "in-progress", pausedBy: undefined, ...CLEARED });
+    expect(change?.event).toBeInstanceOf(TaskResumed);
+    expect(change?.stateChange?.by).toEqual({ kind: "usage-window" });
+  });
+
+  it("leaves the Task to the alarm while it is on", () => {
+    const held = resumeTaskFreedByUsageWindow(pausedByTheWindow, {
+      fireAlarmOn: true,
+      engineId: "claude-code",
+      readAt: AFTER,
+    });
+
+    expect(held?.task).toMatchObject({ state: "paused", pausedBy: "alarm", ...CLEARED });
+  });
+
+  it("leaves one paused by another engine, at or after the reading, or with no engine kept", () => {
+    const free = { fireAlarmOn: false, engineId: "claude-code", readAt: AFTER };
+
+    expect(
+      resumeTaskFreedByUsageWindow(pausedByTheWindow, { ...free, engineId: "codex" }),
+    ).toBeUndefined();
+    expect(
+      resumeTaskFreedByUsageWindow(pausedByTheWindow, { ...free, readAt: NOW }),
+    ).toBeUndefined();
+    expect(
+      resumeTaskFreedByUsageWindow(
+        aTask({ state: "paused", pausedBy: "usage-window", resumesAt: RESET }),
+        free,
+      ),
+    ).toBeUndefined();
+    expect(
+      resumeTaskFreedByUsageWindow({ ...pausedByTheWindow, pausedBy: "initiative" }, free),
+    ).toBeUndefined();
   });
 });
 
@@ -122,17 +196,17 @@ describe("the user's actions on a Task the usage window paused", () => {
       ANN_LEE,
     );
 
-    expect(resumed.task).toMatchObject({ state: "in-progress", resumesAt: undefined });
-    expect(keptByTheAlarm.task).toMatchObject({ pausedBy: "alarm", resumesAt: undefined });
+    expect(resumed.task).toMatchObject({ state: "in-progress", ...CLEARED });
+    expect(keptByTheAlarm.task).toMatchObject({ pausedBy: "alarm", ...CLEARED });
     expect(stopTask(pausedByTheWindow, ANN_LEE).task).toMatchObject({
       state: "paused",
       pausedBy: undefined,
-      resumesAt: undefined,
+      ...CLEARED,
     });
     expect(changeTaskState(pausedByTheWindow, "dropped", ANN_LEE)?.task).toMatchObject({
       state: "dropped",
       pausedBy: undefined,
-      resumesAt: undefined,
+      ...CLEARED,
     });
   });
 
@@ -145,7 +219,12 @@ describe("an Initiative's Pause and the usage window", () => {
   it("Pause the Initiative takes it over, keeping the reset", () => {
     const change = pauseTaskForInitiative(pausedByTheWindow, ANN_LEE);
 
-    expect(change?.task).toMatchObject({ pausedBy: "initiative", resumesAt: RESET });
+    expect(change?.task).toMatchObject({
+      pausedBy: "initiative",
+      resumesAt: RESET,
+      usageWindowEngineId: "claude-code",
+      usageWindowPausedAt: NOW,
+    });
     expect(change?.event).toMatchObject({ from: "paused", by: "initiative" });
   });
 

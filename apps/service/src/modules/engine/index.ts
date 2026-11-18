@@ -36,6 +36,7 @@ export {
 } from "./domain/engine-events.js";
 export { EngineModels } from "./application/engine-models.js";
 export { usageWindowWords } from "./domain/usage-window-words.js";
+export { showsFree } from "./domain/usage-windows.js";
 export type { UsageWindowName } from "./ports/session-events.js";
 export {
   EngineSettingsChecks,

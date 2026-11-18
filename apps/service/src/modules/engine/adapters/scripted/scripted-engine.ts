@@ -10,6 +10,7 @@ import { callAsRun } from "../office-rules/foreground-sub-agents.js";
 import { mcpToolOf } from "../office-rules/office-tool-names.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
+import { hasUsageWindows, type Engine, type EngineId } from "../../domain/engines.js";
 import { OfficeRules } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
@@ -85,8 +86,12 @@ export class ScriptedEngine extends AgentEngine {
   readonly capabilities: EngineCapabilities;
   /** Every session started or resumed, in order. */
   readonly sessions: ScriptedSession[] = [];
+  /** The engines whose usage windows were read with no session, by id, in order. */
+  readonly usageWindowReads: EngineId[] = [];
   private readonly scripts: SessionScript[];
   private readonly mcpClient: McpClient = new SdkMcpClient();
+  /** What a read of each engine's usage windows answers, or fails with; none unless a test sets it. */
+  private readonly engineWindows = new Map<EngineId, UsageWindows | Error>();
 
   constructor(
     scripts: readonly SessionScript[],
@@ -104,6 +109,34 @@ export class ScriptedEngine extends AgentEngine {
    */
   queue(...scripts: readonly SessionScript[]): void {
     this.scripts.push(...scripts);
+  }
+
+  /**
+   * What `readUsageWindows` answers for the engine from now on: `windows`, or none when undefined.
+   * Not part of the port: a test calls it.
+   */
+  setUsageWindows(engineId: EngineId, windows: UsageWindows | undefined): void {
+    if (windows === undefined) this.engineWindows.delete(engineId);
+    else this.engineWindows.set(engineId, windows);
+  }
+
+  /** Makes `readUsageWindows` fail with `error` for the engine from now on. Not part of the port. */
+  failUsageWindowReads(engineId: EngineId, error: Error): void {
+    this.engineWindows.set(engineId, error);
+  }
+
+  /**
+   * Answers what a test set for the engine (`setUsageWindows`, `failUsageWindowReads`), none
+   * unless it set any, counting the read in `usageWindowReads`. None without the capability or
+   * for an account without windows, as the port says.
+   */
+  async readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
+    signal.throwIfAborted();
+    if (!this.capabilities.usageWindows || !hasUsageWindows(engine)) return undefined;
+    this.usageWindowReads.push(engine.id);
+    const set = this.engineWindows.get(engine.id);
+    if (set instanceof Error) throw set;
+    return set;
   }
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
