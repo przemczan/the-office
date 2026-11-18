@@ -290,6 +290,8 @@ export type WorkTarget =
 export interface WorkLink {
   readonly words: string;
   readonly target: WorkTarget;
+  /** Why its session runs on a Stand-in Engine, shown on hover. */
+  readonly reason?: string;
 }
 
 /** Where a figure is on the canvas, in CSS pixels from its top left, to place its nameplate. */

@@ -15,6 +15,7 @@ export function aStageRun(fields: Partial<StageRun> = {}): StageRun {
     engineId: undefined,
     engineName: undefined,
     model: undefined,
+    standInFor: undefined,
     headCommit: undefined,
     changedFiles: undefined,
     commandRuns: [],

@@ -112,12 +112,13 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
    */
   async release(): Promise<void> {
     const conditions = await this.conditionsOfQueued();
-    const { started, refused, reasonsChanged, capResets } = await this.queue.release(
-      (queue, held) => releaseQueue(queue, held, (taskId) => conditions.get(taskId)),
-    );
+    const { started, startedEstimates, refused, reasonsChanged, capResets } =
+      await this.queue.release((queue, held) =>
+        releaseQueue(queue, held, (taskId) => conditions.get(taskId)),
+      );
     const startedAt = this.schedule.now();
     for (const { task } of started) {
-      const estimate = conditions.get(task.id)?.usage.estimate;
+      const estimate = startedEstimates.get(task.id);
       if (estimate) this.startsSinceReading.record(startedAt, estimate);
     }
     this.setCapRelease(capResets, this.weighedAt(conditions));

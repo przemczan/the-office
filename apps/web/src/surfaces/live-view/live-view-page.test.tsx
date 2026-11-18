@@ -80,7 +80,13 @@ const STAGE_THREAD = "6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 const CHAT_THREAD = "7b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e";
 
 function agentOnTheTask(threadId: string): LiveAgent {
-  return { threadId, home: { kind: "task", taskId: TASK_ID }, kind: "stage", consultation: null };
+  return {
+    threadId,
+    home: { kind: "task", taskId: TASK_ID },
+    kind: "stage",
+    consultation: null,
+    engine: null,
+  };
 }
 
 const JIM_WORKING = officePerson("developer", {
@@ -376,6 +382,7 @@ describe("The Live view", () => {
           home: { kind: "chat", roleKey: "developer" },
           kind: "thread",
           consultation: null,
+          engine: null,
         },
       ],
     });

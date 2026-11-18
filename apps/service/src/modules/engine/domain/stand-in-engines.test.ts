@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { codex } from "./engine-settings.fixtures.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type ClaudeCodeEngine, type EngineId } from "./engines.js";
-import { engineToRunOn } from "./stand-in-engines.js";
+import { engineThroughStandIns, engineToRunOn } from "./stand-in-engines.js";
 
 const work: ClaudeCodeEngine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "work", name: "Work" };
 const home: ClaudeCodeEngine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "home", name: "Home" };
@@ -61,5 +61,32 @@ describe("engineToRunOn", () => {
       engineToRunOn(cascade, { engines, standInEngines: ["home", "codex"] }, withRoom("codex")),
     ).toBeNull();
     expect(engineToRunOn(cascade, { engines, standInEngines: [] }, withRoom())).toBeNull();
+  });
+});
+
+describe("engineThroughStandIns", () => {
+  const standIns = [{ engineId: "work", standInId: "home" }];
+
+  it("maps the cascade's engine to the stand-in recorded for it, keeping the model", () => {
+    expect(engineThroughStandIns(cascade, standIns, engines)).toEqual({
+      engineId: "home",
+      model: "claude-sonnet-5-5",
+    });
+  });
+
+  it("keeps an engine no stand-in is recorded for", () => {
+    const other = { engineId: "spare", model: "claude-sonnet-5-5" };
+
+    expect(engineThroughStandIns(other, standIns, engines)).toBe(other);
+  });
+
+  it("maps back to the cascade's engine once the stand-in is removed", () => {
+    expect(engineThroughStandIns(cascade, standIns, [work, spare])).toBe(cascade);
+  });
+
+  it("maps back to the cascade's engine once the stand-in no longer serves the model", () => {
+    expect(
+      engineThroughStandIns(cascade, [{ engineId: "work", standInId: "codex" }], engines),
+    ).toBe(cascade);
   });
 });

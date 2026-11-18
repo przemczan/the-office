@@ -29,6 +29,13 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+// jsdom has no layout, so the tooltip, placed by its size, never resizes.
+globalThis.ResizeObserver ??= class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
+
 const TASK_ID = "00000000-0000-4000-8000-000000000001";
 const gate: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
 
@@ -37,6 +44,7 @@ function aRun(fields: Pick<StageRun, "id" | "number" | "startedAt" | "endedAt">)
     waitingSince: null,
     threadId: null,
     session: null,
+    engine: null,
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,
@@ -157,6 +165,59 @@ describe("a Gate's run", () => {
 
   it("shows no Attachments heading for a run that has none", () => {
     expect(shownIn(showRun(secondRun, attachments.slice(0, 1)))).toBeNull();
+  });
+});
+
+const head = (page: HTMLElement): HTMLElement | null => page.querySelector(".run-details-head");
+
+describe("a run's head", () => {
+  afterEach(() => document.body.replaceChildren());
+
+  it("names the model and the engine its session ran on", () => {
+    const page = showRun(
+      {
+        ...secondRun,
+        engine: {
+          engineId: "work",
+          engineName: "Work",
+          model: "claude-opus-5-5",
+          standInFor: null,
+        },
+      },
+      [],
+    );
+    expect(head(page)?.textContent).toContain(" · Opus 5.5 on Work");
+    expect(head(page)?.textContent).not.toContain("Stand-in");
+  });
+
+  it("badges a run on a Stand-in Engine, with why on hover", () => {
+    const reason = "Work's 5-hour window would be passed; Personal had room.";
+    const page = showRun(
+      {
+        ...secondRun,
+        engine: {
+          engineId: "personal",
+          engineName: "Personal",
+          model: "claude-opus-5-5",
+          standInFor: { engineId: "work", engineName: "Work", reason },
+        },
+      },
+      [],
+    );
+    expect(head(page)?.textContent).toContain(" · Opus 5.5 on Personal");
+    const badge = [...(head(page)?.querySelectorAll(".tooltip-trigger") ?? [])].find(
+      ({ textContent }) => textContent === "Stand-in for Work",
+    );
+    expect(badge).toBeDefined();
+    act(() => {
+      badge?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    expect(document.querySelector('[role="tooltip"]')?.textContent).toBe(reason);
+  });
+
+  it("names no engine for a run whose session never opened", () => {
+    const page = showRun(secondRun, []);
+    expect(head(page)?.textContent).not.toContain("Opus");
   });
 });
 

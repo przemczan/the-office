@@ -49,6 +49,7 @@ export function aRun(
     engineId: undefined,
     engineName: undefined,
     model: undefined,
+    standInFor: undefined,
     decisions,
     heldBy: undefined,
     heldByUser: undefined,

@@ -11,6 +11,8 @@ import {
 } from "./task-start.js";
 import type { Wait } from "./wait.js";
 import { ANN_LEE, aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { NO_STAND_INS } from "./stand-ins-at-start.js";
+import { onWorkWithPersonal } from "./stand-ins-at-start.fixtures.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
 
@@ -24,6 +26,7 @@ const conditions: StartConditions = {
   officeWideLimit: 3,
   project: { name: "Admin panel", projectLimit: 2 },
   usage: NO_USAGE_AT_START,
+  standIns: NO_STAND_INS,
   scheduledExitWait: undefined,
 };
 
@@ -58,6 +61,57 @@ describe("startTask", () => {
     expect(task).toEqual({ ...ready, state: "in-progress", personRole: "developer" });
     expect(event).toBeInstanceOf(TaskStarted);
     expect(event).toMatchObject({ taskId: "task-ready", pipelineId: ready.pipelineId });
+  });
+
+  it("starts on a Stand-in Engine when the cascade's would pass its Window cap", () => {
+    const { task } = startTask(
+      ready,
+      { ...conditions, ...onWorkWithPersonal(60, 10) },
+      held([]),
+      ANN_LEE,
+    );
+
+    expect(task.engineStandIns).toEqual([
+      expect.objectContaining({ engineId: "work", standInId: "personal" }),
+    ]);
+  });
+
+  it("replaces the Stand-in Engines of an earlier run, trying the cascade's engine first", () => {
+    const earlier = {
+      ...ready,
+      engineStandIns: [
+        {
+          engineId: "work",
+          standInId: "personal",
+          engineName: "Work",
+          standInName: "Personal",
+          reason: "",
+          short: "",
+        },
+      ],
+    };
+
+    const { task } = startTask(
+      earlier,
+      { ...conditions, ...onWorkWithPersonal(10, 10) },
+      held([]),
+      ANN_LEE,
+    );
+
+    expect(task.engineStandIns).toEqual([]);
+  });
+
+  it("waits with the added reason when no Stand-in Engine has room either", () => {
+    const { waits } = startReasons(
+      ready,
+      { ...conditions, ...onWorkWithPersonal(60, 70) },
+      held([]),
+    );
+
+    expect(waits.map(({ short }) => short)).toEqual([
+      "5-hour window cap (80%) · resets 12:00",
+      "No stand-in with room",
+    ]);
   });
 
   it("refuses with every reason, the refusals before the waits", () => {

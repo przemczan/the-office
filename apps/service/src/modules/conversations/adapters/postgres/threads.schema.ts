@@ -69,6 +69,12 @@ export interface ThreadSessionRow {
   readonly officeInstructionsVersion?: number;
   /** Absent on sessions saved before duties, which they never decided. */
   readonly heldDuties?: readonly string[];
+  /** Absent on the cascade's own engine, and on sessions saved before Stand-in Engines. */
+  readonly standInFor?: {
+    readonly engineId: EngineId;
+    readonly engineName: string;
+    readonly reason: string;
+  };
 }
 
 /**

@@ -5,6 +5,7 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
+import { EngineModels, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
 import {
   RoleCards,
   RoleHired,
@@ -47,12 +48,20 @@ beforeEach(async () => {
   const roleCards: Pick<RoleCards, "hiredPeople"> = {
     hiredPeople: () => Promise.resolve([...people]),
   };
+  const engineModels: Pick<EngineModels, "engines"> = {
+    engines: () =>
+      Promise.resolve([
+        { ...FIRST_CLAUDE_CODE_ENGINE, id: "claude-code", name: "Claude Code" },
+        { ...FIRST_CLAUDE_CODE_ENGINE, id: "codex", name: "Codex" },
+      ]),
+  };
   ({ app } = await startTestApplication({
     database: true,
     imports: [EventsModule],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
+      { provide: EngineModels, useValue: engineModels },
       LiveView,
     ],
   }));
@@ -171,13 +180,59 @@ describe("the Live view's read model", () => {
 
     expect(working).toMatchObject({
       state: "working",
-      agents: [{ threadId: chat.id, home: chat.home, kind: "thread", consultation: undefined }],
+      agents: [
+        {
+          threadId: chat.id,
+          home: chat.home,
+          kind: "thread",
+          consultation: undefined,
+          engine: undefined,
+        },
+      ],
       idleSince: undefined,
     });
     expect(await lastAnnounced()).toMatchObject({
       state: "idle",
       agents: [],
       idleSince: TURN_ENDED,
+    });
+  });
+
+  it("shows the engine an Agent's session runs on, and the cascade's engine its stand-in runs for", async () => {
+    const standInFor = { engineId: "claude-code", engineName: "Claude Code", reason: "used up" };
+    const onStandIn = await oscarsChat();
+    await changed(onStandIn, (latest) =>
+      logMessages(
+        {
+          ...latest,
+          state: "answering",
+          session: { ...aSession(ASKED), engineId: "codex", standInFor },
+        },
+        [aUserMessage(latest, "Hello.")],
+        ASKED,
+      ),
+    );
+    const onRemoved = await oscarsChat();
+    await changed(onRemoved, (latest) =>
+      logMessages(
+        { ...latest, state: "answering", session: { ...aSession(ASKED), engineId: "gone" } },
+        [aUserMessage(latest, "Hello.")],
+        ASKED,
+      ),
+    );
+
+    const view = await liveView.read();
+
+    const agents = view.people.find(({ roleKey }) => roleKey === oscar.roleKey)?.agents ?? [];
+    expect(agents.find(({ threadId }) => threadId === onStandIn.id)?.engine).toEqual({
+      engineId: "codex",
+      engineName: "Codex",
+      standInFor,
+    });
+    expect(agents.find(({ threadId }) => threadId === onRemoved.id)?.engine).toEqual({
+      engineId: "gone",
+      engineName: "gone",
+      standInFor: undefined,
     });
   });
 

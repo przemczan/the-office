@@ -41,6 +41,13 @@ export const stageRuns = pgTable(
     engineId: text("engine_id"),
     engineName: text("engine_name"),
     model: text("model"),
+    /**
+     * When the run's session ran on a Stand-in Engine: the cascade's engine it stood in for, its
+     * name at the time, and why; null for a run on the cascade's engine, and for runs kept before.
+     */
+    standInForEngineId: text("stand_in_for_engine_id"),
+    standInForEngineName: text("stand_in_for_engine_name"),
+    standInReason: text("stand_in_reason"),
     /** Where The Office left the Task's branch after the run. */
     headCommit: text("head_commit"),
     /**

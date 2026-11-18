@@ -258,6 +258,7 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: false,
     projectSkillsOff: [],
+    engineStandIns: [],
     session: {
       instructions: "You work a Stage.",
       profile: PROFILE,

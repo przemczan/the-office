@@ -28,6 +28,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     state: "backlog",
     plan: "",
     pausedBy: null,
+    engineStandIns: [],
     resumesAt: null,
     autoMode: false,
     initiativePlanningThreadId: null,

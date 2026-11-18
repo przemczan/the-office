@@ -21,6 +21,7 @@ import {
 } from "../../pipelines-application.fixtures.js";
 import { aCommandRun, recordedRun } from "../../ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
+import { TaskStagesRepository } from "../../ports/task-stages-repository.js";
 import { TaskStagesService } from "../../application/task-stages-service.js";
 import { gate } from "../../domain/stage.fixtures.js";
 import { tests } from "./task-stages.controller.fixtures.js";
@@ -84,6 +85,12 @@ describe("GET /api/tasks/:id/stages", () => {
         waitingSince: null,
         threadId: run?.threadId,
         session: "fresh",
+        engine: {
+          engineId: "claude-code",
+          engineName: "Claude Code",
+          model: "scripted",
+          standInFor: null,
+        },
         tokens: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },
         context: null,
         carriedFailure: null,
@@ -105,6 +112,52 @@ describe("GET /api/tasks/:id/stages", () => {
     ]);
     expect(testResults).toEqual([
       { stageKey: tests.key, name: tests.name, state: "passed", detail: "`npm run test` passed." },
+    ]);
+  });
+
+  it("gives a run's engine with the engine it stood in for, and none for a run that kept no engine", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    const repository = pipelines.app.get(StageRunRepository);
+    const standingIn = aStageRun({ id: randomUUID(), taskId, number: 1 });
+    await repository.saveNew(standingIn);
+    await repository.saveThread(standingIn.id, {
+      threadId: randomUUID(),
+      session: "fresh",
+      engineId: "personal",
+      engineName: "Personal",
+      model: "claude-opus-5-5",
+      standInFor: {
+        engineId: "work",
+        engineName: "Work",
+        reason: "Work's window is near its cap.",
+      },
+    });
+    await repository.saveNew(aStageRun({ id: randomUUID(), taskId, number: 2 }));
+    await pipelines.app.get(TaskStagesRepository, { strict: false }).save({
+      taskId,
+      pipelineId: "for-tests",
+      stages: [anAgentStage(standingIn.stageKey)],
+      madeAt: new Date(),
+      editedForTask: false,
+      trace: undefined,
+    });
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });
+
+    const { stages } = await stagesOf(taskId);
+
+    expect(stages?.[0]?.runs.map(({ engine }) => engine)).toEqual([
+      {
+        engineId: "personal",
+        engineName: "Personal",
+        model: "claude-opus-5-5",
+        standInFor: {
+          engineId: "work",
+          engineName: "Work",
+          reason: "Work's window is near its cap.",
+        },
+      },
+      null,
     ]);
   });
 

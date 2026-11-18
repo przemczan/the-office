@@ -296,6 +296,7 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     waitingSince: run.waitingSince?.toISOString() ?? null,
     threadId: run.threadId ?? null,
     session: run.session ?? null,
+    engine: toStageRunEngineResponse(run),
     tokens: run.tokens,
     context: run.context
       ? { contextTokens: run.context.tokens, contextWindow: run.context.window }
@@ -317,6 +318,28 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     ),
     gateAction: run.gateAction ? toGateActionResponse(run.gateAction) : null,
     outcome: run.outcome ? toOutcomeResponse(run.outcome) : null,
+  };
+}
+
+/** The engine a run's session ran on, and the one it stood in for; null for a run that kept none. */
+function toStageRunEngineResponse({
+  engineId,
+  engineName,
+  model,
+  standInFor,
+}: StageRun): StageRunResponse["engine"] {
+  if (engineId === undefined || model === undefined) return null;
+  return {
+    engineId,
+    engineName: engineName ?? engineId,
+    model,
+    standInFor: standInFor
+      ? {
+          engineId: standInFor.engineId,
+          engineName: standInFor.engineName,
+          reason: standInFor.reason,
+        }
+      : null,
   };
 }
 

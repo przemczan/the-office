@@ -62,7 +62,11 @@ export {
   type EngineId,
   type EngineModel,
 } from "./domain/engines.js";
-export { engineToRunOn } from "./domain/stand-in-engines.js";
+export {
+  engineThroughStandIns,
+  engineToRunOn,
+  type EngineStandInChoice,
+} from "./domain/stand-in-engines.js";
 export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";
 export { ModelPrices } from "./application/model-prices.js";

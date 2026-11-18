@@ -34,8 +34,13 @@ function threadOf(roleKey: string, fields: Partial<Thread> = {}): Thread {
 }
 
 function liveView(records: Partial<LiveViewRecords>): readonly LivePerson[] {
-  return liveViewOf({ people: [OSCAR, CLARA], threads: [], lastCalls: new Map(), ...records })
-    .people;
+  return liveViewOf({
+    people: [OSCAR, CLARA],
+    threads: [],
+    lastCalls: new Map(),
+    engineNames: new Map(),
+    ...records,
+  }).people;
 }
 
 function personIn(people: readonly LivePerson[], roleKey: string): LivePerson {

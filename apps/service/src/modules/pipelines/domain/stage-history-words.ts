@@ -372,10 +372,14 @@ function answerWords(answer: WalkAnswer | undefined): string {
   }
 }
 
-function engineLines({ engineName, engineId, model }: StageRun): string[] {
+function engineLines({ engineName, engineId, model, standInFor }: StageRun): string[] {
   if (engineId === undefined && model === undefined) return [];
   const engine = engineName ?? engineId ?? "unknown";
-  return [`Engine: ${engine}, model ${model ?? "unknown"}.`];
+  const ran = `Engine: ${engine}, model ${model ?? "unknown"}`;
+  if (standInFor === undefined) return [`${ran}.`];
+  const reason = standInFor.reason.trim();
+  const because = reason === "" ? "." : `: ${/[.!?…]$/.test(reason) ? reason : `${reason}.`}`;
+  return [`${ran}, as a Stand-in Engine for ${standInFor.engineName}${because}`];
 }
 
 function tokensLine({ tokens }: StageRun): string {

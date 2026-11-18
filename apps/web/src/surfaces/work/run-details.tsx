@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
-import { Badge, Button, Icon, Tabs } from "@the-office/ui";
+import { Badge, Button, Icon, Tabs, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -37,7 +37,7 @@ import {
   type RunTab,
 } from "./stage-history-words.ts";
 import { stageWorkerWords } from "./stage-rail-words.ts";
-import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
+import { runEngineWords, SESSION_WORDS, standInForWords, type StageNames } from "./stage-words.ts";
 import { chapterWork } from "./timeline-words.ts";
 
 /** Everything about the run picked in the Stage history. */
@@ -216,7 +216,7 @@ function RunHead({
   readonly run: StageRun;
   readonly now: Date;
 }): ReactNode {
-  const { session, tokens, outcome } = run;
+  const { session, tokens, outcome, engine } = run;
   const badge = runBadge(run, taskStage.state);
   return (
     <div className="run-details-head">
@@ -233,7 +233,13 @@ function RunHead({
           </>
         )}
         {session && ` · ${SESSION_WORDS[session]}`}
+        {engine && ` · ${runEngineWords(engine)}`}
       </span>
+      {engine?.standInFor && (
+        <Tooltip content={engine.standInFor.reason} focusable>
+          <Badge tone="info">{standInForWords(engine.standInFor.engineName)}</Badge>
+        </Tooltip>
+      )}
     </div>
   );
 }

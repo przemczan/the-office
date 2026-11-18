@@ -80,7 +80,14 @@ export class PostgresQueueRepository extends QueueRepository {
       await holdStarts(transaction);
       const inQueue = await heldQueue(transaction);
       if (inQueue.length === 0) {
-        return { started: [], refused: [], waiting: [], reasonsChanged: [], capResets: [] };
+        return {
+          started: [],
+          startedEstimates: new Map(),
+          refused: [],
+          waiting: [],
+          reasonsChanged: [],
+          capResets: [],
+        };
       }
       // The queued Tasks are held, so none changes state between the weighing and the save.
       await transaction

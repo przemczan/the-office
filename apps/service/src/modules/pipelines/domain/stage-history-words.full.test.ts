@@ -164,6 +164,29 @@ describe("stageHistoryWords", () => {
     expect(words).toContain("Project commands: none.");
   });
 
+  it("tells the engine a Stand-in Engine stood in for, and why", () => {
+    const words = stageHistoryWords(
+      stages,
+      [
+        aStageRun({
+          engineId: "personal",
+          engineName: "Personal",
+          model: "claude-opus-5-5",
+          standInFor: {
+            engineId: "work",
+            engineName: "Work",
+            reason: "The Work engine's 5-hour window would pass its 80% cap",
+          },
+        }),
+      ],
+      NO_THREADS,
+    );
+
+    expect(words).toContain(
+      "Engine: Personal, model claude-opus-5-5, as a Stand-in Engine for Work: The Work engine's 5-hour window would pass its 80% cap.",
+    );
+  });
+
   it("tells why a run failed, and a run still going on", () => {
     const words = stageHistoryWords(
       stages,

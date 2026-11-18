@@ -77,6 +77,52 @@ describe("PostgresStageRunRepository's changed files", () => {
   });
 });
 
+describe("PostgresStageRunRepository's engine", () => {
+  it("keeps the engine the run ran on with the cascade's engine it stood in for, and none on the cascade's own", async () => {
+    const standingIn = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    const onItsOwn = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(standingIn);
+    await runs.saveNew(onItsOwn);
+    const standInFor = { engineId: "work", engineName: "Work", reason: "Work's window is near." };
+
+    await runs.saveThread(standingIn.id, {
+      threadId: randomUUID(),
+      session: "fresh",
+      engineId: "personal",
+      engineName: "Personal",
+      model: "claude-opus-5-5",
+      standInFor,
+    });
+    await runs.saveThread(onItsOwn.id, {
+      threadId: randomUUID(),
+      session: "fresh",
+      engineId: "work",
+      engineName: "Work",
+      model: "claude-opus-5-5",
+      standInFor: undefined,
+    });
+
+    expect(await runOf(standingIn.taskId)).toMatchObject({
+      engineId: "personal",
+      engineName: "Personal",
+      model: "claude-opus-5-5",
+      standInFor,
+    });
+    expect(await runOf(onItsOwn.taskId)).toMatchObject({ engineId: "work" });
+    expect((await runOf(onItsOwn.taskId))?.standInFor).toBeUndefined();
+  });
+
+  it("reads a run kept before stand-ins were recorded as on the cascade's own engine", async () => {
+    const taskId = randomUUID();
+    await database.execute(
+      sql`INSERT INTO "stage_runs" ("id", "task_id", "stage_key", "number", "engine_id", "model", "started_at")
+        VALUES (${randomUUID()}, ${taskId}, 'implement', 1, 'claude-code', 'scripted', now())`,
+    );
+
+    expect((await runOf(taskId))?.standInFor).toBeUndefined();
+  });
+});
+
 function commandRun(commandLine: string, wholeOutput: string) {
   return {
     purpose: "command" as const,

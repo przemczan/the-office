@@ -1,7 +1,7 @@
 import { Popover, Tooltip } from "@the-office/ui";
 import { type CSSProperties, type ReactNode, type RefCallback, useState } from "react";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
-import { agentWords, isNewHire, type PersonNames } from "./live-states.ts";
+import { agentLineWords, isNewHire, type PersonNames } from "./live-states.ts";
 import type { FigureAnchor, RecordTitles, StageView } from "./live-view-types.ts";
 import type { ShownPerson } from "./office-people.ts";
 import { pressWords } from "./press-words.ts";
@@ -214,7 +214,7 @@ function PersonTooltip({
       <span>{words}</span>
       {person.agents.length > 1 &&
         person.agents.map((agent) => (
-          <span key={agent.threadId}>{agentWords(agent, titles, names)}</span>
+          <span key={agent.threadId}>{agentLineWords(agent, titles, names)}</span>
         ))}
       <span className="live-tooltip-press">{pressWords(person, links)}</span>
     </span>

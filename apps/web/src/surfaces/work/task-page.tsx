@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
-import { Tabs } from "@the-office/ui";
+import { Badge, Tabs, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -9,7 +9,15 @@ import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries, taskQueries } from "../../api/work.ts";
 import { stoppedAtCurrentStage } from "./stage-rail-words.ts";
-import { PIPELINE_NOT_CHOSEN, pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
+import {
+  engineStandInsReasons,
+  engineStandInsShown,
+  engineStandInsWords,
+  PIPELINE_NOT_CHOSEN,
+  pipelineLabel,
+  REMOVED_PIPELINE,
+  taskTokens,
+} from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -185,6 +193,7 @@ function TaskHead({
           />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
           <ArchivedBadge record={task} />
+          <EngineStandInsMark task={task} />
         </div>
         <div className="task-head-meta">
           <span className="task-head-priority">
@@ -205,6 +214,17 @@ function TaskHead({
       </div>
       <StartNotes task={task} />
     </header>
+  );
+}
+
+/** While a started Task's run works on Stand-in Engines, which and for what, with why on hover. */
+export function EngineStandInsMark({ task }: { readonly task: Task }): ReactNode {
+  const standIns = engineStandInsShown(task);
+  if (standIns.length === 0) return null;
+  return (
+    <Tooltip content={engineStandInsReasons(standIns)} focusable>
+      <Badge tone="info">{engineStandInsWords(standIns)}</Badge>
+    </Tooltip>
   );
 }
 

@@ -136,6 +136,7 @@ describe("The Office starting with the fire alarm on", () => {
       engineId: "claude-code",
       engineName: "Claude Code",
       model: "scripted",
+      standInFor: undefined,
     });
     pipelines.git.uncommitted.set(taskId, ["src/dialog.ts"]);
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });

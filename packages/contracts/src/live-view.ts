@@ -18,6 +18,19 @@ export const liveAgentSchema = z.object({
   home: homeSchema,
   kind: z.enum(["stage", "thread", "consultation"]),
   consultation: z.object({ decisionId: z.uuid(), askerRoleKey: z.string().nullable() }).nullable(),
+  /**
+   * The engine its session runs on, by name; `standInFor` names the cascade's engine it stands in
+   * for as a Stand-in Engine, and why, null on the cascade's. Null for a session not yet opened.
+   */
+  engine: z
+    .object({
+      engineId: z.string(),
+      engineName: z.string(),
+      standInFor: z
+        .object({ engineId: z.string(), engineName: z.string(), reason: z.string() })
+        .nullable(),
+    })
+    .nullable(),
 });
 export type LiveAgent = z.infer<typeof liveAgentSchema>;
 

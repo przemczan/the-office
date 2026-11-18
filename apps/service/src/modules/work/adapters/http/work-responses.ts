@@ -116,6 +116,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     state: task.state,
     pausedBy: task.pausedBy ?? null,
     resumesAt: task.resumesAt?.toISOString() ?? null,
+    engineStandIns: task.engineStandIns.map((standIn) => ({ ...standIn })),
     priority: task.priority,
     tags: [...task.tags],
     plan: task.plan,

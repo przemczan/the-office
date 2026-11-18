@@ -49,6 +49,7 @@ function aRun(gateAction: StageRun["gateAction"]): StageRun {
     waitingSince: null,
     threadId: null,
     session: null,
+    engine: null,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     context: null,
     carriedFailure: null,

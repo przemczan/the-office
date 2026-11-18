@@ -5,9 +5,11 @@ import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type {
   StageDecision,
   StageRunContext,
+  StageRunStandIn,
   StageSessionMove,
   StageTokens,
 } from "../domain/stage-run.js";
+import type { TaskEngineStandIn } from "./task-records.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
 export interface StageSessionSettings {
@@ -69,6 +71,11 @@ export interface StageThreadRequest {
   readonly useProjectSkills: boolean;
   readonly projectSkillsOff: readonly string[];
   readonly session: StageSessionSettings;
+  /**
+   * The Stand-in Engines the Task's Start chose, each for a cascade's engine: the session runs on
+   * the stand-in in its place.
+   */
+  readonly engineStandIns: readonly TaskEngineStandIn[];
 }
 
 /** How a turn of the person's ended. */
@@ -101,6 +108,8 @@ export interface StageThread {
   /** The engine the session runs on, by its id, and the session's model, by its id there. */
   readonly engine: string;
   readonly model: string;
+  /** The cascade's engine `engine` stands in for; undefined when it is the cascade's own. */
+  readonly standInFor?: StageRunStandIn;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
   /**
@@ -153,7 +162,13 @@ export abstract class StageThreads {
   abstract sessionAhead(
     request: Pick<
       StageThreadRequest,
-      "taskId" | "projectId" | "roleKey" | "declared" | "previousThreadId" | "record"
+      | "taskId"
+      | "projectId"
+      | "roleKey"
+      | "declared"
+      | "previousThreadId"
+      | "record"
+      | "engineStandIns"
     >,
   ): Promise<StageSessionAhead>;
 

@@ -13,6 +13,7 @@ function aTask(id: string, archivedAt: string | null): Task {
     state: "done",
     plan: "",
     pausedBy: null,
+    engineStandIns: [],
     resumesAt: null,
     autoMode: false,
     initiativePlanningThreadId: null,

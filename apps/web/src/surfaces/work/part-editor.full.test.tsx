@@ -22,6 +22,7 @@ const MENTIONED_TASK: Task = {
   state: "backlog",
   plan: "",
   pausedBy: null,
+  engineStandIns: [],
   resumesAt: null,
   autoMode: false,
   initiativePlanningThreadId: null,

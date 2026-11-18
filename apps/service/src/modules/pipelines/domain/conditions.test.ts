@@ -36,6 +36,7 @@ function aRun(
     engineId: undefined,
     engineName: undefined,
     model: undefined,
+    standInFor: undefined,
     tokens: NO_STAGE_TOKENS,
     context: undefined,
     decisions: [],

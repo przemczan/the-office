@@ -538,6 +538,21 @@ export function agentWords(agent: LiveAgent, titles: RecordTitles, names: Person
   return agent.kind === "stage" ? `a Stage of ${home}` : home;
 }
 
+/**
+ * The engine a session runs on, as its line goes on: " on Personal", and ", standing in for Work"
+ * on a Stand-in Engine; nothing before its session opens.
+ */
+export function agentEngineWords({ engine }: Pick<LiveAgent, "engine">): string {
+  if (engine === null) return "";
+  const standingIn = engine.standInFor ? `, standing in for ${engine.standInFor.engineName}` : "";
+  return ` on ${engine.engineName}${standingIn}`;
+}
+
+/** One running session's line, as its link and the nameplate's list say it, with its engine. */
+export function agentLineWords(agent: LiveAgent, titles: RecordTitles, names: PersonNames): string {
+  return `${agentWords(agent, titles, names)}${agentEngineWords(agent)}`;
+}
+
 /** "a, b and c". */
 function listWords(items: readonly string[]): string {
   if (items.length <= 1) return items.join("");
@@ -647,11 +662,11 @@ export function workLinksOf(
 ): WorkLink[] {
   const links: WorkLink[] = [];
   const seen = new Set<string>();
-  const add = (words: string, target: WorkTarget): void => {
+  const add = (words: string, target: WorkTarget, reason?: string): void => {
     const key = JSON.stringify(target);
     if (seen.has(key)) return;
     seen.add(key);
-    links.push({ words, target });
+    links.push(reason === undefined ? { words, target } : { words, target, reason });
   };
   for (const asked of person.waitingOnYou) {
     const whose = asked.byTheOffice ? "The Office's Decision" : "Decision";
@@ -668,8 +683,9 @@ export function workLinksOf(
   }
   for (const agent of person.agents) {
     add(
-      capitalised(agentWords(agent, titles, names)),
+      capitalised(agentLineWords(agent, titles, names)),
       homeTarget(agent.home, agent.threadId, null),
+      agent.engine?.standInFor?.reason,
     );
   }
   if (links.length > 0) return links;

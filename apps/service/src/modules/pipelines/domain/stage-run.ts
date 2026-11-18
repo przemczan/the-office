@@ -314,6 +314,16 @@ interface RunDecisionFields {
   readonly answer: WalkAnswer | undefined;
 }
 
+/**
+ * The cascade's engine a run's Stand-in Engine ran for: its id, its name as the Task's Start
+ * recorded it, and why the stand-in was chosen.
+ */
+export interface StageRunStandIn {
+  readonly engineId: string;
+  readonly engineName: string;
+  readonly reason: string;
+}
+
 /** The Agent's own question, whose answer goes with its Stage's next run. */
 export interface AgentRunDecision extends RunDecisionFields {
   readonly kind: "agent";
@@ -373,6 +383,12 @@ export interface StageRun {
   readonly engineId: string | undefined;
   readonly engineName: string | undefined;
   readonly model: string | undefined;
+  /**
+   * The cascade's engine the run's engine stood in for, as a Stand-in Engine the Task's Start chose
+   * (spec §5.4); undefined for a run on the cascade's own engine, one that opened no session, and
+   * runs kept before it was recorded.
+   */
+  readonly standInFor: StageRunStandIn | undefined;
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;
   /**

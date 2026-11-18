@@ -166,11 +166,11 @@ The top bar's choice of which Projects every surface shows; Office-wide numbers,
 _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 
 **Queue**:
-The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
+The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed (a Window cap only when no Stand-in Engine has room either, which its reason then says), each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
 _Avoid_: Backlog (a Task state), waiting list, pending
 
 **Short reason**:
-A queued Task's reason in a few words, such as "Office-wide limit reached (3)" or "5-hour window cap (80%) · resets 14:30", which its board card shows, with the full reason on hover.
+A queued Task's reason in a few words, such as "Office-wide limit reached (3)", "5-hour window cap (80%) · resets 14:30" or "No stand-in with room", which its board card shows, with the full reason on hover.
 _Avoid_: label, summary, short form
 
 **Overlap**:
@@ -198,7 +198,7 @@ One of an engine's limits on use over time, each with a reset time: on a Claude 
 _Avoid_: Quota, rate limit, plan limit
 
 **Window cap**:
-The cap of a Claude Code engine or a Codex engine on a ChatGPT plan, one for each of its windows, on how much of a Usage window (the 5-hour or the 7-day window) a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
+The cap of a Claude Code engine or a Codex engine on a ChatGPT plan, one for each of its windows, on how much of a Usage window (the 5-hour or the 7-day window) a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset. A Start that would pass it first runs the Task on a Stand-in Engine with room, and waits only when none has.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit, Project limits and Task limits count started Tasks), threshold
 
 **Daily cap**:

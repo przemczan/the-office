@@ -5,6 +5,7 @@ import type {
   StageRun,
   StageRunContext,
   StageRunDecision,
+  StageRunStandIn,
   StageSessionMove,
   StageTokens,
   AskedInterruption,
@@ -21,6 +22,8 @@ export interface StageRunThread {
   readonly engineId: string;
   readonly engineName: string;
   readonly model: string;
+  /** The cascade's engine it stands in for; undefined when it runs on the cascade's own. */
+  readonly standInFor: StageRunStandIn | undefined;
 }
 
 /** Where The Office left the Task's branch after a run, and what the run's own commit changed. */

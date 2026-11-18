@@ -232,6 +232,20 @@ export const gateRefusalSchema = z.object({
 });
 export type GateRefusal = z.infer<typeof gateRefusalSchema>;
 
+/**
+ * The engine and model a run's session ran on, with the engine's name at the time; `standInFor`
+ * names the cascade's engine it stood in for as a Stand-in Engine, and why, null on the cascade's.
+ */
+export const stageRunEngineSchema = z.object({
+  engineId: z.string(),
+  engineName: z.string(),
+  model: z.string(),
+  standInFor: z
+    .object({ engineId: z.string(), engineName: z.string(), reason: z.string() })
+    .nullable(),
+});
+export type StageRunEngine = z.infer<typeof stageRunEngineSchema>;
+
 /** One run of one of a Task's Stages. */
 export const stageRunSchema = z.object({
   id: z.uuid(),
@@ -248,6 +262,8 @@ export const stageRunSchema = z.object({
   threadId: z.uuid().nullable(),
   /** How its session began; null for a run that opened none. */
   session: contextMoveSchema.nullable(),
+  /** What its session ran on; null for a run that opened none, and for runs kept before it was. */
+  engine: stageRunEngineSchema.nullable(),
   tokens: tokenTotalsSchema,
   /**
    * Its session's context after the run's latest turn, against its model's window, kept with the

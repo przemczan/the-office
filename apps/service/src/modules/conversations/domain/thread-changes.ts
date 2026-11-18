@@ -281,6 +281,7 @@ export function freshSession(
     engineId,
     changesAllowed,
     heldDuties,
+    standInFor,
   }: Pick<
     ThreadSession,
     | "roleKey"
@@ -289,6 +290,7 @@ export function freshSession(
     | "engineId"
     | "changesAllowed"
     | "heldDuties"
+    | "standInFor"
   >,
   startedAt: Date,
 ): ThreadSession {
@@ -305,6 +307,7 @@ export function freshSession(
     full: false,
     changesAllowed,
     heldDuties,
+    ...(standInFor !== undefined && { standInFor }),
   };
 }
 

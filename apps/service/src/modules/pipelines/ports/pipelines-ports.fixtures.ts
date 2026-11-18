@@ -293,6 +293,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       environment: { PROJECT_VARIABLE: "set" },
       screenshotsFolder: ".office/screenshots",
     },
+    engineStandIns: [],
     ...fields,
   };
 }
@@ -496,7 +497,14 @@ export class StageThreadsForTests extends StageThreads {
   async open(request: StageThreadRequest): Promise<StageThread> {
     this.requests.push(request);
     const threadId = randomUUID();
-    const engine = this.engineId;
+    // A Stand-in Engine the Task's Start chose for the engine runs in its place, as Conversations'.
+    const standIn = request.engineStandIns.find(({ engineId }) => engineId === this.engineId);
+    const engine = standIn?.standInId ?? this.engineId;
+    const standInFor = standIn && {
+      engineId: standIn.engineId,
+      engineName: standIn.engineName,
+      reason: standIn.reason,
+    };
     const model = "scripted";
     const session = await this.sessions.start({
       id: randomUUID(),
@@ -559,6 +567,7 @@ export class StageThreadsForTests extends StageThreads {
       move: { move: this.move },
       engine,
       model,
+      ...(standInFor && { standInFor }),
       nextTurn,
       askedDecision: async () => asked,
       send: (text, why) => {

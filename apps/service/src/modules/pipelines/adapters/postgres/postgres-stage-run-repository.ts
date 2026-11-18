@@ -23,6 +23,7 @@ import type {
   StageRun,
   StageRunContext,
   StageRunDecision,
+  StageRunStandIn,
   StageTokens,
   AskedInterruption,
   HoldingUser,
@@ -45,17 +46,20 @@ export class PostgresStageRunRepository extends StageRunRepository {
     super();
   }
 
-  async saveNew(run: StageRun): Promise<boolean> {
+  async saveNew({ standInFor, ...run }: StageRun): Promise<boolean> {
     const saved = await this.database
       .insert(stageRuns)
-      .values(run)
+      .values({ ...run, ...standInColumns(standInFor) })
       .onConflictDoNothing({ target: [stageRuns.taskId, stageRuns.number] })
       .returning({ id: stageRuns.id });
     return saved.length > 0;
   }
 
-  async saveThread(runId: string, thread: StageRunThread): Promise<void> {
-    await this.database.update(stageRuns).set(thread).where(eq(stageRuns.id, runId));
+  async saveThread(runId: string, { standInFor, ...thread }: StageRunThread): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({ ...thread, ...standInColumns(standInFor) })
+      .where(eq(stageRuns.id, runId));
   }
 
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
@@ -259,9 +263,31 @@ export class PostgresStageRunRepository extends StageRunRepository {
   }
 }
 
-function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">): StageRun {
+/** The stand-in columns of a run's row, or the clearing of them. */
+function standInColumns(standInFor: StageRunStandIn | undefined) {
+  return {
+    standInForEngineId: standInFor?.engineId ?? null,
+    standInForEngineName: standInFor?.engineName ?? null,
+    standInReason: standInFor?.reason ?? null,
+  };
+}
+
+function stageRunOf({
+  standInForEngineId,
+  standInForEngineName,
+  standInReason,
+  ...row
+}: Omit<typeof stageRuns.$inferSelect, "commandOutputs">): StageRun {
   return {
     ...row,
+    standInFor:
+      standInForEngineId === null
+        ? undefined
+        : {
+            engineId: standInForEngineId,
+            engineName: standInForEngineName ?? standInForEngineId,
+            reason: standInReason ?? "",
+          },
     carriedFailure: row.carriedFailure ?? undefined,
     sentBack: row.sentBack ?? undefined,
     threadId: row.threadId ?? undefined,

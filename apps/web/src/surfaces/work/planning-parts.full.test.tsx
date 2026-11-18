@@ -22,6 +22,7 @@ const RUNNING_TASK: Task = {
   state: "in-progress",
   plan: "",
   pausedBy: null,
+  engineStandIns: [],
   resumesAt: null,
   autoMode: false,
   initiativePlanningThreadId: null,

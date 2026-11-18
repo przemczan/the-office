@@ -58,6 +58,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     pipelineId: "full",
     proposedPipeline: null,
     pausedBy: null,
+    engineStandIns: [],
     resumesAt: null,
     autoMode: false,
     initiativePlanningThreadId: null,

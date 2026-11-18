@@ -217,7 +217,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     this.commandRuns.begin(work.run.id, work.interruption.commandsSignal);
     let ending: Ending = { handoverNote: undefined, closing: undefined };
     try {
-      const { threadId, move, engine, model } = thread;
+      const { threadId, move, engine, model, standInFor } = thread;
       // An engine removed since its session started keeps its id as its name.
       const engineName = (await this.engineModels.find(engine))?.name ?? engine;
       await this.runs.saveThread(work.run.id, {
@@ -226,6 +226,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         engineId: engine,
         engineName,
         model,
+        standInFor: standInFor && {
+          engineId: standInFor.engineId,
+          engineName: standInFor.engineName,
+          reason: standInFor.reason,
+        },
       });
       await this.events.publish(
         new StageRunThreadOpened(work.run.taskId, work.run.id, work.run.stageKey),
@@ -372,6 +377,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         officeTools: AGENT_STAGE_OFFICE_TOOLS,
         outputSchema: STAGE_RESULT_SCHEMA,
       },
+      engineStandIns: task.engineStandIns,
     });
   }
 
@@ -412,6 +418,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       roleKey,
       ...stageSessionOf(stage, stages, earlierRuns),
       record: await this.recordOf(taskId, person.card, commands, task, stages, earlierRuns),
+      engineStandIns: task.engineStandIns,
     });
   }
 

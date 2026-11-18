@@ -19,7 +19,7 @@ import { TaskService } from "./task-service.js";
 /** A Task's record, as a session working on the Task reads it. */
 export interface TaskRecord extends Pick<
   Task,
-  "title" | "plan" | "definitionOfDone" | "initiativeId"
+  "title" | "plan" | "definitionOfDone" | "initiativeId" | "engineStandIns"
 > {
   /** The commit message Publish lands it as: the one written, or the default. */
   readonly commitMessage: { readonly text: string; readonly written: boolean };
@@ -94,6 +94,7 @@ export class TaskRecords {
       plan: task.plan,
       definitionOfDone: task.definitionOfDone,
       initiativeId: task.initiativeId,
+      engineStandIns: task.engineStandIns,
       commitMessage: { text: commitMessageOf(task), written: task.commitMessage !== "" },
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
       linkedRecordsSection: linkedRecordsSection(links),

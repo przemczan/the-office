@@ -1,5 +1,6 @@
 import type { EngineId } from "../../engine/index.js";
 import type { ArchivedBy, Author } from "./author.js";
+import type { EngineStandIn } from "./stand-ins-at-start.js";
 import { normalizedTags, tagsProblems } from "./task-tags.js";
 import { titleProblem } from "./title.js";
 
@@ -120,6 +121,12 @@ export interface Task {
    * first Agent Stage, as the click-through counts; undefined before Start or without one.
    */
   readonly personRole: string | undefined;
+  /**
+   * The Stand-in Engines its run works on in place of the cascade's engines, as its last Start or
+   * release of the queue chose them (stand-ins-at-start.ts), each with why; none while every Stage
+   * runs on the cascade's. Every Start replaces it, so each tries the cascade's engines first.
+   */
+  readonly engineStandIns: readonly EngineStandIn[];
   /**
    * What holds it Paused apart from a Pause of the user's own; undefined for that and any other
    * state. The alarm's Tasks resume at the all clear, or the user's Hold makes them theirs (spec

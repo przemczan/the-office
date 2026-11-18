@@ -15,6 +15,7 @@ function aTask(fields: Partial<Task>): Task {
     state: "planning",
     plan: "",
     pausedBy: null,
+    engineStandIns: [],
     resumesAt: null,
     autoMode: false,
     initiativePlanningThreadId: null,

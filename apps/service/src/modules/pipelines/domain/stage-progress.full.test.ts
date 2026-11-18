@@ -67,6 +67,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     engineId: undefined,
     engineName: undefined,
     model: undefined,
+    standInFor: undefined,
     decisions: each.decisions ?? [],
     heldBy: undefined,
     heldByUser: undefined,

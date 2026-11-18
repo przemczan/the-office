@@ -5,6 +5,8 @@ import { DOOR_OUTSIDE } from "./floor-plan.ts";
 import {
   DESK_DEPTHS,
   LIST_GROUPS,
+  agentEngineWords,
+  agentLineWords,
   doingWords,
   doingsOf,
   lookStateOf,
@@ -47,7 +49,13 @@ function minutesAgo(minutes: number): string {
 }
 
 function stage(taskId = "task-1", threadId = THREAD): LiveAgent {
-  return { threadId, home: { kind: "task", taskId }, kind: "stage", consultation: null };
+  return {
+    threadId,
+    home: { kind: "task", taskId },
+    kind: "stage",
+    consultation: null,
+    engine: null,
+  };
 }
 
 function asking(consultantRoleKey: string): LiveConsulting {
@@ -643,12 +651,14 @@ describe("words and links", () => {
         home: { kind: "initiative", initiativeId: "initiative-1" },
         kind: "thread",
         consultation: null,
+        engine: null,
       },
       {
         threadId: THREAD,
         home: { kind: "chat", roleKey: "developer" },
         kind: "thread",
         consultation: null,
+        engine: null,
       },
     ]);
     expect(stateWords(person, "working", TITLES, NAMES)).toBe(
@@ -681,23 +691,60 @@ describe("words and links", () => {
         home: { kind: "initiative", initiativeId: "initiative-1" },
         kind: "thread",
         consultation: null,
+        engine: null,
       },
       {
         threadId: OTHER_THREAD,
         home: { kind: "chat", roleKey: "cto" },
         kind: "thread",
         consultation: null,
+        engine: null,
       },
       {
         threadId: OTHER_THREAD,
         home: { kind: "chat", roleKey: "cto" },
         kind: "thread",
         consultation: null,
+        engine: null,
       },
     ]);
     expect(workLinksOf(person, TITLES, NAMES).map((link) => link.target)).toEqual([
       { kind: "initiative", initiativeId: "initiative-1", threadId: THREAD },
       { kind: "chat", roleKey: "cto", threadId: OTHER_THREAD },
+    ]);
+  });
+
+  it("names the engine a session runs on, and the one a Stand-in Engine stands in for", () => {
+    const reason = "Work's 5-hour window would be passed; Personal had room.";
+    const onWork: LiveAgent = {
+      ...stage(),
+      engine: { engineId: "work", engineName: "Work", standInFor: null },
+    };
+    const standingIn: LiveAgent = {
+      ...stage(),
+      engine: {
+        engineId: "personal",
+        engineName: "Personal",
+        standInFor: { engineId: "work", engineName: "Work", reason },
+      },
+    };
+    expect(agentEngineWords(stage())).toBe("");
+    expect(agentEngineWords(onWork)).toBe(" on Work");
+    expect(agentLineWords(standingIn, TITLES, NAMES)).toBe(
+      'a Stage of the Task "Fix the door" on Personal, standing in for Work',
+    );
+    expect(workLinksOf(working("developer", [onWork]), TITLES, NAMES)).toEqual([
+      {
+        words: 'A Stage of the Task "Fix the door" on Work',
+        target: { kind: "task", taskId: "task-1", threadId: THREAD, decisionId: null },
+      },
+    ]);
+    expect(workLinksOf(working("developer", [standingIn]), TITLES, NAMES)).toEqual([
+      {
+        words: 'A Stage of the Task "Fix the door" on Personal, standing in for Work',
+        target: { kind: "task", taskId: "task-1", threadId: THREAD, decisionId: null },
+        reason,
+      },
     ]);
   });
 

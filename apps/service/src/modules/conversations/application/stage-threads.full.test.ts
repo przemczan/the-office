@@ -15,6 +15,7 @@ import {
   ScriptedEngine,
   type SessionScript,
   ScriptedEngineModule,
+  type Engine,
 } from "../../engine/index.js";
 import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { BusyWorkModule } from "../../office-updates/index.js";
@@ -264,6 +265,7 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: false,
     projectSkillsOff: [],
+    engineStandIns: [],
     session: {
       instructions: "You work a Stage.",
       profile: PROFILE,
@@ -515,6 +517,18 @@ function theNextStage(
   });
 }
 
+/** Ada, on the cascade's engine and model for the Project, with `engines` listed. */
+function adaOnTheCascade(...engines: Engine[]): string {
+  const ada = aPerson("Ada");
+  cascade.set(
+    ada,
+    { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" },
+    "admin-panel",
+  );
+  vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue(engines);
+  return ada;
+}
+
 describe("StageThreads", () => {
   it("opens the session on the cascade's model, with the Stage's own effort over the Role card's", async () => {
     await startWith(started(...aTurn({ status: "done" })));
@@ -529,6 +543,93 @@ describe("StageThreads", () => {
     await aStageRun(request);
 
     expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5", effort: "low" });
+  });
+
+  describe("on a Stand-in Engine chosen at the Task's Start", () => {
+    const SPARE = { ...FIRST_CLAUDE_CODE_ENGINE, id: "spare", name: "Spare" };
+    const STAND_IN = {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      standInId: SPARE.id,
+      engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+      reason: "Its 5-hour window is used up.",
+    };
+    const STAND_IN_FOR = {
+      engineId: STAND_IN.engineId,
+      engineName: STAND_IN.engineName,
+      reason: STAND_IN.reason,
+    };
+
+    it("opens the Stage Thread's session on the stand-in with the cascade's model", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE, SPARE);
+
+      const { stageThread } = await aStageRun(aStage({ roleKey: ada, engineStandIns: [STAND_IN] }));
+
+      expect(stageThread).toMatchObject({
+        engine: SPARE.id,
+        model: "claude-haiku-5-5",
+        standInFor: STAND_IN_FOR,
+      });
+      expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5" });
+      expect((await threadOf(stageThread.threadId)).session).toMatchObject({
+        engineId: SPARE.id,
+        standInFor: STAND_IN_FOR,
+      });
+    });
+
+    it("continues the session on the same stand-in", async () => {
+      await startWith(
+        started(...aTurn({ status: "needs_decision" })),
+        resumed(...aTurn({ status: "done" }, "Going on.")),
+      );
+      const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE, SPARE);
+      const first = await aStageRun(aStage({ roleKey: ada, engineStandIns: [STAND_IN] }));
+
+      const again = await aStageRun(
+        aStage({
+          roleKey: ada,
+          declared: undefined,
+          previousThreadId: first.stageThread.threadId,
+          engineStandIns: [STAND_IN],
+        }),
+      );
+
+      expect(again.stageThread).toMatchObject({
+        threadId: first.stageThread.threadId,
+        move: { move: "resume" },
+        engine: SPARE.id,
+        standInFor: STAND_IN_FOR,
+      });
+    });
+
+    it("starts fresh with the Brief when the engine differs from the session's, never resuming it there", async () => {
+      await startWith(
+        started(...aTurn({ status: "needs_decision" })),
+        started(...aTurn({ status: "done" }, "Going on.")),
+      );
+      const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE, SPARE);
+      const first = await aStageRun(aStage({ roleKey: ada, engineStandIns: [STAND_IN] }));
+
+      const again = await aStageRun(
+        aStage({ roleKey: ada, declared: undefined, previousThreadId: first.stageThread.threadId }),
+      );
+
+      expect(again.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
+      expect(again.stageThread.engine).toBe(FIRST_CLAUDE_CODE_ENGINE.id);
+      expect(again.stageThread.standInFor).toBeUndefined();
+      expect(receivedSteps()).not.toContain("resume");
+    });
+
+    it("falls back to the cascade's engine once the stand-in is no longer listed", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE);
+
+      const { stageThread } = await aStageRun(aStage({ roleKey: ada, engineStandIns: [STAND_IN] }));
+
+      expect(stageThread.engine).toBe(FIRST_CLAUDE_CODE_ENGINE.id);
+      expect(stageThread.standInFor).toBeUndefined();
+      expect((await threadOf(stageThread.threadId)).session?.standInFor).toBeUndefined();
+    });
   });
 
   it("opens the session with its Role's MCP servers on the Project's values, its Brief led by those left out", async () => {

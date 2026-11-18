@@ -75,6 +75,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     markedPlanned: false,
     hasPlanningThread: false,
     personRole: undefined,
+    engineStandIns: [],
     pausedBy: undefined,
     resumesAt: undefined,
     usageWindowEngineId: undefined,

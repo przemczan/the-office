@@ -18,6 +18,7 @@ import type { AttachmentKind } from "../../domain/attachment.js";
 import type { ArchivedBy, Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
+import type { EngineStandIn } from "../../domain/stand-ins-at-start.js";
 import type { StateChangeCause } from "../../domain/state-change.js";
 import type {
   Priority,
@@ -179,6 +180,11 @@ export const tasks = pgTable(
     hasPlanningThread: boolean("has_planning_thread").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
+    /** The Stand-in Engines its last Start chose; engines are kept by Engine, so no foreign key. */
+    engineStandIns: jsonb("engine_stand_ins")
+      .$type<EngineStandIn[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     /** Null unless the fire alarm, its Initiative's Pause or the usage window holds it Paused. */
     pausedBy: text("paused_by").$type<TaskHolder>(),
     /** Null unless the usage window paused it: the window's reset, when it resumes by itself. */

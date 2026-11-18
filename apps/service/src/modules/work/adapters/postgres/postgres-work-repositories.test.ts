@@ -6,6 +6,7 @@ import type { Attachment } from "../../domain/attachment.js";
 import { confirmPipeline } from "../../domain/planning-changes.js";
 import { changeCommitMessage, publishCommitMessage } from "../../domain/task-commit-message.js";
 import { changeTitle } from "../../domain/task-description.js";
+import { TaskCommitMessageChanged } from "../../domain/task-events.js";
 import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
@@ -72,6 +73,29 @@ describe("PostgresTaskRepository", () => {
       commitMessage: "feat: rename\n\nBody.",
       commitMessagePublishedAt: publishedAt,
     });
+  });
+
+  it("keeps the Stand-in Engines a Task's Start chose, none until one is", async () => {
+    const created = await createdTask(aProjectId());
+    expect(created.engineStandIns).toEqual([]);
+    const engineStandIns = [
+      {
+        engineId: "work",
+        standInId: "personal",
+        engineName: "Work",
+        standInName: "Personal",
+        reason: "The Work engine's 5-hour window would pass its 80% cap.",
+        short: "5-hour window near its cap",
+      },
+    ];
+
+    // Start sets them with the Task's state; any change carries them as the repository keeps it.
+    await tasks.update(created.id, (task) => ({
+      task: { ...task, engineStandIns },
+      event: new TaskCommitMessageChanged(task.id),
+    }));
+
+    await expect(tasks.find(created.id)).resolves.toMatchObject({ engineStandIns });
   });
 });
 

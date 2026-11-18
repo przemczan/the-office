@@ -118,6 +118,7 @@ export function createTask(
     markedPlanned: false,
     hasPlanningThread: false,
     personRole: undefined,
+    engineStandIns: [],
     pausedBy: undefined,
     ...NO_USAGE_WINDOW_RESUME,
     madeFor: undefined,

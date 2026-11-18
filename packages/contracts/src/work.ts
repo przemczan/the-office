@@ -268,6 +268,20 @@ export const projectMoveSchema = z.object({
 });
 export type ProjectMove = z.infer<typeof projectMoveSchema>;
 
+/**
+ * A Stand-in Engine the Task's run works on in place of the cascade's engine, as its last Start
+ * chose it: both engines with their names at Start, and why, in full and short.
+ */
+export const engineStandInSchema = z.object({
+  engineId: z.string(),
+  engineName: z.string(),
+  standInId: z.string(),
+  standInName: z.string(),
+  reason: z.string(),
+  short: z.string(),
+});
+export type EngineStandIn = z.infer<typeof engineStandInSchema>;
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
@@ -279,6 +293,11 @@ export const taskSchema = newTaskSchema.extend({
   pausedBy: taskHolderSchema.nullable(),
   /** When a Task the usage window paused resumes by itself, its window's reset; null otherwise. */
   resumesAt: z.iso.datetime().nullable(),
+  /**
+   * The Stand-in Engines its run works on in place of the cascade's engines, as its last Start
+   * chose them; empty while every Stage runs on the cascade's.
+   */
+  engineStandIns: z.array(engineStandInSchema),
   plan: z.string(),
   /** False while the Plan is the Planner's proposal; true once the user confirmed or edited it. */
   planConfirmed: z.boolean(),

@@ -1,6 +1,6 @@
 import { decisionSummary, isTheOfficesOwn, type Decision } from "./decision.js";
 import { worksIn } from "./people-working.js";
-import type { Home, Thread } from "./thread.js";
+import type { Home, SessionStandIn, Thread } from "./thread.js";
 
 /** A person filling a Role now, as the Live view lists them. */
 export interface HiredPerson {
@@ -21,6 +21,16 @@ export interface LiveAgent {
   /** The Decision a Consultation answers and who asked it, undefined when The Office did. */
   readonly consultation:
     { readonly decisionId: string; readonly askerRoleKey: string | undefined } | undefined;
+  /** The engine its session runs on; undefined while the Thread has no session yet. */
+  readonly engine: LiveAgentEngine | undefined;
+}
+
+/** The engine an Agent's session runs on, and the cascade's it stands in for, if it does. */
+export interface LiveAgentEngine {
+  readonly engineId: string;
+  /** Its name, or its id once it is no longer listed. */
+  readonly engineName: string;
+  readonly standInFor: SessionStandIn | undefined;
 }
 
 /** A Decision of the person's put to a Consultant, who answers it now. */
@@ -72,6 +82,8 @@ export interface LiveViewRecords {
   readonly threads: readonly Thread[];
   /** When each person's last engine call ended, by the key of their Role. */
   readonly lastCalls: ReadonlyMap<string, Date>;
+  /** The listed engines' names, by their ids. */
+  readonly engineNames: ReadonlyMap<string, string>;
 }
 
 /**
@@ -79,14 +91,14 @@ export interface LiveViewRecords {
  * each of their Decisions put to a Consultant, waiting on you for each waiting on the user, and
  * idle with none of these. Threads of anyone not filling a Role now are left out.
  */
-export function liveViewOf({ people, threads, lastCalls }: LiveViewRecords): LiveView {
+export function liveViewOf({ people, threads, lastCalls, engineNames }: LiveViewRecords): LiveView {
   const oldestFirst = threads.toSorted(
     (one, other) => one.startedAt.getTime() - other.startedAt.getTime(),
   );
   return {
     people: people.map((person) => {
       const own = oldestFirst.filter((thread) => thread.roleKey === person.roleKey);
-      return livePerson(person, own, lastCalls.get(person.roleKey));
+      return livePerson(person, own, lastCalls.get(person.roleKey), engineNames);
     }),
   };
 }
@@ -95,8 +107,9 @@ function livePerson(
   person: HiredPerson,
   threads: readonly Thread[],
   lastCallAt: Date | undefined,
+  engineNames: ReadonlyMap<string, string>,
 ): LivePerson {
-  const agents = threads.filter(worksIn).map(liveAgent);
+  const agents = threads.filter(worksIn).map((thread) => liveAgent(thread, engineNames));
   const decisions = threads
     .flatMap((thread) => thread.openDecisions.map((decision) => ({ thread, decision })))
     .toSorted((one, other) => one.decision.askedAt.getTime() - other.decision.askedAt.getTime());
@@ -119,7 +132,10 @@ function livePerson(
   };
 }
 
-function liveAgent({ id, home, stageThread, consultation }: Thread): LiveAgent {
+function liveAgent(
+  { id, home, stageThread, consultation, session }: Thread,
+  engineNames: ReadonlyMap<string, string>,
+): LiveAgent {
   return {
     threadId: id,
     home,
@@ -127,6 +143,11 @@ function liveAgent({ id, home, stageThread, consultation }: Thread): LiveAgent {
     consultation: consultation && {
       decisionId: consultation.decisionId,
       askerRoleKey: consultation.askerRoleKey,
+    },
+    engine: session && {
+      engineId: session.engineId,
+      engineName: engineNames.get(session.engineId) ?? session.engineId,
+      standInFor: session.standInFor,
     },
   };
 }
