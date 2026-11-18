@@ -239,6 +239,8 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       `cat '${join(platform.dataDirectory, "identity", "office_ed25519")}'`,
       // An engine's config folder, which holds its account, is The Office's own.
       `cat '${join(platform.dataDirectory, "engines", "claude-code", ".credentials.json")}'`,
+      // So is the API key file beside the login, which signs the engine in.
+      `cat '${join(platform.dataDirectory, "engines", "claude-code", ".anthropic-api-key")}'`,
       `ls '${join(platform.dataDirectory, "engines")}'`,
       `ls '${platform.dataDirectory}'`,
       `cat '${join(platform.otherWorktree, "src", "app.ts")}'`,
@@ -564,6 +566,7 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
     join(platform.home, ".claude", ".credentials.json"),
     join(platform.home, ".aws", "credentials"),
     join(platform.dataDirectory, "engines", "claude-code", ".credentials.json"),
+    join(platform.dataDirectory, "engines", "claude-code", ".anthropic-api-key"),
     join(platform.dataDirectory, "identity", "office_ssh_key"),
     platform.officeEnvFile,
     ...platform.system.secretPaths.map((secret) => join(secret, "file")),
@@ -630,9 +633,11 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
 
       it.each([
         ".credentials.json",
+        ".anthropic-api-key",
         ".claude.json",
         "settings.json",
         "projects/../.credentials.json",
+        "projects/../.anthropic-api-key",
         "projects/-work-shop/../../.claude.json",
       ])("refuses %s, however a file tool names it", (tail) => {
         const decisions = fileToolNamings(tail).map(([naming, action]) => [
@@ -758,9 +763,11 @@ describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (
 
       it.each([
         ".credentials.json",
+        ".anthropic-api-key",
         ".claude.json",
         "settings.json",
         "projects/../.credentials.json",
+        "projects/../.anthropic-api-key",
         "projects/-work-shop/../../.claude.json",
       ])("refuses %s, however it is named", (tail) => {
         const refusals = namings(tail).map(([naming, action]) => [

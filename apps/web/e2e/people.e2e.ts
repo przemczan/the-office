@@ -1062,6 +1062,26 @@ test(
     await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
     await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
 
+    // An Anthropic API key instead: refused unless shaped as one, kept, and never answered back.
+    await account.getByRole("button", { name: "Use an API key" }).click();
+    const keyBox = account.getByLabel("API key");
+    await expect(keyBox).toHaveAttribute("type", "password");
+    await keyBox.fill("sk-not-anthropic");
+    await account.getByRole("button", { name: "Save the API key" }).click();
+    await expect(
+      account.getByText("That is no Anthropic API key: one starts with sk-ant-api."),
+    ).toBeVisible();
+    const key = "sk-ant-api03-e2e-stand-in-key";
+    await keyBox.fill(key);
+    await account.getByRole("button", { name: "Save the API key" }).click();
+    await expect(account.getByText("An API key signs it in")).toBeVisible();
+    await expect(account.getByLabel("API key")).toHaveCount(0);
+    expect(await (await page.request.get("/api/settings/engines")).text()).not.toContain(key);
+
+    await account.getByRole("button", { name: "Sign out" }).click();
+    await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+    await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+
     await removeEngine(page, name);
   },
 );

@@ -228,7 +228,11 @@ export const engineAccountSchema = z.object({
   signedIn: z.boolean(),
   /** A token pasted with "Paste a token instead" signs a Claude Code engine in, not a Sign in. */
   pastedToken: z.boolean(),
-  /** An API key given with "Use an API key instead" signs a Codex engine in, not a Sign in. */
+  /**
+   * An API key signs the engine in, not a Sign in: an Anthropic one given a Claude Code engine with
+   * "Use an API key", or an OpenAI one given a Codex engine with "Use an API key instead". Such an
+   * engine has no usage windows.
+   */
   apiKey: z.boolean(),
   email: z.string().nullable(),
   /** The Claude subscription, such as `max` or `pro`. */
@@ -267,8 +271,10 @@ export const enginePastedTokenSchema = z.object({
 export type EnginePastedToken = z.infer<typeof enginePastedTokenSchema>;
 
 /**
- * PUT /settings/engines/:engineId/api-key: "Use an API key instead" on a Codex engine, an OpenAI
- * API key, which replaces any ChatGPT sign-in, is kept in the database and is never sent back.
+ * PUT /settings/engines/:engineId/api-key: an API key, which replaces any other sign-in and is never
+ * sent back. On a Claude Code engine "Use an API key", an Anthropic API key, kept in the engine's
+ * folder and refused unless it starts with sk-ant-api; on a Codex engine "Use an API key instead",
+ * an OpenAI API key, kept in the database.
  */
 export const engineApiKeySchema = z.object({ key: z.string().trim().min(1) });
 export type EngineApiKey = z.infer<typeof engineApiKeySchema>;

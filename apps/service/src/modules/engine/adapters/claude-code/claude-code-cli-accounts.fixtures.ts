@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach } from "vitest";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import { AnthropicApiKey } from "../../domain/anthropic-api-key.js";
 import { PastedToken } from "../../domain/pasted-token.js";
 import { ClaudeCodeCliAccounts } from "./claude-code-cli-accounts.js";
 
@@ -51,6 +52,8 @@ createInterface({ input: process.stdin }).on("line", (code) => {
 `;
 
 export const TOKEN = PastedToken.of("sk-ant-oat01-a-pasted-token");
+
+export const API_KEY = AnthropicApiKey.of("sk-ant-api03-an-api-key");
 
 export let folder: string;
 

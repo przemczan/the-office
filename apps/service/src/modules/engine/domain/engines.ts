@@ -21,6 +21,12 @@ interface EngineBase {
 export interface ClaudeCodeEngine extends EngineBase {
   readonly kind: "claude-code";
   readonly claudeCodeP: boolean;
+  /**
+   * An Anthropic API key signs it in ("Use an API key"). The key is kept in the engine's folder,
+   * not the settings, so only the engines `EngineModels` lists tell it (`recordApiKeySignIn`);
+   * absent reads as not.
+   */
+  readonly signedInByApiKey?: boolean;
 }
 
 /** An API endpoint of the OpenAI-compatible API. */
@@ -97,14 +103,14 @@ export function offeredModels(engine: Engine): readonly string[] {
 }
 
 /**
- * Whether `engine`'s account has usage windows (spec §5.4): a Claude Code account's, and a Codex
- * account's signed in with ChatGPT rather than an API key. Whether an engine reads them is its
- * adapter's capability (`usageWindows`).
+ * Whether `engine`'s account has usage windows (spec §5.4): a Claude Code account's and a Codex
+ * account's, each unless an API key signs it in. Whether an engine reads them is its adapter's
+ * capability (`usageWindows`).
  */
 export function hasUsageWindows(engine: Engine): boolean {
   switch (engine.kind) {
     case "claude-code":
-      return true;
+      return engine.signedInByApiKey !== true;
     case "codex":
       return engine.apiKey === null;
     case "openai-compatible-api":

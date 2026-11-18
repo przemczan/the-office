@@ -41,6 +41,11 @@ export interface ClaudeCodePSession {
   readonly mcpConfigFile: string | undefined;
   /** The plugin folder holding the session's language servers, when it has any. */
   readonly languageServerPlugin: string | undefined;
+  /**
+   * The command printing the engine's API key file, when an API key signs it in: it names the file,
+   * as the settings are on the command line.
+   */
+  readonly apiKeyHelper: string | undefined;
 }
 
 /**
@@ -95,7 +100,7 @@ function skillRules({ skills }: SessionOptions): string[] {
  */
 function withHook(session: ClaudeCodePSession): Settings {
   return {
-    ...sessionSettings(session.options),
+    ...sessionSettings(session.options, session.apiKeyHelper),
     hooks: {
       PreToolUse: [
         {

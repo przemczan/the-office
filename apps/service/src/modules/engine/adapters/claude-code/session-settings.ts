@@ -56,8 +56,10 @@ const BUILT_IN_PLUGINS = [
 ];
 
 /**
- * Variables of the engine's a session must not get: an API key would switch billing off the
- * subscription, a given `CLAUDE_CONFIG_DIR` would run it on another account than its engine's,
+ * Variables of the engine's a session must not get: an API key or token would sign it in apart
+ * from its engine's folder, and reach every command the Agent runs (an engine's API key reaches
+ * the binary through `apiKeyHelper` instead), a given `CLAUDE_CONFIG_DIR` would run it on another
+ * account than its engine's,
  * `CLAUDE_CODE_PLUGIN_DIRS` changes what loads, and a parent
  * Claude Code session's own variables would make the session a nested one.
  */
@@ -85,14 +87,16 @@ function instructionFilesAbove(folder: string): string[] {
   }
 }
 
-/** The settings of spec §5.4, §5.6 and §6 a session runs with, hooks aside. */
-export function sessionSettings({
-  folder,
-  skills,
-  officeTools,
-  mcpServers,
-}: SessionOptions): Settings {
+/**
+ * The settings of spec §5.4, §5.6 and §6 a session runs with, hooks aside; with `apiKeyHelper`
+ * (`apiKeyHelperOf`) on an engine an API key signs in, which the binary takes over any login.
+ */
+export function sessionSettings(
+  { folder, skills, officeTools, mcpServers }: SessionOptions,
+  apiKeyHelper: string | undefined,
+): Settings {
   return {
+    ...(apiKeyHelper !== undefined && { apiKeyHelper }),
     claudeMdExcludes: instructionFilesAbove(folder),
     syncClaudeAiSkills: false,
     syncClaudeAiPlugins: false,

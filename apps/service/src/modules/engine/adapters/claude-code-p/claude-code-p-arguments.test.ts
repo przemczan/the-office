@@ -37,7 +37,7 @@ describe("claudeCodePArguments", () => {
     const settings = settingsOf(argumentsFor({ options }));
 
     expect(settings).toEqual({
-      ...sessionSettings(options),
+      ...sessionSettings(options, undefined),
       hooks: {
         PreToolUse: [
           {
@@ -55,6 +55,15 @@ describe("claudeCodePArguments", () => {
         ],
       },
     });
+  });
+
+  it("signs a session in by the engine's API key through the helper, which names the key file only", () => {
+    const helper = "'/usr/bin/node' -e '…' '/office/engines/claude-code/.anthropic-api-key'";
+
+    const args = argumentsFor({ apiKeyHelper: helper });
+
+    expect(settingsOf(args)).toMatchObject({ apiKeyHelper: helper });
+    expect(settingsOf(argumentsFor())).not.toHaveProperty("apiKeyHelper");
   });
 
   it("never runs a Project's own MCP servers", () => {

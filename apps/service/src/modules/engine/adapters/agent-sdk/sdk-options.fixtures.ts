@@ -44,6 +44,7 @@ export function optionsFor(session: Partial<SdkSession> = {}) {
     resumes: false,
     options: OPTIONS,
     configFolder: CONFIG_FOLDER,
+    apiKeyHelper: undefined,
     mcpConfigFile: undefined,
     languageServerPlugin: undefined,
     agentShells: ["bash"],

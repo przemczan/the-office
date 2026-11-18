@@ -35,6 +35,7 @@ import { toolDecision, type SessionHolds } from "../office-rules/tool-decision.j
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
@@ -98,6 +99,7 @@ export class AgentSdkEngine extends AgentEngine {
     options: SessionOptions,
   ): Promise<AgentSdkSession> {
     const configFolder = await preparedEngineConfigFolder(this.officeData, options.engine.id);
+    const apiKeyHelper = await apiKeyHelperOf(configFolder, this.operatingSystem);
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
       rules: claudeCodeOfficeRules(
@@ -137,6 +139,7 @@ export class AgentSdkEngine extends AgentEngine {
             resumes,
             options,
             configFolder,
+            apiKeyHelper,
             mcpConfigFile: mcpConfigFile?.path,
             languageServerPlugin,
             agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),

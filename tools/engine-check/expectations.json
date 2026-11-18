@@ -255,6 +255,7 @@
       }
     }
   },
+  "engine.api-key-sign-in": {},
   "engine.auto-memory": {
     "win32": {
       "officeOptions": {

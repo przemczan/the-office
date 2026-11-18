@@ -1,5 +1,5 @@
 import type { CodexApiKey } from "../../domain/codex-api-key.js";
-import { CODEX_API_KEY_ACCOUNT, type EngineAccount } from "../../domain/engine-account.js";
+import { API_KEY_ACCOUNT, type EngineAccount } from "../../domain/engine-account.js";
 import type { EngineId } from "../../domain/engines.js";
 import { CodexAccounts, type CodexSignIn } from "../../ports/codex-accounts.js";
 
@@ -60,7 +60,7 @@ export class StandInCodexAccounts extends CodexAccounts {
 
   setApiKey(engineId: EngineId, _key: CodexApiKey): Promise<void> {
     this.signIns.get(engineId)?.();
-    this.signedIn.set(engineId, CODEX_API_KEY_ACCOUNT);
+    this.signedIn.set(engineId, API_KEY_ACCOUNT);
     return Promise.resolve();
   }
 

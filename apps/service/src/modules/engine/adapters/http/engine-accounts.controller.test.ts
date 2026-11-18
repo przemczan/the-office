@@ -7,6 +7,8 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
+import { EngineModels } from "../../application/engine-models.js";
+import { hasUsageWindows } from "../../domain/engines.js";
 import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
 import { CodexAccounts } from "../../ports/codex-accounts.js";
@@ -69,6 +71,8 @@ const TOKEN = "sk-ant-oat01-a-pasted-token_123";
 
 const API_KEY = "sk-proj-an-openai-key_456";
 
+const ANTHROPIC_API_KEY = "sk-ant-api03-an-anthropic-key_789";
+
 /** The API key the repository keeps for the engine, as only it reveals it. */
 async function keptApiKey(engineId: string): Promise<string | null> {
   const engine = (await repository.read()).engines.find(({ id }) => id === engineId);
@@ -91,6 +95,11 @@ async function account(engineId: string): Promise<unknown> {
   const response = await fetch(`${url}/api/settings/engines/${engineId}/account`);
   expect(response.status).toBe(200);
   return engineAccountSchema.parse(await response.json());
+}
+
+async function claudeCodeHasUsageWindows(): Promise<boolean | undefined> {
+  const engine = await app.get(EngineModels).find("claude-code");
+  return engine === undefined ? undefined : hasUsageWindows(engine);
 }
 
 /** The hooks every test of both files runs. */
@@ -234,11 +243,54 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
     ]);
   });
 
-  it("refuses an empty API key, and one for an engine that is no Codex engine, without naming it", async () => {
+  it("signs a Claude Code engine in by an Anthropic API key, never answered back nor announced, until Sign out", async () => {
+    const given = await send("PUT", "claude-code/api-key", { key: ` ${ANTHROPIC_API_KEY}\n` });
+
+    expect(given.status).toBe(204);
+    expect(await given.text()).toBe("");
+    const signedIn = await fetch(`${url}/api/settings/engines/claude-code/account`);
+    expect(await signedIn.text()).not.toContain("sk-ant");
+    expect(await account("claude-code")).toEqual({
+      signedIn: true,
+      pastedToken: false,
+      apiKey: true,
+      email: null,
+      plan: null,
+    });
+    expect(JSON.stringify(published)).not.toContain("sk-ant");
+    // Listed with no usage windows by the time the change is announced.
+    expect(await claudeCodeHasUsageWindows()).toBe(false);
+
+    expect((await send("DELETE", "claude-code/sign-in")).status).toBe(204);
+
+    expect(await account("claude-code")).toMatchObject({ signedIn: false });
+    expect(await claudeCodeHasUsageWindows()).toBe(true);
+    expect(published).toMatchObject([{ engineId: "claude-code" }, { engineId: "claude-code" }]);
+  });
+
+  it("refuses a Claude Code engine a key not shaped as an Anthropic API key, in plain words without naming it", async () => {
+    for (const key of [API_KEY, TOKEN]) {
+      const refused = await send("PUT", "claude-code/api-key", { key });
+
+      expect(refused.status).toBe(400);
+      const text = await refused.text();
+      expect(text).not.toContain(key);
+      expect(JSON.parse(text)).toMatchObject({
+        message: "That is no Anthropic API key: one starts with sk-ant-api.",
+      });
+    }
+    const blank = await send("PUT", "claude-code/api-key", { key: "   " });
+    expect(blank.status).toBe(400);
+    expect(await blank.text()).not.toContain("sk-");
+    expect(await account("claude-code")).toMatchObject({ signedIn: false });
+    expect(published).toEqual([]);
+  });
+
+  it("refuses an empty API key, and one for an engine with no account, without naming it", async () => {
     const empty = await send("PUT", "codex/api-key", { key: "   " });
     expect(empty.status).toBe(400);
 
-    for (const engineId of ["claude-code", "strata", "unlisted"]) {
+    for (const engineId of ["strata", "unlisted"]) {
       const refused = await send("PUT", `${engineId}/api-key`, { key: API_KEY });
 
       expect(refused.status).toBe(404);

@@ -34,7 +34,10 @@ export class ChangedAccountUsage implements OnModuleInit {
   }
 }
 
-/** A Claude Code account's windows are read again on its next turn, as before account changes. */
+/**
+ * A Claude Code account's windows are read again on its next turn, as before account changes,
+ * unless an API key signs the engine in now, which has none.
+ */
 function readingOutlivesChange(engine: Engine | undefined): boolean {
   return engine !== undefined && engine.kind !== "codex" && hasUsageWindows(engine);
 }

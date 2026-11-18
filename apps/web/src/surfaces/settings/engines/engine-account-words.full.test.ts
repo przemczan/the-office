@@ -29,6 +29,12 @@ describe("a Claude Code engine's account line", () => {
       "A pasted token signs it in",
     );
   });
+
+  it("says an API key signs it in, with no email or plan", () => {
+    expect(engineAccountLine({ ...SIGNED_OUT, signedIn: true, apiKey: true })).toBe(
+      "An API key signs it in",
+    );
+  });
 });
 
 describe("a Codex engine's account line", () => {

@@ -128,6 +128,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
         instructionsFile: undefined,
         mcpConfigFile: mcpConfigFile.path,
         languageServerPlugin: undefined,
+        apiKeyHelper: undefined,
       }),
       cwd: folder,
       env: { ...options.environment, [TOKEN_VARIABLE]: "token" },

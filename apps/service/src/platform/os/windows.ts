@@ -5,6 +5,7 @@ import { win32 } from "node:path";
 import { codexBuild } from "./codex-build.js";
 import type { OperatingSystem, SshPrograms, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
+import { doubleQuoted, printFileCommand } from "./print-file-command.js";
 import type { ProcessTrees } from "./process-trees.js";
 import type { AgentShellProgram, FailedShellCommand, Shell } from "./shell.js";
 
@@ -72,6 +73,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     },
     hasLoadAverage: false,
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
+    printFileCommand: (file) => printFileCommand(doubleQuoted, file),
     gitHomeDirectory: (commandVariables) => gitForWindowsHome(commandVariables, homeDirectory),
     restrictToOwner: (path, kind) => icaclsOwnerOnly(variables, path, kind),
   };

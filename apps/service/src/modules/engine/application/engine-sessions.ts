@@ -5,7 +5,12 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown, SkillCalled } from "../domain/engine-events.js";
 import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
-import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
+import {
+  hasUsageWindows,
+  type Engine,
+  type EngineId,
+  type EngineModel,
+} from "../domain/engines.js";
 import { withLeftOutLanguageServers } from "../domain/language-servers.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
@@ -246,6 +251,7 @@ export class EngineSessions {
       },
       turnEnded: (usage) => this.turnEnded(settings, usage),
       refused: async (refusedTurn) => {
+        if (!hasUsageWindows(engine)) return asFailedTurn(refusedTurn);
         if (refusedTurn.usedUpWindow === undefined) return refusedTurn;
         const usedUpWindow = await this.usageWindows.refused(engine, refusedTurn.usedUpWindow);
         return { ...refusedTurn, usedUpWindow };
@@ -302,10 +308,28 @@ export class EngineSessions {
   }
 }
 
+/** What a refused turn reads as on an engine without usage windows, such as an API key's limit. */
+const NO_USAGE_WINDOW_REFUSAL = "The engine refused the turn: its rate limit was reached.";
+
+/**
+ * A turn refused on an engine without usage windows, which has no window to use up: an API's rate
+ * limit, which fails the turn as any other failure does and pauses no Task.
+ */
+function asFailedTurn({ usedUpWindow: _usedUpWindow, ...turn }: TurnEndedEvent): TurnEndedEvent {
+  return {
+    ...turn,
+    outcome: "failed",
+    errors: turn.errors.length > 0 ? turn.errors : [NO_USAGE_WINDOW_REFUSAL],
+  };
+}
+
 interface SessionWatch {
   readonly rateLimited: () => Promise<void>;
   readonly turnEnded: (usage: TokenUsage) => Promise<void>;
-  /** A turn was refused for a used-up usage window: it answers the turn with its reset settled. */
+  /**
+   * A turn was refused for a used-up usage window: it answers the turn with its reset settled, or
+   * as failed on an engine without windows.
+   */
   readonly refused: (ended: TurnEndedEvent) => Promise<TurnEndedEvent>;
   /**
    * The session's Agent or a subagent called the Skill tool for `skill`, or the user sent a skill

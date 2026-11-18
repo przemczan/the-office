@@ -43,6 +43,7 @@ import {
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
 import { serviceVariables } from "../claude-code/engine-read.js";
 import { sessionEnvironment } from "../claude-code/session-settings.js";
+import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import {
   claudeCodePArguments,
   claudeCodePEnvironment,
@@ -186,6 +187,7 @@ export class ClaudeCodePEngine extends AgentEngine {
             resources.folder === undefined ? undefined : join(resources.folder, INSTRUCTIONS_FILE),
           mcpConfigFile: resources.mcpConfigFile?.path,
           languageServerPlugin,
+          apiKeyHelper: await apiKeyHelperOf(configFolder, this.operatingSystem),
         }),
         cwd: options.folder,
         env: claudeCodePEnvironment(
