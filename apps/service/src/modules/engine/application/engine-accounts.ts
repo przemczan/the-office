@@ -1,7 +1,8 @@
 import { Injectable, Logger, type OnApplicationBootstrap, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { CodexApiKey } from "../domain/codex-api-key.js";
-import { CODEX_API_KEY_ACCOUNT, type EngineAccount } from "../domain/engine-account.js";
+import { AnthropicApiKey } from "../domain/anthropic-api-key.js";
+import { CodexApiKey } from "../domain/codex-api-key.js";
+import { API_KEY_ACCOUNT, type EngineAccount } from "../domain/engine-account.js";
 import { EngineAccountChanged, EngineAdded, EngineRemoved } from "../domain/engine-events.js";
 import type { CodexEngine, Engine, EngineId, EngineKind } from "../domain/engines.js";
 import type { PastedToken } from "../domain/pasted-token.js";
@@ -16,13 +17,6 @@ import { RunningEngineSessions } from "./running-engine-sessions.js";
 export class NotAClaudeCodeEngine extends Error {
   constructor(readonly engineId: EngineId) {
     super("Settings › Engines lists no Claude Code engine by that id.");
-  }
-}
-
-/** Settings › Engines names no Codex engine by that id, for what only one of those takes. */
-export class NotACodexEngine extends Error {
-  constructor(readonly engineId: EngineId) {
-    super("Settings › Engines lists no Codex engine by that id.");
   }
 }
 
@@ -44,10 +38,10 @@ export interface StartedSignIn {
 
 /**
  * Each Claude Code and Codex engine's account (spec §5.4): its status, Sign in and Sign out, a
- * pasted token on a Claude Code engine and an API key on a Codex engine, each change announced as
+ * pasted token on a Claude Code engine and an API key on either, each change announced as
  * `EngineAccountChanged`. The account lies in the engine's folder, made when the engine is added
  * and removed once the sessions running on it have ended; a Codex engine's API key is kept in the
- * database too, and never logged, announced or answered back.
+ * database too. No key is ever logged, announced or answered back.
  */
 @Injectable()
 export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
@@ -65,26 +59,34 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
 
   onModuleInit(): void {
     this.events.subscribe(EngineAdded, async ({ engineId, kind }) => {
-      if (kind === "claude-code") await this.accounts.prepareConfigFolder(engineId);
+      if (kind === "claude-code") {
+        await this.accounts.prepareConfigFolder(engineId);
+        // An engine added again before its folder went takes back the key the folder holds.
+        await this.recordApiKeySignIn(engineId);
+      }
       if (kind === "codex") await this.codexAccounts.prepareHome(engineId);
     });
     this.events.subscribe(EngineRemoved, ({ engineId, kind }) => {
+      this.engineModels.recordApiKeySignIn(engineId, false);
       // Not awaited: the removal is done, and its sessions may run for minutes yet.
       if (KINDS_WITH_A_FOLDER.has(kind)) void this.removeFolderAfterSessions(engineId, kind);
     });
   }
 
   /**
-   * Removes the folder of every engine no longer listed: one removed while the service stopped
-   * before its sessions ended, which an engine added again under its name would otherwise take
-   * back, its login included. An API engine listed under a removed one's id has no folder of its own.
+   * Records the Claude Code engines an API key signs in, then removes the folder of every engine no
+   * longer listed: one removed while the service stopped before its sessions ended, which an engine
+   * added again under its name would otherwise take back, its login included. An API engine listed
+   * under a removed one's id has no folder of its own.
    */
   async onApplicationBootstrap(): Promise<void> {
     try {
+      const engines = await this.engineModels.engines();
+      for (const { id, kind } of engines) {
+        if (kind === "claude-code") await this.recordApiKeySignIn(id);
+      }
       const listed = new Set(
-        (await this.engineModels.engines())
-          .filter(({ kind }) => KINDS_WITH_A_FOLDER.has(kind))
-          .map(({ id }) => id),
+        engines.filter(({ kind }) => KINDS_WITH_A_FOLDER.has(kind)).map(({ id }) => id),
       );
       // Both kinds' folders lie in the same `engines/` folder, so each adapter may name them all.
       for (const engineId of await this.accounts.engineIdsWithConfigFolders()) {
@@ -121,7 +123,7 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
   async account(engineId: EngineId): Promise<EngineAccount> {
     const engine = await this.requireAccount(engineId);
     if (engine.kind === "claude-code") return this.accounts.account(engineId);
-    if (engine.apiKey !== null) return CODEX_API_KEY_ACCOUNT;
+    if (engine.apiKey !== null) return API_KEY_ACCOUNT;
     return this.codexAccounts.account(engineId);
   }
 
@@ -134,12 +136,12 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
     const engine = await this.requireAccount(engineId);
     if (engine.kind === "claude-code") {
       const { url, ended } = await this.accounts.signIn(engineId);
-      void ended.then(() => this.announce(engineId));
+      this.announceAfter(engineId, ended);
       return { url };
     }
     await this.forgetApiKey(engine);
     const { url, userCode, ended } = await this.codexAccounts.signIn(engineId);
-    void ended.then(() => this.announce(engineId));
+    this.announceAfter(engineId, ended);
     return { url, userCode };
   }
 
@@ -156,14 +158,20 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /**
-   * Signs a Codex engine in by an OpenAI API key ("Use an API key instead"), in place of any
-   * ChatGPT sign-in: its folder signed in with it, then the key kept in the database.
+   * Signs the engine in by the API key given as `text`, in place of any login: a Claude Code engine
+   * by an Anthropic API key ("Use an API key"), kept in its folder only; a Codex engine by an OpenAI
+   * API key ("Use an API key instead"), its folder signed in with it, then the key kept in the
+   * database. `text` is made a key, which reads as redacted, before anything else is done with it.
    */
-  async setApiKey(engineId: EngineId, key: CodexApiKey): Promise<void> {
-    const engine = await this.engineModels.find(engineId);
-    if (engine?.kind !== "codex") throw new NotACodexEngine(engineId);
-    await this.codexAccounts.setApiKey(engineId, key);
-    await this.keepApiKey(engineId, key);
+  async setApiKey(engineId: EngineId, text: string): Promise<void> {
+    const engine = await this.requireAccount(engineId);
+    if (engine.kind === "claude-code") {
+      await this.accounts.setApiKey(engineId, AnthropicApiKey.of(text));
+    } else {
+      const key = CodexApiKey.of(text);
+      await this.codexAccounts.setApiKey(engineId, key);
+      await this.keepApiKey(engineId, key);
+    }
     await this.announce(engineId);
   }
 
@@ -205,12 +213,31 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
     await this.lock.holding(() => this.settings.setCodexApiKey(engineId, key));
   }
 
+  /** Announces the account once the Sign in has ended, however it ended. */
+  private announceAfter(engineId: EngineId, ended: Promise<void>): void {
+    void ended.then(
+      () => this.announce(engineId),
+      (error: unknown) => {
+        this.logger.error(`The Sign in on ${engineId} ended badly: ${messageOf(error)}`);
+        return this.announce(engineId);
+      },
+    );
+  }
+
+  private async recordApiKeySignIn(engineId: EngineId): Promise<void> {
+    this.engineModels.recordApiKeySignIn(engineId, await this.accounts.signedInByApiKey(engineId));
+  }
+
   /**
    * The account has changed whether or not it is announced, so a failure to announce it is logged,
-   * not answered.
+   * not answered. Whether an API key signs a Claude Code engine in is recorded first, so the
+   * handlers of the announcement list the engine as it is now.
    */
   private async announce(engineId: EngineId): Promise<void> {
     try {
+      if ((await this.engineModels.find(engineId))?.kind === "claude-code") {
+        await this.recordApiKeySignIn(engineId);
+      }
       await this.events.publish(new EngineAccountChanged(engineId));
     } catch (error) {
       this.logger.error(`Announcing the account of ${engineId} failed: ${messageOf(error)}`);

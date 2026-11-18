@@ -143,6 +143,7 @@
 - `operating-system.ts`: OperatingSystem, FileOwner, SshPrograms, UserEnvironment
 - `owner-only.fixtures.ts`: isOwnerOnly
 - `path-rules.ts`: PathRules, PathEntry, PathLimits, pathLengthProblem
+- `print-file-command.ts`: printFileCommand, shQuoted, doubleQuoted
 - `process-trees.fixtures.ts`: isRunning, processMark, isMarkedRunning, commandLinesHolding
 - `process-trees.ts`: ProcessTrees
 - `program.ts`: Program, startProgram, isOnPath

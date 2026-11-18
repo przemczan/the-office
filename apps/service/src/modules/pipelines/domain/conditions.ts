@@ -63,10 +63,16 @@ export type GroupWeight = Weight | { readonly kind: "run-command"; readonly test
  * Weighs `routes` in their order and stops at the first that holds (spec §2.3, "Which route the
  * walk follows"). A route The Office can't weigh stops it too, as a later route may only be
  * followed once that one is known not to hold; so does a command test not run yet, which is run
- * only once weighing reaches it.
+ * only once weighing reaches it. Routes `followable` leaves out are passed by, each of the others
+ * keeping its place among all of `routes`, which a command test's recorded result is found by.
  */
-export function weighRoutes(routes: readonly Route[], weighing: Weighing): RouteChoice {
+export function weighRoutes(
+  routes: readonly Route[],
+  weighing: Weighing,
+  followable: (route: Route) => boolean = () => true,
+): RouteChoice {
   for (const [routeIndex, route] of routes.entries()) {
+    if (!followable(route)) continue;
     const weight = route.condition
       ? weighGroup(route.condition, weighing, { routeIndex, testPath: [] })
       : HOLDS;

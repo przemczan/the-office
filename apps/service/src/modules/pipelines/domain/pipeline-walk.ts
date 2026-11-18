@@ -325,8 +325,14 @@ function afterFailure(
     return undefined;
   }
   if (decisionOf(run, "no-retries-left")) return afterNoRetriesLeft(walk, run, stage, error);
-  const failureRoutes = routesOf(walk, stage).filter((route) => carriesAFailure(route, stage.key));
-  return follow(walk, run, stage, failureRoutes, () => afterNoRetriesLeft(walk, run, stage, error));
+  return follow(
+    walk,
+    run,
+    stage,
+    routesOf(walk, stage),
+    () => afterNoRetriesLeft(walk, run, stage, error),
+    (route) => carriesAFailure(route, stage.key),
+  );
 }
 
 function afterNoRetriesLeft(
@@ -577,7 +583,8 @@ function advance(walk: Walk, run: StageRun, stage: Stage): StoppingMove | undefi
  * of the next recorded run, which the walk followed then, so a replay doesn't weigh again; or the
  * first route whose condition holds now. With none holding, `whenNoneHolds` decides; a route that
  * can't be weighed asks the user, and a command test whose result the run doesn't hold yet is
- * weighed first.
+ * weighed first. Only the routes `followable` keeps are followed, each weighed at its place among
+ * all of `routes`, so a command test's result recorded on the run stays its own.
  */
 function follow(
   walk: Walk,
@@ -585,25 +592,31 @@ function follow(
   stage: Stage,
   routes: readonly Route[],
   whenNoneHolds: () => StoppingMove | undefined,
+  followable: (route: Route) => boolean = () => true,
 ): StoppingMove | undefined {
   const asked = decisionOf(run, "no-route-holds");
   if (asked) return afterNoRouteHolds(walk, run, asked);
+  const candidates = routes.filter(followable);
   const recorded = walk.runs[walk.replayed.length];
-  const followed = recorded && routes.find(({ to }) => to === recorded.stageKey);
+  const followed = recorded && candidates.find(({ to }) => to === recorded.stageKey);
   if (followed) return goTo(walk, run, followed.to);
-  const choice = weighRoutes(routes, {
-    stageKey: stage.key,
-    runs: walk.replayed,
-    definitionOfDone: walk.definitionOfDone,
-    commands: recordedCommandResults(run),
-  });
+  const choice = weighRoutes(
+    routes,
+    {
+      stageKey: stage.key,
+      runs: walk.replayed,
+      definitionOfDone: walk.definitionOfDone,
+      commands: recordedCommandResults(run),
+    },
+    followable,
+  );
   switch (choice.kind) {
     case "follow":
       return goTo(walk, run, choice.route.to);
     case "none-holds":
       return whenNoneHolds();
     case "cannot-be-weighed":
-      return noRouteHolds(walk, run, stage, choice.why, routes);
+      return noRouteHolds(walk, run, stage, choice.why, candidates);
     case "run-command":
       return {
         move: "weigh-command",

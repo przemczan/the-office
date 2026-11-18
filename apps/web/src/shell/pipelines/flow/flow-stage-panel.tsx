@@ -92,7 +92,6 @@ export function FlowStagePanel(
             duties={props.duties}
             options={props.options}
             commands={props.commands}
-            onFailureApart
           />
         </FlowLockedFields>
         <FlowRoutesOut {...props} note={note} />

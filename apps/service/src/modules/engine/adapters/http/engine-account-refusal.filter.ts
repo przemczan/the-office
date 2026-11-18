@@ -2,9 +2,9 @@ import { Catch, HttpStatus, type ArgumentsHost, type ExceptionFilter } from "@ne
 import type { Response } from "express";
 import {
   NotAClaudeCodeEngine,
-  NotACodexEngine,
   NotAnEngineWithAnAccount,
 } from "../../application/engine-accounts.js";
+import { NotAnAnthropicApiKey } from "../../domain/anthropic-api-key.js";
 import { NotACodexApiKey } from "../../domain/codex-api-key.js";
 import { EngineAccountUnreadable } from "../../domain/engine-account.js";
 import { NotAPastedToken } from "../../domain/pasted-token.js";
@@ -13,9 +13,9 @@ import { CodexLoginFailed } from "../../ports/codex-accounts.js";
 
 type AccountRefusal =
   | NotAClaudeCodeEngine
-  | NotACodexEngine
   | NotAnEngineWithAnAccount
   | NotAPastedToken
+  | NotAnAnthropicApiKey
   | NotACodexApiKey
   | SignInNotRunning
   | SignInFailed
@@ -25,9 +25,9 @@ type AccountRefusal =
 /** Answers a refused account request as Nest answers its errors, in words for the web. */
 @Catch(
   NotAClaudeCodeEngine,
-  NotACodexEngine,
   NotAnEngineWithAnAccount,
   NotAPastedToken,
+  NotAnAnthropicApiKey,
   NotACodexApiKey,
   SignInNotRunning,
   SignInFailed,
@@ -46,14 +46,14 @@ export class EngineAccountRefusalFilter implements ExceptionFilter<AccountRefusa
 }
 
 function statusOf(error: AccountRefusal): HttpStatus {
-  if (
-    error instanceof NotAClaudeCodeEngine ||
-    error instanceof NotACodexEngine ||
-    error instanceof NotAnEngineWithAnAccount
-  ) {
+  if (error instanceof NotAClaudeCodeEngine || error instanceof NotAnEngineWithAnAccount) {
     return HttpStatus.NOT_FOUND;
   }
-  if (error instanceof NotAPastedToken || error instanceof NotACodexApiKey) {
+  if (
+    error instanceof NotAPastedToken ||
+    error instanceof NotAnAnthropicApiKey ||
+    error instanceof NotACodexApiKey
+  ) {
     return HttpStatus.BAD_REQUEST;
   }
   if (error instanceof SignInNotRunning) return HttpStatus.CONFLICT;

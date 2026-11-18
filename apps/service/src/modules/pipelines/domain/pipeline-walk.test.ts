@@ -1752,6 +1752,42 @@ describe("nextMove over routes", () => {
         stage: { key: "publish" },
       });
     });
+
+    it("weighs a failure route's command test at its place among all the Stage's routes", () => {
+      const lint: ConditionTest = { kind: "command", key: "lint" };
+      const flow = withFix([
+        when("fix", { kind: "stage", stage: null, is: "done" }),
+        when("publish", endedFailed, lint),
+        plainRoute(null),
+      ]);
+      const failedLint = {
+        purpose: "condition",
+        commandLine: "npm run lint",
+        outcome: "failed",
+        exitCode: 1,
+        durationMs: 1000,
+        output: "",
+        condition: { key: "lint", to: "publish", routeIndex: 1, testPath: [1] },
+      } satisfies StageCommandRun;
+      const weighedThenAccepted = failedTwice.map((run, index) =>
+        index === 3
+          ? {
+              ...run,
+              commandRuns: [failedLint],
+              decisions: [decided("no-retries-left", { kind: "accept-issues" })],
+            }
+          : run,
+      );
+
+      expect(nextMove(flow, failedTwice, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "weigh-command",
+        condition: { key: "lint", to: "publish", routeIndex: 1, testPath: [1] },
+      });
+      // The recorded result is found again once every route is weighed: no command runs twice.
+      expect(nextMove(flow, weighedThenAccepted, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "complete",
+      });
+    });
   });
 
   describe("the Definition of Done check", () => {

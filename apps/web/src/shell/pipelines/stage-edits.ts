@@ -189,11 +189,6 @@ function sameWorker(one: StageWorker | undefined, other: StageWorker | undefined
   return "duty" in other && one.duty === other.duty;
 }
 
-/** The Stages a failure may go back to: earlier ones that work, not Gates. */
-export function failureTargets(stages: readonly Stage[], index: number): readonly Stage[] {
-  return stages.slice(0, index).filter((stage) => stage.kind !== "gate");
-}
-
 function newStage(kind: StageKind, key: string, name: string): Stage {
   switch (kind) {
     case "agent":

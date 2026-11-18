@@ -129,7 +129,6 @@ export function StageTemplateForm({
             duties={duties}
             options={options}
             commands={commands}
-            template
           />
         </div>
       </Card>

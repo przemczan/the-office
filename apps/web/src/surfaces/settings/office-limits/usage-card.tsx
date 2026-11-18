@@ -40,9 +40,13 @@ export function UsageCard(): ReactNode {
   return (
     <>
       {settings.data && (
-        // Drafted afresh once the engines change, as it holds caps for each of them.
+        // Drafted afresh once the engines change, or which of them have usage windows (an account
+        // change can give or take them), as it holds caps for each of them and Window caps where
+        // there are windows, which the service refuses elsewhere.
         <UsageSettingsForm
-          key={settings.data.caps.map(({ engineId }) => engineId).join(" ")}
+          key={settings.data.caps
+            .map(({ engineId, windows }) => (windows ? `${engineId}:windows` : engineId))
+            .join(" ")}
           saved={settings.data}
         />
       )}

@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Check, Platform } from "./check.ts";
+import { API_KEY_FILE_VARIABLE } from "./checks/engine/api-key.ts";
 import {
   DECISION_WAIT_VARIABLE,
   DEFAULT_DECISION_WAIT_MINUTES,
@@ -30,6 +31,12 @@ that can't observe what it is for on this account now is skipped, with the reaso
                     CODEX_HOME=<folder> codex login; ${CODEX_HOME_VARIABLE} when omitted. Without
                     a signed-in folder the codex.* checks are skipped. The check changes no setting
                     there, and deletes the threads it started.
+
+Environment:
+  ${API_KEY_FILE_VARIABLE}
+                    a file holding an Anthropic API key, which engine.api-key-sign-in signs a config
+                    folder of its own in with; without it that check is skipped. The key is never
+                    printed or recorded.
 
 Slow checks:
   engine.decision-wait  waits ${DECISION_WAIT_VARIABLE} (default ${DEFAULT_DECISION_WAIT_MINUTES}) before answering

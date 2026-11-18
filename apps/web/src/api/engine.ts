@@ -18,6 +18,8 @@ import {
   sendToApiWithNoAnswer,
 } from "./api-client.ts";
 import { useOfficeEvent, type EventInvalidations } from "./event-stream-provider.tsx";
+import { nowQueries } from "./notifications.ts";
+import { usageSettingsQuery } from "./work.ts";
 
 const ENGINE_SETTINGS = ["settings", "engines"] as const;
 
@@ -105,8 +107,10 @@ export function pasteEngineToken(engineId: string, token: string): Promise<void>
 }
 
 /**
- * "Use an API key instead" on a Codex engine: an OpenAI API key signs it in, replacing any ChatGPT
- * sign-in, kept in the database and never sent back.
+ * An API key signs the engine in, in place of any other sign-in, and is never sent back: "Use an
+ * API key" on a Claude Code engine, an Anthropic one (refused unless shaped `sk-ant-api…`), kept in
+ * the engine's folder; "Use an API key instead" on a Codex engine, an OpenAI one, kept in the
+ * database.
  */
 export function setEngineApiKey(engineId: string, key: string): Promise<void> {
   return sendToApiWithNoAnswer("PUT", `${enginePath(engineId)}/api-key`, { key });
@@ -124,12 +128,18 @@ export function useEngineAccountChanged(engineId: string, onChanged: () => void)
   });
 }
 
-/** An engine's account that changed is read again by its id. */
+/**
+ * An engine's account that changed is read again by its id, and with it what shows its usage
+ * windows: an engine an API key signs in has none, so Now's readings and its Window caps in the
+ * usage settings come and go with the account.
+ */
 export const engineEventInvalidations: Readonly<
   Record<EngineWebEvent["type"], EventInvalidations[string]>
 > = {
   "engine.account-changed": (event) => [
     engineAccountKey(engineWebEventSchema.parse(event).engineId),
+    nowQueries.now().queryKey,
+    usageSettingsQuery().queryKey,
   ],
 };
 

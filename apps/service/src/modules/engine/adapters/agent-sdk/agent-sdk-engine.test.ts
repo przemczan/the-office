@@ -127,6 +127,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         resumes: false,
         options: withServer,
         configFolder: await preparedEngineConfigFolder(OFFICE_DATA, FIRST_CLAUDE_CODE_ENGINE.id),
+        apiKeyHelper: undefined,
         mcpConfigFile: mcpConfigFile.path,
         languageServerPlugin: undefined,
         agentShells: [],

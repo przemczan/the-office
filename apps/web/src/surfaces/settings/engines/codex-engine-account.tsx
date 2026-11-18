@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Input } from "@the-office/ui";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { Button } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import {
   engineAccountQuery,
-  setEngineApiKey,
   signOutOfEngine,
   startEngineSignIn,
   useEngineAccountChanged,
 } from "../../../api/engine.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
+import { EngineApiKeyForm } from "./engine-api-key-form.tsx";
 import { codexAccountLine } from "./engine-account-words.ts";
 
 /** What the account part asks for: nothing, a Sign in's code entered on its page, or an API key. */
@@ -29,32 +29,19 @@ export function CodexEngineAccount({ engineId }: { readonly engineId: string }):
   const queryClient = useQueryClient();
   const account = useQuery(engineAccountQuery(engineId));
   const [asking, setAsking] = useState<Asking>(ASKING_NOTHING);
-  const [key, setKey] = useState("");
 
   const accountChanged = () => {
     setAsking(ASKING_NOTHING);
-    setKey("");
     return queryClient.invalidateQueries(engineAccountQuery(engineId));
   };
   const signingIn = useMutation({
     mutationFn: () => startEngineSignIn(engineId),
-    onSuccess: ({ url, userCode }) => ask({ kind: "sign-in", signInPage: url, userCode }),
-  });
-  const givingKey = useMutation({
-    mutationFn: (typed: string) => setEngineApiKey(engineId, typed),
-    onSuccess: accountChanged,
+    onSuccess: ({ url, userCode }) => setAsking({ kind: "sign-in", signInPage: url, userCode }),
   });
   const signingOut = useMutation({
     mutationFn: () => signOutOfEngine(engineId),
     onSuccess: accountChanged,
   });
-
-  // What was typed for one ask never carries into the next, a key least of all.
-  const ask = (next: Asking) => {
-    givingKey.reset();
-    setKey("");
-    setAsking(next);
-  };
 
   // The login's end, signed in or not, is announced; a mere read again, as on focus, ends nothing.
   useEngineAccountChanged(engineId, () => {
@@ -81,7 +68,7 @@ export function CodexEngineAccount({ engineId }: { readonly engineId: string }):
             Sign in with ChatGPT
           </Button>
           {asking.kind !== "api-key" && (
-            <Button variant="ghost" size="sm" onClick={() => ask({ kind: "api-key" })}>
+            <Button variant="ghost" size="sm" onClick={() => setAsking({ kind: "api-key" })}>
               Use an API key instead
             </Button>
           )}
@@ -125,7 +112,7 @@ export function CodexEngineAccount({ engineId }: { readonly engineId: string }):
             <span className="engine-account-hint" role="status">
               Waiting for the sign-in to finish…
             </span>
-            <Button variant="ghost" size="sm" onClick={() => ask(ASKING_NOTHING)}>
+            <Button variant="ghost" size="sm" onClick={() => setAsking(ASKING_NOTHING)}>
               Cancel
             </Button>
           </div>
@@ -133,45 +120,15 @@ export function CodexEngineAccount({ engineId }: { readonly engineId: string }):
       )}
 
       {asking.kind === "api-key" && (
-        <form
-          className="engine-account-form"
-          onSubmit={(event) => submit(event, () => givingKey.mutate(key))}
-        >
-          <p className="engine-account-hint">
-            An OpenAI API key signs this engine in, in place of a ChatGPT sign-in.
-          </p>
-          <div className="engine-account-entry">
-            <Input
-              label="API key"
-              type="password"
-              autoComplete="off"
-              hint="Kept in the database and never shown again."
-              value={key}
-              onChange={(event) => setKey(event.target.value)}
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={key.trim() === ""}
-              loading={givingKey.isPending}
-            >
-              Save the key
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => ask(ASKING_NOTHING)}>
-              Cancel
-            </Button>
-          </div>
-          {givingKey.error && (
-            <RefusalAlert title="The API key wasn't saved" error={givingKey.error} />
-          )}
-        </form>
+        <EngineApiKeyForm
+          engineId={engineId}
+          hint="An OpenAI API key signs this engine in, in place of a ChatGPT sign-in."
+          keptWhere="Kept in the database"
+          saveLabel="Save the key"
+          saved={accountChanged}
+          cancel={() => setAsking(ASKING_NOTHING)}
+        />
       )}
     </div>
   );
-}
-
-/** A form here sends by `send`, never by the page's own submit. */
-function submit(event: FormEvent, send: () => void): void {
-  event.preventDefault();
-  send();
 }

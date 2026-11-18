@@ -1,3 +1,4 @@
+import type { AnthropicApiKey } from "../domain/anthropic-api-key.js";
 import type { EngineAccount } from "../domain/engine-account.js";
 import type { EngineId } from "../domain/engines.js";
 import type { PastedToken } from "../domain/pasted-token.js";
@@ -9,7 +10,10 @@ export interface SignIn {
    * The Office runs on another machine than the browser.
    */
   readonly url: string;
-  /** Settles once the login ends: signed in, refused, timed out, or ended by another Sign in. */
+  /**
+   * Settles once the login ends: signed in, refused, timed out, or ended by another Sign in; one
+   * that signed the folder in has removed any API key there by then.
+   */
   readonly ended: Promise<void>;
 }
 
@@ -25,11 +29,15 @@ export class SignInFailed extends Error {}
 
 /**
  * The accounts of the Claude Code engines, each in its engine's config folder (spec §5.4): read
- * with `claude auth status`, signed in with `claude auth login` or by a pasted token.
+ * with `claude auth status`, signed in with `claude auth login`, by a pasted token or by an API key,
+ * one at a time: each replaces whatever signed the folder in before.
  */
 export abstract class ClaudeCodeAccounts {
-  /** What `auth status` says of the engine's folder. */
+  /** What `auth status` says of the engine's folder; signed in by its API key while it holds one. */
   abstract account(engineId: EngineId): Promise<EngineAccount>;
+
+  /** Whether an API key signs the engine's folder in, without asking the binary. */
+  abstract signedInByApiKey(engineId: EngineId): Promise<boolean>;
 
   /** Starts a Sign in on the engine's folder, ending any still under way there. */
   abstract signIn(engineId: EngineId): Promise<SignIn>;
@@ -44,8 +52,14 @@ export abstract class ClaudeCodeAccounts {
   abstract setPastedToken(engineId: EngineId, token: PastedToken): Promise<void>;
 
   /**
-   * Signs the engine out, whether a Sign in or a pasted token signed it in, ending any Sign in under
-   * way there.
+   * Signs the engine in by an Anthropic API key ("Use an API key"), in place of any login its folder
+   * held, ending any Sign in under way there so it can't sign in over the key.
+   */
+  abstract setApiKey(engineId: EngineId, key: AnthropicApiKey): Promise<void>;
+
+  /**
+   * Signs the engine out, whether a Sign in, a pasted token or an API key signed it in, ending any
+   * Sign in under way there.
    */
   abstract signOut(engineId: EngineId): Promise<void>;
 

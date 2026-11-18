@@ -2,10 +2,11 @@ import type { EngineAccount } from "@the-office/contracts";
 
 /**
  * A Claude Code engine's account in a line: the email and plan `claude auth status` gives, that a
- * pasted token signs it in (the token tells neither), or "Signed out".
+ * pasted token or an API key signs it in (neither tells the email or plan), or "Signed out".
  */
 export function engineAccountLine(account: EngineAccount): string {
   if (!account.signedIn) return "Signed out";
+  if (account.apiKey) return "An API key signs it in";
   if (account.pastedToken) return "A pasted token signs it in";
   const who = account.email === null ? "Signed in" : `Signed in as ${account.email}`;
   return account.plan === null ? who : `${who} · ${planLabel("Claude", account.plan)}`;

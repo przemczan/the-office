@@ -128,7 +128,6 @@ function ProjectStagePanel(
           duties={props.duties}
           options={props.options}
           commands={props.commands}
-          onFailureApart
         />
         {row.built.origin === "changed" && <FieldsCompare {...props} />}
         <FlowRoutesOut {...props} />

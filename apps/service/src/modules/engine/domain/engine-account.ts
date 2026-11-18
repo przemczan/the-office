@@ -2,9 +2,9 @@ import { z } from "zod";
 
 /**
  * A Claude Code engine's account, as `claude auth status` gives it, signed in by Sign in or by a
- * pasted token, which tells no email or plan; or a Codex engine's, as the app-server's
- * `account/read` gives it, signed in by Sign in with ChatGPT or by an API key, which tells none
- * either (spec §5.4).
+ * pasted token, which tells no email or plan, or by an Anthropic API key, which tells none either;
+ * or a Codex engine's, as the app-server's `account/read` gives it, signed in by Sign in with
+ * ChatGPT or by an OpenAI API key (spec §5.4).
  */
 export type EngineAccount =
   | { readonly signedIn: false }
@@ -12,15 +12,18 @@ export type EngineAccount =
       readonly signedIn: true;
       /** A token pasted with "Paste a token instead" signs a Claude Code engine in. */
       readonly pastedToken: boolean;
-      /** An API key given with "Use an API key instead" signs a Codex engine in. */
+      /**
+       * An API key signs the engine in: an Anthropic one given a Claude Code engine with "Use an
+       * API key", or an OpenAI one given a Codex engine with "Use an API key instead".
+       */
       readonly apiKey: boolean;
       readonly email: string | undefined;
       /** The Claude or ChatGPT subscription, such as `max` or `plus`. */
       readonly plan: string | undefined;
     };
 
-/** A Codex engine signed in by an OpenAI API key: no email or plan is told. */
-export const CODEX_API_KEY_ACCOUNT: EngineAccount = {
+/** An engine signed in by an API key: no email or plan is told. */
+export const API_KEY_ACCOUNT: EngineAccount = {
   signedIn: true,
   pastedToken: false,
   apiKey: true,
@@ -82,7 +85,7 @@ export type CodexAccountRead = null | {
  */
 export function codexEngineAccountOf(account: CodexAccountRead): EngineAccount {
   if (account === null) return { signedIn: false };
-  if (account.type === "apiKey") return CODEX_API_KEY_ACCOUNT;
+  if (account.type === "apiKey") return API_KEY_ACCOUNT;
   const chatgpt = account.type === "chatgpt";
   return {
     signedIn: true,

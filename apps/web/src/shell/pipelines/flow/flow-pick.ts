@@ -32,11 +32,6 @@ export function pickOfProblem({ stageKey, at }: StageProblem): FlowPick | undefi
   }
 }
 
-/** The route a pick names, by its index; undefined when it names no route. */
-export function pickedRoute(pick: FlowPick | undefined, key: string): number | undefined {
-  return pick?.kind === "route" && pick.key === key ? pick.routeIndex : undefined;
-}
-
 /** A problem's key for a list: its Stage, where on it and its words, never its index. */
 export function problemKey({ stageKey, at, text }: StageProblem): string {
   return JSON.stringify([stageKey, at, text]);

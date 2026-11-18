@@ -295,13 +295,13 @@
 - `pipeline-choices.ts`: PipelineChoice, PipelineChoiceGroup, ChoosingProject, taskPipelineChoices, defaultPipelineChoices, choiceById, brokenWords
 - `pipeline-picker.tsx`: PipelinePicker
 - `pipeline-use-words.ts`: pipelineUseLine, projectPipelineUseLine
-- `pipeline-words.ts`: PUBLISH_TARGET_NAMES, AFTER_CONFLICT_NAMES, StageFieldChange, stageFieldChanges, stagesLine, whoWorks, stageDetailsLine, thousands, StageChange, stageChanges, stageChangeLine, sameStageChange
+- `pipeline-words.ts`: PUBLISH_TARGET_NAMES, AFTER_CONFLICT_NAMES, StageFieldChange, stageFieldChanges, stagesLine, whoWorks, thousands, StageChange, stageChanges, stageChangeLine, sameStageChange
 - `remove-pipeline-dialog.tsx`: RemovePipelineDialog
 - `stage-change-edits.ts`: StageField, STAGE_FIELDS, isStageField, StageChangeRow, NotApplyingFix, NotApplying, StageChangesShown, BuiltRows, stageChangesShown, stageChangeOf, withStageEdited, stageDrafted, withFieldSetBack, fieldsDiffering, withoutStageChangeOf, withoutStageChange, InsertPlace, insertPlace, newStageAmong, withStageInserted, withStageReplaced, withStageRemoved, withStageChangeAppliedTo, withOwnKey, withInsertPlaced, insertPlaces, routesChangeOf, withRoutesChanged, withoutRoutesChanged, sameRoutes
 - `stage-change-words.ts`: counted, STAGE_FIELD_LABELS, STAGE_CHANGE_KIND_NAMES, OriginWords, originWords, ROUTES_CHANGED, routesUndoWords, changedFieldsWords, undoWords, stageChangeLine, FieldWordsContext, fieldWords, getsLine, projectPipelineLine, builtOnByWords
 - `stage-check-alerts.tsx`: StageCheckAlerts
 - `stage-commands.ts`: PUBLISH_COMMAND, ANOTHER_KEY, StageCommandSource, PublishingLines, StageCommandChoice, commandChoices, commandWords, namedCommands, commandKeysOf, publishingLinesWords
-- `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_KIND_ICONS, addStage, addStageFrom, withoutFailureRule, AddedStage, namedAmong, keyAmong, standaloneStage, removeStage, replaceStage, StageWorker, stageWorker, withRole, withDuty, withCommand, canContinue, failureTargets
+- `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_KIND_ICONS, addStage, addStageFrom, withoutFailureRule, AddedStage, namedAmong, keyAmong, standaloneStage, removeStage, replaceStage, StageWorker, stageWorker, withRole, withDuty, withCommand, canContinue
 - `stage-form.tsx`: StageFormProps, StageForm
 - `stage-permission-fields.tsx`: StagePermissionFields
 - `stage-permissions.ts`: narrowerRuns, narrowerSettings, withPermissions, withMcpToolSetting, withCommands
@@ -327,10 +327,10 @@
 - `flow-list.tsx`: FlowListProps, FlowList
 - `flow-locked.tsx`: FlowLock, FlowLockedNote, FlowLockedFields, lockedTitle
 - `flow-marks.ts`: FlowStageMarkTone, FlowStageMark, FlowStageMarks, FlowLocks, NO_LOCKS, FlowOverlay
-- `flow-model.ts`: MoveDirection, FlowDrop, StageAddedToFlow, RoutesDrawn, RouteDrawn, LockedStages, NOTHING_LOCKED, stageNamed, inFlowOrder, asFlow, asWholeFlow, withStageAdded, frozenColumns, canMoveStage, withStageMoved, withStageDropped, canDropAt, stepInOrder, withStageStepped, earlierStages, laterStages, flowFailureTargets, routesWithDrawn, routesWithout, canMoveRouteAmong, routesMoved, routesWithTarget, routesWithCondition, withRouteDrawn, withRouteRemoved, canMoveRoute, withRouteMoved, withRouteTarget, withRouteCondition, withStageOnRoute, withStageRemovedFromFlow
+- `flow-model.ts`: MoveDirection, FlowDrop, StageAddedToFlow, RoutesDrawn, RouteDrawn, LockedStages, NOTHING_LOCKED, stageNamed, inFlowOrder, asFlow, asWholeFlow, withStageAdded, frozenColumns, canMoveStage, withStageMoved, withStageDropped, canDropAt, stepInOrder, earlierStages, laterStages, flowFailureTargets, routesWithDrawn, routesWithout, canMoveRouteAmong, routesMoved, routesWithTarget, routesWithCondition, withRouteDrawn, withRouteRemoved, canMoveRoute, withRouteMoved, withRouteTarget, withRouteCondition, withStageOnRoute, withStageRemovedFromFlow
 - `flow-on-failure.tsx`: FlowOnFailure
 - `flow-panel.tsx`: FlowPanelProps, FlowPanel, FlowPanelEmpty
-- `flow-pick.ts`: FlowPick, pickOfProblem, pickedRoute, problemKey
+- `flow-pick.ts`: FlowPick, pickOfProblem, problemKey
 - `flow-problem-alert.tsx`: FlowProblemAlert
 - `flow-route-panel.tsx`: FlowRoutePanel
 - `flow-routes-out.tsx`: FlowRoutesOut

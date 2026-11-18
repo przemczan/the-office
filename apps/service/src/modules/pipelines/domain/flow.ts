@@ -19,7 +19,7 @@ const WHILE_SOME_NOT_MET: Route["condition"] = {
  * End. Where the Stage after one is optional, its routes are to that Stage while the Definition of
  * Done has some not Reported met, otherwise to the first Stage after it that isn't optional, or End,
  * which runs and passes by the Stages the optional setting did. The optional setting itself is kept,
- * as the previous release reads it. Migration 0162 writes the same in SQL.
+ * as the previous release reads it. Migration 0163 writes the same in SQL.
  */
 export function straightLineFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[] {
   return stages.map((stage, index) => ({

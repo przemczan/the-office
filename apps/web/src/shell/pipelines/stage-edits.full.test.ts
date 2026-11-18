@@ -4,7 +4,6 @@ import {
   addStage,
   addStageFrom,
   canContinue,
-  failureTargets,
   removeStage,
   withCommand,
   withDuty,
@@ -126,12 +125,6 @@ describe("the Stage editor's changes", () => {
     });
     expect(withDuty([planning, review], 1, "plans")).toMatchObject({ session: "continue" });
     expect(withRole([planning, review], 1, "developer")).toMatchObject({ session: "fresh" });
-  });
-
-  it("goes back on failure only to earlier Stages that aren't Gates", () => {
-    const gated = addStage(quickFix, "gate").stages;
-    expect(keysOf(failureTargets(gated, 3))).toEqual(["implement", "tests"]);
-    expect(failureTargets(gated, 0)).toEqual([]);
   });
 });
 

@@ -5,7 +5,7 @@ import { STAGE_KIND_ICONS } from "../stage-edits.ts";
 import "./flow-canvas.css";
 import { FlowLock, lockedTitle } from "./flow-locked.tsx";
 import { type FlowLocks, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
-import { inFlowOrder, stepInOrder } from "./flow-model.ts";
+import { canMoveStage, inFlowOrder, stepInOrder } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import {
   type FlowCanvasEdit,
@@ -134,8 +134,15 @@ function FlowListRow(props: FlowListRowProps): ReactNode {
 function MoveArrows({ stage, stages, marks, locked, onEdit }: FlowListRowProps): ReactNode {
   const live = stages.filter(({ key }) => marks.get(key)?.tone !== "removed");
   const note = locked?.get(stage.key);
-  const first = note !== undefined || stepInOrder(live, stage.key, -1) === undefined;
-  const last = note !== undefined || stepInOrder(live, stage.key, 1) === undefined;
+  // Disabled too where the move would change nothing, such as next to a locked Stage.
+  const first =
+    note !== undefined ||
+    stepInOrder(live, stage.key, -1) === undefined ||
+    !canMoveStage(stages, stage.key, "earlier", locked);
+  const last =
+    note !== undefined ||
+    stepInOrder(live, stage.key, 1) === undefined ||
+    !canMoveStage(stages, stage.key, "later", locked);
   return (
     <span className="flow-list-tools">
       <IconButton

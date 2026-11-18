@@ -54,6 +54,12 @@ export interface OperatingSystem {
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
   /**
+   * A command line that prints the file's text, for the shell Claude Code runs its helper commands
+   * in (sh on Linux, Git Bash on Windows): a Claude Code engine's `apiKeyHelper`, which names its
+   * key file and never holds the key.
+   */
+  printFileCommand(file: string): string;
+  /**
    * The home folder git reads the user's global config from, and expands `~` against, for a
    * command run with `variables`.
    */

@@ -203,30 +203,6 @@ export function stepInOrder(stages: readonly Stage[], key: string, by: -1 | 1): 
   return index < 0 ? undefined : order[index + by]?.key;
 }
 
-/**
- * The Stages with one swapping places with its neighbour in the Pipeline's order, as List's arrows
- * do; neither may be locked.
- */
-export function withStageStepped(
-  stages: readonly Stage[],
-  key: string,
-  by: -1 | 1,
-  locked: LockedStages = NOTHING_LOCKED,
-): readonly Stage[] {
-  const stage = stageNamed(stages, key);
-  const neighbourKey = stepInOrder(stages, key, by);
-  const neighbour = neighbourKey === undefined ? undefined : stageNamed(stages, neighbourKey);
-  if (!stage || !neighbour || locked.has(stage.key) || locked.has(neighbour.key)) return stages;
-  return closedUp(
-    stages.map((other) => {
-      if (other === stage) return placedAt(other, placeOf(neighbour));
-      if (other === neighbour) return placedAt(other, placeOf(stage));
-      return other;
-    }),
-    locked,
-  );
-}
-
 /** The Stages in columns strictly before `key`'s, in the Pipeline's order. */
 export function earlierStages(stages: readonly Stage[], key: string): readonly Stage[] {
   return byColumn(stages, key, (column, own) => column < own);

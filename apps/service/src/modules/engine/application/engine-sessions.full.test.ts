@@ -14,6 +14,7 @@ import {
   SkillCalled,
   UsageWindowsChanged,
   UsageWindowsRead,
+  UsageWindowUsedUp,
 } from "../domain/engine-events.js";
 import { DEFAULT_ENGINE_SETTINGS } from "../domain/engine-settings.js";
 import {
@@ -186,6 +187,7 @@ function setUpOn(
   const dayUsage = new DayUsage(new DayUsageForTests(), schedule);
   const windowSamples = new UsageWindowSamples(new UsageWindowSamplesForTests());
   const running = new RunningEngineSessions();
+  const engineModels = new EngineModels(settings);
   const sessions = new EngineSessions(
     new AgentEngines(engines),
     telemetry,
@@ -194,7 +196,7 @@ function setUpOn(
     officeTools,
     dayUsage,
     new UsageWindowReadings(usageWindows, windowSamples, schedule),
-    new EngineModels(settings),
+    engineModels,
     running,
     new BusyWork(new EventBus()),
     languageServers,
@@ -202,6 +204,7 @@ function setUpOn(
   );
   return {
     sessions,
+    engineModels,
     spans,
     records,
     metricReader,
@@ -543,6 +546,76 @@ describe("EngineSessions", () => {
     const readings = published.filter((event) => event instanceof UsageWindowsRead);
     expect(readings).toHaveLength(1);
     expect(readings[0]?.readAt).toEqual(usageWindows.of(FIRST_CLAUDE_CODE_ENGINE.id)?.readAt);
+  });
+
+  describe("on a Claude Code engine an API key signs in", () => {
+    const RESET = new Date("2026-10-25T18:00:00Z");
+
+    /** A turn the API refused for its rate limit, as the Claude Code adapters end it. */
+    const REFUSED: SessionScript = [
+      { step: "start", brief: { id: "brief", text: "Begin." } },
+      {
+        step: "event",
+        event: { kind: "rate-limit", status: "rejected", window: "five-hour", resetsAt: RESET },
+      },
+      {
+        step: "event",
+        event: {
+          kind: "turn-ended",
+          outcome: "usage-window-used-up",
+          consumedMessageIds: ["brief"],
+          usage: { input: 4, output: 12, cacheRead: 24_000, cacheCreation: 200 },
+          sessionCostUsd: 0.01,
+          output: undefined,
+          errors: [],
+          usedUpWindow: { window: "five-hour", resetsAt: RESET, resetGiven: true },
+        },
+      },
+      { step: "read-usage-windows", windows: WINDOWS },
+      { step: "end" },
+    ];
+
+    it("takes no usage-window reading and ends a refused turn as an ordinary failure", async () => {
+      const { sessions, engineModels, published, usageWindows } = setUp([REFUSED]);
+      engineModels.recordApiKeySignIn(FIRST_CLAUDE_CODE_ENGINE.id, true);
+
+      const session = await sessions.start({
+        id: "s-1",
+        settings: SETTINGS,
+        brief: message("Begin."),
+      });
+      const [ended] = await turns(session, 1);
+      await session.end();
+
+      expect(ended).toMatchObject({
+        outcome: "failed",
+        errors: ["The engine refused the turn: its rate limit was reached."],
+      });
+      expect(ended?.usedUpWindow).toBeUndefined();
+      expect(usageWindows.of(FIRST_CLAUDE_CODE_ENGINE.id)).toBeUndefined();
+      expect(usageWindows.usedUpUntil(FIRST_CLAUDE_CODE_ENGINE.id)).toBeUndefined();
+      expect(
+        published.filter(
+          (event) => event instanceof UsageWindowsRead || event instanceof UsageWindowUsedUp,
+        ),
+      ).toEqual([]);
+    });
+
+    it("prices its turns by the shared Claude Model prices", async () => {
+      const { sessions, engineModels, spans } = setUp([ONE_TURN]);
+      engineModels.recordApiKeySignIn(FIRST_CLAUDE_CODE_ENGINE.id, true);
+
+      const session = await sessions.start({
+        id: "s-1",
+        settings: SETTINGS,
+        brief: message("Begin."),
+      });
+      await turns(session, 1);
+      await session.end();
+
+      await vi.waitFor(() => expect(spans.getFinishedSpans()).toHaveLength(1));
+      expect(spans.getFinishedSpans()[0]?.attributes["office.cost.usd"]).toBe(HAIKU_TURN_USD);
+    });
   });
 
   describe("language servers", () => {

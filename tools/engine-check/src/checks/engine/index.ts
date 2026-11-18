@@ -1,4 +1,5 @@
 import type { Check } from "../../check.ts";
+import { apiKeySignInCheck } from "./api-key-sign-in.ts";
 import { autoMemoryCheck } from "./auto-memory.ts";
 import { backgroundTasksCheck } from "./background-tasks.ts";
 import { decisionWaitCheck } from "./decision-wait.ts";
@@ -29,6 +30,7 @@ export const engineChecks: readonly Check[] = [
   rateLimitEventCheck,
   usageWindowRefusalCheck,
   usageReadAloneCheck,
+  apiKeySignInCheck,
   parallelSessionsCheck,
   leanOptionsCheck,
   autoMemoryCheck,

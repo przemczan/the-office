@@ -7,7 +7,6 @@ import {
   canMoveStage,
   earlierStages,
   flowFailureTargets,
-  inFlowOrder,
   laterStages,
   routesMoved,
   stepInOrder,
@@ -21,7 +20,6 @@ import {
   withStageMoved,
   withStageOnRoute,
   withStageRemovedFromFlow,
-  withStageStepped,
 } from "./flow-model.ts";
 import { isConvertedFlow } from "./converted-flow.ts";
 
@@ -170,14 +168,9 @@ describe("moving a Stage", () => {
     ]);
   });
 
-  it("steps through the Pipeline's order and swaps places with a neighbour", () => {
+  it("steps through the Pipeline's order", () => {
     expect(stepInOrder(line, "tests", -1)).toBe("plan");
     expect(stepInOrder(line, "publish", 1)).toBeUndefined();
-    expect(inFlowOrder(withStageStepped(line, "plan", 1)).map(({ key }) => key)).toEqual([
-      "tests",
-      "plan",
-      "publish",
-    ]);
   });
 });
 
@@ -345,6 +338,5 @@ describe("a Task's flow, its started Stages locked", () => {
     expect(canMoveStage(flow, "tests", "later", started)).toBe(false);
     expect(canMoveStage(flow, "review", "earlier", started)).toBe(false);
     expect(canMoveStage(flow, "review", "later", started)).toBe(true);
-    expect(withStageStepped(flow, "review", -1, started)).toBe(flow);
   });
 });
