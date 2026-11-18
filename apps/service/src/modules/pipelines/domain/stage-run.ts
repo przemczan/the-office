@@ -116,6 +116,11 @@ export interface RefusedTurn {
   readonly engineName: string;
   /** The used-up window as the user reads it, such as "5-hour window". */
   readonly windowWords: string;
+  /**
+   * The used-up window by the engine module's name for it, such as `five_hour`; undefined for runs
+   * held before it was kept.
+   */
+  readonly window?: string;
   /** When the window resets, as an ISO time: the run is kept as JSON. */
   readonly resetsAt: string;
   /**
@@ -151,6 +156,11 @@ export interface EngineSwitch {
   readonly windowWords: string;
   readonly resetsAt: string;
   readonly at: string;
+  /**
+   * The user who chose the switch for a run held waiting for their choice (spec 5.4), recorded on
+   * that held run; undefined for a switch The Office made by itself while the run ran.
+   */
+  readonly chosenBy?: HoldingUser;
 }
 
 /**

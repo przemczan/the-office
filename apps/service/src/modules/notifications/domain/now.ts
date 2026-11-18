@@ -135,8 +135,38 @@ export interface WaitingGate {
   readonly waitingSince: Date;
 }
 
+/**
+ * A Stage held as its engine's usage window was used up, waiting for the user's choice of going on
+ * on a Stand-in Engine now or waiting for the reset (spec 5.4), from Pipelines.
+ */
+export interface StandInChoiceWaiting {
+  readonly taskId: string;
+  readonly projectId: string;
+  readonly waitingSince: Date;
+  /** The used-up window's reset, as an ISO time. */
+  readonly resetsAt: string;
+  /** The Stand-in Engine it would move to now; null while none has room. */
+  readonly standInNow: { readonly engineName: string } | null;
+  /** The Stand-in Engine that had room as the Stage was held. */
+  readonly asked: { readonly engineName: string };
+}
+
+/**
+ * The Office's own Decision on every Stage waiting for the user's choice of a Stand-in Engine: one
+ * item for them all, however many wait.
+ */
+export interface WaitingStandInChoices {
+  readonly kind: "stand-in-choice";
+  /** The Projects of the waiting Stages' Tasks, so the Project filter can narrow what waits. */
+  readonly projectIds: readonly string[];
+  /** The oldest waiting Stage's. */
+  readonly waitingSince: Date;
+  readonly count: number;
+}
+
 /** What waits on the user. A message from a person joins with tier 2 (the user's answer of 2026-10-27). */
-export type NeedsYouItem = WaitingDecision | WaitingInitiativeDecision | WaitingGate;
+export type NeedsYouItem =
+  WaitingDecision | WaitingInitiativeDecision | WaitingGate | WaitingStandInChoices;
 
 /** The Stage a started Task is at: the one with its latest run. */
 export interface CurrentStage {
@@ -274,6 +304,7 @@ export interface NowParts {
   readonly fireAlarm: NowFireAlarm;
   /** How each Task the alarm paused would resume, by its id; read only while the alarm is on. */
   readonly resumes: ReadonlyMap<string, TaskResume | undefined>;
+  readonly standInChoices: readonly StandInChoiceWaiting[];
 }
 
 export function nowOf(parts: NowParts): Now {
@@ -416,7 +447,7 @@ export function currentStageOf(stages: readonly StageOfTask[]): CurrentStage | u
  * knows or that ended (Done or Dropped).
  */
 function needsYouOf(
-  { openDecisions, tasks, initiatives, initiativeTasks }: NowParts,
+  { openDecisions, tasks, initiatives, initiativeTasks, standInChoices }: NowParts,
   gates: readonly WaitingGate[],
 ): NeedsYouItem[] {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
@@ -451,10 +482,27 @@ function needsYouOf(
       ];
     }),
     ...gates,
+    ...waitingStandInChoicesOf(standInChoices),
   ];
   return waiting.toSorted(
     (one, other) => one.waitingSince.getTime() - other.waitingSince.getTime(),
   );
+}
+
+/** One item for every Stage waiting for the choice, none while none waits. */
+function waitingStandInChoicesOf(
+  choices: readonly StandInChoiceWaiting[],
+): WaitingStandInChoices[] {
+  if (choices.length === 0) return [];
+  const since = Math.min(...choices.map(({ waitingSince }) => waitingSince.getTime()));
+  return [
+    {
+      kind: "stand-in-choice",
+      projectIds: [...new Set(choices.map(({ projectId }) => projectId))],
+      waitingSince: new Date(since),
+      count: choices.length,
+    },
+  ];
 }
 
 /** An outcome of a Task Work no longer knows is left out. */

@@ -912,21 +912,12 @@ export class StageThreads {
       let moved: ThreadSession;
       let names: { readonly fromName: string; readonly toName: string };
       try {
-        names = {
-          fromName: await this.engine.nameOf(from),
-          toName: await this.engine.nameOf(standIn.engineId),
-        };
         await closeSession();
-        await this.engine.carrySession(session.id, from, standIn.engineId);
-        const thread = await this.change(threadId, (latest) =>
-          moveSessionToEngine(
-            latest,
-            { messageId: randomUUID(), from, to: standIn.engineId, ...names, ...why },
-            new Date(),
-          ),
-        );
-        if (!thread.session) throw new Error(`Thread ${threadId} has no session.`);
-        moved = thread.session;
+        ({ session: moved, ...names } = await this.carrySession(threadId, session.id, {
+          from,
+          to: standIn.engineId,
+          ...why,
+        }));
       } catch (error) {
         throw failed(error);
       }
@@ -1108,6 +1099,79 @@ export class StageThreads {
     const at = new Date();
     const messages = drafts.map((draft): Message => ({ ...draft, id: randomUUID(), threadId, at }));
     await this.change(threadId, (thread) => logMessages(thread, messages, at));
+  }
+
+  /**
+   * Moves the idle session of a held run's Stage Thread from the engine `from` to the Stand-in
+   * Engine `standIn`, as the user chose (spec 5.4): carried over and recorded there, opening no
+   * session on either engine, so the Stage's next run resumes it there. Refused while the Thread
+   * is answering or its session isn't on `from`; a failed carry leaves the Thread on `from`.
+   */
+  async moveToStandIn(
+    threadId: string,
+    standIn: EngineModel,
+    {
+      from,
+      ...why
+    }: {
+      readonly from: EngineId;
+      readonly window: UsageWindowName;
+      readonly resetsAt: Date;
+    },
+  ): Promise<void> {
+    const thread = await this.repository.find(threadId);
+    const failed = (cause: unknown) => new SwitchFailed(threadId, from, standIn.engineId, cause);
+    if (!thread?.session) throw failed(new Error(`Thread ${threadId} has no session.`));
+    if (thread.state === "answering" || this.bargeIns.has(threadId)) {
+      throw failed(new Error("Its session is answering."));
+    }
+    if (thread.session.engineId !== from) {
+      throw failed(new Error(`Its session runs on ${thread.session.engineId}, not ${from}.`));
+    }
+    try {
+      await this.carrySession(threadId, thread.session.id, { from, to: standIn.engineId, ...why });
+    } catch (error) {
+      throw failed(error);
+    }
+  }
+
+  /**
+   * Carries the Thread's session `sessionId` from the engine `from` to `to`, then records it there
+   * and logs why (spec 5.4): copied, then recorded, so at a crash in between the engine the Thread
+   * records holds its session. Answers the moved session and both engines' names.
+   */
+  private async carrySession(
+    threadId: string,
+    sessionId: string,
+    {
+      from,
+      to,
+      ...why
+    }: {
+      readonly from: EngineId;
+      readonly to: EngineId;
+      readonly window: UsageWindowName;
+      readonly resetsAt: Date;
+    },
+  ): Promise<{
+    readonly session: ThreadSession;
+    readonly fromName: string;
+    readonly toName: string;
+  }> {
+    const names = {
+      fromName: await this.engine.nameOf(from),
+      toName: await this.engine.nameOf(to),
+    };
+    await this.engine.carrySession(sessionId, from, to);
+    const thread = await this.change(threadId, (latest) =>
+      moveSessionToEngine(
+        latest,
+        { messageId: randomUUID(), from, to, ...names, ...why },
+        new Date(),
+      ),
+    );
+    if (!thread.session) throw new Error(`Thread ${threadId} has no session.`);
+    return { session: thread.session, ...names };
   }
 
   private async change<Event extends DomainEvent>(

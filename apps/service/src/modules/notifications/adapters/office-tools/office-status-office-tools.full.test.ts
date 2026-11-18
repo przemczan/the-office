@@ -16,6 +16,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -45,6 +46,7 @@ describe("the show_office_status tool", () => {
           officeStatusCards: OfficeStatusCardsForTests,
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
+          standInChoicesWaiting: StandInChoicesWaitingForTests,
         }),
       ],
     }));

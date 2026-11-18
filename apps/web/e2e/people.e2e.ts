@@ -28,6 +28,8 @@ import {
   sizeThresholdSchema,
   SIZE_THRESHOLD_TOKENS,
   stageTemplateSchema,
+  standInChoicesResponseSchema,
+  standInSwitchResponseSchema,
   taskListSchema,
   taskSchema,
   taskStagesSchema,
@@ -8067,6 +8069,215 @@ test.describe("a Stage on a Stand-in Engine", { tag: "@full" }, () => {
       });
     } finally {
       await removeEngine(page, standInName);
+      await repository.remove();
+    }
+  });
+
+  // The engine replays the next four sessions in e2e/sessions.jsonl: each Task's Implement holds at
+  // a mark, then its first turn is refused for a used-up 5-hour window (reset a minute on), its
+  // context over the size Settings › Engines asks first above; then each Stage, once switched, opens
+  // again on the Stand-in Engine and does the work.
+  test("Stages over the size asked first above wait in one Decision in Needs you, and Switch now moves one to a Stand-in Engine", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const standInName = "Stand-in for choices";
+    const repository = await createTemporaryRepository();
+    const taskLimit = await setDevelopersTaskLimit(page, 3);
+    let resetsAt: string | undefined;
+    const { askBeforeSwitchAbove } = engineSettingsSchema.parse(
+      await (await page.request.get("/api/settings/engines")).json(),
+    );
+    try {
+      await saveEngines(page, (engines) => [
+        ...engines,
+        {
+          kind: "claude-code",
+          name: standInName,
+          defaultModel: "claude-sonnet-5-5",
+          claudeCodeP: false,
+        },
+      ]);
+      const settings = engineSettingsSchema.parse(
+        await (await page.request.get("/api/settings/engines")).json(),
+      );
+      const standInId = await engineIdOf(page, standInName);
+      const engineName = settings.engines.find(({ id }) => id === "claude-code")?.name ?? "";
+      expect(engineName).not.toBe("");
+      // The scripted sessions' context is 30,100 tokens, over the 20,000 asked first above.
+      const standIns = await page.request.put("/api/settings/engines", {
+        data: {
+          ...settings,
+          engines: settings.engines.map((engine) =>
+            engine.kind === "claude-code" ? engine : { ...engine, keySet: undefined },
+          ),
+          standInEngines: [standInId],
+          askBeforeSwitchAbove: 20_000,
+        },
+      });
+      expect(standIns.ok()).toBe(true);
+
+      const project = await addedProject(
+        page,
+        repository,
+        "Choice exports",
+        "CE",
+        PASSING_COMMANDS,
+      );
+      // Both Tasks are started at once.
+      const roomy = await page.request.put(`/api/projects/${project.id}/project-limit`, {
+        data: { projectLimit: 2 },
+      });
+      expect(roomy.status()).toBe(200);
+      const library = pipelineListSchema.parse(
+        await (await page.request.get("/api/pipelines")).json(),
+      );
+      const implementOnly = asStageList(
+        (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
+          ({ key }) => key === "implement",
+        ),
+      );
+      const titles = ["Choice exports keep their columns", "Choice exports keep their totals"];
+      const taskIds: string[] = [];
+      for (const title of titles) {
+        const taskId = await readyTask(page, project.id, title);
+        const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
+          data: { stages: implementOnly },
+        });
+        expect(edited.status()).toBe(200);
+        await page.goto(`/tasks/${taskId}`);
+        await page.getByRole("button", { name: "Start", exact: true }).click();
+        await expect
+          .poll(
+            async () =>
+              taskSchema.parse(await (await page.request.get(`/api/tasks/${taskId}`)).json()).state,
+            { timeout: 30_000 },
+          )
+          .toBe("in-progress");
+        taskIds.push(taskId);
+      }
+      // Both sessions open on the first engine before either turn is refused: the mark is reached
+      // again until both sessions passed it, as it reaches only the sessions open by then.
+      await expect
+        .poll(
+          async () => {
+            const reached = await page.request.post("/api/e2e/marks/stand-in-choices-refused");
+            expect(reached.status()).toBe(204);
+            return standInChoicesResponseSchema.parse(
+              await (await page.request.get("/api/stand-in-choices")).json(),
+            ).choices.length;
+          },
+          { timeout: 30_000 },
+        )
+        .toBe(2);
+
+      // One card in Needs you, a row per Stage, each with Switch now, and Switch all now.
+      await page.goto("/now");
+      const decision = page.locator("section.stand-in-choice");
+      const rows = decision.locator(".stand-in-choice-rows > li");
+      await expect(decision).toHaveCount(1, { timeout: 30_000 });
+      await expect(rows).toHaveCount(2, { timeout: 30_000 });
+      await expect(
+        page.getByText("Decision: switch Stages to a Stand-in Engine", { exact: true }),
+      ).toHaveCount(1);
+      await expect(decision).toContainText(
+        "Their context is over the 20,000 tokens set in Settings › Engines",
+      );
+      for (const title of titles) {
+        const row = decision.getByRole("listitem", { name: `Implement · ${title}` });
+        await expect(row).toContainText(`${engineName} ran out; resets at`);
+        await expect(row).toContainText(`Moves to ${standInName}`);
+        await expect(row.getByRole("button", { name: "Switch now" })).toBeEnabled();
+      }
+      await expect(decision.getByRole("button", { name: "Switch all now" })).toBeEnabled();
+      const choices = standInChoicesResponseSchema.parse(
+        await (await page.request.get("/api/stand-in-choices")).json(),
+      ).choices;
+      expect(choices).toHaveLength(2);
+      resetsAt = choices[0]?.resetsAt;
+      for (const taskId of taskIds) {
+        const paused = taskSchema.parse(
+          await (await page.request.get(`/api/tasks/${taskId}`)).json(),
+        );
+        expect(paused.state).toBe("paused");
+      }
+      await screenshotScenario(page, "stand-in-choice-needs-you");
+
+      // Switch now on the first Task's Stage: it goes on on the Stand-in Engine, one row is left.
+      const [switchedId, waitingId] = taskIds as [string, string];
+      const switched = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/stand-in-choices/switch") &&
+          response.request().method() === "POST",
+      );
+      await decision
+        .getByRole("listitem", { name: `Implement · ${titles[0]}` })
+        .getByRole("button", { name: "Switch now" })
+        .click();
+      const answered = standInSwitchResponseSchema.parse(await (await switched).json());
+      expect(answered.results).toMatchObject([
+        { outcome: "switched", words: `It goes on on ${standInName}.` },
+      ]);
+      await expect(rows).toHaveCount(1);
+      await expect(
+        decision.getByRole("listitem", { name: `Implement · ${titles[1]}` }),
+      ).toBeVisible();
+      await expect(decision.getByRole("button", { name: "Switch all now" })).toHaveCount(0);
+      await expect(decision).toContainText("Its context is over the 20,000 tokens");
+      await screenshotScenario(page, "stand-in-choice-one-left");
+
+      const doneOnStandIn = async (taskId: string) => {
+        await expect
+          .poll(
+            async () =>
+              taskSchema.parse(await (await page.request.get(`/api/tasks/${taskId}`)).json()).state,
+            { timeout: 60_000 },
+          )
+          .toBe("done");
+        const stages = taskStagesSchema.parse(
+          await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+        );
+        const implement = stages.stages?.[0];
+        expect(implement?.runs.at(-1)).toMatchObject({
+          outcome: { status: "done" },
+          engine: { engineId: standInId, standInFor: { engineId: "claude-code" } },
+        });
+      };
+      await doneOnStandIn(switchedId);
+      // The other still waits for the user's choice, Paused.
+      const left = standInChoicesResponseSchema.parse(
+        await (await page.request.get("/api/stand-in-choices")).json(),
+      ).choices;
+      expect(left.map(({ taskId }) => taskId)).toEqual([waitingId]);
+      expect(
+        taskSchema.parse(await (await page.request.get(`/api/tasks/${waitingId}`)).json()).state,
+      ).toBe("paused");
+
+      // Switched too, so nothing is left waiting for the reset.
+      await decision.getByRole("button", { name: "Switch now" }).click();
+      await expect(decision).toHaveCount(0);
+      await doneOnStandIn(waitingId);
+    } finally {
+      // Later files find the first engine's window free again.
+      if (resetsAt !== undefined) {
+        const left = Date.parse(resetsAt) - Date.now();
+        if (left > 0) await page.waitForTimeout(left + 2_000);
+      }
+      await removeEngine(page, standInName);
+      const saved = engineSettingsSchema.parse(
+        await (await page.request.get("/api/settings/engines")).json(),
+      );
+      const restored = await page.request.put("/api/settings/engines", {
+        data: {
+          ...saved,
+          engines: saved.engines.map((engine) =>
+            engine.kind === "claude-code" ? engine : { ...engine, keySet: undefined },
+          ),
+          askBeforeSwitchAbove,
+        },
+      });
+      expect(restored.ok()).toBe(true);
+      await setDevelopersTaskLimit(page, taskLimit);
       await repository.remove();
     }
   });

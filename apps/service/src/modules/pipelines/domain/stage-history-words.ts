@@ -315,15 +315,18 @@ export function standInChoiceWords({
 
 /**
  * "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on Claude
- * Code 2.", the reset worded as a Stage Thread's line words it.
+ * Code 2.", the reset worded as a Stage Thread's line words it, ending "…, as the user Ann Lee
+ * chose." for a switch the user chose.
  */
 export function engineSwitchWords({
   fromEngineName,
   toEngineName,
   windowWords,
   resetsAt,
+  chosenBy,
 }: EngineSwitch): string {
-  return `${fromEngineName}'s ${windowWords} was used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC, so the Stage went on on ${toEngineName}.`;
+  const chosen = chosenBy ? `, as ${holdingUserWords(chosenBy)} chose` : "";
+  return `${fromEngineName}'s ${windowWords} was used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC, so the Stage went on on ${toEngineName}${chosen}.`;
 }
 
 function tokenCount(tokens: number): string {

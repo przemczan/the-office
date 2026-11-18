@@ -780,6 +780,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         engineName,
         window: usedUp.window,
         resetsAt: usedUp.resetsAt,
+        ...(standInChoice && { awaitsStandInChoice: true }),
       });
       if (standInChoice) {
         await this.events.publish(
@@ -802,6 +803,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         ...message,
         engineName,
         windowWords: usageWindowWords(usedUp.window),
+        window: usedUp.window,
         resetsAt: usedUp.resetsAt.toISOString(),
         ...(standInChoice && { standInChoice }),
       },
@@ -936,11 +938,15 @@ function heldRun(stage: Stage, earlierRuns: readonly StageRun[]): StageRun | und
   return last.outcome.interrupted ? last : undefined;
 }
 
-function heldRunOf({ outcome, decisions }: StageRun): HeldRun | undefined {
+function heldRunOf({ outcome, decisions, engineSwitches }: StageRun): HeldRun | undefined {
   if (outcome?.status !== "failed" || !outcome.interrupted) return undefined;
   const answer = decisions.find(({ kind }) => kind === "restart")?.answer;
   const guidance = answer?.kind === "one-more-round" ? answer.guidance : undefined;
+  const chosen = engineSwitches.findLast(({ chosenBy }) => chosenBy !== undefined);
   return {
+    ...(chosen?.chosenBy && {
+      standInChosen: { engineName: chosen.toEngineName, chosenBy: chosen.chosenBy },
+    }),
     by: outcome.interrupted,
     ...(outcome.heldByUser && { byUser: outcome.heldByUser }),
     ...(outcome.notStarted && { notStarted: true }),

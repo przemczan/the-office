@@ -298,12 +298,28 @@ describe("engineSwitchWords", () => {
       windowWords: "5-hour window",
       resetsAt,
       at: "2026-11-13T11:00:00.000Z",
+      chosenBy: null,
     });
 
     expect(words).toBe(
       `Claude Code's 5-hour window was used up until ${momentWords(resetsAt, new Date())}, so the Stage went on on Claude Code 2`,
     );
     expect(words).not.toMatch(/UTC/);
+  });
+
+  it("names the user who chose the switch for a run that waited for their choice", () => {
+    const words = engineSwitchWords({
+      fromEngineId: "claude-code",
+      fromEngineName: "Claude Code",
+      toEngineId: "claude-code-2",
+      toEngineName: "Claude Code 2",
+      windowWords: "5-hour window",
+      resetsAt: "2026-11-13T14:00:00.000Z",
+      at: "2026-11-13T11:00:00.000Z",
+      chosenBy: { userId: "ann", name: "Ann Lee" },
+    });
+
+    expect(words).toMatch(/, so the Stage went on on Claude Code 2, as the user Ann Lee chose$/);
   });
 });
 

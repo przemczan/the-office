@@ -272,8 +272,80 @@ export const engineSwitchSchema = z.object({
   windowWords: z.string(),
   resetsAt: z.iso.datetime(),
   at: z.iso.datetime(),
+  /**
+   * The user who chose the switch for a run held waiting for their choice; null for a switch The
+   * Office made by itself.
+   */
+  chosenBy: z.object({ userId: z.string(), name: z.string() }).nullable(),
 });
 export type EngineSwitch = z.infer<typeof engineSwitchSchema>;
+
+/**
+ * A Stage held as its engine's usage window was used up, whose context is over the size Settings ›
+ * Engines asks first above, waiting for the user's choice of going on on a Stand-in Engine now or
+ * waiting for the reset (spec 5.4): a row of The Office's own Decision in Needs you.
+ */
+export const standInChoiceSchema = z.object({
+  /** The held run, by which the user switches it. */
+  runId: z.uuid(),
+  taskId: z.uuid(),
+  taskTitle: z.string(),
+  projectId: z.string(),
+  stageKey: z.string(),
+  stageName: z.string(),
+  /** The engine whose usage window was used up, by its name at the time, and its reset. */
+  engineName: z.string(),
+  resetsAt: z.iso.datetime(),
+  /** The session's context when its turn was refused, in tokens. */
+  contextTokens: z.int().nonnegative(),
+  /** The size above which Settings › Engines asks before a switch, in tokens. */
+  askAbove: z.int().nonnegative(),
+  /**
+   * The Stand-in Engine it would move to now, the first with room, by its id and name; null while
+   * none has room.
+   */
+  standIn: z.object({ engineId: z.string(), engineName: z.string() }).nullable(),
+  /** Since when it waits: the held run's end. */
+  waitingSince: z.iso.datetime(),
+});
+export type StandInChoice = z.infer<typeof standInChoiceSchema>;
+
+export const standInChoicesResponseSchema = z.object({ choices: z.array(standInChoiceSchema) });
+export type StandInChoicesResponse = z.infer<typeof standInChoicesResponseSchema>;
+
+/** The held runs the user switches now, each Task on its own (`POST /stand-in-choices/switch`). */
+export const standInSwitchRequestSchema = z.object({ runIds: z.array(z.uuid()).min(1) });
+export type StandInSwitchRequest = z.infer<typeof standInSwitchRequestSchema>;
+
+/**
+ * What came of one held run's switch: moved and resumed (`switched`); it no longer waits, as its
+ * Task resumed by itself at the reset (`already-resumed`) or was resumed, stopped or dropped by
+ * hand (`no-longer-waiting`); no Stand-in Engine had room (`no-room`); the move failed (`failed`),
+ * the Task staying Paused on its own Engine; or the session moved but the Task couldn't resume
+ * (`moved-not-resumed`), so it waits for the user's Resume.
+ */
+export const standInSwitchOutcomeSchema = z.enum([
+  "switched",
+  "already-resumed",
+  "no-longer-waiting",
+  "no-room",
+  "failed",
+  "moved-not-resumed",
+]);
+export type StandInSwitchOutcome = z.infer<typeof standInSwitchOutcomeSchema>;
+
+export const standInSwitchResultSchema = z.object({
+  runId: z.uuid(),
+  outcome: standInSwitchOutcomeSchema,
+  /** What happened, as the card shows it beside the Stage. */
+  words: z.string(),
+});
+export type StandInSwitchResult = z.infer<typeof standInSwitchResultSchema>;
+
+export const standInSwitchResponseSchema = z.object({
+  results: z.array(standInSwitchResultSchema),
+});
+export type StandInSwitchResponse = z.infer<typeof standInSwitchResponseSchema>;
 
 /** One run of one of a Task's Stages. */
 export const stageRunSchema = z.object({
@@ -614,6 +686,8 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     fromEngineId: z.string(),
     toEngineId: z.string(),
   }),
+  /** The Stages waiting for the user's choice of a Stand-in Engine changed: refetch them. */
+  webEventSchema.extend({ type: z.literal("stand-in-choices.changed") }),
   webEventSchema.extend({
     type: z.literal("stage-run.ended"),
     taskId: z.uuid(),

@@ -179,13 +179,15 @@ function standInChoiceWords({ engineName, contextTokens, askAbove }: StandInChoi
 
 /**
  * A run's session that went on on a Stand-in Engine, the reset in local time: "Claude Code's
- * 5-hour window was used up until 14:00, so the Stage went on on Claude Code 2".
+ * 5-hour window was used up until 14:00, so the Stage went on on Claude Code 2", with ", as the
+ * user Ann Lee chose" when the run waited for the user's choice.
  */
 export function engineSwitchWords(
-  { fromEngineName, toEngineName, windowWords, resetsAt }: EngineSwitch,
+  { fromEngineName, toEngineName, windowWords, resetsAt, chosenBy }: EngineSwitch,
   now: Date = new Date(),
 ): string {
-  return `${fromEngineName}'s ${windowWords} was used up until ${momentWords(resetsAt, now)}, so the Stage went on on ${toEngineName}`;
+  const chosen = chosenBy ? `, as the user ${chosenBy.name} chose` : "";
+  return `${fromEngineName}'s ${windowWords} was used up until ${momentWords(resetsAt, now)}, so the Stage went on on ${toEngineName}${chosen}`;
 }
 
 /** A run in the Stage history's list says what it came to in plain words, whatever else it holds. */

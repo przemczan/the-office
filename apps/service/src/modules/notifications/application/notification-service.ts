@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import {
   DecisionAnswered,
@@ -31,6 +32,7 @@ import {
   GateReached,
   NoRetriesLeft,
   SentBackFromGate,
+  StandInChoicesChanged,
 } from "../../pipelines/index.js";
 import {
   InitiativeStateChanged,
@@ -50,6 +52,7 @@ import {
   officeUpdated,
   officeUpdateFailed,
   samePointer,
+  standInChoiceWaiting,
   taskDone,
   taskFailed,
   taskPaused,
@@ -80,6 +83,7 @@ import { NotificationRepository } from "../ports/notification-repository.js";
 import { NotificationTimingRepository } from "../ports/notification-timing-repository.js";
 import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
+import { StandInChoicesWaiting } from "../ports/stand-in-choices-waiting.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { NotificationDelivery } from "./notification-delivery.js";
 
@@ -108,6 +112,7 @@ export class NotificationService implements OnModuleInit {
    * unknown after a restart. A lower reading before the window resets leaves the last one standing.
    */
   private readonly windowReadings = new Map<string, WindowReading>();
+  private readonly standInChoiceChanges = new KeyedLocks();
 
   constructor(
     private readonly repository: NotificationRepository,
@@ -115,6 +120,7 @@ export class NotificationService implements OnModuleInit {
     private readonly initiatives: OfficeInitiatives,
     private readonly stages: TaskStageProgress,
     private readonly people: KnownPeople,
+    private readonly standInChoices: StandInChoicesWaiting,
     private readonly routing: NotificationRoutingRepository,
     private readonly timing: NotificationTimingRepository,
     private readonly delivery: NotificationDelivery,
@@ -191,6 +197,23 @@ export class NotificationService implements OnModuleInit {
     this.events.subscribe(GateContinued, gateActed);
     this.events.subscribe(SentBackFromGate, gateActed);
     this.events.subscribe(GateDropped, gateActed);
+    this.events.subscribe(StandInChoicesChanged, () => this.standInChoicesChanged());
+  }
+
+  /**
+   * One Notification for every Stage waiting for the choice of a Stand-in Engine, raised when the
+   * first joins and cleared once none waits; a Stage joining while it is open raises no other.
+   */
+  private async standInChoicesChanged(): Promise<void> {
+    // One at a time, so two Stages pausing together can't each find none open and raise two.
+    await this.standInChoiceChanges.run("stand-in-choice", async () => {
+      const [first, ...rest] = await this.standInChoices.waiting();
+      if (first === undefined) {
+        await this.handle({ kind: "stand-in-choices-made" });
+        return;
+      }
+      await this.raise(standInChoiceWaiting([first, ...rest], await this.defaultPerson()));
+    });
   }
 
   private subscribeToOutcomes(): void {
@@ -205,8 +228,14 @@ export class NotificationService implements OnModuleInit {
         return;
       }
       // A refusal pauses a running Task; one moving a paused Task's resume on was told already, and
-      // a Task handed back to the window by its Initiative's Resume was paused by the user.
-      if (by === "usage-window" && usageWindow !== undefined && from !== "paused") {
+      // a Task handed back to the window by its Initiative's Resume was paused by the user. A Stage
+      // waiting for the choice of a Stand-in Engine is told by that Decision's Notification.
+      if (
+        by === "usage-window" &&
+        usageWindow !== undefined &&
+        usageWindow.awaitsStandInChoice !== true &&
+        from !== "paused"
+      ) {
         const window = usageWindowWords(usageWindow.window);
         await this.raise(taskPausedByUsageWindow(taskId, personRole, { ...usageWindow, window }));
       }

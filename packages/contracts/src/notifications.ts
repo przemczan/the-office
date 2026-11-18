@@ -32,6 +32,19 @@ export const needsYouItemSchema = z.discriminatedUnion("kind", [
     projectIds: z.array(z.string()),
     waitingSince: z.iso.datetime(),
   }),
+  /**
+   * The Office's own Decision on the Stages waiting for the user's choice of a Stand-in Engine
+   * (spec 5.4): one card for them all, its rows read from `GET /stand-in-choices`.
+   */
+  z.object({
+    kind: z.literal("stand-in-choice"),
+    /** The Projects of the waiting Stages' Tasks, which the Project filter narrows by. */
+    projectIds: z.array(z.string()),
+    /** The oldest waiting Stage's. */
+    waitingSince: z.iso.datetime(),
+    /** How many Stages wait. */
+    count: z.int().positive(),
+  }),
 ]);
 export type NeedsYouItem = z.infer<typeof needsYouItemSchema>;
 
@@ -262,6 +275,8 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("since-you-left") }),
   /** Settings › Updates, with the last Office update's result and its log. */
   z.object({ kind: z.literal("office-update") }),
+  /** Now's Needs you, with the card of the Stages waiting for a Stand-in Engine. */
+  z.object({ kind: z.literal("stand-in-choice") }),
 ]);
 export type Pointer = z.infer<typeof pointerSchema>;
 

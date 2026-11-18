@@ -13,17 +13,20 @@ import { EmptyCard, ItemCard } from "../item-card.tsx";
 import { ProjectChip } from "../project-chip.tsx";
 import { InOtherProjectsNote } from "../project-filter/in-other-projects-note.tsx";
 import type { Narrowed } from "../project-filter/project-filter-choices.ts";
+import { useProjectFilter } from "../project-filter/use-project-filter.ts";
 import { clockOf } from "../time.ts";
 import { GateCard } from "../work/gate-card.tsx";
 import { waitingGateOf } from "../work/gate-words.ts";
 import { NeedsYouList } from "../work/needs-you-list.tsx";
+import { StandInChoiceCard } from "./stand-in-choice-card.tsx";
 import "./notifications.css";
 
 /**
  * What waits on the user, oldest first, each answered where it shows (spec §4): the Task page's
  * Decision and Gate cards, under the Task's title and Project, as nothing around them says which
  * Task it is, and a Decision on no Task in an Initiative's Thread under the Initiative's title and
- * Projects. The same on Now and in the Needs you panel.
+ * Projects; The Office's own Decision on the Stages waiting for a Stand-in Engine, one card for
+ * them all, its rows narrowed by the Project filter too. The same on Now and in the Needs you panel.
  */
 export function NeedsYouFeed({
   needsYou,
@@ -32,6 +35,7 @@ export function NeedsYouFeed({
 }): ReactNode {
   const projects = useQuery(projectQueries.list()).data;
   const roles = useQuery(roleQueries.list()).data;
+  const { shows } = useProjectFilter();
   const { shown, elsewhere } = needsYou;
   return (
     <>
@@ -68,6 +72,13 @@ export function NeedsYouFeed({
                 taskId={item.taskId}
                 projects={projects}
                 roles={roles}
+              />
+            );
+          case "stand-in-choice":
+            return (
+              <StandInChoiceCard
+                key="stand-in-choice"
+                projectShown={(projectId) => shows([projectId])}
               />
             );
         }

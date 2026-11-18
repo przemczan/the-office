@@ -14,6 +14,7 @@ import {
 } from "../../../engine/index.js";
 import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
+import { TaskLocks } from "../../../../platform/locks/task-locks.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
@@ -163,6 +164,64 @@ describe("A pause by the usage window", { timeout: MANY_REQUESTS_TEST_MS }, () =
     });
     expect(work.published).toContainEqual(expect.objectContaining({ taskId: task.id }));
     expect(work.published.some((event) => event instanceof TaskResumed)).toBe(true);
+  });
+
+  it("says in TaskPaused that the Stage awaits the user's choice of a Stand-in Engine, when it does", async () => {
+    const task = await startedTask();
+    work.published.length = 0;
+
+    await work.app.get(TaskService).pauseForUsageWindow(task.id, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+      window: "five-hour",
+      resetsAt: RESET,
+      awaitsStandInChoice: true,
+    });
+
+    expect(work.published).toContainEqual(
+      expect.objectContaining({
+        constructor: TaskPaused,
+        taskId: task.id,
+        by: "usage-window",
+        usageWindow: expect.objectContaining({ awaitsStandInChoice: true }),
+      }),
+    );
+  });
+
+  it("resumes at the reset under the Task's lock, which the user's switch of a Stage takes too", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    const locks = work.app.get(TaskLocks, { strict: false });
+    let release!: () => void;
+    const held = locks.run(task.id, () => new Promise<void>((resolve) => (release = resolve)));
+
+    const resuming = work.app.get(TaskService).resumeAtReset(task.id, RESET);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect((await readTask(task.id)).state).toBe("paused");
+    release();
+    await held;
+    await resuming;
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+
+  it("resumes a Task a free reading frees under the Task's lock too", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    const locks = work.app.get(TaskLocks, { strict: false });
+    let release!: () => void;
+    const held = locks.run(task.id, () => new Promise<void>((resolve) => (release = resolve)));
+
+    const freeing = work.app
+      .get(TaskService)
+      .resumeFreedByUsageWindow(FIRST_CLAUDE_CODE_ENGINE.id, new Date(NOW.getTime() + 60_000));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect((await readTask(task.id)).state).toBe("paused");
+    release();
+    await held;
+    expect(await freeing).toEqual([task.id]);
+    expect((await readTask(task.id)).state).toBe("in-progress");
   });
 
   it("moves the resume on when a refusal comes again", async () => {
@@ -459,11 +518,21 @@ describe("TaskService.wentOnOnStandIn: a running Stage went on on a Stand-in Eng
     expect((await readTask(task.id)).engineStandIns).toEqual([]);
   });
 
-  it("leaves a Task no longer running as it is", async () => {
+  it("names the stand-in on a Task paused by the usage window, as the user's Switch now moves its Stage before resuming it", async () => {
     const task = await startedTask();
     await refused(task.id);
 
     await work.app.get(TaskService).wentOnOnStandIn(task.id, onHome);
+
+    expect(await readTask(task.id)).toMatchObject({ state: "paused", engineStandIns: [onHome] });
+  });
+
+  it("leaves a dropped Task as it is", async () => {
+    const task = await startedTask();
+    const tasks = work.app.get(TaskService);
+    await tasks.drop(task.id, { kind: "user", user: null });
+
+    await tasks.wentOnOnStandIn(task.id, onHome);
 
     expect((await readTask(task.id)).engineStandIns).toEqual([]);
   });

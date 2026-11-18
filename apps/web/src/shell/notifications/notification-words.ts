@@ -17,7 +17,8 @@ export const OFFICE_TITLE = "The Office";
 /**
  * Where opening a Notification goes: the Task or the Initiative it is about (for a Decision on no
  * Task, the Initiative's Thread it waits in, at its card), Settings › Updates for an Office update,
- * or Now for the Office's own state, with the chat of the person who speaks over it.
+ * or Now for the Office's own state, with the chat of the person who speaks over it, and for the
+ * Stages waiting for a Stand-in Engine, whose card is in Now's Needs you.
  */
 export type NotificationTarget =
   | { readonly to: "/tasks/$taskId"; readonly params: { readonly taskId: string } }
@@ -41,7 +42,9 @@ export function targetOf({
   if (pointsTo.kind === "office") {
     return roleKey ? { to: "/now", search: { chat: roleKey } } : { to: "/now" };
   }
-  if (pointsTo.kind === "since-you-left") return { to: "/now" };
+  if (pointsTo.kind === "since-you-left" || pointsTo.kind === "stand-in-choice") {
+    return { to: "/now" };
+  }
   if (pointsTo.kind === "office-update") return { to: "/settings/updates" };
   if (pointsTo.kind === "initiative") {
     const { initiativeId, threadId, decisionId } = pointsTo;

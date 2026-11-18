@@ -190,6 +190,23 @@ export abstract class StageThreads {
   ): Promise<StageSessionAhead>;
 
   /**
+   * Moves the idle session of a held run's Thread from the engine `from`, whose usage window `why`
+   * was used up, to the Stand-in Engine `standIn` on the same model (spec 5.4), as the user chose:
+   * the session is carried over, the Thread records it there and logs why, and the Stage's next
+   * run resumes it there. Opens no session on either engine. Throws when the Thread is answering,
+   * its session isn't on `from`, or the carry fails; the Thread then stays on the engine it records.
+   */
+  abstract moveToStandIn(
+    threadId: string,
+    standIn: EngineModel,
+    why: {
+      readonly from: string;
+      readonly window: UsageWindowName;
+      readonly resetsAt: Date;
+    },
+  ): Promise<void>;
+
+  /**
    * Ends the Stage's work in the Thread of a run The Office left running as it stopped, closing
    * with `closing`: the user's messages still waiting to land become not delivered, so they go with
    * the Stage's next run as after a Stop. Returns the Decision the person opened in the Thread

@@ -1,4 +1,4 @@
-import type { NeedsYouItem, Now, RunningTask } from "./now.js";
+import type { NeedsYouItem, Now, RunningTask, WaitingStandInChoices } from "./now.js";
 
 const STARTED_STATE_NAMES: Readonly<Record<string, string>> = {
   "in-progress": "In progress",
@@ -21,10 +21,20 @@ function waitingLine(needsYou: readonly NeedsYouItem[]): string {
       "Decision",
     ),
     counted(needsYou.filter(({ kind }) => kind === "gate").length, "Gate"),
+    standInChoiceWords(needsYou),
   ].filter((count) => count !== undefined);
   return counts.length === 0
     ? "Nothing waits on the user."
     : `Waiting on the user: ${counts.join(", ")}.`;
+}
+
+/** The Office's own Decision on the Stages waiting for a Stand-in Engine: one, however many wait. */
+function standInChoiceWords(needsYou: readonly NeedsYouItem[]): string | undefined {
+  const choice = needsYou.find(
+    (item): item is WaitingStandInChoices => item.kind === "stand-in-choice",
+  );
+  if (!choice) return undefined;
+  return `1 Decision on Stages waiting for a Stand-in Engine (${counted(choice.count, "Stage")})`;
 }
 
 function counted(count: number, noun: string): string | undefined {

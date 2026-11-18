@@ -14,7 +14,12 @@ export function useNeedsYou(): Narrowed<NeedsYouItem> | undefined {
   return needsYou && narrowed(needsYou, (item) => shows(projectsOf(item)));
 }
 
-/** The Projects an item is in: its Task's, or for a Decision on no Task its Initiative's. */
+/**
+ * The Projects an item is in: its Task's, for a Decision on no Task its Initiative's, and for the
+ * Stages waiting for a Stand-in Engine their Tasks'.
+ */
 function projectsOf(item: NeedsYouItem): readonly string[] {
-  return item.kind === "initiative-decision" ? item.projectIds : [item.projectId];
+  return item.kind === "initiative-decision" || item.kind === "stand-in-choice"
+    ? item.projectIds
+    : [item.projectId];
 }

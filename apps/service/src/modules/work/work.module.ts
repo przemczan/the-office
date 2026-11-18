@@ -11,6 +11,7 @@ import {
   type Type,
 } from "@nestjs/common";
 import { uploadBody } from "../../platform/http/upload-body.js";
+import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { EngineModule } from "../engine/index.js";
@@ -203,7 +204,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     return {
       module: WorkModule,
       // Chats read Work and capture Ideas through Office tools on the Engine's registry.
-      imports: [...imports, EngineModule, ScheduleModule, BusyWorkModule],
+      imports: [...imports, EngineModule, ScheduleModule, TaskLocksModule, BusyWorkModule],
       controllers: [
         IdeasController,
         InitiativesController,

@@ -34,6 +34,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -99,6 +100,7 @@ describe("NotificationDelivery", () => {
           officeStatusCards: OfficeStatusCardsForTests,
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
+          standInChoicesWaiting: StandInChoicesWaitingForTests,
         }),
       ],
       overrides: [

@@ -363,15 +363,17 @@ describe("AgentStageRunner, a refused turn whose context is over the size to ask
       }),
     ]);
     const choices = pipelines.app.get(StandInChoices, { strict: false });
-    expect(await choices.waiting()).toEqual([
+    expect(await choices.waiting()).toMatchObject([
       {
         taskId,
         runId: held?.id,
         stageKey: "implement",
+        stageName: "Implement",
         threadId: held?.threadId,
         fromEngineId: "claude-code",
         fromEngineName: "Claude Code",
-        standIn: standInChoice,
+        asked: standInChoice,
+        window: "five-hour",
         resetsAt: WINDOW_RESET.toISOString(),
       },
     ]);

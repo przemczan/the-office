@@ -26,6 +26,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -79,6 +80,7 @@ describe("NowService", () => {
           officeStatusCards: OfficeStatusCardsForTests,
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
+          standInChoicesWaiting: StandInChoicesWaitingForTests,
         }),
       ],
     }));

@@ -4,6 +4,7 @@ import {
   nowOf,
   sinceYouLeftOf,
   waitingGateOf,
+  type NeedsYouItem,
   type NowParts,
   type OfficeTask,
   type StageOfTask,
@@ -32,6 +33,10 @@ function stage(
   return { stage: { key, name: `${key} Stage`, kind, ...(role && { role }) }, state, runs };
 }
 
+function idOf(item: NeedsYouItem): string {
+  return "decisionId" in item ? item.decisionId : item.kind;
+}
+
 const PARTS: NowParts = {
   started: [],
   openDecisions: [],
@@ -45,6 +50,7 @@ const PARTS: NowParts = {
   usageWindows: [],
   fireAlarm: { on: false },
   resumes: new Map(),
+  standInChoices: [],
 };
 
 describe("currentStageOf", () => {
@@ -113,9 +119,36 @@ describe("nowOf", () => {
       tasks: [TASK, { ...TASK, id: "t2" }, { ...TASK, id: "t3" }],
     });
 
-    expect(
-      now.needsYou.map((item) => (item.kind === "gate" ? item.stageKey : item.decisionId)),
-    ).toEqual(["d1", "look", "d2"]);
+    expect(now.needsYou.map((item) => (item.kind === "gate" ? item.stageKey : idOf(item)))).toEqual(
+      ["d1", "look", "d2"],
+    );
+  });
+
+  it("lists every Stage waiting for a Stand-in Engine as one item, since the oldest, with their Projects", () => {
+    const choice = {
+      resetsAt: at(50).toISOString(),
+      standInNow: { engineName: "Spare" },
+      asked: { engineName: "Spare" },
+    };
+    const now = nowOf({
+      ...PARTS,
+      openDecisions: [{ id: "d1", threadId: "th", taskId: "t1", askedAt: at(4) }],
+      tasks: [TASK],
+      standInChoices: [
+        { ...choice, taskId: "t2", projectId: "p2", waitingSince: at(6) },
+        { ...choice, taskId: "t3", projectId: "p1", waitingSince: at(2) },
+        { ...choice, taskId: "t4", projectId: "p2", waitingSince: at(8) },
+      ],
+    });
+
+    expect(now.needsYou).toEqual([
+      { kind: "stand-in-choice", projectIds: ["p2", "p1"], waitingSince: at(2), count: 3 },
+      { kind: "decision", decisionId: "d1", taskId: "t1", projectId: "p1", waitingSince: at(4) },
+    ]);
+  });
+
+  it("lists no Stand-in Engine item while no Stage waits for the choice", () => {
+    expect(nowOf(PARTS).needsYou).toEqual([]);
   });
 
   it("marks each Decision with its Task's Project, leaving out one on a Task Work no longer knows", () => {

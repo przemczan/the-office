@@ -1299,4 +1299,88 @@ describe("a Stage going on on a Stand-in Engine", () => {
     expect(engine.sessions[1]?.id).toBe(engine.sessions[0]?.id);
     await again.end({ handoverNote: undefined, closing: undefined });
   });
+
+  describe("a held Stage Thread moved to the stand-in", () => {
+    const STAND_IN = { engineId: HOME.id, model: MODEL };
+
+    it("carries its idle session over and records it there, opening no session on either engine", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+      const sessionId = engine.sessions[0]?.id;
+
+      await stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, { from: WORK.id, ...WHY });
+
+      expect(engine.carried).toEqual([{ sessionId, from: WORK.id, to: HOME.id }]);
+      expect((await threadOf(stageThread.threadId)).session).toMatchObject({
+        id: sessionId,
+        engineId: HOME.id,
+        standInFor: { engineId: WORK.id, engineName: WORK.name },
+      });
+      expect(drafts(await repository.messages(stageThread.threadId)).at(-1)).toEqual({
+        kind: "engine-switched",
+        fromName: WORK.name,
+        toName: HOME.name,
+        window: "five-hour",
+        resetsAt: "2026-11-13T14:00:00.000Z",
+      });
+      expect(engine.sessions).toHaveLength(1);
+      expect(home.sessions).toEqual([]);
+    });
+
+    it("is refused while the Thread is answering", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+
+      const moving = stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, {
+        from: WORK.id,
+        ...WHY,
+      });
+
+      await expect(moving).rejects.toBeInstanceOf(SwitchFailed);
+      expect(engine.carried).toEqual([]);
+      expect((await threadOf(stageThread.threadId)).session?.engineId).toBe(WORK.id);
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+    });
+
+    it("is refused when its session isn't on the engine it moves from, leaving the Thread as it was", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+
+      const moving = stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, {
+        from: HOME.id,
+        ...WHY,
+      });
+
+      await expect(moving).rejects.toBeInstanceOf(SwitchFailed);
+      expect(engine.carried).toEqual([]);
+      const thread = await threadOf(stageThread.threadId);
+      expect(thread.session?.engineId).toBe(WORK.id);
+      expect(thread.session?.standInFor).toBeUndefined();
+      const kinds = (await repository.messages(stageThread.threadId)).map(({ kind }) => kind);
+      expect(kinds).not.toContain("engine-switched");
+    });
+
+    it("leaves the Thread on its engine when the session couldn't be carried over", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+      engine.failSessionCarries(new Error("The disk is full."));
+
+      const moving = stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, {
+        from: WORK.id,
+        ...WHY,
+      });
+
+      await expect(moving).rejects.toBeInstanceOf(SwitchFailed);
+      await expect(moving).rejects.toHaveProperty("cause", new Error("The disk is full."));
+      const thread = await threadOf(stageThread.threadId);
+      expect(thread.session?.engineId).toBe(WORK.id);
+      expect(thread.session?.standInFor).toBeUndefined();
+      const kinds = (await repository.messages(stageThread.threadId)).map(({ kind }) => kind);
+      expect(kinds).not.toContain("engine-switched");
+      expect(home.sessions).toEqual([]);
+    });
+  });
 });

@@ -72,6 +72,9 @@ export abstract class StageRunRepository {
     now: Pick<StageRunThread, "engineId" | "engineName" | "standInFor">,
   ): Promise<void>;
 
+  /** The Task the run `runId` is of; undefined when no run has that id. */
+  abstract taskOf(runId: string): Promise<string | undefined>;
+
   /** Saves the commit HEAD moved to while the run runs, by a base update The Office made. */
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;
 

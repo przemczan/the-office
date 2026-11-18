@@ -242,7 +242,12 @@ export class StartedTasksForTests extends StartedTasks {
     return true;
   }
 
+  /** What `resume` fails with for each Task, as a test sets it: it resumes, unless set. */
+  readonly resumeFails = new Map<string, Error>();
+
   async resume(taskId: string): Promise<StartedTask> {
+    const fails = this.resumeFails.get(taskId);
+    if (fails) throw fails;
     const task = await this.read(taskId);
     this.put(taskId, { ...task, state: "in-progress", pausedBy: undefined });
     await this.announce(new TaskResumed(taskId));
@@ -626,6 +631,25 @@ export class StageThreadsForTests extends StageThreads {
       },
       endSession,
     };
+  }
+
+  /** Each held run's idle session moved to a Stand-in Engine as the user chose, in order. */
+  readonly movedToStandIn: ({ readonly threadId: string; readonly standIn: EngineModel } & {
+    readonly why: Parameters<StageThreads["moveToStandIn"]>[2];
+  })[] = [];
+  /** What `moveToStandIn` fails with, as a test sets it: it moves the session, unless set. */
+  moveFails: Error | undefined = undefined;
+  /** Told as a held run's session moves, such as for the reset to come meanwhile. */
+  whileMoving: ((threadId: string) => void | Promise<void>) | undefined = undefined;
+
+  async moveToStandIn(
+    threadId: string,
+    standIn: EngineModel,
+    why: Parameters<StageThreads["moveToStandIn"]>[2],
+  ): Promise<void> {
+    await this.whileMoving?.(threadId);
+    if (this.moveFails) throw this.moveFails;
+    this.movedToStandIn.push({ threadId, standIn, why });
   }
 
   async endLeftRunning(

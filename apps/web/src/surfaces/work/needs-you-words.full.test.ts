@@ -64,6 +64,13 @@ describe("needsYouSummary", () => {
       "1 Decision · a Gate · 1 waiting on a Consultant",
     );
   });
+
+  it("names The Office's Decision on a Stand-in Engine after the Gate", () => {
+    expect(needsYouSummary([], false, true)).toBe("a Stand-in Engine choice");
+    expect(needsYouSummary([decisionPutTo(null)], true, true)).toBe(
+      "1 Decision · a Gate · a Stand-in Engine choice",
+    );
+  });
 });
 
 describe("needsYouClearWords", () => {

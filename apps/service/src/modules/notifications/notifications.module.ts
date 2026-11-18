@@ -31,6 +31,7 @@ import { OfficeTasks } from "./ports/office-tasks.js";
 import { OpenDecisions } from "./ports/open-decisions.js";
 import { PhonePush } from "./ports/phone-push.js";
 import { ResumePlans } from "./ports/resume-plans.js";
+import { StandInChoicesWaiting } from "./ports/stand-in-choices-waiting.js";
 import { TaskOutcomeRepository } from "./ports/task-outcome-repository.js";
 import { TaskStageProgress } from "./ports/task-stage-progress.js";
 import { UserActivityRepository } from "./ports/user-activity-repository.js";
@@ -52,6 +53,7 @@ export interface NotificationsModuleOptions {
   readonly officeStatusCards: Type<OfficeStatusCards>;
   readonly officeFireAlarm: Type<OfficeFireAlarm>;
   readonly resumePlans: Type<ResumePlans>;
+  readonly standInChoicesWaiting: Type<StandInChoicesWaiting>;
 }
 
 /**
@@ -74,6 +76,7 @@ export class NotificationsModule {
     officeStatusCards,
     officeFireAlarm,
     resumePlans,
+    standInChoicesWaiting,
   }: NotificationsModuleOptions): DynamicModule {
     return {
       module: NotificationsModule,
@@ -99,6 +102,7 @@ export class NotificationsModule {
         { provide: OfficeStatusCards, useExisting: officeStatusCards },
         { provide: OfficeFireAlarm, useExisting: officeFireAlarm },
         { provide: ResumePlans, useExisting: resumePlans },
+        { provide: StandInChoicesWaiting, useExisting: standInChoicesWaiting },
         NowService,
         NotificationService,
         NotificationDelivery,

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { TaskLocks } from "../../../platform/locks/task-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
@@ -68,6 +69,7 @@ export class TaskService {
     private readonly initiatives: InitiativeRepository,
     private readonly events: EventBus,
     private readonly schedule: Schedule,
+    private readonly taskLocks: TaskLocks,
   ) {}
 
   /**
@@ -384,7 +386,18 @@ export class TaskService {
     return freed;
   }
 
+  /**
+   * Under the Task's lock, which the user's switch of a Stage waiting for a Stand-in Engine takes
+   * too (Pipelines' `StandInSwitches`), so a click during the resume finds it resumed already.
+   */
   private async resumeFromUsageWindow(
+    id: string,
+    change: (task: Task) => TaskChange<TaskResumed | TaskPaused> | undefined,
+  ): Promise<{ readonly task: Task; readonly changed: boolean }> {
+    return this.taskLocks.run(id, () => this.resumeFromUsageWindowNow(id, change));
+  }
+
+  private async resumeFromUsageWindowNow(
     id: string,
     change: (task: Task) => TaskChange<TaskResumed | TaskPaused> | undefined,
   ): Promise<{ readonly task: Task; readonly changed: boolean }> {

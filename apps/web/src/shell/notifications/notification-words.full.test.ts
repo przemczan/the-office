@@ -25,6 +25,9 @@ describe("targetOf", () => {
       targetOf({ pointsTo: { kind: "initiative", initiativeId: TASK_ID }, roleKey: null }),
     ).toEqual({ to: "/work/initiatives/$initiativeId", params: { initiativeId: TASK_ID } });
     expect(targetOf({ pointsTo: { kind: "office" }, roleKey: null })).toEqual({ to: "/now" });
+    expect(targetOf({ pointsTo: { kind: "stand-in-choice" }, roleKey: null })).toEqual({
+      to: "/now",
+    });
   });
 
   it("opens an Initiative's Thread at its Decision when the pointer names them", () => {

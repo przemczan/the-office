@@ -1,3 +1,4 @@
+import type { StandInChoiceWaiting } from "./now.js";
 import {
   channelsOf,
   levelsOf,
@@ -30,7 +31,9 @@ export type Pointer =
   /** Now, where Needs you and Since you left show what a Notification gathered. */
   | { readonly kind: "since-you-left" }
   /** Settings › Updates, with the last Office update's result and its log. */
-  | { readonly kind: "office-update" };
+  | { readonly kind: "office-update" }
+  /** Now's Needs you, with the card of the Stages waiting for a Stand-in Engine. */
+  | { readonly kind: "stand-in-choice" };
 
 /**
  * A Notification that stands for others rather than for a kind (spec §2.7 Defaults): Outcomes
@@ -155,6 +158,30 @@ export function decisionWaitingOnInitiative(decision: {
       decisionId: decision.id,
       threadId: decision.threadId,
     },
+  };
+}
+
+/**
+ * Stages paused by a used-up usage window wait for the user's choice of a Stand-in Engine (spec
+ * 5.4): The Office's own Decision, one for them all, from `defaultPerson` as the Office kinds are.
+ * It names the Stand-in Engine the first would move to now, or the one it was held asking while
+ * none has room, and that Stage's reset at `{time}`.
+ */
+export function standInChoiceWaiting(
+  waiting: readonly [StandInChoiceWaiting, ...StandInChoiceWaiting[]],
+  defaultPerson: string | undefined,
+): NotificationDraft {
+  const [first] = waiting;
+  const standIn = first.standInNow?.engineName ?? first.asked.engineName;
+  const stages =
+    waiting.length === 1 ? "1 paused Stage waits" : `${waiting.length} paused Stages wait`;
+  return {
+    kind: "needs-you.decision",
+    roleKey: defaultPerson,
+    line: `${stages} for your choice: switch to ${standIn}, or wait for the reset at ${TIME}.`,
+    shortLine: undefined,
+    at: new Date(first.resetsAt),
+    pointsTo: { kind: "stand-in-choice" },
   };
 }
 
@@ -528,7 +555,9 @@ export type Handling =
   /** Settings › Engines removed the engine, so nothing about it is left to act on. */
   | { readonly kind: "engine-removed"; readonly engineId: string }
   /** The user opened Settings › Updates, or a newer update's result replaces the last one's. */
-  | { readonly kind: "office-update-opened" };
+  | { readonly kind: "office-update-opened" }
+  /** No Stage waits for the choice of a Stand-in Engine any longer: each was switched or left. */
+  | { readonly kind: "stand-in-choices-made" };
 
 export function handles(handling: Handling, { kind, pointsTo }: Notification): boolean {
   switch (handling.kind) {
@@ -566,6 +595,8 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
       return pointsTo.kind === "office" && pointsTo.engineId === handling.engineId;
     case "office-update-opened":
       return pointsTo.kind === "office-update";
+    case "stand-in-choices-made":
+      return pointsTo.kind === "stand-in-choice";
   }
 }
 

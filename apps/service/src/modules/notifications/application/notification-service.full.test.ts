@@ -30,7 +30,12 @@ import {
 } from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
 import { CARETAKER } from "../../people/index.js";
-import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
+import {
+  GateContinued,
+  GateReached,
+  NoRetriesLeft,
+  StandInChoicesChanged,
+} from "../../pipelines/index.js";
 import {
   InitiativeStateChanged,
   TaskPaused,
@@ -54,6 +59,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -137,6 +143,21 @@ function turnEndedOn(engineId: string): TurnEnded {
   return new TurnEnded({ session: { engineId } } as TurnEnded["thread"], new Date());
 }
 
+/** A Stage of a Task in `projectId` waiting for the choice of a Stand-in Engine since `minute` past 12:00. */
+function waitingStage(
+  projectId: string,
+  minute: number,
+): StandInChoicesWaitingForTests["choices"][number] {
+  return {
+    taskId: randomUUID(),
+    projectId,
+    waitingSince: new Date(2001, 0, testDay, 12, minute),
+    resetsAt: new Date(2001, 0, testDay, 14).toISOString(),
+    standInNow: { engineName: "Spare" },
+    asked: { engineName: "Spare" },
+  };
+}
+
 async function routingOf(response: Response): Promise<NotificationRouting> {
   expect(response.status).toBe(200);
   return notificationRoutingSchema.parse(await response.json());
@@ -175,6 +196,7 @@ describe("NotificationService", () => {
           officeStatusCards: OfficeStatusCardsForTests,
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
+          standInChoicesWaiting: StandInChoicesWaitingForTests,
         }),
       ],
     }));
@@ -435,6 +457,95 @@ describe("NotificationService", () => {
     await events.publish(new TaskResumed(refused));
 
     expect(cleared).toEqual([raised[0]?.notification.id]);
+  });
+
+  it("tells no Task paused for a Stage that waits for the choice of a Stand-in Engine", async () => {
+    const [waits, plain] = [randomUUID(), randomUUID()];
+    const refusal = {
+      engineId: "claude-code",
+      engineName: "Claude Code",
+      window: "five-hour",
+      resetsAt: new Date(2001, 0, testDay, 14),
+    };
+
+    await events.publish(
+      new TaskPaused(waits, "in-progress", "usage-window", {
+        ...refusal,
+        awaitsStandInChoice: true,
+      }),
+    );
+    await events.publish(new TaskPaused(plain, "in-progress", "usage-window", refusal));
+
+    expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
+      { kind: "task", taskId: plain },
+    ]);
+  });
+
+  describe("the Stages waiting for the choice of a Stand-in Engine", () => {
+    let choices: StandInChoicesWaitingForTests;
+
+    /** The rows change, then Pipelines tells it, as it does once the held run is saved. */
+    async function changeTo(waiting: StandInChoicesWaitingForTests["choices"]): Promise<void> {
+      choices.choices = waiting;
+      await events.publish(new StandInChoicesChanged(waiting[0]?.taskId ?? randomUUID()));
+    }
+
+    beforeEach(async () => {
+      choices = app.get(StandInChoicesWaitingForTests);
+      app.get(KnownPeopleForTests).holders.set("default-person-to-talk-to", "office-manager");
+      // The card is one for The Office, so one an earlier test left open is cleared first.
+      await changeTo([]);
+      [raised, cleared] = [[], []];
+    });
+
+    afterEach(async () => {
+      await changeTo([]);
+    });
+
+    it("raises one Notification for two Stages, from the Default person to talk to", async () => {
+      const first = waitingStage("p1", 5);
+      await changeTo([first, waitingStage("p2", 9)]);
+
+      expect(raised.map(({ notification }) => notification)).toEqual([
+        expect.objectContaining({
+          kind: "needs-you.decision",
+          roleKey: "office-manager",
+          line: "2 paused Stages wait for your choice: switch to Spare, or wait for the reset at {time}.",
+          at: new Date(first.resetsAt),
+          pointsTo: { kind: "stand-in-choice" },
+        }),
+      ]);
+    });
+
+    it("words one Stage, and names the Stand-in Engine it was held asking while none has room", async () => {
+      await changeTo([
+        { ...waitingStage("p1", 5), standInNow: null, asked: { engineName: "Backup" } },
+      ]);
+
+      expect(raised.map(({ notification }) => notification.line)).toEqual([
+        "1 paused Stage waits for your choice: switch to Backup, or wait for the reset at {time}.",
+      ]);
+    });
+
+    it("raises none again while it is open, as a Stage joins", async () => {
+      const first = waitingStage("p1", 5);
+      await changeTo([first]);
+      await changeTo([first, waitingStage("p2", 9)]);
+
+      expect(raised).toHaveLength(1);
+    });
+
+    it("clears it once no Stage waits for the choice", async () => {
+      await changeTo([waitingStage("p1", 5)]);
+      const id = raised[0]?.notification.id;
+
+      await changeTo([]);
+
+      expect(cleared).toEqual([id]);
+      expect((await openNotifications()).map(({ pointsTo }) => pointsTo.kind)).not.toContain(
+        "stand-in-choice",
+      );
+    });
   });
 
   it("clears a Task's outcome once the user opens the Task", async () => {

@@ -195,3 +195,22 @@ it("blinks for a new Decision on an Initiative, and not again for one already se
 
   expect(titlesOver(1)).toEqual([STEADY, STEADY]);
 });
+
+it("counts the Stages waiting for a Stand-in Engine as one item, blinking only when it comes", () => {
+  const standInChoice: NeedsYouItem = {
+    kind: "stand-in-choice",
+    projectIds: ["billing", "search"],
+    waitingSince: "2026-11-13T09:00:00.000Z",
+    count: 3,
+  };
+  showTab(false);
+  needsYou([standInChoice]);
+
+  expect(titlesOver(1)).toEqual([STEADY, BLINK]);
+
+  showTab(true);
+  showTab(false);
+  needsYou([{ ...standInChoice, waitingSince: "2026-11-13T09:05:00.000Z", count: 2 }]);
+
+  expect(titlesOver(1)).toEqual([STEADY, STEADY]);
+});

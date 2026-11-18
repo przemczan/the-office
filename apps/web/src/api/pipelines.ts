@@ -9,6 +9,8 @@ import {
   projectPipelineListSchema,
   projectPipelineSchema,
   stageRunCommandOutputsSchema,
+  standInChoicesResponseSchema,
+  standInSwitchResponseSchema,
   stagesCheckSchema,
   stageTemplateListSchema,
   stageTemplateSchema,
@@ -26,6 +28,7 @@ import {
   type Stage,
   type StageTemplate,
   type StageTemplateCheckRequest,
+  type StandInSwitchResult,
   type TaskStages,
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
@@ -35,6 +38,8 @@ import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pip
 
 /** Apart from the Task's key, or the walk's and Work's events would read a run's whole output again. */
 const COMMAND_OUTPUTS_KEY: readonly unknown[] = ["stage-run-command-outputs"];
+
+const STAND_IN_CHOICES_KEY: readonly unknown[] = ["stand-in-choices"];
 
 export const pipelineQueries = {
   list: () =>
@@ -82,6 +87,19 @@ export const pipelineQueries = {
       queryKey: [...taskStagesKey(taskId), "check", pipelineId, stages],
       queryFn: () =>
         sendToApi("POST", `${stagesPath(taskId)}/check`, { stages, pipelineId }, stagesCheckSchema),
+    }),
+};
+
+export const standInChoiceQueries = {
+  /**
+   * The Stages held as their engine's usage window was used up, waiting for the user's choice of a
+   * Stand-in Engine now or the reset: the rows of The Office's own Decision in Needs you.
+   */
+  list: () =>
+    queryOptions({
+      queryKey: STAND_IN_CHOICES_KEY,
+      queryFn: async ({ signal }) =>
+        (await getFromApi("/stand-in-choices", standInChoicesResponseSchema, signal)).choices,
     }),
 };
 
@@ -213,6 +231,19 @@ export function dropAtGate(taskId: string): Promise<TaskStages> {
   return sendToApi("POST", `${gatePath(taskId)}/drop`, {}, taskStagesSchema);
 }
 
+/** Moves the held runs to a Stand-in Engine now, each Task on its own; answers each run's result. */
+export async function switchToStandIn(
+  runIds: readonly string[],
+): Promise<readonly StandInSwitchResult[]> {
+  const response = await sendToApi(
+    "POST",
+    "/stand-in-choices/switch",
+    { runIds },
+    standInSwitchResponseSchema,
+  );
+  return response.results;
+}
+
 function pipelinePath(pipelineId: string): `/${string}` {
   return `/pipelines/${encodeURIComponent(pipelineId)}`;
 }
@@ -265,6 +296,11 @@ function staleTaskStagesAndChanges(event: unknown): readonly (readonly unknown[]
   return [taskStagesKey(taskId), taskChangesKey(taskId), commandOutputsKey(taskId)];
 }
 
+/** The Stages waiting for the user's choice of a Stand-in Engine changed. */
+function staleStandInChoices(): readonly (readonly unknown[])[] {
+  return [STAND_IN_CHOICES_KEY];
+}
+
 function taskIdOf(event: unknown): string {
   const parsed = pipelinesWebEventSchema.parse(event);
   if (!("taskId" in parsed)) throw new Error(`A ${parsed.type} event names no Task.`);
@@ -287,6 +323,7 @@ export const pipelineEventInvalidations: Readonly<
   "stage-run.thread-opened": staleTaskStages,
   "stage-run.waiting": staleTaskStages,
   "stage-run.engine-switched": staleTaskStages,
+  "stand-in-choices.changed": staleStandInChoices,
   "stage-run.ended": staleTaskStagesAndChanges,
   "stage-run.stop-held-as-pause": staleTaskStages,
   "stage-run.went-back": staleTaskStages,

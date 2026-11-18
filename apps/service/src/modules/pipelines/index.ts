@@ -21,6 +21,7 @@ export {
   StageAwaitsStandInChoice,
   StageRunEnded,
   StageRunStarted,
+  StandInChoicesChanged,
   WentBackToStage,
 } from "./domain/stage-run-events.js";
 export { TaskStagesEdited, TaskStagesMade } from "./domain/task-stages-events.js";

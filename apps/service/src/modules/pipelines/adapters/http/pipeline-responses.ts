@@ -297,7 +297,10 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     threadId: run.threadId ?? null,
     session: run.session ?? null,
     engine: toStageRunEngineResponse(run),
-    engineSwitches: run.engineSwitches.map((engineSwitch) => ({ ...engineSwitch })),
+    engineSwitches: run.engineSwitches.map(({ chosenBy, ...engineSwitch }) => ({
+      ...engineSwitch,
+      chosenBy: chosenBy ? { userId: chosenBy.userId, name: chosenBy.name } : null,
+    })),
     tokens: run.tokens,
     context: run.context
       ? { contextTokens: run.context.tokens, contextWindow: run.context.window }

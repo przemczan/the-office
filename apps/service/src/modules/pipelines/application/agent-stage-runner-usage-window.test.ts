@@ -73,6 +73,7 @@ describe("AgentStageRunner, a turn refused for a used-up usage window (spec 2.3)
         message: "work",
         sessionLeft: false,
         engineName: "Claude Code",
+        window: "five-hour",
         windowWords: "5-hour window",
         resetsAt: WINDOW_RESET.toISOString(),
       },

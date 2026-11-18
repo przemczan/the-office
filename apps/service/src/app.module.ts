@@ -38,6 +38,7 @@ import {
   TaskStagesService,
   StageResultWords,
   StageRunTotals,
+  StandInChoices,
   TaskGateRuns,
   UsageHistory,
   UsageHistoryModule,
@@ -198,6 +199,7 @@ export class AppModule {
       officeStatusCards: ThreadService,
       officeFireAlarm: FireAlarmService,
       resumePlans: AlarmResumes,
+      standInChoicesWaiting: StandInChoices,
     });
     return {
       module: AppModule,

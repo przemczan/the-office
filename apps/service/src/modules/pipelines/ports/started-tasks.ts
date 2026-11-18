@@ -30,6 +30,11 @@ export interface UsageWindowRefusal {
   readonly engineName: string;
   readonly window: string;
   readonly resetsAt: Date;
+  /**
+   * Set when the Stage waits for the user's choice of a Stand-in Engine (spec 5.4), which The
+   * Office's own Decision asks, so no separate Task paused Notification is raised.
+   */
+  readonly awaitsStandInChoice?: true;
 }
 
 /**

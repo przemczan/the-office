@@ -72,6 +72,9 @@ function itemKey(item: NeedsYouItem): string {
       return `decision:${item.decisionId}`;
     case "gate":
       return `gate:${item.taskId}:${item.stageKey}:${item.waitingSince}`;
+    // One card, counted once, for every waiting Stage: new only when it comes.
+    case "stand-in-choice":
+      return "stand-in-choice";
   }
 }
 

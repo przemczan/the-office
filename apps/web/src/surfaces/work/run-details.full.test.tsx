@@ -225,7 +225,12 @@ describe("a run's head", () => {
 describe("a run that went on on a Stand-in Engine", () => {
   it("says each switch on a line of its own, the run's engine being the last stand-in", () => {
     const resetsAt = "2026-11-04T14:00:00.000Z";
-    const switchOf = (from: string, to: string, at: string) => ({
+    const switchOf = (
+      from: string,
+      to: string,
+      at: string,
+      chosenBy: { userId: string; name: string } | null = null,
+    ) => ({
       fromEngineId: from.toLowerCase(),
       fromEngineName: from,
       toEngineId: to.toLowerCase(),
@@ -233,6 +238,7 @@ describe("a run that went on on a Stand-in Engine", () => {
       windowWords: "5-hour window",
       resetsAt,
       at,
+      chosenBy,
     });
     const page = showRun(
       {
@@ -249,7 +255,10 @@ describe("a run that went on on a Stand-in Engine", () => {
         },
         engineSwitches: [
           switchOf("Work", "Personal", "2026-11-04T11:20:00.010Z"),
-          switchOf("Personal", "Spare", "2026-11-04T11:20:00.050Z"),
+          switchOf("Personal", "Spare", "2026-11-04T11:20:00.050Z", {
+            userId: "ann",
+            name: "Ann Lee",
+          }),
         ],
       },
       [],
@@ -262,7 +271,7 @@ describe("a run that went on on a Stand-in Engine", () => {
     expect(lines[0]).toMatch(
       /^ Work's 5-hour window was used up until \d\d:00, so the Stage went on on Personal$/,
     );
-    expect(lines[1]).toMatch(/so the Stage went on on Spare$/);
+    expect(lines[1]).toMatch(/so the Stage went on on Spare, as the user Ann Lee chose$/);
     expect(head(page)?.textContent).toContain(" · Opus 5.5 on Spare");
   });
 });

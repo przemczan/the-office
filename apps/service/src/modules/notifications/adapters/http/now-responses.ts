@@ -55,7 +55,7 @@ function toUsageWindowResponse({
 
 function toNeedsYouResponse(item: NeedsYouItem): NowResponse["needsYou"][number] {
   const waitingSince = item.waitingSince.toISOString();
-  return item.kind === "initiative-decision"
+  return item.kind === "initiative-decision" || item.kind === "stand-in-choice"
     ? { ...item, projectIds: [...item.projectIds], waitingSince }
     : { ...item, waitingSince };
 }

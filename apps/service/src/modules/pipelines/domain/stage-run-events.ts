@@ -74,6 +74,17 @@ export class StageAwaitsStandInChoice extends DomainEvent {
   }
 }
 
+/**
+ * The Stages waiting for the user's choice of a Stand-in Engine may have changed (spec 5.4): one
+ * joined, was switched, or left as its Task resumed, stopped or was dropped. Read them again with
+ * `StandInChoices.waiting`.
+ */
+export class StandInChoicesChanged extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
 /** A Stage run ended done, needing a Decision, or failed. */
 export class StageRunEnded extends DomainEvent {
   constructor(

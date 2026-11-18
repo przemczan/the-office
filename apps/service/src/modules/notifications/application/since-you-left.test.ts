@@ -11,7 +11,7 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionOpened } from "../../conversations/index.js";
-import { TaskStateChanged } from "../../work/index.js";
+import { TaskPaused, TaskStateChanged } from "../../work/index.js";
 import { RecordingPhonePush } from "../adapters/phone/recording-phone-push.js";
 import { NotificationRaised } from "../domain/notification-events.js";
 import { NowChanged } from "../domain/now-events.js";
@@ -34,6 +34,7 @@ import {
   OfficeTasksForTests,
   OpenDecisionsForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   StartQueueForTests,
   TaskStageProgressForTests,
 } from "../ports/notifications-ports.fixtures.js";
@@ -53,6 +54,7 @@ const NOTIFICATIONS_FOR_TESTS = NotificationsModule.register({
   officeStatusCards: OfficeStatusCardsForTests,
   officeFireAlarm: OfficeFireAlarmForTests,
   resumePlans: ResumePlansForTests,
+  standInChoicesWaiting: StandInChoicesWaitingForTests,
 });
 
 /** A user of this test alone: the stored activity is one row a user for every test file. */
@@ -137,6 +139,39 @@ describe("Since you left, for each user", () => {
     expect(annSince.finished.map(({ taskId }) => taskId)).toEqual([second]);
     expect(benSince.leftAt).toBe(minutes(0).toISOString());
     expect(benSince.finished.map(({ taskId }) => taskId)).toEqual([second, first]);
+  });
+
+  it("keeps a pause by the usage window as an outcome, unless its Stage waits for the choice of a Stand-in Engine", async () => {
+    const ann = aUser("Ann Lee");
+    await activeAt(ann, minutes(0));
+    const refusal = {
+      engineId: "claude-code",
+      engineName: "Claude Code",
+      window: "five-hour",
+      resetsAt: minutes(300),
+    };
+    const [plain, waits] = [randomUUID(), randomUUID()];
+    tasks.tasks = [plain, waits].map((id) => ({
+      id,
+      title: id,
+      projectId: "p1",
+      state: "paused",
+      pausedBy: "usage-window",
+      resumesAt: minutes(300),
+    }));
+    vi.setSystemTime(minutes(1));
+    await events.publish(new TaskPaused(plain, "in-progress", "usage-window", refusal));
+    await events.publish(
+      new TaskPaused(waits, "in-progress", "usage-window", {
+        ...refusal,
+        awaitsStandInChoice: true,
+      }),
+    );
+    await activeAt(ann, minutes(20));
+
+    const { finished } = await sinceYouLeftOf(ann);
+
+    expect(finished.map(({ taskId }) => taskId)).toEqual([plain]);
   });
 
   it("has no start for a user not yet seen, and tells every web of an outcome by now.changed", async () => {

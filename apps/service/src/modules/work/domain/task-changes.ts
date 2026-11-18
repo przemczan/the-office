@@ -391,14 +391,17 @@ export function pauseTaskForUsageWindow(
  * A running Stage of the Task went on on a Stand-in Engine as its engine's usage window was used up
  * (spec 5.4): `standIn` replaces the Task's entry for the same cascade's engine, or is added, so the
  * run's later Stages open on it; back on the cascade's engine itself, the entry goes. The next Start
- * chooses the list afresh. Undefined for a Task not In progress or Waiting on you, and when the list
- * already says so.
+ * chooses the list afresh. A Paused Task takes it too: the user's Switch now moves a held Stage's
+ * session before resuming the Task, and a Pause asked while the session switched holds it there.
+ * Undefined for a Task not started or ended, and when the list already says so.
  */
 export function taskWentOnOnStandIn(
   task: Task,
   standIn: EngineStandIn,
 ): TaskChange<TaskWentOnOnStandIn> | undefined {
-  if (task.state !== "in-progress" && task.state !== "waiting-on-you") return undefined;
+  if (task.state !== "in-progress" && task.state !== "waiting-on-you" && task.state !== "paused") {
+    return undefined;
+  }
   const kept = task.engineStandIns.find(({ engineId }) => engineId === standIn.engineId);
   const backOnItsOwn = standIn.standInId === standIn.engineId;
   if (backOnItsOwn ? kept === undefined : kept?.standInId === standIn.standInId) return undefined;

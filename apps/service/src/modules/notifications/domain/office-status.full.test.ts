@@ -104,6 +104,33 @@ describe("officeStatusText", () => {
     expect(text.split("\n")[0]).toBe("Waiting on the user: 2 Decisions.");
   });
 
+  it("names the Stages waiting for a Stand-in Engine as one Decision, with how many wait", () => {
+    const text = officeStatusText(
+      nowWith({
+        needsYou: [
+          {
+            kind: "gate",
+            taskId: "t2",
+            projectId: "p1",
+            stageKey: "review",
+            waitingSince: AN_HOUR_AGO,
+          },
+          {
+            kind: "stand-in-choice",
+            projectIds: ["p1", "p2"],
+            waitingSince: AN_HOUR_AGO,
+            count: 2,
+          },
+        ],
+        running: [],
+      }),
+    );
+
+    expect(text.split("\n")[0]).toBe(
+      "Waiting on the user: 1 Gate, 1 Decision on Stages waiting for a Stand-in Engine (2 Stages).",
+    );
+  });
+
   it("says when nothing waits and nothing is started", () => {
     expect(officeStatusText(nowWith({ needsYou: [], running: [] }))).toBe(
       "Nothing waits on the user.\nNo Task is started: everyone is available.",

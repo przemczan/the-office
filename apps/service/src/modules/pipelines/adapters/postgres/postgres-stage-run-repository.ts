@@ -83,6 +83,14 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .where(eq(stageRuns.id, runId));
   }
 
+  async taskOf(runId: string): Promise<string | undefined> {
+    const [row] = await this.database
+      .select({ taskId: stageRuns.taskId })
+      .from(stageRuns)
+      .where(eq(stageRuns.id, runId));
+    return row?.taskId;
+  }
+
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
     await this.database.update(stageRuns).set({ headCommit }).where(eq(stageRuns.id, runId));
   }

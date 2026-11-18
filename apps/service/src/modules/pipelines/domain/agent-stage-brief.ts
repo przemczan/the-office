@@ -241,6 +241,11 @@ export interface HeldRun {
    * refused, which is sent again (spec 2.3).
    */
   readonly refused?: Pick<RefusedTurn, "message" | "problems">;
+  /**
+   * Set when the user chose to move the held run's session to a Stand-in Engine rather than wait
+   * for the reset (spec 5.4): the stand-in's name and who chose it.
+   */
+  readonly standInChosen?: { readonly engineName: string; readonly chosenBy: HoldingUser };
 }
 
 /**
@@ -442,6 +447,7 @@ function heldSection({
   cutShort,
   guidance,
   refused,
+  standInChosen,
 }: HeldRun): string | undefined {
   if (notStarted) {
     return guidance === undefined ? undefined : `## The user's words for this Stage\n\n${guidance}`;
@@ -453,8 +459,23 @@ function heldSection({
   const section =
     by === "stop" || by === "pause"
       ? USER_HELD_SECTIONS[by](holdingUserWords(byUser))
-      : HELD_SECTIONS[by];
+      : standInChosen
+        ? standInChosenSection(standInChosen)
+        : HELD_SECTIONS[by];
   return `${section}${cut}${resent}${words}`;
+}
+
+/**
+ * A run held by the usage window whose session the user moved to a Stand-in Engine rather than
+ * wait for the reset (spec 5.4).
+ */
+function standInChosenSection({
+  engineName,
+  chosenBy,
+}: NonNullable<HeldRun["standInChosen"]>): string {
+  return `## Paused for the usage window
+
+Your engine refused your last turn because a usage window of its account was used up, so The Office paused this Stage. It goes on on ${engineName}, as ${holdingUserWords(chosenBy)} chose, in this same session. Your edits are in the worktree as you left them.`;
 }
 
 function capitalized(words: string): string {

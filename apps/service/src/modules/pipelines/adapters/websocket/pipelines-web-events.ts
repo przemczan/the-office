@@ -19,6 +19,7 @@ import {
   StageRunWaiting,
   StageRunEngineSwitched,
   StageRunThreadOpened,
+  StandInChoicesChanged,
   SentBackFromGate,
   StopHeldAsPause,
   WentBackToStage,
@@ -119,6 +120,9 @@ export class PipelinesWebEvents implements OnModuleInit {
         toEngineId: event.toEngineId,
       }),
     );
+    this.forwarding.forward(StandInChoicesChanged, (): WebEventOf<"stand-in-choices.changed"> => ({
+      type: "stand-in-choices.changed",
+    }));
     this.forwarding.forward(StageRunEnded, (event): WebEventOf<"stage-run.ended"> => ({
       type: "stage-run.ended",
       taskId: event.taskId,

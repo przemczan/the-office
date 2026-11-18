@@ -5,7 +5,7 @@ import { Badge, Button, Icon } from "@the-office/ui";
 import { useEffect, useState, type ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
-import { pipelineQueries } from "../../api/pipelines.ts";
+import { pipelineQueries, standInChoiceQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
 import { decisionSummary } from "../../shell/conversation/decision-form-words.ts";
 import { DecisionOnTask } from "../../shell/conversation/decision-on-task.tsx";
@@ -14,6 +14,8 @@ import {
   useDecisionThread,
 } from "../../shell/conversation/decision-parts.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
+import { StandInChoiceOnTask } from "../../shell/notifications/stand-in-choice-card.tsx";
+import { STAND_IN_CHOICE_TITLE } from "../../shell/notifications/stand-in-choice-words.ts";
 import { clockOf } from "../../shell/time.ts";
 import { GateCard } from "../../shell/work/gate-card.tsx";
 import { gateQuestion } from "../../shell/work/gate-card-words.ts";
@@ -35,29 +37,45 @@ import { useInView } from "./use-in-view.ts";
 
 /**
  * What waits on the user on this Task, first in the record's column and answered there (spec §4):
- * its Decisions, those with a Consultant marked and not counted, and the Gate it waits at. Before
+ * its Decisions, those with a Consultant marked and not counted, the Gate it waits at, and while it
+ * is Paused by a used-up usage window, The Office's Decision on switching its Stage to a Stand-in
+ * Engine, narrowed to this Task. Before
  * Ready holds this place, after any Decision, in Planning and in Backlog once a part is written.
  * Otherwise it says where the Task stands.
  */
 export function NeedsYouCard({ task }: { readonly task: Task }): ReactNode {
   const decisions = useQuery(decisionQueries.unanswered(task.id)).data;
   const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
+  const standInChoice = useStandInChoiceWaits(task);
   if (!decisions || !taskStages) return null;
   if (task.state === "dropped") return <NothingWaits task={task} />;
   const waiting = taskStages.stages ? waitingGateOf(taskStages.stages) : undefined;
   const beforeReady = showsBeforeReady(task) ? <BeforeReady task={task} /> : undefined;
-  if (decisions.length > 0 || waiting) {
+  if (decisions.length > 0 || waiting || standInChoice) {
     return (
       <WhatWaits
         task={task}
         decisions={decisions}
         taskStages={taskStages}
         waiting={waiting}
+        standInChoice={standInChoice}
         beforeReady={beforeReady}
       />
     );
   }
   return beforeReady ?? <NothingWaits task={task} />;
+}
+
+/**
+ * Whether a Stage of the Task waits for the user's choice of a Stand-in Engine; read only while
+ * the Task is Paused, as only a Task Paused by the usage window waits so.
+ */
+function useStandInChoiceWaits(task: Task): boolean {
+  const choices = useQuery({
+    ...standInChoiceQueries.list(),
+    enabled: task.state === "paused",
+  }).data;
+  return task.state === "paused" && !!choices?.some(({ taskId }) => taskId === task.id);
 }
 
 function showsBeforeReady(task: Task): boolean {
@@ -90,12 +108,14 @@ function WhatWaits({
   decisions,
   taskStages,
   waiting,
+  standInChoice,
   beforeReady,
 }: {
   readonly task: Task;
   readonly decisions: readonly Decision[];
   readonly taskStages: TaskStages;
   readonly waiting: WaitingGate | undefined;
+  readonly standInChoice: boolean;
   readonly beforeReady: ReactNode;
 }): ReactNode {
   const [card, setCard] = useState<HTMLElement | null>(null);
@@ -106,9 +126,9 @@ function WhatWaits({
     if (linkedTo !== undefined) bringDecisionCardIntoView(linkedTo);
   }, [linkedTo]);
   const onYou = waitingOnYou(decisions);
-  const count = onYou.length + (waiting ? 1 : 0);
+  const count = onYou.length + (waiting ? 1 : 0) + (standInChoice ? 1 : 0);
   const first = onYou[0];
-  const headline = first ? decisionSummary(first) : waiting && gateQuestion(waiting);
+  const headline = headlineOf(first, waiting, standInChoice);
   const needsYou = (
     <section
       id={NEEDS_YOU_ELEMENT_ID}
@@ -124,7 +144,7 @@ function WhatWaits({
         )}
         <h3>Needs you</h3>
         <span className="needs-you-summary">
-          {needsYouSummary(decisions, waiting !== undefined)}
+          {needsYouSummary(decisions, waiting !== undefined, standInChoice)}
         </span>
       </header>
       <NeedsYouList>
@@ -139,6 +159,7 @@ function WhatWaits({
         {waiting && (
           <GateCard task={task} taskStages={taskStages} waiting={waiting} roles={roles} />
         )}
+        {standInChoice && <StandInChoiceOnTask taskId={task.id} />}
       </NeedsYouList>
     </section>
   );
@@ -216,6 +237,17 @@ function WaitingDecision({
       }
     />
   );
+}
+
+/** What the bar keeps in sight: the first Decision, else the Gate, else the Stand-in choice. */
+function headlineOf(
+  first: Decision | undefined,
+  waiting: WaitingGate | undefined,
+  standInChoice: boolean,
+): string | undefined {
+  if (first) return decisionSummary(first);
+  if (waiting) return gateQuestion(waiting);
+  return standInChoice ? STAND_IN_CHOICE_TITLE : undefined;
 }
 
 /**
