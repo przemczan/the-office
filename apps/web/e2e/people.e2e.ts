@@ -6023,7 +6023,7 @@ test(
       await expect(conversation.getByRole("heading", { name: "Jan · Planner" })).toBeVisible();
       await expect(
         conversation.getByText(
-          "No planning on Usage exports for customers yet. Once it is active with a Task in Backlog, Plan the Initiative starts it with Jan.",
+          "No planning on Usage exports for customers yet. Once it is active with a Task in Backlog, Plan the Initiative has Jan start at once, or Plan with Jan lets you say first how to plan it.",
         ),
       ).toBeVisible();
       await expect(message).toHaveCount(0);

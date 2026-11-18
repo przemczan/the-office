@@ -38,6 +38,7 @@ import {
   unfilledTabName,
   type InitiativeTab,
 } from "./initiative-conversation-tabs.ts";
+import { PlanInitiativeWith } from "./initiative-plan-with.tsx";
 import { InitiativeTabFoot } from "./initiative-tab-foot.tsx";
 import { newMessagesWords, useNewMessagesByThread } from "./new-messages.ts";
 import { threadsSeen, withThreadSeen, type ThreadsSeen } from "./threads-seen.ts";
@@ -302,8 +303,9 @@ function TabThreads({
 }
 
 /**
- * A tab with no Thread: the shaper's offers to start shaping; the planner's starts from the head; a
- * duty's while nobody holds it points to Settings › Duties.
+ * A tab with no Thread: the shaper's offers to start shaping; the planner's offers Plan with… while
+ * it is offered, Plan the Initiative being in the head; a duty's while nobody holds it points to
+ * Settings › Duties.
  */
 function NoThreadYet({
   initiative,
@@ -328,6 +330,9 @@ function NoThreadYet({
       {words}
       {tab.duties.includes("shapes-initiatives") && !ended && hired && (
         <StartShaping initiative={initiative} shaper={hired} />
+      )}
+      {tab.duties.includes("plans") && !ended && hired && (
+        <PlanInitiativeWith initiative={initiative} planner={hired.card.name} />
       )}
       {tab.unheldLabel !== undefined && !ended && tab.duties[0] && (
         <DutyUnheldNote duty={tab.duties[0]} />

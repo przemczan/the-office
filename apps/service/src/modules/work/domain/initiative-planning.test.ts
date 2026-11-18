@@ -68,7 +68,7 @@ describe("initiativePlanningProblems", () => {
   });
 
   it("keeps the new Thread, the auto mode and who asked on the Initiative it opens for", () => {
-    const opening = { threadId: "thread-2", autoMode: false, by: BEN_ITO };
+    const opening = { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO };
     const { initiative, event } = startInitiativePlanning(
       anInitiative({ state: "active" }),
       [first],
@@ -77,6 +77,7 @@ describe("initiativePlanningProblems", () => {
     expect(initiative).toMatchObject({
       planningThreadId: "thread-2",
       planningAutoMode: false,
+      planningWithUser: false,
       planningStartedBy: BEN_ITO,
     });
     expect(event).toMatchObject({ threadId: "thread-2", autoMode: false });
@@ -93,10 +94,28 @@ describe("initiativePlanningProblems", () => {
         planningThreadIds: ["thread-1"],
       }),
       [first],
-      { threadId: "thread-2", autoMode: false, by: BEN_ITO },
+      { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO },
     );
 
     expect(initiative.planningThreadIds).toEqual(["thread-1", "thread-2"]);
+  });
+
+  it("keeps that Plan with… opened the new Thread, until a later Plan the Initiative", () => {
+    const withUser = startInitiativePlanning(anInitiative({ state: "active" }), [first], {
+      threadId: "thread-2",
+      autoMode: false,
+      withUser: true,
+      by: BEN_ITO,
+    }).initiative;
+    expect(withUser).toMatchObject({ planningThreadId: "thread-2", planningWithUser: true });
+
+    const atOnce = startInitiativePlanning(withUser, [first], {
+      threadId: "thread-3",
+      autoMode: true,
+      withUser: false,
+      by: BEN_ITO,
+    }).initiative;
+    expect(atOnce).toMatchObject({ planningThreadId: "thread-3", planningWithUser: false });
   });
 });
 
@@ -264,6 +283,23 @@ describe("the Initiative's planning Thread", () => {
     expect(brief).toContain("- full: Full (Implement → Review). For most work.");
     expect(brief).toContain("## Auto mode\n\nOn:");
     expect(brief).not.toContain("## Being planned here");
+    expect(brief).not.toContain("## Planning with the user");
+  });
+
+  it("tells the planner to follow the user's instructions on how to plan in a Plan with… Thread", () => {
+    const brief = initiativePlanningBrief({
+      initiative: { ...planning, planningWithUser: true, planningStartedBy: BEN_ITO },
+      waiting: [],
+      record: "Initiative: Usage exports",
+      tasks: [first],
+      projects: [],
+      pipelines: [],
+    });
+
+    expect(brief).toContain(
+      "## Planning with the user\n\nThe user opened this Thread to plan the Initiative with you: their messages say how to plan it. Follow them where they differ from the default way your instructions give; ask in the Thread what is unclear.",
+    );
+    expect(brief).toContain("with Plan with….");
   });
 
   it("lists each Project's own Pipelines, flagged when Broken, before the office-wide ones once", () => {

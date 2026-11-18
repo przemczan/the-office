@@ -41,7 +41,8 @@ export function taskWhoAskedSection(
 /** Who opened the Initiative's latest planning Thread; none before that was kept. */
 export function initiativePlanningWhoAskedSection(initiative: Initiative): string | undefined {
   if (!initiative.planningStartedBy) return undefined;
-  return `## Who asked\n\nThis planning Thread was opened by ${authorWords(initiative.planningStartedBy)}, with Plan the Initiative.`;
+  const how = initiative.planningWithUser ? "Plan with…" : "Plan the Initiative";
+  return `## Who asked\n\nThis planning Thread was opened by ${authorWords(initiative.planningStartedBy)}, with ${how}.`;
 }
 
 /** Who shaped the Initiative from its Idea, or created it from none. */

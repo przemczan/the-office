@@ -145,6 +145,29 @@ describe("planning after a restart", () => {
     expect(initiativeThreads.askedAgain).toEqual([]);
   });
 
+  it("wakes nobody in a Plan with… Thread before a Task is planned there, still waiting for the user", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const idea = ideaSchema.parse(
+      await postOk("/ideas", { title: "Usage exports", notes: "", projectId: null }),
+    );
+    const shaped = initiativeSchema.parse(await postOk(`/ideas/${idea.id}/initiative`));
+    await postOk(`/initiatives/${shaped.id}/tasks`, {
+      title: "Export API",
+      projectId,
+      priority: "normal",
+      blockedBy: [],
+    });
+    await postOk(`/initiatives/${shaped.id}/confirm`);
+    const planning = initiativeSchema.parse(await postOk(`/initiatives/${shaped.id}/plan-with`));
+
+    await wake(planning.planningThreadId ?? "");
+
+    expect(initiativeThreads.waiting.map(({ threadId }) => threadId)).toEqual([
+      planning.planningThreadId,
+    ]);
+    expect(initiativeThreads.askedAgain).toEqual([]);
+  });
+
   it("leaves a paused Initiative's planning Thread for the user to go on", async () => {
     const { initiativeId, threadId } = await anInitiativeInPlanning();
     await postOk(`/initiatives/${initiativeId}/pause`);

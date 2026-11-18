@@ -212,6 +212,19 @@ export class InitiativesController {
   }
 
   /**
+   * Plan with…: a new planning Thread with the Planner, who waits for the user's first message on
+   * how to plan the Initiative, with auto mode off and the remembered default left as it is.
+   */
+  @Post(":id/plan-with")
+  @HttpCode(HttpStatus.OK)
+  async planWith(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.planning.planWith(id, authorOf(signedIn)));
+  }
+
+  /**
    * Start Ready Tasks: the normal Start on each of the Initiative's Ready Tasks, an Overlap queued
    * behind; what started, what was queued and what was refused, each with its reasons.
    */

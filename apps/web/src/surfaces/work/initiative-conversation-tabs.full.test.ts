@@ -182,7 +182,7 @@ describe("a tab's words", () => {
       "No conversation on Exports yet: nobody holds Shapes Initiatives.",
     );
     expect(empty(plannerTab, "Jan")).toBe(
-      "No planning on Exports yet. Once it is active with a Task in Backlog, Plan the Initiative starts it with Jan.",
+      "No planning on Exports yet. Once it is active with a Task in Backlog, Plan the Initiative has Jan start at once, or Plan with Jan lets you say first how to plan it.",
     );
     expect(empty(unheldPlanning, undefined)).toBe(
       "No planning on Exports yet: nobody holds Plans.",

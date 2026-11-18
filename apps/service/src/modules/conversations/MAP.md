@@ -190,7 +190,7 @@ DecisionService, DecisionWaitingOnTheUser, InitiativeThreadSetups, InitiativeThr
 - `thread-history.ts`: ThreadHistoryQuery, StageRunWindow, ThreadHistory
 - `thread-images.ts`: MessageImageContent, PastedImage, FOREIGN_IMAGE_PROBLEM, ThreadImages
 - `thread-runner.ts`: SkillCommandSent, SentWith, ThreadRunner, threadTelemetry
-- `thread-service.ts`: InitiativeThreadOpening, TaskThreadStarting, ThreadService
+- `thread-service.ts`: InitiativeThreadWaiting, InitiativeThreadOpening, TaskThreadStarting, ThreadService
 - `thread-summaries.ts`: ThreadSummary, TaskThreadSummary, ThreadSummaries
 - `work-records.fixtures.ts`: NO_WORK_RECORDS, taskSubjectsAs
 - `work-records.ts`: WorkRecordSource, TaskSubject, ProjectWork, WorkRecords

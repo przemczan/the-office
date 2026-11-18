@@ -128,6 +128,7 @@ export function shapeIdeaIntoInitiative(
     createdAt: at,
     planningThreadIds: [],
     planningAutoMode: false,
+    planningWithUser: false,
     pipelines: [],
     branches: [],
   };

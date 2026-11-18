@@ -105,6 +105,7 @@ export function createInitiative(
     createdAt: at,
     planningThreadIds: [],
     planningAutoMode: false,
+    planningWithUser: false,
     pipelines: [],
     branches: [],
   };

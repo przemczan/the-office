@@ -90,19 +90,25 @@ export function initiativePlanningProblems(
   return [];
 }
 
+/** How a new planning Thread on an Initiative is started, and by whom. */
+export interface InitiativePlanningStart {
+  readonly threadId: string;
+  readonly autoMode: boolean;
+  /** Opened by Plan with…: the planner waits for the user's first message on how to plan it. */
+  readonly withUser: boolean;
+  readonly by: Author;
+}
+
 /**
- * Plan the Initiative: its new planning Thread `threadId` becomes the one that plans its Tasks, in
- * auto mode or not, kept before the Thread opens so its first session's Brief and tools find it,
- * with `by`, who asked for it. Refused with the reasons of `initiativePlanningProblems`.
+ * Plan the Initiative, or Plan with…: its new planning Thread `threadId` becomes the one that plans
+ * its Tasks, in auto mode or not, kept before the Thread opens so its first session's Brief and
+ * tools find it, with `by`, who asked for it. Refused with the reasons of
+ * `initiativePlanningProblems`.
  */
 export function startInitiativePlanning(
   initiative: Initiative,
   tasks: readonly Task[],
-  {
-    threadId,
-    autoMode,
-    by,
-  }: { readonly threadId: string; readonly autoMode: boolean; readonly by: Author },
+  { threadId, autoMode, withUser, by }: InitiativePlanningStart,
 ): InitiativeChange<InitiativePlanningStarted> {
   const problems = initiativePlanningProblems(initiative, tasks);
   if (problems.length > 0) throw new InitiativeRefused(problems);
@@ -112,6 +118,7 @@ export function startInitiativePlanning(
       planningThreadId: threadId,
       planningThreadIds: [...initiative.planningThreadIds, threadId],
       planningAutoMode: autoMode,
+      planningWithUser: withUser,
       planningStartedBy: by,
     },
     event: new InitiativePlanningStarted(initiative.id, threadId, autoMode),
@@ -323,6 +330,7 @@ export function initiativePlanningBrief({
     "You are planning an Initiative's Tasks, in its planning Thread.",
     record,
     initiativePlanningWhoAskedSection(initiative),
+    initiative.planningWithUser ? WITH_THE_USER_SECTION : undefined,
     toPlanSection(tasks, projects),
     unfinishedSection(initiative, tasks),
     waitingSection(waiting, tasks),
@@ -339,6 +347,13 @@ export function initiativePlanningBrief({
     .filter((section) => section !== undefined)
     .join("\n\n");
 }
+
+/**
+ * Plan with…'s Thread: the user's own words on how to plan come before the default way the
+ * instructions give, which stay the same for every session so they stay in the cached prefix.
+ */
+const WITH_THE_USER_SECTION =
+  "## Planning with the user\n\nThe user opened this Thread to plan the Initiative with you: their messages say how to plan it. Follow them where they differ from the default way your instructions give; ask in the Thread what is unclear.";
 
 function toPlanSection(
   tasks: readonly Task[],

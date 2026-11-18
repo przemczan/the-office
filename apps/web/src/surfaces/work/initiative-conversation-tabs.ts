@@ -137,7 +137,7 @@ export function emptyInitiativeTabWords({
   }
   if (duty === "plans") {
     return tab.unheldLabel === undefined
-      ? `No planning on ${initiativeName} yet. Once it is active with a Task in Backlog, Plan the Initiative starts it with ${name}.`
+      ? `No planning on ${initiativeName} yet. Once it is active with a Task in Backlog, Plan the Initiative has ${name} start at once, or Plan with ${name} lets you say first how to plan it.`
       : `No planning on ${initiativeName} yet: nobody holds ${tab.unheldLabel}.`;
   }
   return `No conversation with ${name} on ${initiativeName} yet.`;

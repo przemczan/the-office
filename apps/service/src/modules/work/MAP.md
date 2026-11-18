@@ -63,6 +63,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `POST /initiatives/:id/restore`: InitiativesController.restore
 - `POST /initiatives/:id/shaping`: InitiativesController.shape
 - `POST /initiatives/:id/planning`: InitiativesController.plan
+- `POST /initiatives/:id/plan-with`: InitiativesController.planWith
 - `POST /initiatives/:id/start`: InitiativesController.startReadyTasks
 - `POST /initiatives/:id/pause`: InitiativesController.pause
 - `POST /initiatives/:id/resume`: InitiativesController.resume
@@ -220,7 +221,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, canBeRowId, holdManualOrder, holdShortNames, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, changeEveryDependencyHeld, heldTask, saveTask, insertTask, keepStateChange, stateChangesOf, authorOf, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings, engineCaps
 - `work.schema.ts`: AuthorRow, StateChangeCauseRow, ProjectMoveRow, ideas, InitiativePipelineRow, InitiativeBranchRow, initiatives, tasks, taskStateChanges, attachments, attachmentTexts
-- Tests: initiative-pipeline-per-project-migration.test.ts, initiative-planning-threads-migration.test.ts, paused-by-migration.test.ts, postgres-work-repositories.full.test.ts, postgres-work-repositories.test.ts, work-earlier-records.test.ts
+- Tests: initiative-pipeline-per-project-migration.test.ts, initiative-planning-threads-migration.test.ts, initiative-planning-with-user-migration.test.ts, paused-by-migration.test.ts, postgres-work-repositories.full.test.ts, postgres-work-repositories.test.ts, work-earlier-records.test.ts
 
 ### adapters/projects/
 
@@ -300,7 +301,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `initiative-not-shaping.ts`: InitiativeNotShaping
 - `initiative-pause.ts`: INITIATIVE_PAUSED, isInitiativePaused, pauseInitiative, resumeInitiative
 - `initiative-pipeline.ts`: initiativePipelineChangeProblems, startedPublishingTask
-- `initiative-planning.ts`: INITIATIVE_PLANNING_THREAD_TITLE, INITIATIVE_PLANNING_AFTER_RESTART_OPENING, INITIATIVE_PLANNING_OPENING, INITIATIVE_PLANNING_INSTRUCTIONS, initiativePlanningProblems, startInitiativePlanning, startPlanningInInitiative, RewritingThread, rewritingProblems, rewriteInInitiative, unplannedBlockers, InitiativePlanningProject, OpenTaskDecision, InitiativePlanningRecord, initiativePlanningBrief
+- `initiative-planning.ts`: INITIATIVE_PLANNING_THREAD_TITLE, INITIATIVE_PLANNING_AFTER_RESTART_OPENING, INITIATIVE_PLANNING_OPENING, INITIATIVE_PLANNING_INSTRUCTIONS, initiativePlanningProblems, InitiativePlanningStart, startInitiativePlanning, startPlanningInInitiative, RewritingThread, rewritingProblems, rewriteInInitiative, unplannedBlockers, InitiativePlanningProject, OpenTaskDecision, InitiativePlanningRecord, initiativePlanningBrief
 - `initiative-refused.ts`: InitiativeRefused
 - `initiative-section.ts`: LONG_PLAN_CHARACTERS, initiativeSection
 - `initiative-start.ts`: readyTasksToStart
@@ -367,7 +368,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `idea-cards.ts`: IdeaCards
 - `idea-repository.ts`: IdeaUpdate, ShapedIdea, IdeaShapedIntoInitiative, IdeaRepository
 - `initiative-repository.ts`: InitiativeUpdate, InitiativeTasksUpdate, InitiativeRepository
-- `initiative-threads.ts`: InitiativeThreadOpening, InitiativeThreads
+- `initiative-threads.ts`: InitiativeThreadWaiting, InitiativeThreadOpening, InitiativeThreads
 - `known-engine-cascade.ts`: KnownEngineCascade
 - `known-people.ts`: KnownPeople, KnownPerson
 - `known-pipelines.ts`: KnownPipelines, KnownPipeline
