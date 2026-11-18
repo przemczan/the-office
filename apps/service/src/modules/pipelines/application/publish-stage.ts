@@ -31,6 +31,7 @@ import { TaskThreadSessions } from "../ports/task-thread-sessions.js";
 import { InitiativeBranchStages } from "./initiative-branch-stages.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunWaits } from "./stage-run-waits.js";
+import { StageRunsFiles } from "./stage-runs-files.js";
 import type { StageWork } from "./stage-runner.js";
 
 /**
@@ -71,6 +72,7 @@ export class PublishStage {
     private readonly runs: StageRunRepository,
     private readonly waits: StageRunWaits,
     private readonly tasks: StartedTasks,
+    private readonly stageRunsFiles: StageRunsFiles,
   ) {}
 
   async run(work: StageWork<"script">): Promise<StageOutcome> {
@@ -328,6 +330,7 @@ export class PublishStage {
     try {
       await this.threadSessions.endWaiting(taskId);
       await this.git.removeWorktree(projectId, taskId);
+      await this.stageRunsFiles.remove(taskId);
       return "";
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);

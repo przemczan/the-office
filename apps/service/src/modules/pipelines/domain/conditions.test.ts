@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   carriesAFailure,
-  COMMAND_CONDITIONS_NOT_RUN,
-  type CommandConditions,
+  type CommandResults,
+  type CommandTest,
   weighGroup,
   weighRoutes,
   type Weighing,
@@ -52,7 +52,10 @@ function aRun(
 
 const DEFINITION_OF_DONE = ["The name shows", "The name persists"];
 
-function weighing(runs: readonly StageRun[], commands = COMMAND_CONDITIONS_NOT_RUN): Weighing {
+/** No command has been weighed yet: every command test is still to run. */
+const NONE_WEIGHED: CommandResults = () => undefined;
+
+function weighing(runs: readonly StageRun[], commands = NONE_WEIGHED): Weighing {
   return { stageKey: "tests", runs, definitionOfDone: DEFINITION_OF_DONE, commands };
 }
 
@@ -73,18 +76,24 @@ function holds(test: ConditionTest, runs: readonly StageRun[]): string {
   return weighGroup(all(test), weighing(runs)).kind;
 }
 
-/** A command test answering as `exits` says, counting the tests it weighs. */
-function commandsAnswering(
-  exits: Record<string, boolean>,
-): CommandConditions & { asked: string[] } {
+/** Every command test's command couldn't run. */
+const COULD_NOT_RUN: CommandResults = () => ({ kind: "cannot-be-weighed", why: "No lint." });
+
+/** The first route's command test failed; the others haven't run. */
+const FIRST_ROUTE_FAILED: CommandResults = ({ routeIndex }) =>
+  routeIndex === 0 ? { kind: "does-not-hold" } : undefined;
+
+/** Command tests recorded as `exits` says, counting the tests it weighs. */
+function commandsAnswering(exits: Record<string, boolean>): {
+  readonly results: CommandResults;
+  readonly asked: string[];
+} {
   const asked: string[] = [];
-  return {
-    asked,
-    resultOf: (key) => {
-      asked.push(key);
-      return exits[key] ? { kind: "holds" } : { kind: "does-not-hold" };
-    },
+  const results = ({ key }: CommandTest) => {
+    asked.push(key);
+    return exits[key] ? ({ kind: "holds" } as const) : ({ kind: "does-not-hold" } as const);
   };
+  return { results, asked };
 }
 
 describe("weighing a Stage test", () => {
@@ -189,7 +198,7 @@ describe("weighing groups", () => {
     expect(
       weighGroup(
         all({ kind: "command", key: "first" }, { kind: "command", key: "second" }),
-        weighing(ran, commands),
+        weighing(ran, commands.results),
       ).kind,
     ).toBe("does-not-hold");
     expect(commands.asked).toEqual(["first"]);
@@ -198,21 +207,39 @@ describe("weighing groups", () => {
     expect(
       weighGroup(
         any({ kind: "command", key: "second" }, { kind: "command", key: "first" }),
-        weighing(ran, commands),
+        weighing(ran, commands.results),
       ).kind,
     ).toBe("holds");
     expect(commands.asked).toEqual(["second"]);
   });
 
-  it("can't weigh a command test yet, unless a later test settles the group", () => {
+  it("asks for a command test's run once weighing reaches it, by its place in the condition", () => {
     const lint: ConditionTest = { kind: "command", key: "lint" };
 
-    expect(weighGroup(all(lint, previousIs("done")), weighing(ran))).toEqual({
-      kind: "cannot-be-weighed",
-      why: "The Office doesn't run a Project command as a condition yet.",
+    expect(
+      weighGroup(all(previousIs("done"), any(previousIs("failed"), lint)), weighing(ran)),
+    ).toEqual({
+      kind: "run-command",
+      test: { key: "lint", routeIndex: 0, testPath: [1, 1] },
     });
-    expect(weighGroup(all(lint, previousIs("failed")), weighing(ran)).kind).toBe("does-not-hold");
-    expect(weighGroup(any(lint, previousIs("done")), weighing(ran)).kind).toBe("holds");
+    // Settled before the command test is reached: it isn't run.
+    expect(weighGroup(all(previousIs("failed"), lint), weighing(ran)).kind).toBe("does-not-hold");
+    expect(weighGroup(any(previousIs("done"), lint), weighing(ran)).kind).toBe("holds");
+  });
+
+  it("goes on past a command test that can't be weighed, as a later test may settle the group", () => {
+    const lint: ConditionTest = { kind: "command", key: "lint" };
+
+    expect(weighGroup(all(lint, previousIs("done")), weighing(ran, COULD_NOT_RUN))).toEqual({
+      kind: "cannot-be-weighed",
+      why: "No lint.",
+    });
+    expect(weighGroup(all(lint, previousIs("failed")), weighing(ran, COULD_NOT_RUN)).kind).toBe(
+      "does-not-hold",
+    );
+    expect(weighGroup(any(lint, previousIs("done")), weighing(ran, COULD_NOT_RUN)).kind).toBe(
+      "holds",
+    );
   });
 });
 
@@ -237,10 +264,30 @@ describe("weighRoutes", () => {
   it("stops at a route it can't weigh, as a later one may be followed only once it doesn't hold", () => {
     const byCommand: Route = { to: "review", condition: all({ kind: "command", key: "lint" }) };
 
-    expect(weighRoutes([byCommand, toEnd], weighing(ran))).toEqual({
+    expect(weighRoutes([byCommand, toEnd], weighing(ran, COULD_NOT_RUN))).toEqual({
       kind: "cannot-be-weighed",
       route: byCommand,
-      why: "The Office doesn't run a Project command as a condition yet.",
+      why: "No lint.",
+    });
+  });
+
+  it("asks for a route's command test to run, by the route's place, before weighing later routes", () => {
+    const byLint: Route = { to: "review", condition: all({ kind: "command", key: "lint" }) };
+    const byBuild: Route = { to: "fix", condition: all({ kind: "command", key: "build" }) };
+
+    expect(weighRoutes([toReview, byLint, byBuild, toEnd], weighing(ran))).toEqual({
+      kind: "run-command",
+      route: byLint,
+      test: { key: "lint", routeIndex: 1, testPath: [0] },
+    });
+  });
+
+  it("goes on to the next route once a command test's recorded result doesn't hold", () => {
+    const byLint: Route = { to: "review", condition: all({ kind: "command", key: "lint" }) };
+
+    expect(weighRoutes([byLint, toEnd], weighing(ran, FIRST_ROUTE_FAILED))).toEqual({
+      kind: "follow",
+      route: toEnd,
     });
   });
 });

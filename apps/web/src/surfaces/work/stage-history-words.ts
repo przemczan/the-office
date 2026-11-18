@@ -41,6 +41,7 @@ const COMMAND_PURPOSE_WORDS: Readonly<Record<CommandRun["purpose"], string | und
   "re-run": "re-run",
   "before-publishing": "before publishing",
   "after-publishing": "after publishing",
+  condition: "condition",
 };
 
 /** The line under a Stage's name: its kind, its rule and what its runs came to. */
@@ -221,9 +222,27 @@ export function commandMarkWords({ outcome }: CommandRun): string {
   return COMMAND_OUTCOME_WORDS[outcome];
 }
 
-/** What it ran for, when that needs saying, and how long it took: "2m", "re-run · 2m". */
-export function commandTimeWords({ purpose, durationMs }: CommandRun): string {
-  return [COMMAND_PURPOSE_WORDS[purpose], shortDurationWords(durationMs)]
+/**
+ * What it ran for, when that needs saying, and how long it took: "2m", "re-run · 2m", "condition
+ * for the route to Review · 12s".
+ */
+export function commandTimeWords(
+  { purpose, durationMs, condition }: CommandRun,
+  names: StageNames,
+): string {
+  return [purposeWords(purpose, condition, names), shortDurationWords(durationMs)]
     .filter((part) => part !== undefined)
     .join(" · ");
+}
+
+function purposeWords(
+  purpose: CommandRun["purpose"],
+  condition: CommandRun["condition"],
+  names: StageNames,
+): string | undefined {
+  if (!condition) return COMMAND_PURPOSE_WORDS[purpose];
+  const route = `the route to ${condition.to === null ? "End" : names(condition.to)}`;
+  return purpose === "condition"
+    ? `condition for ${route}`
+    : `install for the condition of ${route}`;
 }

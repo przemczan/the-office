@@ -27,6 +27,8 @@ import { RolesNamedInStages } from "./application/roles-named-in-stages.js";
 import { ScriptStageRunner } from "./application/script-stage-runner.js";
 import { ResolveStageGit } from "./application/resolve-stage-git.js";
 import { StageRunWaits } from "./application/stage-run-waits.js";
+import { StageRunsFiles } from "./application/stage-runs-files.js";
+import { ConditionCommands } from "./application/condition-commands.js";
 import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
 import { StageTemplateLibraryEditor } from "./application/stage-template-library-editor.js";
@@ -157,6 +159,8 @@ export class PipelinesModule {
         DroppedPublishingTasks,
         StageGit,
         StageRunWaits,
+        StageRunsFiles,
+        ConditionCommands,
         ResolveStageGit,
         StageBranchUpdate,
         StageCommandRuns,

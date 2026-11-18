@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { dirname } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   aDoneResult,
@@ -15,6 +17,7 @@ import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.f
 import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
+import { StageRunsFiles } from "./stage-runs-files.js";
 import { implement, publish, reviewedPublish, PULL_REQUEST } from "../publish-stage.fixtures.js";
 
 const ANN = userOf(SIGNED_IN_FOR_TESTS);
@@ -53,6 +56,23 @@ describe("A Publish Stage", () => {
     expect(pipelines.commands.ran).toEqual([]);
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
+  });
+
+  it("removes the Task's folder of its earlier Stage runs with its worktree", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Added the dialog."))]);
+    const taskId = randomUUID();
+    const file = await pipelines.app.get(StageRunsFiles, { strict: false }).write(taskId, {
+      version: 1,
+      task: { id: taskId, title: "", project: "" },
+      route: { from: "implement", to: null },
+      definitionOfDone: [],
+      stageRuns: [],
+    });
+
+    await walkStages(pipelines, [implement, publish], taskId);
+
+    expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+    expect(existsSync(dirname(file))).toBe(false);
   });
 
   it("pushes the branch only when its target says so, then removes the worktree", async () => {

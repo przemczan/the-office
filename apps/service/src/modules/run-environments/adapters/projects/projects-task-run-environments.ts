@@ -47,6 +47,7 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
       timeoutMs,
       signal,
       wait,
+      readsStageRuns,
       ...given
     }: TaskRunEnvironmentCommand,
   ): Promise<FinishedCommand> {
@@ -70,6 +71,7 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
         signal,
         onWaiting: wait?.started,
         onWaitOver: wait?.ended,
+        ...(readsStageRuns && { readsStageRuns }),
       });
       return { ...endOf(end), ...(await outputEndOf(outputFile)) };
     } catch (error) {
@@ -90,6 +92,7 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
       projectId: task.projectId,
       worktree: task.worktree,
       repositoryGitFolder: task.repositoryGitFolder,
+      stageRunsFolder: task.stageRunsFolder,
       installCommand: task.installCommand.trim() === "" ? undefined : task.installCommand,
       installInputs: task.installInputs,
       installVariables: task.installVariables,

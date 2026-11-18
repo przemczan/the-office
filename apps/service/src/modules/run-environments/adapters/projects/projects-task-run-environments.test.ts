@@ -55,6 +55,7 @@ async function aTask(taskId: string): Promise<TaskInRunEnvironment> {
     projectId: "shop",
     worktree,
     repositoryGitFolder: join(testbed.folder, "repository", ".git"),
+    stageRunsFolder: join(testbed.folder, "stage-runs", taskId),
     installCommand: "npm ci",
     installInputs: ["package-lock.json"],
     installVariables: [],
@@ -121,6 +122,56 @@ describe("Projects' run environments", () => {
       target: task.repositoryGitFolder,
       read_only: true,
     });
+  });
+
+  it("mounts the Task's Stage runs' folder read-only at its own path, never the file", async () => {
+    const task = await aTask("task-1");
+
+    await registry.run(task, aCommand());
+
+    const [started] = [...runtime.projects.values()];
+    const override = parseYaml(await readFile(started?.project.files.at(-1) ?? "", "utf8"));
+    expect(override).toHaveProperty("services.app.volumes.2", {
+      type: "bind",
+      source: task.stageRunsFolder,
+      target: task.stageRunsFolder,
+      read_only: true,
+    });
+  });
+
+  it("runs a condition command in a run environment started with the Stage runs' folder", async () => {
+    const task = await aTask("task-1");
+    await registry.run(task, aCommand());
+
+    const finished = await registry.run(task, aCommand({ readsStageRuns: true }));
+
+    expect(finished).toMatchObject({ outcome: "passed", exitCode: 0 });
+  });
+
+  it("runs no condition command in a run environment already up without the folder, saying to stop and start it", async () => {
+    const task = await aTask("task-1");
+    // Up as one started before the folder was mounted: with another folder than the Task's now.
+    await registry.run(task, aCommand());
+    let execs = 0;
+    runtime.onExec = () => {
+      execs += 1;
+      return Promise.resolve({ exitCode: 0 });
+    };
+
+    const finished = await registry.run(
+      { ...task, stageRunsFolder: join(testbed.folder, "stage-runs-now", task.taskId) },
+      aCommand({ readsStageRuns: true }),
+    );
+
+    expect(finished).toEqual({
+      outcome: "could-not-run",
+      exitCode: undefined,
+      durationMs: 0,
+      output:
+        "The run environment started before condition commands could read their file; stop and start the Task's run environment.",
+      droppedOutputBytes: 0,
+    });
+    expect(execs).toBe(0);
   });
 
   it("hides a Secret variable in the output file as it streams, and in the output read back", async () => {

@@ -22,6 +22,7 @@ import {
   TaskStateChanged,
   TaskStopped,
 } from "../../work/index.js";
+import { ConditionCommands, type WeighCommandMove } from "./condition-commands.js";
 import { StaffingHolds } from "./staffing-holds.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
@@ -65,7 +66,7 @@ import { StageRunners } from "./stage-runners.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 type RunMove = Extract<NextMove, { move: "run" }>;
-type HaltMove = Exclude<NextMove, RunMove>;
+type HaltMove = Exclude<NextMove, RunMove | WeighCommandMove>;
 
 /** A run the walk started, with the Stages and runs it was started from. */
 interface StartedStep {
@@ -79,6 +80,8 @@ interface StartedStep {
 /** What the walk did at its next move, or why it waits there. */
 type WalkStep =
   | { readonly step: "over" }
+  /** A condition's command was weighed, its result recorded for the walk to go on from. */
+  | { readonly step: "weighed" }
   | StartedStep
   | {
       readonly step: "halt";
@@ -142,6 +145,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly branchStages: InitiativeBranchStages,
     private readonly roleFillings: RoleFillings,
     private readonly people: KnownPeople,
+    private readonly conditionCommands: ConditionCommands,
   ) {}
 
   onModuleInit(): void {
@@ -413,9 +417,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       if ((await this.tasks.read(taskId)).state !== "in-progress") return;
       // Read afresh each move, so an edit of the Task's Stages for the Task applies to the next one.
       const step = await this.taskStages.holding(taskId, ({ stages }) =>
-        this.takeNextMove(taskId, stages, definitionOfDone, record),
+        this.takeNextMove(taskId, stages, record, interruption),
       );
       if (step.step === "over") return;
+      if (step.step === "weighed") continue;
       if (step.step === "started") {
         await this.runStageOf(record, step, interruption);
         continue;
@@ -432,25 +437,35 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * The walk's next move, taken while no edit can change the Task's Stages: a run started and
-   * saved. Over when another walk of the Task moved first, or The Office is stopping.
+   * saved, or a condition's command weighed, so the routes it decides between stay as they are.
+   * Over when another walk of the Task moved first, or The Office is stopping.
    */
   private async takeNextMove(
     taskId: string,
     stages: readonly Stage[],
-    definitionOfDone: readonly string[],
     record: TaskRecord,
+    interruption: StageRunInterruption,
   ): Promise<WalkStep> {
     const runs = await this.runs.list(taskId);
     // Read once per move, so a Stage starts with whoever holds its duty now (spec §2.3).
     const staffed = await this.roleFillings.staffed(stages, runs);
-    const move = nextMove(staffed, runs, definitionOfDone);
-    if (move.move !== "run") return { step: "halt", move, stages: staffed, runs };
+    const move = nextMove(staffed, runs, record.definitionOfDone);
+    if (move.move !== "run" && move.move !== "weigh-command") {
+      return { step: "halt", move, stages: staffed, runs };
+    }
     if (this.stopping) return { step: "over" };
     // At the Stage boundary, until the update or restart is cancelled or the service exits for it; a
     // Gate does no work, so it still asks the user.
-    if (this.exitHold.isScheduled() && move.stage.kind !== "gate") {
+    if (
+      this.exitHold.isScheduled() &&
+      (move.move === "weigh-command" || move.stage.kind !== "gate")
+    ) {
       this.heldForExit.add(taskId);
       return { step: "over" };
+    }
+    if (move.move === "weigh-command") {
+      await this.weighCommand(move, record, walkedStages(staffed, runs), runs, interruption);
+      return { step: "weighed" };
     }
     // A Task added to its Initiative meanwhile blocks it; a Gate waits too, as it shows the change.
     // Held before the read, so a blocker ending during it walks the Task again (walksAgain).
@@ -474,6 +489,23 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       stages: walkedStages(staffed, runs),
       earlierRuns: runs,
     };
+  }
+
+  /**
+   * Runs a condition's command, holding a Publishing Task's Initiative's branch as its Stages do,
+   * stopped with the commands of a run the fire alarm or a shutdown interrupts.
+   */
+  private async weighCommand(
+    move: WeighCommandMove,
+    record: TaskRecord,
+    stages: readonly Stage[],
+    runs: readonly StageRun[],
+    interruption: StageRunInterruption,
+  ): Promise<void> {
+    const weigh = () =>
+      this.conditionCommands.weigh(move, record, stages, runs, interruption.commandsSignal);
+    if (!record.publishingTask) return weigh();
+    await this.branchStages.holding(record, weigh);
   }
 
   /** A span per Stage run, whose engine calls are its children. */

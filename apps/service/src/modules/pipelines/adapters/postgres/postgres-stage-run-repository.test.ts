@@ -77,6 +77,53 @@ describe("PostgresStageRunRepository's changed files", () => {
   });
 });
 
+function commandRun(commandLine: string, wholeOutput: string) {
+  return {
+    purpose: "command" as const,
+    commandLine,
+    outcome: "passed" as const,
+    exitCode: 0,
+    durationMs: 1000,
+    output: `${wholeOutput} (cut)`,
+    wholeOutput,
+  };
+}
+
+describe("PostgresStageRunRepository.addCommandRuns", () => {
+  const condition = { key: "lint", to: "review", routeIndex: 0, testPath: [0] };
+
+  it("adds the runs after those saved before, each whole output at its run's place", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID() });
+    await runs.saveNew(run);
+    await runs.saveCommandRuns(run.id, [commandRun("npm test", "All passed.")]);
+
+    await runs.addCommandRuns(run.id, [
+      { ...commandRun("npm run lint", "No problems."), purpose: "condition", condition },
+    ]);
+
+    expect((await runOf(run.taskId))?.commandRuns).toMatchObject([
+      { purpose: "command", commandLine: "npm test" },
+      { purpose: "condition", commandLine: "npm run lint", condition },
+    ]);
+    expect(await runs.commandOutputs(run.taskId, run.id)).toEqual(["All passed.", "No problems."]);
+  });
+
+  it("keeps a run saved before whole outputs were kept readable, its filtered outputs in their place", async () => {
+    const taskId = randomUUID();
+    const id = randomUUID();
+    await database.execute(
+      sql`INSERT INTO "stage_runs" ("id", "task_id", "stage_key", "number", "command_runs", "outcome", "started_at", "ended_at")
+        VALUES (${id}, ${taskId}, 'tests', 1, '[{"purpose":"command","commandLine":"npm test","outcome":"passed","exitCode":0,"durationMs":1,"output":"Old output."}]'::jsonb, '{"status":"done","summary":"Done."}'::jsonb, now(), now())`,
+    );
+
+    await runs.addCommandRuns(id, [
+      { ...commandRun("npm run lint", "No problems."), purpose: "condition", condition },
+    ]);
+
+    expect(await runs.commandOutputs(taskId, id)).toEqual(["Old output.", "No problems."]);
+  });
+});
+
 describe("PostgresStageRunRepository.startedSince", () => {
   it("gives each run started since with its tokens, a retry this week of a Stage first run last week counted as a retry", async () => {
     // Tests share the database, so only this test's own Tasks are looked at, far in the future.

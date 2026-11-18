@@ -312,7 +312,22 @@ describe("a run's other words", () => {
     } as const;
     expect(commandMarkWords({ ...run, outcome: "passed" })).toBe("passed");
     expect(commandMarkWords({ ...run, outcome: "could-not-run" })).toBe("could not run");
-    expect(commandTimeWords({ ...run, purpose: "command" })).toBe("2m");
-    expect(commandTimeWords({ ...run, purpose: "re-run" })).toBe("re-run · 2m");
+    expect(commandTimeWords({ ...run, purpose: "command" }, names)).toBe("2m");
+    expect(commandTimeWords({ ...run, purpose: "re-run" }, names)).toBe("re-run · 2m");
+  });
+
+  it("says which route a condition's command, and the install before it, ran for", () => {
+    const run = { commandLine: "npm run lint", durationMs: 12_000, outcome: "passed" } as const;
+    const toReview = { to: "review" };
+
+    expect(commandTimeWords({ ...run, purpose: "condition", condition: toReview }, names)).toBe(
+      `condition for the route to ${names("review")} · 12s`,
+    );
+    expect(commandTimeWords({ ...run, purpose: "install", condition: toReview }, names)).toBe(
+      `install for the condition of the route to ${names("review")} · 12s`,
+    );
+    expect(commandTimeWords({ ...run, purpose: "condition", condition: { to: null } }, names)).toBe(
+      "condition for the route to End · 12s",
+    );
   });
 });

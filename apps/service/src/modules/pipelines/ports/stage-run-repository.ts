@@ -73,6 +73,15 @@ export abstract class StageRunRepository {
     commandRuns: readonly StageCommandRunWithOutput[],
   ): Promise<void>;
 
+  /**
+   * Adds Project commands The Office ran for the run after those saved before, such as a condition
+   * command's runs on the ended run its routes leave.
+   */
+  abstract addCommandRuns(
+    runId: string,
+    commandRuns: readonly StageCommandRunWithOutput[],
+  ): Promise<void>;
+
   /** Saves the run's tokens so far, replacing those saved before. */
   abstract saveTokens(runId: string, tokens: StageTokens): Promise<void>;
 

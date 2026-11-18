@@ -306,12 +306,15 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     sentBack: run.sentBack
       ? { gateKey: run.sentBack.gateKey, feedback: run.sentBack.feedback }
       : null,
-    commandRuns: run.commandRuns.map(({ purpose, commandLine, outcome, durationMs }) => ({
-      purpose,
-      commandLine,
-      outcome,
-      durationMs,
-    })),
+    commandRuns: run.commandRuns.map(
+      ({ purpose, commandLine, outcome, durationMs, condition }) => ({
+        purpose,
+        commandLine,
+        outcome,
+        durationMs,
+        ...(condition && { condition: { to: condition.to } }),
+      }),
+    ),
     gateAction: run.gateAction ? toGateActionResponse(run.gateAction) : null,
     outcome: run.outcome ? toOutcomeResponse(run.outcome) : null,
   };

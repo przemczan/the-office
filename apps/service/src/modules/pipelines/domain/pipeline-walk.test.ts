@@ -9,8 +9,9 @@ import {
   resolvedByTheUser,
   walkedStages,
 } from "./resolve-stages.js";
-import { type ConditionGroup, plainRoute, type Route } from "./route.js";
+import { type ConditionGroup, type ConditionTest, plainRoute, type Route } from "./route.js";
 import type { OnFailure, Stage } from "./stage.js";
+import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import {
   NO_STAGE_TOKENS,
   type GateAction,
@@ -1429,6 +1430,11 @@ const withFix = (checkRoutes: Route[]) => [
 const unrecorded = (...decisions: StageRunDecision[]) =>
   runs(["write", meeting(1, 2), ...decisions]);
 
+/** Write's run, with the condition commands recorded on it. */
+function weighed(...commandRuns: StageCommandRun[]): StageRun[] {
+  return runs(["write", done]).map((run) => ({ ...run, commandRuns }));
+}
+
 describe("nextMove over routes", () => {
   // Write goes to Review while something is unmet, else straight to Check, which joins both paths.
   const branching = [
@@ -1561,24 +1567,130 @@ describe("nextMove over routes", () => {
         question: { kind: "definition-of-done", unmet: ["The name persists"], before: undefined },
       });
     });
+  });
 
-    it("asks, saying why, when a route tests a Project command", () => {
-      const byCommand = [
-        routed(
-          agentStage("write"),
-          when("review", { kind: "command", key: "lint" }),
-          plainRoute("check"),
-        ),
-        ...byFiles.slice(1),
-      ];
+  describe("a route that tests a Project command", () => {
+    const lint: ConditionTest = { kind: "command", key: "lint" };
+    const build: ConditionTest = { kind: "command", key: "build" };
+    const byCommand = [
+      routed(agentStage("write"), when("review", lint), plainRoute("check")),
+      routed(agentStage("review"), plainRoute("check")),
+      routed(scriptStage("check"), plainRoute(null)),
+    ];
+    const lintTest = { key: "lint", to: "review", routeIndex: 0, testPath: [0] };
 
-      expect(nextMove(byCommand, runs(["write", done]), NO_DEFINITION_OF_DONE)).toMatchObject({
+    function conditionRun(
+      outcome: CommandOutcome,
+      purpose: StageCommandPurpose = "condition",
+      condition = lintTest,
+    ): StageCommandRun {
+      return {
+        purpose,
+        commandLine: "npm run lint",
+        outcome,
+        exitCode: outcome === "passed" ? 0 : outcome === "failed" ? 1 : undefined,
+        durationMs: 1000,
+        output: outcome === "could-not-run" ? "The Project has no lint command." : "",
+        condition,
+      };
+    }
+
+    it("asks for the command's run once the walk weighs its test, with where the test is", () => {
+      const ran = weighed();
+
+      expect(nextMove(byCommand, ran, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "weigh-command",
+        run: ran[0],
+        stage: byCommand[0],
+        condition: lintTest,
+      });
+    });
+
+    it("follows the route when the recorded command passed, and the next one when it failed", () => {
+      expect(
+        nextMove(byCommand, weighed(conditionRun("passed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "review" } });
+      expect(
+        nextMove(byCommand, weighed(conditionRun("failed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "check" } });
+    });
+
+    it("asks the no-route-holds Decision, saying why, when the command couldn't run or timed out", () => {
+      expect(
+        nextMove(byCommand, weighed(conditionRun("could-not-run")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
         move: "ask",
         question: {
           kind: "no-route-holds",
-          why: "The Office doesn't run a Project command as a condition yet.",
+          why: "The condition's command `lint` couldn't run: The Project has no lint command.",
         },
       });
+      expect(
+        nextMove(byCommand, weighed(conditionRun("timed-out")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "ask",
+        question: {
+          kind: "no-route-holds",
+          why: expect.stringMatching(/^The condition's command `lint` ran out of time/),
+        },
+      });
+      expect(
+        nextMove(byCommand, weighed(conditionRun("failed", "install")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "ask",
+        question: {
+          kind: "no-route-holds",
+          why: "The install before the condition's command `lint` failed with exit code 1.",
+        },
+      });
+    });
+
+    it("weighs a command again that The Office stopped, its install's included", () => {
+      for (const ran of [
+        weighed(conditionRun("stopped")),
+        weighed(conditionRun("stopped", "install")),
+        weighed(conditionRun("passed", "install")),
+      ]) {
+        expect(nextMove(byCommand, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "weigh-command",
+          condition: lintTest,
+        });
+      }
+      expect(
+        nextMove(
+          byCommand,
+          weighed(conditionRun("stopped"), conditionRun("passed")),
+          NO_DEFINITION_OF_DONE,
+        ),
+      ).toMatchObject({ move: "run", stage: { key: "review" } });
+    });
+
+    it("weighs the tests in order and asks for no command once the result is settled", () => {
+      const anyOf: Route = { to: "review", condition: { combine: "any", tests: [lint, build] } };
+      const either = [
+        routed(agentStage("write"), anyOf, plainRoute("check")),
+        ...byCommand.slice(1),
+      ];
+
+      expect(
+        nextMove(either, weighed(conditionRun("passed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "review" } });
+      expect(
+        nextMove(either, weighed(conditionRun("failed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "weigh-command",
+        condition: { key: "build", to: "review", routeIndex: 0, testPath: [1] },
+      });
+    });
+
+    it("follows a recorded run without running the command again", () => {
+      expect(
+        nextMove(
+          byCommand,
+          [...weighed(conditionRun("passed")), ...runs(["review", done])],
+          NO_DEFINITION_OF_DONE,
+        ),
+      ).toMatchObject({ move: "run", stage: { key: "check" } });
     });
   });
 

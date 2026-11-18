@@ -105,6 +105,7 @@ export function taskIn(
     // A main checkout's, inside the worktree: no second mount, whose missing source a real
     // runtime would refuse.
     repositoryGitFolder: join(worktree, ".git"),
+    stageRunsFolder: join(testbed.folder, "stage-runs", taskId),
     installCommand: "echo installed",
     installInputs: ["package-lock.json"],
     installVariables: [],

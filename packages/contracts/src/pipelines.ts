@@ -170,11 +170,26 @@ export type StageRunOutcome = z.infer<typeof stageRunOutcomeSchema>;
 
 /** A Project command The Office ran for a Stage run. */
 export const stageCommandRunSchema = z.object({
-  /** The install before the Stage, the Script Stage's command, or a failing test's re-run. */
-  purpose: z.enum(["install", "command", "re-run", "before-publishing", "after-publishing"]),
+  /**
+   * The install before the Stage, the Script Stage's command, a failing test's re-run, a Publish's
+   * before or after publishing line, or the command a condition of the Stage's routes out names.
+   */
+  purpose: z.enum([
+    "install",
+    "command",
+    "re-run",
+    "before-publishing",
+    "after-publishing",
+    "condition",
+  ]),
   commandLine: z.string(),
   outcome: z.enum(["passed", "failed", "could-not-run", "timed-out", "stopped"]),
   durationMs: z.int().nonnegative(),
+  /**
+   * The route a condition command, or the install before it, was run for: the key of the Stage it
+   * leads to, or null for End. Absent for any other command.
+   */
+  condition: z.object({ to: z.string().nullable() }).optional(),
 });
 
 /**

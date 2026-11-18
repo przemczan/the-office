@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
@@ -893,6 +893,26 @@ export class TaskCommandsForTests extends TaskCommands {
     const runs = await this.runsOf(taskId, key, stageRunId, options);
     return { kind: this.commandKinds.get(key), runs };
   }
+
+  /**
+   * Runs a condition command as `runCommand` runs a Script Stage's, from the same queue and into
+   * `ran`, keeping the file of earlier Stage runs as it read then in `stageRunsFiles`.
+   */
+  async runConditionCommand(
+    _projectId: string,
+    taskId: string,
+    key: string,
+    stageRunsFile: string,
+    stageRunId: string,
+    options: TaskCommandOptions,
+  ): Promise<ScriptCommandResult> {
+    this.stageRunsFiles.push({ path: stageRunsFile, text: await readFile(stageRunsFile, "utf8") });
+    const runs = await this.runsOf(taskId, key, stageRunId, options);
+    return { kind: this.commandKinds.get(key), runs: runs.slice(0, 1) };
+  }
+
+  /** Each condition command's file of earlier Stage runs, with what it held as the command ran. */
+  readonly stageRunsFiles: { readonly path: string; readonly text: string }[] = [];
 
   private async runsOf(
     taskId: string,

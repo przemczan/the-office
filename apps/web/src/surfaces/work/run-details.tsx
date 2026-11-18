@@ -77,7 +77,9 @@ export function RunDetails({
         {head}
         <div className="run-details-body">
           {summary}
-          {stage.kind === "script" && <CommandLog taskId={taskId} run={run} />}
+          {(stage.kind === "script" || weighedConditions(run)) && (
+            <CommandLog taskId={taskId} run={run} names={names} />
+          )}
           {stage.kind === "gate" && (
             <GateRunAttachments key={run.id} taskId={taskId} stages={stages} run={run} />
           )}
@@ -87,6 +89,8 @@ export function RunDetails({
   }
   return (
     <AgentRunDetails
+      taskId={taskId}
+      names={names}
       threadId={run.threadId}
       stages={stages}
       taskStage={taskStage}
@@ -108,6 +112,8 @@ const SUB_AGENTS_AND_PROCESSES = "sub-agents-and-processes";
  * view as a tab, as no window opens over the Stage history.
  */
 function AgentRunDetails({
+  taskId,
+  names,
   threadId,
   stages,
   taskStage,
@@ -119,6 +125,8 @@ function AgentRunDetails({
   onTab,
   onReadSummary,
 }: {
+  readonly taskId: string;
+  readonly names: StageNames;
   readonly threadId: string;
   readonly stages: readonly TaskStage[];
   readonly taskStage: TaskStage;
@@ -170,7 +178,12 @@ function AgentRunDetails({
           </span>
         )}
       </div>
-      {shownTab === "summary" && <div className="run-details-body">{summary}</div>}
+      {shownTab === "summary" && (
+        <div className="run-details-body">
+          {summary}
+          {weighedConditions(run) && <CommandLog taskId={taskId} run={run} names={names} />}
+        </div>
+      )}
       {shownTab === "thread" && (
         <RunThread
           key={threadId}
@@ -311,13 +324,23 @@ function GateRunAttachments({
   );
 }
 
+/**
+ * Whether the run's routes out had a condition's command run, kept on it whatever its Stage's kind
+ * (spec §2.3, "The Project-command condition").
+ */
+function weighedConditions(run: StageRun): boolean {
+  return run.commandRuns.some(({ condition }) => condition !== undefined);
+}
+
 /** Each command the run started, with what it printed, which is read only for the run picked. */
 function CommandLog({
   taskId,
   run,
+  names,
 }: {
   readonly taskId: string;
   readonly run: StageRun;
+  readonly names: StageNames;
 }): ReactNode {
   const hasCommands = run.commandRuns.length > 0;
   const outputs = useQuery({
@@ -345,7 +368,7 @@ function CommandLog({
               <span className={`command-log-${commandRun.outcome}`}>
                 {commandMarkWords(commandRun)}
               </span>
-              <span className="command-log-time">{commandTimeWords(commandRun)}</span>
+              <span className="command-log-time">{commandTimeWords(commandRun, names)}</span>
             </div>
             {output !== undefined && (
               <pre className="command-log-output">

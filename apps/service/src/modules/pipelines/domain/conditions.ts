@@ -21,21 +21,20 @@ export type Weight =
 const HOLDS: Weight = { kind: "holds" };
 const DOES_NOT_HOLD: Weight = { kind: "does-not-hold" };
 
-/**
- * Where the walk finds whether a Project command a condition names exits 0 (spec §2.3, "The
- * Project-command condition"): the one place the walk touches command results.
- */
-export interface CommandConditions {
-  resultOf(key: string): Weight;
+/** A Project-command test, by its place among the routes out of the Stage the walk left. */
+export interface CommandTest {
+  readonly key: string;
+  /** The route's place among the Stage's routes out, from 0. */
+  readonly routeIndex: number;
+  /** The test's place in the route's condition: its index in each nested group in turn, from 0. */
+  readonly testPath: readonly number[];
 }
 
-/** No Project command runs as a condition yet: every command test can't be weighed. */
-export const COMMAND_CONDITIONS_NOT_RUN: CommandConditions = {
-  resultOf: () => ({
-    kind: "cannot-be-weighed",
-    why: "The Office doesn't run a Project command as a condition yet.",
-  }),
-};
+/**
+ * The recorded result of a Project-command test (spec §2.3, "The Project-command condition"), on
+ * the run the routes leave; undefined while the command hasn't been weighed, so it is to run.
+ */
+export type CommandResults = (test: CommandTest) => Weight | undefined;
 
 /** What a route's condition is weighed on. */
 export interface Weighing {
@@ -44,55 +43,87 @@ export interface Weighing {
   /** The Task's Stage runs so far, oldest first, the leaving Stage's ended run last. */
   readonly runs: readonly StageRun[];
   readonly definitionOfDone: readonly string[];
-  readonly commands: CommandConditions;
+  readonly commands: CommandResults;
 }
 
-/** What weighing a Stage's routes found: the route to follow, none, or one it can't weigh. */
+/**
+ * What weighing a Stage's routes found: the route to follow, none, one it can't weigh, or a
+ * Project-command test whose command is to run before weighing goes on.
+ */
 export type RouteChoice =
   | { readonly kind: "follow"; readonly route: Route }
   | { readonly kind: "none-holds" }
-  | { readonly kind: "cannot-be-weighed"; readonly route: Route; readonly why: string };
+  | { readonly kind: "cannot-be-weighed"; readonly route: Route; readonly why: string }
+  | { readonly kind: "run-command"; readonly route: Route; readonly test: CommandTest };
+
+/** What weighing a group answers: a weight, or the command test to run first. */
+export type GroupWeight = Weight | { readonly kind: "run-command"; readonly test: CommandTest };
 
 /**
  * Weighs `routes` in their order and stops at the first that holds (spec §2.3, "Which route the
  * walk follows"). A route The Office can't weigh stops it too, as a later route may only be
- * followed once that one is known not to hold.
+ * followed once that one is known not to hold; so does a command test not run yet, which is run
+ * only once weighing reaches it.
  */
 export function weighRoutes(routes: readonly Route[], weighing: Weighing): RouteChoice {
-  for (const route of routes) {
-    const weight = route.condition ? weighGroup(route.condition, weighing) : HOLDS;
-    if (weight.kind === "holds") return { kind: "follow", route };
-    if (weight.kind === "cannot-be-weighed") {
-      return { kind: "cannot-be-weighed", route, why: weight.why };
+  for (const [routeIndex, route] of routes.entries()) {
+    const weight = route.condition
+      ? weighGroup(route.condition, weighing, { routeIndex, testPath: [] })
+      : HOLDS;
+    switch (weight.kind) {
+      case "holds":
+        return { kind: "follow", route };
+      case "cannot-be-weighed":
+        return { kind: "cannot-be-weighed", route, why: weight.why };
+      case "run-command":
+        return { kind: "run-command", route, test: weight.test };
+      case "does-not-hold":
+        continue;
     }
   }
   return { kind: "none-holds" };
 }
 
+/** Where a group sits among the routes, for the command tests in it. */
+interface GroupPlace {
+  readonly routeIndex: number;
+  readonly testPath: readonly number[];
+}
+
 /**
  * Weighs a group's tests in order, stopping once its result is settled: All of at the first test
  * that doesn't hold, Any of at the first that does. A test that can't be weighed leaves the result
- * open, so the next ones are still weighed and may settle it.
+ * open, so the next ones are still weighed and may settle it. A command test not run yet stops it
+ * until the command's result is recorded, so no later test runs first.
  */
-export function weighGroup(group: ConditionGroup, weighing: Weighing): Weight {
+export function weighGroup(
+  group: ConditionGroup,
+  weighing: Weighing,
+  place: GroupPlace = { routeIndex: 0, testPath: [] },
+): GroupWeight {
   const settledBy = group.combine === "all" ? "does-not-hold" : "holds";
   let unweighed: Weight | undefined;
-  for (const test of group.tests) {
-    const weight = isConditionGroup(test) ? weighGroup(test, weighing) : weighTest(test, weighing);
-    if (weight.kind === settledBy) return weight;
+  for (const [index, test] of group.tests.entries()) {
+    const at = { routeIndex: place.routeIndex, testPath: [...place.testPath, index] };
+    const weight = isConditionGroup(test)
+      ? weighGroup(test, weighing, at)
+      : weighTest(test, weighing, at);
+    if (weight.kind === settledBy || weight.kind === "run-command") return weight;
     if (weight.kind === "cannot-be-weighed") unweighed ??= weight;
   }
   return unweighed ?? (group.combine === "all" ? HOLDS : DOES_NOT_HOLD);
 }
 
-function weighTest(test: ConditionTest, weighing: Weighing): Weight {
+function weighTest(test: ConditionTest, weighing: Weighing, at: GroupPlace): GroupWeight {
   switch (test.kind) {
     case "stage":
       return weighStageTest(test, weighing);
     case "definitionOfDone":
       return weighDefinitionOfDoneTest(test, weighing);
-    case "command":
-      return weighing.commands.resultOf(test.key);
+    case "command": {
+      const commandTest = { key: test.key, ...at };
+      return weighing.commands(commandTest) ?? { kind: "run-command", test: commandTest };
+    }
   }
 }
 

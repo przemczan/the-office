@@ -79,6 +79,35 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .where(eq(stageRuns.id, runId));
   }
 
+  async addCommandRuns(
+    runId: string,
+    commandRuns: readonly StageCommandRunWithOutput[],
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      const [row] = await transaction
+        .select({ commandRuns: stageRuns.commandRuns, commandOutputs: stageRuns.commandOutputs })
+        .from(stageRuns)
+        .where(eq(stageRuns.id, runId))
+        .for("update");
+      if (!row) throw new Error(`There is no Stage run ${runId} to add command runs to.`);
+      // A run saved before whole outputs were kept has fewer outputs than runs: its own filtered
+      // outputs fill the gap, so each output stays at its run's place.
+      const outputs = row.commandRuns.map(
+        ({ output }, index) => row.commandOutputs[index] ?? output,
+      );
+      await transaction
+        .update(stageRuns)
+        .set({
+          commandRuns: [
+            ...row.commandRuns,
+            ...commandRuns.map(({ wholeOutput: _keptApart, ...run }) => run),
+          ],
+          commandOutputs: [...outputs, ...commandRuns.map(({ wholeOutput }) => wholeOutput)],
+        })
+        .where(eq(stageRuns.id, runId));
+    });
+  }
+
   async saveTokens(runId: string, tokens: StageTokens): Promise<void> {
     await this.database.update(stageRuns).set({ tokens }).where(eq(stageRuns.id, runId));
   }

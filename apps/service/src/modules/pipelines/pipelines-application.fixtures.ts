@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Module, type DynamicModule, type INestApplication } from "@nestjs/common";
 import { startTestApplication, type ProviderOverride } from "../../../test/test-application.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
+import { OfficeDataModule } from "../../platform/office-data/office-data.module.js";
 import { Telemetry } from "../../platform/telemetry/telemetry.js";
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
@@ -126,6 +130,7 @@ async function startOn(
     imports: [
       EventsModule,
       EventStreamModule,
+      OfficeDataModule.forRoot(await mkdtemp(join(tmpdir(), "office-pipelines-"))),
       telemetry ? TelemetryForTestsModule.register(telemetry) : TelemetryModule,
       engineModule,
       PipelinesModule.register({

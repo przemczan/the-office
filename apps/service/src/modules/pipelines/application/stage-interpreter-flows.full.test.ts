@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { EventBus } from "../../../platform/events/event-bus.js";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
+import { TaskPaused } from "../../work/index.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import { straightLineFlow } from "../domain/flow.js";
 import type { ConditionGroup, Route } from "../domain/route.js";
 import type { Stage } from "../domain/stage.js";
-import type { StageOutcome } from "../domain/stage-run.js";
+import type { StageOutcome, StageRun } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import {
   aDoneResult,
@@ -16,6 +20,8 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
+import { aCommandRun } from "../ports/pipelines-ports.fixtures.js";
+import { resume, soundTheAlarm } from "../stage-interpreter-alarm.fixtures.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
@@ -246,6 +252,146 @@ describe("A flow's routes", () => {
         ]);
         expect((await pipelines.tasks.read(taskId)).state).toBe("done");
       });
+    });
+  });
+});
+
+function walkedKeys(runs: readonly StageRun[]): string[] {
+  return runs.map(({ stageKey }) => stageKey);
+}
+
+/** The keys of the condition commands run, in order. */
+function conditionsRan(pipelines: PipelinesApplication): string[] {
+  return pipelines.commands.ran.filter(({ key }) => key === "lint").map(({ key }) => key);
+}
+
+describe("A route whose condition runs a Project command", () => {
+  /** Implement goes to Review when `lint` passes, else straight to Ship. */
+  const BY_LINT: readonly Stage[] = [
+    placed(anAgentStage("implement"), 0, 0, [
+      { to: "review", condition: { combine: "all", tests: [{ kind: "command", key: "lint" }] } },
+      { to: "ship", condition: null },
+    ]),
+    placed(anAgentStage("review", { name: "Review" }), 1, 1, [{ to: "ship", condition: null }]),
+    placed(ship, 2, 0, [{ to: null, condition: null }]),
+  ];
+  const LINT_TEST = { key: "lint", to: "review", routeIndex: 0, testPath: [0] };
+
+  it("follows the route when the command exits 0, its run kept on the run the route leaves", async () => {
+    await using([1, 2], async (pipelines) => {
+      const taskId = await walkStages(pipelines, BY_LINT);
+
+      const runs = await runsOf(pipelines, taskId);
+      expect(walkedKeys(runs)).toEqual(["implement", "review", "ship"]);
+      expect(runs[0]?.commandRuns).toEqual([
+        expect.objectContaining({
+          purpose: "condition",
+          commandLine: "npm run lint",
+          outcome: "passed",
+          condition: LINT_TEST,
+        }),
+      ]);
+      const repository = pipelines.app.get(StageRunRepository, { strict: false });
+      expect(await repository.commandOutputs(taskId, runs[0]?.id ?? "")).toEqual([""]);
+      expect(pipelines.commands.ran).toContainEqual({
+        taskId,
+        key: "lint",
+        stageRunId: runs[0]?.id,
+      });
+      expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+    });
+  });
+
+  it("gives the command the Task's earlier Stage runs in a file of the Task's own folder", async () => {
+    await using([1, 2], async (pipelines) => {
+      const taskId = await walkStages(pipelines, BY_LINT);
+
+      const [file, ...others] = pipelines.commands.stageRunsFiles;
+      expect(others).toEqual([]);
+      expect(file?.path).toBe(
+        join(pipelines.app.get(OfficeDataDirectory).stageRunsFolder(taskId), "stage-runs.json"),
+      );
+      expect(JSON.parse(file?.text ?? "")).toMatchObject({
+        version: 1,
+        task: { id: taskId },
+        route: { from: "implement", to: "review" },
+        stageRuns: [{ stage: "implement", kind: "agent", run: 1, outcome: "done" }],
+      });
+    });
+  });
+
+  it("goes on to the next route when the command exits otherwise", async () => {
+    await using([1, 2], async (pipelines) => {
+      pipelines.commands.commandRuns.push([aCommandRun("npm run lint", "failed")]);
+
+      const taskId = await walkStages(pipelines, BY_LINT);
+
+      expect(walkedKeys(await runsOf(pipelines, taskId))).toEqual(["implement", "ship"]);
+      expect(conditionsRan(pipelines)).toEqual(["lint"]);
+    });
+  });
+
+  it("asks the user where the walk goes on, saying why, when the command couldn't run", async () => {
+    await using([1, 2], async (pipelines) => {
+      const why = "The Project has no lint command.";
+      pipelines.commands.commandRuns.push([aCommandRun("", "could-not-run", why)]);
+
+      const taskId = await walkStages(pipelines, BY_LINT);
+
+      expect(walkedKeys(await runsOf(pipelines, taskId))).toEqual(["implement"]);
+      const [decision] = pipelines.decisions.on(taskId);
+      expect(decision?.draft.question).toContain(
+        `The condition's command \`lint\` couldn't run: ${why}`,
+      );
+      expect(decision?.draft.options).toEqual([
+        "Go on to Review",
+        "Go on to Ship",
+        "Drop the Task",
+      ]);
+      expect((await pipelines.tasks.read(taskId)).state).toBe("waiting-on-you");
+    });
+  });
+
+  it("weighs a command the fire alarm stopped again once the Task goes on", async () => {
+    await using([1, 2], async (pipelines) => {
+      const taskId = randomUUID();
+      pipelines.commands.runsUntilStopped = true;
+      pipelines.commands.observe = (call) => {
+        if (call !== "runCommand") return;
+        pipelines.commands.observe = undefined;
+        void soundTheAlarm(pipelines, taskId);
+      };
+
+      await walkStages(pipelines, BY_LINT, taskId);
+
+      expect(walkedKeys(await runsOf(pipelines, taskId))).toEqual(["implement"]);
+      expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
+      await resume(pipelines, taskId);
+
+      const runs = await runsOf(pipelines, taskId);
+      expect(walkedKeys(runs)).toEqual(["implement", "review", "ship"]);
+      expect(runs[0]?.commandRuns.map(({ outcome }) => outcome)).toEqual(["stopped", "passed"]);
+      expect(conditionsRan(pipelines)).toEqual(["lint", "lint"]);
+    });
+  });
+
+  it("keeps the result of a command a Pause let end, never running it again on resume", async () => {
+    await using([1, 2], async (pipelines) => {
+      const taskId = randomUUID();
+      pipelines.commands.observe = (call) => {
+        if (call !== "runCommand") return;
+        pipelines.commands.observe = undefined;
+        pipelines.tasks.put(taskId, { state: "paused", pipelineId: "for-tests" });
+        void pipelines.app.get(EventBus).publish(new TaskPaused(taskId, "in-progress"));
+      };
+
+      await walkStages(pipelines, BY_LINT, taskId);
+
+      expect(walkedKeys(await runsOf(pipelines, taskId))).toEqual(["implement"]);
+      await resume(pipelines, taskId);
+
+      expect(walkedKeys(await runsOf(pipelines, taskId))).toEqual(["implement", "review", "ship"]);
+      expect(conditionsRan(pipelines)).toEqual(["lint"]);
     });
   });
 });

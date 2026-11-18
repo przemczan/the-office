@@ -173,7 +173,7 @@ function runParts(
     tokensLine(run),
     ...threadLines,
   ];
-  return [wordsPart(lines.join("\n")), ...commandParts(run.commandRuns, outputs)];
+  return [wordsPart(lines.join("\n")), ...commandParts(stages, run.commandRuns, outputs)];
 }
 
 function stageName(stages: readonly Stage[], stageKey: string): string {
@@ -388,6 +388,7 @@ const PURPOSE_WORDS: Readonly<Record<StageCommandPurpose, string>> = {
   "re-run": "Re-run",
   "before-publishing": "Before publishing",
   "after-publishing": "After publishing",
+  condition: "Condition",
 };
 
 const OUTCOME_WORDS: Readonly<Record<CommandOutcome, string>> = {
@@ -398,31 +399,42 @@ const OUTCOME_WORDS: Readonly<Record<CommandOutcome, string>> = {
   stopped: "stopped by The Office",
 };
 
-function commandParts(commandRuns: readonly StageCommandRun[], outputs: readonly string[]): Part[] {
+function commandParts(
+  stages: readonly Stage[],
+  commandRuns: readonly StageCommandRun[],
+  outputs: readonly string[],
+): Part[] {
   if (commandRuns.length === 0) return [wordsPart("\n\nProject commands: none.")];
   return [
     wordsPart("\n\nProject commands:"),
     ...commandRuns.flatMap((command, index) => [
-      wordsPart(`\n\n${index + 1}. ${commandHeading(command)}\n\n`),
+      wordsPart(`\n\n${index + 1}. ${commandHeading(stages, command)}\n\n`),
       { kind: "output" as const, text: outputs[index] ?? command.output },
     ]),
   ];
 }
 
-function commandHeading({
-  purpose,
-  commandLine,
-  outcome,
-  exitCode,
-  durationMs,
-  movedFiles,
-}: StageCommandRun): string {
+function commandHeading(
+  stages: readonly Stage[],
+  { purpose, commandLine, outcome, exitCode, durationMs, movedFiles, condition }: StageCommandRun,
+): string {
   const exit = exitCode === undefined ? "no exit code" : `exit code ${exitCode}`;
   const moved =
     movedFiles && movedFiles.paths.length > 0
       ? `\n   Files the test run wrote, moved out of the worktree: ${movedFiles.paths.join(", ")}`
       : "";
-  return `${PURPOSE_WORDS[purpose]}: \`${commandLine}\`, ${OUTCOME_WORDS[outcome]}, ${exit}, ${durationWords(durationMs)}.${moved}\n   Output:`;
+  const forCondition = condition ? conditionWords(stages, purpose, condition.to) : "";
+  return `${PURPOSE_WORDS[purpose]}${forCondition}: \`${commandLine}\`, ${OUTCOME_WORDS[outcome]}, ${exit}, ${durationWords(durationMs)}.${moved}\n   Output:`;
+}
+
+/** Which route a condition command, or the install before it, was run for. */
+function conditionWords(
+  stages: readonly Stage[],
+  purpose: StageCommandPurpose,
+  to: string | null,
+): string {
+  const route = `the route to ${to === null ? "End" : nameOf(stages, to)}`;
+  return purpose === "condition" ? ` for ${route}` : ` for the condition of ${route}`;
 }
 
 function durationWords(ms: number): string {

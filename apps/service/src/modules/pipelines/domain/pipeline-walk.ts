@@ -1,9 +1,5 @@
-import {
-  carriesAFailure,
-  COMMAND_CONDITIONS_NOT_RUN,
-  type CommandConditions,
-  weighRoutes,
-} from "./conditions.js";
+import { recordedCommandResults } from "./condition-command-results.js";
+import { carriesAFailure, weighRoutes } from "./conditions.js";
 import { reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
 import { asFlow, pipelineOrder } from "./flow.js";
 import {
@@ -16,6 +12,7 @@ import {
 } from "./resolve-stages.js";
 import { namedRoutes, type Route } from "./route.js";
 import { isPublishStage, type Stage } from "./stage.js";
+import type { ConditionCommandTest } from "./stage-command-run.js";
 import type {
   BudgetReached,
   CarriedFailure,
@@ -98,7 +95,18 @@ export type NextMove =
   /** The walk followed a route to End, with the Definition of Done reported met or called Done. */
   | { readonly move: "complete" }
   /** The user dropped the Task in a Decision or at a Gate. */
-  | { readonly move: "drop" };
+  | { readonly move: "drop" }
+  /**
+   * Run the Project command a condition of the routes out of `stage` names, for the test
+   * `condition`, recording its result on `run`, the Stage's ended run, before the walk goes on
+   * (spec §2.3, "The Project-command condition").
+   */
+  | {
+      readonly move: "weigh-command";
+      readonly run: StageRun;
+      readonly stage: Stage;
+      readonly condition: ConditionCommandTest;
+    };
 
 type StoppingMove = Exclude<NextMove, { move: "run" }>;
 
@@ -121,7 +129,6 @@ interface Walk {
   /** The routes out of each of the Task's own Stages, by its key, as `asFlow` reads them. */
   readonly routes: ReadonlyMap<string, readonly Route[]>;
   readonly definitionOfDone: readonly string[];
-  readonly commands: CommandConditions;
   position: WalkPosition;
   /** The runs replayed so far, the current one last. */
   replayed: readonly StageRun[];
@@ -163,13 +170,13 @@ const DEFINITION_OF_DONE_ROUNDS = "definition of done";
  * user's answers and Gate actions are replayed from the Task's Stage runs, oldest first, so they
  * are kept nowhere else; a recorded run of a Stage a route leads to is followed as it was, without
  * weighing again. A loop's rounds belong to the Stage that owns it and count over the whole Task:
- * going back again never resets them. `commands` answers the Project-command tests.
+ * going back again never resets them. A Project-command test's result is replayed from the run
+ * the routes leave; one not recorded yet is asked for with `weigh-command`.
  */
 export function nextMove(
   stages: readonly Stage[],
   runs: readonly StageRun[],
   definitionOfDone: readonly string[],
-  commands: CommandConditions = COMMAND_CONDITIONS_NOT_RUN,
 ): NextMove {
   const flow = pipelineOrder(asFlow(stages));
   const given = new Map(stages.map((stage) => [stage.key, stage]));
@@ -177,7 +184,6 @@ export function nextMove(
     stages: flow.flatMap(({ key }) => given.get(key) ?? []),
     routes: new Map(flow.map(({ key, routes }) => [key, routes])),
     definitionOfDone,
-    commands,
     position: at(flow[0]?.key ?? null),
     replayed: [],
     roundsUsed: new Map(),
@@ -570,7 +576,8 @@ function advance(walk: Walk, run: StageRun, stage: Stage): StoppingMove | undefi
  * follows"): the route the user chose in the run's no-route-holds Decision; the route to the Stage
  * of the next recorded run, which the walk followed then, so a replay doesn't weigh again; or the
  * first route whose condition holds now. With none holding, `whenNoneHolds` decides; a route that
- * can't be weighed asks the user.
+ * can't be weighed asks the user, and a command test whose result the run doesn't hold yet is
+ * weighed first.
  */
 function follow(
   walk: Walk,
@@ -588,7 +595,7 @@ function follow(
     stageKey: stage.key,
     runs: walk.replayed,
     definitionOfDone: walk.definitionOfDone,
-    commands: walk.commands,
+    commands: recordedCommandResults(run),
   });
   switch (choice.kind) {
     case "follow":
@@ -597,6 +604,13 @@ function follow(
       return whenNoneHolds();
     case "cannot-be-weighed":
       return noRouteHolds(walk, run, stage, choice.why, routes);
+    case "run-command":
+      return {
+        move: "weigh-command",
+        run,
+        stage,
+        condition: { ...choice.test, to: choice.route.to },
+      };
   }
 }
 

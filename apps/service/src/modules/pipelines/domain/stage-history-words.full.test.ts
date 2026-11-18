@@ -97,6 +97,31 @@ describe("stageHistoryWords", () => {
     expect(words).toContain("Outcome: done. `npm test` passed.");
   });
 
+  it("tells the condition commands kept on the run the routes leave, by the route they weighed", () => {
+    const condition = { key: "lint", to: "tests", routeIndex: 0, testPath: [0] };
+    const weighed = aStageRun({
+      commandRuns: [
+        aCommand({ purpose: "install", commandLine: "npm ci", condition }),
+        aCommand({ purpose: "condition", commandLine: "npm run lint", condition }),
+        aCommand({
+          purpose: "condition",
+          commandLine: "npm run build",
+          condition: { ...condition, to: null },
+        }),
+      ],
+    });
+
+    const words = stageHistoryWords(stages, [weighed], NO_THREADS);
+
+    expect(words).toContain(
+      "1. Install for the condition of the route to Tests: `npm ci`, passed, exit code 0, 1.2 s.",
+    );
+    expect(words).toContain(
+      "2. Condition for the route to Tests: `npm run lint`, passed, exit code 0, 1.2 s.",
+    );
+    expect(words).toContain("3. Condition for the route to End: `npm run build`");
+  });
+
   it("tells an Agent Stage's Decision and its answer, its engine, model and tokens", () => {
     const words = stageHistoryWords(
       stages,
