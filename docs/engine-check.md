@@ -1,12 +1,13 @@
 # Engine check
 
-What The Office relies on in the engine, checked against live sessions on the pinned versions: the skills mechanism of [spec §5.6](spec/5.6-skills-per-session.md), the permission build rules of [§6](spec/6-permissions-and-safety.md) and the engine behaviours of [§5.4](spec/5.4-the-engine.md). The check lives in [tools/engine-check](../tools/engine-check); each entry below names the check id it shares with `tools/engine-check/expectations.json`, where the observed facts are recorded per platform.
+What The Office relies on in the engine, checked against live sessions on the pinned versions: the skills mechanism of [spec §5.6](spec/5.6-skills-per-session.md), the permission build rules of [§6](spec/6-permissions-and-safety.md) and the engine behaviours of [§5.4](spec/5.4-the-engine.md), on the Claude Code and Codex engines and on the GitHub Copilot CLI, a proposed Copilot engine. The check lives in [tools/engine-check](../tools/engine-check); each entry below names the check id it shares with `tools/engine-check/expectations.json`, where the observed facts are recorded per platform.
 
 ## When to run
 
 - **On every SDK bump, before the bump is merged,** on Windows and on Linux: `npm run engine-check`. It exits non-zero when any check differs from what is recorded for that platform, has nothing recorded, or fails. A difference is read, its entry here updated (and the spec amended with the user when it contradicts it), then recorded with `npm run engine-check -- --record`.
 - **Once per bump, also the slow checks:** `npm run engine-check -- --only engine.decision-wait --include-slow`, which waits an hour on purpose, and `npm run engine-check -- --only engine.long-office-tool --only fallback.long-office-tool --include-slow`, which each wait 11 minutes in an Office tool.
 - **On every Codex bump, before the bump is merged,** on Windows and on Linux: `npm run engine-check -- --only codex. --codex-home <folder>`, with a Codex folder signed in for the check (`ENGINE_CHECK_CODEX_HOME` when the option is left out). Without a signed-in folder the `codex.*` checks are skipped with the reason, so a plain `npm run engine-check` still passes. Regenerate the protocol with `codex app-server generate-ts --out <folder>` from the pinned binary and compare it with `tools/engine-check/src/codex/protocol.ts`.
+- **On every Copilot bump, before the bump is merged,** on Windows and on Linux: `COPILOT_GITHUB_TOKEN=<token> npm run engine-check -- --only copilot.`, the token a fine-grained personal access token with the "Copilot Requests" permission, on an account with Copilot. Without it the `copilot.*` checks are skipped with the reason, so a plain `npm run engine-check` still passes. The checks sign in with the token in a folder of their own; the user's `~/.copilot` is never read or written, and the token is never recorded.
 - **With an Anthropic API key, once per bump:** `ENGINE_CHECK_API_KEY_FILE=<file holding the key> npm run engine-check -- --only engine.api-key-sign-in` ([engine.api-key-sign-in](#engineapi-key-sign-in)). Without the variable the check is skipped with the reason, so a plain `npm run engine-check` still passes.
 - **With a second Claude Code folder, once per bump:** `npm run engine-check -- --only engine.session-carry-over --only fallback.session-carry-over --second-claude-config <folder>`, the folder signed in with `CLAUDE_CONFIG_DIR=<folder> claude auth login` (`ENGINE_CHECK_SECOND_CLAUDE_CONFIG` when the option is left out); it may be signed in to the same account as the default one ([engine.session-carry-over](#enginesession-carry-over-fallbacksession-carry-over)). Without a signed-in folder the two checks are skipped with the reason, so a plain `npm run engine-check` still passes.
 - **To re-check one area:** `--only <id prefix>`, for example `--only permissions.`; `npm run engine-check -- --help` lists the options.
@@ -25,6 +26,9 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Model for the checks | `claude-haiku-5-5` |
 | `@openai/codex` | 0.169.0 (exact pin in `tools/engine-check/package.json`; the native binary of `@openai/codex-<platform>-<arch>` runs directly) |
 | Model for the Codex checks | `gpt-6-luna` at `low` effort (`CODEX_CHECK_MODEL` in `tools/engine-check/src/codex/options.ts`), the cheapest `model/list` shows: no `-mini` model is listed |
+| `@microsoft/copilot-sdk` | 2.0.1 (exact pin in `tools/engine-check/package.json`) |
+| The Copilot CLI runtime, bundled by the SDK | 1.0.114 (in `@microsoft/copilot-sdk-<platform>`; `copilotCliVersion` in the SDK's `package.json`) |
+| Model for the Copilot checks | `gpt-5-mini` (`COPILOT_CHECK_MODEL` in `tools/engine-check/src/copilot-cli/options.ts`), a 0× premium-request model on Copilot's paid plans |
 
 ## Runs
 
@@ -33,6 +37,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 - **Recorded on both:** every `skills.*`, `permissions.*`, `engine.*` and `fallback.*` check but those below. Results differ between the platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 - **Recorded on one:** `permissions.powershell-twin` runs on Windows only. `skills.overrides-library` and the `codex.*` checks are recorded on Linux only, the Codex checks on `gpt-6-luna` with a ChatGPT sign-in (Free plan) in a folder made for the check; a full Codex run takes about 3 minutes and about 80k input, 1k output and 390k cache-read tokens.
 - **Not recorded on either:** `skills.skill-command`, `permissions.devcontainer`, `engine.long-office-tool`, `engine.usage-window-refusal`, `engine.session-carry-over`, `engine.usage-read-alone`, `engine.lsp-tool`, `engine.background-tasks`, `engine.foreground-sub-agents`, `engine.api-key-sign-in`, `fallback.long-office-tool`, `fallback.usage-window-refusal`, `fallback.session-carry-over`, `fallback.background-tasks`, `fallback.foreground-sub-agents` and `codex.usage-read-alone`. Each needs a signed-in machine, and some more (their entries say what); a run reports them `unrecorded`.
+- **The `copilot.*` checks are recorded on neither platform yet:** there was no Copilot token where the Task that added them ran. A run on 2026-11-19 on Linux (the Office's machine) without a token skipped all 18.
 
 ## How a check runs
 
@@ -479,6 +484,138 @@ Each check records facts that hold run to run, and gives each step a turn of its
 - **Observed:** the steer is accepted, joins the same turn as a user message (no second turn starts), the command runs once and completes, and the final message reads the steer.
 - **Meaning:** `bargeIn` holds: `turn/steer` is priority `next`. `later` has no counterpart; the adapter holds it until the turn ends and starts a turn on it.
 
+## GitHub Copilot CLI
+
+What a Copilot engine would rest on, on the pinned `@microsoft/copilot-sdk` and the Copilot CLI runtime it bundles. There is no Copilot engine in the spec yet; the [proposed amendment](#proposed-amendment-to-spec-54) below is for the next Task, with the user. A `copilot.*` check starts one runtime process per session (`copilot-cli/copilot-session.ts`), the SDK speaking JSON-RPC over the runtime's stdio (`RuntimeConnection.forSpawnedStdio`):
+
+- the client in `mode: "empty"`, `COPILOT_HOME` (the connection's `baseDirectory`) a folder inside the check's sandbox shared by the check's sessions, so a resume finds its session; signed in with `github.token` from `COPILOT_GITHUB_TOKEN` and `useLoggedInUser: false`, so no keychain or `gh` sign-in is read; a check is skipped when the run has no token;
+- the environment above without `COPILOT*`, `GH_*` and `GITHUB_*` variables, plus `COPILOT_TELEMETRY_DISABLED=true`;
+- the session's options (`copilot-cli/session-options.ts`): `model` the check model, `workingDirectory` the repository, `enableConfigDiscovery` false, `instructions.skipCustomInstructions` true, `skills.enabled` false unless a check names `skills.directories`, no tool definitions but the check's own, `availableTools` where a check limits them, `git.coauthorEnabled`, `state.enableCrossSessionStore` and `github.telemetryEnabled` false, streamed events; a check turns discovery or instructions on only to compare;
+- the hooks: `onPreToolUse` answers `permissionDecision: "allow"` or `"deny"` with a `permissionDecisionReason`, from the check's decide function (allow unless it says otherwise); `onPostToolUse` and `onPostToolUseFailure`; and `permissions.onRequest`, answering `approve-once` unless a check says otherwise. Every hook call, permission request and event is recorded in order, in the report;
+- a Project's MCP server is a stand-in run per session over stdio (`copilot-cli/stdio-mcp-server.ts`, one tool answering a code word and logging each call), named in the session's `mcp.servers`; the runtime names its tool `<server>-<tool>`;
+- the Office tools are SDK tools (`defineTool`), answered in the check's own process, with no server between;
+- tokens come from `assistant.usage`: its `inputTokens`, `outputTokens`, `cacheReadTokens` and `cacheWriteTokens`, summed over the session (`copilot-cli/events.ts`).
+
+**Why this route:** the SDK drives the CLI's own server mode, with a long-lived session, streamed typed events, `send` with `mode: "immediate"` or `"enqueue"` while a turn runs, `abort()`, `resumeSession`, hooks in the host's process that can refuse a call before it runs, custom tools answered in the host's process, MCP servers per session, skill folders and `responseSchema`. `copilot -p` takes one prompt per process. ACP (`copilot --acp`) gives the host no pre-tool hook of its own.
+
+Each check records facts that hold run to run, never model text. None has been run yet: each **Observed** below waits for a run with a token, and **Documented** is what the pinned SDK's README says, not an observation.
+
+### copilot.start
+
+- **Run:** a session on the Office's options; the runtime's status, the sign-in and the model list; one turn asking for `READY`. No tool.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the runtime and `session.start` name the pinned 1.0.114, the sign-in type, whether the account lists `gpt-5-mini`, the model `assistant.usage` names, whether deltas stream, and the kinds of event.
+
+### copilot.hook-refusal
+
+- **Run:** one turn asking for a file `refused.txt`; `onPreToolUse` refuses any call naming it, with a reason; the model is told not to try another way.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the hook saw the write, with which tool and input fields, whether the file was written, whether the call started, whether the reason reaches the tool's result and the model's answer, whether a permission request or a post hook came for it, and whether the model retried.
+- **Documented:** `onPreToolUse` is "called before each tool execution" and answers `allow`, `deny` or `ask`, with arguments it may change.
+
+### copilot.hook-sees-every-call
+
+- **Run:** seven turns, one call each: a shell command, a file read, a file created, a file edited, a search, the stand-in MCP server's tool and an Office tool.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the tools the hook saw and those that ran, whether every run was hooked first (by tool-call id), each tool's input fields, the kinds of permission request beside the hook, whether the MCP server's process ran the call, and the post hooks.
+- **Documented:** `onPostToolUse` does not fire for a failed call; `onPostToolUseFailure` does.
+
+### copilot.hook-after-resume
+
+- **Run:** a turn, the session closed with its process; a new process resumes it by id, and the hook refuses a write of `after-resume.txt`.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the session id, whether the hook saw the write, and whether the file was written.
+
+### copilot.tools
+
+- **Run:** a repository holding `AGENTS.md`, `.github/copilot-instructions.md`, an agent under `.github/agents/`, `.github/mcp.json` and `.vscode/mcp.json`, and a config folder holding `mcp-config.json` and an agent; one session on the lean options, one with discovery and instructions on, each listing agents, MCP servers and skills and asked for the code words; then a session whose `availableTools` holds only the read tool and the shell, asked to create a file.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the built-in tools for the check model, what each session loaded, and, under `availableTools`, the tools offered, run and hooked, and whether the file was written.
+
+### copilot.mcp-servers
+
+- **Run:** a session with the stand-in MCP server and two Office tools; one turn calling the MCP tool, one calling `office_status`; then a turn calling a slow Office tool, with a message sent `mode: "immediate"` while its handler runs, answered 2 s later.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the server's process ran the call, the hook saw it by its runtime name, the server's status and both answers read; and whether the barge-in landed before the slow tool's result and the answer reads both.
+
+### copilot.resume
+
+- **Run:** a turn asked to remember a word; the session closed with its process; a new process, `resumeSession`, a turn asking for the word.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the word is remembered, the id kept, files written under the config folder, and the session listed by the client.
+
+### copilot.priority-next, copilot.priority-later
+
+- **Run:** a turn running `sleep 4` twice, as separate shell calls; while the first runs, a message sent with `mode: "immediate"` (`next`) or `"enqueue"` (`later`).
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records where the message landed (before or after the second call, after the turn, or not delivered), how many idles came, whether the second call ran, and whether the answer holds the word asked for.
+- **Documented:** `send` takes `mode?: "enqueue" | "immediate"`; with a `responseSchema`, `immediate` is refused, and ordinary immediate steering joins the running turn's schema.
+
+### copilot.interrupt
+
+- **Run (Linux):** a turn running `sh -c 'echo $$ > pid.txt; exec sleep 120'` in the foreground, so the id written is the sleep's own and not the shell tool's; `abort()` once it is written; 2 s later, whether that process still runs; then a turn on the same session.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the session went idle within 30 s, an `abort` event came, the command still runs, and the next turn answered.
+- **Documented:** `abort()` aborts "the currently processing message"; the README says nothing of a running command.
+
+### copilot.images
+
+- **Run:** a 64×64 red PNG, sent as a blob (its bytes in the message) in one session and as a file attachment in another, asking for its colour.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether each answer names red.
+- **Documented:** images attach by a file path, which the runtime reads, or as base64 in a blob.
+
+### copilot.skills
+
+- **Run:** a skill in a folder the Office names, one under the repository's `.github/skills/`, one under `.claude/skills/` and one under the config folder's `skills/`; a session on the lean options with the named folder, one with discovery on, and one with skills off.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records each session's skills by name and source, and whether any is enabled with skills off.
+
+### copilot.skill-command
+
+- **Run:** a skill `code-word` in the named folder, its body asking for a word; one turn sending `/code-word`.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the skill is listed, user-invocable and under which command name, the `skill.invoked` events, and whether the answer follows the body.
+
+### copilot.sub-agents
+
+- **Run:** a turn asking for a search delegated to a Sub-agent; a session with `includedBuiltinAgents: []`; a session whose hook refuses the tool that starts a Sub-agent.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the built-in agents with and without the default set, the Sub-agents started and the tool that starts them, whether the hook saw that call and the Sub-agent's own calls, and whether a refusal kept the Sub-agent from starting.
+- **Documented:** `onSubagentStart` and `onSubagentStop` hooks observe a Sub-agent. The check tells a Sub-agent's calls apart by the hook input's `agentId`.
+
+### copilot.background-tasks
+
+- **Run (Linux):** a turn asking for `sleep 30` in the background; then a session whose hook refuses a shell call whose input asks for the background.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the shell call's input fields and those choosing the background, whether `session.background_tasks_changed` came, the task list's count, and the same after the refusal.
+
+### copilot.output-schema
+
+- **Run:** a turn under `responseSchema` (`{answer: integer}`, asking 19 + 23); then, as a stand-in, a turn answering through an Office tool marked `isTerminal` whose parameters are the schema.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether `responseSchema` is taken (else the error's kind), whether the answer parses to exactly `{answer: 42}`, and whether the submit tool was called with it and the turn ended after it.
+- **Documented:** structured output is a preview that "requires a runtime build with `responseFormat`"; the schema holds for the whole run, tool calls included, and is not kept on resume.
+
+### copilot.sign-in
+
+- **Run:** a session signed in with the token; the files the config folder gained; whether any file there holds the token (the token itself never recorded); `~/.copilot` before and after.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the sign-in type, the new entries in the config folder, whether the token is in it, and whether `~/.copilot` was created or changed.
+- **Documented:** `baseDirectory` sets `COPILOT_HOME`, `~/.copilot` when unset; `useLoggedInUser` is false when `github.token` is given.
+
+### copilot.usage
+
+- **Run:** one turn running `git status --short`; then the session's quota, the account's quota and the session's usage metrics.
+- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the fields of `assistant.usage` and its `copilotUsage`, of `session.usage_info`, whether `session.quota_observation` came, the quota snapshots by name and their fields, the metrics' fields, and the tokens rounded to 10k.
+
+### Proposed amendment to spec §5.4
+
+A proposal for the next Task, with the user; nothing here is in the spec. **Whether a call can be refused before it runs (`copilot.hook-refusal`) is documented by the SDK but not yet observed.** The Initiative's gate holds until a run with a token records it: if the run shows a refusal doesn't stop the call, the Initiative stops and goes back to the user.
+
+- **Route:** a **Copilot** engine in Settings › Engines is one GitHub account with Copilot. Its sessions run the Copilot CLI runtime bundled by the pinned `@microsoft/copilot-sdk`, one runtime process per session over stdio, `COPILOT_HOME` its own folder, `<office-data>/engines/<engine id>/`, signed in with the engine's token (`useLoggedInUser: false`); nothing else of the user's (`~/.copilot`, `COPILOT*`, `GH_*` and `GITHUB_*` variables) reaches it. Sessions start with config discovery, custom instructions, the cross-session store, telemetry and the co-author trailer off.
+- **`bargeIn`:** documented by the SDK; to be confirmed by `copilot.priority-next` (`mode: "immediate"`) and, at an Office tool's end, `copilot.mcp-servers`. `later` as `mode: "enqueue"`, by `copilot.priority-later`.
+- **`interrupt`:** documented by the SDK (`abort()`); to be confirmed by `copilot.interrupt`, which also shows whether a running command ends with it.
+- **`resume`:** documented by the SDK (`resumeSession`); to be confirmed by `copilot.resume`, the hooks registered again by `copilot.hook-after-resume`.
+- **`usageWindows`:** no, by decision: Copilot counts premium requests per month, not usage windows. `copilot.usage` shows what quota reads there are.
+- **`contextUsage`:** to confirm by `copilot.usage` (`session.usage_info`).
+- **`officeTools`:** documented by the SDK (tools answered in the host's process); to be confirmed by `copilot.mcp-servers` and `copilot.hook-sees-every-call`.
+- **`outputSchema`:** documented by the SDK as a preview (`responseSchema`); to be confirmed by `copilot.output-schema`, with a terminal submit tool as the stand-in if it isn't taken.
+- **`languageServers`:** to confirm by `copilot.tools`' built-in list; no, unless it holds an LSP tool.
+- **`carrySession`:** no, as on the Codex engine: a session resumes only on the engine whose folder holds it.
+- **The Office rules:** `onPreToolUse` judges every call, as the hook does on Claude Code; documented by the SDK; to be confirmed by `copilot.hook-refusal`, `copilot.hook-sees-every-call` and `copilot.hook-after-resume`. `permissions.onRequest` answers what the hook allowed.
+- **Sub-agents:** to confirm by `copilot.sub-agents`: whether their calls reach the hook, and whether refusing the tool that starts one keeps it from starting.
+- **Background commands:** to confirm by `copilot.background-tasks`, whether the hook can refuse a shell call asking for the background.
+- **Skills:** documented by the SDK (`skills.directories`); to be confirmed by `copilot.skills` (only the named folders load) and `copilot.skill-command` (`/<name>` runs one).
+- **Images:** documented by the SDK (blob and file attachments); to be confirmed by `copilot.images`.
+- **MCP servers:** documented by the SDK (per session); to be confirmed by `copilot.mcp-servers`, the Role's servers named in the session's options and judged by the hook under `<server>-<tool>`; `copilot.tools` confirms a Project's `.github/mcp.json` and `.vscode/mcp.json` stay out.
+- **Sign-in and the config folder:** documented by the SDK; to be confirmed by `copilot.sign-in`: the token signs the runtime in, stays out of the folder, and `~/.copilot` is untouched.
+- **Tokens and premium requests:** tokens from `assistant.usage`, to be confirmed by `copilot.usage`, which also shows the fields `copilotUsage` and the quota reads give for pricing premium requests.
+
 ## The OpenAI-compatible API
 
 The Office's own loop (spec §5.4 Defaults) has no binary to check: it is checked by the `AgentEngine` contract on a live server and by a check on the Test Project (apps/service/docs/testing.md, live checks). Seen on Windows, on a Strata server at `http://127.0.0.1:8080/v1` serving `qwen3.8-flash-next-coder-iq1_m` (`n_ctx` 100000), which reads a prompt at about 14 tokens/s and writes about 11 tokens/s, so each scenario ran alone.
@@ -506,3 +643,4 @@ Seen while running the checks, recorded so a bump can be compared against them.
 - On the `-p` fallback: priority `now` (not used), a hook that answers too late or with an error status rather than not at all, and whether the Skill tool asks for permission without the `Skill(…)` rule.
 - Which engine-owned paths outside the worktree, other than the auto-memory folder, the engine auto-allows writes to. The hook fences writes regardless.
 - Whether `forkSession` resumes read the parent's cache, a non-child process posting into a session's inbox on Windows, concurrency limits beyond three sessions and how cache reads count against plan quota, `projectConfigRoot` and `CLAUDE_SECURESTORAGE_CONFIG_DIR`. The Office uses none of them.
+- On the Copilot CLI: every `copilot.*` check, on both platforms, until a run is given a token; Windows at all (`copilot.interrupt` and `copilot.background-tasks` run on Linux only); BYOK providers, cloud sessions, Autopilot, the in-process (FFI) runtime connection, managed settings and `copilot --acp`.

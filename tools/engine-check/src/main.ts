@@ -11,6 +11,7 @@ import {
 } from "./checks/engine/decision-wait.ts";
 import { DEFAULT_LONG_TOOL_MINUTES, LONG_TOOL_VARIABLE } from "./checks/engine/long-office-tool.ts";
 import { checks } from "./checks/index.ts";
+import { COPILOT_TOKEN_VARIABLE } from "./copilot-cli/options.ts";
 import { loadExpectations, recordObservations } from "./expectations.ts";
 import { runCheck, sumTokens, type CheckOutcome } from "./run-checks.ts";
 
@@ -45,6 +46,11 @@ Environment:
                     a file holding an Anthropic API key, which engine.api-key-sign-in signs a config
                     folder of its own in with; without it that check is skipped. The key is never
                     printed or recorded.
+  ${COPILOT_TOKEN_VARIABLE}
+                    a GitHub token with Copilot access (a fine-grained PAT with the "Copilot
+                    Requests" permission), which the copilot.* checks sign the pinned Copilot runtime
+                    in with, in a config folder of their own; without it they are skipped. The
+                    user's own ~/.copilot is never read or written, and the token is never recorded.
 
 Slow checks:
   engine.decision-wait  waits ${DECISION_WAIT_VARIABLE} (default ${DEFAULT_DECISION_WAIT_MINUTES}) before answering
@@ -91,8 +97,10 @@ async function main(): Promise<number> {
     process.stderr.write(`The Claude Code folder ${secondClaudeConfig} does not exist.\n`);
     return 1;
   }
+  const copilotToken = process.env[COPILOT_TOKEN_VARIABLE];
   const runOptions = {
     ...(codexHome === undefined ? {} : { codexHome }),
+    ...(copilotToken === undefined || copilotToken === "" ? {} : { copilotToken }),
     ...(secondClaudeConfig === undefined ? {} : { secondClaudeConfig }),
   };
   const expectations = await loadExpectations(expectationsPath);
@@ -187,7 +195,7 @@ function describeSummary(
     "",
     `${count("matches")} match, ${count("differs")} differ, ${count("unrecorded")} unrecorded, ${count("skipped")} skipped, ${count("failed")} failed`,
     `Tokens: in ${input}, out ${output}, cache read ${cacheRead}, cache write ${cacheCreation}`,
-    `Report with every session's messages, hook calls and approval calls: ${reportPath}`,
+    `Report with every session's messages, events, hook calls and approval calls: ${reportPath}`,
     ...(recorded ? [`Recorded observations into ${expectationsPath}`] : []),
     "",
   ].join("\n");

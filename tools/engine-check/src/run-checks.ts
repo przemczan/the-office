@@ -10,6 +10,14 @@ import {
   type CodexMessage,
   type CodexSessionSpec,
 } from "./codex/codex-session.ts";
+import {
+  CopilotSession,
+  type CopilotHookCall,
+  type CopilotPermissionCall,
+} from "./copilot-cli/copilot-session.ts";
+import { COPILOT_TOKEN_VARIABLE } from "./copilot-cli/options.ts";
+import type { CopilotSessionSpec } from "./copilot-cli/session-options.ts";
+import type { SessionEvent } from "@microsoft/copilot-sdk";
 import type { Expectations } from "./expectations.ts";
 import { diffJson, type JsonDifference } from "./json.ts";
 import { ProbeSession } from "./probe-session.ts";
@@ -35,11 +43,20 @@ export interface CodexSessionTranscript {
   readonly stderr: string;
 }
 
+export interface CopilotSessionTranscript {
+  readonly sessionId: string | undefined;
+  readonly events: readonly SessionEvent[];
+  readonly hookCalls: readonly CopilotHookCall[];
+  readonly permissionCalls: readonly CopilotPermissionCall[];
+}
+
 export interface RunOptions {
   /** The signed-in Codex folder the `codex.*` checks run with as `CODEX_HOME`; they are skipped without one. */
   readonly codexHome?: string;
   /** A second signed-in Claude Code config folder, for the checks that carry a session to another account. */
   readonly secondClaudeConfig?: string;
+  /** The Copilot token the `copilot.*` checks sign in with; they are skipped without one. */
+  readonly copilotToken?: string;
 }
 
 export interface CheckOutcome {
@@ -56,6 +73,7 @@ export interface CheckOutcome {
   readonly durationMs: number;
   readonly sessions: readonly SessionTranscript[];
   readonly codexSessions: readonly CodexSessionTranscript[];
+  readonly copilotSessions: readonly CopilotSessionTranscript[];
 }
 
 export async function runCheck(
@@ -76,6 +94,8 @@ export async function runCheck(
   const sandbox = await Sandbox.create();
   const sessions: RecordedSession[] = [];
   const codexSessions: CodexSession[] = [];
+  const copilotSessions: CopilotSession[] = [];
+  const copilotHome = join(sandbox.root, "copilot-home");
   const expected = expectations[check.id]?.[platform];
   try {
     const observed = await untilAborted(
@@ -98,6 +118,17 @@ export async function runCheck(
           codexSessions.push(session);
           return session;
         },
+        copilotHome,
+        startCopilotSession: async (spec) => {
+          const session = await startCopilotSession(
+            copilotHome,
+            options.copilotToken,
+            spec,
+            signal,
+          );
+          copilotSessions.push(session);
+          return session;
+        },
       }),
       signal,
     );
@@ -118,6 +149,7 @@ export async function runCheck(
     clearTimeout(timer);
     await Promise.allSettled(sessions.map((session) => session.close()));
     await Promise.allSettled(codexSessions.map((session) => session.close()));
+    await Promise.allSettled(copilotSessions.map((session) => session.close()));
     if (options.codexHome !== undefined) {
       await deleteCodexThreads(options.codexHome, codexSessions).catch(() => undefined);
     }
@@ -140,7 +172,9 @@ export async function runCheck(
       title: check.title,
       ...result,
       ...(expected === undefined ? {} : { expected }),
-      tokens: sumTokens([...sessions, ...codexSessions].map((session) => session.tokens())),
+      tokens: sumTokens(
+        [...sessions, ...codexSessions, ...copilotSessions].map((session) => session.tokens()),
+      ),
       durationMs: Date.now() - startedAt,
       sessions: sessions.map((session) => ({
         sessionId: session.sessionId,
@@ -154,8 +188,28 @@ export async function runCheck(
         approvalCalls: session.approvalCalls,
         stderr: session.stderr,
       })),
+      copilotSessions: copilotSessions.map((session) => ({
+        sessionId: session.started ? session.sessionId : undefined,
+        events: session.events,
+        hookCalls: session.hookCalls,
+        permissionCalls: session.permissionCalls,
+      })),
     };
   }
+}
+
+async function startCopilotSession(
+  copilotHome: string,
+  token: string | undefined,
+  spec: CopilotSessionSpec,
+  signal: AbortSignal,
+): Promise<CopilotSession> {
+  if (token === undefined) {
+    throw new CheckSkipped(
+      `No Copilot token: give a fine-grained PAT with the "Copilot Requests" permission in ${COPILOT_TOKEN_VARIABLE}`,
+    );
+  }
+  return CopilotSession.start({ home: copilotHome, token }, spec, signal);
 }
 
 async function startCodexSession(

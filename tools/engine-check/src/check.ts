@@ -3,6 +3,8 @@ import type {
   ClaudeCodePSessionSpec,
 } from "./claude-code-p/claude-code-p-session.ts";
 import type { CodexSession, CodexSessionSpec } from "./codex/codex-session.ts";
+import type { CopilotSession } from "./copilot-cli/copilot-session.ts";
+import type { CopilotSessionSpec } from "./copilot-cli/session-options.ts";
 import type { Json } from "./json.ts";
 import type { ProbeSession, SessionSpec } from "./probe-session.ts";
 import type { Sandbox } from "./sandbox.ts";
@@ -38,6 +40,16 @@ export interface CheckContext {
    * Codex folder or the folder is not signed in.
    */
   startCodexSession(spec: CodexSessionSpec): Promise<CodexSession>;
+  /**
+   * The Copilot runtime's config folder (`COPILOT_HOME`) the check's Copilot sessions share, inside
+   * the sandbox, so a resume finds the session and the user's own `~/.copilot` is never used.
+   */
+  readonly copilotHome: string;
+  /**
+   * The same for a session on the pinned Copilot runtime through its SDK. Throws `CheckSkipped` when
+   * the run was given no Copilot token.
+   */
+  startCopilotSession(spec: CopilotSessionSpec): Promise<CopilotSession>;
 }
 
 export interface Check {
