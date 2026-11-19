@@ -7,11 +7,13 @@ import {
   PullRequestNotChanged,
   PullRequestNotOpened,
 } from "../../../github/index.js";
+import type { CiRunJobs } from "../../domain/ci-run.js";
 import type { PullRequestStatus } from "../../domain/pull-request.js";
 import {
   CodeHost,
   CodeHostChangedSince,
   CodeHostRefused,
+  type CiRunOnHost,
   type MergedOnHost,
   type MergeMethodsOnHost,
   type MergeRequest,
@@ -21,8 +23,9 @@ import {
 } from "../../ports/code-host.js";
 
 /**
- * GitHub as a code host: pull requests opened and read by the github module through GitHub's REST
- * API as the signed-in user. Its failures become CodeHostRefused in the github module's words.
+ * GitHub as a code host: pull requests opened and read, and Actions runs listed and re-run, by the
+ * github module through GitHub's REST API as the signed-in user. Its failures become
+ * CodeHostRefused in the github module's words.
  */
 @Injectable()
 export class GitHubCodeHost extends CodeHost {
@@ -60,6 +63,14 @@ export class GitHubCodeHost extends CodeHost {
 
   pullRequestStatus(remoteUrl: string, number: number): Promise<PullRequestStatus> {
     return refusing(this.gitHub.status(remoteUrl, number));
+  }
+
+  recentRuns(remoteUrl: string, count: number): Promise<readonly CiRunOnHost[]> {
+    return refusing(this.gitHub.recentRuns(remoteUrl, count));
+  }
+
+  rerun(remoteUrl: string, runId: number, jobs: CiRunJobs): Promise<void> {
+    return refusing(this.gitHub.rerun(remoteUrl, runId, jobs === "failed"));
   }
 
   mergeMethods(remoteUrl: string, _number: number): Promise<MergeMethodsOnHost> {

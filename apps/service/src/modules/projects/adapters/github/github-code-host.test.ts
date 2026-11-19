@@ -28,13 +28,30 @@ const STATUS = {
   baseCommit: "b".repeat(40),
 } as const;
 
+const RUN = {
+  id: 9001,
+  number: 12,
+  attempt: 1,
+  workflow: "CI",
+  title: "Rename a device",
+  trigger: "push",
+  branch: "main",
+  commit: "c".repeat(40),
+  status: "failed",
+  startedAt: new Date("2026-11-19T09:00:00.000Z"),
+  updatedAt: new Date("2026-11-19T09:05:00.000Z"),
+  url: "https://github.com/office/tools/actions/runs/9001",
+} as const;
+
 /** The github module's pull requests, answering each asked one, or failing as a test says. */
 function gitHubAnswering(failure?: Error): {
   gitHub: GitHubPullRequests;
   asked: PullRequestOnRemote[];
+  reruns: [string, number, boolean][];
   merged: { remoteUrl: string; number: number; merge: MergeOnGitHub }[];
 } {
   const asked: PullRequestOnRemote[] = [];
+  const reruns: [string, number, boolean][] = [];
   const merged: { remoteUrl: string; number: number; merge: MergeOnGitHub }[] = [];
   const answer = <Answer>(value: Answer): Promise<Answer> =>
     failure ? Promise.reject(failure) : Promise.resolve(value);
@@ -48,6 +65,11 @@ function gitHubAnswering(failure?: Error): {
     },
     status: () => answer(STATUS),
     openPullRequests: () => answer([]),
+    recentRuns: () => answer([RUN]),
+    rerun: (remoteUrl: string, runId: number, onlyFailed: boolean) => {
+      reruns.push([remoteUrl, runId, onlyFailed]);
+      return answer(undefined);
+    },
     mergeMethods: () => answer({ allowed: ["squash"], deletesBranchOnMerge: false }),
     merge: (remoteUrl: string, number: number, merge: MergeOnGitHub) => {
       merged.push({ remoteUrl, number, merge });
@@ -55,7 +77,7 @@ function gitHubAnswering(failure?: Error): {
     },
     close: () => answer(undefined),
   } as unknown as GitHubPullRequests;
-  return { gitHub, asked, merged };
+  return { gitHub, asked, reruns, merged };
 }
 
 describe("GitHub as a code host", () => {
@@ -85,6 +107,20 @@ describe("GitHub as a code host", () => {
     ).resolves.toEqual(STATUS);
   });
 
+  it("lists the recent CI runs and re-runs one with all its jobs or only the failed ones", async () => {
+    const { gitHub, reruns } = gitHubAnswering();
+    const host = new GitHubCodeHost(gitHub);
+
+    await expect(host.recentRuns(REQUEST.remoteUrl, 30)).resolves.toEqual([RUN]);
+    await host.rerun(REQUEST.remoteUrl, RUN.id, "all");
+    await host.rerun(REQUEST.remoteUrl, RUN.id, "failed");
+
+    expect(reruns).toEqual([
+      [REQUEST.remoteUrl, RUN.id, false],
+      [REQUEST.remoteUrl, RUN.id, true],
+    ]);
+  });
+
   it.each([
     new PullRequestNotOpened("GitHub didn't open the pull request."),
     new NotSignedInWithGitHub(),
@@ -98,6 +134,12 @@ describe("GitHub as a code host", () => {
       new CodeHostRefused(failure.message),
     );
     await expect(host.pullRequestStatus(REQUEST.remoteUrl, 1)).rejects.toThrow(
+      new CodeHostRefused(failure.message),
+    );
+    await expect(host.recentRuns(REQUEST.remoteUrl, 30)).rejects.toThrow(
+      new CodeHostRefused(failure.message),
+    );
+    await expect(host.rerun(REQUEST.remoteUrl, RUN.id, "failed")).rejects.toThrow(
       new CodeHostRefused(failure.message),
     );
   });

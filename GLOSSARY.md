@@ -129,6 +129,10 @@ _Avoid_: Merge strategy, merge type
 The host's automated results on a pull request's head commit: Passing, Failing, Running, No checks or Can't read.
 _Avoid_: CI, Build status, Pipeline (a Pipeline is The Office's own)
 
+**CI run**:
+One run of a workflow on a Project's code host, such as a GitHub Actions run, listed on Work › CI with its status: Queued, Waiting, Running, Succeeded, Failed, Cancelled, Skipped or Unknown. A failed or cancelled one can be re-run, all its jobs or only the failed ones. The host keeps it; The Office only lists it.
+_Avoid_: Build, Workflow run (in the UI), Stage run (a Stage run is a Stage of The Office's own Pipeline running on a Task)
+
 **Save** (a Plan or a Definition of Done):
 The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task back to Planning, or to Backlog when it was never in Planning; the same words change nothing.
 _Avoid_: Save and confirm

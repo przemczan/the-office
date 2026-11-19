@@ -142,6 +142,44 @@ export abstract class GitHubApi {
     repository: RepositoryOnGitHub,
     number: number,
   ): Promise<RefusalOnGitHub | undefined>;
+
+  /**
+   * The newest `count` GitHub Actions runs of the repository, one page. Throws `GitHubApiFailure`
+   * when GitHub refuses (403, 404) or fails.
+   */
+  abstract workflowRunsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    count?: number,
+  ): Promise<readonly WorkflowRunOnGitHub[]>;
+
+  /**
+   * Runs workflow run `runId` again, or only its failed jobs. Throws `GitHubApiFailure`, quoting
+   * GitHub's message, when GitHub refuses (403, 404, 422).
+   */
+  abstract rerunWorkflowRun(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    runId: number,
+    onlyFailed: boolean,
+  ): Promise<void>;
+}
+
+/** A GitHub Actions run as GitHub lists it (docs.github.com/rest/actions/workflow-runs). */
+export interface WorkflowRunOnGitHub {
+  readonly id: number;
+  readonly name: string;
+  readonly displayTitle: string;
+  readonly runNumber: number;
+  readonly runAttempt: number;
+  readonly event: string;
+  readonly status: string | null;
+  readonly conclusion: string | null;
+  readonly headBranch: string | null;
+  readonly headSha: string;
+  readonly url: string;
+  readonly runStartedAt: string | null;
+  readonly updatedAt: string;
 }
 
 /** A merge as GitHub is asked for it: the method, and the head commit it must still be at. */

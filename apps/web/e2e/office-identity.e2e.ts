@@ -15,6 +15,7 @@ import {
 } from "@the-office/contracts";
 import { E2E_STORAGE_STATE, NOT_SIGNED_IN } from "./e2e-user.ts";
 import {
+  addRun,
   controlPullRequest,
   FAKE_GITHUB_API_URL,
   FAKE_GITHUB_URL,
@@ -461,6 +462,75 @@ test.describe.serial("Sign in with GitHub", () => {
       await page.goto("/work/pull-requests");
       await row.getByRole("link", { name: task.title, exact: true }).click();
       await expect(page).toHaveURL(`/tasks/${task.id}`);
+    } finally {
+      await repository.remove();
+    }
+  });
+
+  // Needs the sign-in (the service lists and re-runs with its token) and the Actions permission
+  // the pull request test above granted, so it lives here, between signing in and out.
+  test("Work › CI shows a failed run and re-running its failed jobs queues it", async ({
+    page,
+  }) => {
+    // The watch lists a Project's runs every minute; Refresh may be skipped within 10 s of a listing.
+    test.setTimeout(120_000);
+    const repository = await createTemporaryRepositoryWithRemote();
+    const repositoryName = `ci-notes-${Date.now()}`;
+    const fullName = `office-user/${repositoryName}`;
+    try {
+      await installApp("office-user", [{ fullName }]);
+      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      const projectName = `CI notes ${Date.now()}`;
+      const newProject: NewProject = {
+        name: projectName,
+        path: repository.path,
+        baseBranch: "main",
+        mark: { label: "CI", colour: "teal" },
+        installCommand: "",
+        commands: [
+          { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+        ],
+        installInputs: [],
+        publishingMode: "push-and-pull-request",
+        defaultPipeline: "full",
+      };
+      const added = await page.request.post("/api/projects", { data: newProject });
+      expect(added.status(), await added.text()).toBe(201);
+      execFileSync("git", ["remote", "set-url", "origin", `${FAKE_GITHUB_URL}/${fullName}.git`], {
+        cwd: repository.path,
+        stdio: "ignore",
+      });
+      const runId = Date.now();
+      const title = `Break the build ${runId}`;
+      await addRun(fullName, {
+        id: runId,
+        name: "CI",
+        displayTitle: title,
+        runNumber: 7,
+        status: "completed",
+        conclusion: "failure",
+        headBranch: "main",
+      });
+
+      await page.goto("/work/ci");
+      const row = page.getByRole("row").filter({ hasText: title });
+      // A refresh within 10 s of the last listing answers that one, so press it until the
+      // listing that reads this run has run.
+      await expect(async () => {
+        await page.getByRole("button", { name: "Refresh" }).click();
+        await expect(row).toContainText("Failed", { timeout: 3_000 });
+      }).toPass({ timeout: 90_000 });
+      await expect(row).toContainText(`CI #7 · ${title}`);
+
+      await row.getByRole("button", { name: `More for CI #7 · ${title}` }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Re-run failed jobs" }).click();
+
+      // The re-run lists the Project at once, and the fake's run starts again, queued.
+      await expect(row).toContainText("Queued", { timeout: 15_000 });
+      await expect(row).toContainText("attempt 2");
+      await expect(row.getByRole("button", { name: /^More for/ })).toHaveCount(0);
     } finally {
       await repository.remove();
     }

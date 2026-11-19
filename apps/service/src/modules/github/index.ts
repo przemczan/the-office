@@ -6,6 +6,7 @@ export {
 } from "./application/github-identities.js";
 export {
   GitHubPullRequests,
+  type CiRunOnGitHub,
   type MergedOnGitHub,
   type MergeMethodsOnGitHub,
   type MergeOnGitHub,
@@ -14,6 +15,7 @@ export {
   type PullRequestOnRemote,
   type PullRequestStatusOnGitHub,
 } from "./application/github-pull-requests.js";
+export type { GitHubCiRunStatus } from "./domain/ci-run-status.js";
 export type {
   GitHubChecks,
   GitHubMergeable,

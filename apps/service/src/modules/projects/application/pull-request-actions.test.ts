@@ -15,6 +15,7 @@ import {
   CodeHost,
   CodeHostChangedSince,
   CodeHostRefused,
+  type CiRunOnHost,
   type MergedOnHost,
   type MergeMethodsOnHost,
   type MergeRequest,
@@ -65,6 +66,12 @@ class MergingCodeHost extends CodeHost {
   async close(_: string, number: number): Promise<void> {
     if (this.refusal) throw this.refusal;
     this.closes.push(number);
+  }
+  recentRuns(): Promise<readonly CiRunOnHost[]> {
+    return Promise.resolve([]);
+  }
+  rerun(): Promise<void> {
+    return Promise.reject(new Error("Not re-run here."));
   }
 }
 

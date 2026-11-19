@@ -20,6 +20,7 @@ import type { PullRequestStatus } from "../../domain/pull-request.js";
 import {
   CodeHost,
   CodeHostRefused,
+  type CiRunOnHost,
   type MergedOnHost,
   type MergeMethodsOnHost,
   type OpenedPullRequest,
@@ -84,6 +85,14 @@ export class CodeHostForTests extends CodeHost {
 
   pullRequestStatus(): Promise<PullRequestStatus> {
     return Promise.reject(new CodeHostRefused("Publishing reads no pull request."));
+  }
+
+  recentRuns(): Promise<readonly CiRunOnHost[]> {
+    return Promise.resolve([]);
+  }
+
+  rerun(): Promise<void> {
+    return Promise.reject(new CodeHostRefused("Publishing re-runs no CI run."));
   }
 
   mergeMethods(): Promise<MergeMethodsOnHost> {

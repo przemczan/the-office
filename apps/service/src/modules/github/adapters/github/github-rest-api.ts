@@ -25,6 +25,7 @@ import {
   type PullRequestOnGitHub,
   type SignInCode,
   type TokenAnswer,
+  type WorkflowRunOnGitHub,
 } from "../../ports/github-api.js";
 
 const REST_HEADERS = {
@@ -123,6 +124,26 @@ const checkRunsPageSchema = z.object({
 
 const combinedStatusSchema = z.object({ statuses: z.array(z.object({ state: z.string() })) });
 
+const workflowRunsPageSchema = z.object({
+  workflow_runs: z.array(
+    z.object({
+      id: z.number().int(),
+      name: z.string().nullish(),
+      display_title: z.string().nullish(),
+      run_number: z.number().int(),
+      run_attempt: z.number().int().nullish(),
+      event: z.string(),
+      status: z.string().nullish(),
+      conclusion: z.string().nullish(),
+      head_branch: z.string().nullish(),
+      head_sha: z.string(),
+      html_url: z.string(),
+      run_started_at: z.string().nullish(),
+      updated_at: z.string(),
+    }),
+  ),
+});
+
 /** A repository's merge settings; GitHub gives them only to those who may change them. */
 const repositorySchema = z.object({
   allow_merge_commit: z.boolean().optional(),
@@ -151,6 +172,8 @@ interface ReadAnswer<T> {
   readonly status: number;
   readonly parsed: T | undefined;
   readonly link: string | null;
+  /** GitHub's `message` of a refusal (never of a 200); only `workflowRunsOf` reads it. */
+  readonly message?: string;
 }
 
 /** GitHub refused a read with `status`; the message names the status only. */
@@ -466,6 +489,76 @@ export class GitHubRestApi extends GitHubApi {
     }
   }
 
+  async workflowRunsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    count = 30,
+  ): Promise<readonly WorkflowRunOnGitHub[]> {
+    // docs.github.com/rest/actions/workflow-runs#list-workflow-runs-for-a-repository: one page.
+    const url = gitHubUrl(this.urls.api, runsPathOf(repository));
+    url.searchParams.set("per_page", String(count));
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => workflowRunsPageSchema.safeParse(body).data?.workflow_runs,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403 || answer.status === 404
+          ? `GitHub refused to read the Actions runs of ${fullNameOf(repository)} (HTTP ${answer.status})${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't list the Actions runs of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    return answer.parsed.map((run) => ({
+      id: run.id,
+      name: run.name ?? "",
+      displayTitle: run.display_title ?? run.name ?? "",
+      runNumber: run.run_number,
+      runAttempt: run.run_attempt ?? 1,
+      event: run.event,
+      status: run.status ?? null,
+      conclusion: run.conclusion ?? null,
+      headBranch: run.head_branch ?? null,
+      headSha: run.head_sha,
+      url: run.html_url,
+      runStartedAt: run.run_started_at ?? null,
+      updatedAt: run.updated_at,
+    }));
+  }
+
+  async rerunWorkflowRun(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    runId: number,
+    onlyFailed: boolean,
+  ): Promise<void> {
+    // docs.github.com/rest/actions/workflow-runs#re-run-a-workflow
+    // and #re-run-failed-jobs-from-a-workflow-run
+    const path = `${runsPathOf(repository)}/${runId}/${onlyFailed ? "rerun-failed-jobs" : "rerun"}`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "POST",
+      headers: { ...REST_HEADERS, authorization: `Bearer ${accessToken}` },
+    });
+    if (response.status === 201) {
+      // The runs listed before no longer hold the run's state.
+      const listed = gitHubUrl(this.urls.api, runsPathOf(repository)).href;
+      for (const key of this.answers.keys()) {
+        if (key.slice(key.indexOf(" ") + 1).startsWith(listed)) this.answers.delete(key);
+      }
+      return;
+    }
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = refusalMessageOf(body) || undefined;
+    if ([403, 404, 422].includes(response.status)) {
+      throw new GitHubApiFailure(
+        `GitHub refused to re-run run ${runId} of ${fullNameOf(repository)} (HTTP ${response.status})${message === undefined ? "." : `: ${message}`}`,
+      );
+    }
+    throw new GitHubApiFailure(
+      `GitHub didn't re-run run ${runId} of ${fullNameOf(repository)} (HTTP ${response.status}).`,
+    );
+  }
+
   async repositoryOf(
     accessToken: string,
     repository: RepositoryOnGitHub,
@@ -596,7 +689,11 @@ export class GitHubRestApi extends GitHubApi {
       return { status: 200, parsed: cached.parsed as T, link: cached.link };
     }
     const link = response.headers.get("link");
-    if (response.status !== 200) return { status: response.status, parsed: undefined, link };
+    if (response.status !== 200) {
+      const refusal: unknown = await response.json().catch(() => undefined);
+      const message = refusalMessageOf(refusal);
+      return { status: response.status, parsed: undefined, link, ...(message && { message }) };
+    }
     const parsed = parse(await response.json().catch(() => undefined));
     const etag = response.headers.get("etag");
     if (parsed !== undefined && etag !== null) this.keep(key, { etag, parsed, link });
@@ -676,6 +773,10 @@ function pullsPathOf(repository: RepositoryOnGitHub): string {
 /** A refusal's `message`, which GitHub writes for the user; nothing else of its body. */
 function refusalMessageOf(answer: unknown): string | undefined {
   return refusalMessageSchema.safeParse(answer).data?.message;
+}
+
+function runsPathOf(repository: RepositoryOnGitHub): string {
+  return `${repositoryPathOf(repository)}/actions/runs`;
 }
 
 /** The messages of a refusal's validation errors, which GitHub writes for the user; nothing else of its body. */

@@ -1,3 +1,4 @@
+import type { CiRunJobs, CiRunStatus } from "../domain/ci-run.js";
 import type { MergeMethod } from "../domain/merge-method.js";
 import type { PullRequestStatus } from "../domain/pull-request.js";
 
@@ -25,6 +26,24 @@ export interface PullRequestOnHost extends OpenedPullRequest {
   readonly baseBranch: string;
   readonly headCommit: string;
   readonly baseCommit: string;
+}
+
+/** A run of a workflow as the code host lists it, in words no host owns. */
+export interface CiRunOnHost {
+  readonly id: number;
+  readonly number: number;
+  readonly attempt: number;
+  readonly workflow: string;
+  readonly title: string;
+  /** What started it, such as push or pull_request, as the host names it. */
+  readonly trigger: string;
+  readonly branch: string | null;
+  readonly commit: string;
+  readonly status: CiRunStatus;
+  readonly startedAt: Date | null;
+  readonly updatedAt: Date;
+  /** Its logs on the host. */
+  readonly url: string;
 }
 
 /** The merge methods a repository allows, and whether its host deletes a branch once merged. */
@@ -106,4 +125,10 @@ export abstract class CodeHost {
 
   /** Closes pull request `number` without merging it; its branch stays. */
   abstract close(remoteUrl: string, number: number): Promise<void>;
+
+  /** The repository's `count` most recent CI runs, newest first. */
+  abstract recentRuns(remoteUrl: string, count: number): Promise<readonly CiRunOnHost[]>;
+
+  /** Runs CI run `runId` again, with all its jobs or only the failed ones. */
+  abstract rerun(remoteUrl: string, runId: number, jobs: CiRunJobs): Promise<void>;
 }

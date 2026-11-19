@@ -24,6 +24,7 @@ export const WORK_TABS = [
     to: "/work/pull-requests",
     crumb: "Pull requests",
   },
+  { value: "ci", label: "CI", to: "/work/ci", crumb: "CI runs" },
   { value: "archived", label: "Archived", to: "/work/archived", crumb: "Archived" },
 ] as const;
 

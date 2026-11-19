@@ -6,6 +6,7 @@ import { GITHUB_ED25519 } from "../../../../platform/git-identity/fake-github-me
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
 import { FakePullRequests, pullRequestControlSchema } from "./fake-github-pulls.fixtures.js";
+import { FakeWorkflowRuns, runControlSchema } from "./fake-github-runs.fixtures.js";
 
 /**
  * The secrets the fake hands out with each App: the private key and webhook secret, which tests
@@ -58,6 +59,12 @@ export const FAKE_PULL_REQUESTS_CONTROL_PATH = "/_fake/pull-requests";
  * account the App isn't installed on.
  */
 export const FAKE_PERMISSIONS_CONTROL_PATH = "/_fake/permissions";
+
+/**
+ * Not GitHub's: where such a test adds and changes GitHub Actions runs. A JSON body of
+ * `runControlSchema`, by its `action`; answers 204, or 404 for a run the fake doesn't have.
+ */
+export const FAKE_RUNS_CONTROL_PATH = "/_fake/runs";
 
 const permissionLevelsSchema = z.record(z.string(), z.enum(["read", "write", "admin"]));
 
@@ -140,6 +147,8 @@ export class FakeGitHub {
   readonly installations: FakeInstallations;
   /** The pull requests opened on the installed repositories. */
   readonly pullRequests: FakePullRequests;
+  /** The GitHub Actions runs: `addRun`, `setRun`; their list answers with an ETag and 304. */
+  readonly runs: FakeWorkflowRuns;
   private readonly appsByCode = new Map<string, FakeGitHubApp>();
   private readonly registeredApps = new Map<string, RegisteredApp>();
   private readonly signInCodes = new Map<string, SignInCode>();
@@ -154,6 +163,7 @@ export class FakeGitHub {
   ) {
     this.installations = new FakeInstallations(urls.web, gitUrl);
     this.pullRequests = new FakePullRequests(urls.web, this.installations);
+    this.runs = new FakeWorkflowRuns(urls.web, this.installations);
   }
 
   /**
@@ -274,6 +284,10 @@ export class FakeGitHub {
     const commitChecks = new RegExp(
       `^${API_PATH}/repos/([^/]+/[^/]+)/commits/([^/]+)/(check-runs|status)$`,
     ).exec(url.pathname);
+    const runs = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/actions/runs$`).exec(url.pathname);
+    const rerun = new RegExp(
+      `^${API_PATH}/repos/([^/]+/[^/]+)/actions/runs/([0-9]+)/(rerun|rerun-failed-jobs)$`,
+    ).exec(url.pathname);
     const appToken = new RegExp(`^${API_PATH}/applications/([^/]+)/token$`).exec(url.pathname);
     if (request.method === "POST" && url.pathname === "/settings/apps/new") {
       this.registerFromManifest(url, body, response);
@@ -332,6 +346,18 @@ export class FakeGitHub {
           ? this.pullRequests.combinedStatus(repository, sha)
           : this.pullRequests.checkRuns(repository, sha),
       );
+    } else if (request.method === "GET" && runs) {
+      const repository = decodeURIComponent(runs[1] ?? "");
+      this.readApi(request, recorded, response, () => this.runs.list(repository, url));
+    } else if (request.method === "POST" && rerun) {
+      if (this.loginOf(request.headers.authorization) === undefined) {
+        sendBadCredentials(response);
+        return;
+      }
+      const answer = this.runs.rerun(decodeURIComponent(rerun[1] ?? ""), Number(rerun[2]));
+      sendJson(response, answer.status, answer.body, answer.headers);
+    } else if (request.method === "POST" && url.pathname === FAKE_RUNS_CONTROL_PATH) {
+      this.control(() => this.runs.control(runControlSchema.parse(JSON.parse(body))), response);
     } else if (request.method === "POST" && url.pathname === FAKE_INSTALLATIONS_CONTROL_PATH) {
       const { account, repositories, accountType, permissions } = installationRequestSchema.parse(
         JSON.parse(body),

@@ -93,6 +93,11 @@ async function shownAt(path: string) {
       }),
       createRoute({
         getParentRoute: () => rootRoute,
+        path: "/work/ci",
+        component: page("CI runs list"),
+      }),
+      createRoute({
+        getParentRoute: () => rootRoute,
         path: "/work/archived",
         component: page("Archive"),
       }),
@@ -153,6 +158,7 @@ describe("WorkTabs", () => {
     ["Ideas", "/work/ideas", "Ideas list"],
     ["Initiatives", "/work/initiatives", "Initiatives board"],
     ["Pull requests", "/work/pull-requests", "Pull requests list"],
+    ["CI", "/work/ci", "CI runs list"],
     ["Archived", "/work/archived", "Archive"],
   ])("goes to the %s tab's list when pressed", async (name, path, shown) => {
     const { host, router, tab } = await shownAt("/tasks/42");

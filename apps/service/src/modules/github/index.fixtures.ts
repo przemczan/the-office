@@ -2,6 +2,7 @@ export {
   FAKE_GITHUB_SECRETS,
   FAKE_PERMISSIONS_CONTROL_PATH,
   FAKE_PULL_REQUESTS_CONTROL_PATH,
+  FAKE_RUNS_CONTROL_PATH,
   FAKE_TOKEN_PREFIXES,
   FakeGitHub,
   type FakeGitHubApp,
@@ -22,5 +23,10 @@ export {
   type FakeRepositorySettings,
   type PullRequestControl,
 } from "./adapters/github/fake-github-pulls.fixtures.js";
+export {
+  type FakeWorkflowRun,
+  type FakeWorkflowRunChanges,
+  type RunControl,
+} from "./adapters/github/fake-github-runs.fixtures.js";
 export { registeredGitHubAppForTests } from "./ports/github-app-repository.fixtures.js";
 export { signedInWithGitHubForTests } from "./ports/github-sign-in-repository.fixtures.js";

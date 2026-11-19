@@ -5,6 +5,8 @@ import { Stepper } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { changeProjectLimit, projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
+import { onlyProject } from "../../shell/project-filter/project-filter-choices.ts";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { ProjectBlock } from "./project-block.tsx";
 
@@ -29,6 +31,8 @@ const TILES: readonly Tile[] = [
  */
 export function WorkBlock({ project }: { readonly project: Project }): ReactNode {
   const tasks = useQuery(taskQueries.list());
+  const projects = useQuery(projectQueries.list());
+  const { choose } = useProjectFilter();
   const waitsOnYou = useWaitingOnYou();
   const ofProject = tasks.data?.filter((task) => task.projectId === project.id) ?? [];
   return (
@@ -36,9 +40,25 @@ export function WorkBlock({ project }: { readonly project: Project }): ReactNode
       icon="kanban"
       title="Work"
       actions={
-        <Link to="/work" className="project-block-link">
-          Open in Work
-        </Link>
+        <>
+          <Link to="/work" className="project-block-link">
+            Open in Work
+          </Link>
+          <Link
+            to="/work/ci"
+            className="project-block-link"
+            onClick={() =>
+              choose(
+                onlyProject(
+                  project.id,
+                  (projects.data ?? []).map(({ id }) => id),
+                ),
+              )
+            }
+          >
+            CI runs
+          </Link>
+        </>
       }
     >
       <div className="work-tiles">

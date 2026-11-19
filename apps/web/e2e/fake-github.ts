@@ -132,6 +132,39 @@ export async function controlPullRequest(control: PullRequestControl): Promise<v
   await postToFake(FAKE_PULL_REQUESTS_CONTROL_PATH, control);
 }
 
+/** The fake's own route adding and changing GitHub Actions runs; `FAKE_RUNS_CONTROL_PATH`. */
+const FAKE_RUNS_CONTROL_PATH = "/_fake/runs";
+
+/** A GitHub Actions run on the fake GitHub; what is left out is defaulted (a completed `CI` push run that succeeded). */
+export interface FakeWorkflowRun {
+  readonly id: number;
+  readonly name?: string;
+  readonly displayTitle?: string;
+  readonly runNumber?: number;
+  readonly runAttempt?: number;
+  readonly event?: string;
+  readonly status?: string;
+  readonly conclusion?: string | null;
+  readonly headBranch?: string | null;
+  readonly headSha?: string;
+  readonly startedAt?: string | null;
+  readonly updatedAt?: string;
+}
+
+/** Adds a GitHub Actions run to the repository, as CI would. */
+export async function addRun(repository: string, run: FakeWorkflowRun): Promise<void> {
+  await postToFake(FAKE_RUNS_CONTROL_PATH, { action: "addRun", repository, run });
+}
+
+/** Changes run `id` of the repository, as the workflow progressing would. */
+export async function setRun(
+  repository: string,
+  id: number,
+  changes: Omit<FakeWorkflowRun, "id">,
+): Promise<void> {
+  await postToFake(FAKE_RUNS_CONTROL_PATH, { action: "setRun", repository, id, changes });
+}
+
 /** The owner of `account`'s installations accepting `permissions`, added to what they granted. */
 export async function grantPermissions(
   account: string,

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { GitHubRestApi } from "../adapters/github/github-rest-api.js";
-import { NotSignedInWithGitHub } from "../domain/github-repository.js";
+import { GitHubAccessFailed, NotSignedInWithGitHub } from "../domain/github-repository.js";
 import { PullRequestChangedOnGitHub, PullRequestNotChanged } from "../domain/merge-refusal.js";
 import { FakeGitHub } from "../index.fixtures.js";
 import { GitHubAppForTests } from "../ports/github-app-repository.fixtures.js";
@@ -210,6 +210,110 @@ describe("reading the pull requests on GitHub", () => {
     await expect(pullRequests.whyCannotRead(remoteUrl())).resolves.toBeUndefined();
     expect(pullRequests.reaches(remoteUrl())).toBe(true);
     expect(pullRequests.reaches("https://gitlab.com/office/tools.git")).toBe(false);
+  });
+});
+
+describe("GitHub Actions runs", () => {
+  const RUNS = "/api/v3/repos/office/tools/actions/runs";
+
+  it("lists the newest runs in host-neutral words", async () => {
+    signIn();
+    github.runs.addRun("office/tools", { id: 11, name: "CI", displayTitle: "Rename a device" });
+    github.runs.addRun("office/tools", {
+      id: 12,
+      name: "Deploy",
+      event: "pull_request",
+      status: "in_progress",
+      conclusion: null,
+      headBranch: "office/task-1",
+      headSha: "abc",
+      runNumber: 7,
+      startedAt: null,
+      updatedAt: "2026-02-01T10:00:00Z",
+    });
+
+    const runs = await pullRequests.recentRuns(remoteUrl(), 5);
+
+    expect(runs.map((run) => run.id)).toEqual([12, 11]);
+    expect(runs[0]).toEqual({
+      id: 12,
+      number: 7,
+      attempt: 1,
+      workflow: "Deploy",
+      title: "Deploy",
+      trigger: "pull_request",
+      branch: "office/task-1",
+      commit: "abc",
+      status: "running",
+      startedAt: null,
+      updatedAt: new Date("2026-02-01T10:00:00Z"),
+      url: `${github.urls.web}/office/tools/actions/runs/12`,
+    });
+    expect(runs[1]).toMatchObject({ status: "succeeded", title: "Rename a device" });
+    expect(github.requestsTo(RUNS).at(-1)?.search).toBe("?per_page=5");
+  });
+
+  it("reuses the runs GitHub says haven't changed", async () => {
+    signIn();
+    github.runs.addRun("office/tools", { id: 11 });
+    const first = await pullRequests.recentRuns(remoteUrl(), 30);
+
+    await expect(pullRequests.recentRuns(remoteUrl(), 30)).resolves.toEqual(first);
+    expect(github.notModified.map((request) => request.path)).toEqual([RUNS]);
+  });
+
+  it("runs one again, and asks GitHub fresh for the runs after", async () => {
+    signIn();
+    github.installations.grant("office", { actions: "write" });
+    github.runs.addRun("office/tools", { id: 11, conclusion: "failure" });
+    await expect(pullRequests.recentRuns(remoteUrl(), 30)).resolves.toMatchObject([
+      { status: "failed", attempt: 1 },
+    ]);
+
+    await pullRequests.rerun(remoteUrl(), 11, false);
+
+    await expect(pullRequests.recentRuns(remoteUrl(), 30)).resolves.toMatchObject([
+      { status: "queued", attempt: 2 },
+    ]);
+    expect(github.notModified).toEqual([]);
+    expect(github.requestsTo(`${RUNS}/11/rerun`)).toHaveLength(1);
+  });
+
+  it("runs only the failed jobs again when asked", async () => {
+    signIn();
+    github.installations.grant("office", { actions: "write" });
+    github.runs.addRun("office/tools", { id: 11, conclusion: "failure" });
+
+    await pullRequests.rerun(remoteUrl(), 11, true);
+
+    expect(github.requestsTo(`${RUNS}/11/rerun-failed-jobs`)).toHaveLength(1);
+  });
+
+  it("refuses a re-run GitHub refuses, in GitHub's words", async () => {
+    signIn();
+    github.runs.addRun("office/tools", { id: 11, conclusion: "failure" });
+
+    const refusal = await pullRequests
+      .rerun(remoteUrl(), 11, false)
+      .catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(GitHubAccessFailed);
+    expect((refusal as GitHubAccessFailed).reason).toBe(
+      "GitHub refused to re-run run 11 of office/tools (HTTP 403): Resource not accessible by integration",
+    );
+  });
+
+  it("refuses reading the runs of a repository GitHub hides", async () => {
+    signIn();
+
+    await expect(pullRequests.recentRuns(`${github.urls.web}/other/repo.git`, 5)).rejects.toThrow(
+      GitHubAccessFailed,
+    );
+  });
+
+  it("can't be read or re-run while signed out", async () => {
+    await expect(pullRequests.recentRuns(remoteUrl(), 5)).rejects.toThrow(NotSignedInWithGitHub);
+    await expect(pullRequests.rerun(remoteUrl(), 1, false)).rejects.toThrow(NotSignedInWithGitHub);
   });
 });
 

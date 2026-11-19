@@ -17,13 +17,16 @@ import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
+import { ProjectOfficeActions } from "./adapters/office-actions/project-office-actions.js";
 import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubCodeHost } from "./adapters/github/github-code-host.js";
 import { BaseBranchFilesController } from "./adapters/http/base-branch-files.controller.js";
+import { CiRunsController } from "./adapters/http/ci-runs.controller.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectImagesController } from "./adapters/http/project-images.controller.js";
+import { ProjectOfficeActionsController } from "./adapters/http/project-office-actions.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { PullRequestsController } from "./adapters/http/pull-requests.controller.js";
@@ -33,10 +36,12 @@ import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { PostgresPullRequestRepository } from "./adapters/postgres/postgres-pull-request-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
+import { CiRunWebEvents } from "./adapters/websocket/ci-run-web-events.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { PullRequestWebEvents } from "./adapters/websocket/pull-request-web-events.js";
 import { BaseBranchFiles } from "./application/base-branch-files.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
+import { CiRunWatch } from "./application/ci-run-watch.js";
 import { CodeHosts } from "./application/code-hosts.js";
 import { ProjectRecords } from "./application/project-records.js";
 import { CommittedFiles } from "./application/committed-files.js";
@@ -96,7 +101,7 @@ export class ProjectsModule implements NestModule {
       module: ProjectsModule,
       // The Project page lists the repository's own skills through the Skills module and keeps its
       // Server values through the MCP servers module; chats read the Projects through an Office
-      // tool on the Engine's registry.
+      // tool on the Engine's registry, which carries Projects' Office actions too.
       imports: [
         ...imports,
         GitIdentityModule,
@@ -115,6 +120,8 @@ export class ProjectsModule implements NestModule {
         BaseBranchFilesController,
         RepositoryClonesController,
         PullRequestsController,
+        CiRunsController,
+        ProjectOfficeActionsController,
       ],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
@@ -129,7 +136,7 @@ export class ProjectsModule implements NestModule {
         RepositoryLocks,
         { provide: PullRequestRepository, useClass: PostgresPullRequestRepository },
         GitHubCodeHost,
-        // Each remote's pull requests go to the first host that reaches its URL; another host,
+        // Each remote's pull requests and CI runs go to the first host that reaches its URL; another host,
         // such as GitLab, is one more adapter of `CodeHost` in this list.
         {
           provide: CodeHosts,
@@ -137,6 +144,7 @@ export class ProjectsModule implements NestModule {
           useFactory: (gitHub: GitHubCodeHost) => new CodeHosts([gitHub]),
         },
         PullRequestWatch,
+        CiRunWatch,
         PullRequestActions,
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
@@ -169,7 +177,9 @@ export class ProjectsModule implements NestModule {
         InitiativeBranches,
         ProjectWebEvents,
         PullRequestWebEvents,
+        CiRunWebEvents,
         ProjectOfficeTools,
+        ProjectOfficeActions,
         ProjectRecords,
       ],
       exports: [
