@@ -53,7 +53,7 @@ export type EnvironmentCheckState = "running" | "passed" | "failed" | "stopped";
  */
 export interface EnvironmentCheck {
   readonly projectId: string;
-  /** The environment tried, which may not be the Project's yet. */
+  /** The Project's saved environment as the check started, which may have changed since. */
   readonly environment: ProjectEnvironment;
   readonly state: EnvironmentCheckState;
   /** The worktree's check, install's, then one for each of the Project's commands in its order. */

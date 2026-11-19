@@ -1,32 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import type { BaseCheckouts } from "../../application/base-checkouts.js";
 import type { LocalRepositories } from "../../application/local-repositories.js";
 import { ProjectRecords } from "../../application/project-records.js";
-import type { ProjectService } from "../../application/project-service.js";
 import type { RepositoriesByUrl } from "../../application/repositories-by-url.js";
-import { aProject, startingCommands } from "../../domain/project.fixtures.js";
-import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { LIST_PROJECTS, ProjectOfficeTools, READ_REPOSITORY } from "./project-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
-function toolsOver(projects: Project[]): ProjectOfficeTools {
-  const service: Pick<ProjectService, "list"> = { list: () => Promise.resolve(projects) };
-  const bases: Pick<BaseCheckouts, "list"> = {
-    list: () =>
-      Promise.resolve(
-        projects.map((project) => ({
-          projectId: project.id,
-          name: project.name,
-          baseBranch: project.baseBranch,
-          folder: `/office/bases/${project.id}`,
-        })),
-      ),
-  };
+function toolsOver(everyone: ProjectRecords["everyone"]): ProjectOfficeTools {
   return new ProjectOfficeTools(
     new OfficeToolRegistry(),
-    new ProjectRecords(service as ProjectService, bases as BaseCheckouts),
+    { everyone } as ProjectRecords,
     {} as LocalRepositories,
     {} as RepositoriesByUrl,
   );
@@ -51,32 +35,13 @@ function toolsReading(read: LocalRepositories["read"]): ProjectOfficeTools {
 }
 
 describe("list_projects", () => {
-  it("reads each Project's record, with where a chat reads its base branch", async () => {
-    const tool = toolsOver([aProject({ commands: startingCommands({ lint: "" }) })]).listProjects();
+  it("answers every Project's record", async () => {
+    const tool = toolsOver(() => Promise.resolve("Admin panel (id admin-panel)")).listProjects();
 
     const result = await tool.run({}, anOfficeToolCall("s-1"));
 
     expect(tool.name).toBe(LIST_PROJECTS);
-    expect(result).toEqual({
-      isError: false,
-      text: [
-        "Admin panel (id admin-panel)",
-        "- Base branch: main, read-only in chats at /office/bases/admin-panel",
-        "- Install: `npm ci`",
-        "- Commands: build (Build, build) `npm run build`, lint (Lint, lint) `none`, test (Test, test) `npm test`",
-        "- Install inputs: package-lock.json",
-        "- Publishing: push and open a pull request",
-        "- Before publishing: `none`",
-        "- After publishing: `none`",
-        "- Default Pipeline: full",
-      ].join("\n"),
-    });
-  });
-
-  it("says so when there is no Project", async () => {
-    const result = await toolsOver([]).listProjects().run({}, anOfficeToolCall("s-1"));
-
-    expect(result.text).toBe("The Office works on no Project yet.");
+    expect(result).toEqual({ isError: false, text: "Admin panel (id admin-panel)" });
   });
 
   it("is registered as the module starts", () => {

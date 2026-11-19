@@ -46,7 +46,11 @@ import {
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { OutputMask } from "../domain/output-mask.js";
-import type { ProjectEnvironment } from "../domain/project-environment.js";
+import {
+  editedEnvironment,
+  trimmedEnvironment,
+  type ProjectEnvironmentEdit,
+} from "../domain/project-environment.js";
 import {
   proposedCommandsProblems,
   removedCommandKeys,
@@ -234,9 +238,17 @@ export class ProjectService {
     return project ? OutputMask.of(project.environment) : OutputMask.NONE;
   }
 
-  /** For the environment check, once it passed with the environment. */
-  async changeEnvironment(id: string, environment: ProjectEnvironment): Promise<Project> {
-    return this.update(id, (project) => changeEnvironment(project, environment));
+  /**
+   * The user's Save of the environment (spec §5.5): a Secret variable given without a value keeps
+   * the Project's. Refuses with every reason, saving nothing, when it breaks a rule.
+   */
+  async changeEnvironment(id: string, edit: ProjectEnvironmentEdit): Promise<Project> {
+    return this.update(id, (project) => {
+      const environment = trimmedEnvironment(editedEnvironment(edit, project.environment));
+      const problems = this.checks.environmentProblems(environment);
+      if (problems.length > 0) throw new ProjectRefused(problems);
+      return changeEnvironment(project, environment);
+    });
   }
 
   /** Publish's before or after line (spec §2.3 Defaults); blank clears it. */

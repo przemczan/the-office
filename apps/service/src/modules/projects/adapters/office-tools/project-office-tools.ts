@@ -55,7 +55,7 @@ export class ProjectOfficeTools implements OnModuleInit {
     return {
       name: LIST_PROJECTS,
       description:
-        "Lists the Projects The Office works on: each one's base branch and where a chat reads it, its commands, how it publishes and its default Pipeline.",
+        "Lists the Projects The Office works on, each with the settings its page shows: its path and base branch and where a chat reads it, its commands, how it publishes, its default Pipeline, Project limit and Run environment, its environment (Secret variables by name and whether a value is set, never their values) and its last environment check, its engines, its skills and its Server values.",
       input: z.object({}),
       run: async () => ({ text: await this.records.everyone(), isError: false }),
     };

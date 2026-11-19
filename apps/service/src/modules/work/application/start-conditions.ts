@@ -36,7 +36,7 @@ import { DailyCaps } from "./daily-caps.js";
 import { withDutiesHeld } from "./duty-holders.js";
 import { StartsSinceReading } from "./starts-since-reading.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
-import { UsageEstimates } from "./usage-estimates.js";
+import { UsageEstimates, type TaskEstimator } from "./usage-estimates.js";
 
 const NOTHING_SINCE_READING = { fiveHour: 0, sevenDay: 0 };
 
@@ -81,6 +81,7 @@ export class StartConditionsReader {
 
   /** What each of `tasks` weighs, the Office's settings and Tasks read once for them all. */
   async ofEach(tasks: readonly Task[]): Promise<Map<string, StartConditions>> {
+    if (tasks.length === 0) return new Map();
     const conditionsOf = await this.reading();
     const read = await Promise.all(
       tasks.map(async (task) => [task.id, await conditionsOf(task)] as const),
@@ -96,7 +97,8 @@ export class StartConditionsReader {
       this.engineModels.standIns(),
     ]);
     const now = this.schedule.now();
-    const daily = await this.dailyCaps.of(usageSettings.caps, everyTask);
+    const estimateOf = await this.estimates.estimator(everyTask);
+    const daily = await this.dailyCaps.of(usageSettings.caps, everyTask, estimateOf);
     const engineNames = new Map(standIns.engines.map(({ id, name }) => [id, name] as const));
     const scheduledExitWait = this.exitHold.waitWords();
     const standInEngines = await this.standInEngines(standIns, usageSettings.caps, daily);
@@ -105,7 +107,7 @@ export class StartConditionsReader {
       const [pipeline, project, { usage, standIns: taskStandIns }] = await Promise.all([
         this.pipelineOf(task),
         this.projects.find(task.projectId),
-        this.usageOf(task, everyTask, usageSettings, office),
+        this.usageOf(task, estimateOf, usageSettings, office),
       ]);
       const initiativeBranch = await this.initiativeBranchProblem(
         task,
@@ -168,12 +170,12 @@ export class StartConditionsReader {
 
   private async usageOf(
     task: Task,
-    everyTask: readonly Task[],
+    estimateOf: TaskEstimator,
     { measures, caps }: UsageSettings,
     { daily, engineNames, now, standIns, standInEngines }: OfficeUsageAtStart,
   ): Promise<{ readonly usage: UsageAtStart; readonly standIns: StandInsAtStart }> {
     const [estimate, modelsOn] = await Promise.all([
-      this.estimates.of(task, everyTask),
+      estimateOf(task),
       this.estimates.modelsOf(task),
     ]);
     const engineIds = [...modelsOn.keys()];

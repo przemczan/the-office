@@ -3,7 +3,9 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   environmentCheckSchema,
+  latestEnvironmentCheckSchema,
   projectRefusalSchema,
+  projectSchema,
   projectWebEventSchema,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -33,9 +35,8 @@ let app: INestApplication;
 let url: string;
 let published: DomainEvent[];
 
-const { send, addProject, checked, environmentOf, throwawayWorktrees } = environmentChecksHttp(
-  () => ({ app, url, repository, officeData }),
-);
+const { send, addProject, save, checked, environmentOf, throwawayWorktrees } =
+  environmentChecksHttp(() => ({ app, url, repository, officeData }));
 
 beforeAll(async () => {
   repository = await createTemporaryRepository();
@@ -63,7 +64,7 @@ async function startApplication(): Promise<void> {
 }
 
 describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
-  it("runs every check in a fresh worktree of the fetched base and saves the environment", async () => {
+  it("runs every check in a fresh worktree of the fetched base with the saved environment", async () => {
     const fetched = await commitOnOrigin(repository, "main", `checked-${randomUUID()}.txt`);
     const project = await addProject();
     published = [];
@@ -99,14 +100,12 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
       .filter((event) => !(event instanceof BusyWorkChanged))
       .map((event) => projectWebEventSchema.parse(app.get(WebEventForwarding).toWebEvent(event)));
     expect(webEvents.map((event) => event.type)).toEqual([
-      "project.environment-check-changed",
-      ...Array<string>(10).fill("project.environment-check-changed"),
       "project.environment-changed",
-      "project.environment-check-changed",
+      ...Array<string>(12).fill("project.environment-check-changed"),
     ]);
   });
 
-  it("refuses an environment that breaks a rule, and a second check while one runs", async () => {
+  it("refuses a second check while one runs", async () => {
     const project = await addProject({
       installCommand: PASSES,
       commands: [
@@ -116,33 +115,9 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
       ],
     });
 
-    const refused = await send("POST", `/projects/${project.id}/environment-check`, {
-      environment: {
-        set: [
-          { name: "A=B", value: "", secret: false },
-          { name: "SHORT", value: "12345", secret: true },
-          { name: "TOKEN", value: "plain", secret: false },
-          { name: "TOKEN", value: "a-secret-token", secret: true },
-        ],
-        unset: [],
-        prependPath: ["relative"],
-      },
-    });
-    expect(refused.status).toBe(422);
-    expect(projectRefusalSchema.parse(await refused.json()).reasons).toEqual([
-      "A variable's name can't have \"=\" in it: A=B.",
-      "The value of the Secret variable SHORT is shorter than 6 characters, so hiding it in output could hide ordinary text.",
-      "TOKEN is both a plain and a Secret variable: make it one or the other.",
-      'A folder put in front of PATH is a full path; "relative" is not.',
-    ]);
-
-    const started = await send("POST", `/projects/${project.id}/environment-check`, {
-      environment: GREETING,
-    });
+    const started = await send("POST", `/projects/${project.id}/environment-check`);
     expect(environmentCheckSchema.parse(await started.json()).state).toBe("running");
-    const second = await send("POST", `/projects/${project.id}/environment-check`, {
-      environment: GREETING,
-    });
+    const second = await send("POST", `/projects/${project.id}/environment-check`);
     expect(second.status).toBe(422);
     expect(projectRefusalSchema.parse(await second.json()).reasons).toEqual([
       "An environment check is already running for this Project.",
@@ -193,11 +168,52 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     expect(again.state).toBe("passed");
     await expect(environmentOf(project)).resolves.toEqual(shown);
 
-    // Removed, it is gone.
+    // Removed, it is gone, and the failed check leaves the environment as saved.
     const removed = await checked(project, { set: [], unset: [], prependPath: [] });
     expect(removed.state).toBe("failed");
     expect(removed.checks[4]).toMatchObject({
       run: { output: expect.stringContaining("token: undefined") as unknown },
     });
+    await expect(environmentOf(project)).resolves.toEqual({ set: [], unset: [], prependPath: [] });
+  });
+});
+
+describe("PUT /api/projects/:id/environment", () => {
+  it("saves the environment at once, without a check, and announces it", async () => {
+    const project = await addProject();
+    published = [];
+
+    const saved = await save(project, GREETING);
+
+    expect(saved.status).toBe(200);
+    expect(projectSchema.parse(await saved.json()).environment).toEqual(GREETING);
+    await expect(environmentOf(project)).resolves.toEqual(GREETING);
+    expect(published.map((event) => event.constructor.name)).toEqual(["ProjectEnvironmentChanged"]);
+    const check = await send("GET", `/projects/${project.id}/environment-check`);
+    expect(latestEnvironmentCheckSchema.parse(await check.json())).toEqual({ check: null });
+  });
+
+  it("refuses an environment that breaks a rule, saving nothing", async () => {
+    const project = await addProject();
+
+    const refused = await save(project, {
+      set: [
+        { name: "A=B", value: "", secret: false },
+        { name: "SHORT", value: "12345", secret: true },
+        { name: "TOKEN", value: "plain", secret: false },
+        { name: "TOKEN", value: "a-secret-token", secret: true },
+      ],
+      unset: [],
+      prependPath: ["relative"],
+    });
+
+    expect(refused.status).toBe(422);
+    expect(projectRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "A variable's name can't have \"=\" in it: A=B.",
+      "The value of the Secret variable SHORT is shorter than 6 characters, so hiding it in output could hide ordinary text.",
+      "TOKEN is both a plain and a Secret variable: make it one or the other.",
+      'A folder put in front of PATH is a full path; "relative" is not.',
+    ]);
+    await expect(environmentOf(project)).resolves.toEqual({ set: [], unset: [], prependPath: [] });
   });
 });

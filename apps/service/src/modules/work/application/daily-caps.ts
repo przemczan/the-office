@@ -14,7 +14,7 @@ import type { EngineCaps } from "../domain/usage-settings.js";
 import { DayUsage } from "../ports/day-usage.js";
 import { ModelPrices } from "../ports/model-prices.js";
 import { TaskTokens } from "../ports/task-tokens.js";
-import { UsageEstimates } from "./usage-estimates.js";
+import type { TaskEstimator } from "./usage-estimates.js";
 
 /**
  * What the Daily caps weigh a Start against (spec §2.1, "Usage estimates"): each engine id's use
@@ -26,16 +26,22 @@ export class DailyCaps {
     private readonly dayUsage: DayUsage,
     private readonly prices: ModelPrices,
     private readonly taskTokens: TaskTokens,
-    private readonly estimates: UsageEstimates,
   ) {}
 
-  /** Each engine id with a Daily cap set, as a Start weighs it; read once for every Start. */
-  async of(caps: readonly EngineCaps[], everyTask: readonly Task[]): Promise<DailyCapsAtStart[]> {
+  /**
+   * Each engine id with a Daily cap set, as a Start weighs it; read once for every Start, with the
+   * estimator that Start uses for `everyTask`.
+   */
+  async of(
+    caps: readonly EngineCaps[],
+    everyTask: readonly Task[],
+    estimateOf: TaskEstimator,
+  ): Promise<DailyCapsAtStart[]> {
     const capped = caps.filter(
       ({ dailyTokens, dailyDollars }) => dailyTokens !== undefined || dailyDollars !== undefined,
     );
     if (capped.length === 0) return [];
-    const inProgress = await this.leftInProgress(everyTask);
+    const inProgress = await this.leftInProgress(everyTask, estimateOf);
     return Promise.all(
       capped.map(async ({ engineId, dailyTokens, dailyDollars }) => ({
         engineId,
@@ -59,12 +65,15 @@ export class DailyCaps {
   }
 
   /** What is left of every started Task's estimate, by engine id: each less its use so far. */
-  private async leftInProgress(everyTask: readonly Task[]): Promise<Map<EngineId, DayUse>> {
+  private async leftInProgress(
+    everyTask: readonly Task[],
+    estimateOf: TaskEstimator,
+  ): Promise<Map<EngineId, DayUse>> {
     const started = everyTask.filter(({ state }) => STARTED_STATES.includes(state));
     const left = new Map<EngineId, DayUse>();
     for (const task of started) {
       const [estimate, soFar] = await Promise.all([
-        this.estimates.of(task, everyTask),
+        estimateOf(task),
         this.taskTokens.stageTokensSoFar(task.id),
       ]);
       for (const usage of estimate?.engines ?? []) {

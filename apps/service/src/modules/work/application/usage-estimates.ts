@@ -36,6 +36,9 @@ export interface TaskUsageEstimate {
   readonly usageEstimate: UsageEstimate;
 }
 
+/** A Task's Usage estimate; undefined with no measure ticked. */
+export type TaskEstimator = (task: Task) => Promise<UsageEstimate | undefined>;
+
 /**
  * Usage estimates (spec §2.1): from the done Tasks of the same Project and Pipeline once there are
  * 3, else from the Planner's token estimate in the Plan; none with no measure ticked.
@@ -56,8 +59,16 @@ export class UsageEstimates {
 
   /** The Task's, its done Tasks found among `everyTask`; undefined with no measure ticked. */
   async of(task: Task, everyTask: readonly Task[]): Promise<UsageEstimate | undefined> {
+    return (await this.estimator(everyTask))(task);
+  }
+
+  /**
+   * Estimates any of `everyTask`, reading the history each Project and Pipeline has, and the
+   * Office-wide ratios, once for them all; each estimate is undefined with no measure ticked.
+   */
+  async estimator(everyTask: readonly Task[]): Promise<TaskEstimator> {
     const measures = await this.tickedMeasures();
-    return measures.length === 0 ? undefined : this.estimating(everyTask, measures)(task);
+    return measures.length === 0 ? async () => undefined : this.estimating(everyTask, measures);
   }
 
   /** Every Ready Task's, queued ones too; none with no measure ticked. */
