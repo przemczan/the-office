@@ -35,25 +35,33 @@ import {
   RERUN_ALL,
   RERUN_FAILED,
   shortCommit,
+  START_A_WORKFLOW,
   startedWords,
 } from "./ci-run-words.ts";
+import { StartWorkflowDialog } from "./start-workflow-dialog.tsx";
 
 /**
  * Work › CI: each Project's recent CI runs, in the Projects the Project filter shows, as the
  * service last read them from the code host; Refresh asks for a read now, and `ci-runs.changed`
- * brings what it found. A failed or cancelled run can run again.
+ * brings what it found. A failed or cancelled run can run again, and Start a workflow starts one by
+ * hand.
  */
 export function CiRunsPage(): ReactNode {
   const list = useQuery(ciRunQueries.list());
   const projects = useQuery(projectQueries.list());
   const projectFilter = useProjectFilter();
   const refreshing = useMutation({ mutationFn: refreshCiRuns });
+  const [starting, setStarting] = useState(false);
   const { shown, elsewhere } = narrowed(list.data?.runs ?? [], (run) =>
     projectFilter.shows([run.projectId]),
   );
   const listings = (list.data?.projects ?? []).filter((listing) =>
     projectFilter.shows([listing.projectId]),
   );
+  const startable = (projects.data ?? []).filter((project) =>
+    listings.some((listing) => listing.projectId === project.id),
+  );
+  const { filter } = projectFilter;
   const staleProjects = new Set(
     listings.filter((listing) => listing.stale).map((listing) => listing.projectId),
   );
@@ -62,16 +70,32 @@ export function CiRunsPage(): ReactNode {
       <GitHubPermissionsPrompt />
       <div className="pull-requests-head">
         <span className="pull-requests-hint">{REFRESH_HINT}</span>
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<Icon name="refresh-cw" size={14} />}
-          loading={refreshing.isPending}
-          onClick={() => refreshing.mutate()}
-        >
-          Refresh
-        </Button>
+        <span className="ci-runs-head-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Icon name="refresh-cw" size={14} />}
+            loading={refreshing.isPending}
+            onClick={() => refreshing.mutate()}
+          >
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            iconLeft={<Icon name="play" size={14} />}
+            onClick={() => setStarting(true)}
+          >
+            {START_A_WORKFLOW}
+          </Button>
+        </span>
       </div>
+      {starting && (
+        <StartWorkflowDialog
+          projects={startable}
+          presetProjectId={filter !== "all" && filter.length === 1 ? filter[0] : undefined}
+          onClose={() => setStarting(false)}
+        />
+      )}
       {refreshing.error && (
         <RefusalAlert title="The CI runs weren't refreshed" error={refreshing.error} />
       )}

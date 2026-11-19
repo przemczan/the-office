@@ -1,4 +1,5 @@
 import type { CiRunJobs, CiRunStatus } from "../domain/ci-run.js";
+import type { ManualWorkflow } from "../domain/manual-workflow.js";
 import type { MergeMethod } from "../domain/merge-method.js";
 import type { PullRequestStatus } from "../domain/pull-request.js";
 
@@ -131,4 +132,26 @@ export abstract class CodeHost {
 
   /** Runs CI run `runId` again, with all its jobs or only the failed ones. */
   abstract rerun(remoteUrl: string, runId: number, jobs: CiRunJobs): Promise<void>;
+
+  /** The repository's active Workflows whose file, at branch or tag `ref`, declares a start by hand. */
+  abstract manualWorkflows(remoteUrl: string, ref: string): Promise<readonly ManualWorkflow[]>;
+
+  /** The repository's branches and tags, by name. */
+  abstract refs(remoteUrl: string): Promise<RefsOnHost>;
+
+  /** Starts a Workflow by hand; the host refuses, such as for an input its file doesn't declare. */
+  abstract startWorkflow(remoteUrl: string, start: WorkflowStartRequest): Promise<void>;
+}
+
+/** The branches and tags of a repository, by name. */
+export interface RefsOnHost {
+  readonly branches: readonly string[];
+  readonly tags: readonly string[];
+}
+
+/** A start by hand: the Workflow by its file name, the branch or tag, and the inputs as text. */
+export interface WorkflowStartRequest {
+  readonly workflowId: string;
+  readonly ref: string;
+  readonly inputs: Readonly<Record<string, string>>;
 }

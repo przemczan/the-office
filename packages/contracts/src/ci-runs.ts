@@ -112,8 +112,98 @@ export const RERUN_CI_RUN_ACTION = officeAction({
   duties: ["onboards-projects"],
 });
 
+/** The kinds of a workflow's input, in words no code host owns. */
+export const WORKFLOW_INPUT_KINDS = ["text", "yes-no", "choice", "number", "environment"] as const;
+export const workflowInputKindSchema = z.enum(WORKFLOW_INPUT_KINDS);
+export type WorkflowInputKind = z.infer<typeof workflowInputKindSchema>;
+
+/** One input a workflow declares for a start by hand. */
+export const workflowInputSchema = z.object({
+  name: z.string().min(1),
+  /** Empty when it has none. */
+  description: z.string(),
+  required: z.boolean(),
+  /** Its default as text, such as "true" for a yes-no; null when it has none. */
+  default: z.string().nullable(),
+  kind: workflowInputKindSchema,
+  /** A choice's options, in their order; empty for the other kinds. */
+  options: z.array(z.string()),
+});
+export type WorkflowInput = z.infer<typeof workflowInputSchema>;
+
+/** A Workflow that can be started by hand on a branch or tag, as its file there declares it. */
+export const manualWorkflowSchema = z.object({
+  /** Its file's name, such as release.yml. */
+  id: z.string().min(1),
+  name: z.string(),
+  /** Its page on the code host. */
+  url: z.url(),
+  inputs: z.array(workflowInputSchema),
+});
+export type ManualWorkflow = z.infer<typeof manualWorkflowSchema>;
+
+/** `GET /projects/:projectId/workflows?ref=`: the branch or tag; the Project's base branch when left out. */
+export const manualWorkflowListQuerySchema = z.object({ ref: z.string().min(1).optional() });
+export type ManualWorkflowListQuery = z.infer<typeof manualWorkflowListQuerySchema>;
+
+/**
+ * `GET /projects/:projectId/workflows?ref=`: the Workflows that can be started by hand on the ref,
+ * and why none could be listed, in plain words; null when they were.
+ */
+export const manualWorkflowListSchema = z.object({
+  ref: z.string(),
+  workflows: z.array(manualWorkflowSchema),
+  problem: z.string().nullable(),
+});
+export type ManualWorkflowList = z.infer<typeof manualWorkflowListSchema>;
+
+/**
+ * `GET /projects/:projectId/refs`: the repository's branches and tags, the Project's base branch,
+ * and why they couldn't be listed, in plain words; null when they were.
+ */
+export const refListSchema = z.object({
+  branches: z.array(z.string()),
+  tags: z.array(z.string()),
+  baseBranch: z.string(),
+  problem: z.string().nullable(),
+});
+export type RefList = z.infer<typeof refListSchema>;
+
+/** What a start by hand asked the code host for. */
+export const workflowStartSchema = z.object({
+  projectId: z.string().min(1),
+  workflow: z.string().min(1),
+  ref: z.string().min(1),
+});
+export type WorkflowStart = z.infer<typeof workflowStartSchema>;
+
+/** Office action: a Workflow that declares a start by hand starts on a branch or tag. */
+export const START_WORKFLOW_ACTION = officeAction({
+  name: "start_workflow",
+  record: "project",
+  description:
+    "Starts a Project's Workflow by hand on a branch or tag of its repository, with the inputs the Workflow's file declares there. Refused when the file there doesn't declare a start by hand, when an input isn't declared, a required one has no value, a choice is outside its options, a yes-no isn't true or false or a number isn't a number, and when the code host refuses, such as without permission to write Actions.",
+  input: z.object({
+    projectId: z.string().min(1).describe("The id of the Project."),
+    workflow: z
+      .string()
+      .min(1)
+      .describe("The Workflow's file name, such as release.yml, as Work › CI lists it."),
+    ref: z.string().min(1).describe("The branch or tag to start it on, such as main or v1.2.0."),
+    inputs: z
+      .record(z.string(), z.string())
+      .default({})
+      .describe(
+        "The Workflow's inputs by name, each as text: true or false for a yes-no. Left-out inputs take their defaults.",
+      ),
+  }),
+  answer: workflowStartSchema,
+  route: { method: "POST", path: "/projects/:projectId/workflows/:workflow/start" },
+  duties: ["onboards-projects"],
+});
+
 /** Projects' Office actions, each declared above. */
-export const PROJECT_OFFICE_ACTIONS = [RERUN_CI_RUN_ACTION] as const;
+export const PROJECT_OFFICE_ACTIONS = [RERUN_CI_RUN_ACTION, START_WORKFLOW_ACTION] as const;
 
 /** A Project's CI runs changed, so an open CI page refetches them. */
 export const ciRunWebEventSchema = z.discriminatedUnion("type", [

@@ -7,6 +7,7 @@ export {
 export {
   GitHubPullRequests,
   type CiRunOnGitHub,
+  type ManualWorkflowOnGitHub,
   type MergedOnGitHub,
   type MergeMethodsOnGitHub,
   type MergeOnGitHub,
@@ -14,7 +15,10 @@ export {
   type OpenPullRequestOnGitHub,
   type PullRequestOnRemote,
   type PullRequestStatusOnGitHub,
+  type RefsOfRepositoryOnGitHub,
+  type WorkflowStartOnGitHub,
 } from "./application/github-pull-requests.js";
+export type { DispatchInput, DispatchInputType } from "./domain/workflow-dispatch.js";
 export type { GitHubCiRunStatus } from "./domain/ci-run-status.js";
 export type {
   GitHubChecks,

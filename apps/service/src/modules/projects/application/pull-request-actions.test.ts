@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
+import type { ManualWorkflow } from "../domain/manual-workflow.js";
 import { MERGE_METHODS, type MergeMethod } from "../domain/merge-method.js";
 import {
   openedPullRequest,
@@ -21,6 +22,7 @@ import {
   type MergeRequest,
   type OpenedPullRequest,
   type PullRequestOnHost,
+  type RefsOnHost,
 } from "../ports/code-host.js";
 import { PullRequestRepositoryForTests } from "../ports/pull-request-repository.fixtures.js";
 import { CodeHosts } from "./code-hosts.js";
@@ -72,6 +74,15 @@ class MergingCodeHost extends CodeHost {
   }
   rerun(): Promise<void> {
     return Promise.reject(new Error("Not re-run here."));
+  }
+  manualWorkflows(): Promise<readonly ManualWorkflow[]> {
+    return Promise.resolve([]);
+  }
+  refs(): Promise<RefsOnHost> {
+    return Promise.resolve({ branches: [], tags: [] });
+  }
+  startWorkflow(): Promise<void> {
+    return Promise.reject(new Error("Not started here."));
   }
 }
 

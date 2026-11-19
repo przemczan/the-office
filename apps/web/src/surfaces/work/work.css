@@ -3408,6 +3408,13 @@
   gap: var(--space-2);
 }
 
+.ci-runs-head-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* ---- Archived: Tasks or Initiatives */
 .archived-page,
 .archived-initiatives {

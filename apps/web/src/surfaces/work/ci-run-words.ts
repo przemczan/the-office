@@ -66,3 +66,56 @@ export function problemWords(problem: CiRunProblem): string {
   if (problem.kind === "cannot-read") return problem.text;
   return `${problem.codeHost} couldn't be reached at ${clockOf(problem.failedAt)}.`;
 }
+
+export const START_A_WORKFLOW = "Start a workflow";
+export const START_A_WORKFLOW_HINT =
+  "Starts a GitHub Actions workflow whose file declares workflow_dispatch, on a branch or tag.";
+export const START = "Start";
+export const START_REFUSED = "The workflow wasn't started";
+
+export const PROJECT_LABEL = "Project";
+export const CHOOSE_PROJECT = "Choose a Project";
+export const NO_PROJECT_TO_START_IN =
+  "No Project lists CI runs yet. A Project whose repository is on GitHub shows here.";
+
+export const REF_LABEL = "Branch or tag";
+export const REF_HINT = "The workflow runs on this ref, with its file as it is there.";
+export const REF_PLACEHOLDER = "Find a branch or tag";
+export const CLEAR_REF = "Clear the branch or tag";
+export const NO_REF_MATCHES = "No branch or tag matches";
+
+export const WORKFLOW_LABEL = "Workflow";
+export const CHOOSE_WORKFLOW = "Choose a workflow";
+export const CHOOSE_OPTION = "Choose one";
+export const LOADING_WORKFLOWS = "Reading the workflows…";
+
+/** A tag in the branch or tag list: "v1.2.0 (tag)". */
+export function tagLabel(tag: string): string {
+  return `${tag} (tag)`;
+}
+
+/** The workflow list's empty state on a ref. */
+export function noWorkflowOn(ref: string): string {
+  return `No workflow on ${ref} can be started by hand. A workflow can once its file there declares workflow_dispatch.`;
+}
+
+/** Why Start can't be pressed yet; undefined once it can. */
+export function whyStartDisabled({
+  ref,
+  workflowChosen,
+  missing,
+}: {
+  readonly ref: string;
+  readonly workflowChosen: boolean;
+  readonly missing: readonly string[];
+}): string | undefined {
+  if (ref === "") return "Choose a branch or tag first.";
+  if (!workflowChosen) return "Choose a workflow first.";
+  if (missing.length > 0) return `Give ${missing.join(", ")} a value first.`;
+  return undefined;
+}
+
+/** The toast once the code host took the start. */
+export function startedToast(workflowName: string, ref: string): string {
+  return `${workflowName} started on ${ref}. Its run shows here once GitHub queues it.`;
+}

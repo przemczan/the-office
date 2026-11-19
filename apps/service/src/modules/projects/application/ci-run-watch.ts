@@ -16,6 +16,11 @@ export const CI_RUN_WATCH_EVERY = 15_000;
 export const IDLE_CI_RUNS_EVERY = 60_000;
 /** A refresh asked sooner than this after the last one, for the same Project or all, asks nothing. */
 export const CI_REFRESH_AT_MOST_EVERY = 10_000;
+/**
+ * How long after a start by hand its Project is listed every round, as the start answers with no
+ * run to watch: its run shows within a round of the host listing it.
+ */
+export const EXPECTED_RUN_WITHIN = 60_000;
 /** How many of a Project's newest runs are listed. */
 export const CI_RUNS_LISTED = 30;
 
@@ -66,7 +71,8 @@ interface Listing {
 /**
  * Keeps each Project's recent CI runs in memory, read from the code host that holds its base
  * branch's remote: every `CI_RUN_WATCH_EVERY` a round lists again each Project with a run going,
- * each listed `IDLE_CI_RUNS_EVERY` ago or more, and each a refresh or a re-run asked for. No table
+ * each listed `IDLE_CI_RUNS_EVERY` ago or more, each a refresh or a re-run asked for, and each
+ * expecting a run started by hand for `EXPECTED_RUN_WITHIN`. No table
  * keeps them: after a restart the first round lists them all. Without a sign-in valid now the
  * runs only go stale; a host failure keeps the last runs, stale, and holds the problem in plain
  * words. `CiRunsChecked` is published only when the runs, their staleness or a problem changed.
@@ -80,6 +86,8 @@ export class CiRunWatch implements OnApplicationBootstrap {
   private askedAll = false;
   /** When a refresh was last asked, by Project id, or "" for one of all of them. */
   private readonly refreshedAt = new Map<string, number>();
+  /** Until when each Project expecting a run started by hand is listed every round. */
+  private readonly expecting = new Map<string, number>();
   private running: Promise<void> | undefined;
 
   constructor(
@@ -144,6 +152,16 @@ export class CiRunWatch implements OnApplicationBootstrap {
     return this.check();
   }
 
+  /**
+   * Lists the Project now, as `refresh` with `force` does, then every round for
+   * `EXPECTED_RUN_WITHIN`, so a run started by hand shows soon after the host lists it. Asked
+   * again, the window starts again.
+   */
+  expectRun(projectId: string): Promise<void> {
+    this.expecting.set(projectId, this.schedule.now().getTime() + EXPECTED_RUN_WITHIN);
+    return this.refresh(projectId, { force: true });
+  }
+
   /** A round, or the one under way: never two at once. */
   check(): Promise<void> {
     this.running ??= this.round().finally(() => {
@@ -181,8 +199,13 @@ export class CiRunWatch implements OnApplicationBootstrap {
     if (changed.length > 0) await this.events.publish(new CiRunsChecked(changed, at));
   }
 
-  /** Never listed, a run going, or idle for `IDLE_CI_RUNS_EVERY`. */
+  /** Never listed, expecting a run, a run going, or idle for `IDLE_CI_RUNS_EVERY`. */
   private isDue(projectId: string, at: Date): boolean {
+    const until = this.expecting.get(projectId);
+    if (until !== undefined) {
+      if (at.getTime() <= until) return true;
+      this.expecting.delete(projectId);
+    }
     const listing = this.listings.get(projectId);
     if (listing === undefined) return true;
     if (listing.runs.some(isGoing)) return true;
@@ -252,6 +275,9 @@ export class CiRunWatch implements OnApplicationBootstrap {
     const ids = new Set(projects.map((project) => project.id));
     for (const projectId of this.listings.keys()) {
       if (!ids.has(projectId)) this.listings.delete(projectId);
+    }
+    for (const projectId of this.expecting.keys()) {
+      if (!ids.has(projectId)) this.expecting.delete(projectId);
     }
   }
 

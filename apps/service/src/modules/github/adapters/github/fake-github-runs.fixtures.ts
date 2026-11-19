@@ -129,6 +129,21 @@ export class FakeWorkflowRuns {
     if (changes.updatedAt !== undefined) run.updatedAt = changes.updatedAt;
   }
 
+  /** The run a `workflow_dispatch` queues on `branch`, with an id no other run has. */
+  queueDispatched(repository: string, name: string, branch: string): void {
+    const ids = [...this.runs.values()].flat().map((run) => run.id);
+    this.addRun(repository, {
+      id: Math.max(0, ...ids) + 1,
+      name,
+      event: "workflow_dispatch",
+      status: "queued",
+      conclusion: null,
+      headBranch: branch,
+      startedAt: null,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   /** Applies a control posted to `/_fake/runs`. */
   control(control: RunControl): void {
     if (control.action === "addRun") this.addRun(control.repository, control.run);

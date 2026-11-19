@@ -15,8 +15,11 @@ import {
 } from "@the-office/contracts";
 import { E2E_STORAGE_STATE, NOT_SIGNED_IN } from "./e2e-user.ts";
 import {
+  addRef,
   addRun,
+  addWorkflow,
   controlPullRequest,
+  dispatches,
   FAKE_GITHUB_API_URL,
   FAKE_GITHUB_URL,
   grantPermissions,
@@ -25,7 +28,7 @@ import {
 import { serveRepository } from "./git-host.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
 import { E2E_HOST_KEY_FINGERPRINT } from "./ssh-host.ts";
-import { screenshotScenario } from "./task-screenshots.ts";
+import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 import {
   createTemporaryRepository,
   createTemporaryRepositoryWithRemote,
@@ -33,6 +36,29 @@ import {
 } from "./temporary-repository.ts";
 
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
+
+/** A workflow started by hand with a yes-no and a required choice, as GitHub's docs show one. */
+const RELEASE_YAML = `name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only show what it would publish
+        type: boolean
+        default: false
+      channel:
+        description: Where the release goes
+        type: choice
+        required: true
+        options:
+          - beta
+          - stable
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo releasing
+`;
 
 /** Add a Project open on step 1 From GitHub. */
 async function openFromGitHub(page: Page): Promise<Locator> {
@@ -589,6 +615,66 @@ test.describe.serial("Sign in with GitHub", () => {
       await expect(row).toContainText("Queued", { timeout: 15_000 });
       await expect(row).toContainText("attempt 2");
       await expect(row.getByRole("button", { name: /^More for/ })).toHaveCount(0);
+    } finally {
+      await repository.remove();
+    }
+  });
+
+  // Needs the sign-in (the service reads the workflow files and starts one with its token) and the
+  // Actions permission to write, so it lives here, between signing in and out.
+  test("Work › CI starts a workflow by hand on a tag with its inputs, and its run shows queued", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepositoryWithRemote();
+    const fullName = `office-user/release-by-hand-${Date.now()}`;
+    try {
+      await installApp("office-user", [{ fullName }]);
+      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      const project = await addProjectOnGitHub(page, repository, fullName, "Release by hand");
+      await addWorkflow(fullName, { file: "release.yml", name: "Release", yaml: RELEASE_YAML });
+      await addRef(fullName, { tag: "v1.2.0" });
+
+      await page.goto("/work/ci");
+      await page.getByRole("button", { name: "Start a workflow" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Project", { exact: true }).selectOption({ label: project.name });
+      const ref = dialog.getByRole("combobox", { name: "Branch or tag" });
+      await expect(ref).toHaveValue("main");
+      await ref.fill("v1.2");
+      await page.getByRole("option", { name: "v1.2.0 (tag)" }).click();
+      await expect(ref).toHaveValue("v1.2.0 (tag)");
+      await dialog.getByLabel("Workflow", { exact: true }).selectOption({ label: "Release" });
+
+      const start = dialog.getByRole("button", { name: "Start", exact: true });
+      await expect(dialog).toContainText("Where the release goes");
+      await expect(start).toBeDisabled();
+      await dialog.getByLabel("channel").selectOption("stable");
+      const dryRun = dialog.getByRole("switch");
+      await expect(dryRun).toHaveAttribute("aria-checked", "false");
+      await dryRun.click();
+      await expect(dryRun).toHaveAttribute("aria-checked", "true");
+      await expect(start).toBeEnabled();
+      await screenshotScenario(page, "start-workflow-dialog", { inView: dialog });
+      await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "start-workflow-dialog.png") });
+
+      await start.click();
+      await expect(dialog).toBeHidden();
+      await expect(page.getByText("Release started on v1.2.0.")).toBeVisible();
+      // The start lists the Project at once, and the fake queues a run on the tag.
+      const row = page
+        .getByRole("row")
+        .filter({ hasText: project.name })
+        .filter({ hasText: "v1.2.0" });
+      await expect(row).toContainText("Queued", { timeout: 15_000 });
+      await expect(row).toContainText("Release #");
+      expect((await dispatches()).filter((each) => each.repository === fullName)).toEqual([
+        {
+          repository: fullName,
+          file: "release.yml",
+          ref: "v1.2.0",
+          inputs: { channel: "stable", dry_run: "true" },
+        },
+      ]);
     } finally {
       await repository.remove();
     }

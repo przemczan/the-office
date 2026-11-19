@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   PROJECT_OFFICE_ACTIONS,
   RERUN_CI_RUN_ACTION,
+  START_WORKFLOW_ACTION,
   type OfficeAction,
 } from "@the-office/contracts";
 import type { z } from "zod";
@@ -12,6 +13,7 @@ import {
 } from "../../../engine/index.js";
 import { CiRunWatch } from "../../application/ci-run-watch.js";
 import { ensureRerunnable, type CiRunJobs } from "../../domain/ci-run.js";
+import { inputsToSend, type ManualWorkflow } from "../../domain/manual-workflow.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
@@ -46,6 +48,13 @@ interface Rerun {
   readonly jobs: CiRunJobs;
 }
 
+/** A Workflow started by hand, as the start answers it. */
+interface WorkflowStarted {
+  readonly project: Project;
+  readonly workflow: ManualWorkflow;
+  readonly ref: string;
+}
+
 /**
  * Projects' Office actions (the Office action convention): the one handler of each action Projects
  * declares, which its route (`ProjectOfficeActionsController`) and its Office tool, registered
@@ -61,7 +70,9 @@ export class ProjectOfficeActions implements OnModuleInit {
     private readonly projects: ProjectRepository,
     private readonly ciRuns: CiRunWatch,
   ) {
-    this.handlers = new Map([this.rerunCiRun()].map((each) => [each.action.name, each]));
+    this.handlers = new Map(
+      [this.rerunCiRun(), this.startWorkflow()].map((each) => [each.action.name, each]),
+    );
     const unhandled = PROJECT_OFFICE_ACTIONS.filter(({ name }) => !this.handlers.has(name));
     if (unhandled.length > 0) {
       throw new Error(`No handler carries out ${unhandled.map(({ name }) => name).join(", ")}.`);
@@ -93,6 +104,65 @@ export class ProjectOfficeActions implements OnModuleInit {
       words: ({ project, run, jobs }) =>
         `CI run ${run.workflow} #${run.number} of "${project.name}" runs again, ${jobs === "all" ? "all its jobs" : "only its failed jobs"}.`,
     });
+  }
+
+  private startWorkflow(): AnyProjectActionHandler {
+    return handler({
+      action: START_WORKFLOW_ACTION,
+      handle: ({ projectId, workflow, ref, inputs }) =>
+        this.start(projectId, workflow, ref, inputs),
+      response: ({ project, workflow, ref }: WorkflowStarted) => ({
+        projectId: project.id,
+        workflow: workflow.id,
+        ref,
+      }),
+      words: ({ project, workflow, ref }) =>
+        `Workflow ${workflow.name} (${workflow.id}) of "${project.name}" starts on ${ref}; its run shows in Work › CI once the code host lists it.`,
+    });
+  }
+
+  /**
+   * Starts a Workflow by hand on the Project's code host, with the inputs its file declares at
+   * `ref`, defaults filling the rest, then lists the Project's runs every round for a while, as the
+   * host answers the start with no run.
+   */
+  private async start(
+    projectId: string,
+    workflowId: string,
+    ref: string,
+    given: Readonly<Record<string, string>>,
+  ): Promise<WorkflowStarted> {
+    const project = await this.projects.find(projectId);
+    if (project === undefined) throw new ProjectNotFound(projectId);
+    const onHost = await this.ciRuns.onHost(project);
+    if (onHost === undefined) {
+      throw new ProjectRefused([
+        `"${project.name}" has no Workflow to start: its base branch tracks no remote on a code host The Office knows.`,
+      ]);
+    }
+    const { remoteUrl, host } = onHost;
+    try {
+      const workflow = (await host.manualWorkflows(remoteUrl, ref)).find(
+        (each) => each.id === workflowId,
+      );
+      if (workflow === undefined) {
+        throw new ProjectRefused([
+          `${workflowId} can't be started by hand on ${ref}: it has no workflow_dispatch there.`,
+        ]);
+      }
+      const inputs = inputsToSend(workflow, given);
+      await host.startWorkflow(remoteUrl, { workflowId: workflow.id, ref, inputs });
+      // Its listing failing fails no start: the run goes all the same, and a later round lists it.
+      await this.ciRuns.expectRun(project.id).catch((error: unknown) => {
+        this.logger.warn(
+          `Listing the CI runs of ${project.name} after a start by hand failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+      return { project, workflow, ref };
+    } catch (error) {
+      if (error instanceof CodeHostRefused) throw new ProjectRefused([error.message]);
+      throw error;
+    }
   }
 
   /**

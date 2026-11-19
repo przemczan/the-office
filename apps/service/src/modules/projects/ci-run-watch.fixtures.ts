@@ -24,6 +24,7 @@ import { ProjectOfficeActionsController } from "./adapters/http/project-office-a
 import { ProjectOfficeActions } from "./adapters/office-actions/project-office-actions.js";
 import { CI_RUN_WATCH, CiRunWatch } from "./application/ci-run-watch.js";
 import { CodeHosts } from "./application/code-hosts.js";
+import { ManualWorkflows } from "./application/manual-workflows.js";
 import { aProject } from "./domain/project.fixtures.js";
 import type { Project } from "./domain/project.js";
 import { Git } from "./ports/git.js";
@@ -33,9 +34,9 @@ import { OwnProjects, REPOSITORY, type SignedInGitHub } from "./pull-request-wat
 export { REPOSITORY } from "./pull-request-watch.fixtures.js";
 
 /**
- * The CI run watch, its routes and the re-run's Office action on a fake GitHub, signed in, over the
- * test's own Projects, each with a base branch tracking `REPOSITORY` there. The watch runs only when
- * a test runs it.
+ * The CI run watch, its routes, the Workflows started by hand and Projects' Office actions on a
+ * fake GitHub, signed in, over the test's own Projects, each with a base branch tracking
+ * `REPOSITORY` there. The watch runs only when a test runs it.
  */
 export class CiRunTestbed {
   private constructor(
@@ -75,6 +76,7 @@ export class CiRunTestbed {
           useFactory: (gitHub: GitHubCodeHost) => new CodeHosts([gitHub]),
         },
         CiRunWatch,
+        ManualWorkflows,
         OfficeToolRegistry,
         ProjectOfficeActions,
       ],

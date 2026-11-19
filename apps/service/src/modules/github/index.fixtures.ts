@@ -3,6 +3,7 @@ export {
   FAKE_PERMISSIONS_CONTROL_PATH,
   FAKE_PULL_REQUESTS_CONTROL_PATH,
   FAKE_RUNS_CONTROL_PATH,
+  FAKE_WORKFLOWS_CONTROL_PATH,
   FAKE_TOKEN_PREFIXES,
   FakeGitHub,
   type FakeGitHubApp,
@@ -28,5 +29,11 @@ export {
   type FakeWorkflowRunChanges,
   type RunControl,
 } from "./adapters/github/fake-github-runs.fixtures.js";
+export {
+  type FakeDispatch,
+  type FakeRef,
+  type FakeWorkflow,
+  type WorkflowControl,
+} from "./adapters/github/fake-github-workflows.fixtures.js";
 export { registeredGitHubAppForTests } from "./ports/github-app-repository.fixtures.js";
 export { signedInWithGitHubForTests } from "./ports/github-sign-in-repository.fixtures.js";

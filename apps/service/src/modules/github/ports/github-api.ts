@@ -8,6 +8,7 @@ import type {
 import type { PullRequestToOpen, RepositoryOnGitHub } from "../domain/pull-request.js";
 import type { ChecksOnGitHub } from "../domain/pull-request-status.js";
 import type { UserTokens } from "../domain/sign-in.js";
+import type { DispatchInput } from "../domain/workflow-dispatch.js";
 
 /** A sign-in's code GitHub sent the browser back with, and what proves The Office asked for it. */
 export interface SignInCode {
@@ -163,6 +164,57 @@ export abstract class GitHubApi {
     runId: number,
     onlyFailed: boolean,
   ): Promise<void>;
+
+  /**
+   * The repository's active workflows under `.github/workflows/` whose file at `ref` declares
+   * `workflow_dispatch`, with its inputs; a workflow whose file isn't there is left out. Every GET
+   * is conditional. Throws `GitHubApiFailure` when GitHub refuses (403, 404) or fails.
+   */
+  abstract workflowsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    ref: string,
+  ): Promise<readonly DispatchableWorkflowOnGitHub[]>;
+
+  /**
+   * The repository's branches and tags, every page, at most 1,000 of each. Throws
+   * `GitHubApiFailure` when GitHub refuses (403, 404) or fails.
+   */
+  abstract refsOf(accessToken: string, repository: RepositoryOnGitHub): Promise<RefsOnGitHub>;
+
+  /**
+   * Starts workflow `file` on `ref` with the inputs as strings. Throws `GitHubApiFailure`, quoting
+   * GitHub's message, when GitHub refuses (403, 404, 422).
+   */
+  abstract dispatchWorkflow(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    dispatch: WorkflowDispatch,
+  ): Promise<void>;
+}
+
+/** A workflow whose file declares `workflow_dispatch` at a ref, as GitHub lists it. */
+export interface DispatchableWorkflowOnGitHub {
+  /** Its file's name, such as release.yml. */
+  readonly file: string;
+  readonly name: string;
+  /** Its page on GitHub. */
+  readonly url: string;
+  readonly inputs: readonly DispatchInput[];
+}
+
+/** The branches and tags of a repository on GitHub, by name. */
+export interface RefsOnGitHub {
+  readonly branches: readonly string[];
+  readonly tags: readonly string[];
+}
+
+/** A `workflow_dispatch` as GitHub is asked for it. */
+export interface WorkflowDispatch {
+  /** The workflow's file name. */
+  readonly file: string;
+  readonly ref: string;
+  readonly inputs: Readonly<Record<string, string>>;
 }
 
 /** A GitHub Actions run as GitHub lists it (docs.github.com/rest/actions/workflow-runs). */

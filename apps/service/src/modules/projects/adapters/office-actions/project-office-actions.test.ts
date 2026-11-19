@@ -1,5 +1,11 @@
-import { ciRunRerunSchema, projectRefusalSchema, RERUN_CI_RUN_ACTION } from "@the-office/contracts";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  ciRunRerunSchema,
+  projectRefusalSchema,
+  RERUN_CI_RUN_ACTION,
+  START_WORKFLOW_ACTION,
+  workflowStartSchema,
+} from "@the-office/contracts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { FOLLOW_YOUR_AUTHORITY, OfficeToolRegistry } from "../../../engine/index.js";
 import { FakeGitHub, signedInWithGitHubForTests } from "../../../github/index.fixtures.js";
@@ -8,6 +14,24 @@ import type { Project } from "../../domain/project.js";
 import { REAL_GIT_TEST } from "../git/temporary-repository.fixtures.js";
 
 const FAILED_RUN = 4242;
+
+/** A release workflow started by hand, declaring a start by hand on main and v1.2.0 alike. */
+const RELEASE_YAML = `
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        type: choice
+        required: true
+        options: [beta, stable]
+      dry-run:
+        type: boolean
+        default: false
+      notes:
+        type: string
+jobs: {}
+`;
 
 let github: FakeGitHub;
 let testbed: CiRunTestbed;
@@ -44,6 +68,14 @@ function rerun(runId: number, jobs: "all" | "failed"): Promise<Response> {
   });
 }
 
+function start(workflow: string, ref: string, inputs: Record<string, string>): Promise<Response> {
+  return fetch(`${testbed.url}/api/projects/${project.id}/workflows/${workflow}/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ref, inputs }),
+  });
+}
+
 async function refusalOf(response: Response): Promise<readonly string[]> {
   expect(response.status).toBe(422);
   return projectRefusalSchema.parse(await response.json()).reasons;
@@ -53,7 +85,10 @@ describe("the rerun_ci_run Office tool", REAL_GIT_TEST, () => {
   it("is registered, covered by onboarding Projects, and says the Role's authority gates it", () => {
     const registry = testbed.app.get(OfficeToolRegistry);
 
-    expect(registry.coveredBy(["onboards-projects"])).toEqual([RERUN_CI_RUN_ACTION.name]);
+    expect(registry.coveredBy(["onboards-projects"])).toEqual([
+      RERUN_CI_RUN_ACTION.name,
+      START_WORKFLOW_ACTION.name,
+    ]);
     expect(registry.named([RERUN_CI_RUN_ACTION.name])).toEqual([
       expect.objectContaining({
         description: `${RERUN_CI_RUN_ACTION.description} ${FOLLOW_YOUR_AUTHORITY}`,
@@ -126,5 +161,96 @@ describe("rerun_ci_run", REAL_GIT_TEST, () => {
     expect(testbed.watch.list(project.id).runs).toContainEqual(
       expect.objectContaining({ id: FAILED_RUN, status: "failed", attempt: 1 }),
     );
+  });
+});
+
+describe("start_workflow", REAL_GIT_TEST, () => {
+  beforeEach(() => {
+    github.workflows.addWorkflow(REPOSITORY, {
+      file: "release.yml",
+      name: "Release",
+      yaml: RELEASE_YAML,
+    });
+    github.workflows.addWorkflow(REPOSITORY, {
+      file: "ci.yml",
+      name: "CI",
+      yaml: { main: "on: push\njobs: {}\n", "v1.2.0": RELEASE_YAML },
+    });
+    github.workflows.addRef(REPOSITORY, { tag: "v1.2.0" });
+  });
+
+  it("starts the Workflow on GitHub with its inputs as text and their defaults, then lists the run it queued", async () => {
+    github.installations.grant("office", { actions: "write" });
+    const expectRun = vi.spyOn(testbed.watch, "expectRun");
+
+    const response = await start("release.yml", "v1.2.0", { channel: "beta" });
+
+    expect(response.status).toBe(200);
+    expect(workflowStartSchema.parse(await response.json())).toEqual({
+      projectId: project.id,
+      workflow: "release.yml",
+      ref: "v1.2.0",
+    });
+    expect(github.workflows.dispatches()).toEqual([
+      {
+        repository: REPOSITORY,
+        file: "release.yml",
+        ref: "v1.2.0",
+        inputs: { channel: "beta", "dry-run": "false" },
+      },
+    ]);
+    expect(expectRun).toHaveBeenCalledWith(project.id);
+    expect(testbed.watch.list(project.id).runs).toContainEqual(
+      expect.objectContaining({ workflow: "Release", branch: "v1.2.0", status: "queued" }),
+    );
+  });
+
+  it("answers the Agent in plain words", async () => {
+    github.installations.grant("office", { actions: "write" });
+
+    const answer = await testbed.tool(START_WORKFLOW_ACTION.name).run(
+      {
+        projectId: project.id,
+        workflow: "release.yml",
+        ref: "main",
+        inputs: { channel: "stable" },
+      },
+      anOfficeToolCall("s-1"),
+    );
+
+    expect(answer).toEqual({
+      isError: false,
+      text: `Workflow Release (release.yml) of "${project.name}" starts on main; its run shows in Work › CI once the code host lists it.`,
+    });
+  });
+
+  it("refuses an input the Workflow doesn't declare, asking GitHub to start nothing", async () => {
+    github.installations.grant("office", { actions: "write" });
+
+    const reasons = await refusalOf(
+      await start("release.yml", "main", { channel: "beta", flavour: "mint" }),
+    );
+
+    expect(reasons).toEqual(["release.yml has no input named flavour."]);
+    expect(github.workflows.dispatches()).toEqual([]);
+  });
+
+  it("refuses a Workflow that can't be started by hand at the ref", async () => {
+    github.installations.grant("office", { actions: "write" });
+
+    const reasons = await refusalOf(await start("ci.yml", "main", {}));
+
+    expect(reasons).toEqual([
+      "ci.yml can't be started by hand on main: it has no workflow_dispatch there.",
+    ]);
+    expect(github.workflows.dispatches()).toEqual([]);
+  });
+
+  it("refuses in GitHub's plain words when the App can't write Actions", async () => {
+    const reasons = await refusalOf(await start("ci.yml", "v1.2.0", { channel: "beta" }));
+
+    expect(reasons).toEqual([
+      `GitHub refused to start ci.yml on v1.2.0 in ${REPOSITORY} (HTTP 403): Resource not accessible by integration`,
+    ]);
   });
 });

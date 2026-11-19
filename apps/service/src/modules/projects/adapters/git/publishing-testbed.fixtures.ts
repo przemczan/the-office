@@ -16,6 +16,7 @@ import { ShellCommandRunner } from "../shell/shell-command-runner.js";
 import type { Project, PublishingMode } from "../../domain/project.js";
 import { aProject } from "../../domain/project.fixtures.js";
 import type { CommitMessage } from "../../domain/publication.js";
+import type { ManualWorkflow } from "../../domain/manual-workflow.js";
 import type { PullRequestStatus } from "../../domain/pull-request.js";
 import {
   CodeHost,
@@ -26,6 +27,7 @@ import {
   type OpenedPullRequest,
   type PullRequestOnHost,
   type PullRequestRequest,
+  type RefsOnHost,
 } from "../../ports/code-host.js";
 import { PullRequestRepositoryForTests } from "../../ports/pull-request-repository.fixtures.js";
 import { CodeHosts } from "../../application/code-hosts.js";
@@ -93,6 +95,18 @@ export class CodeHostForTests extends CodeHost {
 
   rerun(): Promise<void> {
     return Promise.reject(new CodeHostRefused("Publishing re-runs no CI run."));
+  }
+
+  manualWorkflows(): Promise<readonly ManualWorkflow[]> {
+    return Promise.resolve([]);
+  }
+
+  refs(): Promise<RefsOnHost> {
+    return Promise.resolve({ branches: [], tags: [] });
+  }
+
+  startWorkflow(): Promise<void> {
+    return Promise.reject(new CodeHostRefused("Publishing starts no Workflow."));
   }
 
   mergeMethods(): Promise<MergeMethodsOnHost> {

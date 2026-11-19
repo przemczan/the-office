@@ -184,3 +184,48 @@ describe("merging and closing a pull request on GitHub", () => {
     );
   });
 });
+
+describe("starting GitHub Actions workflows by hand", () => {
+  it("leaves out a workflow whose file isn't at the ref", async () => {
+    signIn();
+    github.workflows.addRef("office/tools", { branch: "office/task-1" });
+    github.workflows.addWorkflow("office/tools", {
+      file: "release.yml",
+      yaml: { main: "on: workflow_dispatch\n" },
+    });
+    github.workflows.addWorkflow("office/tools", {
+      file: "deploy.yml",
+      yaml: "on: workflow_dispatch\n",
+    });
+
+    await expect(pullRequests.manualWorkflows(remoteUrl(), "office/task-1")).resolves.toMatchObject(
+      [{ file: "deploy.yml" }],
+    );
+    expect(
+      github.requestsTo("/api/v3/repos/office/tools/contents/.github/workflows/release.yml")[0]
+        ?.search,
+    ).toBe("?ref=office%2Ftask-1");
+  });
+
+  it("reads every page of the branches", async () => {
+    signIn();
+    for (let number = 1; number <= 150; number++) {
+      github.workflows.addRef("office/tools", { branch: `office/task-${number}` });
+    }
+
+    const { branches, tags } = await pullRequests.refs(remoteUrl());
+
+    expect(branches).toHaveLength(151);
+    expect(branches.at(-1)).toBe("office/task-150");
+    expect(tags).toEqual([]);
+    expect(github.requestsTo("/api/v3/repos/office/tools/branches")).toHaveLength(2);
+  });
+
+  it("refuses to list the workflows of a repository GitHub hides", async () => {
+    signIn();
+
+    await expect(
+      pullRequests.manualWorkflows(`${github.urls.web}/other/repo.git`, "main"),
+    ).rejects.toThrow(GitHubAccessFailed);
+  });
+});

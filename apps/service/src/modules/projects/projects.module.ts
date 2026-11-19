@@ -43,6 +43,7 @@ import { BaseBranchFiles } from "./application/base-branch-files.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
 import { CiRunWatch } from "./application/ci-run-watch.js";
 import { CodeHosts } from "./application/code-hosts.js";
+import { ManualWorkflows } from "./application/manual-workflows.js";
 import { ProjectRecords } from "./application/project-records.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
@@ -146,6 +147,7 @@ export class ProjectsModule implements NestModule {
         },
         PullRequestWatch,
         CiRunWatch,
+        ManualWorkflows,
         PullRequestActions,
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,

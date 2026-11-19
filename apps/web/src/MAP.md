@@ -54,7 +54,7 @@
 
 - `api-client.ts`: ApiError, SignedOut, RefusedAs, shouldRetry, getFromApi, sendToApi, deleteFromApiReturning, callOfficeAction, sendFileToApi, sendToApiWithNoAnswer, sendToApiRefusedAs, sendToApiWithNoAnswerRefusedAs, deleteFromApi
 - `attachment-copies.ts`: AttachmentCopies, attachmentCopiesOf
-- `ci-runs.ts`: ciRunQueries, refreshCiRuns, rerunCiRun, ciRunEventInvalidations
+- `ci-runs.ts`: ciRunQueries, refreshCiRuns, rerunCiRun, startWorkflow, ciRunEventInvalidations
 - `conversations.ts`: threadQueries, readSubAgentMessages, readProcessOutput, sizeThresholdQuery, changeSizeThreshold, officeInstructionsQuery, changeOfficeInstructions, decisionQueries, proposalQueries, applyProposal, declineProposal, fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack, startChatThread, openPersonsThread, sendMessage, uploadMessageImage, renameThread, chooseContextOverride, allowChanges, markThreadSeen, switchChangesOff, answerDecision, threadEventInvalidations, threadEventCacheUpdates, homeThreadsKey
 - `engine.ts`: engineSettingsQuery, changeEngineSettings, engineRemovalQuery, removeEngine, engineAccountQuery, startEngineSignIn, enterEngineSignInCode, pasteEngineToken, setEngineApiKey, signOutOfEngine, useEngineAccountChanged, engineEventInvalidations
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, ThreadEvents, ThreadEventsContext, EventStreamProvider, useOfficeEvent, useThreadEvents, useConnectedEventStream, useEventStreamStatus

@@ -317,6 +317,188 @@ describe("GitHub Actions runs", () => {
   });
 });
 
+describe("starting GitHub Actions workflows by hand", () => {
+  const RELEASE = [
+    "on:",
+    "  workflow_dispatch:",
+    "    inputs:",
+    "      version:",
+    "        required: true",
+    "      dry-run:",
+    "        type: boolean",
+    "        default: false",
+  ].join("\n");
+
+  it("lists the active workflows under .github/workflows whose file declares the trigger", async () => {
+    signIn();
+    github.workflows.addWorkflow("office/tools", {
+      file: "release.yml",
+      name: "Release",
+      yaml: RELEASE,
+    });
+    github.workflows.addWorkflow("office/tools", {
+      file: "ci.yml",
+      name: "CI",
+      yaml: "on: push\n",
+    });
+    github.workflows.addWorkflow("office/tools", {
+      file: "old.yml",
+      yaml: "on: workflow_dispatch\n",
+      state: "disabled_manually",
+    });
+    github.workflows.addWorkflow("office/tools", {
+      file: "dependabot-updates",
+      yaml: "on: workflow_dispatch\n",
+      path: "dynamic/dependabot/dependabot-updates",
+    });
+
+    await expect(pullRequests.manualWorkflows(remoteUrl(), "main")).resolves.toEqual([
+      {
+        file: "release.yml",
+        name: "Release",
+        url: `${github.urls.web}/office/tools/blob/main/.github/workflows/release.yml`,
+        inputs: [
+          {
+            name: "version",
+            description: "",
+            required: true,
+            default: null,
+            type: "string",
+            options: [],
+          },
+          {
+            name: "dry-run",
+            description: "",
+            required: false,
+            default: "false",
+            type: "boolean",
+            options: [],
+          },
+        ],
+      },
+    ]);
+    expect(
+      github.requestsTo("/api/v3/repos/office/tools/contents/").map((request) => request.path),
+    ).toEqual([
+      "/api/v3/repos/office/tools/contents/.github/workflows/release.yml",
+      "/api/v3/repos/office/tools/contents/.github/workflows/ci.yml",
+    ]);
+  });
+
+  it("reads each file at the ref, reusing what GitHub says hasn't changed", async () => {
+    signIn();
+    github.workflows.addRef("office/tools", { tag: "v1.0.0" });
+    github.workflows.addWorkflow("office/tools", {
+      file: "release.yml",
+      yaml: { main: RELEASE, "v1.0.0": "on: workflow_dispatch\n" },
+    });
+
+    const first = await pullRequests.manualWorkflows(remoteUrl(), "main");
+    await expect(pullRequests.manualWorkflows(remoteUrl(), "main")).resolves.toEqual(first);
+    await expect(pullRequests.manualWorkflows(remoteUrl(), "v1.0.0")).resolves.toMatchObject([
+      { file: "release.yml", inputs: [] },
+    ]);
+
+    expect(github.notModified.map((request) => request.path + request.search)).toEqual([
+      "/api/v3/repos/office/tools/actions/workflows?per_page=100",
+      "/api/v3/repos/office/tools/contents/.github/workflows/release.yml?ref=main",
+      "/api/v3/repos/office/tools/actions/workflows?per_page=100",
+    ]);
+  });
+
+  it("lists the branches and tags", async () => {
+    signIn();
+    github.workflows.addRef("office/tools", { branch: "office/task-1" });
+    github.workflows.addRef("office/tools", { tag: "v1.0.0" });
+
+    await expect(pullRequests.refs(remoteUrl())).resolves.toEqual({
+      branches: ["main", "office/task-1"],
+      tags: ["v1.0.0"],
+    });
+  });
+
+  it("starts one with its inputs as strings, and the next runs read show it queued", async () => {
+    signIn();
+    github.installations.grant("office", { actions: "write" });
+    github.workflows.addWorkflow("office/tools", {
+      file: "release.yml",
+      name: "Release",
+      yaml: RELEASE,
+    });
+    github.runs.addRun("office/tools", { id: 11 });
+    await pullRequests.recentRuns(remoteUrl(), 30);
+
+    await pullRequests.startWorkflow(remoteUrl(), {
+      file: "release.yml",
+      ref: "main",
+      inputs: { version: "1.2.0", "dry-run": "true" },
+    });
+
+    expect(github.workflows.dispatches()).toEqual([
+      {
+        repository: "office/tools",
+        file: "release.yml",
+        ref: "main",
+        inputs: { version: "1.2.0", "dry-run": "true" },
+      },
+    ]);
+    await expect(pullRequests.recentRuns(remoteUrl(), 30)).resolves.toMatchObject([
+      {
+        id: 12,
+        workflow: "Release",
+        trigger: "workflow_dispatch",
+        branch: "main",
+        status: "queued",
+      },
+      { id: 11 },
+    ]);
+    expect(github.notModified).toEqual([]);
+  });
+
+  it("refuses an input the file doesn't declare, in GitHub's words", async () => {
+    signIn();
+    github.installations.grant("office", { actions: "write" });
+    github.workflows.addWorkflow("office/tools", { file: "release.yml", yaml: RELEASE });
+
+    const refusal = await pullRequests
+      .startWorkflow(remoteUrl(), {
+        file: "release.yml",
+        ref: "main",
+        inputs: { version: "1.2.0", channel: "beta" },
+      })
+      .catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(GitHubAccessFailed);
+    expect((refusal as GitHubAccessFailed).reason).toBe(
+      'GitHub refused to start release.yml on main in office/tools (HTTP 422): Unexpected inputs provided: ["channel"]',
+    );
+    expect(github.workflows.dispatches()).toEqual([]);
+  });
+
+  it("refuses a start without the App's Actions permission, in GitHub's words", async () => {
+    signIn();
+    github.workflows.addWorkflow("office/tools", { file: "release.yml", yaml: RELEASE });
+
+    const refusal = await pullRequests
+      .startWorkflow(remoteUrl(), { file: "release.yml", ref: "main", inputs: { version: "1" } })
+      .catch((error: unknown) => error);
+
+    expect((refusal as GitHubAccessFailed).reason).toBe(
+      "GitHub refused to start release.yml on main in office/tools (HTTP 403): Resource not accessible by integration",
+    );
+  });
+
+  it("can't be listed or started while signed out", async () => {
+    await expect(pullRequests.manualWorkflows(remoteUrl(), "main")).rejects.toThrow(
+      NotSignedInWithGitHub,
+    );
+    await expect(pullRequests.refs(remoteUrl())).rejects.toThrow(NotSignedInWithGitHub);
+    await expect(
+      pullRequests.startWorkflow(remoteUrl(), { file: "release.yml", ref: "main", inputs: {} }),
+    ).rejects.toThrow(NotSignedInWithGitHub);
+  });
+});
+
 /** Pull request #1 opened while signed in; its head commit. */
 async function openedHead(): Promise<string> {
   signIn();

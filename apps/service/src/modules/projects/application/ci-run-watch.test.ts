@@ -8,6 +8,7 @@ import {
   CI_REFRESH_AT_MOST_EVERY,
   CI_RUN_WATCH,
   CI_RUN_WATCH_EVERY,
+  EXPECTED_RUN_WITHIN,
   IDLE_CI_RUNS_EVERY,
 } from "./ci-run-watch.js";
 
@@ -142,5 +143,34 @@ describe("the CI run watch", REAL_GIT_TEST, () => {
     await testbed.schedule.advanceBy(1);
     await testbed.watch.refresh(project.id);
     expect(listReads()).toBe(4);
+  });
+
+  it("lists a Project expecting a run every round for a minute, again from the start when asked again", async () => {
+    github.runs.addRun(REPOSITORY, { id: 1 });
+    const project = await testbed.aProject();
+    await testbed.runRound();
+
+    await testbed.watch.expectRun(project.id);
+    expect(listReads()).toBe(2);
+
+    /** Rounds by the clock, `CI_RUN_WATCH_EVERY` apart, until `ms` has passed. */
+    async function roundsFor(ms: number): Promise<void> {
+      for (let passed = 0; passed < ms; passed += CI_RUN_WATCH_EVERY) {
+        await testbed.schedule.advanceBy(CI_RUN_WATCH_EVERY);
+        await testbed.runRound();
+      }
+    }
+
+    await roundsFor(2 * CI_RUN_WATCH_EVERY);
+    expect(listReads()).toBe(4);
+
+    await testbed.watch.expectRun(project.id);
+    expect(listReads()).toBe(5);
+    await roundsFor(EXPECTED_RUN_WITHIN);
+    expect(listReads()).toBe(5 + EXPECTED_RUN_WITHIN / CI_RUN_WATCH_EVERY);
+
+    // The window over, an idle Project waits its minute again.
+    await roundsFor(CI_RUN_WATCH_EVERY);
+    expect(listReads()).toBe(5 + EXPECTED_RUN_WITHIN / CI_RUN_WATCH_EVERY);
   });
 });

@@ -2517,6 +2517,9 @@ test("the user pastes a screenshot into a Task's Thread, sends it, and opens it 
   await page.goto(`/tasks/${task.id}`);
   await page.getByRole("button", { name: "Plan with Jan" }).click();
   const conversation = page.getByRole("complementary", { name: "Conversation" });
+  // Planning opens Jan's Thread, whose composer takes over the draft but not images pasted before
+  // it shows: its cache mark says it has.
+  await expect(conversation.getByRole("img", { name: "Context: no session yet" })).toBeVisible();
   const message = conversation.getByRole("textbox", { name: "Message" });
   await message.fill("The page is cut off on the right, as in the screenshot.");
 
