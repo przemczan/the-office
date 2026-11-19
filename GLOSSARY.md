@@ -117,6 +117,14 @@ _Avoid_: Acceptance criteria, DoD (in the UI)
 The message of the one commit Publish lands a Task as, following its Project's commit convention: suggested by the Planner, updated by its Agent Stages, editable by the user until Publish lands it; with none written, the title with a short summary below it. A pull request takes its first line as the title and the rest as the body.
 _Avoid_: Squash message, PR description, Stage commit (a Stage's own commit on the Task's branch)
 
+**Pull request**:
+What Publish by Push + PR opens on the Project's code host for a Task's branch. The Office records each one, linked to its Task, refreshes it every minute while it is open, and drops it from its list once merged or closed.
+_Avoid_: PR (in the UI), Merge request
+
+**Checks** (of a pull request):
+The host's automated results on a pull request's head commit: Passing, Failing, Running, No checks or Can't read.
+_Avoid_: CI, Build status, Pipeline (a Pipeline is The Office's own)
+
 **Save** (a Plan or a Definition of Done):
 The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task back to Planning, or to Backlog when it was never in Planning; the same words change nothing.
 _Avoid_: Save and confirm

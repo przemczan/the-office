@@ -1,6 +1,8 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
+import { EventBus } from "../../../../platform/events/event-bus.js";
+import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { CommandLineGit } from "./command-line-git.js";
 import { serviceVariables } from "./command-line-git.fixtures.js";
@@ -14,12 +16,16 @@ import { ShellCommandRunner } from "../shell/shell-command-runner.js";
 import type { Project, PublishingMode } from "../../domain/project.js";
 import { aProject } from "../../domain/project.fixtures.js";
 import type { CommitMessage } from "../../domain/publication.js";
+import type { PullRequestStatus } from "../../domain/pull-request.js";
 import {
-  PullRequestRefused,
-  PullRequests,
-  type PullRequest,
+  CodeHost,
+  CodeHostRefused,
+  type OpenedPullRequest,
+  type PullRequestOnHost,
   type PullRequestRequest,
-} from "../../ports/pull-requests.js";
+} from "../../ports/code-host.js";
+import { PullRequestRepositoryForTests } from "../../ports/pull-request-repository.fixtures.js";
+import { CodeHosts } from "../../application/code-hosts.js";
 import { ProjectCommandRunner } from "../../application/project-command-runner.js";
 import { Publishing } from "../../application/publishing.js";
 import { Worktrees } from "../../application/worktrees.js";
@@ -35,8 +41,12 @@ export const commitMessage: CommitMessage = {
   whole: "Rename a device\n\nAdds a rename dialog to the device page.",
 };
 
-/** GitHub in memory: each request opens a pull request, unless a test refuses, blocks or holds it. */
-export class PullRequestsForTests extends PullRequests {
+/**
+ * A code host in memory, reaching every remote: each request opens a pull request, unless a test
+ * refuses, blocks or holds it. Publishing's tests read none back.
+ */
+export class CodeHostForTests extends CodeHost {
+  readonly name = "the test's code host";
   readonly requests: PullRequestRequest[] = [];
   readonly askedWhy: string[] = [];
   refusal: string | undefined = undefined;
@@ -50,11 +60,28 @@ export class PullRequestsForTests extends PullRequests {
     return this.blocker;
   }
 
-  async open(request: PullRequestRequest): Promise<PullRequest> {
+  reaches(): boolean {
+    return true;
+  }
+
+  async open(request: PullRequestRequest): Promise<OpenedPullRequest> {
     this.requests.push(request);
     await this.held;
-    if (this.refusal) throw new PullRequestRefused(this.refusal);
-    return { url: `https://github.com/notnullsoft/admin/pull/${this.requests.length}` };
+    if (this.refusal) throw new CodeHostRefused(this.refusal);
+    const number = this.requests.length;
+    return { number, url: `https://github.com/notnullsoft/admin/pull/${number}` };
+  }
+
+  whyCannotRead(): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  openPullRequests(): Promise<readonly PullRequestOnHost[]> {
+    return Promise.resolve([]);
+  }
+
+  pullRequestStatus(): Promise<PullRequestStatus> {
+    return Promise.reject(new CodeHostRefused("Publishing reads no pull request."));
   }
 
   /** Forgets every request and opens each pull request again. */
@@ -78,9 +105,13 @@ export class PublishingTestbed {
     readonly repository: TemporaryRepository,
     readonly git: CommandLineGit,
     readonly worktrees: Worktrees,
-    readonly pullRequests: PullRequestsForTests,
+    readonly pullRequests: CodeHostForTests,
     readonly publishing: Publishing,
     readonly taskBases: TaskBasesForTests,
+    /** The pull requests Publish recorded. */
+    readonly records: PullRequestRepositoryForTests,
+    /** Every event Publishing published, in order. */
+    readonly published: DomainEvent[],
   ) {}
 
   static async create(): Promise<PublishingTestbed> {
@@ -97,9 +128,30 @@ export class PublishingTestbed {
       new OfficeDataDirectory(join(repository.folder, "office-data")),
       taskBases,
     );
-    const pullRequests = new PullRequestsForTests();
-    const publishing = new Publishing(git, pullRequests, commands, worktrees, taskBases);
-    return new PublishingTestbed(repository, git, worktrees, pullRequests, publishing, taskBases);
+    const pullRequests = new CodeHostForTests();
+    const records = new PullRequestRepositoryForTests();
+    const events = new EventBus();
+    const published: DomainEvent[] = [];
+    events.subscribeToEveryEvent((event) => void published.push(event));
+    const publishing = new Publishing(
+      git,
+      new CodeHosts([pullRequests]),
+      commands,
+      worktrees,
+      taskBases,
+      records,
+      events,
+    );
+    return new PublishingTestbed(
+      repository,
+      git,
+      worktrees,
+      pullRequests,
+      publishing,
+      taskBases,
+      records,
+      published,
+    );
   }
 
   /** How many Tasks it has made; part of each Task's id. */

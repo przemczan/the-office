@@ -18,6 +18,9 @@ export class GitHubSignedIn extends DomainEvent {
   }
 }
 
+/** The permissions the App's installations granted were read again, on the user's asking. */
+export class GitHubPermissionsChecked extends DomainEvent {}
+
 /** The user is signed out: by the user when there is no reason, otherwise by The Office, saying why. */
 export class GitHubSignedOut extends DomainEvent {
   constructor(readonly reason: SignedOutReason | undefined) {

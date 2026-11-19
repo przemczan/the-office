@@ -16,6 +16,7 @@ import { notificationEventCacheUpdates } from "./api/notifications.ts";
 import { roleEventInvalidations } from "./api/people.ts";
 import { pipelineEventInvalidations } from "./api/pipelines.ts";
 import { projectEventInvalidations, repositoryCloneEventInvalidations } from "./api/projects.ts";
+import { pullRequestEventInvalidations } from "./api/pull-requests.ts";
 import { officeUpdateEventInvalidations } from "./api/office-updates.ts";
 import { runEnvironmentEventInvalidations } from "./api/run-environments.ts";
 import { skillEventCacheUpdates, skillEventInvalidations } from "./api/skills.ts";
@@ -34,6 +35,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...officeUpdateEventInvalidations,
   ...mcpServerEventInvalidations,
   ...gitHubEventInvalidations,
+  ...pullRequestEventInvalidations,
   ...runEnvironmentEventInvalidations,
   ...engineEventInvalidations,
   ...threadEventInvalidations,

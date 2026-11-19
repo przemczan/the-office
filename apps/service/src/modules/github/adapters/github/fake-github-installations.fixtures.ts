@@ -8,12 +8,28 @@ export interface FakeRepository {
   readonly description?: string;
 }
 
+/** GitHub's permission levels an installation grants. */
+export type FakePermissionLevel = "read" | "write" | "admin";
+
+/** The kind of account an installation is on, as GitHub names it. */
+export type FakeAccountType = "User" | "Organization";
+
 interface Installation {
   readonly id: number;
   readonly account: string;
+  readonly accountType: FakeAccountType;
   readonly repositories: readonly FakeRepository[];
   readonly suspended: boolean;
+  permissions: Readonly<Record<string, FakePermissionLevel>>;
 }
+
+/** What an installation grants unless a test says otherwise: an App registered before checks were read. */
+export const FAKE_DEFAULT_PERMISSIONS: Readonly<Record<string, FakePermissionLevel>> = {
+  metadata: "read",
+  contents: "write",
+  pull_requests: "write",
+  workflows: "write",
+};
 
 /** An answer of the fake's REST API: a status, a JSON body and the headers beside it. */
 export interface ApiAnswer {
@@ -45,18 +61,45 @@ export class FakeInstallations {
     private readonly git: string = web,
   ) {}
 
-  /** The App installed on `account`'s repositories; a suspended installation is listed but can't be reached. */
+  /**
+   * The App installed on `account`'s repositories; a suspended installation is listed but can't be
+   * reached. It grants `FAKE_DEFAULT_PERMISSIONS` unless `permissions` names others.
+   */
   install(
     account: string,
     repositories: readonly FakeRepository[],
-    { suspended = false }: { suspended?: boolean } = {},
+    {
+      suspended = false,
+      accountType = "User",
+      permissions = FAKE_DEFAULT_PERMISSIONS,
+    }: {
+      suspended?: boolean;
+      accountType?: FakeAccountType;
+      permissions?: Readonly<Record<string, FakePermissionLevel>>;
+    } = {},
   ): void {
     this.installations.push({
       id: 100 + this.installations.length,
       account,
+      accountType,
       repositories,
       suspended,
+      permissions,
     });
+  }
+
+  /**
+   * The owner of `account`'s installations accepting `permissions` on GitHub, added to what they
+   * granted. Throws when the App isn't installed on the account.
+   */
+  grant(account: string, permissions: Readonly<Record<string, FakePermissionLevel>>): void {
+    const onAccount = this.installations.filter((installation) => installation.account === account);
+    if (onAccount.length === 0) {
+      throw new Error(`The fake GitHub App isn't installed on ${account}.`);
+    }
+    for (const installation of onAccount) {
+      installation.permissions = { ...installation.permissions, ...permissions };
+    }
   }
 
   /** Whether a user token reaches the repository: an installation that isn't suspended holds it. */
@@ -74,11 +117,15 @@ export class FakeInstallations {
   listInstallations(request: URL): ApiAnswer {
     return this.page(request, "installations", this.installations, (installation) => ({
       id: installation.id,
-      account: { login: installation.account, type: "User" },
+      account: { login: installation.account, type: installation.accountType },
       repository_selection: "selected",
       app_slug: "the-office-fake-1",
-      target_type: "User",
-      html_url: `${this.web}/settings/installations/${installation.id}`,
+      target_type: installation.accountType,
+      permissions: installation.permissions,
+      html_url:
+        installation.accountType === "Organization"
+          ? `${this.web}/organizations/${installation.account}/settings/installations/${installation.id}`
+          : `${this.web}/settings/installations/${installation.id}`,
       suspended_at: installation.suspended ? "2026-01-01T00:00:00Z" : null,
     }));
   }

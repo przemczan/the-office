@@ -83,6 +83,7 @@ import {
   type InitiativesFilters,
 } from "./surfaces/work/initiative-columns.ts";
 import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
+import { PullRequestsPage } from "./surfaces/work/pull-requests-page.tsx";
 import { proposalSearchOf } from "./shell/conversation/proposal-search.ts";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
@@ -290,6 +291,13 @@ const archivedRoute = createRoute({
   path: "archived",
   component: ArchivedPage,
   validateSearch: (search: Record<string, unknown>): ArchivedSearch => archivedSearchOf(search),
+  staticData: { title: "Work" },
+});
+
+const pullRequestsRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "pull-requests",
+  component: PullRequestsPage,
   staticData: { title: "Work" },
 });
 
@@ -740,7 +748,13 @@ export const router = createRouter({
     ]),
     homeRoute,
     nowRoute,
-    workRoute.addChildren([boardRoute, ideasRoute, initiativesRoute, archivedRoute]),
+    workRoute.addChildren([
+      boardRoute,
+      ideasRoute,
+      initiativesRoute,
+      pullRequestsRoute,
+      archivedRoute,
+    ]),
     initiativeRoute,
     taskRoute,
     peopleRoute,

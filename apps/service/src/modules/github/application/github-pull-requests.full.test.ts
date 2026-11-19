@@ -64,9 +64,10 @@ describe("opening a pull request on GitHub", () => {
     signIn();
     await pullRequests.open(aPullRequest());
 
-    await expect(pullRequests.open(aPullRequest({ base: "release" }))).resolves.toBe(
-      `${github.urls.web}/office/tools/pull/2`,
-    );
+    await expect(pullRequests.open(aPullRequest({ base: "release" }))).resolves.toEqual({
+      number: 2,
+      url: `${github.urls.web}/office/tools/pull/2`,
+    });
   });
 
   it("refuses in GitHub's words when it has nothing to open", async () => {

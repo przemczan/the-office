@@ -77,3 +77,52 @@ export async function installApp(
   });
   if (!response.ok) throw new Error(`The fake GitHub didn't install the App: ${response.status}.`);
 }
+
+/** The fake's own route changing a pull request; `FAKE_PULL_REQUESTS_CONTROL_PATH` in its source. */
+const FAKE_PULL_REQUESTS_CONTROL_PATH = "/_fake/pull-requests";
+/** The fake's own route granting an installation permissions; `FAKE_PERMISSIONS_CONTROL_PATH`. */
+const FAKE_PERMISSIONS_CONTROL_PATH = "/_fake/permissions";
+
+/** A change to an open pull request, as pushing, CI or a reviewer would make it on GitHub. */
+export type PullRequestControl =
+  | {
+      readonly action: "setChecks";
+      readonly repository: string;
+      readonly number: number;
+      readonly checks: "passing" | "failing" | "pending" | "none";
+    }
+  | {
+      readonly action: "setMergeable";
+      readonly repository: string;
+      readonly number: number;
+      readonly mergeable: boolean | null;
+    }
+  | {
+      readonly action: "merge" | "close" | "pushHead";
+      readonly repository: string;
+      readonly number: number;
+    };
+
+/** Changes a pull request on the fake GitHub, as `PullRequestControl` says. */
+export async function controlPullRequest(control: PullRequestControl): Promise<void> {
+  await postToFake(FAKE_PULL_REQUESTS_CONTROL_PATH, control);
+}
+
+/** The owner of `account`'s installations accepting `permissions`, added to what they granted. */
+export async function grantPermissions(
+  account: string,
+  permissions: Readonly<Record<string, "read" | "write" | "admin">>,
+): Promise<void> {
+  await postToFake(FAKE_PERMISSIONS_CONTROL_PATH, { account, permissions });
+}
+
+async function postToFake(controlPath: string, body: unknown): Promise<void> {
+  const response = await fetch(`${FAKE_GITHUB_URL}${controlPath}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`The fake GitHub refused ${controlPath}: ${response.status}.`);
+  }
+}

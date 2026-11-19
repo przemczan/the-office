@@ -99,6 +99,9 @@ describe("/api/github/app", () => {
         contents: "write",
         pull_requests: "write",
         workflows: "write",
+        checks: "read",
+        statuses: "read",
+        actions: "write",
       },
     });
     expect((await manifestForm()).action).not.toBe(form.action);

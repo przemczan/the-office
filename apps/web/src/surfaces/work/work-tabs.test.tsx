@@ -7,11 +7,12 @@ import {
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { Idea } from "@the-office/contracts";
+import type { Idea, PullRequest } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { projectQueries } from "../../api/projects.ts";
+import { pullRequestQueries } from "../../api/pull-requests.ts";
 import { ideaQueries, initiativeQueries, taskQueries } from "../../api/work.ts";
 import { WorkTabs } from "./work-tabs.tsx";
 
@@ -33,6 +34,22 @@ const NEW_IDEA: Idea = {
   droppedAt: null,
 };
 
+const OPEN_PULL_REQUEST: PullRequest = {
+  id: "8a1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+  projectId: "the-office",
+  taskId: "9b1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+  number: 42,
+  url: "https://github.com/ada/the-office/pull/42",
+  title: "Usage exports",
+  branch: "office/9b1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+  baseBranch: "main",
+  openedAt: "2026-11-07T10:00:00.000Z",
+  checks: "passing",
+  mergeable: "yes",
+  checkedAt: "2026-11-07T10:01:00.000Z",
+  stale: false,
+};
+
 afterEach(() => {
   document.body.replaceChildren();
 });
@@ -51,6 +68,10 @@ async function shownAt(path: string) {
   queryClient.setQueryData(taskQueries.list().queryKey, []);
   queryClient.setQueryData(ideaQueries.list().queryKey, [NEW_IDEA]);
   queryClient.setQueryData(initiativeQueries.list().queryKey, []);
+  queryClient.setQueryData(pullRequestQueries.list().queryKey, {
+    pullRequests: [OPEN_PULL_REQUEST],
+    problems: [],
+  });
   const rootRoute = createRootRoute({ component: () => <Outlet /> });
   const router = createRouter({
     routeTree: rootRoute.addChildren([
@@ -64,6 +85,11 @@ async function shownAt(path: string) {
         getParentRoute: () => rootRoute,
         path: "/work/initiatives",
         component: page("Initiatives board"),
+      }),
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: "/work/pull-requests",
+        component: page("Pull requests list"),
       }),
       createRoute({
         getParentRoute: () => rootRoute,
@@ -110,6 +136,7 @@ describe("WorkTabs", () => {
     expect(tab("Tasks").getAttribute("aria-selected")).toBe("true");
     expect(tab("Initiatives").getAttribute("aria-selected")).toBe("false");
     expect(tab("Ideas").textContent).toBe("Ideas1");
+    expect(tab("Pull requests").textContent).toBe("Pull requests1");
     // A count of 0 shows none.
     expect(tab("Tasks").textContent).toBe("Tasks");
   });
@@ -125,6 +152,7 @@ describe("WorkTabs", () => {
     ["Tasks", "/work", "Board"],
     ["Ideas", "/work/ideas", "Ideas list"],
     ["Initiatives", "/work/initiatives", "Initiatives board"],
+    ["Pull requests", "/work/pull-requests", "Pull requests list"],
     ["Archived", "/work/archived", "Archive"],
   ])("goes to the %s tab's list when pressed", async (name, path, shown) => {
     const { host, router, tab } = await shownAt("/tasks/42");

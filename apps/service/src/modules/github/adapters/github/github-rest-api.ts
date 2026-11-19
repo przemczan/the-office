@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { z } from "zod";
 import { gitHubUrl, GitHubUrls } from "../../application/github-urls.js";
@@ -8,12 +9,17 @@ import {
   type PullRequestToOpen,
   type RepositoryOnGitHub,
 } from "../../domain/pull-request.js";
+import type { ChecksOnGitHub } from "../../domain/pull-request-status.js";
 import {
   GitHubApi,
   GitHubApiFailure,
   GitHubUnreachable,
+  type GitHubInstallation,
   type GitHubUser,
+  type ListedPullRequest,
   type PullRequestAnswer,
+  type PullRequestDetail,
+  type PullRequestOnGitHub,
   type SignInCode,
   type TokenAnswer,
 } from "../../ports/github-api.js";
@@ -54,7 +60,22 @@ const userTokensSchema = z.object({
 const userSchema = z.object({ id: z.number().int().positive(), login: z.string().min(1) });
 
 const installationsPageSchema = z.object({
-  installations: z.array(z.object({ id: z.number(), suspended_at: z.string().nullish() })),
+  installations: z.array(
+    z.object({
+      id: z.number(),
+      suspended_at: z.string().nullish(),
+      // An enterprise's installation names its account by slug, without a login.
+      account: z
+        .object({
+          login: z.string().min(1).optional(),
+          slug: z.string().min(1).optional(),
+          type: z.string().optional(),
+        })
+        .nullish(),
+      permissions: z.record(z.string(), z.string()).optional(),
+      html_url: z.string().min(1),
+    }),
+  ),
 });
 
 const repositoriesPageSchema = z.object({
@@ -70,7 +91,60 @@ const repositoriesPageSchema = z.object({
   ),
 });
 
-const pullRequestSchema = z.object({ html_url: z.string().min(1) });
+const pullRequestSchema = z.object({
+  number: z.number().int().positive(),
+  html_url: z.string().min(1),
+});
+
+const commitOfSchema = z.object({ ref: z.string().min(1), sha: z.string().min(1) });
+
+const listedPullRequestSchema = pullRequestSchema.extend({
+  title: z.string(),
+  head: commitOfSchema,
+  base: commitOfSchema,
+});
+
+const pullRequestDetailSchema = z.object({
+  state: z.enum(["open", "closed"]),
+  merged_at: z.string().nullish(),
+  mergeable: z.boolean().nullish(),
+  head: commitOfSchema,
+  base: commitOfSchema,
+});
+
+const checkRunsPageSchema = z.object({
+  check_runs: z.array(z.object({ status: z.string(), conclusion: z.string().nullish() })),
+});
+
+const combinedStatusSchema = z.object({ statuses: z.array(z.object({ state: z.string() })) });
+
+/** How many answers the conditional requests keep, the oldest read dropped first. */
+const CACHED_ANSWERS = 500;
+
+/** An answer kept for its ETag: what was parsed of its body, and its `Link` header. */
+interface CachedAnswer {
+  readonly etag: string;
+  readonly parsed: unknown;
+  readonly link: string | null;
+}
+
+/** A GET's answer: its status and, on a 200 (or a 304 the cache answered), its parsed body. */
+interface ReadAnswer<T> {
+  readonly status: number;
+  readonly parsed: T | undefined;
+  readonly link: string | null;
+}
+
+/** GitHub refused a read with `status`; the message names the status only. */
+class GitHubRefusedRead extends GitHubApiFailure {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "GitHubRefusedRead";
+  }
+}
 
 /** A 422's body: `errors`, each with a `message` when GitHub words it, such as "A pull request already exists for …". */
 const validationErrorsSchema = z.object({
@@ -84,6 +158,14 @@ const validationErrorsSchema = z.object({
  */
 @Injectable()
 export class GitHubRestApi extends GitHubApi {
+  /**
+   * The answers to reads, by token and URL, for conditional requests
+   * (docs.github.com/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests-if-appropriate):
+   * a 304 doesn't count against the rate limit, so a list read every few seconds costs little.
+   * Keyed by the token's hash, so no token sits in a key.
+   */
+  private readonly answers = new Map<string, CachedAnswer>();
+
   constructor(private readonly urls: GitHubUrls) {
     super();
   }
@@ -170,20 +252,37 @@ export class GitHubRestApi extends GitHubApi {
     }
   }
 
-  async repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]> {
+  async installationsOf(accessToken: string): Promise<readonly GitHubInstallation[]> {
     // docs.github.com/rest/apps/installations, "accessible to the user access token".
     const installations = await this.everyPage(
-      "/user/installations",
+      gitHubUrl(this.urls.api, "/user/installations"),
       accessToken,
       (body) => installationsPageSchema.safeParse(body).data?.installations,
+      "GitHub didn't list the installations of the GitHub App",
     );
+    return installations.map((installation) => ({
+      id: installation.id,
+      suspended: Boolean(installation.suspended_at),
+      account:
+        installation.account?.login ??
+        installation.account?.slug ??
+        `installation ${installation.id}`,
+      accountType: installation.account?.type ?? "",
+      permissions: installation.permissions ?? {},
+      url: installation.html_url,
+    }));
+  }
+
+  async repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]> {
+    const installations = await this.installationsOf(accessToken);
     const repositories: GitHubRepository[] = [];
     // A suspended installation's repositories can't be reached with the user's token.
-    for (const { id } of installations.filter((installation) => !installation.suspended_at)) {
+    for (const { id } of installations.filter((installation) => !installation.suspended)) {
       const page = await this.everyPage(
-        `/user/installations/${id}/repositories`,
+        gitHubUrl(this.urls.api, `/user/installations/${id}/repositories`),
         accessToken,
         (body) => repositoriesPageSchema.safeParse(body).data?.repositories,
+        "GitHub didn't list the repositories the App is installed on",
       );
       repositories.push(
         ...page.map((repository) => ({
@@ -222,7 +321,7 @@ export class GitHubRestApi extends GitHubApi {
     if (!opened.success) {
       throw new GitHubApiFailure("GitHub's answer held no pull request (HTTP 201).");
     }
-    return { kind: "opened", url: opened.data.html_url };
+    return { kind: "opened", number: opened.data.number, url: opened.data.html_url };
   }
 
   async openPullRequestOf(
@@ -230,7 +329,7 @@ export class GitHubRestApi extends GitHubApi {
     repository: RepositoryOnGitHub,
     head: string,
     base: string,
-  ): Promise<string | undefined> {
+  ): Promise<PullRequestOnGitHub | undefined> {
     // docs.github.com/rest/pulls/pulls#list-pull-requests: `head` is `owner:branch`.
     const url = gitHubUrl(this.urls.api, pullsPathOf(repository));
     url.searchParams.set("state", "open");
@@ -247,41 +346,176 @@ export class GitHubRestApi extends GitHubApi {
         `GitHub didn't list the open pull requests of ${fullNameOf(repository)} (HTTP ${response.status}).`,
       );
     }
-    return listed.data[0]?.html_url;
+    const found = listed.data[0];
+    return found && { number: found.number, url: found.html_url };
+  }
+
+  async openPullRequestsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+  ): Promise<readonly ListedPullRequest[]> {
+    // docs.github.com/rest/pulls/pulls#list-pull-requests
+    const url = gitHubUrl(this.urls.api, pullsPathOf(repository));
+    url.searchParams.set("state", "open");
+    const listed = await this.everyPage(
+      url,
+      accessToken,
+      (body) => z.array(listedPullRequestSchema).safeParse(body).data,
+      `GitHub didn't list the open pull requests of ${fullNameOf(repository)}`,
+    );
+    return listed.map((pullRequest) => ({
+      number: pullRequest.number,
+      url: pullRequest.html_url,
+      title: pullRequest.title,
+      head: pullRequest.head.ref,
+      base: pullRequest.base.ref,
+      headSha: pullRequest.head.sha,
+      baseSha: pullRequest.base.sha,
+    }));
+  }
+
+  async pullRequestOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<PullRequestDetail> {
+    // docs.github.com/rest/pulls/pulls#get-a-pull-request
+    const url = gitHubUrl(this.urls.api, `${pullsPathOf(repository)}/${number}`);
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => pullRequestDetailSchema.safeParse(body).data,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        `GitHub didn't give pull request #${number} of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    const { state, merged_at: mergedAt, mergeable, head, base } = answer.parsed;
+    return {
+      state,
+      mergedAt: mergedAt ?? null,
+      mergeable: mergeable ?? null,
+      headSha: head.sha,
+      baseSha: base.sha,
+    };
+  }
+
+  async checksOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    sha: string,
+  ): Promise<ChecksOnGitHub> {
+    const commitPath = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/commits/${encodeURIComponent(sha)}`;
+    try {
+      // docs.github.com/rest/checks/runs#list-check-runs-for-a-git-reference: by default the latest
+      // run of each check only, so a re-run that passed replaces the failure before it.
+      const runs = await this.everyPage(
+        gitHubUrl(this.urls.api, `${commitPath}/check-runs`),
+        accessToken,
+        (body) => checkRunsPageSchema.safeParse(body).data?.check_runs,
+        `GitHub didn't list the checks of ${fullNameOf(repository)} at ${sha}`,
+      );
+      // docs.github.com/rest/commits/statuses#get-the-combined-status-for-a-specific-reference:
+      // its `statuses`, the latest of each context, rather than its `state`, which is `pending`
+      // for a commit with no status at all.
+      const statusUrl = gitHubUrl(this.urls.api, `${commitPath}/status`);
+      statusUrl.searchParams.set("per_page", PAGE_SIZE);
+      const combined = await this.read(
+        statusUrl,
+        accessToken,
+        (body) => combinedStatusSchema.safeParse(body).data?.statuses,
+      );
+      if (combined.parsed === undefined) {
+        throw new GitHubRefusedRead(
+          `GitHub didn't give the commit statuses of ${fullNameOf(repository)} at ${sha} (HTTP ${combined.status}).`,
+          combined.status,
+        );
+      }
+      return {
+        kind: "read",
+        runs: runs.map((run) => ({ status: run.status, conclusion: run.conclusion ?? null })),
+        statuses: combined.parsed,
+      };
+    } catch (error) {
+      // An installation without the Checks or Commit statuses permission is refused them.
+      if (error instanceof GitHubRefusedRead && (error.status === 403 || error.status === 404)) {
+        return { kind: "unreadable" };
+      }
+      throw error;
+    }
   }
 
   /**
    * Every page of a list, following the `Link` header's `next` until there is none
-   * (docs.github.com/rest/using-the-rest-api/using-pagination-in-the-rest-api).
+   * (docs.github.com/rest/using-the-rest-api/using-pagination-in-the-rest-api). `failure` says
+   * what wasn't listed, GitHub's status added.
    */
   private async everyPage<T>(
-    path: string,
+    first: URL,
     accessToken: string,
     itemsOf: (body: unknown) => T[] | undefined,
+    failure: string,
   ): Promise<T[]> {
     const items: T[] = [];
-    let url: URL | undefined = gitHubUrl(this.urls.api, path);
+    let url: URL | undefined = new URL(first);
     url.searchParams.set("per_page", PAGE_SIZE);
     while (url !== undefined) {
-      const response = await this.call(url, {
-        headers: { ...REST_HEADERS, authorization: `Bearer ${accessToken}` },
-      });
-      const page =
-        response.status === 200 ? itemsOf(await response.json().catch(() => undefined)) : undefined;
-      if (page === undefined) {
-        throw new GitHubApiFailure(
-          `GitHub didn't list the repositories the App is installed on (HTTP ${response.status}).`,
-        );
+      const page = await this.read(url, accessToken, itemsOf);
+      if (page.parsed === undefined) {
+        throw new GitHubRefusedRead(`${failure} (HTTP ${page.status}).`, page.status);
       }
-      items.push(...page);
-      url = this.nextPageOf(response);
+      items.push(...page.parsed);
+      url = this.nextPageOf(page.link);
     }
     return items;
   }
 
+  /**
+   * A GET as the token's user, conditional on the ETag of the answer it had before: on a 304 that
+   * answer is given again. `parse` gives undefined for a body it can't read, which a 200 isn't
+   * kept with; only what it parsed is kept, never the whole body.
+   */
+  private async read<T>(
+    url: URL,
+    accessToken: string,
+    parse: (body: unknown) => T | undefined,
+  ): Promise<ReadAnswer<T>> {
+    const key = `${createHash("sha256").update(accessToken).digest("base64url")} ${url.href}`;
+    const cached = this.answers.get(key);
+    const response = await this.call(url, {
+      headers: {
+        ...REST_HEADERS,
+        authorization: `Bearer ${accessToken}`,
+        ...(cached && { "if-none-match": cached.etag }),
+      },
+    });
+    if (response.status === 304 && cached !== undefined) {
+      this.keep(key, cached);
+      // Parsed by the same `parse`: the key holds the URL, and each URL is read one way.
+      return { status: 200, parsed: cached.parsed as T, link: cached.link };
+    }
+    const link = response.headers.get("link");
+    if (response.status !== 200) return { status: response.status, parsed: undefined, link };
+    const parsed = parse(await response.json().catch(() => undefined));
+    const etag = response.headers.get("etag");
+    if (parsed !== undefined && etag !== null) this.keep(key, { etag, parsed, link });
+    return { status: 200, parsed, link };
+  }
+
+  /** Keeps the answer as the newest read, dropping the oldest read beyond `CACHED_ANSWERS`. */
+  private keep(key: string, answer: CachedAnswer): void {
+    this.answers.delete(key);
+    this.answers.set(key, answer);
+    for (const oldest of this.answers.keys()) {
+      if (this.answers.size <= CACHED_ANSWERS) break;
+      this.answers.delete(oldest);
+    }
+  }
+
   /** The next page's URL, only on the API's own origin, so the token goes nowhere else. */
-  private nextPageOf(response: Response): URL | undefined {
-    const next = /<([^>]+)>;\s*rel="next"/.exec(response.headers.get("link") ?? "")?.[1];
+  private nextPageOf(link: string | null): URL | undefined {
+    const next = /<([^>]+)>;\s*rel="next"/.exec(link ?? "")?.[1];
     if (next === undefined) return undefined;
     const url = new URL(next);
     if (url.origin !== new URL(this.urls.api).origin) {

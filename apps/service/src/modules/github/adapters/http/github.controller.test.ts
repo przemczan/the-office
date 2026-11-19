@@ -145,6 +145,7 @@ describe("/api/github", () => {
       status: "signed-in",
       app: registeredApp(),
       login: "office-user",
+      permissions: null,
     });
     const kept = signIns.signIn;
     expect(kept).toEqual({
@@ -225,5 +226,43 @@ describe("/api/github", () => {
     for (const secret of [...github.issuedTokens, FAKE_GITHUB_SECRETS.clientSecret]) {
       expect(shown).not.toContain(secret);
     }
+  });
+
+  it("says which permissions the installations lack, and reads them again on Check again", async () => {
+    await registerApp();
+    await signInThroughGitHub();
+    github.installations.install("office-user", [{ fullName: "office-user/notes" }]);
+
+    expect(await state()).toEqual({
+      status: "signed-in",
+      app: registeredApp(),
+      login: "office-user",
+      permissions: {
+        missing: [
+          { name: "checks", level: "read" },
+          { name: "statuses", level: "read" },
+          { name: "actions", level: "write" },
+        ],
+        appPermissionsUrl: `${github.urls.web}/settings/apps/the-office-fake-1/permissions`,
+        installations: [
+          { account: "office-user", acceptUrl: `${github.urls.web}/settings/installations/100` },
+        ],
+      },
+    });
+
+    github.installations.grant("office-user", {
+      checks: "read",
+      statuses: "read",
+      actions: "write",
+    });
+    published = [];
+    const checked = await office("/api/github/permissions/check", { method: "POST" });
+
+    expect(checked.status).toBe(200);
+    expect(gitHubStateSchema.parse(await checked.json())).toMatchObject({
+      status: "signed-in",
+      permissions: null,
+    });
+    expect(webEvents()).toEqual([{ type: "github.changed" }]);
   });
 });

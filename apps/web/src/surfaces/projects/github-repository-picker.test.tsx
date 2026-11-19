@@ -17,6 +17,7 @@ const SIGNED_IN: GitHubState = {
   status: "signed-in",
   app: { slug: "the-office", owner: "office-user", installUrl: "https://github.com/apps/x" },
   login: "office-user",
+  permissions: null,
 };
 
 function aRepository(name: string): GitHubRepository {

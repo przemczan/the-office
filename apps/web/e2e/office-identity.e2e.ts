@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
@@ -6,13 +7,26 @@ import {
   knownHostsSchema,
   OFFICE_IDENTITY_SETTINGS_PATH,
   officeSshKeySchema,
+  projectSchema,
+  taskSchema,
+  type NewProject,
 } from "@the-office/contracts";
 import { E2E_STORAGE_STATE, NOT_SIGNED_IN } from "./e2e-user.ts";
-import { FAKE_GITHUB_URL, installApp } from "./fake-github.ts";
+import {
+  controlPullRequest,
+  FAKE_GITHUB_API_URL,
+  FAKE_GITHUB_URL,
+  grantPermissions,
+  installApp,
+} from "./fake-github.ts";
 import { serveRepository } from "./git-host.ts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import { E2E_HOST_KEY_FINGERPRINT } from "./ssh-host.ts";
 import { screenshotScenario } from "./task-screenshots.ts";
-import { createTemporaryRepository } from "./temporary-repository.ts";
+import {
+  createTemporaryRepository,
+  createTemporaryRepositoryWithRemote,
+} from "./temporary-repository.ts";
 
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
 
@@ -376,6 +390,122 @@ test.describe.serial("Sign in with GitHub", () => {
       });
     },
   );
+
+  test("Work › Pull requests shows a pull request's failing checks and conflicts after Refresh, and asks for the App's missing permissions", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepositoryWithRemote();
+    const repositoryName = `pull-request-notes-${Date.now()}`;
+    const fullName = `office-user/${repositoryName}`;
+    try {
+      // Installed with the permissions of an App registered before checks were read.
+      await installApp("office-user", [{ fullName }]);
+      const newProject: NewProject = {
+        name: `Pull request notes ${Date.now()}`,
+        path: repository.path,
+        baseBranch: "main",
+        mark: { label: "PR", colour: "teal" },
+        installCommand: "",
+        commands: [
+          { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+        ],
+        installInputs: [],
+        publishingMode: "push-and-pull-request",
+        defaultPipeline: "full",
+      };
+      const added = await page.request.post("/api/projects", { data: newProject });
+      expect(added.status(), await added.text()).toBe(201);
+      const project = projectSchema.parse(await added.json());
+      // Its base branch then tracks the repository on GitHub, which the watch reads without
+      // fetching; nothing in this test fetches or pushes, as the fake serves no git.
+      execFileSync("git", ["remote", "set-url", "origin", `${FAKE_GITHUB_URL}/${fullName}.git`], {
+        cwd: repository.path,
+        stdio: "ignore",
+      });
+      const created = await page.request.post("/api/tasks", {
+        data: {
+          title: "Show the pull request's checks",
+          projectId: project.id,
+          priority: "normal",
+        },
+      });
+      expect(created.status()).toBe(201);
+      const task = taskSchema.parse(await created.json());
+
+      // Opened on GitHub from the Task's branch, as Publish opens it (pushing needs a remote the
+      // fake can't serve); the watch adopts a pull request on an `office/<task id>` branch.
+      const [signIn] = await queryOfficeDatabase("select access_token from github_sign_in", []);
+      const opened = await fetch(`${FAKE_GITHUB_API_URL}/repos/${fullName}/pulls`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${String(signIn?.["access_token"])}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ head: `office/${task.id}`, base: "main", title: task.title }),
+      });
+      expect(opened.status).toBe(201);
+      const { number } = (await opened.json()) as { number: number };
+      await controlPullRequest({
+        action: "setChecks",
+        repository: fullName,
+        number,
+        checks: "failing",
+      });
+      await controlPullRequest({
+        action: "setMergeable",
+        repository: fullName,
+        number,
+        mergeable: false,
+      });
+
+      await page.goto("/work/pull-requests");
+      const name = `#${number} ${task.title}`;
+      const row = page.getByRole("row").filter({ hasText: name });
+      // A refresh within 10 s of the watch's last round answers that round, so press it until the
+      // round that reads this pull request has run.
+      await expect(async () => {
+        await page.getByRole("button", { name: "Refresh" }).click();
+        await expect(row).toContainText("Failing", { timeout: 3_000 });
+      }).toPass({ timeout: 45_000 });
+      await expect(row).toContainText("Conflicts");
+      await expect(row).toContainText(`office/${task.id} → main`);
+      await expect(row.getByRole("link", { name })).toHaveAttribute(
+        "href",
+        `${FAKE_GITHUB_URL}/${fullName}/pull/${number}`,
+      );
+      await expect(page.getByRole("tab", { name: /^Pull requests/ })).toBeVisible();
+
+      // The App lacks Checks, Commit statuses and Actions on this installation.
+      const checked = await page.request.post("/api/github/permissions/check");
+      expect(checked.status()).toBe(200);
+      await page.reload();
+      const prompt = page.locator(".github-permissions-prompt");
+      await expect(prompt).toContainText("Checks (read)");
+      await expect(prompt.getByRole("link", { name: "office-user" }).first()).toBeVisible();
+      await expect(row).toContainText("Failing");
+      await screenshotScenario(page, "work-pull-requests", { fullPage: true });
+
+      await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+      await expect(prompt).toContainText("Commit statuses (read)");
+      await expect(
+        prompt.getByRole("link", { name: "Add them to the App on GitHub" }),
+      ).toBeVisible();
+      await screenshotScenario(page, "settings-office-identity-permissions", { inView: prompt });
+
+      // Accepted on GitHub, Check again finds nothing missing.
+      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      await prompt.getByRole("button", { name: "Check again" }).click();
+      await expect(prompt).toBeHidden();
+
+      await page.goto("/work/pull-requests");
+      await row.getByRole("link", { name: task.title, exact: true }).click();
+      await expect(page).toHaveURL(`/tasks/${task.id}`);
+    } finally {
+      await repository.remove();
+    }
+  });
 
   test("signing out forgets who was signed in", async ({ page }) => {
     await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);

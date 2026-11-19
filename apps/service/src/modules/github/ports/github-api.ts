@@ -1,6 +1,7 @@
 import type { GitHubApp } from "../domain/github-app.js";
 import type { GitHubRepository } from "../domain/github-repository.js";
 import type { PullRequestToOpen, RepositoryOnGitHub } from "../domain/pull-request.js";
+import type { ChecksOnGitHub } from "../domain/pull-request-status.js";
 import type { UserTokens } from "../domain/sign-in.js";
 
 /** A sign-in's code GitHub sent the browser back with, and what proves The Office asked for it. */
@@ -59,6 +60,12 @@ export abstract class GitHubApi {
    */
   abstract repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]>;
 
+  /**
+   * Every installation of the App the user can reach, suspended ones included, with the
+   * permissions each granted. Also throws `GitHubApiFailure` when GitHub refuses.
+   */
+  abstract installationsOf(accessToken: string): Promise<readonly GitHubInstallation[]>;
+
   /** Opens the pull request as the token's user, or gives GitHub's refusal. */
   abstract openPullRequest(
     accessToken: string,
@@ -66,23 +73,89 @@ export abstract class GitHubApi {
   ): Promise<PullRequestAnswer>;
 
   /**
-   * The web address of the open pull request of `head`, a branch of the repository, into `base`,
-   * or undefined when none is open. Also throws `GitHubApiFailure` when GitHub refuses.
+   * The open pull request of `head`, a branch of the repository, into `base`, or undefined when
+   * none is open. Also throws `GitHubApiFailure` when GitHub refuses.
    */
   abstract openPullRequestOf(
     accessToken: string,
     repository: RepositoryOnGitHub,
     head: string,
     base: string,
-  ): Promise<string | undefined>;
+  ): Promise<PullRequestOnGitHub | undefined>;
+
+  /**
+   * Every open pull request of the repository, every page of them. Also throws `GitHubApiFailure`
+   * when GitHub refuses.
+   */
+  abstract openPullRequestsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+  ): Promise<readonly ListedPullRequest[]>;
+
+  /** Pull request `number` of the repository. Also throws `GitHubApiFailure` when GitHub refuses. */
+  abstract pullRequestOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<PullRequestDetail>;
+
+  /**
+   * The check runs and commit statuses of commit `sha`; unreadable, never a failure, when GitHub
+   * refuses to show them (403 or 404). Throws `GitHubApiFailure` when GitHub fails otherwise.
+   */
+  abstract checksOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    sha: string,
+  ): Promise<ChecksOnGitHub>;
+}
+
+/** A pull request on GitHub, by its number in the repository and its web address. */
+export interface PullRequestOnGitHub {
+  readonly number: number;
+  readonly url: string;
+}
+
+/** An open pull request as GitHub lists it: `head` into `base`, and the commit each is at. */
+export interface ListedPullRequest extends PullRequestOnGitHub {
+  readonly title: string;
+  readonly head: string;
+  readonly base: string;
+  readonly headSha: string;
+  readonly baseSha: string;
+}
+
+/** One pull request as GitHub gives it on its own. */
+export interface PullRequestDetail {
+  readonly state: "open" | "closed";
+  /** When it was merged; null when it wasn't. */
+  readonly mergedAt: string | null;
+  /** Null while GitHub is still working it out. */
+  readonly mergeable: boolean | null;
+  readonly headSha: string;
+  readonly baseSha: string;
+}
+
+/** An installation of the App, as the user's token reaches it. */
+export interface GitHubInstallation {
+  readonly id: number;
+  readonly suspended: boolean;
+  /** The login of the account it is installed on. */
+  readonly account: string;
+  /** `User` or `Organization`, as GitHub names the account's kind. */
+  readonly accountType: string;
+  /** The permissions it granted, by GitHub's names and levels (`read`, `write`, `admin`). */
+  readonly permissions: Readonly<Record<string, string>>;
+  /** Its page on GitHub, where its owner accepts new permissions. */
+  readonly url: string;
 }
 
 /**
- * GitHub's answer to opening a pull request: its web address, or the status it refused with and
+ * GitHub's answer to opening a pull request: the pull request, or the status it refused with and
  * the messages of its validation errors, which GitHub writes for the user.
  */
 export type PullRequestAnswer =
-  | { readonly kind: "opened"; readonly url: string }
+  | ({ readonly kind: "opened" } & PullRequestOnGitHub)
   | { readonly kind: "refused"; readonly status: number; readonly reasons: readonly string[] };
 
 /** A call to GitHub that failed, in the UI's words; never holding GitHub's answer, which may carry secrets. */

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { GITHUB_ED25519 } from "../../../../platform/git-identity/fake-github-meta.fixtures.js";
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
-import { FakePullRequests } from "./fake-github-pulls.fixtures.js";
+import { FakePullRequests, pullRequestControlSchema } from "./fake-github-pulls.fixtures.js";
 
 /**
  * The secrets the fake hands out with each App: the private key and webhook secret, which tests
@@ -45,8 +45,26 @@ const API_PATH = "/api/v3";
  */
 export const FAKE_INSTALLATIONS_CONTROL_PATH = "/_fake/installations";
 
+/**
+ * Not GitHub's: where such a test changes a pull request as pushing, CI, merging or closing would
+ * on GitHub. A JSON body of `pullRequestControlSchema`, by its `action`; answers 204, or 404 for a
+ * pull request the fake didn't open.
+ */
+export const FAKE_PULL_REQUESTS_CONTROL_PATH = "/_fake/pull-requests";
+
+/**
+ * Not GitHub's: where such a test has an account's installations accept permissions. A JSON body
+ * `{ account, permissions: { name: "read" | "write" | "admin" } }`; answers 204, or 404 for an
+ * account the App isn't installed on.
+ */
+export const FAKE_PERMISSIONS_CONTROL_PATH = "/_fake/permissions";
+
+const permissionLevelsSchema = z.record(z.string(), z.enum(["read", "write", "admin"]));
+
 const installationRequestSchema = z.object({
   account: z.string().min(1),
+  accountType: z.enum(["User", "Organization"]).optional(),
+  permissions: permissionLevelsSchema.optional(),
   repositories: z.array(
     z.object({
       fullName: z.string().min(1),
@@ -55,6 +73,11 @@ const installationRequestSchema = z.object({
       description: z.string().optional(),
     }),
   ),
+});
+
+const grantRequestSchema = z.object({
+  account: z.string().min(1),
+  permissions: permissionLevelsSchema,
 });
 
 /** GitHub's own limit on a sign-in's code. */
@@ -85,13 +108,20 @@ interface SignInCode {
  * GitHub on 127.0.0.1, as far as The Office uses it: the page that registers an App from a
  * manifest and the REST API converting its code; the authorize page and token endpoint of an
  * App's web sign-in and the refresh of its tokens; `GET /user`, and the installations and their
- * repositories a user token reaches, the pull requests of those repositories, and the ssh host
+ * repositories a user token reaches, with the permissions each installation granted, the pull
+ * requests of those repositories and their commits' checks, and the ssh host
  * keys `GET /meta` publishes (GitHub's own). One server is both bases of `urls`. Behaves as
  * docs.github.com describes; where the docs are silent, as noted at each place.
  */
 export class FakeGitHub {
   /** Every request, in order. */
   readonly requests: RecordedRequest[] = [];
+  /**
+   * The conditional requests answered 304 Not Modified, in order: GitHub's pull requests, a pull
+   * request, and a commit's check runs and status answer with an ETag, and a 304 when the request's
+   * `If-None-Match` names it.
+   */
+  readonly notModified: RecordedRequest[] = [];
   /** The manifests posted to the new-App page, parsed, in order. */
   readonly postedManifests: unknown[] = [];
   /** Every token handed out, so tests can check none reaches the web. */
@@ -224,17 +254,22 @@ export class FakeGitHub {
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = new URL(request.url ?? "/", this.urls.web);
     const body = await readBody(request);
-    this.requests.push({
+    const recorded: RecordedRequest = {
       method: request.method ?? "GET",
       path: url.pathname,
       search: url.search,
       accept: request.headers.accept,
       grantType: new URLSearchParams(body).get("grant_type") ?? undefined,
-    });
+    };
+    this.requests.push(recorded);
     const conversion = new RegExp(`^${API_PATH}/app-manifests/([^/]+)/conversions$`).exec(
       url.pathname,
     );
     const pulls = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/pulls$`).exec(url.pathname);
+    const pull = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/pulls/([0-9]+)$`).exec(url.pathname);
+    const commitChecks = new RegExp(
+      `^${API_PATH}/repos/([^/]+/[^/]+)/commits/([^/]+)/(check-runs|status)$`,
+    ).exec(url.pathname);
     const appToken = new RegExp(`^${API_PATH}/applications/([^/]+)/token$`).exec(url.pathname);
     if (request.method === "POST" && url.pathname === "/settings/apps/new") {
       this.registerFromManifest(url, body, response);
@@ -264,18 +299,36 @@ export class FakeGitHub {
     ) {
       this.installationsApi(url, request.headers.authorization, response);
     } else if (pulls) {
-      this.pullsApi(
-        request.method,
-        url,
-        pulls[1] ?? "",
-        body,
-        request.headers.authorization,
-        response,
+      this.pullsApi(request, url, pulls[1] ?? "", body, recorded, response);
+    } else if (request.method === "GET" && pull) {
+      this.readApi(request, recorded, response, () =>
+        this.pullRequests.get(decodeURIComponent(pull[1] ?? ""), Number(pull[2])),
+      );
+    } else if (request.method === "GET" && commitChecks) {
+      const repository = decodeURIComponent(commitChecks[1] ?? "");
+      const sha = decodeURIComponent(commitChecks[2] ?? "");
+      this.readApi(request, recorded, response, () =>
+        commitChecks[3] === "status"
+          ? this.pullRequests.combinedStatus(repository, sha)
+          : this.pullRequests.checkRuns(repository, sha),
       );
     } else if (request.method === "POST" && url.pathname === FAKE_INSTALLATIONS_CONTROL_PATH) {
-      const { account, repositories } = installationRequestSchema.parse(JSON.parse(body));
-      this.installations.install(account, repositories);
+      const { account, repositories, accountType, permissions } = installationRequestSchema.parse(
+        JSON.parse(body),
+      );
+      this.installations.install(account, repositories, {
+        ...(accountType && { accountType }),
+        ...(permissions && { permissions }),
+      });
       response.writeHead(204).end();
+    } else if (request.method === "POST" && url.pathname === FAKE_PULL_REQUESTS_CONTROL_PATH) {
+      this.control(
+        () => this.pullRequests.control(pullRequestControlSchema.parse(JSON.parse(body))),
+        response,
+      );
+    } else if (request.method === "POST" && url.pathname === FAKE_PERMISSIONS_CONTROL_PATH) {
+      const { account, permissions } = grantRequestSchema.parse(JSON.parse(body));
+      this.control(() => this.installations.grant(account, permissions), response);
     } else {
       sendJson(response, 404, { message: "Not Found" });
     }
@@ -507,23 +560,66 @@ export class FakeGitHub {
   }
 
   private pullsApi(
-    method: string | undefined,
+    request: IncomingMessage,
     url: URL,
     repository: string,
     body: string,
-    authorization: string | undefined,
+    recorded: RecordedRequest,
     response: ServerResponse,
   ): void {
-    if (this.loginOf(authorization) === undefined) {
+    const fullName = decodeURIComponent(repository);
+    if (request.method === "GET") {
+      this.readApi(request, recorded, response, () => this.pullRequests.list(fullName, url));
+      return;
+    }
+    if (this.loginOf(request.headers.authorization) === undefined) {
       sendBadCredentials(response);
       return;
     }
-    const fullName = decodeURIComponent(repository);
-    let answer: ApiAnswer;
-    if (method === "POST") answer = this.pullRequests.open(fullName, body);
-    else if (method === "GET") answer = this.pullRequests.list(fullName, url);
-    else answer = { status: 404, body: { message: "Not Found" } };
+    const answer: ApiAnswer =
+      request.method === "POST"
+        ? this.pullRequests.open(fullName, body)
+        : { status: 404, body: { message: "Not Found" } };
     sendJson(response, answer.status, answer.body, answer.headers);
+  }
+
+  /**
+   * A read of the REST API that answers with an ETag, the hash of what it answers, and with 304 Not
+   * Modified, no body, when the request's `If-None-Match` names it, as GitHub's conditional
+   * requests do.
+   */
+  private readApi(
+    request: IncomingMessage,
+    recorded: RecordedRequest,
+    response: ServerResponse,
+    read: () => ApiAnswer,
+  ): void {
+    if (this.loginOf(request.headers.authorization) === undefined) {
+      sendBadCredentials(response);
+      return;
+    }
+    const answer = read();
+    if (answer.status !== 200) {
+      sendJson(response, answer.status, answer.body, answer.headers);
+      return;
+    }
+    const etag = `W/"${createHash("sha1").update(JSON.stringify(answer.body)).digest("hex")}"`;
+    if (request.headers["if-none-match"] === etag) {
+      this.notModified.push(recorded);
+      response.writeHead(304, { ...answer.headers, etag }).end();
+      return;
+    }
+    sendJson(response, answer.status, answer.body, { ...answer.headers, etag });
+  }
+
+  /** Runs a control of the fake: 204, or 404 when it names what the fake doesn't have. */
+  private control(apply: () => void, response: ServerResponse): void {
+    try {
+      apply();
+      response.writeHead(204).end();
+    } catch (error) {
+      sendJson(response, 404, { message: error instanceof Error ? error.message : String(error) });
+    }
   }
 
   private loginOf(authorization: string | undefined): string | undefined {

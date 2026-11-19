@@ -16,6 +16,7 @@ import {
 } from "../../../api/github.ts";
 import { linkedIdentityQueries } from "../../../api/linked-identities.ts";
 import { useCopyText } from "../../../shell/copy-text.ts";
+import { GitHubPermissionsPrompt } from "../../../shell/github-permissions-prompt.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 
@@ -116,6 +117,7 @@ function GitHubStateView({ state }: { readonly state: GitHubState }): ReactNode 
             </Badge>
             <SignOutButton />
           </div>
+          <GitHubPermissionsPrompt />
           <p className="settings-note">
             Through the GitHub App {state.app.slug}, registered on {state.app.owner}. The Office
             reaches only the repositories it is installed on.
@@ -148,7 +150,8 @@ function RegisterApp(): ReactNode {
       </p>
       <ul className="office-identity-permissions">
         <li>Metadata: read</li>
-        <li>Contents, Pull requests and Workflows: read and write</li>
+        <li>Contents, Pull requests, Workflows and Actions: read and write</li>
+        <li>Checks and Commit statuses: read</li>
       </ul>
       <p className="settings-note">
         It has no webhook, and its tokens expire. Next, install it on the repositories The Office
