@@ -113,6 +113,9 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   RoleLetGo,
 ];
 
+/** What an event can have changed of Now: all of it, or only today's tokens. */
+type NowRead = "whole" | "tokens today";
+
 /**
  * Now and the status strip, read from the modules that own each part and kept fresh from their
  * domain events (spec §5.3): what only events tell, the outcomes, the day's figures and each user's
@@ -124,7 +127,8 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
 export class NowService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NowService.name);
   private announcing: Promise<void> | undefined;
-  private announceAgain = false;
+  /** What the next read reads; undefined while no event asks for one. */
+  private nextRead: NowRead | undefined;
   /** Announces the next read even when Now is as announced: Since you left changed. */
   private announceAnyway = false;
   private announced: Now | undefined;
@@ -277,7 +281,8 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
 
   private subscribeToFigures(): void {
     for (const eventClass of [TokensCounted, TurnEnded]) {
-      this.events.subscribe(eventClass, async ({ thread, occurredAt }) => {
+      this.events.subscribe(eventClass, async (event) => {
+        const { thread, occurredAt } = event;
         await this.figures.countThreadTokens(
           thread.id,
           {
@@ -286,7 +291,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
           },
           officeDayOf(occurredAt),
         );
-        this.announceInBackground();
+        // Tokens are counted many times a turn and change only the day's tokens; a turn's end may
+        // change more.
+        this.announceInBackground(false, event instanceof TokensCounted ? "tokens today" : "whole");
       });
     }
   }
@@ -314,33 +321,42 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
    * Reads Now and announces it when it differs from what was last announced, returning at once
    * (`EventBus.publish` waits for its handlers). A burst of events while a read goes on makes one
    * more read after it, not one each. `anyway` announces it even when Now is unchanged, for Since
-   * you left, which each web reads again on it.
+   * you left, which each web reads again on it. `read` is what the event can have changed: the
+   * whole of Now, or only today's tokens, which are read alone on what was last announced.
    */
-  private announceInBackground(anyway = false): void {
+  private announceInBackground(anyway = false, read: NowRead = "whole"): void {
     if (anyway) this.announceAnyway = true;
-    if (this.announcing) {
-      this.announceAgain = true;
-      return;
-    }
+    this.nextRead = this.nextRead === "whole" ? "whole" : read;
+    if (this.announcing) return;
     this.announcing = this.announceUntilSettled()
       .catch((error: unknown) => {
         this.logger.error("Now could not be read", stackOf(error));
       })
       .finally(() => {
         this.announcing = undefined;
+        // An event that came as the last read ended still wants its read.
+        if (this.nextRead !== undefined) this.announceInBackground(false, this.nextRead);
       });
   }
 
   private async announceUntilSettled(): Promise<void> {
-    do {
-      this.announceAgain = false;
+    while (this.nextRead !== undefined) {
+      const read = this.nextRead;
+      this.nextRead = undefined;
       const anyway = this.announceAnyway;
       this.announceAnyway = false;
-      const now = await this.now();
+      const now =
+        read === "tokens today" && this.announced
+          ? await this.withTokensToday(this.announced)
+          : await this.now();
       if (!anyway && isDeepStrictEqual(now, this.announced)) continue;
       this.announced = now;
       await this.events.publish(new NowChanged(now));
-    } while (this.announceAgain);
+    }
+  }
+
+  private async withTokensToday(announced: Now): Promise<Now> {
+    return { ...announced, tokensToday: await this.figures.tokensOn(officeDayOf(new Date())) };
   }
 }
 

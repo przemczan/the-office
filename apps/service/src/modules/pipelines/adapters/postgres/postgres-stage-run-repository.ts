@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
   asc,
+  desc,
   eq,
   exists,
   getTableColumns,
@@ -11,6 +12,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  max,
   or,
   sql,
 } from "drizzle-orm";
@@ -29,6 +31,7 @@ import type {
   AskedInterruption,
   HoldingUser,
 } from "../../domain/stage-run.js";
+import type { StageRunUsage } from "../../domain/usage-history.js";
 import {
   StageRunRepository,
   type LeftBranch,
@@ -213,6 +216,39 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .where(inArray(stageRuns.taskId, [...taskIds]))
       .orderBy(asc(stageRuns.taskId), asc(stageRuns.number));
     return rows.map(stageRunOf);
+  }
+
+  async latestTasksUsage(
+    taskIds: readonly string[],
+    limit: number,
+  ): Promise<readonly StageRunUsage[]> {
+    if (taskIds.length === 0) return [];
+    const ended = and(inArray(stageRuns.taskId, [...taskIds]), isNotNull(stageRuns.endedAt));
+    const latestTasks = this.database
+      .select({ taskId: stageRuns.taskId })
+      .from(stageRuns)
+      .where(ended)
+      .groupBy(stageRuns.taskId)
+      .orderBy(desc(max(stageRuns.endedAt)), asc(stageRuns.taskId))
+      .limit(limit);
+    const rows = await this.database
+      .select({
+        taskId: stageRuns.taskId,
+        stageKey: stageRuns.stageKey,
+        engineId: stageRuns.engineId,
+        model: stageRuns.model,
+        tokens: stageRuns.tokens,
+        endedAt: stageRuns.endedAt,
+      })
+      .from(stageRuns)
+      .where(and(ended, inArray(stageRuns.taskId, latestTasks)))
+      .orderBy(asc(stageRuns.taskId), asc(stageRuns.number));
+    return rows.map(({ engineId, model, endedAt, ...row }) => ({
+      ...row,
+      engineId: engineId ?? undefined,
+      model: model ?? undefined,
+      endedAt: endedAt ?? undefined,
+    }));
   }
 
   async startedSince(since: Date): Promise<readonly StartedStageRun[]> {

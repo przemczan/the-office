@@ -30,28 +30,19 @@ export interface ModelTokens {
   readonly tokens: StageTokens;
 }
 
+/** What a Usage estimate reads of a Stage run: only what it used, not what it said or ran. */
+export type StageRunUsage = Pick<
+  StageRun,
+  "taskId" | "stageKey" | "engineId" | "model" | "tokens" | "endedAt"
+>;
+
 /** Tokens as every token count gives them: input, output and cache writes, not cache reads. */
 export function countedTokens({ input, output, cacheCreation }: StageTokens): number {
   return input + output + cacheCreation;
 }
 
-/** The ended runs of the `limit` Tasks whose last run ended latest. */
-export function latestTasksRuns(
-  runs: readonly StageRun[],
-  limit: number = HISTORY_TASKS,
-): readonly StageRun[] {
-  const ended = runs.filter(({ endedAt }) => endedAt !== undefined);
-  const latest = new Set(
-    [...lastEndOfEachTask(ended)]
-      .toSorted(([, one], [, other]) => other - one)
-      .slice(0, limit)
-      .map(([taskId]) => taskId),
-  );
-  return ended.filter(({ taskId }) => latest.has(taskId));
-}
-
 /** Each Stage's median tokens over the Tasks `runs` belong to. */
-export function stageUsages(runs: readonly StageRun[]): StageUsages {
+export function stageUsages(runs: readonly StageRunUsage[]): StageUsages {
   const samples = groupBy(runs, ({ stageKey }) => stageKey);
   return new Map(
     [...samples].map(([stageKey, stageRuns]) => [stageKey, stageUsage(stageRuns)] as const),
@@ -59,7 +50,7 @@ export function stageUsages(runs: readonly StageRun[]): StageUsages {
 }
 
 /** The runs' tokens summed by engine and model; a run without either is left out. */
-export function tokensByModel(runs: readonly StageRun[]): readonly ModelTokens[] {
+export function tokensByModel(runs: readonly StageRunUsage[]): readonly ModelTokens[] {
   const byModel = new Map<string, ModelTokens>();
   for (const { engineId, model, tokens } of runs) {
     if (engineId === undefined || model === undefined) continue;
@@ -82,7 +73,7 @@ export function dollarsPerToken(priced: readonly PricedTokens[]): number | undef
   return tokens === 0 ? undefined : dollars / tokens;
 }
 
-function stageUsage(runs: readonly StageRun[]): StageUsage {
+function stageUsage(runs: readonly StageRunUsage[]): StageUsage {
   const samples = [...groupBy(runs, ({ taskId }) => taskId).values()];
   const tokens = samples.map((sample) => sample.map((run) => run.tokens).reduce(addTokens));
   return {
@@ -94,15 +85,6 @@ function stageUsage(runs: readonly StageRun[]): StageUsage {
     },
     samples: samples.length,
   };
-}
-
-function lastEndOfEachTask(runs: readonly StageRun[]): ReadonlyMap<string, number> {
-  const lastEnd = new Map<string, number>();
-  for (const { taskId, endedAt } of runs) {
-    const ended = endedAt?.getTime() ?? 0;
-    lastEnd.set(taskId, Math.max(lastEnd.get(taskId) ?? ended, ended));
-  }
-  return lastEnd;
 }
 
 function groupBy<T>(items: readonly T[], keyOf: (item: T) => string): ReadonlyMap<string, T[]> {
