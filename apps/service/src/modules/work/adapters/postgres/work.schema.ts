@@ -114,6 +114,8 @@ export const initiatives = pgTable(
     /** Who asked for its latest planning Thread; null until it is first planned. */
     planningStartedBy: jsonb("planning_started_by").$type<AuthorRow>(),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
+    /** Whether its latest planning Thread was opened by Plan with…, waiting for the user. */
+    planningWithUser: boolean("planning_with_user").notNull().default(false),
     /**
      * The Initiative's Pipeline in each Project it was given one or None for (Initiative.pipelines);
      * a Project without an entry has None.

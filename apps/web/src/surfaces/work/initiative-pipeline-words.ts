@@ -16,9 +16,9 @@ import {
 import { STAGE_STATE_WORDS, WAITING_FOR_RUN_ENVIRONMENT, type StageNames } from "./stage-words.ts";
 
 /**
- * The words and layout of the Initiative page's Pipelines card (docs/design/README.md, "The
- * Initiative page: what it proposes", point 3): a block per Project the Initiative spans, each with
- * its own Pipeline or None, and a track of its Stages, across or stacked.
+ * The words and layout of the Initiative page's Pipelines card (docs/design/initiative-page.html):
+ * a block per Project the Initiative spans, each with its own Pipeline or None, and a track of its
+ * Stages, across or stacked.
  */
 
 /** What None does once whether a Project has a Pipeline is fixed. */

@@ -408,6 +408,14 @@ export function planInitiative(id: string, autoMode: boolean): Promise<Initiativ
 }
 
 /**
+ * Plan with…: a new planning Thread with whoever holds Plans, who waits for the user's first
+ * message on how to plan the Initiative, with auto mode off and the remembered default unchanged.
+ */
+export function planInitiativeWith(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/plan-with`, {}, initiativeSchema);
+}
+
+/**
  * Start Ready Tasks: the normal Start on each of the Initiative's Ready Tasks, an Overlap queued
  * behind; what started, what was queued and what was refused.
  */

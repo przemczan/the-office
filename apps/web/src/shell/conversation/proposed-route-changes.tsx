@@ -12,7 +12,7 @@ import {
 } from "../pipelines/flow/proposal-flow.ts";
 
 /**
- * A Proposal's route changes (docs/design/README.md, "An agent's Proposal"): for each Stage whose
+ * A Proposal's route changes (docs/design/pipeline-flow.html): for each Stage whose
  * routes change, new and removed Stages too, its routes out as they were and as proposed.
  */
 export function ProposedRouteChanges({

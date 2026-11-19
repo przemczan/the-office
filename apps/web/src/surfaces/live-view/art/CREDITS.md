@@ -4,7 +4,7 @@ The art in this folder is original pixel art drawn in code for The Office: every
 
 - **Author:** The Office.
 - **Licence:** GPL-3.0-only, The Office's own.
-- **Source:** ported from the Live view's prototype, [`docs/design/live-view.html`](../../../../../../docs/design/live-view.html) (design decision 1 in [`docs/design/README.md`](../../../../../../docs/design/README.md#live-view-what-it-proposes)).
+- **Source:** ported from the Live view's prototype, [`docs/design/live-view.html`](../../../../../../docs/design/live-view.html).
 - **Third-party assets:** none. No image, sprite sheet or font is downloaded or bundled.
 
 ## The packs weighed

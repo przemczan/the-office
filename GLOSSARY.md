@@ -1,6 +1,6 @@
 # The Office
 
-A workspace for a few users, each signed in, run like an office, where AI agents turn ideas into published changes across the users' projects while the users plan, steer and tune the work. Always written with "The"; formerly called Software Factory.
+A workspace for a few users, each signed in, run like an office, where AI agents turn ideas into published changes across the users' projects while the users plan, steer and tune the work. Always written with "The".
 
 ## Language
 
@@ -362,7 +362,7 @@ A signal outside the page the user is on that something waits for them or has ha
 _Avoid_: Alert, inbox item, notice
 
 **Quiet hours**:
-A daily window, off until the user sets it, in which no Notification goes to the desktop or the phone except "an Agent engine down"; one summary comes when it ends.
+A daily window, off until the user sets it, in which no Notification goes to the desktop except "an Agent engine down"; one summary comes when it ends.
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
@@ -666,7 +666,7 @@ _Avoid_: Size, zoom, scale
 ### Users and signing in
 
 **User**:
-Someone who signs in to The Office with an account. The first user is created at first run; any user adds an account for someone else and can remove one. For now every user can do everything. A user is never a person of The Office: people are the Roles users hire.
+Someone who signs in to The Office with an account. The first user is created at first run; any user adds an account for someone else and can remove one. Every user can do everything. A user is never a person of The Office: people are the Roles users hire.
 _Avoid_: Person, member, admin, operator, login
 
 **Account**:

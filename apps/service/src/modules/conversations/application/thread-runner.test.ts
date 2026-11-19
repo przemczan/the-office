@@ -2026,6 +2026,52 @@ describe("a Thread on an Initiative", () => {
     await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBe(initiativeId);
   });
 
+  it("opens waiting for the user, the person starting on their first message, briefed from the Initiative's record", async () => {
+    const initiativeId = randomUUID();
+    const threadId = randomUUID();
+    await startWith(started(...aTurn("brief", "In which order?")));
+
+    const opened = await threads.openOnInitiative({
+      threadId,
+      initiativeId,
+      roleKey,
+      title: "Planning the Initiative",
+    });
+
+    expect(opened).toMatchObject({
+      id: threadId,
+      home: { kind: "initiative", initiativeId },
+      title: "Planning the Initiative",
+      state: "waiting",
+    });
+    expect(engine.sessions).toHaveLength(0);
+
+    await runner.send(opened.id, "Plan the API Task first, one at a time.", ANN_LEE);
+    const log = await answered(opened.id, 3);
+
+    const brief = engine.sessions[0]?.received[0];
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    expect(text).toContain(`the Initiative ${initiativeId}.`);
+    expect(text).toContain("Plan the API Task first, one at a time.");
+    expect(exchanges(log)).toMatchObject([
+      { kind: "user", text: "Plan the API Task first, one at a time.", writtenBy: ANN_LEE },
+      { kind: "person", roleKey, text: "In which order?" },
+    ]);
+  });
+
+  it("refuses to open a Thread waiting for the user with a Role nobody fills", async () => {
+    await startWith();
+
+    await expect(
+      threads.openOnInitiative({
+        initiativeId: randomUUID(),
+        roleKey: "nobody",
+        title: "Planning",
+      }),
+    ).rejects.toThrow(ThreadRefused);
+    expect(engine.sessions).toHaveLength(0);
+  });
+
   it("reads the Initiative's branch once it has one, from the base checkouts' folder, and resumes so", async () => {
     const initiativeId = randomUUID();
     const reads = { shortName: "sync", branch: "initiative/sync", projectIds: ["admin-panel"] };

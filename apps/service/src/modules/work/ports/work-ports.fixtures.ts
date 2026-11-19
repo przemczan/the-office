@@ -28,7 +28,11 @@ import { AccountWindows } from "./account-windows.js";
 import { DayUsage, type ModelDayUsage } from "./day-usage.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
-import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
+import {
+  InitiativeThreads,
+  type InitiativeThreadOpening,
+  type InitiativeThreadWaiting,
+} from "./initiative-threads.js";
 import { KnownEngineCascade } from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import {
@@ -492,14 +496,21 @@ export class TaskThreadsForTests extends TaskThreads {
 }
 
 /**
- * Keeps each Thread opened on an Initiative, without a session, and each asked again; or fails,
- * once `failure` is set.
+ * Keeps each Thread opened on an Initiative, without a session: those started at once in `opened`,
+ * those waiting for the user in `waiting`; and each asked again. Or fails, once `failure` is set.
  */
 @Injectable()
 export class InitiativeThreadsForTests extends InitiativeThreads {
   readonly opened: InitiativeThreadOpening[] = [];
+  readonly waiting: InitiativeThreadWaiting[] = [];
   readonly askedAgain: AskedAgain[] = [];
   failure: Error | undefined;
+
+  async openOnInitiative(waiting: InitiativeThreadWaiting): Promise<{ readonly id: string }> {
+    if (this.failure) throw this.failure;
+    this.waiting.push(waiting);
+    return { id: waiting.threadId ?? crypto.randomUUID() };
+  }
 
   async askAgain(threadId: string, opening: string): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;

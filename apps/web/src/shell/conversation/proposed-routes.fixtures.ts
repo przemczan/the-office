@@ -1,7 +1,7 @@
 import type { Proposal, ProposedRoutes, Route, Stage } from "@the-office/contracts";
 
 /**
- * Devops' Proposal of Full's routes, as docs/design/README.md's example has it: Tests goes to
+ * Devops' Proposal of Full's routes, as docs/design/pipeline-flow.html's example has it: Tests goes to
  * Review & fix only when Implement changed files, otherwise to Publish; Review & fix goes to a new
  * Verify on Linux instead of Docs, which it removes.
  */

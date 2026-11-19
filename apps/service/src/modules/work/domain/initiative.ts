@@ -55,6 +55,11 @@ export interface Initiative {
   /** Whether its latest planning Thread plans its Tasks in auto mode. */
   readonly planningAutoMode: boolean;
   /**
+   * Whether its latest planning Thread was opened by Plan with…, where the planner waits for the
+   * user's first message on how to plan it.
+   */
+  readonly planningWithUser: boolean;
+  /**
    * The Initiative's Pipeline in each Project it was given one for (spec 2.1). While shaping, the
    * Projects a Pipeline was chosen for; from Confirm, every Project it spanned then, None included,
    * as Confirm fixed it. A Project with no entry has None: every Project starts there, and one it

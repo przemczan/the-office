@@ -13,7 +13,7 @@ export interface ProposalFlow {
 }
 
 /**
- * The flow a Proposal shows before it is applied (docs/design/README.md, "An agent's Proposal"):
+ * The flow a Proposal shows before it is applied (docs/design/pipeline-flow.html):
  * `stages` as proposed, each changed Stage keeping only the routes it had already, so the canvas
  * draws those as they are; the routes it adds are proposed, dashed, and those it takes away dotted.
  * A removed Stage isn't on the flow, so neither are its routes.
