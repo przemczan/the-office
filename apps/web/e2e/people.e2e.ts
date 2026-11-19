@@ -2330,6 +2330,23 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(plan.getByText("Not confirmed")).toBeVisible();
   await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
   await expect(proposedPipeline.getByText(/A small change with tests/)).toBeVisible();
+
+  // Mark Ready waits for a Pipeline and no open Decision; "Before Ready", read-only, says where each
+  // unmet line is settled, and each ticks as it is met. Its lines are checked before the layout is
+  // measured: until the Planner and the Pipelines load, a line's wording, and so its height, changes.
+  const markReady = page.getByRole("button", { name: "Mark Ready" });
+  await expect(markReady).toBeDisabled();
+  await expect(readinessLine("Plan confirmed")).toContainText("Confirm it on the Plan");
+  await expect(readinessLine("Definition of Done confirmed")).toContainText(
+    "Confirm it on the Definition of Done",
+  );
+  await expect(readinessLine("Pipeline chosen")).toContainText(
+    "Jan proposes Quick fix · confirm it on the rail",
+  );
+  await expect(readinessLine("No Decision open")).toContainText("1 open, in Needs you");
+  await expect(beforeReady.locator(".task-checklist-met")).toHaveCount(0);
+  await expect(beforeReady.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(0);
+
   const beforeReadyBox = await beforeReady.boundingBox();
   const needsYouBox = await needsYou.boundingBox();
   // Both in the record's column, above its tabs: what waits first, Before Ready under it.
@@ -2344,21 +2361,6 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await showPalette(page, "dark");
   await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-planning.png") });
   await showPalette(page, "light");
-
-  // Mark Ready waits for a Pipeline and no open Decision; "Before Ready", read-only, says where each
-  // unmet line is settled, and each ticks as it is met.
-  const markReady = page.getByRole("button", { name: "Mark Ready" });
-  await expect(markReady).toBeDisabled();
-  await expect(readinessLine("Plan confirmed")).toContainText("Confirm it on the Plan");
-  await expect(readinessLine("Definition of Done confirmed")).toContainText(
-    "Confirm it on the Definition of Done",
-  );
-  await expect(readinessLine("Pipeline chosen")).toContainText(
-    "Jan proposes Quick fix · confirm it on the rail",
-  );
-  await expect(readinessLine("No Decision open")).toContainText("1 open, in Needs you");
-  await expect(beforeReady.locator(".task-checklist-met")).toHaveCount(0);
-  await expect(beforeReady.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(0);
 
   // Confirm sits on the part's own block; Before Ready's link leads there.
   await readinessLine("Plan confirmed").getByRole("button", { name: "on the Plan" }).click();
@@ -2606,6 +2608,9 @@ test("the user pastes a screenshot into a Task's Thread, sends it, and opens it 
   await page.goto(`/tasks/${task.id}`);
   await page.getByRole("button", { name: "Plan with Jan" }).click();
   const conversation = page.getByRole("complementary", { name: "Conversation" });
+  // Planning opens Jan's Thread, whose composer takes over the draft but not images pasted before
+  // it shows: its cache mark says it has.
+  await expect(conversation.getByRole("img", { name: "Context: no session yet" })).toBeVisible();
   const message = conversation.getByRole("textbox", { name: "Message" });
   await message.fill("The page is cut off on the right, as in the screenshot.");
 
@@ -3444,7 +3449,8 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await panelEdge.focus();
     await page.keyboard.press("ArrowLeft");
     await expect(panelEdge).toHaveAttribute("aria-valuenow", "656");
-    expect((await panel.boundingBox())?.width).toBe(656);
+    // The panel's width is a fraction of a pixel off 656 when the layout rounds it.
+    expect((await panel.boundingBox())?.width).toBeCloseTo(656, 0);
     await panelEdge.dblclick();
     await expect(panelEdge).toHaveAttribute("aria-valuenow", "640");
     await page.screenshot({

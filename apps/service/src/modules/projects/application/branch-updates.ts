@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import type { BranchUpdate, ConflictHandling } from "../domain/branch-update.js";
 import { mergeMessage } from "../domain/resolve.js";
-import { InitiativeBranchUnusable } from "../domain/task-base.js";
+import { ExistingBranchUnusable } from "../domain/task-base.js";
 import { Git, GitCommandFailed } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
@@ -65,7 +65,7 @@ export class BranchUpdates {
       })
       .catch((error: unknown) => {
         if (error instanceof GitCommandFailed) return { kind: "failed", error: error.detail };
-        if (error instanceof InitiativeBranchUnusable) {
+        if (error instanceof ExistingBranchUnusable) {
           return { kind: "failed", error: error.message };
         }
         throw error;
@@ -100,7 +100,7 @@ export class BranchUpdates {
       ]);
       return descends && (inBases.includes(true) || movedTo === commit) && !uncommitted;
     } catch (error) {
-      if (error instanceof GitCommandFailed || error instanceof InitiativeBranchUnusable) {
+      if (error instanceof GitCommandFailed || error instanceof ExistingBranchUnusable) {
         return false;
       }
       throw error;

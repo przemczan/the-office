@@ -113,6 +113,25 @@ export class FakeInstallations {
     );
   }
 
+  /**
+   * Whether an installation that isn't suspended holds the repository and grants `permission` at
+   * `level` or above.
+   */
+  grants(fullName: string, permission: string, level: FakePermissionLevel): boolean {
+    const order: readonly string[] = ["read", "write", "admin"];
+    return this.installations.some((installation) => {
+      const granted = installation.permissions[permission];
+      return (
+        !installation.suspended &&
+        installation.repositories.some(
+          (repository) => repository.fullName.toLowerCase() === fullName.toLowerCase(),
+        ) &&
+        granted !== undefined &&
+        order.indexOf(granted) >= order.indexOf(level)
+      );
+    });
+  }
+
   /** `GET /user/installations`, `request` being the URL under the API's base. */
   listInstallations(request: URL): ApiAnswer {
     return this.page(request, "installations", this.installations, (installation) => ({

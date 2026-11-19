@@ -33,9 +33,14 @@ export const REPOSITORY = "office/tools";
  * The Projects of one test file alone, as the watch lists them: every test file shares the
  * database, and another file's Projects aren't this watch's to read.
  */
-class OwnProjects extends ProjectRepository {
+export class OwnProjects extends ProjectRepository {
   constructor(private own: readonly Project[]) {
     super();
+  }
+
+  /** One more of the test's Projects for the watch to read. */
+  include(project: Project): void {
+    this.own = [...this.own, project];
   }
 
   /** The Project removed, as Remove Project does. */
@@ -89,6 +94,8 @@ export class PullRequestWatchTestbed {
     readonly records: PostgresPullRequestRepository,
     /** Every event the watch published, in order. */
     readonly published: DomainEvent[],
+    /** The bus the watch publishes on and listens to. */
+    readonly events: EventBus,
   ) {}
 
   static async create(github: SignedInGitHub): Promise<PullRequestWatchTestbed> {
@@ -132,6 +139,7 @@ export class PullRequestWatchTestbed {
       projects,
       records,
       published,
+      events,
     );
   }
 

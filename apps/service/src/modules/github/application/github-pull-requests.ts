@@ -7,6 +7,7 @@ import {
   type PullRequestToOpen,
   type RepositoryOnGitHub,
 } from "../domain/pull-request.js";
+import { ciRunStatusOf, type GitHubCiRunStatus } from "../domain/ci-run-status.js";
 import {
   checksOf,
   mergeableOf,
@@ -23,7 +24,14 @@ import {
   PullRequestNotChanged,
   type GitHubMergeMethod,
 } from "../domain/merge-refusal.js";
-import { GitHubApi, GitHubUnreachable, type PullRequestOnGitHub } from "../ports/github-api.js";
+import {
+  GitHubApi,
+  GitHubUnreachable,
+  type DispatchableWorkflowOnGitHub,
+  type PullRequestOnGitHub,
+  type RefsOnGitHub,
+  type WorkflowDispatch,
+} from "../ports/github-api.js";
 import { failedAccess, GitHubAccess } from "./github-access.js";
 import { GitHubUrls } from "./github-urls.js";
 
@@ -60,6 +68,35 @@ export interface PullRequestStatusOnGitHub {
   readonly headCommit: string;
   readonly baseCommit: string;
 }
+
+/** A GitHub Actions run of a repository, in host-neutral words. */
+export interface CiRunOnGitHub {
+  readonly id: number;
+  /** Its number among the workflow's runs. */
+  readonly number: number;
+  readonly attempt: number;
+  /** The workflow's name. */
+  readonly workflow: string;
+  /** What GitHub titles it: the commit message or pull request title. */
+  readonly title: string;
+  /** What started it, such as `push` or `pull_request`. */
+  readonly trigger: string;
+  readonly branch: string | null;
+  readonly commit: string;
+  readonly status: GitHubCiRunStatus;
+  readonly startedAt: Date | null;
+  readonly updatedAt: Date;
+  readonly url: string;
+}
+
+/** A workflow that can be started by hand at a ref, with the inputs its file declares there. */
+export type ManualWorkflowOnGitHub = DispatchableWorkflowOnGitHub;
+
+/** A repository's branches and tags, by name. */
+export type RefsOfRepositoryOnGitHub = RefsOnGitHub;
+
+/** A start by hand: the workflow by its file name, the branch or tag, and the inputs as strings. */
+export type WorkflowStartOnGitHub = WorkflowDispatch;
 
 /** The merge methods a repository allows, and whether GitHub deletes a branch once merged. */
 export interface MergeMethodsOnGitHub {
@@ -188,6 +225,68 @@ export class GitHubPullRequests {
       headCommit: pullRequest.headSha,
       baseCommit: pullRequest.baseSha,
     };
+  }
+
+  /**
+   * The newest `count` GitHub Actions runs of the remote's repository, newest first. Throws as
+   * `openPullRequests` does.
+   */
+  async recentRuns(remoteUrl: string, count: number): Promise<readonly CiRunOnGitHub[]> {
+    const { repository, token } = await this.reading(remoteUrl);
+    const runs = await this.api.workflowRunsOf(token, repository, count).catch(failedAccess);
+    return runs.map((run) => ({
+      id: run.id,
+      number: run.runNumber,
+      attempt: run.runAttempt,
+      workflow: run.name,
+      title: run.displayTitle,
+      trigger: run.event,
+      branch: run.headBranch,
+      commit: run.headSha,
+      status: ciRunStatusOf(run.status, run.conclusion),
+      startedAt: run.runStartedAt === null ? null : new Date(run.runStartedAt),
+      updatedAt: new Date(run.updatedAt),
+      url: run.url,
+    }));
+  }
+
+  /**
+   * Runs the GitHub Actions run `runId` of the remote's repository again, or only its failed jobs.
+   * Throws `NotSignedInWithGitHub` while signed out and `GitHubAccessFailed`, in GitHub's words,
+   * when GitHub refuses (such as without the App's Actions permission) or fails.
+   */
+  async rerun(remoteUrl: string, runId: number, onlyFailed: boolean): Promise<void> {
+    const { repository, token } = await this.reading(remoteUrl);
+    await this.api.rerunWorkflowRun(token, repository, runId, onlyFailed).catch(failedAccess);
+  }
+
+  /**
+   * The remote's repository's active workflows whose file at branch or tag `ref` declares
+   * `workflow_dispatch`, with its inputs. Throws as `openPullRequests` does.
+   */
+  async manualWorkflows(
+    remoteUrl: string,
+    ref: string,
+  ): Promise<readonly ManualWorkflowOnGitHub[]> {
+    const { repository, token } = await this.reading(remoteUrl);
+    return this.api.workflowsOf(token, repository, ref).catch(failedAccess);
+  }
+
+  /** The remote's repository's branches and tags, at most 1,000 of each. Throws as `openPullRequests` does. */
+  async refs(remoteUrl: string): Promise<RefsOfRepositoryOnGitHub> {
+    const { repository, token } = await this.reading(remoteUrl);
+    return this.api.refsOf(token, repository).catch(failedAccess);
+  }
+
+  /**
+   * Starts workflow `file` of the remote's repository on `ref` with the inputs; the run it queues
+   * shows in the next `recentRuns`. Throws `NotSignedInWithGitHub` while signed out and
+   * `GitHubAccessFailed`, in GitHub's words, when GitHub refuses (such as an input the file doesn't
+   * declare, or without the App's Actions permission) or fails.
+   */
+  async startWorkflow(remoteUrl: string, start: WorkflowStartOnGitHub): Promise<void> {
+    const { repository, token } = await this.reading(remoteUrl);
+    await this.api.dispatchWorkflow(token, repository, start).catch(failedAccess);
   }
 
   /**

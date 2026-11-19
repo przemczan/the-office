@@ -1172,7 +1172,10 @@ export class TaskPublishingForTests extends TaskPublishing {
   finishResolve(_projectId: string, taskId: string): Promise<ResolveEnd> {
     this.resolveCalls.push({ call: "finish", taskId });
     const end = this.resolveEnds.shift() ?? { kind: "resolved", commit: RESOLVED_COMMIT };
-    if (end.kind === "resolved") this.git.merged(taskId, end.commit);
+    if (end.kind === "resolved") {
+      this.git.merged(taskId, end.commit);
+      this.git.merging.delete(taskId);
+    }
     return Promise.resolve(end);
   }
 

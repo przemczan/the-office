@@ -8,6 +8,7 @@ import {
   autoModeSettingSchema,
   attachmentListSchema,
   attachmentSchema,
+  conflictResolutionAnswerSchema,
   ideaListSchema,
   ideaSchema,
   initiativeListSchema,
@@ -57,6 +58,7 @@ import {
   type SavedView,
   type QueuedTask,
   type StartAnswer,
+  type ConflictResolutionAnswer,
   type StartCheck,
   type AllClear,
   type FireAlarm,
@@ -604,6 +606,20 @@ export function markReady(id: string, request: MarkReadyRequest = {}): Promise<T
 export function startTask(id: string, onOverlap?: OverlapChoice): Promise<StartAnswer> {
   const request = onOverlap ? { onOverlap } : {};
   return sendToApi("POST", `${taskPath(id)}/start`, request, startAnswerSchema);
+}
+
+/**
+ * Resolve conflicts on the pull request the Task opened: the Conflict resolution Task made and
+ * started, queued, or left Ready with Start's reasons; or the one already open. Refused with the
+ * reasons when no Task can be made.
+ */
+export function resolveConflicts(taskId: string): Promise<ConflictResolutionAnswer> {
+  return sendToApi(
+    "POST",
+    `${taskPath(taskId)}/resolve-conflicts`,
+    {},
+    conflictResolutionAnswerSchema,
+  );
 }
 
 /** Take out of the queue: the Task stays Ready. */

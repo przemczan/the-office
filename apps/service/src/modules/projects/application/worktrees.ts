@@ -8,7 +8,11 @@ import type { CommandRun } from "../domain/command-run.js";
 import { isCommandSet, type Project } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { mergedBase } from "../domain/resolve.js";
-import { initiativeBranchCheckedOut, type FreshBase } from "../domain/task-base.js";
+import {
+  existingBranchUnusable,
+  type ExistingBranchKind,
+  type FreshBase,
+} from "../domain/task-base.js";
 import {
   Git,
   NO_BRANCH_CHANGES,
@@ -47,6 +51,19 @@ export interface BaseBranch {
 export interface TaskWorktree {
   readonly path: string;
   readonly branch: string;
+}
+
+/** Where a Task's branch is checked out, if anywhere. */
+export interface BranchCheckout {
+  /** The branch the Task's worktree holds (`Worktrees.branchOf`). */
+  readonly branch: string;
+  /**
+   * The folder of the worktree that has it checked out, the user's own checkout among them;
+   * undefined when none has.
+   */
+  readonly checkedOutIn: string | undefined;
+  /** Whether that folder is the Task's own worktree. */
+  readonly inTasksOwnWorktree: boolean;
 }
 
 export interface InstallOptions {
@@ -117,6 +134,19 @@ export class Worktrees {
    */
   branchOf(project: Project, taskId: string): Promise<string> {
     return this.taskBases.branchOfTask(project, taskId);
+  }
+
+  /**
+   * Where the Task's branch is checked out: in its own worktree, in another, in the user's
+   * checkout, or nowhere. Asked before a Conflict resolution Task is made for the Task's pull
+   * request, as its worktree can hold the branch only while nothing else has it.
+   */
+  async checkoutOf(project: Project, taskId: string): Promise<BranchCheckout> {
+    const branch = await this.branchOf(project, taskId);
+    const checkedOutIn = await this.git.worktreeOf(project.path, branch);
+    const inTasksOwnWorktree =
+      checkedOutIn !== undefined && (await this.taskOfWorktree(project, checkedOutIn)) === taskId;
+    return { branch, checkedOutIn, inTasksOwnWorktree };
   }
 
   /**
@@ -237,7 +267,8 @@ export class Worktrees {
    * What the Task's branch takes in, in order, each freshly fetched: its Initiative's branch, when
    * its Initiative has a Pipeline, then the base branch (spec §2.3, "The Task's branch keeps up
    * with the base"). Throws InitiativeBranchUnusable when the Initiative's branch is gone or has
-   * diverged from its remote's.
+   * diverged from its remote's. A Conflict resolution Task's branch takes in the base branch alone,
+   * the base of the pull request it resolves.
    */
   async freshBases(
     project: Project,
@@ -518,8 +549,9 @@ export class Worktrees {
     this.refuseTooLong(worktree.path);
     const variables = this.variablesOf(project);
     const taskBase = await this.taskBases.of(project, taskId);
-    if (taskBase.kind === "publishing-task") {
-      await this.addOnInitiativeBranch(project, worktree, taskBase.branch, variables);
+    if (taskBase.kind === "publishing-task" || taskBase.kind === "pull-request") {
+      const kind = taskBase.kind === "publishing-task" ? "initiative" : "pull-request";
+      await this.addOnExistingBranch(project, worktree, kind, variables);
       return;
     }
     // A branch left from a worktree removed earlier is checked out as it is.
@@ -535,31 +567,31 @@ export class Worktrees {
   }
 
   /**
-   * Makes a Publishing Task's worktree on its Initiative's branch itself (spec §2.3, "A Publishing
-   * Task's Publish"): the local branch fast-forwarded first to its copy on the base branch's remote
-   * when that is ahead, from the commit it was read at, so a branch moved meanwhile stays as it
-   * is. Refused, saying where, while another worktree or the user's checkout has the branch, and
-   * when it is gone or has diverged from its remote's.
+   * Makes a worktree on a branch that isn't the Task's own: a Publishing Task's on its Initiative's
+   * branch itself (spec §2.3, "A Publishing Task's Publish"), a Conflict resolution Task's on the
+   * branch of the pull request it resolves (spec §2.3, "Resolve conflicts"). The local branch is
+   * fast-forwarded first to its copy on the base branch's remote when that is ahead, from the
+   * commit it was read at, so a branch moved meanwhile stays as it is. A pull request's branch gone
+   * from here is made again from the remote's copy; an Initiative's gone is refused. Refused too,
+   * saying where, while another worktree or the user's checkout has the branch, and when it has
+   * diverged from its remote's (ExistingBranchUnusable, in the words of `kind`).
    */
-  private async addOnInitiativeBranch(
+  private async addOnExistingBranch(
     project: Project,
     worktree: TaskWorktree,
-    branch: string,
+    kind: ExistingBranchKind,
     variables: GitVariables,
   ): Promise<void> {
+    const { branch } = worktree;
     await this.git.exclusively(project.path, async () => {
-      const initiative = await this.taskBases.freshInitiativeBranch(project, branch, variables);
+      if (kind === "pull-request") await this.restoreFromRemote(project, branch, variables);
+      const fresh = await this.taskBases.freshExistingBranch(project, branch, variables, kind);
       const checkedOutIn = await this.git.worktreeOf(project.path, branch);
       if (checkedOutIn !== undefined) {
-        throw initiativeBranchCheckedOut(branch, checkedOutIn, project.name);
+        throw existingBranchUnusable[kind].checkedOut(branch, checkedOutIn, project.name);
       }
-      if (initiative.commit !== initiative.local) {
-        await this.git.moveRef(
-          project.path,
-          `refs/heads/${branch}`,
-          initiative.commit,
-          initiative.local,
-        );
+      if (fresh.commit !== fresh.local) {
+        await this.git.moveRef(project.path, `refs/heads/${branch}`, fresh.commit, fresh.local);
       }
       await mkdir(dirname(worktree.path), { recursive: true });
       await this.git.addWorktree(
@@ -568,6 +600,24 @@ export class Worktrees {
         variables,
       );
     });
+  }
+
+  /**
+   * Makes the local `branch` again at its copy on the base branch's remote when it is gone from
+   * here and the remote has it; leaves it as it is otherwise.
+   */
+  private async restoreFromRemote(
+    project: Project,
+    branch: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    if (await this.git.hasBranch(project.path, branch)) return;
+    const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
+    if (!upstream) return;
+    const remote = { remote: upstream.remote, branch };
+    if (!(await this.git.remoteHasBranch(project.path, remote, variables))) return;
+    const fetched = await this.git.fetch(project.path, remote, variables);
+    await this.git.createRef(project.path, `refs/heads/${branch}`, fetched);
   }
 
   private async startPointOf(

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   builtInPipelines,
   ONBOARD_PIPELINE,
+  RESOLVE_CONFLICTS_PIPELINE,
   SET_UP_RUN_ENVIRONMENT_PIPELINE,
 } from "./built-in-pipelines.js";
 import { stageProblems } from "./pipeline.js";
@@ -17,7 +18,7 @@ function lastStageOf(id: string): Stage | undefined {
 }
 
 describe("the built-in Pipelines", () => {
-  it("are Full, Quick fix, Document, Onboard, Proof of concept and Set up run environment, each with its own id", () => {
+  it("are Full, Quick fix, Document, Onboard, Proof of concept, Set up run environment and Resolve conflicts, each with its own id", () => {
     expect(builtInPipelines.map((pipeline) => pipeline.name)).toEqual([
       "Full",
       "Quick fix",
@@ -25,8 +26,9 @@ describe("the built-in Pipelines", () => {
       "Onboard",
       "Proof of concept",
       "Set up run environment",
+      "Resolve conflicts",
     ]);
-    expect(new Set(builtInPipelines.map((pipeline) => pipeline.id)).size).toBe(6);
+    expect(new Set(builtInPipelines.map((pipeline) => pipeline.id)).size).toBe(7);
   });
 
   it("follow the Stages of spec §2.3", () => {
@@ -36,6 +38,7 @@ describe("the built-in Pipelines", () => {
     expect(stagesOf("Onboard")).toEqual(["Onboard", "Verify", "Publish"]);
     expect(stagesOf("Proof of concept")).toEqual(["Implement", "Tests", "Publish"]);
     expect(stagesOf("Set up run environment")).toEqual(["Set up", "Verify", "Publish"]);
+    expect(stagesOf("Resolve conflicts")).toEqual(["Resolve conflicts", "Test", "Publish"]);
   });
 
   it.each(builtInPipelines.map((pipeline) => [pipeline.name, pipeline] as const))(
@@ -79,6 +82,7 @@ describe("the built-in Pipelines", () => {
       ["Onboard", [150_000]],
       ["Proof of concept", [200_000]],
       ["Set up run environment", [150_000]],
+      ["Resolve conflicts", [150_000]],
     ]);
   });
 
@@ -113,5 +117,25 @@ describe("the built-in Pipelines", () => {
       optional: false,
     });
     expect(lastStageOf("proof-of-concept")).toMatchObject({ publishTarget: "branch-only" });
+  });
+
+  it("resolve a pull request's conflicts on its branch: merge, test, push the branch only", () => {
+    const stages = builtInPipelines.find(({ id }) => id === RESOLVE_CONFLICTS_PIPELINE)!.stages;
+
+    expect(stages[0]).toMatchObject({ kind: "agent", key: "resolve-conflicts" });
+    if (stages[0]?.kind !== "agent") return;
+    expect(stages[0].brief).toContain("update_branch");
+    expect(stages[0].brief).toContain("never a rebase");
+    expect(stages[0].brief).toContain("run_project_command test");
+    expect(stages[0].brief).toContain("end the Stage failed and write why in the Handover note");
+    expect(stages[1]).toMatchObject({
+      kind: "script",
+      command: "test",
+      onFailure: { goBackTo: "resolve-conflicts", rounds: 2 },
+    });
+    expect(lastStageOf(RESOLVE_CONFLICTS_PIPELINE)).toMatchObject({
+      command: "publish",
+      publishTarget: "branch-only",
+    });
   });
 });

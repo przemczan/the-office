@@ -11,10 +11,12 @@ import {
 } from "../../domain/pull-request.js";
 import type { MergeSettingsOnGitHub, RefusalOnGitHub } from "../../domain/merge-refusal.js";
 import type { ChecksOnGitHub } from "../../domain/pull-request-status.js";
+import { dispatchInputsOf, type DispatchInput } from "../../domain/workflow-dispatch.js";
 import {
   GitHubApi,
   GitHubApiFailure,
   GitHubUnreachable,
+  type DispatchableWorkflowOnGitHub,
   type GitHubInstallation,
   type GitHubUser,
   type ListedPullRequest,
@@ -23,8 +25,11 @@ import {
   type PullRequestAnswer,
   type PullRequestDetail,
   type PullRequestOnGitHub,
+  type RefsOnGitHub,
   type SignInCode,
   type TokenAnswer,
+  type WorkflowDispatch,
+  type WorkflowRunOnGitHub,
 } from "../../ports/github-api.js";
 
 const REST_HEADERS = {
@@ -34,6 +39,9 @@ const REST_HEADERS = {
 
 /** GitHub's largest page. */
 const PAGE_SIZE = "100";
+
+/** The most branches, and the most tags, `refsOf` lists. */
+const MOST_REFS = 1000;
 
 /** A call GitHub hasn't answered by then is given up, so a refresh can't hold up every git command. */
 const CALL_TIMEOUT_MS = 30_000;
@@ -123,6 +131,42 @@ const checkRunsPageSchema = z.object({
 
 const combinedStatusSchema = z.object({ statuses: z.array(z.object({ state: z.string() })) });
 
+const workflowRunsPageSchema = z.object({
+  workflow_runs: z.array(
+    z.object({
+      id: z.number().int(),
+      name: z.string().nullish(),
+      display_title: z.string().nullish(),
+      run_number: z.number().int(),
+      run_attempt: z.number().int().nullish(),
+      event: z.string(),
+      status: z.string().nullish(),
+      conclusion: z.string().nullish(),
+      head_branch: z.string().nullish(),
+      head_sha: z.string(),
+      html_url: z.string(),
+      run_started_at: z.string().nullish(),
+      updated_at: z.string(),
+    }),
+  ),
+});
+
+const workflowsPageSchema = z.object({
+  workflows: z.array(
+    z.object({
+      name: z.string(),
+      path: z.string(),
+      state: z.string(),
+      html_url: z.string(),
+    }),
+  ),
+});
+
+/** A file's contents; GitHub leaves `content` empty for a file over 1 MB. */
+const fileContentsSchema = z.object({ content: z.string(), encoding: z.string() });
+
+const refsPageSchema = z.array(z.object({ name: z.string() }));
+
 /** A repository's merge settings; GitHub gives them only to those who may change them. */
 const repositorySchema = z.object({
   allow_merge_commit: z.boolean().optional(),
@@ -151,6 +195,8 @@ interface ReadAnswer<T> {
   readonly status: number;
   readonly parsed: T | undefined;
   readonly link: string | null;
+  /** GitHub's `message` of a refusal (never of a 200); only Actions' reads read it. */
+  readonly message?: string;
 }
 
 /** GitHub refused a read with `status`; the message names the status only. */
@@ -466,6 +512,153 @@ export class GitHubRestApi extends GitHubApi {
     }
   }
 
+  async workflowRunsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    count = 30,
+  ): Promise<readonly WorkflowRunOnGitHub[]> {
+    // docs.github.com/rest/actions/workflow-runs#list-workflow-runs-for-a-repository: one page.
+    const url = gitHubUrl(this.urls.api, runsPathOf(repository));
+    url.searchParams.set("per_page", String(count));
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => workflowRunsPageSchema.safeParse(body).data?.workflow_runs,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403 || answer.status === 404
+          ? `GitHub refused to read the Actions runs of ${fullNameOf(repository)} (HTTP ${answer.status})${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't list the Actions runs of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    return answer.parsed.map((run) => ({
+      id: run.id,
+      name: run.name ?? "",
+      displayTitle: run.display_title ?? run.name ?? "",
+      runNumber: run.run_number,
+      runAttempt: run.run_attempt ?? 1,
+      event: run.event,
+      status: run.status ?? null,
+      conclusion: run.conclusion ?? null,
+      headBranch: run.head_branch ?? null,
+      headSha: run.head_sha,
+      url: run.html_url,
+      runStartedAt: run.run_started_at ?? null,
+      updatedAt: run.updated_at,
+    }));
+  }
+
+  async rerunWorkflowRun(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    runId: number,
+    onlyFailed: boolean,
+  ): Promise<void> {
+    // docs.github.com/rest/actions/workflow-runs#re-run-a-workflow
+    // and #re-run-failed-jobs-from-a-workflow-run
+    const path = `${runsPathOf(repository)}/${runId}/${onlyFailed ? "rerun-failed-jobs" : "rerun"}`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "POST",
+      headers: { ...REST_HEADERS, authorization: `Bearer ${accessToken}` },
+    });
+    if (response.status === 201) {
+      // The runs listed before no longer hold the run's state.
+      this.forgetRuns(repository);
+      return;
+    }
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = refusalMessageOf(body) || undefined;
+    if ([403, 404, 422].includes(response.status)) {
+      throw new GitHubApiFailure(
+        `GitHub refused to re-run run ${runId} of ${fullNameOf(repository)} (HTTP ${response.status})${message === undefined ? "." : `: ${message}`}`,
+      );
+    }
+    throw new GitHubApiFailure(
+      `GitHub didn't re-run run ${runId} of ${fullNameOf(repository)} (HTTP ${response.status}).`,
+    );
+  }
+
+  async workflowsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    ref: string,
+  ): Promise<readonly DispatchableWorkflowOnGitHub[]> {
+    // docs.github.com/rest/actions/workflows#list-repository-workflows
+    const listed = await this.everyPage(
+      gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/actions/workflows`),
+      accessToken,
+      (body) => workflowsPageSchema.safeParse(body).data?.workflows,
+      `GitHub didn't list the workflows of ${fullNameOf(repository)}`,
+    );
+    // A workflow GitHub lists elsewhere, such as Dependabot's or Pages', has no file to read.
+    const withFiles = listed.filter(
+      (each) => each.state === "active" && each.path.startsWith(".github/workflows/"),
+    );
+    const read = await Promise.all(
+      withFiles.map(async (workflow) => ({
+        workflow,
+        inputs: await this.dispatchInputsAt(accessToken, repository, workflow.path, ref),
+      })),
+    );
+    return read.flatMap(({ workflow, inputs }) =>
+      inputs === undefined
+        ? []
+        : [
+            {
+              file: workflow.path.slice(workflow.path.lastIndexOf("/") + 1),
+              name: workflow.name,
+              url: workflow.html_url,
+              inputs,
+            },
+          ],
+    );
+  }
+
+  async refsOf(accessToken: string, repository: RepositoryOnGitHub): Promise<RefsOnGitHub> {
+    // docs.github.com/rest/branches/branches#list-branches and docs.github.com/rest/repos/repos#list-repository-tags
+    const namesOf = async (kind: "branches" | "tags"): Promise<string[]> => {
+      const refs = await this.everyPage(
+        gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/${kind}`),
+        accessToken,
+        (body) => refsPageSchema.safeParse(body).data,
+        `GitHub didn't list the ${kind} of ${fullNameOf(repository)}`,
+        MOST_REFS,
+      );
+      return refs.map((ref) => ref.name);
+    };
+    return { branches: await namesOf("branches"), tags: await namesOf("tags") };
+  }
+
+  async dispatchWorkflow(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    { file, ref, inputs }: WorkflowDispatch,
+  ): Promise<void> {
+    // docs.github.com/rest/actions/workflows#create-a-workflow-dispatch-event: 204, no run's id.
+    const path = `${repositoryPathOf(repository)}/actions/workflows/${encodeURIComponent(file)}/dispatches`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "POST",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({ ref, inputs }),
+    });
+    if (response.status === 204) {
+      // The runs listed before don't hold the run it queued.
+      this.forgetRuns(repository);
+      return;
+    }
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = refusalMessageOf(body) || undefined;
+    if ([403, 404, 422].includes(response.status)) {
+      throw new GitHubApiFailure(
+        `GitHub refused to start ${file} on ${ref} in ${fullNameOf(repository)} (HTTP ${response.status})${message === undefined ? "." : `: ${message}`}`,
+      );
+    }
+    throw new GitHubApiFailure(
+      `GitHub didn't start ${file} on ${ref} in ${fullNameOf(repository)} (HTTP ${response.status}).`,
+    );
+  }
+
   async repositoryOf(
     accessToken: string,
     repository: RepositoryOnGitHub,
@@ -538,6 +731,46 @@ export class GitHubRestApi extends GitHubApi {
     return { status: response.status, message: refusalMessageOf(answer) };
   }
 
+  /**
+   * The `workflow_dispatch` inputs the file at `path` declares at `ref`; undefined when it doesn't
+   * declare the trigger or isn't there (404).
+   */
+  private async dispatchInputsAt(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    path: string,
+    ref: string,
+  ): Promise<readonly DispatchInput[] | undefined> {
+    // docs.github.com/rest/repos/contents#get-repository-content: base64 for a file.
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const url = gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/contents/${encodedPath}`);
+    url.searchParams.set("ref", ref);
+    // Kept as the inputs read, not the file, so a 304 parses nothing again.
+    const answer = await this.read(url, accessToken, (body) => {
+      const file = fileContentsSchema.safeParse(body).data;
+      if (file === undefined) return undefined;
+      const text = file.encoding === "base64" ? Buffer.from(file.content, "base64").toString() : "";
+      return { inputs: dispatchInputsOf(text) };
+    });
+    if (answer.status === 404) return undefined;
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403
+          ? `GitHub refused to read ${path} of ${fullNameOf(repository)} at ${ref} (HTTP 403)${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't give ${path} of ${fullNameOf(repository)} at ${ref} (HTTP ${answer.status}).`,
+      );
+    }
+    return answer.parsed.inputs;
+  }
+
+  /** Drops the repository's runs listed before, so the next list asks GitHub afresh. */
+  private forgetRuns(repository: RepositoryOnGitHub): void {
+    const listed = gitHubUrl(this.urls.api, runsPathOf(repository)).href;
+    for (const key of this.answers.keys()) {
+      if (key.slice(key.indexOf(" ") + 1).startsWith(listed)) this.answers.delete(key);
+    }
+  }
+
   private writeHeaders(accessToken: string): Record<string, string> {
     return {
       ...REST_HEADERS,
@@ -549,18 +782,19 @@ export class GitHubRestApi extends GitHubApi {
   /**
    * Every page of a list, following the `Link` header's `next` until there is none
    * (docs.github.com/rest/using-the-rest-api/using-pagination-in-the-rest-api). `failure` says
-   * what wasn't listed, GitHub's status added.
+   * what wasn't listed, GitHub's status added. Stops once it has `most` items, giving no more.
    */
   private async everyPage<T>(
     first: URL,
     accessToken: string,
     itemsOf: (body: unknown) => T[] | undefined,
     failure: string,
+    most = Infinity,
   ): Promise<T[]> {
     const items: T[] = [];
     let url: URL | undefined = new URL(first);
     url.searchParams.set("per_page", PAGE_SIZE);
-    while (url !== undefined) {
+    while (url !== undefined && items.length < most) {
       const page = await this.read(url, accessToken, itemsOf);
       if (page.parsed === undefined) {
         throw new GitHubRefusedRead(`${failure} (HTTP ${page.status}).`, page.status);
@@ -568,7 +802,7 @@ export class GitHubRestApi extends GitHubApi {
       items.push(...page.parsed);
       url = this.nextPageOf(page.link);
     }
-    return items;
+    return items.slice(0, most);
   }
 
   /**
@@ -596,7 +830,11 @@ export class GitHubRestApi extends GitHubApi {
       return { status: 200, parsed: cached.parsed as T, link: cached.link };
     }
     const link = response.headers.get("link");
-    if (response.status !== 200) return { status: response.status, parsed: undefined, link };
+    if (response.status !== 200) {
+      const refusal: unknown = await response.json().catch(() => undefined);
+      const message = refusalMessageOf(refusal);
+      return { status: response.status, parsed: undefined, link, ...(message && { message }) };
+    }
     const parsed = parse(await response.json().catch(() => undefined));
     const etag = response.headers.get("etag");
     if (parsed !== undefined && etag !== null) this.keep(key, { etag, parsed, link });
@@ -676,6 +914,10 @@ function pullsPathOf(repository: RepositoryOnGitHub): string {
 /** A refusal's `message`, which GitHub writes for the user; nothing else of its body. */
 function refusalMessageOf(answer: unknown): string | undefined {
   return refusalMessageSchema.safeParse(answer).data?.message;
+}
+
+function runsPathOf(repository: RepositoryOnGitHub): string {
+  return `${repositoryPathOf(repository)}/actions/runs`;
 }
 
 /** The messages of a refusal's validation errors, which GitHub writes for the user; nothing else of its body. */

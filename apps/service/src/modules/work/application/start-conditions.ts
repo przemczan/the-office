@@ -207,7 +207,7 @@ export class StartConditionsReader {
       if (!(error instanceof TaskRefused)) throw error;
       return { kind: "not-made", reason: error.message };
     }
-    if (base.kind === "base-branch") return undefined;
+    if (base.kind === "base-branch" || base.kind === "pull-request") return undefined;
     return (await this.initiativeBranches.exists(task.projectId, base.branch))
       ? undefined
       : { kind: "gone", branch: base.branch };

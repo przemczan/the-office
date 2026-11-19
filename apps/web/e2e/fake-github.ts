@@ -132,6 +132,84 @@ export async function controlPullRequest(control: PullRequestControl): Promise<v
   await postToFake(FAKE_PULL_REQUESTS_CONTROL_PATH, control);
 }
 
+/** The fake's own route adding and changing GitHub Actions runs; `FAKE_RUNS_CONTROL_PATH`. */
+const FAKE_RUNS_CONTROL_PATH = "/_fake/runs";
+
+/** A GitHub Actions run on the fake GitHub; what is left out is defaulted (a completed `CI` push run that succeeded). */
+export interface FakeWorkflowRun {
+  readonly id: number;
+  readonly name?: string;
+  readonly displayTitle?: string;
+  readonly runNumber?: number;
+  readonly runAttempt?: number;
+  readonly event?: string;
+  readonly status?: string;
+  readonly conclusion?: string | null;
+  readonly headBranch?: string | null;
+  readonly headSha?: string;
+  readonly startedAt?: string | null;
+  readonly updatedAt?: string;
+}
+
+/** Adds a GitHub Actions run to the repository, as CI would. */
+export async function addRun(repository: string, run: FakeWorkflowRun): Promise<void> {
+  await postToFake(FAKE_RUNS_CONTROL_PATH, { action: "addRun", repository, run });
+}
+
+/** Changes run `id` of the repository, as the workflow progressing would. */
+export async function setRun(
+  repository: string,
+  id: number,
+  changes: Omit<FakeWorkflowRun, "id">,
+): Promise<void> {
+  await postToFake(FAKE_RUNS_CONTROL_PATH, { action: "setRun", repository, id, changes });
+}
+
+/** The fake's own route adding workflows, branches and tags; `FAKE_WORKFLOWS_CONTROL_PATH`. */
+const FAKE_WORKFLOWS_CONTROL_PATH = "/_fake/workflows";
+
+/** A GitHub Actions workflow on the fake GitHub, its file `.github/workflows/<file>` unless `path` names another. */
+export interface FakeWorkflow {
+  readonly file: string;
+  /** The file's name unless named. */
+  readonly name?: string;
+  /** Its file's text at every ref, or by branch or tag name, the file missing at any other. */
+  readonly yaml: string | Readonly<Record<string, string>>;
+  /** `active` unless named. */
+  readonly state?: string;
+  readonly path?: string;
+}
+
+/** A `workflow_dispatch` the fake GitHub accepted; each queues a run on the ref. */
+export interface FakeDispatch {
+  readonly repository: string;
+  readonly file: string;
+  readonly ref: string;
+  readonly inputs: Readonly<Record<string, unknown>>;
+}
+
+/** Adds a workflow to the repository, as pushing its file would. */
+export async function addWorkflow(repository: string, workflow: FakeWorkflow): Promise<void> {
+  await postToFake(FAKE_WORKFLOWS_CONTROL_PATH, { action: "addWorkflow", repository, workflow });
+}
+
+/** Adds a branch or tag to the repository, which has `main` from the start. */
+export async function addRef(
+  repository: string,
+  ref: { readonly branch: string } | { readonly tag: string },
+): Promise<void> {
+  await postToFake(FAKE_WORKFLOWS_CONTROL_PATH, { action: "addRef", repository, ref });
+}
+
+/** The dispatches the fake GitHub accepted, in order. */
+export async function dispatches(): Promise<readonly FakeDispatch[]> {
+  const response = await fetch(`${FAKE_GITHUB_URL}${FAKE_WORKFLOWS_CONTROL_PATH}`);
+  if (!response.ok) {
+    throw new Error(`The fake GitHub refused ${FAKE_WORKFLOWS_CONTROL_PATH}: ${response.status}.`);
+  }
+  return (await response.json()) as FakeDispatch[];
+}
+
 /** The owner of `account`'s installations accepting `permissions`, added to what they granted. */
 export async function grantPermissions(
   account: string,

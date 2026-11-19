@@ -36,6 +36,7 @@ const MADE_FOR_WORDS: Readonly<Record<TaskMadeFor, string>> = {
   onboard: "a Project's Onboard Task",
   "run-environment-setup": "a Project's Set up the run environment Task",
   publishing: "an Initiative's Publishing Task",
+  "resolve-conflicts": "a Conflict resolution Task",
 };
 
 /**

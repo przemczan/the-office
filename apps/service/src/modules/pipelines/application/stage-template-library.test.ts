@@ -41,13 +41,14 @@ describe("StageTemplateLibrary", () => {
     expect(listed.slice(0, builtInStageTemplates.length)).toEqual(builtInStageTemplates);
   });
 
-  it("seeds nothing more when its migration's seed runs again", async () => {
-    const migration = await readFile(
-      new URL("../../../../drizzle/0107_stage_templates.sql", import.meta.url),
-      "utf8",
+  it("seeds nothing more when its migrations' seeds run again", async () => {
+    const migrations = await Promise.all(
+      ["0107_stage_templates.sql", "0172_conflict_resolution_tasks.sql"].map((file) =>
+        readFile(new URL(`../../../../drizzle/${file}`, import.meta.url), "utf8"),
+      ),
     );
-    const seed = migration
-      .split("--> statement-breakpoint")
+    const seed = migrations
+      .flatMap((migration) => migration.split("--> statement-breakpoint"))
       .map((statement) => statement.trim())
       .filter((statement) => statement.includes('INSERT INTO "stage_templates"'));
     const database = app.get<Database>(DATABASE);

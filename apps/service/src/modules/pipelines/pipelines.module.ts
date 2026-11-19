@@ -39,7 +39,7 @@ import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
 import { StageTemplateLibraryEditor } from "./application/stage-template-library-editor.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
-import { DroppedPublishingTasks } from "./application/dropped-publishing-tasks.js";
+import { DroppedTaskWorktrees } from "./application/dropped-task-worktrees.js";
 import { InitiativeBranchStages } from "./application/initiative-branch-stages.js";
 import { StageRunners } from "./application/stage-runners.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
@@ -165,7 +165,7 @@ export class PipelinesModule {
         StageRunners,
         StageInterpreter,
         InitiativeBranchStages,
-        DroppedPublishingTasks,
+        DroppedTaskWorktrees,
         StageGit,
         StageRunWaits,
         StageRunsFiles,

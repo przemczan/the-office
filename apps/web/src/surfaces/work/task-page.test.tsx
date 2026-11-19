@@ -56,6 +56,7 @@ function aTask(fields: Partial<Task>): Task {
     originIdeaId: null,
     initiativeId: null,
     madeFor: null,
+    resolvesTaskId: null,
     projectMoves: [],
     createdBy: { kind: "user", user: null },
     createdAt: "2026-11-11T10:00:00.000Z",

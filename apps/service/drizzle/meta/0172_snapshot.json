@@ -1,5 +1,5 @@
 {
-  "id": "92e30274-4f6d-40d0-8ee7-30db87afab63",
+  "id": "1adca247-d7d5-4c13-8ed5-32dd5cf300d5",
   "prevId": "0f7f1e74-d00f-41ce-89a3-0bed2c082c73",
   "version": "7",
   "dialect": "postgresql",
@@ -1299,7 +1299,7 @@
         },
         "engines_kind": {
           "name": "engines_kind",
-          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> '')) OR (\"engines\".\"kind\" = 'copilot-cli' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
+          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
         }
       },
       "isRLSEnabled": false
@@ -5912,6 +5912,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "resolves_task_id": {
+          "name": "resolves_task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "blocked_by": {
           "name": "blocked_by",
           "type": "uuid[]",
@@ -6068,6 +6074,22 @@
           ],
           "isUnique": true,
           "where": "\"tasks\".\"made_for\" = 'publishing' AND \"tasks\".\"state\" NOT IN ('done', 'dropped')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tasks_open_conflict_resolution_per_task": {
+          "name": "tasks_open_conflict_resolution_per_task",
+          "columns": [
+            {
+              "expression": "resolves_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"tasks\".\"made_for\" = 'resolve-conflicts' AND \"tasks\".\"state\" NOT IN ('done', 'dropped')",
           "concurrently": false,
           "method": "btree",
           "with": {}

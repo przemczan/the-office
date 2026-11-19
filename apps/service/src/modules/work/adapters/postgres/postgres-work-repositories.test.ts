@@ -3,7 +3,11 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment } from "../../domain/attachment.js";
+import { createConflictResolutionTask } from "../../domain/conflict-resolution.js";
+import { orderAfter } from "../../domain/manual-order.js";
 import { confirmPipeline } from "../../domain/planning-changes.js";
+import type { Task } from "../../domain/task.js";
+import { changeTaskState } from "../../domain/task-changes.js";
 import { changeCommitMessage, publishCommitMessage } from "../../domain/task-commit-message.js";
 import { changeTitle } from "../../domain/task-description.js";
 import { TaskCommitMessageChanged } from "../../domain/task-events.js";
@@ -355,5 +359,47 @@ describe("PostgresTaskRepository.doneSince", () => {
     const done = (await tasks.doneSince(since)).filter((taskId) => ours.has(taskId));
 
     expect(done.toSorted()).toEqual([twice.id, atTheMoment.id].toSorted());
+  });
+});
+
+/** A Conflict resolution Task of `original`'s pull request, last on the board. */
+function aConflictResolution(original: Task) {
+  return tasks.create((takenOrders) =>
+    createConflictResolutionTask(
+      randomUUID(),
+      original,
+      {
+        projectId: original.projectId,
+        number: 42,
+        url: "https://github.com/acme/billing/pull/42",
+        branch: `office/${original.id}`,
+        baseBranch: "main",
+      },
+      { order: orderAfter(takenOrders), createdBy: ANN_LEE },
+      new Date("2026-11-19T10:00:00.000Z"),
+    ),
+  );
+}
+
+describe("Conflict resolution Tasks", () => {
+  it("keeps the Task it resolves, and refuses a second open one for that Task", async () => {
+    const original = await createdTask(aProjectId());
+    const { task } = await aConflictResolution(original);
+
+    await expect(tasks.find(task.id)).resolves.toEqual(task);
+    expect(task.resolvesTaskId).toBe(original.id);
+    await expect(aConflictResolution(original)).rejects.toMatchObject({
+      cause: { constraint: "tasks_open_conflict_resolution_per_task" },
+    });
+  });
+
+  it("takes another once the open one is Dropped", async () => {
+    const original = await createdTask(aProjectId());
+    const { task } = await aConflictResolution(original);
+    await tasks.update(task.id, (stored) => changeTaskState(stored, "dropped", ANN_LEE));
+
+    const { task: again } = await aConflictResolution(original);
+
+    expect(again.resolvesTaskId).toBe(original.id);
   });
 });

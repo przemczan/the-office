@@ -53,6 +53,7 @@ import {
   ProjectsFromRepositories,
   ProjectsModule,
   InitiativeBranches,
+  PullRequestRecords,
   TaskWorktrees,
 } from "../../projects/index.js";
 import { SkillsModule } from "../../skills/index.js";
@@ -131,6 +132,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 knownProjects: ProjectService,
                 newProjects: ProjectsFromRepositories,
                 projectWorktrees: TaskWorktrees,
+                taskPullRequests: PullRequestRecords,
                 projectInitiativeBranches: InitiativeBranches,
                 knownPeople: RoleCards,
                 knownEngineCascade: EngineCascade,

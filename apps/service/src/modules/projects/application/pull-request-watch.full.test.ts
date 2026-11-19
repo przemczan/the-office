@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeGitHub, signedInWithGitHubForTests } from "../../github/index.fixtures.js";
 import { REAL_GIT_TEST } from "../adapters/git/temporary-repository.fixtures.js";
 import { openedPullRequest } from "../domain/pull-request.js";
-import { PullRequestReopened, PullRequestsChecked } from "../domain/pull-request-events.js";
+import {
+  PullRequestBranchPushed,
+  PullRequestReopened,
+  PullRequestsChecked,
+} from "../domain/pull-request-events.js";
 import { REPOSITORY, PullRequestWatchTestbed } from "../pull-request-watch.fixtures.js";
 import { REFRESH_AT_MOST_EVERY } from "./pull-request-watch.js";
 
@@ -34,6 +38,26 @@ function listReads(): number {
 }
 
 describe("the pull request watch", REAL_GIT_TEST, () => {
+  it("reads the pull requests again when a Conflict resolution Task pushed a branch, even just after a round", async () => {
+    await testbed.runRound();
+    const before = listReads();
+
+    const taskId = randomUUID();
+    await testbed.events.publish(
+      new PullRequestBranchPushed(
+        testbed.project.id,
+        randomUUID(),
+        taskId,
+        `office/${taskId}`,
+        new Date(),
+      ),
+    );
+
+    await vi.waitFor(() => expect(listReads()).toBe(before + 1));
+    // The round under way, which a refresh this soon joins, ends before the test does.
+    await testbed.watch.refresh();
+  });
+
   it("adopts a pull request on a Task's branch that Publish didn't record, and no other", async () => {
     const taskId = randomUUID();
     const adopted = await testbed.open(`office/${taskId}`, "Rename a device");

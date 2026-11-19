@@ -1,3 +1,5 @@
+import type { CiRunJobs, CiRunStatus } from "../domain/ci-run.js";
+import type { ManualWorkflow } from "../domain/manual-workflow.js";
 import type { MergeMethod } from "../domain/merge-method.js";
 import type { PullRequestStatus } from "../domain/pull-request.js";
 
@@ -25,6 +27,24 @@ export interface PullRequestOnHost extends OpenedPullRequest {
   readonly baseBranch: string;
   readonly headCommit: string;
   readonly baseCommit: string;
+}
+
+/** A run of a workflow as the code host lists it, in words no host owns. */
+export interface CiRunOnHost {
+  readonly id: number;
+  readonly number: number;
+  readonly attempt: number;
+  readonly workflow: string;
+  readonly title: string;
+  /** What started it, such as push or pull_request, as the host names it. */
+  readonly trigger: string;
+  readonly branch: string | null;
+  readonly commit: string;
+  readonly status: CiRunStatus;
+  readonly startedAt: Date | null;
+  readonly updatedAt: Date;
+  /** Its logs on the host. */
+  readonly url: string;
 }
 
 /** The merge methods a repository allows, and whether its host deletes a branch once merged. */
@@ -106,4 +126,32 @@ export abstract class CodeHost {
 
   /** Closes pull request `number` without merging it; its branch stays. */
   abstract close(remoteUrl: string, number: number): Promise<void>;
+
+  /** The repository's `count` most recent CI runs, newest first. */
+  abstract recentRuns(remoteUrl: string, count: number): Promise<readonly CiRunOnHost[]>;
+
+  /** Runs CI run `runId` again, with all its jobs or only the failed ones. */
+  abstract rerun(remoteUrl: string, runId: number, jobs: CiRunJobs): Promise<void>;
+
+  /** The repository's active Workflows whose file, at branch or tag `ref`, declares a start by hand. */
+  abstract manualWorkflows(remoteUrl: string, ref: string): Promise<readonly ManualWorkflow[]>;
+
+  /** The repository's branches and tags, by name. */
+  abstract refs(remoteUrl: string): Promise<RefsOnHost>;
+
+  /** Starts a Workflow by hand; the host refuses, such as for an input its file doesn't declare. */
+  abstract startWorkflow(remoteUrl: string, start: WorkflowStartRequest): Promise<void>;
+}
+
+/** The branches and tags of a repository, by name. */
+export interface RefsOnHost {
+  readonly branches: readonly string[];
+  readonly tags: readonly string[];
+}
+
+/** A start by hand: the Workflow by its file name, the branch or tag, and the inputs as text. */
+export interface WorkflowStartRequest {
+  readonly workflowId: string;
+  readonly ref: string;
+  readonly inputs: Readonly<Record<string, string>>;
 }

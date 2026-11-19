@@ -1,4 +1,8 @@
-import { ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE } from "./built-in-pipelines.js";
+import {
+  ONBOARD_PIPELINE,
+  RESOLVE_CONFLICTS_PIPELINE,
+  SET_UP_RUN_ENVIRONMENT_PIPELINE,
+} from "./built-in-pipelines.js";
 import { asFlow, pipelineOrder } from "./flow.js";
 import { pipelineProblem, stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
@@ -302,6 +306,11 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
   if (pipelineId === SET_UP_RUN_ENVIRONMENT_PIPELINE) {
     problems.push(
       "Setting up a run environment uses the Set up run environment Pipeline, so it stays in the library.",
+    );
+  }
+  if (pipelineId === RESOLVE_CONFLICTS_PIPELINE) {
+    problems.push(
+      "Resolving a pull request's conflicts uses the Resolve conflicts Pipeline, so it stays in the library.",
     );
   }
   if (use.defaultFor.length > 0) {

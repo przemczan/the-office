@@ -15,7 +15,11 @@ import {
 } from "@the-office/contracts";
 import { E2E_STORAGE_STATE, NOT_SIGNED_IN } from "./e2e-user.ts";
 import {
+  addRef,
+  addRun,
+  addWorkflow,
   controlPullRequest,
+  dispatches,
   FAKE_GITHUB_API_URL,
   FAKE_GITHUB_URL,
   grantPermissions,
@@ -24,7 +28,7 @@ import {
 import { serveRepository } from "./git-host.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
 import { E2E_HOST_KEY_FINGERPRINT } from "./ssh-host.ts";
-import { screenshotScenario } from "./task-screenshots.ts";
+import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 import {
   createTemporaryRepository,
   createTemporaryRepositoryWithRemote,
@@ -32,6 +36,29 @@ import {
 } from "./temporary-repository.ts";
 
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
+
+/** A workflow started by hand with a yes-no and a required choice, as GitHub's docs show one. */
+const RELEASE_YAML = `name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only show what it would publish
+        type: boolean
+        default: false
+      channel:
+        description: Where the release goes
+        type: choice
+        required: true
+        options:
+          - beta
+          - stable
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo releasing
+`;
 
 /** Add a Project open on step 1 From GitHub. */
 async function openFromGitHub(page: Page): Promise<Locator> {
@@ -461,6 +488,193 @@ test.describe.serial("Sign in with GitHub", () => {
       await page.goto("/work/pull-requests");
       await row.getByRole("link", { name: task.title, exact: true }).click();
       await expect(page).toHaveURL(`/tasks/${task.id}`);
+    } finally {
+      await repository.remove();
+    }
+  });
+
+  test(
+    "Work › Pull requests resolves a pull request's conflicts with a Conflict resolution Task, linked from both Tasks",
+    { tag: "@full" },
+    async ({ page }) => {
+      const repository = await createTemporaryRepositoryWithRemote();
+      const fullName = `office-user/pull-request-conflicts-${Date.now()}`;
+      try {
+        await installApp("office-user", [{ fullName }]);
+        const project = await addProjectOnGitHub(
+          page,
+          repository,
+          fullName,
+          "Pull request conflicts",
+        );
+        const task = await createTask(page, project, "Resolve the pull request's conflicts");
+        const number = await openPullRequestOnGitHub(fullName, task);
+        await controlPullRequest({
+          action: "setMergeable",
+          repository: fullName,
+          number,
+          mergeable: false,
+        });
+
+        await page.goto("/work/pull-requests");
+        const row = page.getByRole("row").filter({ hasText: `#${number} ${task.title}` });
+        // A refresh within 10 s of the watch's last round answers that round, so press it until the
+        // round that reads this pull request has run.
+        await expect(async () => {
+          await page.getByRole("button", { name: "Refresh" }).click();
+          await expect(row).toContainText("Conflicts", { timeout: 3_000 });
+        }).toPass({ timeout: 45_000 });
+        const resolve = row.getByRole("button", { name: "Resolve conflicts" });
+        await expect(resolve).toBeVisible();
+        await screenshotScenario(page, "pull-requests-resolve-conflicts", { inView: row });
+
+        await resolve.click();
+        const title = `Resolve conflicts: ${task.title}`;
+        await expect(row).toContainText(`Resolving: ${title} (`);
+        await expect(resolve).toBeHidden();
+        // Its Start may run, queue or be refused (the fake GitHub serves no git, and the Office's
+        // hires depend on the tests before), so its state isn't checked.
+        await screenshotScenario(page, "pull-requests-resolving", { inView: row });
+
+        await row.getByRole("link", { name: title, exact: true }).click();
+        await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
+        const ofTheConflicts = page.getByRole("region", { name: "Conflict resolution" });
+        await expect(ofTheConflicts).toContainText(`Resolves the conflicts of: ${task.title} (`);
+        await ofTheConflicts.getByRole("link", { name: task.title, exact: true }).click();
+        await expect(page).toHaveURL(`/tasks/${task.id}`);
+        await expect(page.getByRole("region", { name: "Conflict resolution" })).toContainText(
+          `Conflicts resolved by: ${title} (`,
+        );
+      } finally {
+        await repository.remove();
+      }
+    },
+  );
+
+  // Needs the sign-in (the service lists and re-runs with its token) and the Actions permission
+  // the pull request test above granted, so it lives here, between signing in and out.
+  test("Work › CI shows a failed run and re-running its failed jobs queues it", async ({
+    page,
+  }) => {
+    // The watch lists a Project's runs every minute; Refresh may be skipped within 10 s of a listing.
+    test.setTimeout(120_000);
+    const repository = await createTemporaryRepositoryWithRemote();
+    const repositoryName = `ci-notes-${Date.now()}`;
+    const fullName = `office-user/${repositoryName}`;
+    try {
+      await installApp("office-user", [{ fullName }]);
+      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      const projectName = `CI notes ${Date.now()}`;
+      const newProject: NewProject = {
+        name: projectName,
+        path: repository.path,
+        baseBranch: "main",
+        mark: { label: "CI", colour: "teal" },
+        installCommand: "",
+        commands: [
+          { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+        ],
+        installInputs: [],
+        publishingMode: "push-and-pull-request",
+        defaultPipeline: "full",
+      };
+      const added = await page.request.post("/api/projects", { data: newProject });
+      expect(added.status(), await added.text()).toBe(201);
+      execFileSync("git", ["remote", "set-url", "origin", `${FAKE_GITHUB_URL}/${fullName}.git`], {
+        cwd: repository.path,
+        stdio: "ignore",
+      });
+      const runId = Date.now();
+      const title = `Break the build ${runId}`;
+      await addRun(fullName, {
+        id: runId,
+        name: "CI",
+        displayTitle: title,
+        runNumber: 7,
+        status: "completed",
+        conclusion: "failure",
+        headBranch: "main",
+      });
+
+      await page.goto("/work/ci");
+      const row = page.getByRole("row").filter({ hasText: title });
+      // A refresh within 10 s of the last listing answers that one, so press it until the
+      // listing that reads this run has run.
+      await expect(async () => {
+        await page.getByRole("button", { name: "Refresh" }).click();
+        await expect(row).toContainText("Failed", { timeout: 3_000 });
+      }).toPass({ timeout: 90_000 });
+      await expect(row).toContainText(`CI #7 · ${title}`);
+
+      await row.getByRole("button", { name: `More for CI #7 · ${title}` }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Re-run failed jobs" }).click();
+
+      // The re-run lists the Project at once, and the fake's run starts again, queued.
+      await expect(row).toContainText("Queued", { timeout: 15_000 });
+      await expect(row).toContainText("attempt 2");
+      await expect(row.getByRole("button", { name: /^More for/ })).toHaveCount(0);
+    } finally {
+      await repository.remove();
+    }
+  });
+
+  // Needs the sign-in (the service reads the workflow files and starts one with its token) and the
+  // Actions permission to write, so it lives here, between signing in and out.
+  test("Work › CI starts a workflow by hand on a tag with its inputs, and its run shows queued", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepositoryWithRemote();
+    const fullName = `office-user/release-by-hand-${Date.now()}`;
+    try {
+      await installApp("office-user", [{ fullName }]);
+      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      const project = await addProjectOnGitHub(page, repository, fullName, "Release by hand");
+      await addWorkflow(fullName, { file: "release.yml", name: "Release", yaml: RELEASE_YAML });
+      await addRef(fullName, { tag: "v1.2.0" });
+
+      await page.goto("/work/ci");
+      await page.getByRole("button", { name: "Start a workflow" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Project", { exact: true }).selectOption({ label: project.name });
+      const ref = dialog.getByRole("combobox", { name: "Branch or tag" });
+      await expect(ref).toHaveValue("main");
+      await ref.fill("v1.2");
+      await page.getByRole("option", { name: "v1.2.0 (tag)" }).click();
+      await expect(ref).toHaveValue("v1.2.0 (tag)");
+      await dialog.getByLabel("Workflow", { exact: true }).selectOption({ label: "Release" });
+
+      const start = dialog.getByRole("button", { name: "Start", exact: true });
+      await expect(dialog).toContainText("Where the release goes");
+      await expect(start).toBeDisabled();
+      await dialog.getByLabel("channel").selectOption("stable");
+      const dryRun = dialog.getByRole("switch");
+      await expect(dryRun).toHaveAttribute("aria-checked", "false");
+      await dryRun.click();
+      await expect(dryRun).toHaveAttribute("aria-checked", "true");
+      await expect(start).toBeEnabled();
+      await screenshotScenario(page, "start-workflow-dialog", { inView: dialog });
+      await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "start-workflow-dialog.png") });
+
+      await start.click();
+      await expect(dialog).toBeHidden();
+      await expect(page.getByText("Release started on v1.2.0.")).toBeVisible();
+      // The start lists the Project at once, and the fake queues a run on the tag.
+      const row = page
+        .getByRole("row")
+        .filter({ hasText: project.name })
+        .filter({ hasText: "v1.2.0" });
+      await expect(row).toContainText("Queued", { timeout: 15_000 });
+      await expect(row).toContainText("Release #");
+      expect((await dispatches()).filter((each) => each.repository === fullName)).toEqual([
+        {
+          repository: fullName,
+          file: "release.yml",
+          ref: "v1.2.0",
+          inputs: { channel: "stable", dry_run: "true" },
+        },
+      ]);
     } finally {
       await repository.remove();
     }

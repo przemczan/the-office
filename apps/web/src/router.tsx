@@ -83,6 +83,7 @@ import {
   type InitiativesFilters,
 } from "./surfaces/work/initiative-columns.ts";
 import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
+import { CiRunsPage } from "./surfaces/work/ci-runs-page.tsx";
 import { PullRequestsPage } from "./surfaces/work/pull-requests-page.tsx";
 import { proposalSearchOf } from "./shell/conversation/proposal-search.ts";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
@@ -298,6 +299,13 @@ const pullRequestsRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "pull-requests",
   component: PullRequestsPage,
+  staticData: { title: "Work" },
+});
+
+const ciRunsRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "ci",
+  component: CiRunsPage,
   staticData: { title: "Work" },
 });
 
@@ -753,6 +761,7 @@ export const router = createRouter({
       ideasRoute,
       initiativesRoute,
       pullRequestsRoute,
+      ciRunsRoute,
       archivedRoute,
     ]),
     initiativeRoute,

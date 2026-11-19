@@ -6,6 +6,8 @@ import { GITHUB_ED25519 } from "../../../../platform/git-identity/fake-github-me
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
 import { FakePullRequests, pullRequestControlSchema } from "./fake-github-pulls.fixtures.js";
+import { FakeWorkflowRuns, runControlSchema } from "./fake-github-runs.fixtures.js";
+import { FakeWorkflows, workflowControlSchema } from "./fake-github-workflows.fixtures.js";
 
 /**
  * The secrets the fake hands out with each App: the private key and webhook secret, which tests
@@ -58,6 +60,18 @@ export const FAKE_PULL_REQUESTS_CONTROL_PATH = "/_fake/pull-requests";
  * account the App isn't installed on.
  */
 export const FAKE_PERMISSIONS_CONTROL_PATH = "/_fake/permissions";
+
+/**
+ * Not GitHub's: where such a test adds and changes GitHub Actions runs. A JSON body of
+ * `runControlSchema`, by its `action`; answers 204, or 404 for a run the fake doesn't have.
+ */
+export const FAKE_RUNS_CONTROL_PATH = "/_fake/runs";
+
+/**
+ * Not GitHub's: where such a test adds workflows and branches or tags. A JSON body of
+ * `workflowControlSchema`, by its `action`, answering 204; a GET answers the dispatches accepted.
+ */
+export const FAKE_WORKFLOWS_CONTROL_PATH = "/_fake/workflows";
 
 const permissionLevelsSchema = z.record(z.string(), z.enum(["read", "write", "admin"]));
 
@@ -140,6 +154,13 @@ export class FakeGitHub {
   readonly installations: FakeInstallations;
   /** The pull requests opened on the installed repositories. */
   readonly pullRequests: FakePullRequests;
+  /** The GitHub Actions runs: `addRun`, `setRun`; their list answers with an ETag and 304. */
+  readonly runs: FakeWorkflowRuns;
+  /**
+   * The workflows, their files by ref, the branches and tags: `addWorkflow`, `addRef`; a dispatch
+   * queues a run in `runs` and is recorded in `dispatches()`.
+   */
+  readonly workflows: FakeWorkflows;
   private readonly appsByCode = new Map<string, FakeGitHubApp>();
   private readonly registeredApps = new Map<string, RegisteredApp>();
   private readonly signInCodes = new Map<string, SignInCode>();
@@ -154,6 +175,8 @@ export class FakeGitHub {
   ) {
     this.installations = new FakeInstallations(urls.web, gitUrl);
     this.pullRequests = new FakePullRequests(urls.web, this.installations);
+    this.runs = new FakeWorkflowRuns(urls.web, this.installations);
+    this.workflows = new FakeWorkflows(urls.web, this.installations, this.runs);
   }
 
   /**
@@ -274,6 +297,20 @@ export class FakeGitHub {
     const commitChecks = new RegExp(
       `^${API_PATH}/repos/([^/]+/[^/]+)/commits/([^/]+)/(check-runs|status)$`,
     ).exec(url.pathname);
+    const runs = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/actions/runs$`).exec(url.pathname);
+    const rerun = new RegExp(
+      `^${API_PATH}/repos/([^/]+/[^/]+)/actions/runs/([0-9]+)/(rerun|rerun-failed-jobs)$`,
+    ).exec(url.pathname);
+    const workflows = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/actions/workflows$`).exec(
+      url.pathname,
+    );
+    const dispatch = new RegExp(
+      `^${API_PATH}/repos/([^/]+/[^/]+)/actions/workflows/([^/]+)/dispatches$`,
+    ).exec(url.pathname);
+    const contents = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/contents/(.+)$`).exec(
+      url.pathname,
+    );
+    const refs = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/(branches|tags)$`).exec(url.pathname);
     const appToken = new RegExp(`^${API_PATH}/applications/([^/]+)/token$`).exec(url.pathname);
     if (request.method === "POST" && url.pathname === "/settings/apps/new") {
       this.registerFromManifest(url, body, response);
@@ -332,6 +369,52 @@ export class FakeGitHub {
           ? this.pullRequests.combinedStatus(repository, sha)
           : this.pullRequests.checkRuns(repository, sha),
       );
+    } else if (request.method === "GET" && runs) {
+      const repository = decodeURIComponent(runs[1] ?? "");
+      this.readApi(request, recorded, response, () => this.runs.list(repository, url));
+    } else if (request.method === "POST" && rerun) {
+      if (this.loginOf(request.headers.authorization) === undefined) {
+        sendBadCredentials(response);
+        return;
+      }
+      const answer = this.runs.rerun(decodeURIComponent(rerun[1] ?? ""), Number(rerun[2]));
+      sendJson(response, answer.status, answer.body, answer.headers);
+    } else if (request.method === "GET" && workflows) {
+      const repository = decodeURIComponent(workflows[1] ?? "");
+      this.readApi(request, recorded, response, () => this.workflows.list(repository, url));
+    } else if (request.method === "GET" && contents) {
+      const repository = decodeURIComponent(contents[1] ?? "");
+      const path = decodeURIComponent(contents[2] ?? "");
+      this.readApi(request, recorded, response, () =>
+        this.workflows.contents(repository, path, url),
+      );
+    } else if (request.method === "GET" && refs) {
+      const repository = decodeURIComponent(refs[1] ?? "");
+      const kind = refs[2] === "tags" ? "tags" : "branches";
+      this.readApi(request, recorded, response, () =>
+        this.workflows.listRefs(repository, kind, url),
+      );
+    } else if (request.method === "POST" && dispatch) {
+      if (this.loginOf(request.headers.authorization) === undefined) {
+        sendBadCredentials(response);
+        return;
+      }
+      const answer = this.workflows.dispatch(
+        decodeURIComponent(dispatch[1] ?? ""),
+        decodeURIComponent(dispatch[2] ?? ""),
+        body,
+      );
+      if (answer.status === 204) response.writeHead(204).end();
+      else sendJson(response, answer.status, answer.body, answer.headers);
+    } else if (request.method === "POST" && url.pathname === FAKE_WORKFLOWS_CONTROL_PATH) {
+      this.control(
+        () => this.workflows.control(workflowControlSchema.parse(JSON.parse(body))),
+        response,
+      );
+    } else if (request.method === "GET" && url.pathname === FAKE_WORKFLOWS_CONTROL_PATH) {
+      sendJson(response, 200, this.workflows.dispatches());
+    } else if (request.method === "POST" && url.pathname === FAKE_RUNS_CONTROL_PATH) {
+      this.control(() => this.runs.control(runControlSchema.parse(JSON.parse(body))), response);
     } else if (request.method === "POST" && url.pathname === FAKE_INSTALLATIONS_CONTROL_PATH) {
       const { account, repositories, accountType, permissions } = installationRequestSchema.parse(
         JSON.parse(body),

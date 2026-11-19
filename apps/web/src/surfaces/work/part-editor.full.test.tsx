@@ -42,6 +42,7 @@ const MENTIONED_TASK: Task = {
   originIdeaId: null,
   initiativeId: null,
   madeFor: null,
+  resolvesTaskId: null,
   projectMoves: [],
   createdBy: { kind: "user", user: null },
   createdAt: "2026-10-28T10:00:00.000Z",

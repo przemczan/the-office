@@ -12,6 +12,7 @@ import {
 } from "../domain/pull-request.js";
 import {
   onTheCodeHost,
+  PullRequestBranchPushed,
   PullRequestClosed,
   PullRequestMerged,
   PullRequestReopened,
@@ -63,7 +64,9 @@ export interface PullRequestList {
  * when Publish couldn't record it, is adopted.
  * Nothing it can't read fails it: the rows go stale and the Project holds a problem in plain words
  * (kept in memory) until a round reads it again. `PullRequestsChecked` is published only when
- * something the list shows changed.
+ * something the list shows changed. A Conflict resolution Task's push of a pull request's branch
+ * (`PullRequestBranchPushed`) starts a round after the one under way, if any, so the list shows the
+ * new commits and conflict status without waiting for the minute; it never fails the Publish.
  */
 @Injectable()
 export class PullRequestWatch implements OnApplicationBootstrap {
@@ -85,6 +88,14 @@ export class PullRequestWatch implements OnApplicationBootstrap {
 
   onApplicationBootstrap(): void {
     this.schedule.every(PULL_REQUEST_WATCH, PULL_REQUEST_WATCH_EVERY, () => this.check());
+    // Not awaited: Publish, which published it, may still hold the repository's lock.
+    this.events.subscribe(PullRequestBranchPushed, () => {
+      void this.checkAgain().catch((error: unknown) => {
+        this.logger.warn(
+          `Refreshing the pull requests after a push failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    });
   }
 
   /** The open pull requests and problems, only the Project's when one is named. */
@@ -108,6 +119,15 @@ export class PullRequestWatch implements OnApplicationBootstrap {
     if (this.lastRoundAt !== undefined && now - this.lastRoundAt < REFRESH_AT_MOST_EVERY) {
       return Promise.resolve();
     }
+    return this.check();
+  }
+
+  /**
+   * A round that begins now, or after the one under way, which may have read the pull requests
+   * before what changed them: never two at once.
+   */
+  async checkAgain(): Promise<void> {
+    await this.running?.catch(() => undefined);
     return this.check();
   }
 
