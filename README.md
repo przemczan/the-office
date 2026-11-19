@@ -23,7 +23,7 @@ A running Stage's Thread, where you can write to the person while they work.
 ## What you need
 
 - **A machine:** Linux on x64 or arm64, with systemd and root (direct install) or Docker Engine with Compose (Compose install); port 4310. The Office reaches Docker, which is root access to the machine, so give it a machine of its own. On Windows and macOS, run it from a checkout (below).
-- **An engine** for the Agents to run on: a Claude Code account, or an API endpoint on the OpenAI-compatible API. You sign in during First-run setup or later in Settings › Engines.
+- **An engine** for the Agents to run on: a Claude Code account, a Codex account, or an API endpoint on the OpenAI-compatible API. You sign in during First-run setup or later in Settings › Engines.
 - **GitHub, optionally:** Sign in with GitHub gives The Office its own git identity, for cloning, pushing and pull requests on GitHub. Projects elsewhere work without it.
 
 [docs/installing.md](docs/installing.md#requirements) lists the requirements in full.

@@ -2,8 +2,7 @@ import type { ConditionGroup, ConditionTest, Route, Stage } from "@the-office/co
 import { isGroup, type DefinitionOfDoneIs, type StageTestIs } from "./condition-edits.ts";
 
 /**
- * A route's condition in plain words (docs/design/pipeline-flow.html, docs/design/README.md "A
- * route's condition"): "Followed when Implement changed files and either the Definition of Done has
+ * A route's condition in plain words (docs/design/pipeline-flow.html): "Followed when Implement changed files and either the Definition of Done has
  * some not Reported met or Tests ran 2 or more times." `from` is the route's own Stage, which a test
  * of `stage: null` names; `stages` the flow, which names every other.
  */

@@ -34,7 +34,7 @@ type ProposedRoutesChange = (ProposedPipelineChange | ProposedProjectPipeline) &
 };
 
 /**
- * Show it on the flow (docs/design/README.md, "An agent's Proposal"): opens the Pipeline in
+ * Show it on the flow (docs/design/pipeline-flow.html): opens the Pipeline in
  * Settings › Pipelines, or the Project Pipeline on its Project page, with the Proposal over it.
  * Below 901px the chat covers the page, so it closes; the banner's Back to the Thread opens it again.
  */

@@ -1,7 +1,7 @@
 /**
- * The Task graph's edges, routed square (docs/design/README.md, "The Initiative page: what it
- * proposes", point 2): straight out of the blocker, two rounded corners on a vertical in the column
- * gap, and straight into an arrowhead of its own, so the head always points along the line.
+ * The Task graph's edges, routed square (docs/design/initiative-page.html): straight out of the
+ * blocker, two rounded corners on a vertical in the column gap, and straight into an arrowhead of
+ * its own, so the head always points along the line.
  */
 
 /** A Task's box in the graph's own coordinates, and the column it stands in. */
