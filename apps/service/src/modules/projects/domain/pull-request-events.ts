@@ -86,3 +86,21 @@ export class PullRequestsChecked extends DomainEvent {
     super(checkedAt);
   }
 }
+
+/**
+ * A Conflict resolution Task's Publish pushed the branch of the pull request it resolves, so the
+ * pull request's commits and conflict status changed on its code host; the watch reads them again.
+ */
+export class PullRequestBranchPushed extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    /** The Conflict resolution Task that pushed. */
+    readonly taskId: string,
+    /** The Task whose pull request it is. */
+    readonly pullRequestTaskId: string,
+    readonly branch: string,
+    pushedAt: Date,
+  ) {
+    super(pushedAt);
+  }
+}

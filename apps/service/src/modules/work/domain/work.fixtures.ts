@@ -82,6 +82,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     usageWindowEngineId: undefined,
     usageWindowPausedAt: undefined,
     madeFor: undefined,
+    resolvesTaskId: undefined,
     blockedBy: [],
     originIdeaId: undefined,
     initiativeId: undefined,

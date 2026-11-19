@@ -9,6 +9,11 @@ import {
   startWorkApplication,
   type WorkApplication,
 } from "../work-application.fixtures.js";
+import { createConflictResolutionTask } from "../domain/conflict-resolution.js";
+import { orderAfter } from "../domain/manual-order.js";
+import { changeTaskState } from "../domain/task-changes.js";
+import { ANN_LEE } from "../domain/work.fixtures.js";
+import { TaskRepository } from "../ports/task-repository.js";
 import { TaskRecords } from "./task-records.js";
 
 let officeData: string;
@@ -137,6 +142,51 @@ describe("TaskRecords", () => {
         "",
         "Read them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size.",
       ].join("\n"),
+    );
+  });
+
+  it("links a Task and the Conflict resolution Tasks of its pull request both ways, newest first", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const originalId = await aTask(projectId);
+    const repository = work.app.get(TaskRepository);
+    const resolving = async (createdAt: Date) =>
+      (
+        await repository.create((takenOrders) =>
+          createConflictResolutionTask(
+            randomUUID(),
+            { id: originalId, title: "Rename a device" },
+            {
+              projectId,
+              number: 42,
+              url: "https://github.com/acme/devices/pull/42",
+              branch: `office/${originalId}`,
+              baseBranch: "main",
+            },
+            { order: orderAfter(takenOrders), createdBy: ANN_LEE },
+            createdAt,
+          ),
+        )
+      ).task;
+    const first = await resolving(new Date("2026-11-19T10:00:00.000Z"));
+    await repository.update(first.id, (task) => changeTaskState(task, "dropped", ANN_LEE));
+    const second = await resolving(new Date("2026-11-19T11:00:00.000Z"));
+    const records = work.app.get(TaskRecords);
+
+    const original = await records.read(originalId);
+    const resolution = await records.read(second.id);
+
+    expect(original.linkedRecordsSection).toContain(
+      [
+        `- Conflicts resolved by: Resolve conflicts: Rename a device (Task ${second.id}), Ready; read_task reads it`,
+        `- Conflicts resolved by: Resolve conflicts: Rename a device (Task ${first.id}), Dropped; read_task reads it`,
+      ].join("\n"),
+    );
+    expect(resolution.linkedRecordsSection).toContain(
+      `- Resolves the conflicts of: Rename a device (Task ${originalId}), Backlog; read_task reads it`,
+    );
+    expect(resolution.initiativeBranch).toBeUndefined();
+    expect(await records.recordText(originalId)).toContain(
+      `- Conflicts resolved by: Resolve conflicts: Rename a device (Task ${second.id})`,
     );
   });
 });

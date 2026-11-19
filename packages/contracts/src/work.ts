@@ -319,6 +319,15 @@ export const pullRequestEndSchema = z.object({
 });
 export type PullRequestEnd = z.infer<typeof pullRequestEndSchema>;
 
+/** What The Office makes a Task for (spec §2.1, "Tasks The Office makes"). */
+export const TASK_MADE_FOR = [
+  "onboard",
+  "run-environment-setup",
+  "publishing",
+  "resolve-conflicts",
+] as const;
+export type TaskMadeFor = (typeof TASK_MADE_FOR)[number];
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
@@ -388,9 +397,14 @@ export const taskSchema = newTaskSchema.extend({
   initiativeId: z.uuid().nullable(),
   /**
    * What The Office made it for: a Project's Onboard Task, its "Set up the run environment" Task,
-   * or an Initiative's Publishing Task; null for any other Task.
+   * an Initiative's Publishing Task, or a Conflict resolution Task; null for any other Task.
    */
-  madeFor: z.enum(["onboard", "run-environment-setup", "publishing"]).nullable(),
+  madeFor: z.enum(TASK_MADE_FOR).nullable(),
+  /**
+   * The Task whose pull request a Conflict resolution Task resolves the conflicts of; null for any
+   * other Task.
+   */
+  resolvesTaskId: z.uuid().nullable(),
   /** Each Move to another Project, oldest first. */
   projectMoves: z.array(projectMoveSchema),
   createdBy: authorSchema,
@@ -744,6 +758,18 @@ export const startAnswerSchema = z.object({
   queued: queuedTaskSchema.nullable(),
 });
 export type StartAnswer = z.infer<typeof startAnswerSchema>;
+
+/**
+ * POST /tasks/:id/resolve-conflicts, Resolve conflicts on the Task's pull request: the Conflict
+ * resolution Task, made now and started or queued, or the one already open. `startRefusal` holds
+ * every reason Start refused it, which leaves it Ready; null when it started or queued.
+ */
+export const conflictResolutionAnswerSchema = z.object({
+  task: taskSchema,
+  queued: queuedTaskSchema.nullable(),
+  startRefusal: z.array(z.string()).nullable(),
+});
+export type ConflictResolutionAnswer = z.infer<typeof conflictResolutionAnswerSchema>;
 
 /**
  * POST /initiatives/:id/start, Start Ready Tasks: what the normal Start did to each of the

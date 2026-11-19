@@ -40,6 +40,7 @@ function aTask(index: number, fields: Partial<Task> = {}): Task {
     initiativeId: null,
     initiativePlanningThreadId: null,
     madeFor: null,
+    resolvesTaskId: null,
     archivedAt: null,
     ...fields,
   } as Task;

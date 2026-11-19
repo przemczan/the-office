@@ -3,7 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Project } from "../domain/project.js";
 import { openedPullRequest } from "../domain/pull-request.js";
-import { PullRequestOpened } from "../domain/pull-request-events.js";
+import { PullRequestBranchPushed, PullRequestOpened } from "../domain/pull-request-events.js";
 import {
   baseMovedError,
   type BaseTakenIn,
@@ -18,7 +18,7 @@ import {
 } from "../domain/publication.js";
 import { mergedBase, mergeMessage } from "../domain/resolve.js";
 import {
-  InitiativeBranchUnusable,
+  ExistingBranchUnusable,
   type FreshBase,
   type FreshInitiativeBranch,
 } from "../domain/task-base.js";
@@ -57,7 +57,9 @@ interface PublishContext {
  * left as they are. A Task of an Initiative with a Pipeline publishes into its Initiative's branch
  * instead, as one commit whatever the publishing mode (`mergeIntoInitiativeBranch`); a Publishing
  * Task publishes that branch itself into the base branch by the publishing mode, carrying those
- * commits unchanged (`publishPublishingTask`).
+ * commits unchanged (`publishPublishingTask`). A Conflict resolution Task pushes the branch of the
+ * pull request it resolves only, whatever the target, so the same pull request takes its merge of
+ * the base; the pull request watch then reads it again (`PullRequestBranchPushed`).
  */
 @Injectable()
 export class Publishing {
@@ -90,7 +92,8 @@ export class Publishing {
     const base = await this.git.upstreamOf(project.path, project.baseBranch);
     if (!base) return { kind: "failed", error: noRemoteError(project.baseBranch) };
     const variables = this.commands.variablesFor(project.environment);
-    return this.git
+    const resolvesPullRequest = taskBase.kind === "pull-request";
+    const publication = await this.git
       .exclusively(project.path, async () => {
         const baseCommit = await this.git
           .fetch(project.path, base, variables)
@@ -104,12 +107,21 @@ export class Publishing {
         if (await this.git.addsNothing(project.path, baseCommit, branchRef(branch))) {
           return { kind: "nothing-to-publish", branch, base } as const;
         }
-        if (target === "branch-only") return this.pushBranchOnly(project, context);
+        if (target === "branch-only" || resolvesPullRequest) {
+          return this.pushBranchOnly(project, context);
+        }
         return project.publishingMode === "merge"
           ? this.merge(project, context, message)
           : this.pushAndOpenPullRequest(project, context, message);
       })
       .catch(publishFailure);
+    if (taskBase.kind === "pull-request" && publication.kind === "branch-pushed") {
+      // The bus logs a handler's failure, so the watch never fails the Publish.
+      await this.events.publish(
+        new PullRequestBranchPushed(project.id, taskId, taskBase.taskId, branch, new Date()),
+      );
+    }
+    return publication;
   }
 
   /**
@@ -649,7 +661,7 @@ class PublishFailed extends Error {}
 
 /** A failed step as a failed Publish; anything else is a fault and stays as it is. */
 function publishFailure(error: unknown): Publication {
-  if (error instanceof PublishFailed || error instanceof InitiativeBranchUnusable) {
+  if (error instanceof PublishFailed || error instanceof ExistingBranchUnusable) {
     return { kind: "failed", error: error.message };
   }
   throw error;

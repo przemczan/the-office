@@ -13,6 +13,10 @@ export interface TaskLinks {
   readonly waitingForIt: readonly Task[];
   readonly idea: Idea | undefined;
   readonly initiative: Initiative | undefined;
+  /** The Task whose pull request's conflicts it resolves, a Conflict resolution Task's. */
+  readonly resolvesConflictsOf?: Task | undefined;
+  /** The Conflict resolution Tasks of its pull request, newest first; none by default. */
+  readonly conflictsResolvedBy?: readonly Task[];
 }
 
 /**
@@ -35,6 +39,12 @@ export function linkedRecordLines(links: TaskLinks): string[] {
     ...links.waitingForIt.map((task) => `- Waiting for it: ${linkedTaskWords(task)}`),
     ...(links.idea ? [`- Shaped from: ${linkedIdeaWords(links.idea)}`] : []),
     ...(links.initiative ? [`- Part of: ${linkedInitiativeWords(links.initiative)}`] : []),
+    ...(links.resolvesConflictsOf
+      ? [`- Resolves the conflicts of: ${linkedTaskWords(links.resolvesConflictsOf)}`]
+      : []),
+    ...(links.conflictsResolvedBy ?? []).map(
+      (task) => `- Conflicts resolved by: ${linkedTaskWords(task)}`,
+    ),
   ];
 }
 

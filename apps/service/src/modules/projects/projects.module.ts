@@ -63,6 +63,7 @@ import { ProjectsFromRepositories } from "./application/projects-from-repositori
 import { RepositoryClones } from "./application/repository-clones.js";
 import { Publishing } from "./application/publishing.js";
 import { PullRequestActions } from "./application/pull-request-actions.js";
+import { PullRequestRecords } from "./application/pull-request-records.js";
 import { PullRequestWatch } from "./application/pull-request-watch.js";
 import { BranchUpdates } from "./application/branch-updates.js";
 import { Resolving } from "./application/resolving.js";
@@ -181,6 +182,7 @@ export class ProjectsModule implements NestModule {
         ProjectOfficeTools,
         ProjectOfficeActions,
         ProjectRecords,
+        PullRequestRecords,
       ],
       exports: [
         BaseCheckouts,
@@ -191,6 +193,7 @@ export class ProjectsModule implements NestModule {
         ProjectRecords,
         ProjectService,
         ProjectsFromRepositories,
+        PullRequestRecords,
         TaskRunEnvironments,
         TaskWorktrees,
         TaskBases,

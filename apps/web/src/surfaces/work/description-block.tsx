@@ -5,6 +5,7 @@ import { changeDescription } from "../../api/work.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
+import { ConflictResolutionSection } from "./conflict-resolution-parts.tsx";
 import { DependenciesSection, useDependencies } from "./dependencies-block.tsx";
 import { dependenciesSummary } from "./dependency-words.ts";
 import { TaskInitiativeSection } from "./initiative-membership.tsx";
@@ -17,7 +18,7 @@ import { useFold } from "./record-folds.ts";
 
 /**
  * The user's Description: what they want, in their own words, which the Planner plans from, with
- * the Task's Dependencies, its Initiative and its Origin below it. The text stays editable until the Task starts; the
+ * the Task's Dependencies, its Conflict resolution links, its Initiative and its Origin below it. The text stays editable until the Task starts; the
  * block starts open in every state (the user, 2026-11-11).
  */
 export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
@@ -76,6 +77,7 @@ export function DescriptionBlock({ task }: { readonly task: Task }): ReactNode {
         </div>
       )}
       <DependenciesSection task={task} />
+      <ConflictResolutionSection task={task} />
       <TaskInitiativeSection task={task} />
       {origin && (
         <section className="task-record-section" aria-label="Origin">

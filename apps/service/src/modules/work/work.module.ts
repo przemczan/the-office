@@ -54,6 +54,7 @@ import { WorkOfficeActionsController } from "./adapters/http/work-office-actions
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
+import { ConflictResolutionsController } from "./adapters/http/conflict-resolutions.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./adapters/postgres/postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
@@ -80,6 +81,7 @@ import { OfficeLimits } from "./application/office-limits.js";
 import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
 import { OnboardingService } from "./application/onboarding-service.js";
 import { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
+import { ConflictResolutions } from "./application/conflict-resolutions.js";
 import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
 import { SearchService } from "./application/search-service.js";
@@ -122,6 +124,7 @@ import { NewProjects } from "./ports/new-projects.js";
 import { ProjectInitiativeBranches } from "./ports/project-initiative-branches.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { StageResults } from "./ports/stage-results.js";
+import { TaskPullRequests } from "./ports/task-pull-requests.js";
 import { TaskGates } from "./ports/task-gates.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { SavedViewRepository } from "./ports/saved-view-repository.js";
@@ -150,6 +153,7 @@ export interface WorkModuleOptions {
   readonly knownProjects: Type<KnownProjects>;
   readonly newProjects: Type<NewProjects>;
   readonly projectWorktrees: Type<ProjectWorktrees>;
+  readonly taskPullRequests: Type<TaskPullRequests>;
   readonly projectInitiativeBranches: Type<ProjectInitiativeBranches>;
   readonly knownPeople: Type<KnownPeople>;
   readonly knownEngineCascade: Type<KnownEngineCascade>;
@@ -183,6 +187,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     knownProjects,
     newProjects,
     projectWorktrees,
+    taskPullRequests,
     projectInitiativeBranches,
     knownPeople,
     knownEngineCascade,
@@ -219,6 +224,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         IdeasController,
         InitiativesController,
         TasksController,
+        ConflictResolutionsController,
         QueueController,
         AttachmentsController,
         OfficeLimitsController,
@@ -249,6 +255,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: NewProjects, useExisting: newProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
+        { provide: TaskPullRequests, useExisting: taskPullRequests },
         { provide: ProjectInitiativeBranches, useExisting: projectInitiativeBranches },
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: KnownEngineCascade, useExisting: knownEngineCascade },
@@ -284,6 +291,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         RemovedEngineCaps,
         OnboardingService,
         RunEnvironmentSetUps,
+        ConflictResolutions,
         AttachmentService,
         SearchService,
         SavedViewService,

@@ -467,6 +467,64 @@ test.describe.serial("Sign in with GitHub", () => {
     }
   });
 
+  test(
+    "Work › Pull requests resolves a pull request's conflicts with a Conflict resolution Task, linked from both Tasks",
+    { tag: "@full" },
+    async ({ page }) => {
+      const repository = await createTemporaryRepositoryWithRemote();
+      const fullName = `office-user/pull-request-conflicts-${Date.now()}`;
+      try {
+        await installApp("office-user", [{ fullName }]);
+        const project = await addProjectOnGitHub(
+          page,
+          repository,
+          fullName,
+          "Pull request conflicts",
+        );
+        const task = await createTask(page, project, "Resolve the pull request's conflicts");
+        const number = await openPullRequestOnGitHub(fullName, task);
+        await controlPullRequest({
+          action: "setMergeable",
+          repository: fullName,
+          number,
+          mergeable: false,
+        });
+
+        await page.goto("/work/pull-requests");
+        const row = page.getByRole("row").filter({ hasText: `#${number} ${task.title}` });
+        // A refresh within 10 s of the watch's last round answers that round, so press it until the
+        // round that reads this pull request has run.
+        await expect(async () => {
+          await page.getByRole("button", { name: "Refresh" }).click();
+          await expect(row).toContainText("Conflicts", { timeout: 3_000 });
+        }).toPass({ timeout: 45_000 });
+        const resolve = row.getByRole("button", { name: "Resolve conflicts" });
+        await expect(resolve).toBeVisible();
+        await screenshotScenario(page, "pull-requests-resolve-conflicts", { inView: row });
+
+        await resolve.click();
+        const title = `Resolve conflicts: ${task.title}`;
+        await expect(row).toContainText(`Resolving: ${title} (`);
+        await expect(resolve).toBeHidden();
+        // Its Start may run, queue or be refused (the fake GitHub serves no git, and the Office's
+        // hires depend on the tests before), so its state isn't checked.
+        await screenshotScenario(page, "pull-requests-resolving", { inView: row });
+
+        await row.getByRole("link", { name: title, exact: true }).click();
+        await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
+        const ofTheConflicts = page.getByRole("region", { name: "Conflict resolution" });
+        await expect(ofTheConflicts).toContainText(`Resolves the conflicts of: ${task.title} (`);
+        await ofTheConflicts.getByRole("link", { name: task.title, exact: true }).click();
+        await expect(page).toHaveURL(`/tasks/${task.id}`);
+        await expect(page.getByRole("region", { name: "Conflict resolution" })).toContainText(
+          `Conflicts resolved by: ${title} (`,
+        );
+      } finally {
+        await repository.remove();
+      }
+    },
+  );
+
   // Needs the sign-in (the service lists and re-runs with its token) and the Actions permission
   // the pull request test above granted, so it lives here, between signing in and out.
   test("Work › CI shows a failed run and re-running its failed jobs queues it", async ({

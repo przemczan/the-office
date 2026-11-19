@@ -35,6 +35,7 @@ import {
 } from "./script-commands.js";
 import {
   Worktrees,
+  type BranchCheckout,
   type Installation,
   type TaskChanges,
   type TaskInstallOptions,
@@ -91,6 +92,15 @@ export class TaskWorktrees {
       environment: this.commands.variablesFor(project.environment),
       screenshotsFolder: SCREENSHOTS_FOLDER,
     };
+  }
+
+  /**
+   * Where the Task's branch is checked out (its own worktree, another, the user's checkout, or
+   * nowhere), to ask before making a Conflict resolution Task for the Task's pull request, whose
+   * worktree can hold that branch only while nothing else has it checked out.
+   */
+  async checkoutOfBranch(projectId: string, taskId: string): Promise<BranchCheckout> {
+    return this.worktrees.checkoutOf(await this.projects.read(projectId), taskId);
   }
 
   /** Whether the Task has a worktree in the Project: its folder is there. Runs no git. */
@@ -212,7 +222,8 @@ export class TaskWorktrees {
 
   /**
    * Removes the Task's worktree with whatever it holds; its branch stays. A Publishing Task's
-   * Initiative's branch is kept too, so a later Publishing Task can check it out.
+   * Initiative's branch is kept too, so a later Publishing Task can check it out, and a Conflict
+   * resolution Task's pull request's branch, as its last commit.
    */
   async removeWorktree(projectId: string, taskId: string): Promise<void> {
     await this.worktrees.remove(await this.projects.read(projectId), taskId);

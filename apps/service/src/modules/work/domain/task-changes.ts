@@ -124,6 +124,7 @@ export function createTask(
     pausedBy: undefined,
     ...NO_USAGE_WINDOW_RESUME,
     madeFor: undefined,
+    resolvesTaskId: undefined,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
     initiativeId: setting.initiativeId,

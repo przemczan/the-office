@@ -91,6 +91,10 @@ _Avoid_: Slug, key
 
 **Publishing Task**:
 The Task "<Initiative> → <Project>" that The Office adds in each Project where an Initiative has a Pipeline, once every other Task of the Initiative is Done or Dropped. It follows its Project's Initiative's Pipeline on the Initiative's branch, and its Publish puts the whole change into the base branch.
+
+**Conflict resolution Task**:
+The Task "Resolve conflicts: <Task>" that The Office makes when the user presses Resolve conflicts on a pull request in Work › Pull requests whose mergeable status is Conflicts. It works on the pull request's own branch in the built-in **Resolve conflicts** Pipeline: an Agent Stage merges the base into the branch and resolves the conflicts, a Test Stage checks it, and Publish pushes the branch to the same pull request. It belongs to its Project and never joins an Initiative; at most one is open for a Task.
+_Avoid_: Merge fix, Rebase Task
 _Avoid_: Release Task, merge Task, final Task
 
 **Task**:

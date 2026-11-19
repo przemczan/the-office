@@ -5,9 +5,14 @@ import { sql, TransactionRollbackError } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { builtInPipelines } from "../../domain/built-in-pipelines.js";
-import { builtInStageTemplates } from "../../domain/built-in-stage-templates.js";
+import { builtInPipelines as allBuiltInPipelines } from "../../domain/built-in-pipelines.js";
+import { builtInStageTemplates as allBuiltInStageTemplates } from "../../domain/built-in-stage-templates.js";
 import type { Stage } from "../../domain/stage.js";
+
+/** The built-ins the migration knew: the later ones were seeded naming their duties already. */
+const LATER_BUILT_INS: ReadonlySet<string> = new Set(["resolve-conflicts", "test"]);
+const builtInPipelines = allBuiltInPipelines.filter(({ id }) => !LATER_BUILT_INS.has(id));
+const builtInStageTemplates = allBuiltInStageTemplates.filter(({ id }) => !LATER_BUILT_INS.has(id));
 
 let app: INestApplication;
 let database: Database;

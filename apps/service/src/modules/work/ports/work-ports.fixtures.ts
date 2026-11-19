@@ -46,7 +46,12 @@ import {
   ProjectInitiativeBranches,
   type InitiativeBranchMaking,
 } from "./project-initiative-branches.js";
-import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
+import {
+  ProjectWorktrees,
+  type TaskBranchCheckout,
+  type TaskWorktree,
+} from "./project-worktrees.js";
+import { TaskPullRequests, type TaskPullRequest } from "./task-pull-requests.js";
 import { StageResults, type TaskStageResults } from "./stage-results.js";
 import { TaskGates } from "./task-gates.js";
 import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
@@ -223,6 +228,29 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
   async changesSoFar(_projectId: string, taskId: string): Promise<string | undefined> {
     if (this.changesFailure) throw this.changesFailure;
     return this.changes.get(taskId);
+  }
+
+  /** Where each Task's branch is checked out, as a test sets it; nowhere for any other Task. */
+  readonly checkouts = new Map<string, TaskBranchCheckout>();
+
+  async checkoutOfBranch(_projectId: string, taskId: string): Promise<TaskBranchCheckout> {
+    return (
+      this.checkouts.get(taskId) ?? {
+        branch: `office/${taskId}`,
+        checkedOutIn: undefined,
+        inTasksOwnWorktree: false,
+      }
+    );
+  }
+}
+
+/** Each Task's open pull request, as a test sets it; none for any other Task. */
+@Injectable()
+export class TaskPullRequestsForTests extends TaskPullRequests {
+  readonly open = new Map<string, TaskPullRequest>();
+
+  async openOf(taskId: string): Promise<TaskPullRequest | undefined> {
+    return this.open.get(taskId);
   }
 }
 
@@ -694,6 +722,7 @@ const PORTS = [
   KnownProjectsForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,
+  TaskPullRequestsForTests,
   ProjectInitiativeBranchesForTests,
   StageResultsForTests,
   TaskGatesForTests,

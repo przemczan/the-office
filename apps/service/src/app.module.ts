@@ -51,6 +51,7 @@ import {
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
+  PullRequestRecords,
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
@@ -144,6 +145,7 @@ export class AppModule {
       knownProjects: ProjectService,
       newProjects: ProjectsFromRepositories,
       projectWorktrees: TaskWorktrees,
+      taskPullRequests: PullRequestRecords,
       projectInitiativeBranches: InitiativeBranches,
       knownPeople: RoleCards,
       knownEngineCascade: EngineCascade,

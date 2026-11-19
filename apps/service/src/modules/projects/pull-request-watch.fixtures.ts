@@ -94,6 +94,8 @@ export class PullRequestWatchTestbed {
     readonly records: PostgresPullRequestRepository,
     /** Every event the watch published, in order. */
     readonly published: DomainEvent[],
+    /** The bus the watch publishes on and listens to. */
+    readonly events: EventBus,
   ) {}
 
   static async create(github: SignedInGitHub): Promise<PullRequestWatchTestbed> {
@@ -137,6 +139,7 @@ export class PullRequestWatchTestbed {
       projects,
       records,
       published,
+      events,
     );
   }
 

@@ -269,6 +269,12 @@ describe("removalProblems", () => {
     ]);
   });
 
+  it("always keeps the Resolve conflicts Pipeline, which a Conflict resolution Task uses", () => {
+    expect(removalProblems("resolve-conflicts", NO_USE)).toEqual([
+      "Resolving a pull request's conflicts uses the Resolve conflicts Pipeline, so it stays in the library.",
+    ]);
+  });
+
   it("names the Projects whose default it is and the Tasks that haven't started", () => {
     const use = {
       defaultFor: [

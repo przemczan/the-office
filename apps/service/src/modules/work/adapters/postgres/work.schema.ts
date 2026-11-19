@@ -211,6 +211,8 @@ export const tasks = pgTable(
     usageWindowPausedAt: timestamp("usage_window_paused_at", { withTimezone: true }),
     /** Null for a Task the user or an Agent made. */
     madeFor: text("made_for").$type<TaskMadeFor>(),
+    /** The Task whose pull request's conflicts a Conflict resolution Task resolves; null otherwise. */
+    resolvesTaskId: uuid("resolves_task_id"),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */
     blockedBy: uuid("blocked_by")
       .array()
@@ -255,6 +257,12 @@ export const tasks = pgTable(
     uniqueIndex("tasks_open_publishing_task_per_project")
       .on(table.initiativeId, table.projectId)
       .where(sql`${table.madeFor} = 'publishing' AND ${table.state} NOT IN ('done', 'dropped')`),
+    // And one open Conflict resolution Task per Task whose pull request it resolves.
+    uniqueIndex("tasks_open_conflict_resolution_per_task")
+      .on(table.resolvesTaskId)
+      .where(
+        sql`${table.madeFor} = 'resolve-conflicts' AND ${table.state} NOT IN ('done', 'dropped')`,
+      ),
   ],
 );
 

@@ -49,6 +49,7 @@ const BACKLOG_TASK: Task = {
   originIdeaId: null,
   initiativeId: null,
   madeFor: null,
+  resolvesTaskId: null,
   projectMoves: [],
   createdBy: { kind: "user", user: null },
   createdAt: "2026-10-28T10:00:00.000Z",
@@ -71,11 +72,11 @@ const IDEA: Idea = {
 };
 
 /** The Task's Description block, in a router of its own for its links. */
-async function descriptionOf(task: Task): Promise<HTMLElement> {
+async function descriptionOf(task: Task, others: readonly Task[] = []): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
-  queryClient.setQueryData(taskQueries.list().queryKey, [task]);
+  queryClient.setQueryData(taskQueries.list().queryKey, [task, ...others]);
   queryClient.setQueryData(projectQueries.list().queryKey, []);
   queryClient.setQueryData(ideaQueries.one(IDEA.id).queryKey, IDEA);
   const rootRoute = createRootRoute({ component: () => <DescriptionBlock task={task} /> });
@@ -143,5 +144,48 @@ describe("the Description block", () => {
     });
 
     expect(sectionOf(shaped, "Origin")?.textContent).toContain("Usage exports");
+  });
+
+  it("links a Task and its Conflict resolution Tasks both ways, the newest first", async () => {
+    const original = { ...BACKLOG_TASK, state: "waiting-on-you" as const };
+    const first: Task = {
+      ...BACKLOG_TASK,
+      id: "00000000-0000-4000-8000-000000000021",
+      title: "Resolve conflicts: Sign-in keeps the page",
+      state: "done",
+      madeFor: "resolve-conflicts",
+      resolvesTaskId: original.id,
+      createdAt: "2026-11-12T10:00:00.000Z",
+    };
+    const second: Task = {
+      ...first,
+      id: "00000000-0000-4000-8000-000000000022",
+      title: "Resolve conflicts again",
+      state: "in-progress",
+      createdAt: "2026-11-13T10:00:00.000Z",
+    };
+
+    const page = await descriptionOf(original, [first, second]);
+    const section = sectionOf(page, "Conflict resolution");
+    expect(section?.textContent).toContain(
+      "Conflicts resolved by: Resolve conflicts again (In progress), Resolve conflicts: Sign-in keeps the page (Done)",
+    );
+    expect(section?.querySelector("a")?.getAttribute("href")).toBe(`/tasks/${second.id}`);
+    expect(section?.textContent).not.toContain("Resolves the conflicts of");
+    document.body.replaceChildren();
+
+    const resolving = await descriptionOf(second, [original, first]);
+    const its = sectionOf(resolving, "Conflict resolution");
+    expect(its?.textContent).toContain(
+      "Resolves the conflicts of: Sign-in keeps the page (Waiting on you)",
+    );
+    expect(its?.querySelector("a")?.getAttribute("href")).toBe(`/tasks/${original.id}`);
+    expect(its?.textContent).not.toContain("Conflicts resolved by");
+  });
+
+  it("shows no Conflict resolution section on a Task with none", async () => {
+    const page = await descriptionOf(BACKLOG_TASK);
+
+    expect(sectionOf(page, "Conflict resolution")).toBeNull();
   });
 });

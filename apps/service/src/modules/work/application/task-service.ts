@@ -57,6 +57,16 @@ import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/tas
 import { publishDependencyChanges } from "./dependency-events.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 
+/** The Tasks a Task is linked to on the board: by waiting, and by resolving a pull request's conflicts. */
+export interface TaskDependencyLinks {
+  readonly waitsFor: readonly Task[];
+  readonly waitingForIt: readonly Task[];
+  /** The Task whose pull request's conflicts it resolves, a Conflict resolution Task's. */
+  readonly resolvesConflictsOf: Task | undefined;
+  /** Its Conflict resolution Tasks, newest first. */
+  readonly conflictsResolvedBy: readonly Task[];
+}
+
 /** The Tasks use cases. Each change is saved first and its event published after. */
 @Injectable()
 export class TaskService {
@@ -150,14 +160,17 @@ export class TaskService {
    * The Tasks it waits for, in the order they were added, and the Tasks that wait for it, in the
    * board's order; archived ones too.
    */
-  async dependenciesOf(
-    task: Task,
-  ): Promise<{ readonly waitsFor: readonly Task[]; readonly waitingForIt: readonly Task[] }> {
+  async dependenciesOf(task: Task): Promise<TaskDependencyLinks> {
     const board = await this.repository.list();
     const byId = new Map(board.map((each) => [each.id, each]));
     return {
       waitsFor: task.blockedBy.flatMap((id) => byId.get(id) ?? []),
       waitingForIt: board.filter((each) => each.blockedBy.includes(task.id)).toSorted(boardOrder),
+      resolvesConflictsOf:
+        task.resolvesTaskId === undefined ? undefined : byId.get(task.resolvesTaskId),
+      conflictsResolvedBy: board
+        .filter((each) => each.madeFor === "resolve-conflicts" && each.resolvesTaskId === task.id)
+        .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
     };
   }
 

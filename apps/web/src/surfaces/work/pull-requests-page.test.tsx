@@ -13,6 +13,7 @@ import {
   openPage,
   stubService,
   until,
+  type Answers,
   type Sent,
 } from "../../shell/page.fixtures.tsx";
 import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
@@ -48,6 +49,7 @@ const TASK: Task = {
   originIdeaId: null,
   initiativeId: null,
   madeFor: null,
+  resolvesTaskId: null,
   projectMoves: [],
   createdBy: { kind: "user", user: null },
   createdAt: "2026-11-10T10:00:00.000Z",
@@ -127,15 +129,19 @@ const SIGNED_IN: GitHubState = {
 };
 
 let sent: Sent[] = [];
+/** The Tasks the service holds; a test's own answers may add to them. */
+let tasks: Task[] = [TASK];
 
 function openPullRequests(
   list: PullRequestList,
   gitHub: GitHubState = SIGNED_IN,
+  more: Answers = {},
 ): Promise<{ readonly page: HTMLElement }> {
   sent = stubService({
     "GET /api/pull-requests": () => ({ status: 200, body: list }),
     "POST /api/pull-requests/refresh": () => ({ status: 202 }),
-    "GET /api/tasks": () => ({ status: 200, body: [TASK] }),
+    "GET /api/tasks": () => ({ status: 200, body: tasks }),
+    "GET /api/queue": () => ({ status: 200, body: [] }),
     "GET /api/projects": () => ({ status: 200, body: PROJECTS }),
     "GET /api/github": () => ({ status: 200, body: gitHub }),
     [`GET /api/pull-requests/${FAILING.id}/merge-methods`]: () => ({
@@ -148,6 +154,7 @@ function openPullRequests(
       },
     }),
     [`POST /api/pull-requests/${FAILING.id}/merge`]: () => ({ status: 204 }),
+    ...more,
   });
   return openPage("/work/pull-requests", { "/work/pull-requests": PullRequestsPage });
 }
@@ -164,8 +171,17 @@ function linkNamed(scope: ParentNode, text: string): HTMLAnchorElement | undefin
   return [...scope.querySelectorAll("a")].find((link) => link.textContent.trim() === text);
 }
 
+async function shown(page: HTMLElement, text: string): Promise<void> {
+  // Every Project, whatever an earlier test's filter left in the store.
+  act(() => {
+    window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
+  });
+  await until(() => expect(page.textContent).toContain(text));
+}
+
 afterEach(() => {
   closePage();
+  tasks = [TASK];
   localStorage.removeItem(PROJECT_FILTER_STORAGE_KEY);
 });
 
@@ -308,5 +324,184 @@ describe("Work › Pull requests", () => {
     expect(linkNamed(page, "ada")?.getAttribute("href")).toBe(
       "https://github.com/settings/installations/7",
     );
+  });
+
+  describe("Resolve conflicts", () => {
+    const RESOLVE = `POST /api/tasks/${TASK.id}/resolve-conflicts`;
+    const RESOLVER: Task = {
+      ...TASK,
+      id: "8f1c2b3a-9d8e-4f7a-8b6c-5d4e3f2a1b0c",
+      title: "Resolve the conflicts of Remember the sort",
+      state: "in-progress",
+      pipelineId: "resolve-conflicts",
+      madeFor: "resolve-conflicts",
+      resolvesTaskId: TASK.id,
+      createdAt: "2026-11-19T10:00:00.000Z",
+    };
+
+    it("is offered only on a row with conflicts", async () => {
+      const { page } = await openPullRequests({
+        pullRequests: [FAILING, OF_A_GONE_TASK],
+        problems: [],
+      });
+
+      await shown(page, "#7 Invoices in euros");
+      await until(() => expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeDefined());
+      expect(buttonNamed(rowOf(page, "#7"), "Resolve conflicts")).toBeUndefined();
+    });
+
+    it("makes the Conflict resolution Task, then shows it in place of the button", async () => {
+      const { page } = await openPullRequests(
+        { pullRequests: [FAILING], problems: [] },
+        SIGNED_IN,
+        {
+          [RESOLVE]: () => {
+            tasks = [TASK, RESOLVER];
+            return { status: 200, body: { task: RESOLVER, queued: null, startRefusal: null } };
+          },
+        },
+      );
+
+      await shown(page, "#42");
+      await until(() => expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeDefined());
+      act(() => buttonNamed(rowOf(page, "#42"), "Resolve conflicts")?.click());
+
+      await until(() =>
+        expect(rowOf(page, "#42").textContent).toContain(
+          "Resolving: Resolve the conflicts of Remember the sort (In progress)",
+        ),
+      );
+      expect(sent.map(({ request }) => request)).toContain(RESOLVE);
+      expect(linkNamed(rowOf(page, "#42"), RESOLVER.title)?.getAttribute("href")).toBe(
+        `/tasks/${RESOLVER.id}`,
+      );
+      expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeUndefined();
+      // It started: nothing to say beyond the row.
+      expect(page.querySelector('[role="status"]')).toBeNull();
+    });
+
+    it("shows a refusal's reasons in an Alert", async () => {
+      const { page } = await openPullRequests(
+        { pullRequests: [FAILING], problems: [] },
+        SIGNED_IN,
+        {
+          [RESOLVE]: () => ({
+            status: 422,
+            body: {
+              statusCode: 422,
+              message: "The Task's pull request has no conflicts.",
+              reasons: ["The Task's pull request has no conflicts."],
+            },
+          }),
+        },
+      );
+
+      await shown(page, "#42");
+      await until(() => expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeDefined());
+      act(() => buttonNamed(rowOf(page, "#42"), "Resolve conflicts")?.click());
+
+      await until(() =>
+        expect(page.textContent).toContain(
+          "No Conflict resolution Task was made for #42 Remember the sort",
+        ),
+      );
+      expect(page.textContent).toContain("The Task's pull request has no conflicts.");
+      // Nothing was made, so the button stays.
+      expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeDefined();
+    });
+
+    it("says when Start refused the Task it made, which stays Ready", async () => {
+      const ready = { ...RESOLVER, state: "ready" as const };
+      const { page } = await openPullRequests(
+        { pullRequests: [FAILING], problems: [] },
+        SIGNED_IN,
+        {
+          [RESOLVE]: () => {
+            tasks = [TASK, ready];
+            return {
+              status: 200,
+              body: {
+                task: ready,
+                queued: null,
+                startRefusal: ["Nobody is hired as a Developer to work its Stages."],
+              },
+            };
+          },
+        },
+      );
+
+      await shown(page, "#42");
+      await until(() => expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeDefined());
+      act(() => buttonNamed(rowOf(page, "#42"), "Resolve conflicts")?.click());
+
+      await until(() =>
+        expect(page.textContent).toContain(
+          "The Conflict resolution Task was made but didn't start",
+        ),
+      );
+      expect(page.textContent).toContain("Nobody is hired as a Developer to work its Stages.");
+      await until(() =>
+        expect(rowOf(page, "#42").textContent).toContain(
+          "Resolving: Resolve the conflicts of Remember the sort (Ready)",
+        ),
+      );
+    });
+
+    it("says when the Task it made is queued", async () => {
+      const ready = { ...RESOLVER, state: "ready" as const };
+      const { page } = await openPullRequests(
+        { pullRequests: [FAILING], problems: [] },
+        SIGNED_IN,
+        {
+          [RESOLVE]: () => ({
+            status: 200,
+            body: {
+              task: ready,
+              queued: {
+                taskId: ready.id,
+                place: 2,
+                queuedAt: "2026-11-19T10:00:00.000Z",
+                reasons: ["Admin panel's limit of 1 is reached."],
+                shortReasons: ["Project limit"],
+                behind: [],
+              },
+              startRefusal: null,
+            },
+          }),
+        },
+      );
+
+      await shown(page, "#42");
+      await until(() => expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeDefined());
+      act(() => buttonNamed(rowOf(page, "#42"), "Resolve conflicts")?.click());
+
+      await until(() =>
+        expect(page.textContent).toContain(
+          "Resolve the conflicts of Remember the sort is queued, place 2: Admin panel's limit of 1 is reached.",
+        ),
+      );
+    });
+
+    it("shows the open Conflict resolution Task instead of the button", async () => {
+      tasks = [TASK, { ...RESOLVER, state: "waiting-on-you" }];
+      const { page } = await openPullRequests({ pullRequests: [FAILING], problems: [] });
+
+      await shown(page, "#42");
+      await until(() =>
+        expect(rowOf(page, "#42").textContent).toContain(
+          "Resolving: Resolve the conflicts of Remember the sort (Waiting on you)",
+        ),
+      );
+      expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeUndefined();
+    });
+
+    it("offers it again once the Conflict resolution Task has ended", async () => {
+      tasks = [TASK, { ...RESOLVER, state: "done" }];
+      const { page } = await openPullRequests({ pullRequests: [FAILING], problems: [] });
+
+      await shown(page, "#42");
+      await until(() => expect(buttonNamed(rowOf(page, "#42"), "Resolve conflicts")).toBeDefined());
+      expect(rowOf(page, "#42").textContent).not.toContain("Resolving:");
+    });
   });
 });

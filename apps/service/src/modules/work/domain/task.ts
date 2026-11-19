@@ -25,9 +25,15 @@ export type TaskState = (typeof TASK_STATES)[number];
 
 /**
  * The Tasks The Office makes by itself: a Project's Onboard Task and its "Set up the run
- * environment" Task, and an Initiative's Publishing Task in a Project (publishing-task.ts).
+ * environment" Task, an Initiative's Publishing Task in a Project (publishing-task.ts), and a
+ * Conflict resolution Task for a pull request with conflicts (conflict-resolution.ts).
  */
-export const TASK_MADE_FOR = ["onboard", "run-environment-setup", "publishing"] as const;
+export const TASK_MADE_FOR = [
+  "onboard",
+  "run-environment-setup",
+  "publishing",
+  "resolve-conflicts",
+] as const;
 export type TaskMadeFor = (typeof TASK_MADE_FOR)[number];
 
 /**
@@ -153,10 +159,15 @@ export interface Task {
   readonly usageWindowPausedAt: Date | undefined;
   /**
    * What The Office made it for, in its Project: its Onboard Task, whose state is the Project's
-   * onboarding, its "Set up the run environment" Task, or an Initiative's Publishing Task there;
-   * undefined for any other Task.
+   * onboarding, its "Set up the run environment" Task, an Initiative's Publishing Task there, or a
+   * Conflict resolution Task; undefined for any other Task.
    */
   readonly madeFor: TaskMadeFor | undefined;
+  /**
+   * The Task whose pull request a Conflict resolution Task resolves the conflicts of; undefined for
+   * any other Task.
+   */
+  readonly resolvesTaskId: string | undefined;
   /**
    * The Tasks that must be Done before it can start, in any Project, in the order they were added
    * (task-dependencies.ts); a Dropped one stays listed but no longer blocks.

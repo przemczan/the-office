@@ -3326,6 +3326,28 @@
   gap: var(--space-2);
 }
 
+/* A row's open Conflict resolution Task, in place of Resolve conflicts. */
+.pull-request-resolving {
+  align-self: center;
+  color: var(--fg-2);
+  white-space: normal;
+}
+
+/* A Task's link with its state in words, as "Resolving:" and the Conflict resolution section show it. */
+.task-with-state-title {
+  color: var(--fg-1);
+  font-weight: 500;
+}
+
+.task-with-state-state {
+  color: var(--fg-3);
+}
+
+.conflict-resolution-line {
+  margin: 0;
+  color: var(--fg-2);
+}
+
 /* The Merge window's Checks and Mergeable, as the row shows them. */
 .pull-request-status {
   display: flex;

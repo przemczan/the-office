@@ -138,6 +138,7 @@ const PUBLISHING = {
   projectId: "admin-panel",
   initiativeId: INITIATIVE.id,
   madeFor: "publishing",
+  resolvesTaskId: null,
   pipelineId: REVIEWED.id,
   state: "in-progress",
   blockedBy: [],

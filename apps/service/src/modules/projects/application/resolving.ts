@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import type { RemoteBranch } from "../domain/publication.js";
 import { mergedBase, mergeMessage, type ResolveEnd, type ResolveStart } from "../domain/resolve.js";
-import { InitiativeBranchUnusable } from "../domain/task-base.js";
+import { ExistingBranchUnusable } from "../domain/task-base.js";
 import { Git, GitCommandFailed, type MergeConclusion } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { TaskBases } from "./task-bases.js";
@@ -61,7 +61,7 @@ export class Resolving {
         return { kind: "merged", base: last.name, commit };
       })
       .catch((error: unknown) => {
-        if (error instanceof InitiativeBranchUnusable) {
+        if (error instanceof ExistingBranchUnusable) {
           return { kind: "failed", error: error.message };
         }
         if (!(error instanceof GitCommandFailed)) throw error;

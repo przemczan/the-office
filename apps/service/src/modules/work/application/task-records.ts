@@ -114,7 +114,10 @@ export class TaskRecords {
         publishingMode: project.publishingMode,
       },
       worktree,
-      initiativeBranch: base.kind === "base-branch" ? undefined : base.branch,
+      initiativeBranch:
+        base.kind === "initiative-branch" || base.kind === "publishing-task"
+          ? base.branch
+          : undefined,
       publishingTask: base.kind === "publishing-task",
     };
   }

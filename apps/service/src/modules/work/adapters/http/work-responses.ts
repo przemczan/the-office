@@ -140,6 +140,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     originIdeaId: task.originIdeaId ?? null,
     initiativeId: task.initiativeId ?? null,
     madeFor: task.madeFor ?? null,
+    resolvesTaskId: task.resolvesTaskId ?? null,
     projectMoves: task.projectMoves.map((move) => ({
       from: move.from,
       to: move.to,

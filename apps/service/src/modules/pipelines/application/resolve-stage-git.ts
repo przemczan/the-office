@@ -1,7 +1,5 @@
-import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { EventBus } from "../../../platform/events/event-bus.js";
+import { Injectable, Logger } from "@nestjs/common";
 import { PromptTemplates } from "../../prompt-templates/index.js";
-import { TaskStateChanged } from "../../work/index.js";
 import { baseWords } from "../domain/base-words.js";
 import {
   afterResolveTestFailed,
@@ -39,7 +37,7 @@ export type ResolveBegun =
  * Agent's next round or for the user, whom the walk asks; dropping the Task gives it back.
  */
 @Injectable()
-export class ResolveStageGit implements OnModuleInit {
+export class ResolveStageGit {
   private readonly logger = new Logger(ResolveStageGit.name);
 
   constructor(
@@ -48,21 +46,15 @@ export class ResolveStageGit implements OnModuleInit {
     private readonly stageGit: StageGit,
     private readonly runs: StageRunRepository,
     private readonly records: TaskRecords,
-    private readonly events: EventBus,
     private readonly promptTemplates: PromptTemplates,
   ) {}
-
-  onModuleInit(): void {
-    this.events.subscribe(TaskStateChanged, async ({ taskId, to }) => {
-      if (to === "dropped") await this.abandonMerge(taskId);
-    });
-  }
 
   /**
    * Gives a dropped Task's worktree back from a merge Resolve or an Agent's branch update left in
    * progress, so its branch stays as its last commit left it. A Task nothing ran on is left alone.
+   * `DroppedTaskWorktrees` calls it on the Drop, before it removes any worktree.
    */
-  private async abandonMerge(taskId: string): Promise<void> {
+  async abandonMerge(taskId: string): Promise<void> {
     const runs = await this.runs.list(taskId);
     if (runs.length === 0) return;
     try {
