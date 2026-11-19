@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { askingBrief, type AskingRecord } from "./asking.js";
 import { aTask } from "./work.fixtures.js";
+import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
+
+const prompts = defaultWorkPrompts();
 
 function aRecord(fields: Partial<AskingRecord> = {}): AskingRecord {
   return {
@@ -22,7 +25,7 @@ function aRecord(fields: Partial<AskingRecord> = {}): AskingRecord {
 
 describe("the first Brief of a person's Thread on a Task", () => {
   it("holds the Task's title, Description, Plan and Definition of Done", () => {
-    const brief = askingBrief(aRecord());
+    const brief = askingBrief(prompts, aRecord());
 
     expect(brief).toContain("Fix the login redirect");
     expect(brief).toContain("Users land on a blank page.");
@@ -35,6 +38,7 @@ describe("the first Brief of a person's Thread on a Task", () => {
 
   it("holds the Stage results, the diff and the person's own Handover notes", () => {
     const brief = askingBrief(
+      prompts,
       aRecord({
         stageResults: ["- Implement (Agent): done. Fixed it."],
         diffSummary: "2 files changed",

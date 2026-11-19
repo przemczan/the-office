@@ -1,9 +1,14 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import { PLANS } from "../domain/duties.js";
-import { INITIATIVE_PLANNING_AFTER_RESTART_OPENING } from "../domain/initiative-planning.js";
+import { initiativePlanningAfterRestartOpening } from "../domain/initiative-planning.js";
 import { isInitiativePaused } from "../domain/initiative-pause.js";
-import { PLANNING_AFTER_RESTART_OPENING } from "../domain/planning.js";
+import { planningAfterRestartOpening } from "../domain/planning.js";
 import type { Task } from "../domain/task.js";
+import {
+  INITIATIVE_PLANNING_AFTER_RESTART_OPENING,
+  PLANNING_AFTER_RESTART_OPENING,
+} from "../domain/work-prompt-templates.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { InitiativeThreads } from "../ports/initiative-threads.js";
 import { KnownPeople } from "../ports/known-people.js";
@@ -37,6 +42,7 @@ export class PlanningAfterRestart {
     private readonly initiativeThreads: InitiativeThreads,
     private readonly people: KnownPeople,
     private readonly fireAlarm: FireAlarmService,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /** Wakes the planner in each of the cut-short Threads that is a planning Thread to go on with. */
@@ -58,9 +64,12 @@ export class PlanningAfterRestart {
     );
     if (plannedThere) {
       if (await this.initiativePaused(plannedThere)) return undefined;
+      const prompts = await this.promptTemplates.textsOf([
+        INITIATIVE_PLANNING_AFTER_RESTART_OPENING,
+      ]);
       return {
         threadId,
-        opening: INITIATIVE_PLANNING_AFTER_RESTART_OPENING,
+        opening: initiativePlanningAfterRestartOpening(prompts),
         threads: this.initiativeThreads,
       };
     }
@@ -70,7 +79,8 @@ export class PlanningAfterRestart {
     // Planned in its Initiative's Thread, the Task's own is no planning Thread now.
     if (!task || task.initiativePlanningThreadId !== undefined) return undefined;
     if (await this.initiativePaused(task)) return undefined;
-    return { threadId, opening: PLANNING_AFTER_RESTART_OPENING, threads: this.taskThreads };
+    const prompts = await this.promptTemplates.textsOf([PLANNING_AFTER_RESTART_OPENING]);
+    return { threadId, opening: planningAfterRestartOpening(prompts), threads: this.taskThreads };
   }
 
   private async initiativePaused({ initiativeId }: Task): Promise<boolean> {

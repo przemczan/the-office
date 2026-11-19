@@ -1,7 +1,10 @@
+import type { PromptTexts } from "../../prompt-templates/index.js";
 import { authorWords } from "./author.js";
 import type { Initiative } from "./initiative.js";
+import { renderedText } from "./rendered-text.js";
 import { stateChangeCauseWords, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
+import { TASK_WHO_ASKED } from "./work-prompt-templates.js";
 
 /*
  * Who asked for the work a session is briefed on (spec 2.5): a Brief names the user, or whoever
@@ -14,39 +17,44 @@ import type { Task } from "./task.js";
  */
 export type AskedMove = "planning" | "start";
 
-const MOVE_WORDS: Readonly<Record<AskedMove, string>> = {
-  planning: "moved to Planning",
-  start: "started",
-};
-
 function isTheMove(move: AskedMove, { from, to }: StateChange): boolean {
   return move === "planning" ? to === "planning" : from === "ready" && to === "in-progress";
 }
 
-/**
- * Who created the Task and who made its last `move`, from its kept state changes: "The Task was
- * created by the user Ann Lee and started by the queue, as its turn came (queued by the user Ben
- * Ito)." A move kept from before state changes were is left out.
- */
-export function taskWhoAskedSection(
+/** Who created the Task and who made its last `move`, as a Brief names them. */
+export interface TaskWhoAsked {
+  readonly createdBy: string;
+  /** Empty when the move was kept from before state changes were, or never made. */
+  readonly movedBy: string;
+}
+
+/** Who created the Task and who made its last `move`, from its kept state changes. */
+export function taskWhoAsked(
   task: Pick<Task, "createdBy">,
   stateChanges: readonly StateChange[],
   move: AskedMove,
-): string {
+): TaskWhoAsked {
   const last = stateChanges.findLast((change) => isTheMove(move, change));
-  const moved = last ? ` and ${MOVE_WORDS[move]} by ${stateChangeCauseWords(last.by)}` : "";
-  return `## Who asked\n\nThe Task was created by ${authorWords(task.createdBy)}${moved}.`;
+  return {
+    createdBy: authorWords(task.createdBy),
+    movedBy: last ? stateChangeCauseWords(last.by) : "",
+  };
 }
 
-/** Who opened the Initiative's latest planning Thread; none before that was kept. */
-export function initiativePlanningWhoAskedSection(initiative: Initiative): string | undefined {
-  if (!initiative.planningStartedBy) return undefined;
-  const how = initiative.planningWithUser ? "Plan with…" : "Plan the Initiative";
-  return `## Who asked\n\nThis planning Thread was opened by ${authorWords(initiative.planningStartedBy)}, with ${how}.`;
+/**
+ * The Agent Stage's Who asked: "The Task was created by the user Ann Lee and started by the queue,
+ * as its turn came (queued by the user Ben Ito)."
+ */
+export function taskWhoAskedSection(
+  prompts: PromptTexts,
+  task: Pick<Task, "createdBy">,
+  stateChanges: readonly StateChange[],
+): string {
+  const { createdBy, movedBy } = taskWhoAsked(task, stateChanges, "start");
+  return renderedText(prompts, TASK_WHO_ASKED, { createdBy, startedBy: movedBy });
 }
 
-/** Who shaped the Initiative from its Idea, or created it from none. */
-export function shapingWhoAskedSection(initiative: Initiative): string {
-  const how = initiative.originIdeaId === undefined ? "created" : "shaped from its Idea";
-  return `## Who asked\n\nThe Initiative was ${how} by ${authorWords(initiative.createdBy)}.`;
+/** Who opened the Initiative's latest planning Thread; empty when none was kept. */
+export function initiativePlanningOpenedBy(initiative: Initiative): string {
+  return initiative.planningStartedBy ? authorWords(initiative.planningStartedBy) : "";
 }

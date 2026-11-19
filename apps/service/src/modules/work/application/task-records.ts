@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import { attachmentLines } from "../domain/attachment.js";
 import { linkedRecordsSection, type TaskLinks } from "../domain/linked-records.js";
 import { taskRecordText } from "../domain/record-words.js";
@@ -7,6 +8,7 @@ import { taskBranchBase } from "../domain/task-branch-base.js";
 import { commitMessageOf } from "../domain/task-commit-message.js";
 import { descriptionSection } from "../domain/task-description.js";
 import { taskWhoAskedSection } from "../domain/who-asked.js";
+import { TASK_WHO_ASKED } from "../domain/work-prompt-templates.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
 import { StageResults } from "../ports/stage-results.js";
@@ -71,6 +73,7 @@ export class TaskRecords {
     private readonly projects: KnownProjects,
     private readonly worktrees: ProjectWorktrees,
     private readonly decisions: TaskDecisions,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /**
@@ -81,11 +84,12 @@ export class TaskRecords {
     const task = await this.tasks.read(taskId);
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
-    const [attachments, links, worktree, stateChanges] = await Promise.all([
+    const [attachments, links, worktree, stateChanges, prompts] = await Promise.all([
       this.attachments.listOf({ kind: "task", taskId }),
       this.linksOf(task),
       this.worktrees.find(task.projectId, taskId),
       this.tasks.stateChangesOf(taskId),
+      this.promptTemplates.textsOf([TASK_WHO_ASKED]),
     ]);
     const base = taskBranchBase(task, links.initiative, project.id, project.name);
     return {
@@ -98,7 +102,7 @@ export class TaskRecords {
       commitMessage: { text: commitMessageOf(task), written: task.commitMessage !== "" },
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
       linkedRecordsSection: linkedRecordsSection(links),
-      whoAskedSection: taskWhoAskedSection(task, stateChanges, "start"),
+      whoAskedSection: taskWhoAskedSection(prompts, task, stateChanges),
       project: {
         id: project.id,
         name: project.name,

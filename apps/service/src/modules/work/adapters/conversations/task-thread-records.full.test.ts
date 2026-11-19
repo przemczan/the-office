@@ -18,12 +18,11 @@ import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { ProjectWorktreesForTests } from "../../ports/work-ports.fixtures.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
-import {
-  ASKING_OFFICE_TOOLS,
-  ASKING_THREAD_INSTRUCTIONS,
-  PLANNING_OFFICE_TOOLS,
-  PLANNING_THREAD_INSTRUCTIONS,
-} from "./task-thread-records.js";
+import { ASKING_OFFICE_TOOLS, PLANNING_OFFICE_TOOLS } from "./task-thread-records.js";
+import { withCallingRule } from "./calling-rule.js";
+import { askingInstructions } from "../../domain/asking.js";
+import { planningInstructions } from "../../domain/planning.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import {
   sendJson,
   startWorkApplication,
@@ -31,6 +30,10 @@ import {
 } from "../../work-application.fixtures.js";
 import { aPersonsThread, taskThreads } from "../../task-thread-records.fixtures.js";
 import { ANN_LEE } from "../../domain/work.fixtures.js";
+
+const prompts = defaultWorkPrompts();
+const ASKING_THREAD_INSTRUCTIONS = withCallingRule(askingInstructions(prompts));
+const PLANNING_THREAD_INSTRUCTIONS = withCallingRule(planningInstructions(prompts));
 
 let officeData: string;
 let work: WorkApplication;

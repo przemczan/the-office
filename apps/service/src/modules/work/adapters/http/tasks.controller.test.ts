@@ -26,6 +26,7 @@ import { TaskService } from "../../application/task-service.js";
 import type { Author } from "../../domain/author.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
 import { makeAPlanOpening } from "../../domain/planning.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import { TaskPaused } from "../../domain/task-events.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
@@ -340,7 +341,12 @@ describe("Auto mode", () => {
     });
     expect(await autoModeSetting()).toBe(true);
     expect(work.app.get(TaskThreadsForTests).started).toEqual([
-      { taskId: task.id, roleKey: "planner", title: "Planning", opening: makeAPlanOpening(true) },
+      {
+        taskId: task.id,
+        roleKey: "planner",
+        title: "Planning",
+        opening: makeAPlanOpening(defaultWorkPrompts(), true),
+      },
     ]);
     const unanswered = await sendJson(work, "POST", `/tasks/${task.id}/make-a-plan`, {});
     expect(unanswered.status).toBe(400);

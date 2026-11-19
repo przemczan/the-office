@@ -13,11 +13,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
 import { InitiativeThreadSetups, TaskThreadSetups } from "../../conversations/index.js";
+import { withCallingRule } from "../adapters/conversations/calling-rule.js";
 import {
   INITIATIVE_PLANNING_OFFICE_TOOLS,
-  INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
   SHAPING_OFFICE_TOOLS,
-  SHAPING_THREAD_INSTRUCTIONS,
 } from "../adapters/conversations/initiative-thread-records.js";
 import {
   MARK_PLANNED,
@@ -28,9 +27,12 @@ import {
   WRITE_TAGS,
 } from "../adapters/office-tools/planning-office-tools.js";
 import {
-  INITIATIVE_PLANNING_OPENING,
+  initiativePlanningInstructions,
+  initiativePlanningOpening,
   INITIATIVE_PLANNING_THREAD_TITLE,
 } from "../domain/initiative-planning.js";
+import { shapingInstructions } from "../domain/shaping.js";
+import { defaultWorkPrompts } from "../domain/work-prompt-templates.fixtures.js";
 import { NOBODY_PLANS } from "../domain/duties.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import {
@@ -50,6 +52,13 @@ import {
   startWorkApplication,
   type WorkApplication,
 } from "../work-application.fixtures.js";
+
+const prompts = defaultWorkPrompts();
+const INITIATIVE_PLANNING_OPENING = initiativePlanningOpening(prompts);
+const SHAPING_THREAD_INSTRUCTIONS = withCallingRule(shapingInstructions(prompts));
+const INITIATIVE_PLANNING_THREAD_INSTRUCTIONS = withCallingRule(
+  initiativePlanningInstructions(prompts),
+);
 
 let officeData: string;
 let work: WorkApplication;
