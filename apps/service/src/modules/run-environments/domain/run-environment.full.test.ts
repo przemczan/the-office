@@ -29,9 +29,17 @@ const TASK: TaskInWorktree = {
   projectId: "shop",
   worktree: "/data/worktrees/shop/6d4250e7",
   repositoryGitFolder: "/data/repositories/shop/.git",
+  stageRunsFolder: "/data/stage-runs/6d4250e7",
   installCommand: "npm ci",
   installInputs: ["package-lock.json"],
   installVariables: [],
+};
+
+const STAGE_RUNS_MOUNT = {
+  type: "bind",
+  source: TASK.stageRunsFolder,
+  target: TASK.stageRunsFolder,
+  read_only: true,
 };
 
 const AUTOMATIC: CpuLimit = { choice: "automatic", fixedCpus: 2 };
@@ -84,7 +92,12 @@ describe("composeOverrideOf", () => {
         target: TASK.repositoryGitFolder,
         read_only: true,
       },
+      STAGE_RUNS_MOUNT,
     ]);
+  });
+
+  it("mounts the Task's Stage runs' folder read-only at its own path, never its file", () => {
+    expect(override).toHaveProperty("services.app.volumes.2", STAGE_RUNS_MOUNT);
   });
 
   it("writes a `$` in the folders as compose reads one", () => {
@@ -92,6 +105,7 @@ describe("composeOverrideOf", () => {
       ...TASK,
       worktree: "/data/worktrees/$shop/6d4250e7",
       repositoryGitFolder: "/data/repositories/$shop/.git",
+      stageRunsFolder: "/data/stage-runs/$6d4250e7",
     };
 
     expect(
@@ -108,6 +122,12 @@ describe("composeOverrideOf", () => {
         target: "/data/repositories/$$shop/.git",
         read_only: true,
       },
+      {
+        type: "bind",
+        source: "/data/stage-runs/$$6d4250e7",
+        target: "/data/stage-runs/$$6d4250e7",
+        read_only: true,
+      },
     ]);
   });
 
@@ -121,6 +141,7 @@ describe("composeOverrideOf", () => {
       composeOverrideOf(DEFINITION, task, "the-office/shop:key", "abc", LIMITS, HOST_CORES),
     ).toHaveProperty("services.app.volumes", [
       { type: "bind", source: TASK.worktree, target: TASK.worktree },
+      STAGE_RUNS_MOUNT,
     ]);
   });
 

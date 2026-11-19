@@ -41,6 +41,14 @@ export function isPersonsThread({ home, stageThread, consultation }: Thread): bo
   return home.kind === "task" && !stageThread && !consultation;
 }
 
+/**
+ * A person's chat with the user (spec §2.4): every chat Thread but a Consultation sitting in a chat.
+ * Its Decisions wait on the user inline in the chat, never under Needs you (spec §2.7).
+ */
+export function isPersonsChat({ home, consultation }: Thread): boolean {
+  return home.kind === "chat" && !consultation;
+}
+
 /** The Thread's tokens as the user sees them: its ended turns and the running turn's so far. */
 export function tokensSoFar({ tokens, runningTurnTokens }: Thread): TokenTotals {
   return addTokens(tokens, runningTurnTokens);
@@ -92,6 +100,18 @@ export interface ThreadSession {
    * session (spec §2.2). Undefined on sessions saved before duties, which it never decided.
    */
   readonly heldDuties?: readonly string[];
+  /**
+   * Set when it runs on a Stand-in Engine chosen at the Task's Start: the cascade's engine it stands
+   * in for, by its id and name then, and why. Absent on the cascade's own engine.
+   */
+  readonly standInFor?: SessionStandIn;
+}
+
+/** The cascade's engine a session's Stand-in Engine runs for, and why it was chosen. */
+export interface SessionStandIn {
+  readonly engineId: EngineId;
+  readonly engineName: string;
+  readonly reason: string;
 }
 
 /** What the user chose for the Thread's next message: "Start fresh" or "Continue anyway". */

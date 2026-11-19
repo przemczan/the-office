@@ -64,12 +64,12 @@ export function StagePermissionFields({
     server.tools.map((tool) => ({ key: mcpToolKey(server.name, tool.name), card: tool.setting })),
   );
   return (
-    <div className="stage-editor-wide">
+    <div className="stage-form-wide">
       <Field
         label="Permission profile"
         hint="Narrows the Role card's for this Stage, never widens it"
       >
-        <div className="stage-editor-permissions">
+        <div className="stage-form-permissions">
           <Select
             label="Files"
             value={permissions.edit === false ? READS_ONLY : ROLE_CARD}
@@ -121,7 +121,7 @@ export function StagePermissionFields({
               onChange={(setting) => change(withMcpToolSetting(stage, key, setting))}
             />
           ))}
-          <div className="stage-editor-wide">
+          <div className="stage-form-wide">
             <Field
               label="Project commands"
               hint="Only these of the Project's commands; never install"

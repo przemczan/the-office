@@ -3,7 +3,7 @@ import { webEventSchema } from "./events.js";
 import { engineIdSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
 import { pageQuerySchema, pageSchemaOf } from "./paging.js";
-import type { ProjectFilter } from "./project-filter.js";
+import { projectFilterParamSchema } from "./project-filter.js";
 import { userRefSchema } from "./users.js";
 
 /**
@@ -125,6 +125,22 @@ export const initiativePipelineChoiceSchema = z.object({
 });
 export type InitiativePipelineChoice = z.infer<typeof initiativePipelineChoiceSchema>;
 
+/**
+ * PUT /initiatives/:id/pipelines: the Pipelines block saved as a whole while shaping, so a refusal
+ * leaves nothing half-saved: the Pipeline in each Project, null for None, each Project once, and
+ * the Short name its branch is named by, null to keep the one it has or derive one from the title.
+ */
+export const initiativePipelinesChangeSchema = z.object({
+  pipelines: z
+    .array(initiativePipelineChoiceSchema)
+    .refine(
+      (choices) => new Set(choices.map(({ projectId }) => projectId)).size === choices.length,
+      "Name each Project once.",
+    ),
+  shortName: z.string().nullable(),
+});
+export type InitiativePipelinesChange = z.infer<typeof initiativePipelinesChangeSchema>;
+
 /** PUT /initiatives/:id/short-name: the user's Short name, edited while shaping. */
 export const shortNameChangeSchema = z.object({ shortName: z.string() });
 export type ShortNameChange = z.infer<typeof shortNameChangeSchema>;
@@ -167,17 +183,6 @@ export const archivedInitiativesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   project: projectFilterParamSchema(),
 });
-
-/** The Project filter as a query's `project` parameters, one per Project; none is every Project. */
-function projectFilterParamSchema() {
-  return z
-    .union([z.string(), z.array(z.string())])
-    .optional()
-    .transform((project): ProjectFilter => {
-      const projectIds = typeof project === "string" ? [project] : (project ?? []);
-      return projectIds.length === 0 ? "all" : projectIds;
-    });
-}
 export type ArchivedInitiativesQuery = z.infer<typeof archivedInitiativesQuerySchema>;
 
 /** An archived Initiative with its final count: its Tasks done of those it kept (not Dropped). */
@@ -279,6 +284,20 @@ export const projectMoveSchema = z.object({
 });
 export type ProjectMove = z.infer<typeof projectMoveSchema>;
 
+/**
+ * A Stand-in Engine the Task's run works on in place of the cascade's engine, as its last Start
+ * chose it: both engines with their names at Start, and why, in full and short.
+ */
+export const engineStandInSchema = z.object({
+  engineId: z.string(),
+  engineName: z.string(),
+  standInId: z.string(),
+  standInName: z.string(),
+  reason: z.string(),
+  short: z.string(),
+});
+export type EngineStandIn = z.infer<typeof engineStandInSchema>;
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
@@ -290,6 +309,11 @@ export const taskSchema = newTaskSchema.extend({
   pausedBy: taskHolderSchema.nullable(),
   /** When a Task the usage window paused resumes by itself, its window's reset; null otherwise. */
   resumesAt: z.iso.datetime().nullable(),
+  /**
+   * The Stand-in Engines its run works on in place of the cascade's engines, as its last Start
+   * chose them; empty while every Stage runs on the cascade's.
+   */
+  engineStandIns: z.array(engineStandInSchema),
   plan: z.string(),
   /** False while the Plan is the Planner's proposal; true once the user confirmed or edited it. */
   planConfirmed: z.boolean(),
@@ -467,6 +491,16 @@ export const pipelineChangeSchema = z.object({ pipelineId: z.string() });
 export type PipelineChange = z.infer<typeof pipelineChangeSchema>;
 
 /**
+ * POST /tasks/:id/ready: Mark Ready. `confirmPlanAndDefinitionOfDone`, once the user agreed to go on
+ * without them, confirms the Plan and the Definition of Done as they stand, even empty, in the same
+ * change; the Pipeline and Decision conditions still hold.
+ */
+export const markReadyRequestSchema = z.object({
+  confirmPlanAndDefinitionOfDone: z.boolean().default(false),
+});
+export type MarkReadyRequest = z.input<typeof markReadyRequestSchema>;
+
+/**
  * The query of GET /tasks/:id/move: the Project it would move to, which adds why its Initiative's
  * Pipeline can't run there; every Project when left out.
  */
@@ -582,8 +616,8 @@ export type UsageMeasure = z.infer<typeof usageMeasureSchema>;
 /**
  * What a Task's whole Pipeline is expected to use on one engine its Stages' Roles run on, in the
  * ticked measures alone; the windows only on an engine whose account has them (a Claude Code
- * engine). A ticked window or cost is null when there is no estimate of it: no reading to learn
- * from, or ("no cost") a model with no Model price.
+ * engine, or a Codex engine on a ChatGPT plan). A ticked window or cost is null when there is no
+ * estimate of it: no reading to learn from, or ("no cost") a model with no Model price.
  */
 export const engineUsageEstimateSchema = z.object({
   engineId: engineIdSchema,
@@ -816,13 +850,7 @@ export type SearchQuery = z.infer<typeof searchQuerySchema>;
  * each, every Project when none is named.
  */
 export const searchEverythingQuerySchema = searchQuerySchema.extend({
-  project: z
-    .union([z.string(), z.array(z.string())])
-    .optional()
-    .transform((project): ProjectFilter => {
-      const projectIds = typeof project === "string" ? [project] : (project ?? []);
-      return projectIds.length === 0 ? "all" : projectIds;
-    }),
+  project: projectFilterParamSchema(),
 });
 export type SearchEverythingQuery = z.infer<typeof searchEverythingQuerySchema>;
 
@@ -915,9 +943,9 @@ export type AutoModeSetting = z.infer<typeof autoModeSettingSchema>;
 export const windowCapSchema = z.int().min(1).max(100);
 
 /**
- * The caps on one engine (spec §2.2), each null when off: a Window cap on each window, exactly on a
- * Claude Code engine, as only its account has them (the service refuses windows elsewhere), and the
- * Daily caps on tokens and on dollars.
+ * The caps on one engine (spec §2.2), each null when off: a Window cap on each window, exactly on an
+ * engine whose account has usage windows, a Claude Code engine or a Codex engine on a ChatGPT plan
+ * (the service refuses windows elsewhere), and the Daily caps on tokens and on dollars.
  */
 export const engineCapsSchema = z.object({
   engineId: engineIdSchema,
@@ -997,6 +1025,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.pipeline-chosen"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.pipelines-set"), initiativeId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("initiative.short-name-written"),
     initiativeId: z.uuid(),
@@ -1026,6 +1055,11 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.paused"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.stopped"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.resumed"), taskId: z.uuid() }),
+  /**
+   * A running Stage of the Task went on on a Stand-in Engine as its engine's usage window was used
+   * up: the Task's Stand-in Engines changed.
+   */
+  webEventSchema.extend({ type: z.literal("task.went-on-on-stand-in"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.queued"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.left-queue"),

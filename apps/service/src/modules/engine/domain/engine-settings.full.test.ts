@@ -12,6 +12,8 @@ import { EngineSettingsRefused } from "./engine-settings-refused.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "./engines.js";
 import type { ModelPrice, OfferedModel } from "./model-prices.js";
 import {
+  codex,
+  codexEdit,
   strata,
   stored,
   claudeCodeEdit,
@@ -49,6 +51,8 @@ describe("changedEngineSettings", () => {
       officeDefault: FIRST_OFFICE_DEFAULT,
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
   });
 
@@ -78,13 +82,34 @@ describe("changedEngineSettings", () => {
           engines: [
             claudeCodeEdit({ defaultModel: "claude-gone-1" }),
             strataEdit({ defaultModel: "gone" }),
+            codexEdit({ id: undefined, defaultModel: "claude-sonnet-5-5" }),
           ],
         }),
       ),
     ).toEqual([
       'Pick the default model of "Claude Code" among its models.',
       'Pick the default model of "Strata" among its models.',
+      'Pick the default model of "Codex" among its models.',
     ]);
+  });
+
+  it("keeps an Office default on a Codex model of a Codex engine, and refuses a Claude model there", () => {
+    const officeDefault = { engineId: "codex", model: "gpt-5.6-terra" };
+
+    expect(
+      changedEngineSettings(
+        stored,
+        editOf([strataEdit(), codexEdit({ id: undefined })], { officeDefault }),
+      ).officeDefault,
+    ).toEqual(officeDefault);
+    expect(
+      refusal(
+        stored,
+        editOf([strataEdit(), codexEdit({ id: undefined })], {
+          officeDefault: { engineId: "codex", model: "claude-sonnet-5-5" },
+        }),
+      ),
+    ).toEqual(['Pick the Office default\'s model among the models of "Codex".']);
   });
 
   it("refuses an Office default on an engine not listed, or on a model its engine doesn't offer", () => {
@@ -179,6 +204,8 @@ describe("settingsWithoutEngine", () => {
       officeDefault: FIRST_OFFICE_DEFAULT,
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
   });
 
@@ -187,6 +214,22 @@ describe("settingsWithoutEngine", () => {
 
     expect(changed.engines).toEqual([strata]);
     expect(changed.officeDefault).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
+  });
+
+  it("removes a Codex engine, its Office default moving to another Codex engine on its model, which keeps its API key", () => {
+    const second = { ...codex, id: "second-codex", name: "Second Codex" };
+    const settings: EngineSettings = {
+      ...stored,
+      engines: [...stored.engines, codex, second],
+      officeDefault: { engineId: "codex", model: "gpt-5.6-luna" },
+    };
+
+    const changed = settingsWithoutEngine(settings, { engineId: "codex", replacement: second });
+
+    expect(changed.engines.map(({ id }) => id)).toEqual(["claude-code", "strata", "second-codex"]);
+    expect(changed.officeDefault).toEqual({ engineId: "second-codex", model: "gpt-5.6-luna" });
+    const kept = changed.engines[2];
+    expect(kept?.kind === "codex" && kept.apiKey).toBe(codex.apiKey);
   });
 
   it("leaves no Office default when the only engine goes", () => {
@@ -341,6 +384,61 @@ describe("Model prices", () => {
       { engineId: null, model: "claude-haiku-5-5", price: flash },
       { engineId: "strata", model: strataFlash, price: null },
     ]);
+  });
+
+  it("keeps one price per Codex model for every Codex engine, listed after the Claude models", () => {
+    const luna: ModelPrice = { input: 2, output: 8, cacheWrites: 0, cacheReads: 0.5 };
+    const second = codexEdit({ id: undefined, name: "Second Codex" });
+
+    const changed = priced(
+      [strataEdit(), codexEdit({ id: undefined }), second],
+      [
+        { engineId: null, model: "gpt-6-luna", price: luna },
+        { engineId: null, model: "claude-haiku-5-5", price: flash },
+        { engineId: "codex", model: "gpt-6-luna", price: flash },
+      ],
+    );
+
+    expect(changed.modelPrices).toEqual([
+      { engineId: null, model: "gpt-6-luna", price: luna },
+      { engineId: null, model: "claude-haiku-5-5", price: flash },
+    ]);
+    expect(offeredModelPrices(changed)).toEqual([
+      { engineId: null, model: "claude-opus-5-5", price: null },
+      { engineId: null, model: "claude-sonnet-5-5", price: null },
+      { engineId: null, model: "claude-haiku-5-5", price: flash },
+      { engineId: null, model: "gpt-6-luna", price: luna },
+      { engineId: null, model: "gpt-5.6-terra", price: null },
+      { engineId: null, model: "gpt-5.6-luna", price: null },
+      { engineId: "strata", model: strataFlash, price: null },
+    ]);
+  });
+
+  it("keeps the Codex models' prices once the last Codex engine is removed, beside a Claude Code engine", () => {
+    const luna: ModelPrice = { input: 2, output: 8, cacheWrites: 0, cacheReads: 0.5 };
+    const pricedStored: EngineSettings = {
+      ...stored,
+      engines: [...stored.engines, codex],
+      modelPrices: [
+        { engineId: null, model: "claude-sonnet-5-5", price: sonnet },
+        { engineId: null, model: "gpt-6-luna", price: luna },
+      ],
+    };
+
+    const withoutCodex = settingsWithoutEngine(pricedStored, {
+      engineId: "codex",
+      replacement: FIRST_CLAUDE_CODE_ENGINE,
+    });
+    const savedAfter = changedEngineSettings(
+      withoutCodex,
+      editOf([strataEdit()], {
+        modelPrices: [{ engineId: null, model: "claude-sonnet-5-5", price: sonnet }],
+      }),
+    );
+
+    expect(withoutCodex.modelPrices).toEqual(pricedStored.modelPrices);
+    expect(savedAfter.modelPrices).toEqual(pricedStored.modelPrices);
+    expect(offeredModelPrices(savedAfter).map(({ model }) => model)).not.toContain("gpt-6-luna");
   });
 
   it("lists no Claude model with no Claude Code engine", () => {

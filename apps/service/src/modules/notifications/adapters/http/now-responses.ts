@@ -54,7 +54,10 @@ function toUsageWindowResponse({
 }
 
 function toNeedsYouResponse(item: NeedsYouItem): NowResponse["needsYou"][number] {
-  return { ...item, waitingSince: item.waitingSince.toISOString() };
+  const waitingSince = item.waitingSince.toISOString();
+  return item.kind === "initiative-decision" || item.kind === "stand-in-choice"
+    ? { ...item, projectIds: [...item.projectIds], waitingSince }
+    : { ...item, waitingSince };
 }
 
 function toRunningResponse({

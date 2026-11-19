@@ -120,6 +120,7 @@ describeAgentEngineContract("OpenAiCompatibleApiEngine on a fake server", {
   model: "coder:q4",
   timeoutMs: 10_000,
   mcpServer: CONTRACT_MCP_SERVER,
+  backgroundCommands: true,
   async engineFor(scenario) {
     fake.script(...contractAnswers(scenario));
     return engineOn();
@@ -153,6 +154,7 @@ describe.runIf(process.env["OFFICE_ENGINE_TESTS"] === "live" && LIVE_BASE_URL &&
       model: LIVE_MODEL ?? "",
       timeoutMs: 30 * 60_000,
       mcpServer: CONTRACT_MCP_SERVER,
+      backgroundCommands: true,
       engineFor: () => Promise.resolve(engineOn([live])),
     });
   },

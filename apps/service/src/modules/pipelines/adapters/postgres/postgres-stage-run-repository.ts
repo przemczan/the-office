@@ -1,19 +1,43 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, getTableColumns, inArray, isNull } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  getTableColumns,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.js";
 import type {
+  EngineSwitch,
   GateAction,
   PublishedWork,
   StageRun,
   StageRunContext,
   StageRunDecision,
+  StageRunStandIn,
   StageTokens,
   AskedInterruption,
   HoldingUser,
 } from "../../domain/stage-run.js";
-import { StageRunRepository, type StageRunThread } from "../../ports/stage-run-repository.js";
+import {
+  StageRunRepository,
+  type LeftBranch,
+  type RanAgentStageRun,
+  type StageRunThread,
+  type StartedStageRun,
+} from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
+import { taskStages } from "./task-stages.schema.js";
 
 const { commandOutputs: _readOnlyByRun, ...stageRunColumns } = getTableColumns(stageRuns);
 
@@ -23,21 +47,56 @@ export class PostgresStageRunRepository extends StageRunRepository {
     super();
   }
 
-  async saveNew(run: StageRun): Promise<boolean> {
+  async saveNew({ standInFor, ...run }: StageRun): Promise<boolean> {
     const saved = await this.database
       .insert(stageRuns)
-      .values(run)
+      .values({ ...run, ...standInColumns(standInFor) })
       .onConflictDoNothing({ target: [stageRuns.taskId, stageRuns.number] })
       .returning({ id: stageRuns.id });
     return saved.length > 0;
   }
 
-  async saveThread(runId: string, thread: StageRunThread): Promise<void> {
-    await this.database.update(stageRuns).set(thread).where(eq(stageRuns.id, runId));
+  async saveThread(runId: string, { standInFor, ...thread }: StageRunThread): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({ ...thread, ...standInColumns(standInFor) })
+      .where(eq(stageRuns.id, runId));
+  }
+
+  async saveEngineSwitch(
+    runId: string,
+    engineSwitch: EngineSwitch,
+    {
+      engineId,
+      engineName,
+      standInFor,
+    }: Pick<StageRunThread, "engineId" | "engineName" | "standInFor">,
+  ): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({
+        engineId,
+        engineName,
+        ...standInColumns(standInFor),
+        engineSwitches: sql`${stageRuns.engineSwitches} || ${JSON.stringify([engineSwitch])}::jsonb`,
+      })
+      .where(eq(stageRuns.id, runId));
+  }
+
+  async taskOf(runId: string): Promise<string | undefined> {
+    const [row] = await this.database
+      .select({ taskId: stageRuns.taskId })
+      .from(stageRuns)
+      .where(eq(stageRuns.id, runId));
+    return row?.taskId;
   }
 
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
     await this.database.update(stageRuns).set({ headCommit }).where(eq(stageRuns.id, runId));
+  }
+
+  async saveLeftBranch(runId: string, left: LeftBranch): Promise<void> {
+    await this.database.update(stageRuns).set(left).where(eq(stageRuns.id, runId));
   }
 
   async saveCommandRuns(
@@ -51,6 +110,35 @@ export class PostgresStageRunRepository extends StageRunRepository {
         commandOutputs: commandRuns.map(({ wholeOutput }) => wholeOutput),
       })
       .where(eq(stageRuns.id, runId));
+  }
+
+  async addCommandRuns(
+    runId: string,
+    commandRuns: readonly StageCommandRunWithOutput[],
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      const [row] = await transaction
+        .select({ commandRuns: stageRuns.commandRuns, commandOutputs: stageRuns.commandOutputs })
+        .from(stageRuns)
+        .where(eq(stageRuns.id, runId))
+        .for("update");
+      if (!row) throw new Error(`There is no Stage run ${runId} to add command runs to.`);
+      // A run saved before whole outputs were kept has fewer outputs than runs: its own filtered
+      // outputs fill the gap, so each output stays at its run's place.
+      const outputs = row.commandRuns.map(
+        ({ output }, index) => row.commandOutputs[index] ?? output,
+      );
+      await transaction
+        .update(stageRuns)
+        .set({
+          commandRuns: [
+            ...row.commandRuns,
+            ...commandRuns.map(({ wholeOutput: _keptApart, ...run }) => run),
+          ],
+          commandOutputs: [...outputs, ...commandRuns.map(({ wholeOutput }) => wholeOutput)],
+        })
+        .where(eq(stageRuns.id, runId));
+    });
   }
 
   async saveTokens(runId: string, tokens: StageTokens): Promise<void> {
@@ -99,7 +187,12 @@ export class PostgresStageRunRepository extends StageRunRepository {
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
     await this.database
       .update(stageRuns)
-      .set({ outcome, endedAt, waitingSince: null })
+      .set({
+        outcome,
+        endedAt,
+        waitingSince: null,
+        changedFiles: sql`coalesce(${stageRuns.changedFiles}, '[]'::jsonb)`,
+      })
       .where(eq(stageRuns.id, id));
   }
 
@@ -122,6 +215,74 @@ export class PostgresStageRunRepository extends StageRunRepository {
     return rows.map(stageRunOf);
   }
 
+  async startedSince(since: Date): Promise<readonly StartedStageRun[]> {
+    const earlier = alias(stageRuns, "earlier");
+    const earlierRun = this.database
+      .select({ one: sql`1` })
+      .from(earlier)
+      .where(
+        and(
+          eq(earlier.taskId, stageRuns.taskId),
+          eq(earlier.stageKey, stageRuns.stageKey),
+          lt(earlier.number, stageRuns.number),
+        ),
+      );
+    return this.database
+      .select({
+        taskId: stageRuns.taskId,
+        tokens: stageRuns.tokens,
+        retry: sql<boolean>`${exists(earlierRun)}`,
+      })
+      .from(stageRuns)
+      .where(gte(stageRuns.startedAt, since));
+  }
+
+  async ranBetween(from: Date, to: Date): Promise<readonly RanAgentStageRun[]> {
+    const runs = await this.database
+      .select({
+        engineId: stageRuns.engineId,
+        taskId: stageRuns.taskId,
+        stageKey: stageRuns.stageKey,
+        startedAt: stageRuns.startedAt,
+        endedAt: stageRuns.endedAt,
+      })
+      .from(stageRuns)
+      .where(
+        and(
+          isNotNull(stageRuns.engineId),
+          lt(stageRuns.startedAt, to),
+          or(isNull(stageRuns.endedAt), gt(stageRuns.endedAt, from)),
+        ),
+      )
+      .orderBy(asc(stageRuns.startedAt), asc(stageRuns.taskId), asc(stageRuns.number));
+    const taskIds = [...new Set(runs.map(({ taskId }) => taskId))];
+    const stagesOfTasks =
+      taskIds.length === 0
+        ? []
+        : await this.database
+            .select({ taskId: taskStages.taskId, stages: taskStages.stages })
+            .from(taskStages)
+            .where(inArray(taskStages.taskId, taskIds));
+    const names = new Map(
+      stagesOfTasks.flatMap(({ taskId, stages }) =>
+        stages.map(({ key, name }) => [`${taskId} ${key}`, name] as const),
+      ),
+    );
+    return runs.flatMap(({ engineId, taskId, stageKey, startedAt, endedAt }) =>
+      engineId === null
+        ? []
+        : [
+            {
+              engineId,
+              taskId,
+              stageName: names.get(`${taskId} ${stageKey}`) ?? stageKey,
+              startedAt,
+              endedAt: endedAt ?? undefined,
+            },
+          ],
+    );
+  }
+
   async commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined> {
     const [row] = await this.database
       .select({ commandRuns: stageRuns.commandRuns, commandOutputs: stageRuns.commandOutputs })
@@ -131,9 +292,31 @@ export class PostgresStageRunRepository extends StageRunRepository {
   }
 }
 
-function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">): StageRun {
+/** The stand-in columns of a run's row, or the clearing of them. */
+function standInColumns(standInFor: StageRunStandIn | undefined) {
+  return {
+    standInForEngineId: standInFor?.engineId ?? null,
+    standInForEngineName: standInFor?.engineName ?? null,
+    standInReason: standInFor?.reason ?? null,
+  };
+}
+
+function stageRunOf({
+  standInForEngineId,
+  standInForEngineName,
+  standInReason,
+  ...row
+}: Omit<typeof stageRuns.$inferSelect, "commandOutputs">): StageRun {
   return {
     ...row,
+    standInFor:
+      standInForEngineId === null
+        ? undefined
+        : {
+            engineId: standInForEngineId,
+            engineName: standInForEngineName ?? standInForEngineId,
+            reason: standInReason ?? "",
+          },
     carriedFailure: row.carriedFailure ?? undefined,
     sentBack: row.sentBack ?? undefined,
     threadId: row.threadId ?? undefined,
@@ -144,6 +327,7 @@ function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">):
     model: row.model ?? undefined,
     context: row.context ?? undefined,
     headCommit: row.headCommit ?? undefined,
+    changedFiles: row.changedFiles ?? undefined,
     heldBy: row.heldBy ?? undefined,
     heldByUser: row.heldByUser ?? undefined,
     gateAction: row.gateAction ?? undefined,

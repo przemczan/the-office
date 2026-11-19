@@ -2,10 +2,18 @@ import type { Author } from "./author.js";
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import type { TaskStarted } from "./task-events.js";
+import type { EngineUsage } from "./usage-estimate.js";
 import { TaskQueued } from "./queue-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { startWaitsForUsage, withStarted } from "./cap-waits.js";
-import { startReasons, startTask, type HeldAtStart, type StartConditions } from "./task-start.js";
+import { withStarted } from "./cap-waits.js";
+import { standInsWithStarted } from "./stand-ins-at-start.js";
+import {
+  startReasons,
+  startTask,
+  usageOnStandIns,
+  type HeldAtStart,
+  type StartConditions,
+} from "./task-start.js";
 import { overlapsOf, overlapWords } from "./task-overlap.js";
 import { STARTED_STATES } from "./task-states.js";
 import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
@@ -110,21 +118,24 @@ export function queueOrder(queue: readonly QueuedTask[]): QueuedTask[] {
 /** What one release did to each Task it weighed, in the queue's order. */
 export interface Release {
   readonly started: readonly TaskChange<TaskStarted>[];
+  /** What each started Task is expected to use, by its id, on the engines it started on. */
+  readonly startedEstimates: ReadonlyMap<string, readonly EngineUsage[]>;
   /** Tasks whose turn met a reason that refuses Start, with every such reason. */
   readonly refused: readonly { readonly taskId: string; readonly refusals: readonly string[] }[];
   /** Tasks still waiting, with the waits that hold them now. */
   readonly waiting: readonly QueuedTask[];
   /** The ids of those held by other reasons (or short reasons) than at their last turn. */
   readonly reasonsChanged: readonly string[];
-  /** When the caps holding each waiting Task last reset, for those caps hold. */
+  /** When each cap holding a waiting Task resets, or a Stand-in Engine that could take it frees. */
   readonly capResets: readonly Date[];
 }
 
 /**
  * Starts every queued Task that can start now, in the queue's order, each counting against the
- * limits of those after it and its estimate against their caps (`withStarted`), so a Task waiting
- * for a busy person holds none behind it. A Task that meets a refusal leaves the queue; one with no
- * conditions (queued after they were read) waits on.
+ * limits of those after it and its estimate, on the engines it starts on, against their caps
+ * (`withStarted`, `standInsWithStarted`), so a Task waiting for a busy person holds none behind it.
+ * A Task that meets a refusal leaves the queue; one with no conditions (queued after they were
+ * read) waits on.
  * `tasks` holds every Task, `fireAlarmOn` the alarm and `pausedInitiativeIds` the Initiatives
  * paused, all read in the hold of Starts.
  */
@@ -148,7 +159,7 @@ export function releaseQueue(
   const waiting: QueuedTask[] = [];
   const reasonsChanged: string[] = [];
   const capResets: Date[] = [];
-  const startedEstimates: StartConditions["usage"]["estimate"][] = [];
+  const startedEstimates = new Map<string, readonly EngineUsage[]>();
   for (const queued of queueOrder(queue)) {
     const task = byId.get(queued.taskId);
     const read = conditionsOf(queued.taskId);
@@ -158,7 +169,8 @@ export function releaseQueue(
     }
     const conditions = {
       ...read,
-      usage: startedEstimates.reduce(withStarted, read.usage),
+      usage: [...startedEstimates.values()].reduce(withStarted, read.usage),
+      standIns: [...startedEstimates.values()].reduce(standInsWithStarted, read.standIns),
     };
     const blockers = task.blockedBy.flatMap((id) => byId.get(id) ?? []);
     const held = {
@@ -175,14 +187,13 @@ export function releaseQueue(
       const stillQueued = { ...queued, ...heldBy(allWaits) };
       waiting.push(stillQueued);
       if (!sameReasons(queued, stillQueued)) reasonsChanged.push(task.id);
-      const { resetsAt } = startWaitsForUsage(conditions.usage);
-      if (resetsAt) capResets.push(resetsAt);
+      capResets.push(...usageOnStandIns(conditions).resets);
     } else {
       started.push(startTask(task, conditions, held, { kind: "queue", queuedBy: queued.queuedBy }));
-      startedEstimates.push(conditions.usage.estimate);
+      startedEstimates.set(task.id, usageOnStandIns(conditions).usage.estimate);
     }
   }
-  return { started, refused, waiting, reasonsChanged, capResets };
+  return { started, startedEstimates, refused, waiting, reasonsChanged, capResets };
 }
 
 /** Whether both hold the same reasons and short reasons; a Task queued before short reasons has none. */

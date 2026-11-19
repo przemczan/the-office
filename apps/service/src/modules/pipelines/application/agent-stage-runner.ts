@@ -2,6 +2,7 @@ import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   EngineModels,
+  EngineSessions,
   NoEngineListed,
   READ_ONLY_GIT_COMMANDS,
   RUN_PROJECT_COMMAND_TOOL,
@@ -18,6 +19,7 @@ import {
   type CarriedRound,
   earlierResults,
   type HeldRun,
+  workSentAgain,
 } from "../domain/agent-stage-brief.js";
 import { allowedCommands, type AllowedCommands } from "../domain/allowed-commands.js";
 import type {
@@ -43,7 +45,9 @@ import {
   type RefusedTurn,
   type StageOutcome,
   type StageRun,
+  type StandInChoice,
 } from "../domain/stage-run.js";
+import { engineSwitched, type NamedEngine } from "../domain/stage-run-changes.js";
 import {
   correctionMessage,
   readStageResult,
@@ -51,7 +55,7 @@ import {
   STAGE_RESULT_SCHEMA,
   type StageResultReading,
 } from "../domain/stage-result.js";
-import { StageRunThreadOpened } from "../domain/stage-run-events.js";
+import { StageAwaitsStandInChoice, StageRunThreadOpened } from "../domain/stage-run-events.js";
 import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
@@ -70,6 +74,7 @@ import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { TaskScreenshots } from "../ports/task-screenshots.js";
 import { TaskUsage } from "../ports/task-usage.js";
+import { PipelineLibrary } from "./pipeline-library.js";
 import { ResolveStageGit } from "./resolve-stage-git.js";
 import { StageCommandRuns } from "./stage-command-runs.js";
 import { StageRunWaits } from "./stage-run-waits.js";
@@ -112,6 +117,38 @@ type ResultReading =
   | { readonly kind: "refused"; readonly refused: RefusedTurn };
 
 /**
+ * The engine the Stage's session runs on as the run goes on, which a switch to a Stand-in Engine
+ * moves, by its id and name, and the cascade's engine it runs for, which stays.
+ */
+interface RunningEngine {
+  engineId: string;
+  engineName: string;
+  readonly cascade: NamedEngine;
+}
+
+/** What a refused turn's switch works on: the run, its Stage Thread, and the engine it runs on. */
+interface OnStandIns {
+  readonly work: StageWork<"agent">;
+  readonly thread: StageThread;
+  readonly running: RunningEngine;
+}
+
+/**
+ * What came after a refused turn: the session went on on a Stand-in Engine; the run is held, with
+ * the Stand-in Engine that waits for the user's choice, if one does; or the budget was reached.
+ */
+type AfterRefusal =
+  | { readonly kind: "switched" }
+  | { readonly kind: "hold"; readonly standInChoice?: StandInChoice }
+  | { readonly kind: "result"; readonly outcome: StageOutcome };
+
+const HOLD: AfterRefusal = { kind: "hold" };
+
+/** Why the refused message goes again, as the Stage Thread logs it. */
+const SENT_AGAIN =
+  "The engine refused the turn for its used-up usage window, so The Office sent it again on the Stand-in Engine.";
+
+/**
  * Runs Agent Stages (spec §2.3): the person who fills the Stage's Role works it in its Stage Thread,
  * in the session the Context policy gives it with the Stage's declared session, briefed from the
  * record, with the Project's dependencies installed first. Its result is read against the result
@@ -124,9 +161,11 @@ type ResultReading =
  * a Stop stops the running turn now and discards the Stage's uncommitted edits; The Office
  * shutting down stops it now too but keeps them, and a Pause waits for the turn to end and keeps
  * them, for the Stage to go on with.
- * A turn the engine refuses for a used-up usage window, its first or the correction, holds the run
- * as a Pause does (spec 2.3): no correction follows, the Task is paused until the window resets,
- * and the Stage is sent the refused message again as it resumes.
+ * A turn the engine refuses for a used-up usage window, its first or the correction, moves the
+ * session to the first Stand-in Engine with room, which is sent the message again in the same run
+ * (spec 5.4). With none, or one that waits for the user's choice as the context is large, it holds
+ * the run as a Pause does (spec 2.3): no correction follows, the Task is paused until the window
+ * resets, and the Stage is sent the refused message again as it resumes.
  */
 @Injectable()
 export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
@@ -149,6 +188,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly waits: StageRunWaits,
     private readonly commandRuns: StageCommandRuns,
     private readonly startedTasks: StartedTasks,
+    private readonly library: PipelineLibrary,
+    private readonly engineSessions: EngineSessions,
   ) {}
 
   onModuleInit(): void {
@@ -215,7 +256,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     this.commandRuns.begin(work.run.id, work.interruption.commandsSignal);
     let ending: Ending = { handoverNote: undefined, closing: undefined };
     try {
-      const { threadId, move, engine, model } = thread;
+      const { threadId, move, engine, model, standInFor } = thread;
       // An engine removed since its session started keeps its id as its name.
       const engineName = (await this.engineModels.find(engine))?.name ?? engine;
       await this.runs.saveThread(work.run.id, {
@@ -224,11 +265,21 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         engineId: engine,
         engineName,
         model,
+        standInFor: standInFor && {
+          engineId: standInFor.engineId,
+          engineName: standInFor.engineName,
+          reason: standInFor.reason,
+        },
       });
       await this.events.publish(
         new StageRunThreadOpened(work.run.taskId, work.run.id, work.run.stageKey),
       );
-      const reading = await this.resultOf(work, thread, engineName, task.definitionOfDone.length);
+      const running: RunningEngine = {
+        engineId: engine,
+        engineName,
+        cascade: cascadeEngineOf(task, thread, engineName),
+      };
+      const reading = await this.resultOf(work, thread, running, task.definitionOfDone.length);
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();
       if (asked) await this.keep(work, asked);
@@ -331,6 +382,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       projectId: task.project.id,
       roleKey: workingRole(stage),
       stageName: stage.name,
+      initiativeId: task.initiativeId,
+      stageRun: run.number,
+      pipelineName: await this.pipelineNameOf(run.taskId),
+      projectName: task.project.name,
       effort: stage.effort,
       ...stageSessionOf(stage, stages, earlierRuns),
       // What the user wrote that the held run's session ended before taking goes with this run.
@@ -366,7 +421,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         officeTools: AGENT_STAGE_OFFICE_TOOLS,
         outputSchema: STAGE_RESULT_SCHEMA,
       },
+      engineStandIns: task.engineStandIns,
     });
+  }
+
+  /** The name of the Pipeline the Task follows, for its telemetry; its id once it is gone. */
+  private async pipelineNameOf(taskId: string): Promise<string> {
+    const pipelineId = (await this.startedTasks.find(taskId))?.pipelineId;
+    if (pipelineId === undefined) return "";
+    return (await this.library.read(pipelineId))?.name ?? pipelineId;
   }
 
   /**
@@ -399,6 +462,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       roleKey,
       ...stageSessionOf(stage, stages, earlierRuns),
       record: await this.recordOf(taskId, person.card, commands, task, stages, earlierRuns),
+      engineStandIns: task.engineStandIns,
     });
   }
 
@@ -485,12 +549,13 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   /**
    * The Stage's result, corrected once in the same session when it doesn't match the schema; held
    * once the user holds the run: at the end of the turn running after a Pause, at once after a
-   * Stop, which stops that turn; or refused, once the engine refuses a turn for a used-up window.
+   * Stop, which stops that turn; or refused, once the engine refuses a turn for a used-up window
+   * and no Stand-in Engine takes the session over.
    */
   private async resultOf(
     work: StageWork<"agent">,
     thread: StageThread,
-    engineName: string,
+    running: RunningEngine,
     statementCount: number,
   ): Promise<ResultReading> {
     const { interruption } = work;
@@ -500,7 +565,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       });
     });
     try {
-      return await this.readResult(work, thread, engineName, statementCount);
+      return await this.readResult(work, thread, running, statementCount);
     } catch (error) {
       // An engine that can't interrupt ends the session instead, so the turn read fails.
       if (interruption.now) return { kind: "held" };
@@ -513,7 +578,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   private async readResult(
     work: StageWork<"agent">,
     thread: StageThread,
-    engineName: string,
+    running: RunningEngine,
     statementCount: number,
   ): Promise<ResultReading> {
     let tokens = NO_STAGE_TOKENS;
@@ -525,41 +590,39 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     };
     // Stopped while the session opened, before there was a turn to stop.
     if (work.interruption.now) return { kind: "held" };
-    const firstTurn = await counted(await thread.nextTurn());
-    if (firstTurn.usedUpWindow) {
-      // A session the Stage began holds nothing but the refused work; one it went on in stays.
-      const sessionLeft = thread.move.move === "resume";
-      return this.refused(work, thread, engineName, firstTurn.usedUpWindow, {
-        message: "work",
-        sessionLeft,
-      });
-    }
+    // A session the Stage began holds nothing but the refused work; one it went on in stays.
+    const workMessage = { message: "work", sessionLeft: thread.move.move === "resume" } as const;
+    const firstTurn = await this.throughRefusals(
+      { work, thread, running },
+      await counted(await thread.nextTurn()),
+      workMessage,
+      async () => counted(await thread.send(workSentAgain(workMessage), SENT_AGAIN)),
+    );
+    if ("reading" in firstTurn) return firstTurn.reading;
     if (work.interruption.requested) return { kind: "held" };
     const first = await this.withScreenshots(
       work,
-      readingOf(firstTurn, await thread.askedDecision(), statementCount),
+      readingOf(firstTurn.turn, await thread.askedDecision(), statementCount),
     );
     if (first.valid) return { kind: "result", outcome: first.outcome };
     // The correction is another engine call, so the budget is checked before it too.
     const reached = await this.budgetCheck(work);
     if (reached) return { kind: "result", outcome: reached };
-    const correctedTurn = await counted(
-      await thread.send(
-        correctionMessage(first.problems),
+    const sendCorrection = async (why: string) =>
+      counted(await thread.send(correctionMessage(first.problems), why));
+    const correctedTurn = await this.throughRefusals(
+      { work, thread, running },
+      await sendCorrection(
         `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
       ),
+      { message: "correction", problems: first.problems, sessionLeft: true },
+      () => sendCorrection(SENT_AGAIN),
     );
-    if (correctedTurn.usedUpWindow) {
-      return this.refused(work, thread, engineName, correctedTurn.usedUpWindow, {
-        message: "correction",
-        problems: first.problems,
-        sessionLeft: true,
-      });
-    }
+    if ("reading" in correctedTurn) return correctedTurn.reading;
     if (work.interruption.requested) return { kind: "held" };
     const corrected = await this.withScreenshots(
       work,
-      readingOf(correctedTurn, await thread.askedDecision(), statementCount),
+      readingOf(correctedTurn.turn, await thread.askedDecision(), statementCount),
     );
     if (corrected.valid) return { kind: "result", outcome: corrected.outcome };
     return {
@@ -572,18 +635,142 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   }
 
   /**
-   * The engine refused the Agent's turn for a used-up usage window (spec 2.3): no failure and no
-   * correction. Unless the user or the alarm holds the run already, which stays, the run is held by
-   * the usage window and Work pauses the Task until the window resets; either way the run's end
-   * records the refused message, which the Stage is sent again as it resumes. The run is asked to
-   * hold here only: Work's TaskPaused for it asks the walk nothing (`StageInterpreter`).
+   * The turn, once the engine took it: while an engine refuses it for a used-up usage window, the
+   * session goes on on the next Stand-in Engine with room and is sent `message` again there
+   * (`sendAgain`), the run Running throughout (spec 5.4). Once none takes it over, the run is held
+   * as `refused` holds it; a budget reached before the switch ends it as the budget does. A Pause or
+   * Stop, or the fire alarm, asked while the session switched holds it on the Stand-in Engine, with
+   * the refused message still to send.
+   */
+  private async throughRefusals(
+    on: OnStandIns,
+    turn: StageTurn,
+    message: Pick<RefusedTurn, "message" | "problems" | "sessionLeft">,
+    sendAgain: () => Promise<StageTurn>,
+  ): Promise<{ readonly turn: StageTurn } | { readonly reading: ResultReading }> {
+    let latest = turn;
+    while (latest.usedUpWindow) {
+      const usedUp = latest.usedUpWindow;
+      const refusedBy = on.running.engineName;
+      const after = await this.switchOrHold(on, usedUp);
+      if (after.kind === "result") return { reading: after };
+      if (after.kind === "hold" || on.work.interruption.requested) {
+        const standInChoice = after.kind === "hold" ? after.standInChoice : undefined;
+        return {
+          reading: await this.refused(on, refusedBy, usedUp, message, standInChoice),
+        };
+      }
+      latest = await sendAgain();
+    }
+    return { turn: latest };
+  }
+
+  /**
+   * After the engine refused a turn for a used-up usage window (spec 5.4): the session goes on on
+   * the first Stand-in Engine with room, unless the user's Pause or Stop, or the fire alarm, asked
+   * to hold the run first, none has room, or the session's context is over the size Settings ›
+   * Engines asks first above, whose Stand-in Engine the hold names for the user's choice. A switch
+   * that fails holds the run too: it is never the Stage's failure.
+   */
+  private async switchOrHold(
+    on: OnStandIns,
+    usedUp: NonNullable<StageTurn["usedUpWindow"]>,
+  ): Promise<AfterRefusal> {
+    const { work, thread } = on;
+    if (work.interruption.requested) return HOLD;
+    const standIn = await this.engineSessions.standInFor({
+      engineId: thread.engine,
+      model: thread.model,
+    });
+    if (!standIn) return HOLD;
+    const to = {
+      engineId: standIn.engineId,
+      engineName: await this.engineSessions.nameOf(standIn.engineId),
+    };
+    const standInChoice = await this.choiceAsked(thread, to);
+    if (standInChoice) return { kind: "hold", standInChoice };
+    const reached = await this.budgetCheck(work);
+    if (reached) return { kind: "result", outcome: reached };
+    try {
+      await thread.switchTo(standIn, usedUp);
+    } catch (error) {
+      this.logger.warn(
+        `Stage run ${work.run.id}'s session couldn't go on on ${to.engineName}, so the run is held: ${messageOf(error)}`,
+      );
+      return HOLD;
+    }
+    await this.recordSwitch(on, to, usedUp);
+    return { kind: "switched" };
+  }
+
+  /**
+   * The user's choice the switch to `to` waits for: when the session's context is over the size
+   * Settings › Engines asks first above; undefined while it isn't.
+   */
+  private async choiceAsked(
+    thread: StageThread,
+    to: NamedEngine,
+  ): Promise<StandInChoice | undefined> {
+    const contextTokens = thread.contextTokens();
+    const { askBeforeSwitchAbove } = await this.engineModels.standIns();
+    if (contextTokens <= askBeforeSwitchAbove) return undefined;
+    return { ...to, contextTokens, askAbove: askBeforeSwitchAbove };
+  }
+
+  /**
+   * Records the session's move to `to` on the run, with the engine it runs on now, and on the Task,
+   * so its later Stages open on `to`, and tells of it.
+   */
+  private async recordSwitch(
+    { work, running }: OnStandIns,
+    to: NamedEngine,
+    usedUp: NonNullable<StageTurn["usedUpWindow"]>,
+  ): Promise<void> {
+    const windowWords = usageWindowWords(usedUp.window);
+    const { engineSwitch, standInFor, event } = engineSwitched(
+      work.run,
+      {
+        from: { engineId: running.engineId, engineName: running.engineName },
+        to,
+        cascade: running.cascade,
+        windowWords,
+        resetsAt: usedUp.resetsAt,
+      },
+      new Date(),
+    );
+    const onItsOwn = to.engineId === running.cascade.engineId;
+    await this.runs.saveEngineSwitch(work.run.id, engineSwitch, {
+      ...to,
+      standInFor: onItsOwn ? undefined : standInFor,
+    });
+    running.engineId = to.engineId;
+    running.engineName = to.engineName;
+    await this.startedTasks.wentOnOnStandIn(work.run.taskId, {
+      engineId: running.cascade.engineId,
+      engineName: running.cascade.engineName,
+      standInId: to.engineId,
+      standInName: to.engineName,
+      reason: standInFor.reason,
+      short: `${windowWords} used up`,
+    });
+    await this.events.publish(event);
+  }
+
+  /**
+   * The engine `engineName` refused the Agent's turn for a used-up usage window (spec 2.3), and no
+   * Stand-in Engine went on with it: no failure and no correction. Unless the user or the alarm holds
+   * the run already, which stays, the run is held by the usage window and Work pauses the Task until
+   * the window resets; either way the run's end records the refused message, which the Stage is
+   * sent again as it resumes, and the Stand-in Engine that waits for the user's choice, if one does.
+   * The run is asked to hold here only: Work's TaskPaused for it asks the walk nothing
+   * (`StageInterpreter`).
    */
   private async refused(
-    { run, interruption }: StageWork<"agent">,
-    thread: StageThread,
+    { work: { run, interruption }, thread }: OnStandIns,
     engineName: string,
     usedUp: NonNullable<StageTurn["usedUpWindow"]>,
     message: Pick<RefusedTurn, "message" | "problems" | "sessionLeft">,
+    standInChoice: StandInChoice | undefined,
   ): Promise<ResultReading> {
     if (interruption.requested === undefined) {
       interruption.request("usage-window");
@@ -593,7 +780,22 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         engineName,
         window: usedUp.window,
         resetsAt: usedUp.resetsAt,
+        ...(standInChoice && { awaitsStandInChoice: true }),
       });
+      if (standInChoice) {
+        await this.events.publish(
+          new StageAwaitsStandInChoice(
+            run.taskId,
+            run.id,
+            run.stageKey,
+            thread.threadId,
+            thread.engine,
+            standInChoice.engineId,
+            standInChoice.contextTokens,
+            usedUp.resetsAt,
+          ),
+        );
+      }
     }
     return {
       kind: "refused",
@@ -601,7 +803,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         ...message,
         engineName,
         windowWords: usageWindowWords(usedUp.window),
+        window: usedUp.window,
         resetsAt: usedUp.resetsAt.toISOString(),
+        ...(standInChoice && { standInChoice }),
       },
     };
   }
@@ -642,6 +846,19 @@ function readingOf(
     return { valid: false, problems: problem ?? "The turn ended without a result." };
   }
   return readStageResult(output, asked, statementCount);
+}
+
+/**
+ * The cascade's engine the session runs for: the one the Task's Start handed to the stand-in it runs
+ * on, else the one the Thread says it stands in for, else its own.
+ */
+function cascadeEngineOf(task: TaskRecord, thread: StageThread, engineName: string): NamedEngine {
+  const chosen = task.engineStandIns.find(({ standInId }) => standInId === thread.engine);
+  if (chosen) return { engineId: chosen.engineId, engineName: chosen.engineName };
+  if (thread.standInFor) {
+    return { engineId: thread.standInFor.engineId, engineName: thread.standInFor.engineName };
+  }
+  return { engineId: thread.engine, engineName };
 }
 
 function changedGitItself(problem: string, handoverNote: string | undefined): StageOutcome {
@@ -721,11 +938,15 @@ function heldRun(stage: Stage, earlierRuns: readonly StageRun[]): StageRun | und
   return last.outcome.interrupted ? last : undefined;
 }
 
-function heldRunOf({ outcome, decisions }: StageRun): HeldRun | undefined {
+function heldRunOf({ outcome, decisions, engineSwitches }: StageRun): HeldRun | undefined {
   if (outcome?.status !== "failed" || !outcome.interrupted) return undefined;
   const answer = decisions.find(({ kind }) => kind === "restart")?.answer;
   const guidance = answer?.kind === "one-more-round" ? answer.guidance : undefined;
+  const chosen = engineSwitches.findLast(({ chosenBy }) => chosenBy !== undefined);
   return {
+    ...(chosen?.chosenBy && {
+      standInChosen: { engineName: chosen.toEngineName, chosenBy: chosen.chosenBy },
+    }),
     by: outcome.interrupted,
     ...(outcome.heldByUser && { byUser: outcome.heldByUser }),
     ...(outcome.notStarted && { notStarted: true }),

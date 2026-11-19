@@ -105,6 +105,7 @@ export async function aRunLeftRunning(
       engineId: "claude-code",
       engineName: "Claude Code",
       model: "scripted",
+      standInFor: undefined,
     });
   }
   return taskId;

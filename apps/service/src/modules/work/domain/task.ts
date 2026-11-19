@@ -1,4 +1,6 @@
+import type { EngineId } from "../../engine/index.js";
 import type { ArchivedBy, Author } from "./author.js";
+import type { EngineStandIn } from "./stand-ins-at-start.js";
 import { normalizedTags, tagsProblems } from "./task-tags.js";
 import { titleProblem } from "./title.js";
 
@@ -120,6 +122,12 @@ export interface Task {
    */
   readonly personRole: string | undefined;
   /**
+   * The Stand-in Engines its run works on in place of the cascade's engines, as its last Start or
+   * release of the queue chose them (stand-ins-at-start.ts), each with why; none while every Stage
+   * runs on the cascade's. Every Start replaces it, so each tries the cascade's engines first.
+   */
+  readonly engineStandIns: readonly EngineStandIn[];
+  /**
    * What holds it Paused apart from a Pause of the user's own; undefined for that and any other
    * state. The alarm's Tasks resume at the all clear, or the user's Hold makes them theirs (spec
    * §2.8); the Initiative's resume with Resume the Initiative, or become the user's as it is dropped.
@@ -131,6 +139,17 @@ export interface Task {
    * the usage window until then; undefined for every other Task.
    */
   readonly resumesAt: Date | undefined;
+  /**
+   * The engine whose usage window paused it, kept and cleared with `resumesAt`: a reading showing
+   * that engine free again resumes it before the reset (`resumeTaskFreedByUsageWindow`). Undefined
+   * for every other Task, and for one paused before the engine was kept, which waits for its reset.
+   */
+  readonly usageWindowEngineId: EngineId | undefined;
+  /**
+   * When the usage window last paused it, or moved its resume on, by The Office's clock, kept and
+   * cleared with `usageWindowEngineId`: only a reading taken after it resumes the Task early.
+   */
+  readonly usageWindowPausedAt: Date | undefined;
   /**
    * What The Office made it for, in its Project: its Onboard Task, whose state is the Project's
    * onboarding, its "Set up the run environment" Task, or an Initiative's Publishing Task there;

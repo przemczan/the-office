@@ -14,6 +14,7 @@ import {
   InitiativeCreated,
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
+  InitiativePipelinesSet,
   InitiativeShortNameWritten,
   InitiativeStateChanged,
 } from "./initiative-events.js";
@@ -104,6 +105,7 @@ export function createInitiative(
     createdAt: at,
     planningThreadIds: [],
     planningAutoMode: false,
+    planningWithUser: false,
     pipelines: [],
     branches: [],
   };
@@ -215,6 +217,71 @@ export function chooseInitiativePipeline(
     initiative: { ...initiative, pipelines, shortName },
     event: new InitiativePipelineChosen(initiative.id, projectId, pipelineId, shortName),
   };
+}
+
+/**
+ * The Pipelines block saved as a whole while shaping (docs/design/initiative-pipelines-block.html):
+ * the Pipeline in each Project of `choices`, undefined for None, the others kept, and the Short
+ * name its branch is named by. With a Pipeline anywhere, `shortName` is the user's, refused as
+ * writeShortName refuses it, or, undefined, the one it has or one derived from the title; with None
+ * everywhere it has none. Undefined when the block says so already.
+ */
+export function setInitiativePipelines(
+  initiative: Initiative,
+  choices: readonly InitiativePipeline[],
+  shortName: string | undefined,
+  taken: ReadonlySet<string>,
+): InitiativeChange<InitiativePipelinesSet> | undefined {
+  requireOpenTo(initiative, "straight", "its Pipelines are set straight onto it");
+  const chosen = new Set(choices.map(({ projectId }) => projectId));
+  // While shaping, None is no entry, so only the Projects given a Pipeline are kept.
+  const pipelines = [
+    ...initiative.pipelines.filter(({ projectId }) => !chosen.has(projectId)),
+    ...choices.filter(({ pipelineId }) => pipelineId !== undefined),
+  ];
+  const named = hasAnyPipeline({ pipelines })
+    ? shortNameSet(initiative, shortName?.trim(), taken)
+    : undefined;
+  if (samePipelines(initiative.pipelines, pipelines) && named === initiative.shortName) {
+    return undefined;
+  }
+  return {
+    initiative: { ...initiative, pipelines, shortName: named },
+    event: new InitiativePipelinesSet(
+      initiative.id,
+      pipelines.flatMap(({ projectId, pipelineId }) =>
+        pipelineId === undefined ? [] : [{ projectId, pipelineId }],
+      ),
+      named,
+    ),
+  };
+}
+
+function shortNameSet(
+  initiative: Initiative,
+  written: string | undefined,
+  taken: ReadonlySet<string>,
+): string {
+  if (written === undefined) {
+    return initiative.shortName ?? derivedShortName(initiative.name, initiative.id, taken);
+  }
+  if (written !== initiative.shortName) {
+    const problems = shortNameProblems(written, taken);
+    if (problems.length > 0) throw new InitiativeRefused(problems);
+  }
+  return written;
+}
+
+function samePipelines(
+  first: readonly InitiativePipeline[],
+  second: readonly InitiativePipeline[],
+): boolean {
+  return (
+    first.length === second.length &&
+    first.every(
+      ({ projectId, pipelineId }) => pipelineIn({ pipelines: second }, projectId) === pipelineId,
+    )
+  );
 }
 
 function pipelineFixedAtConfirmWords(projectName: string): string {

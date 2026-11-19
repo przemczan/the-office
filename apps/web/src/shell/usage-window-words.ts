@@ -22,3 +22,24 @@ export function usageWindowUsedUpWords(
 ): string {
   return `${engineName}'s ${usageWindowWords(window)} is used up until ${momentWords(resetsAt, now)}`;
 }
+
+/**
+ * A Stage Thread's line for a Stage that went on on a Stand-in Engine (spec 5.4): "Claude Code's
+ * 5-hour window was used up until 14:00, so the Stage went on on Claude Code 2".
+ */
+export function engineSwitchedWords(
+  {
+    fromName,
+    toName,
+    window,
+    resetsAt,
+  }: {
+    readonly fromName: string;
+    readonly toName: string;
+    readonly window: string;
+    readonly resetsAt: string;
+  },
+  now: Date = new Date(),
+): string {
+  return `${fromName}'s ${usageWindowWords(window)} was used up until ${momentWords(resetsAt, now)}, so the Stage went on on ${toName}`;
+}

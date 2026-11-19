@@ -1,7 +1,17 @@
 import type { DutyKey } from "../../people/index.js";
-import { stageProblems } from "./pipeline.js";
+import { asFlow, comparePlaces, pipelineOrder, straightLineFlow, type FlowStage } from "./flow.js";
+import { stageProblems, type StageProblemAt } from "./pipeline.js";
+import {
+  isConditionGroup,
+  plainRoute,
+  testsOf,
+  type ConditionGroup,
+  type ConditionTest,
+  type Route,
+} from "./route.js";
 import type { StagePermissions } from "./stage-permissions.js";
 import {
+  sameAsKept,
   STAGE_KIND_NAMES,
   type AfterConflict,
   type Effort,
@@ -84,7 +94,13 @@ type StageChangeOfKind =
       readonly stage: Stage;
     }
   | { readonly kind: "change"; readonly stageKey: string; readonly fields: StageFieldChanges }
-  | { readonly kind: "remove"; readonly stageKey: string };
+  | { readonly kind: "remove"; readonly stageKey: string }
+  | {
+      readonly kind: "change-routes";
+      readonly stageKey: string;
+      /** The Stage's whole list of routes out, in the order the walk weighs them. */
+      readonly routes: Route[];
+    };
 
 export type StageChangeKind = StageChangeOfKind["kind"];
 
@@ -123,6 +139,8 @@ export interface BrokenReason {
   readonly stageIndex: number | undefined;
   /** The key of the Stage it concerns. */
   readonly stageKey: string | undefined;
+  /** Where on that Stage a broken rule is; absent for a Stage change that doesn't apply. */
+  readonly at?: StageProblemAt;
   readonly text: string;
 }
 
@@ -144,19 +162,26 @@ export interface BuiltStages {
   readonly broken: readonly BrokenReason[];
 }
 
+/** A row as a build works on it: its Stage with its routes and its place. */
+interface FlowRow extends BuiltStage {
+  readonly stage: FlowStage;
+}
+
 /**
- * Builds the Stages (spec §2.3, "A Broken Project Pipeline"): the base Pipeline's Stages, then each
- * Stage change in order. One that doesn't apply is skipped with why, so every reason shows at once
- * and the built Stages still read. Broken means the built Stages can't run: a Stage change naming a
- * key that isn't there, an inserted key already there, a field its Stage's kind lacks, or a rule of
- * the library's Pipelines (`stageProblems`) the built Stages break. Rules needing a Project or
- * another module (commands, engines, who fills a Role) are weighed where those are known.
+ * Builds the Stages (spec §2.3, "A Broken Project Pipeline"): the base Pipeline's Stages and routes,
+ * then each Stage change in order, the rows and Stages coming out in the Pipeline's order. One that
+ * doesn't apply is skipped with why, so every reason shows at once and the built Stages still read.
+ * Broken means the built Stages can't run: a Stage change naming a key that isn't there, an inserted
+ * key already there, a field its Stage's kind lacks, routes naming a Stage that is gone, or a rule
+ * of the library's Pipelines (`stageProblems`) the built Stages break; its warnings don't. Rules
+ * needing a Project or another module (commands, engines, who fills a Role) are weighed where those
+ * are known.
  */
 export function buildStages(
   base: BaseStages,
   stageChanges: readonly EditedStageChange[],
 ): BuiltStages {
-  const rows: BuiltStage[] = base.stages.map((stage) => ({
+  const rows: FlowRow[] = asFlow(base.stages).map((stage) => ({
     stage,
     origin: "base",
     stageChangeIndexes: [],
@@ -181,16 +206,19 @@ export function buildStages(
       });
     }
   });
-  const stages = rows.filter(({ origin }) => origin !== "removed").map(({ stage }) => stage);
-  for (const { stageIndex, text } of stageProblems(stages)) {
+  const stages = pipelineOrder(liveStages(rows));
+  for (const { stageKey, at, text } of stageProblems(stages)) {
+    const stageIndex = stages.findIndex(({ key }) => key === stageKey);
     broken.push({
       stageChangeIndex: undefined,
-      stageIndex,
-      stageKey: stageIndex === undefined ? undefined : stages[stageIndex]?.key,
+      stageIndex: stageIndex === -1 ? undefined : stageIndex,
+      stageKey,
+      ...(at ? { at } : {}),
       text,
     });
   }
-  return { rows, stages, stageChanges: named, broken };
+  const ordered = rows.toSorted((one, other) => comparePlaces(one.stage.place, other.stage.place));
+  return { rows: ordered, stages, stageChanges: named, broken };
 }
 
 /**
@@ -198,8 +226,8 @@ export function buildStages(
  * answers why it doesn't apply, or doesn't wholly, and leaves `rows` as they were then.
  */
 function applied(
-  rows: BuiltStage[],
-  row: BuiltStage | undefined,
+  rows: FlowRow[],
+  row: FlowRow | undefined,
   stageChange: EditedStageChange,
   index: number,
   stageName: string,
@@ -215,57 +243,261 @@ function applied(
       ? `${words}, which isn't among the Stages.`
       : `${words}, which ${baseName} no longer has.`;
   }
-  const at = rows.indexOf(row);
   switch (stageChange.kind) {
     case "insert-before":
     case "insert-after": {
       const taken = keyTakenWords(rows, -1, stageChange.stage.key, baseName);
       if (taken) return `${words}, but ${taken}`;
-      rows.splice(stageChange.kind === "insert-before" ? at : at + 1, 0, {
-        stage: stageChange.stage,
-        origin: "inserted",
-        stageChangeIndexes: [index],
-        baseStage: undefined,
-        changedFields: [],
-      });
+      const insert = stageChange.kind === "insert-before" ? insertBefore : insertAfter;
+      insert(rows, row, stageChange.stage, index);
       return undefined;
     }
     case "replace": {
+      const at = rows.indexOf(row);
       const taken = keyTakenWords(rows, at, stageChange.stage.key, baseName);
       if (taken) return `${words}, but ${taken}`;
       rows[at] = {
         ...row,
-        stage: stageChange.stage,
+        stage: {
+          ...withoutFlow(stageChange.stage),
+          routes: row.stage.routes,
+          place: row.stage.place,
+        },
         origin: row.origin === "inserted" ? "inserted" : "replaced",
         stageChangeIndexes: [...row.stageChangeIndexes, index],
         changedFields: [],
       };
-      return undefined;
-    }
-    case "change": {
-      if (namesRoleAndDuty(stageChange.fields)) {
-        return `${words}, giving it both a Role and a duty; name one of them.`;
+      if (stageChange.stage.key !== row.stage.key) {
+        rekeyed(rows, row.stage.key, stageChange.stage.key);
       }
-      const { stage, given, lacked } = withFields(row.stage, stageChange.fields);
-      rows[at] = {
-        ...row,
-        stage,
-        origin: row.origin === "base" && given.length > 0 ? "changed" : row.origin,
-        stageChangeIndexes: [...row.stageChangeIndexes, index],
-        changedFields: [...new Set([...row.changedFields, ...given])],
-      };
-      if (lacked.length === 0) return undefined;
-      const fields = lacked.map((field) => STAGE_FIELD_NAMES[field]).join(", ");
-      return `Changes ${fields} of ${stageName}, which is now ${kindWords(row.stage.kind)}.`;
+      return undefined;
     }
+    case "change":
+      return changeFields(rows, row, stageChange.fields, index, words, stageName);
     case "remove":
-      rows[at] = {
+      removeStage(rows, row, index);
+      return undefined;
+    case "change-routes": {
+      const gone = goneStageWords(rows, stageChange.routes);
+      if (gone) return `${words}, which ${gone}, a Stage it no longer has.`;
+      rows[rows.indexOf(row)] = {
         ...row,
-        origin: "removed",
+        stage: { ...row.stage, routes: stageChange.routes },
+        origin: row.origin === "base" ? "changed" : row.origin,
         stageChangeIndexes: [...row.stageChangeIndexes, index],
       };
       return undefined;
+    }
   }
+}
+
+/**
+ * Insert before: the new Stage takes its Stage's column on its row, that column and every later one
+ * moving right by one; the routes that led into its Stage lead into it, and its one route, with no
+ * condition, leads to its Stage.
+ */
+function insertBefore(rows: FlowRow[], row: FlowRow, stage: Stage, index: number): void {
+  const at = rows.indexOf(row);
+  const { key, place } = row.stage;
+  movedColumns(rows, place.column, 1);
+  routesMapped(rows, (route) => [route.to === key ? redirected(route, stage.key) : route]);
+  rows.splice(at, 0, insertedRow(stage, [plainRoute(key)], place, index));
+}
+
+/**
+ * Insert after: the new Stage takes the column after its Stage's, on its row, every later column
+ * moving right by one; it takes over its Stage's routes out, whose tests of the previous Stage now
+ * name that Stage, and its Stage gets one route with no condition to it.
+ */
+function insertAfter(rows: FlowRow[], row: FlowRow, stage: Stage, index: number): void {
+  const at = rows.indexOf(row);
+  const { key, place, routes } = row.stage;
+  movedColumns(rows, place.column + 1, 1);
+  const handed = routes.map((route) => withStageTests(route, (tested) => tested ?? key));
+  rows[at] = { ...row, stage: { ...row.stage, routes: [plainRoute(stage.key)] } };
+  const newPlace = { column: place.column + 1, row: place.row };
+  rows.splice(at + 1, 0, insertedRow(stage, handed, newPlace, index));
+}
+
+function insertedRow(
+  stage: Stage,
+  routes: readonly Route[],
+  place: FlowStage["place"],
+  index: number,
+): FlowRow {
+  return {
+    stage: { ...withoutFlow(stage), routes: [...routes], place },
+    origin: "inserted",
+    stageChangeIndexes: [index],
+    baseStage: undefined,
+    changedFields: [],
+  };
+}
+
+/**
+ * A Change gives the fields; the routes and the place stay. A Change giving `optional` to Stages
+ * that are still the conversion's straight line is read as the conversion writes it: their routes
+ * are drawn again from the new setting.
+ */
+function changeFields(
+  rows: FlowRow[],
+  row: FlowRow,
+  fields: StageFieldChanges,
+  index: number,
+  words: string,
+  stageName: string,
+): string | undefined {
+  if (namesRoleAndDuty(fields)) {
+    return `${words}, giving it both a Role and a duty; name one of them.`;
+  }
+  const converted = fields.optional !== undefined && isConvertedLine(rows);
+  const { stage, given, lacked } = withFields(row.stage, fields);
+  rows[rows.indexOf(row)] = {
+    ...row,
+    stage: { ...stage, routes: row.stage.routes, place: row.stage.place },
+    origin: row.origin === "base" && given.length > 0 ? "changed" : row.origin,
+    stageChangeIndexes: [...row.stageChangeIndexes, index],
+    changedFields: [...new Set([...row.changedFields, ...given])],
+  };
+  if (converted) redrawnAsLine(rows);
+  if (lacked.length === 0) return undefined;
+  const fieldNames = lacked.map((field) => STAGE_FIELD_NAMES[field]).join(", ");
+  return `Changes ${fieldNames} of ${stageName}, which is now ${kindWords(row.stage.kind)}.`;
+}
+
+/** Whether the built Stages are exactly the conversion's straight line of themselves. */
+function isConvertedLine(rows: readonly FlowRow[]): boolean {
+  const ordered = pipelineOrder(liveStages(rows));
+  return sameAsKept(ordered, straightLineFlow(ordered));
+}
+
+/** Draws the built Stages' routes and places again as the conversion does. */
+function redrawnAsLine(rows: FlowRow[]): void {
+  const line = new Map(
+    straightLineFlow(pipelineOrder(liveStages(rows))).map((stage) => [stage.key, stage]),
+  );
+  rows.forEach((row, at) => {
+    const stage = row.origin === "removed" ? undefined : line.get(row.stage.key);
+    if (stage) rows[at] = { ...row, stage };
+  });
+}
+
+/**
+ * Remove: the Stage and its routes out are taken away, and each route into it leads where its one
+ * route out led, keeping its own condition; when it had several, those routes in are taken away
+ * too. A route the next one then makes needless is dropped, as a converted optional Stage's
+ * Stage before it leaves one to the same place. A column it leaves empty is closed, the later
+ * columns moving left by one.
+ */
+function removeStage(rows: FlowRow[], row: FlowRow, index: number): void {
+  const at = rows.indexOf(row);
+  const { key, routes, place } = row.stage;
+  const [only, ...more] = routes;
+  rows.forEach((other, otherAt) => {
+    if (other.origin === "removed" || !other.stage.routes.some(({ to }) => to === key)) return;
+    const led = other.stage.routes.flatMap((route) => {
+      if (route.to !== key) return [route];
+      return only && more.length === 0 ? [redirected(route, only.to)] : [];
+    });
+    rows[otherAt] = { ...other, stage: { ...other.stage, routes: withoutNeedlessRoutes(led) } };
+  });
+  rows[at] = {
+    ...row,
+    origin: "removed",
+    stageChangeIndexes: [...row.stageChangeIndexes, index],
+  };
+  if (!liveStages(rows).some((stage) => stage.place.column === place.column)) {
+    movedColumns(rows, place.column + 1, -1);
+  }
+}
+
+/** A Replace giving a new key: the routes into the old key, and the tests naming it, name the new. */
+function rekeyed(rows: FlowRow[], oldKey: string, newKey: string): void {
+  routesMapped(rows, (route) => {
+    const kept = route.to === oldKey ? redirected(route, newKey) : route;
+    return [withStageTests(kept, (tested) => (tested === oldKey ? newKey : tested))];
+  });
+}
+
+/** The words for the first Stage `routes` lead to or test that isn't among the built Stages. */
+function goneStageWords(rows: readonly FlowRow[], routes: readonly Route[]): string | undefined {
+  const keys = new Set(liveStages(rows).map(({ key }) => key));
+  const [ledTo] = routes.flatMap(({ to, toName }) =>
+    to !== null && !keys.has(to) ? [toName ?? to] : [],
+  );
+  if (ledTo !== undefined) return `lead to ${ledTo}`;
+  const [tested] = routes
+    .flatMap(({ condition }) => (condition ? testsOf(condition) : []))
+    .flatMap(({ test }) =>
+      test.kind === "stage" && test.stage !== null && !keys.has(test.stage)
+        ? [test.stageName ?? test.stage]
+        : [],
+    );
+  return tested === undefined ? undefined : `test ${tested}`;
+}
+
+/** Moves every row from `fromColumn` on by `by` columns: right when positive, left when negative. */
+function movedColumns(rows: FlowRow[], fromColumn: number, by: number): void {
+  rows.forEach((row, at) => {
+    const { place } = row.stage;
+    if (place.column < fromColumn) return;
+    rows[at] = { ...row, stage: { ...row.stage, place: { ...place, column: place.column + by } } };
+  });
+}
+
+/** Gives every built Stage the routes `map` makes of each of its routes. */
+function routesMapped(rows: FlowRow[], map: (route: Route) => readonly Route[]): void {
+  rows.forEach((row, at) => {
+    if (row.origin === "removed") return;
+    rows[at] = { ...row, stage: { ...row.stage, routes: row.stage.routes.flatMap(map) } };
+  });
+}
+
+/**
+ * `routes` less each one the route after it makes needless: one with no condition to the same
+ * place, which the walk follows whenever the earlier one holds or not.
+ */
+function withoutNeedlessRoutes(routes: readonly Route[]): Route[] {
+  return routes.reduceRight<Route[]>((later, route) => {
+    const [next] = later;
+    return next?.condition === null && next.to === route.to ? later : [route, ...later];
+  }, []);
+}
+
+/** The route, keeping its condition, led to `to`. */
+function redirected(route: Route, to: string | null): Route {
+  return { to, condition: route.condition };
+}
+
+/** The route with each Stage test naming the Stage `retarget` gives for the one it named. */
+function withStageTests(route: Route, retarget: (tested: string | null) => string | null): Route {
+  if (!route.condition) return route;
+  return { ...route, condition: groupWithStageTests(route.condition, retarget) };
+}
+
+function groupWithStageTests(
+  group: ConditionGroup,
+  retarget: (tested: string | null) => string | null,
+): ConditionGroup {
+  return {
+    ...group,
+    tests: group.tests.map((test): ConditionTest | ConditionGroup => {
+      if (isConditionGroup(test)) return groupWithStageTests(test, retarget);
+      if (test.kind !== "stage") return test;
+      const stage = retarget(test.stage);
+      return stage === test.stage ? test : { ...test, stage };
+    }),
+  };
+}
+
+function liveStages(rows: readonly FlowRow[]): FlowStage[] {
+  return rows.filter(({ origin }) => origin !== "removed").map(({ stage }) => stage);
+}
+
+/** A Stage change's Stage as a build reads it: never with routes or a place of its own. */
+function withoutFlow(stage: Stage): Stage {
+  const { routes: _routes, place: _place, ...rest } = stage;
+  return rest;
 }
 
 /**
@@ -332,6 +564,8 @@ export function stageChangeWords(stageChange: EditedStageChange, stageName: stri
       return `Changes ${stageName}`;
     case "remove":
       return `Removes ${stageName}`;
+    case "change-routes":
+      return `Changes ${stageName}'s routes`;
   }
 }
 

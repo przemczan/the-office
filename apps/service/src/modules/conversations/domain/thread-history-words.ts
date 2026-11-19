@@ -1,5 +1,10 @@
-import { answerWords, type Decision } from "./decision.js";
-import { usageWindowUsedUpWords, type Message } from "./message.js";
+import {
+  decisionSummary,
+  formAnswerWords,
+  type Decision,
+  type DecisionAnswer,
+} from "./decision.js";
+import { engineSwitchedWords, usageWindowUsedUpWords, type Message } from "./message.js";
 import type { Proposal, ProposedChange } from "./proposal.js";
 import { userWords } from "./user.js";
 
@@ -100,7 +105,7 @@ function speakerAndText(
         text:
           decision === undefined
             ? "Answered a Decision."
-            : `Answered the Decision "${decision.question}": ${answerWords(decision, message.answer)}`,
+            : decisionAnswerWords(decision, message.answer),
       };
     }
     case "consultation-line":
@@ -133,6 +138,8 @@ function speakerAndText(
       return { speaker: THE_OFFICE, text: `Couldn't answer: ${message.reason}` };
     case "usage-window-used-up":
       return { speaker: THE_OFFICE, text: usageWindowUsedUpWords(message) };
+    case "engine-switched":
+      return { speaker: THE_OFFICE, text: engineSwitchedWords(message) };
     case "held":
       return { speaker: THE_OFFICE, text: message.text };
   }
@@ -140,11 +147,33 @@ function speakerAndText(
 
 function decisionWords(decision: Decision | undefined): string {
   if (decision === undefined) return "Opened a Decision.";
-  const asked = `Decision: ${decision.question}`;
-  if (decision.answer) return `${asked} Answered: ${answerWords(decision, decision.answer)}`;
+  const asked = `Decision: ${decisionSummary(decision)}`;
+  if (decision.answer?.kind === "asked-again") {
+    return `${asked} ${formAnswerWords(decision, decision.answer)}`;
+  }
+  if (decision.answer) {
+    return `${asked} Answered:${answerText(formAnswerWords(decision, decision.answer))}`;
+  }
   return decision.closedAt
     ? `${asked} Closed unanswered: its Task was dropped.`
     : `${asked} Not answered yet.`;
+}
+
+/** An answer line in words: each question's answer, or that they asked again. */
+function decisionAnswerWords(decision: Decision, answer: DecisionAnswer): string {
+  const named = `the Decision "${decisionSummary(decision)}"`;
+  if (answer.kind === "asked-again") {
+    const comment = answer.generalComment?.trim();
+    return comment
+      ? `Asked again on ${named}: ${comment}`
+      : `Asked again on ${named}, with no comment.`;
+  }
+  return `Answered ${named}:${answerText(formAnswerWords(decision, answer))}`;
+}
+
+/** An answer after its colon: on the same line when it is one, else on lines of its own. */
+function answerText(words: string): string {
+  return words.includes("\n") ? `\n\n${words}` : ` ${words}`;
 }
 
 function proposalWords(proposal: Proposal | undefined): string {

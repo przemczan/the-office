@@ -1,10 +1,4 @@
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type QueryKey,
-  type UseMutationResult,
-} from "@tanstack/react-query";
+import { useQuery, type QueryKey } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   dutyKeySchema,
@@ -12,10 +6,7 @@ import {
   type DutyHolders,
   type Preset,
   type ProjectPipelineBreak,
-  type ProjectPipelineCheckRequest,
-  type ProjectPipelineFields,
   type Proposal,
-  type ProposalApplication,
   type ProposalStatus,
   type ProposedChange,
   type Role,
@@ -23,13 +14,7 @@ import {
 } from "@the-office/contracts";
 import { Alert, Badge, Button, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import {
-  applyProposal,
-  declineProposal,
-  officeInstructionsQuery,
-  sizeThresholdQuery,
-  threadQueries,
-} from "../../api/conversations.ts";
+import { officeInstructionsQuery, sizeThresholdQuery } from "../../api/conversations.ts";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { fallbackWords, holderNameOf } from "../duty-words.ts";
 import {
@@ -38,6 +23,7 @@ import {
   stageTemplateQueries,
 } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { whoWorks } from "../pipelines/pipeline-words.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
 import { useEngineName } from "../use-engine-name.ts";
@@ -79,6 +65,10 @@ import {
   ProposedStageFieldChanges,
 } from "./devops-proposal-changes.tsx";
 import { officeSetupApplyLabel, ProposedOfficeSetup } from "./office-setup-changes.tsx";
+import { checkRequest } from "./project-pipeline-check.ts";
+import { ShowOnFlowButton, showsOnFlow } from "./proposal-on-flow.tsx";
+import { ProposedFlow, ProposedRouteChanges } from "./proposed-route-changes.tsx";
+import { useAnswering } from "./use-answering.ts";
 import "./conversation.css";
 
 type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
@@ -237,7 +227,9 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       );
     }
     case "pipeline":
-      return <PipelineProposal proposal={proposal} change={change} />;
+      return (
+        <PipelineProposal proposal={proposal} change={change} roles={roles ?? []} duties={duties} />
+      );
     case "project-pipeline":
       return (
         <ProjectPipelineProposal
@@ -378,9 +370,13 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
 function PipelineProposal({
   proposal,
   change,
+  roles,
+  duties,
 }: {
   readonly proposal: Proposal;
   readonly change: ProposedPipelineChange;
+  readonly roles: readonly Role[];
+  readonly duties: readonly Duty[] | undefined;
 }): ReactNode {
   const pipeline = useQuery(pipelineQueries.list()).data?.find(
     ({ id }) => id === change.pipelineId,
@@ -400,6 +396,18 @@ function PipelineProposal({
   return (
     <ProposalFrame title={`Change the ${name} Pipeline`}>
       <ProposedStageChanges from={change.from} to={change.to} />
+      {change.routes && (
+        <>
+          <ProposedRouteChanges routes={change.routes} was={change.from} proposed={change.to} />
+          <ProposedFlow
+            title={`${name}, as proposed`}
+            stages={change.to}
+            routes={change.routes}
+            whoWorks={(stage) => whoWorks(stage, roles, undefined, duties)}
+            action={showsOnFlow(proposal) && <ShowOnFlowButton proposal={proposal} />}
+          />
+        </>
+      )}
       {breaks.length > 0 && <ProjectPipelineBreaks breaks={breaks} />}
       <AnswerFoot
         proposal={proposal}
@@ -482,6 +490,15 @@ function ProjectPipelineProposal({
         roles={roles}
         duties={duties}
       />
+      {change.routes && proposed && change.routes.stages.length > 0 && (
+        <ProposedFlow
+          title={`${to.name}, as proposed`}
+          stages={proposed.stages}
+          routes={change.routes}
+          whoWorks={(stage) => whoWorks(stage, roles, undefined, duties)}
+          action={showsOnFlow(proposal) && <ShowOnFlowButton proposal={proposal} />}
+        />
+      )}
       <AnswerFoot
         proposal={proposal}
         changes={[pipelineQueries.list().queryKey]}
@@ -494,18 +511,6 @@ function ProjectPipelineProposal({
       />
     </ProposalFrame>
   );
-}
-
-/** The service's check of the Project Pipeline with these fields, which builds its Stages. */
-function checkRequest(
-  change: ProposedProjectPipeline,
-  fields: ProjectPipelineFields,
-): ProjectPipelineCheckRequest {
-  return {
-    ...fields,
-    projectId: change.projectId,
-    ...(change.pipelineId === null ? {} : { projectPipelineId: change.pipelineId }),
-  };
 }
 
 /** These Proposals change what the user may edit by hand meanwhile, which refuses them. */
@@ -1067,14 +1072,6 @@ function AnswerFoot({
   );
 }
 
-interface ProposalAnswering {
-  readonly applying: UseMutationResult<Proposal, Error, ProposalApplication>;
-  readonly declining: UseMutationResult<Proposal, Error, void>;
-  /** Either is on its way, so neither can be clicked. */
-  readonly busy: boolean;
-  readonly error: Error | null;
-}
-
 /** Who applied or declined it, "by you" or "by Ann Lee", and when; then `more`, if any. */
 function AnsweredNote({
   status,
@@ -1090,41 +1087,6 @@ function AnsweredNote({
       {more && ` · ${more}`}
     </span>
   );
-}
-
-/**
- * Applying and declining the Proposal; each refreshes the Thread's log, whose message carries the
- * Proposal as it is now, and applying also what it changed (`changes`). A refusal leaves it open
- * and is shown on the card.
- */
-function useAnswering(
-  proposal: Proposal,
-  changes: readonly QueryKey[],
-  onApplied: (applied: Proposal) => void,
-): ProposalAnswering {
-  const queryClient = useQueryClient();
-  const refreshThread = (): Promise<void> =>
-    queryClient.invalidateQueries(threadQueries.messages(proposal.threadId));
-  const applying = useMutation({
-    mutationFn: (application: ProposalApplication) => applyProposal(proposal.id, application),
-    onSuccess: async (applied) => {
-      onApplied(applied);
-      await Promise.all([
-        refreshThread(),
-        ...changes.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
-      ]);
-    },
-  });
-  const declining = useMutation({
-    mutationFn: () => declineProposal(proposal.id),
-    onSuccess: refreshThread,
-  });
-  return {
-    applying,
-    declining,
-    busy: applying.isPending || declining.isPending,
-    error: applying.error ?? declining.error,
-  };
 }
 
 function firstName(roleKey: string, roles: readonly Role[] | undefined): string {

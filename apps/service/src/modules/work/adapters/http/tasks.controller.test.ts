@@ -17,6 +17,8 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { EngineModels, FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../../engine/index.js";
+import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
 import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskStageEdits } from "../../application/task-stage-edits.js";
@@ -501,6 +503,48 @@ describe("POST /api/tasks/:id/ready", () => {
       "Take or decline the proposed Pipeline before the Task can be Ready.",
     ]);
   });
+
+  it("marks an unplanned Task Ready when the user confirms its parts as they stand, and not with no body", async () => {
+    const task = await create();
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
+
+    const withoutBody = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    work.published.length = 0;
+    const confirming = await sendJson(work, "POST", `/tasks/${task.id}/ready`, {
+      confirmPlanAndDefinitionOfDone: true,
+    });
+
+    expect(workRefusalSchema.parse(await withoutBody.json()).reasons).toEqual([
+      "A Task needs a Plan before it can be Ready.",
+      "A Task needs a Definition of Done before it can be Ready.",
+    ]);
+    expect(confirming.status).toBe(200);
+    expect(taskSchema.parse(await confirming.json())).toMatchObject({
+      state: "ready",
+      plan: "",
+      planConfirmed: true,
+      definitionOfDone: [],
+      definitionOfDoneConfirmed: true,
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.plan-confirmed", taskId: task.id },
+      { type: "task.definition-of-done-confirmed", taskId: task.id },
+      { type: "task.state-changed", taskId: task.id, from: "backlog", to: "ready" },
+    ]);
+  });
+
+  it("still refuses confirming the parts while no Pipeline is chosen", async () => {
+    const task = await create();
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`, {
+      confirmPlanAndDefinitionOfDone: true,
+    });
+
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "Choose a Pipeline before the Task can be Ready.",
+    ]);
+    expect(await readTask(task.id)).toMatchObject({ state: "backlog", planConfirmed: false });
+  });
 });
 
 describe("POST /api/tasks/:id/move", () => {
@@ -923,6 +967,82 @@ describe("Window caps", () => {
     await newReading();
 
     expect((await readTask(second.id)).state).toBe("in-progress");
+  });
+
+  describe("with a Stand-in Engine", () => {
+    /** A second Claude Code account, listed as the Stand-in Engine, serving the same models. */
+    const PERSONAL: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "personal", name: "Personal" };
+    const CASCADE_CAP =
+      /^The Claude Code engine's 5-hour window would pass its 90% cap: 95% used, .*6% of this Task\. It resets (on \w{3} \d{1,2} \w{3} )?at \d\d:\d\d\.$/;
+
+    beforeEach(async () => {
+      // Engine settings of the test's own, so no other file's Start reads the Stand-in Engine.
+      await work.app.close();
+      const engines = new EngineSettingsForTests({
+        engines: [FIRST_CLAUDE_CODE_ENGINE, PERSONAL],
+        standInEngines: [PERSONAL.id],
+      });
+      work = await startWorkApplication(officeData, [
+        { provide: WorkSettings, useValue: new WorkSettingsForTests() },
+        { provide: EngineModels, useValue: new EngineModels(engines) },
+        ownProjectsQueue(() => [projectId]),
+        ownProjectTasks(),
+      ]);
+    });
+
+    it("starts a Task its cascade engine's Window cap holds on the Stand-in Engine with room", async () => {
+      await windowRead(95, 3 * HOUR);
+      await windowRead(10, 3 * HOUR, PERSONAL.id);
+      const task = await sixPercentTask();
+
+      const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
+
+      expect(answer.queued).toBeNull();
+      const started = await readTask(task.id);
+      expect(started.state).toBe("in-progress");
+      expect(started.engineStandIns).toEqual([
+        {
+          engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+          engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+          standInId: PERSONAL.id,
+          standInName: "Personal",
+          reason: expect.stringMatching(CASCADE_CAP),
+          short: expect.any(String),
+        },
+      ]);
+    });
+
+    it("queues a Start when the Stand-in Engine would pass its own cap too", async () => {
+      await windowRead(95, 3 * HOUR);
+      await windowRead(88, 3 * HOUR, PERSONAL.id);
+      const task = await sixPercentTask();
+
+      const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
+
+      expect(answer.queued?.reasons).toEqual([
+        expect.stringMatching(CASCADE_CAP),
+        expect.stringMatching(/^No Stand-in Engine has room either: Personal: .+\.$/),
+      ]);
+      expect((await readTask(task.id)).engineStandIns).toEqual([]);
+    });
+
+    it("weighs a Task started on the Stand-in Engine against its window, not the cascade's", async () => {
+      await windowRead(95, 3 * HOUR);
+      await windowRead(80, 3 * HOUR, PERSONAL.id);
+      const first = await sixPercentTask();
+      const second = await sixPercentTask();
+
+      await requestStart(first.id);
+      const answer = startAnswerSchema.parse(await (await requestStart(second.id)).json());
+
+      // Personal alone has room for the second (80% + 6%), not with the first's 6% beside it.
+      expect((await readTask(first.id)).state).toBe("in-progress");
+      expect(answer.queued?.reasons).toEqual([
+        expect.stringMatching(CASCADE_CAP),
+        expect.stringMatching(/^No Stand-in Engine has room either: Personal: .+\.$/),
+      ]);
+      expect(answer.queued?.reasons[0]).toContain("95% used, 0% expected of the Tasks started");
+    });
   });
 });
 

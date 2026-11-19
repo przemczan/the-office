@@ -158,6 +158,19 @@ describe("earlierResults", () => {
   };
   const look: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
   const done = { status: "done", summary: "Added it." } as const;
+  const followed = (guidance?: string) =>
+    aStageRun({
+      stageKey: "implement",
+      outcome: done,
+      decisions: [
+        {
+          id: "decision-1",
+          kind: "no-route-holds",
+          options: [],
+          answer: { kind: "follow-route", to: "look", ...(guidance && { guidance }) },
+        },
+      ],
+    });
 
   it("names a Gate's run only for the notes the user continued with, in run order", () => {
     const runs = [
@@ -173,6 +186,19 @@ describe("earlierResults", () => {
     expect(earlierResults([implement, look], runs).map(stageResultWords)).toEqual([
       "- Implement (Agent Stage): done. Added it.",
       "- Look (Gate): the user let the work continue, with notes for the Stages after it. Follow them:\n  Build version B.\n  Keep the colours.",
+    ]);
+  });
+
+  it("carries the notes the user chose a route with when none of the Stage's routes held", () => {
+    expect(
+      earlierResults([implement, look], [followed("Skip the review.\nShip it.")]).map(
+        stageResultWords,
+      ),
+    ).toEqual([
+      "- Implement (Agent Stage): done. Added it.\n  None of its routes held, so the user chose where the work goes on, with notes for the Stages after it. Follow them:\n  Skip the review.\n  Ship it.",
+    ]);
+    expect(earlierResults([implement, look], [followed()]).map(stageResultWords)).toEqual([
+      "- Implement (Agent Stage): done. Added it.",
     ]);
   });
 });
@@ -320,7 +346,7 @@ describe("agentStageWork's Later Stages", () => {
     expect(work).toContain("in order:\n\n- UI acceptance (Gate)");
   });
 
-  it("marks an optional Stage, and one whose failure comes back here", () => {
+  it("marks a Stage whose failure comes back here, and no longer an optional one", () => {
     const work = workIn(implement, [
       implement,
       { ...lint, onFailure: { goBackTo: "implement", rounds: 2 } },
@@ -328,7 +354,7 @@ describe("agentStageWork's Later Stages", () => {
     ]);
 
     expect(work).toContain(
-      "- Lint after review (Script Stage): runs `npm run build`. If it fails, the work comes back here.\n- Review & fix (Agent Stage, Reviewer, optional): Review the diff.\n  Fix what you find.",
+      "- Lint after review (Script Stage): runs `npm run build`. If it fails, the work comes back here.\n- Review & fix (Agent Stage, Reviewer): Review the diff.\n  Fix what you find.",
     );
     expect(work).not.toContain("find. If it fails");
   });

@@ -13,6 +13,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     state: "ready",
     plan: "",
     pausedBy: null,
+    engineStandIns: [],
     resumesAt: null,
     autoMode: false,
     initiativePlanningThreadId: null,

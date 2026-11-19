@@ -1,3 +1,4 @@
+import type { StandInChoiceWaiting } from "./now.js";
 import {
   channelsOf,
   levelsOf,
@@ -12,7 +13,16 @@ export type Pointer =
   | { readonly kind: "decision"; readonly decisionId: string; readonly taskId: string }
   | { readonly kind: "gate"; readonly taskId: string; readonly stageKey: string }
   | { readonly kind: "task"; readonly taskId: string }
-  | { readonly kind: "initiative"; readonly initiativeId: string }
+  /**
+   * The Initiative page; for a Decision on no Task in one of its Threads, that Thread with the
+   * Decision brought into view.
+   */
+  | {
+      readonly kind: "initiative";
+      readonly initiativeId: string;
+      readonly decisionId?: string;
+      readonly threadId?: string;
+    }
   /**
    * The Office's own state, as Now and the status strip show it; an engine down names its engine,
    * so each engine's is raised, and handled, on its own.
@@ -21,7 +31,9 @@ export type Pointer =
   /** Now, where Needs you and Since you left show what a Notification gathered. */
   | { readonly kind: "since-you-left" }
   /** Settings › Updates, with the last Office update's result and its log. */
-  | { readonly kind: "office-update" };
+  | { readonly kind: "office-update" }
+  /** Now's Needs you, with the card of the Stages waiting for a Stand-in Engine. */
+  | { readonly kind: "stand-in-choice" };
 
 /**
  * A Notification that stands for others rather than for a kind (spec §2.7 Defaults): Outcomes
@@ -50,6 +62,12 @@ export interface Notification {
    * it; undefined for the kinds that have none, which the strip shows by `line`.
    */
   readonly shortLine: string | undefined;
+  /**
+   * The instant its line names, as a usage window's reset; its `line` and `shortLine` then hold
+   * `{time}` where the time goes, which each channel words in its reader's time zone
+   * (`withTimeWorded` for those outside the browser). Undefined when it names none.
+   */
+  readonly at: Date | undefined;
   readonly pointsTo: Pointer;
   /** Where its kind's routing sends it. */
   readonly channels: readonly Channel[];
@@ -71,6 +89,8 @@ export interface NotificationDraft {
   readonly roleKey: string | undefined;
   readonly line: string;
   readonly shortLine: string | undefined;
+  /** The instant its lines name at `{time}`; none for most kinds. */
+  readonly at?: Date;
   readonly pointsTo: Pointer;
 }
 
@@ -83,6 +103,7 @@ export function notificationOf(
 ): Notification {
   return {
     ...draft,
+    at: draft.at,
     id,
     channels: channelsOf(draft.kind, routing),
     raisedAt,
@@ -97,6 +118,7 @@ export function decisionWaiting(decision: {
   readonly id: string;
   readonly taskId: string;
   readonly roleKey: string | undefined;
+  /** The Decision in one line: its first question, and how many more it asks. */
   readonly question: string;
 }): NotificationDraft {
   return {
@@ -105,6 +127,61 @@ export function decisionWaiting(decision: {
     line: decision.roleKey ? `I need your answer: ${decision.question}` : decision.question,
     shortLine: undefined,
     pointsTo: { kind: "decision", decisionId: decision.id, taskId: decision.taskId },
+  };
+}
+
+/**
+ * A Decision on no Task waits on the user in one of an Initiative's Threads: its asker's question,
+ * naming the Initiative, opening the Initiative's page at that Thread.
+ */
+export function decisionWaitingOnInitiative(decision: {
+  readonly id: string;
+  readonly threadId: string;
+  readonly initiativeId: string;
+  /** The Initiative's title, as the line names it. */
+  readonly initiativeTitle: string;
+  readonly roleKey: string | undefined;
+  /** The Decision in one line: its first question, and how many more it asks. */
+  readonly question: string;
+}): NotificationDraft {
+  const about = `On the Initiative ${decision.initiativeTitle}`;
+  return {
+    kind: "needs-you.decision",
+    roleKey: decision.roleKey,
+    line: decision.roleKey
+      ? `${about}, I need your answer: ${decision.question}`
+      : `${about}: ${decision.question}`,
+    shortLine: undefined,
+    pointsTo: {
+      kind: "initiative",
+      initiativeId: decision.initiativeId,
+      decisionId: decision.id,
+      threadId: decision.threadId,
+    },
+  };
+}
+
+/**
+ * Stages paused by a used-up usage window wait for the user's choice of a Stand-in Engine (spec
+ * 5.4): The Office's own Decision, one for them all, from `defaultPerson` as the Office kinds are.
+ * It names the Stand-in Engine the first would move to now, or the one it was held asking while
+ * none has room, and that Stage's reset at `{time}`.
+ */
+export function standInChoiceWaiting(
+  waiting: readonly [StandInChoiceWaiting, ...StandInChoiceWaiting[]],
+  defaultPerson: string | undefined,
+): NotificationDraft {
+  const [first] = waiting;
+  const standIn = first.standInNow?.engineName ?? first.asked.engineName;
+  const stages =
+    waiting.length === 1 ? "1 paused Stage waits" : `${waiting.length} paused Stages wait`;
+  return {
+    kind: "needs-you.decision",
+    roleKey: defaultPerson,
+    line: `${stages} for your choice: switch to ${standIn}, or wait for the reset at ${TIME}.`,
+    shortLine: undefined,
+    at: new Date(first.resetsAt),
+    pointsTo: { kind: "stand-in-choice" },
   };
 }
 
@@ -177,16 +254,17 @@ export function taskPausedByUsageWindow(
   taskId: string,
   personRole: string | undefined,
   { engineName, window, resetsAt }: UsedUpWindowWords,
-  now: Date,
 ): NotificationDraft {
-  const resumes = clockWords(resetsAt, now);
-  return taskOutcome(
-    "outcomes.task-paused",
-    taskId,
-    personRole,
-    `I paused: ${engineName}'s ${window} is used up. I'll go on at ${resumes}.`,
-    `Paused: ${engineName}'s ${window} is used up. Resumes at ${resumes}.`,
-  );
+  return {
+    ...taskOutcome(
+      "outcomes.task-paused",
+      taskId,
+      personRole,
+      `I paused: ${engineName}'s ${window} is used up. I'll go on at ${TIME}.`,
+      `Paused: ${engineName}'s ${window} is used up. Resumes at ${TIME}.`,
+    ),
+    at: resetsAt,
+  };
 }
 
 /** A used-up usage window, worded: the engine's name, the window as the user reads it, its reset. */
@@ -194,6 +272,30 @@ export interface UsedUpWindowWords {
   readonly engineName: string;
   readonly window: string;
   readonly resetsAt: Date;
+}
+
+/**
+ * Where a Notification's lines put the time it names (`at`): the browser words it in its own time
+ * zone, and `withTimeWorded` in the service's for the channels outside the browser.
+ */
+export const TIME = "{time}";
+
+/**
+ * Its lines with the time they name worded in the service's time zone, for a channel that has no
+ * browser to word it (the phone); unchanged when it names none.
+ */
+export function withTimeWorded<Worded extends Pick<Notification, "line" | "shortLine" | "at">>(
+  notification: Worded,
+  now: Date,
+): Worded {
+  const { at } = notification;
+  if (at === undefined) return notification;
+  const time = clockWords(at, now);
+  return {
+    ...notification,
+    line: notification.line.replaceAll(TIME, time),
+    shortLine: notification.shortLine?.replaceAll(TIME, time),
+  };
 }
 
 /** "14:00" on the service's day, "Mon 17 Nov 14:00" on another. */
@@ -279,17 +381,18 @@ export function windowUsedUp(
   engine: NamedEngine,
   { window, resetsAt }: Pick<UsedUpWindowWords, "window" | "resetsAt">,
   defaultPerson: string | undefined,
-  now: Date,
 ): NotificationDraft {
-  const until = clockWords(resetsAt, now);
-  return engineKind(
-    engine,
-    "office.window.used-up",
-    defaultPerson,
-    `${engine.name}'s ${window} is used up until ${until}. I've paused the Tasks on it, and the rest wait.`,
-    `${engine.name}'s ${window} is used up until ${until}. Tasks on it are paused and wait.`,
-    `${engine.name} used up until ${until}`,
-  );
+  return {
+    ...engineKind(
+      engine,
+      "office.window.used-up",
+      defaultPerson,
+      `${engine.name}'s ${window} is used up until ${TIME}. I've paused the Tasks on it, and the rest wait.`,
+      `${engine.name}'s ${window} is used up until ${TIME}. Tasks on it are paused and wait.`,
+      `${engine.name} used up until ${TIME}`,
+    ),
+    at: resetsAt,
+  };
 }
 
 export function engineDown(
@@ -375,26 +478,66 @@ function officeKind(
   };
 }
 
-/** How an engine's 5-hour window moved between two of its readings, as Notifications tell it. */
+/** A reading of an engine's 5-hour window: how much is used, and when it resets. */
+export interface WindowReading {
+  readonly percentUsed: number;
+  /** Undefined while the window has not begun. */
+  readonly resetsAt: Date | undefined;
+}
+
+const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+/** How far two readings' reset times may differ by rounding and still name the same moment. */
+const RESET_TOLERANCE_MS = 60 * 1000;
+
+/**
+ * How an engine's 5-hour window moved between two of its readings, as Notifications tell it. It
+ * resets only once the previous reading's reset time came (`now`, The Office's clock), or the
+ * current reading's window began at or after it; a lower reading before then is a reading that
+ * dipped, neither a reset nor a crossing of nearly used.
+ */
 export function windowMove(
-  previousPercent: number,
-  currentPercent: number,
+  previous: WindowReading,
+  current: WindowReading,
+  now: Date,
 ): "nearly-used" | "reset" | undefined {
-  if (currentPercent < previousPercent) return "reset";
-  if (
-    previousPercent < WINDOW_NEARLY_USED_PERCENT &&
-    currentPercent >= WINDOW_NEARLY_USED_PERCENT
-  ) {
+  const reset = windowHasReset(previous, current, now);
+  if (reset && current.percentUsed < previous.percentUsed) return "reset";
+  // A new window starts from nothing; within one, a lower reading than the last says nothing new.
+  const before = reset ? 0 : previous.percentUsed;
+  if (before < WINDOW_NEARLY_USED_PERCENT && current.percentUsed >= WINDOW_NEARLY_USED_PERCENT) {
     return "nearly-used";
   }
   return undefined;
 }
 
+/** Whether the window of the previous reading ended before the current one. */
+export function windowHasReset(
+  previous: WindowReading,
+  current: WindowReading,
+  now: Date,
+): boolean {
+  if (previous.resetsAt === undefined) return false;
+  if (now.getTime() >= previous.resetsAt.getTime()) return true;
+  if (current.resetsAt === undefined) return false;
+  const began = current.resetsAt.getTime() - FIVE_HOURS_MS;
+  return began >= previous.resetsAt.getTime() - RESET_TOLERANCE_MS;
+}
+
 /** What the user did, or what came about, that handles what some Notifications point to. */
 export type Handling =
-  /** Answering a Decision also handles the failure it was opened about. */
-  | { readonly kind: "decision-answered"; readonly decisionId: string; readonly taskId: string }
-  /** Dropping its Task closed the Decision, which no longer waits on the user. */
+  /**
+   * Answering a Decision, or asking it again, handles it; answering one on a Task also handles the
+   * failure it was opened about.
+   */
+  | {
+      readonly kind: "decision-answered";
+      readonly decisionId: string;
+      readonly taskId: string | undefined;
+    }
+  /**
+   * Dropping its Task, or ending its Initiative for one on no Task, closed the Decision, which no
+   * longer waits on the user.
+   */
   | { readonly kind: "decision-closed"; readonly decisionId: string }
   | { readonly kind: "gate-acted"; readonly taskId: string }
   | { readonly kind: "task-resumed"; readonly taskId: string }
@@ -412,17 +555,21 @@ export type Handling =
   /** Settings › Engines removed the engine, so nothing about it is left to act on. */
   | { readonly kind: "engine-removed"; readonly engineId: string }
   /** The user opened Settings › Updates, or a newer update's result replaces the last one's. */
-  | { readonly kind: "office-update-opened" };
+  | { readonly kind: "office-update-opened" }
+  /** No Stage waits for the choice of a Stand-in Engine any longer: each was switched or left. */
+  | { readonly kind: "stand-in-choices-made" };
 
 export function handles(handling: Handling, { kind, pointsTo }: Notification): boolean {
   switch (handling.kind) {
     case "decision-answered":
       return (
-        (pointsTo.kind === "decision" && pointsTo.decisionId === handling.decisionId) ||
-        (kind === "outcomes.task-failed" && pointsAt(pointsTo, handling.taskId))
+        pointsToDecision(pointsTo, handling.decisionId) ||
+        (handling.taskId !== undefined &&
+          kind === "outcomes.task-failed" &&
+          pointsAt(pointsTo, handling.taskId))
       );
     case "decision-closed":
-      return pointsTo.kind === "decision" && pointsTo.decisionId === handling.decisionId;
+      return pointsToDecision(pointsTo, handling.decisionId);
     case "gate-acted":
       return pointsTo.kind === "gate" && pointsTo.taskId === handling.taskId;
     case "task-resumed":
@@ -430,7 +577,12 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
     case "task-opened":
       return pointsTo.kind === "task" && pointsTo.taskId === handling.taskId;
     case "initiative-opened":
-      return pointsTo.kind === "initiative" && pointsTo.initiativeId === handling.initiativeId;
+      // A Decision waiting in one of its Threads is handled only by its answer, never by a look.
+      return (
+        pointsTo.kind === "initiative" &&
+        pointsTo.initiativeId === handling.initiativeId &&
+        pointsTo.decisionId === undefined
+      );
     case "now-opened":
       return levelsOf(kind).includes("office.window");
     case "window-reset":
@@ -443,6 +595,8 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
       return pointsTo.kind === "office" && pointsTo.engineId === handling.engineId;
     case "office-update-opened":
       return pointsTo.kind === "office-update";
+    case "stand-in-choices-made":
+      return pointsTo.kind === "stand-in-choice";
   }
 }
 
@@ -464,6 +618,14 @@ export function samePointer(
 /** An engine's Notification raised before engines were named stands for any engine. */
 function isAbout(pointsTo: Pointer, engineId: string): boolean {
   return pointsTo.kind === "office" && (pointsTo.engineId ?? engineId) === engineId;
+}
+
+/** On a Task it points to the Decision; on no Task, to the Initiative's Thread it waits in. */
+function pointsToDecision(pointsTo: Pointer, decisionId: string): boolean {
+  return (
+    (pointsTo.kind === "decision" || pointsTo.kind === "initiative") &&
+    pointsTo.decisionId === decisionId
+  );
 }
 
 function pointsAt(pointsTo: Pointer, taskId: string): boolean {

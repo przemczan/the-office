@@ -7,7 +7,7 @@ import { pageSchemaOf } from "./paging.js";
 import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { pinnedVersionSchema } from "./skills.js";
-import { stageChangeSchema, stageSchema } from "./stages.js";
+import { routeSchema, stageChangeSchema, stageProblemSchema, stageSchema } from "./stages.js";
 import { userRefSchema } from "./users.js";
 import { prioritySchema } from "./work.js";
 
@@ -316,12 +316,48 @@ export const DECISION_TOOLS: readonly string[] = [
   ANSWER_CONSULTATION_TOOL,
 ];
 
-/** How the user answers a Decision: one of its options, by its index, or a free answer. */
-export const decisionAnswerSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("option"), option: z.number().int().nonnegative() }),
-  z.object({ kind: z.literal("free-answer"), text: z.string() }),
+/**
+ * One question of a Decision's form (spec §2.4): a choice, its options with the recommended one, by
+ * its index, and why; or an open question, answered in words, `why` saying why a request asks it.
+ */
+export const decisionQuestionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("choice"),
+    question: z.string(),
+    options: z.array(z.string()),
+    recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
+  }),
+  z.object({ kind: z.literal("open"), question: z.string(), why: z.string().optional() }),
 ]);
-export type DecisionAnswer = z.infer<typeof decisionAnswerSchema>;
+export type DecisionQuestion = z.infer<typeof decisionQuestionSchema>;
+
+/**
+ * The answer to one question: an option of a choice, by its index, or words, which answer an open
+ * question or a choice with no option picked; each with an optional comment.
+ */
+export const questionAnswerSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("option"),
+    option: z.number().int().nonnegative(),
+    comment: z.string().optional(),
+  }),
+  z.object({ kind: z.literal("words"), text: z.string(), comment: z.string().optional() }),
+]);
+export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
+
+/**
+ * How a Decision is sent, the body of POST /decisions/:id/answer: Submit, an answer to every
+ * question in order with an optional general comment, or Ask me again, the general comment alone.
+ */
+export const decisionFormAnswerSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("submitted"),
+    answers: z.array(questionAnswerSchema),
+    generalComment: z.string().optional(),
+  }),
+  z.object({ kind: z.literal("asked-again"), generalComment: z.string().optional() }),
+]);
+export type DecisionFormAnswer = z.infer<typeof decisionFormAnswerSchema>;
 
 /**
  * The person who answered a Decision for the user, when the user asked them to: by the key of their
@@ -336,37 +372,38 @@ export const atUsersRequestSchema = z.object({
 export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 
 /**
- * What a Decision asks (spec §2.2): a question with options, approval of a call past a Hard switch,
- * or a request, asking a person to do something, answered in their own words.
+ * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
+ * Hard switch, or a request, asking a person to do something: a form of one open question.
  */
-export const decisionKindSchema = z.enum(["question", "approval", "request"]);
+export const decisionKindSchema = z.enum(["form", "approval", "request"]);
 export type DecisionKind = z.infer<typeof decisionKindSchema>;
 
+/** Why a Decision was closed unanswered: its Task was dropped, or its Initiative ended. */
+export const decisionClosedBecauseSchema = z.enum(["task-dropped", "initiative-ended"]);
+export type DecisionClosedBecause = z.infer<typeof decisionClosedBecauseSchema>;
+
 /**
- * A question an Agent puts to the user in the Thread it works in on a Task, or The Office does
+ * A question an Agent puts to the user in the Thread it works in on a Task or in an Initiative's
+ * shaping or planning Thread (on no Task, or on one of its Tasks), or The Office does
  * about a Task's Pipeline (a Stage that failed with no retries left, the Definition of Done not
  * met), or a call a person puts to another from a chat, shown there as a card. POST
- * /decisions/:id/answer takes a `decisionAnswerSchema`.
+ * /decisions/:id/answer takes a `decisionFormAnswerSchema`.
  */
 export const decisionSchema = z.object({
   id: z.uuid(),
   threadId: z.uuid(),
   kind: decisionKindSchema,
-  /** Null for a call made from a chat, which is on no Task. */
+  /**
+   * Null for a call made from a chat, and for one about an Initiative as a whole in its shaping
+   * or planning Thread, which are on no Task.
+   */
   taskId: z.string().nullable(),
   /** Who asked, by the key of the Role they fill; null when The Office asked. */
   roleKey: z.string().nullable(),
-  /** The question; for a request, what the asker asks to be done. */
-  question: z.string(),
   /** What the user needs to know to decide, as the Agent found it. */
   context: z.string(),
-  /** Two or more; none for a request. */
-  options: z.array(z.string()),
-  /**
-   * The option the Agent recommends, by its index in `options`, and why; for a request, why the
-   * asker needs it, its `option` pointing at nothing.
-   */
-  recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
+  /** One or more, in the order asked. */
+  questions: z.array(decisionQuestionSchema),
   /**
    * The Task's Attachments it is about, of any kind, by their ids. One removed since no longer shows
    * among the Task's, while the id stays here.
@@ -382,11 +419,16 @@ export const decisionSchema = z.object({
   passedOn: z.array(
     z.object({ roleKey: z.string(), reason: z.string(), passedOnAt: z.iso.datetime() }),
   ),
-  /** Null while it waits on the user or the Consultant. */
-  answer: decisionAnswerSchema.nullable(),
+  /** Null while it waits on the user or the Consultant, and once closed unanswered. */
+  formAnswer: decisionFormAnswerSchema.nullable(),
   answeredAt: z.iso.datetime().nullable(),
-  /** When it was closed unanswered, as its Task was dropped; null otherwise. */
+  /**
+   * When it was closed unanswered, as its Task was dropped or, for one on no Task in an
+   * Initiative's Thread, its Initiative ended; null otherwise.
+   */
   closedAt: z.iso.datetime().nullable(),
+  /** Why it was closed unanswered; null while it isn't closed. */
+  closedBecause: decisionClosedBecauseSchema.nullable(),
   /**
    * The user who answered it themselves, any user, as Decisions are shared; null while it is open,
    * when someone else answered, and on an answer from before users existed.
@@ -469,6 +511,25 @@ export const projectPipelineFieldsSchema = z.object({
   stageChanges: z.array(stageChangeSchema),
 });
 export type ProjectPipelineFields = z.infer<typeof projectPipelineFieldsSchema>;
+
+/**
+ * What a Proposal of a Pipeline does to its routes (spec §2.3, "Agents propose route and condition
+ * changes"): each Stage whose routes change, in the proposed order, with its routes as they were and
+ * as proposed; a new Stage's `from` and a removed one's `to` are empty. `check` is the check's
+ * located answer when it was drafted, warnings only, as a problem refuses the draft.
+ */
+export const proposedRoutesSchema = z.object({
+  stages: z.array(
+    z.object({
+      stageKey: z.string(),
+      stageName: z.string(),
+      from: z.array(routeSchema),
+      to: z.array(routeSchema),
+    }),
+  ),
+  check: z.array(stageProblemSchema),
+});
+export type ProposedRoutes = z.infer<typeof proposedRoutesSchema>;
 
 /** Duties by key, each to the key of the Role holding it, or null for none; only those named. */
 export const dutyHoldersSchema = z.partialRecord(dutyKeySchema, z.string().nullable());
@@ -572,14 +633,16 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     changes: proposedProjectCommandsSchema,
   }),
   /**
-   * Devops' new Stages for a library Pipeline, and its Stages when drafted (now). Applying is
-   * refused once they changed.
+   * Devops' new Stages for a library Pipeline, its whole flow, and its Stages when drafted (now).
+   * Applying is refused once they changed or the new ones fail the check.
    */
   z.object({
     kind: z.literal("pipeline"),
     pipelineId: z.string(),
     from: z.array(stageSchema),
     to: z.array(stageSchema),
+    /** Null for a Proposal drafted before Proposals carried routes. */
+    routes: proposedRoutesSchema.nullable(),
   }),
   /**
    * Devops' new Stage for a Stage template, and its Stage when drafted (now). Applying is refused
@@ -602,6 +665,8 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     pipelineId: z.string().nullable(),
     from: projectPipelineFieldsSchema.nullable(),
     to: projectPipelineFieldsSchema,
+    /** The built Stages' routes; null for a Proposal drafted before Proposals carried routes. */
+    routes: proposedRoutesSchema.nullable(),
   }),
   /**
    * A Project Devops drafted to onboard: applying it adds the Project and its Onboard Task, Ready
@@ -786,6 +851,20 @@ export const messageSchema = z.discriminatedUnion("kind", [
     resetsAt: z.iso.datetime(),
   }),
   /**
+   * The engine `fromName` refused a Stage's turn as its usage window `window` is used up until
+   * `resetsAt`, so the Stage went on with its session on the Stand-in Engine `toName`: The Office's
+   * notice, such as "Claude Code's 5-hour window was used up until 14:00, so the Stage went on on
+   * Claude Code 2". `window` as in `usage-window-used-up`.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("engine-switched"),
+    fromName: z.string(),
+    toName: z.string(),
+    window: z.string(),
+    resetsAt: z.iso.datetime(),
+  }),
+  /**
    * The user held the Stage with Pause or Stop, the fire alarm held it, or a used-up usage window
    * did, which is no failure: The Office's line.
    */
@@ -811,7 +890,7 @@ export const messageSchema = z.discriminatedUnion("kind", [
   z.object({
     ...messageFields,
     kind: z.literal("decision-answer"),
-    answer: decisionAnswerSchema,
+    formAnswer: decisionFormAnswerSchema,
     atUsersRequest: atUsersRequestSchema.nullable(),
     decision: decisionSchema,
   }),
@@ -1091,7 +1170,10 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("thread.decision-reopened"),
     ...decisionWebEventFields,
   }),
-  /** The Decision's Task was dropped: it was closed unanswered, and nobody waits on it now. */
+  /**
+   * The Decision's Task was dropped, or its Initiative ended: it was closed unanswered, and nobody
+   * waits on it now.
+   */
   webEventSchema.extend({
     type: z.literal("thread.decision-closed"),
     ...decisionWebEventFields,

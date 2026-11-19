@@ -4,6 +4,10 @@ import { Card, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../../api/pipelines.ts";
+import {
+  ProjectProposalOnFlow,
+  useProposalShown,
+} from "../../../shell/conversation/proposal-on-flow.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useOpenProject } from "../project-page.tsx";
 import { AddProjectPipelineDialog } from "./add-project-pipeline-dialog.tsx";
@@ -26,10 +30,18 @@ export function ProjectPipelinesSection(): ReactNode {
   const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
   const [adding, setAdding] = useState(false);
+  const onFlow = useProposalShown(projectPipelineId);
   const failure = projectPipelines.error ?? officeWide.error;
   if (failure)
     return <RefusalAlert title={`${project.name}'s Pipelines can't be read`} error={failure} />;
-  if (!projectPipelines.data || !officeWide.data || !roles.data || !duties.data || !options.data) {
+  if (
+    !projectPipelines.data ||
+    !officeWide.data ||
+    !roles.data ||
+    !duties.data ||
+    !options.data ||
+    onFlow.reading
+  ) {
     return null;
   }
   const open = projectPipelines.data.find(({ id }) => id === projectPipelineId);
@@ -58,7 +70,15 @@ export function ProjectPipelinesSection(): ReactNode {
           <Icon name="chevron-left" size={14} />
           {listName}
         </Link>
-        {open ? (
+        {open && onFlow.shown?.change.kind === "project-pipeline" ? (
+          <ProjectProposalOnFlow
+            proposal={onFlow.shown.proposal}
+            change={onFlow.shown.change}
+            projectName={project.name}
+            roles={roles.data}
+            duties={duties.data}
+          />
+        ) : open ? (
           <ProjectPipelineForm
             // Each Project Pipeline starts its own draft.
             key={open.id}

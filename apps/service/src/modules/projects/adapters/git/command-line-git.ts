@@ -663,6 +663,29 @@ export class CommandLineGit extends Git {
     });
   }
 
+  async committedPaths(worktreePath: string, commit: string): Promise<readonly string[]> {
+    const secondParent = await this.process.run({
+      folder: worktreePath,
+      gitArguments: ["rev-parse", "--verify", "--quiet", `${commit}^2`],
+    });
+    if (secondParent.exitCode === 0) {
+      // A combined diff names only the paths that differ from every parent: what the merge's own
+      // resolution changed, never what either side brought in.
+      const names = await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["diff-tree", "-c", "-r", "--name-only", "--no-commit-id", "-z", commit],
+      });
+      return nulSeparated(names);
+    }
+    const numstat = await this.process.output({
+      folder: worktreePath,
+      gitArguments: ["diff", ...DIFF_OPTIONS, "--numstat", "-z", `${commit}^1`, commit, "--"],
+    });
+    return changedFiles(numstat, new Set()).flatMap(({ path, previousPath }) =>
+      previousPath === undefined ? [path] : [previousPath, path],
+    );
+  }
+
   async head(worktreePath: string): Promise<Head> {
     const commit = await commitOf(this.process, worktreePath, "HEAD");
     const symbolicRef = await this.process.run({

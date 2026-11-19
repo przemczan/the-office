@@ -1,14 +1,19 @@
 import type {
   ContextMove,
+  EngineStandIn,
   GateAction,
   Stage,
   StageRun,
+  StageRunEngine,
   StageState,
+  Task,
   TaskStage,
+  TaskState,
   Thread,
   TokenTotals,
 } from "@the-office/contracts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
+import { modelLabel } from "../../shell/engine-words.ts";
 import { sumTokens } from "../../shell/token-words.ts";
 import { STOPPED } from "../../shell/work/work-words.ts";
 
@@ -22,6 +27,7 @@ export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   stopped: STOPPED,
   done: "Done",
   skipped: "Skipped",
+  "not-taken": "Not taken",
   failed: "Failed",
 };
 
@@ -38,6 +44,41 @@ export const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
   fresh: "fresh session",
   "hand-off": "hand-off with a Brief",
 };
+
+/** "Opus 5.5 on Personal": the model a run's session ran and the engine it ran on. */
+export function runEngineWords({ model, engineName }: StageRunEngine): string {
+  return `${modelLabel(model)} on ${engineName}`;
+}
+
+/** "Stand-in for Work": a run's badge when its engine stood in for the cascade's. */
+export function standInForWords(engineName: string): string {
+  return `Stand-in for ${engineName}`;
+}
+
+/** The states of a started Task, whose run may work on Stand-in Engines. */
+const STARTED: readonly TaskState[] = ["in-progress", "waiting-on-you", "paused"];
+
+/** The Stand-in Engines the Task's run works on, none unless it is started. */
+export function engineStandInsShown({
+  state,
+  engineStandIns,
+}: Pick<Task, "state" | "engineStandIns">): readonly EngineStandIn[] {
+  return STARTED.includes(state) ? engineStandIns : [];
+}
+
+/**
+ * "On a Stand-in Engine: Personal for Work", several joined: the Task page's mark while its run
+ * works on Stand-in Engines.
+ */
+export function engineStandInsWords(standIns: readonly EngineStandIn[]): string {
+  const pairs = standIns.map(({ standInName, engineName }) => `${standInName} for ${engineName}`);
+  return `On a Stand-in Engine: ${pairs.join(", ")}`;
+}
+
+/** Why each Stand-in Engine took over, one after the other, for the mark's hover. */
+export function engineStandInsReasons(standIns: readonly EngineStandIn[]): string {
+  return standIns.map(({ reason }) => reason).join(" ");
+}
 
 /** Names a Stage by its key, as the Stages it is among call it. */
 export type StageNames = (key: string) => string;
@@ -67,13 +108,12 @@ export function stageNamesOf(stages: readonly Stage[]): StageNames {
   return (key) => stages.find((stage) => stage.key === key)?.name ?? key;
 }
 
-/** "Optional · on failure back to Implement, at most 3×": what a Stage not yet run will do. */
+/** "on failure back to Implement, at most 3×": what a Stage not yet run will do. */
 export function stageRule(stage: Stage, names: StageNames): string[] {
   const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
-  return [
-    stage.optional ? "optional" : undefined,
-    onFailure && `on failure back to ${names(onFailure.goBackTo)}, at most ${onFailure.rounds}×`,
-  ].filter((part) => part !== undefined);
+  return onFailure
+    ? [`on failure back to ${names(onFailure.goBackTo)}, at most ${onFailure.rounds}×`]
+    : [];
 }
 
 /**

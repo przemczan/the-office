@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
-import { DecisionAnswered } from "../../conversations/index.js";
+import { DecisionAnswered, stageAnswerOf } from "../../conversations/index.js";
 import { DutyHolderChanged, RoleLetGo } from "../../people/index.js";
 import {
   STAFFING_OPTIONS,
@@ -40,8 +40,9 @@ export class StaffingHolds implements OnModuleInit {
     this.events.subscribe(DutyHolderChanged, () => this.holdTasksLackingPeople());
     this.events.subscribe(DecisionAnswered, async ({ decision }) => {
       const { answer } = decision;
-      if (!answer) return;
-      await this.answered(decision.id, answer, answeredBy(answer));
+      const given = stageAnswerOf(decision);
+      if (!answer || !given) return;
+      await this.answered(decision.id, given, answeredBy(answer));
     });
   }
 

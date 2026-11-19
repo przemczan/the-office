@@ -28,6 +28,8 @@ import {
   sizeThresholdSchema,
   SIZE_THRESHOLD_TOKENS,
   stageTemplateSchema,
+  standInChoicesResponseSchema,
+  standInSwitchResponseSchema,
   taskListSchema,
   taskSchema,
   taskStagesSchema,
@@ -57,7 +59,8 @@ import {
   type TemporaryRepository,
 } from "./temporary-repository.ts";
 import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
-import { screenshotScenario } from "./task-screenshots.ts";
+import { asStageList } from "./stage-list.ts";
+import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 import { createFromTopBar } from "./top-bar.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -164,7 +167,10 @@ async function openEngine(
 }
 
 /** Adds an engine of the kind through "Add an engine", which selects it. */
-async function addEngine(page: Page, kind: "Claude Code" | "API endpoint"): Promise<void> {
+async function addEngine(
+  page: Page,
+  kind: "Claude Code" | "Codex" | "API endpoint",
+): Promise<void> {
   await page.getByRole("button", { name: "Add an engine" }).click();
   await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
 }
@@ -1059,7 +1065,157 @@ test(
     await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
     await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
 
+    // An Anthropic API key instead: refused unless shaped as one, kept, and never answered back.
+    await account.getByRole("button", { name: "Use an API key" }).click();
+    const keyBox = account.getByLabel("API key");
+    await expect(keyBox).toHaveAttribute("type", "password");
+    await keyBox.fill("sk-not-anthropic");
+    await account.getByRole("button", { name: "Save the API key" }).click();
+    await expect(
+      account.getByText("That is no Anthropic API key: one starts with sk-ant-api."),
+    ).toBeVisible();
+    const key = "sk-ant-api03-e2e-stand-in-key";
+    await keyBox.fill(key);
+    await account.getByRole("button", { name: "Save the API key" }).click();
+    await expect(account.getByText("An API key signs it in")).toBeVisible();
+    await expect(account.getByLabel("API key")).toHaveCount(0);
+    expect(await (await page.request.get("/api/settings/engines")).text()).not.toContain(key);
+
+    await account.getByRole("button", { name: "Sign out" }).click();
+    await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+    await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+
     await removeEngine(page, name);
+  },
+);
+
+// Here for the same reason as the Claude Code engine's: a Save sends every engine, and Office
+// limits' Save names every engine, so the engine it adds is gone again at its end.
+test(
+  "the user adds a Codex engine, signs it in with ChatGPT and with an API key, prices a model, renames and removes it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const name = "Codex check";
+    const renamed = "Codex check renamed";
+    const savedEngines = async () =>
+      engineSettingsSchema.parse(await (await page.request.get("/api/settings/engines")).json())
+        .engines;
+    const saveSettings = async (): Promise<void> => {
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(
+        page.getByText("Engines saved. Sessions started from now on use them."),
+      ).toBeVisible();
+    };
+    const price = page.getByRole("group", { name: "Model price of gpt-6-luna" });
+    try {
+      await page.goto("/settings/engines");
+      await addEngine(page, "Codex");
+      const added = page.getByRole("group", { name: "the new Codex engine" });
+      await added.getByLabel("Name", { exact: true }).fill(name);
+      const engine = page.getByRole("group", { name, exact: true });
+      await engine.getByLabel("Default model").selectOption({ label: "gpt-5.6-terra" });
+      await page.getByRole("tab", { name: "Account" }).click();
+      await expect(engine.getByText("It has no folder to sign in yet")).toBeVisible();
+      await saveSettings();
+      const engineId = (await savedEngines()).find((saved) => saved.name === name)?.id ?? "";
+      expect(engineId).not.toBe("");
+
+      await page.reload();
+      await expect(
+        page.getByRole("navigation", { name: "Engines" }).getByRole("button", {
+          name: new RegExp(`^${name}`),
+        }),
+      ).toContainText("Codex");
+      await openEngine(page, name);
+      await expect(engine.getByLabel("Default model")).toHaveValue("gpt-5.6-terra");
+
+      // Sign in with ChatGPT: the device page and its code, then the user approves there.
+      await page.getByRole("tab", { name: "Account", exact: true }).click();
+      const account = engine.getByRole("group", { name: "Account" });
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+      await account.getByRole("button", { name: "Sign in with ChatGPT" }).click();
+      const signingIn = account.getByRole("group", { name: "Sign in with ChatGPT" });
+      await expect(signingIn.getByRole("link", { name: "the sign-in page" })).toHaveAttribute(
+        "href",
+        "https://auth.openai.com/codex/device",
+      );
+      await expect(signingIn.getByLabel("The code to enter")).toHaveText("STND-1NCODE");
+      await expect(signingIn.getByText("Waiting for the sign-in to finish…")).toBeVisible();
+      const approved = await page.request.post(
+        `/api/e2e/codex-sign-ins/${encodeURIComponent(engineId)}/approval`,
+      );
+      expect(approved.status()).toBe(204);
+      // Its end reaches the open page by `engine.account-changed`, without a reload.
+      await expect(
+        account.getByText("Signed in with ChatGPT as stand-in@example.com · ChatGPT Plus"),
+      ).toBeVisible();
+      await expect(signingIn).toHaveCount(0);
+
+      // An API key instead: kept, and never answered back.
+      const key = "sk-codex-e2e-stand-in-key";
+      await account.getByRole("button", { name: "Use an API key instead" }).click();
+      const keyBox = account.getByLabel("API key");
+      await expect(keyBox).toHaveAttribute("type", "password");
+      await keyBox.fill(key);
+      await account.getByRole("button", { name: "Save the key" }).click();
+      await expect(account.getByText("Signed in with an API key")).toBeVisible();
+      await expect(account.getByLabel("API key")).toHaveCount(0);
+      expect(await (await page.request.get("/api/settings/engines")).text()).not.toContain(key);
+
+      await account.getByRole("button", { name: "Sign out" }).click();
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+      await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+
+      // A Codex model's price, kept across a reload.
+      await page.getByRole("tab", { name: "Models and prices", exact: true }).click();
+      await expect(
+        engine.getByText("The Codex models' prices are shared by every Codex engine"),
+      ).toBeVisible();
+      await price.getByLabel("Input").fill("1.25");
+      await price.getByLabel("Output").fill("10");
+      await price.getByLabel("Cache writes").fill("0");
+      await price.getByLabel("Cache reads").fill("0.125");
+      await saveSettings();
+      await page.reload();
+      await openEngine(page, name, "Models and prices");
+      await expect(price.getByLabel("Input")).toHaveValue("1.25");
+      await expect(price.getByLabel("Cache reads")).toHaveValue("0.125");
+
+      // Later tests price nothing, so the price goes again with the rename's Save.
+      for (const kind of ["Input", "Output", "Cache writes", "Cache reads"]) {
+        await price.getByLabel(kind).fill("");
+      }
+
+      // Renamed, it keeps its id.
+      await page.getByRole("tab", { name: "Settings", exact: true }).click();
+      await engine.getByLabel("Name", { exact: true }).fill(renamed);
+      await saveSettings();
+      const kept = (await savedEngines()).find((saved) => saved.name === renamed);
+      expect(kept?.id).toBe(engineId);
+      expect((await savedEngines()).some((saved) => saved.name === name)).toBe(false);
+      await page.reload();
+      await openEngine(page, renamed, "Models and prices");
+      await expect(price.getByLabel("Input")).toHaveValue("");
+
+      // Removed through its dialog, onto the Office default's engine.
+      await page.getByRole("button", { name: `Remove ${renamed}` }).click();
+      const dialog = page.getByRole("dialog", { name: `Remove ${renamed}?` });
+      await dialog.getByLabel("Replacement").selectOption({ label: "Claude Code" });
+      await dialog.getByRole("button", { name: `Remove ${renamed}` }).click();
+      await expect(
+        page.getByText("Engine removed. What named it moved to the replacement."),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole("navigation", { name: "Engines" })
+          .getByRole("button", { name: new RegExp(`^${renamed}`) }),
+      ).toHaveCount(0);
+      expect((await savedEngines()).some((saved) => saved.id === engineId)).toBe(false);
+    } finally {
+      for (const each of await savedEngines()) {
+        if (each.name === name || each.name === renamed) await removeEngine(page, each.name);
+      }
+    }
   },
 );
 
@@ -1563,7 +1719,6 @@ test(
   },
 );
 
-/** A Stage's row in the open Stage editor, which the user opens to change its fields. */
 /** A Stage among the rail's, not a run of its history. */
 /** A window narrow enough that the Stages of `seedGatedStages` don't fit across the rail. */
 const NARROW_WIDTH_PX = 640;
@@ -1615,11 +1770,34 @@ function stageOnRail(rail: Locator, name: string): Locator {
     .filter({ has: rail.page().getByRole("button", { name, exact: true }) });
 }
 
-function editorRow(page: Page, name: string) {
-  return page.getByRole("dialog").getByRole("list", { name: "Stages" }).getByRole("listitem", {
-    name,
-    exact: true,
-  });
+/** The flow editor's panel for the picked Stage (named after it) or route ("Route"). */
+function flowPanel(window: Locator, name: string): Locator {
+  return window.getByRole("region", { name, exact: true });
+}
+
+/**
+ * Edit for this Task, open on `window`, in Light and Dark at 1600, 900 and 390 wide: nothing in the
+ * window or the page scrolls sideways. Left in Light at 1600.
+ */
+async function editForThisTaskScreenshots(page: Page, window: Locator): Promise<void> {
+  for (const palette of ["light", "dark"] as const) {
+    await showPalette(page, palette);
+    for (const width of [1600, 900, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect.poll(() => windowOverflow(page)).toBe(0);
+      expect(
+        await window
+          .locator(".dialog-body")
+          .evaluate((body) => body.scrollWidth - body.clientWidth),
+      ).toBe(0);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `${palette}-${width}-edit-for-this-task.png`),
+        style: ".toasts { visibility: hidden; }",
+      });
+    }
+  }
+  await showPalette(page, "light");
+  await page.setViewportSize({ width: 1600, height: 900 });
 }
 
 /** Chooses the person whose Role title is `title` among the people in the Stage's "Who works it". */
@@ -1652,10 +1830,17 @@ test(
 
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       const dialog = page.getByRole("dialog");
+      const flow = dialog.getByRole("region", { name: "Flow" });
+      const onFlow = (name: string): Locator => flow.getByRole("button", { name, exact: true });
+      const panel = (name: string): Locator => flowPanel(dialog, name);
+      const addAStage = async (kind: string): Promise<void> => {
+        await dialog.getByRole("button", { name: "Add a Stage" }).click();
+        await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
+      };
       await expect(dialog).toContainText("Changes apply to Keep the filters on reload only.");
       await pickPipeline(dialog, "Pipeline", "Quick fix");
-      await expect(editorRow(page, "Publish")).toBeVisible();
-      await expect(editorRow(page, "Review & fix")).toHaveCount(0);
+      await expect(onFlow("Publish")).toBeVisible();
+      await expect(onFlow("Review & fix")).toHaveCount(0);
 
       // Another Pipeline is a draft: closing the window leaves the Task as it was.
       await dialog.getByRole("button", { name: "Close", exact: true }).click();
@@ -1679,12 +1864,20 @@ test(
         "Quick fix",
       );
 
-      // A Gate goes before Publish, opened to be named.
-      await dialog.getByRole("button", { name: "Gate", exact: true }).click();
-      await editorRow(page, "Gate").getByLabel("Name", { exact: true }).fill("UI acceptance");
+      // A Gate goes on the route from Tests to Publish, picked to be named.
+      await onFlow("Tests").click();
+      await panel("Tests")
+        .getByRole("region", { name: "Routes out" })
+        .getByRole("button", { name: /→ Publish/ })
+        .click();
+      await expect(panel("Route")).toContainText("Route from Tests to Publish");
+      await panel("Route").getByRole("button", { name: "Insert a Stage on this route" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Gate", exact: true }).click();
+      await panel("Gate").getByLabel("Name", { exact: true }).fill("UI acceptance");
+      await expect(onFlow("UI acceptance")).toBeVisible();
 
-      const implement = editorRow(page, "Implement");
-      await implement.getByRole("button", { name: "Edit Implement" }).click();
+      await onFlow("Implement").click();
+      const implement = panel("Implement");
       await chooseWhoWorks(implement, "Reviewer");
       // A Stage has no model of its own: the engine cascade gives it.
       await expect(implement.getByLabel("Model")).toHaveCount(0);
@@ -1713,47 +1906,75 @@ test(
       await expect(implement.getByRole("group", { name: "Project commands" })).toContainText(
         "test",
       );
-      await expect(implement).toContainText("Project commands: test");
       await implement
         .getByText("Only these of the Project's commands; never install")
         .scrollIntoViewIfNeeded();
       await page.screenshot({
-        path: path.join(SCREENSHOTS, "light-1600-stage-editor-project-commands.png"),
+        path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-project-commands.png"),
       });
 
-      // An Agent Stage moved up behind Implement continues its session with the same Role.
-      await dialog.getByRole("button", { name: "Agent Stage", exact: true }).click();
-      const added = editorRow(page, "New Stage");
-      for (let move = 0; move < 3; move += 1) {
-        await added.getByRole("button", { name: "Move New Stage up" }).click();
-      }
+      // An Agent Stage added beside Implement comes unconnected: the check's problems hold Save.
+      const save = dialog.getByRole("button", { name: "Save for this Task" });
+      const problems = dialog.getByRole("list", { name: "Problems" });
+      await addAStage("Agent Stage");
+      const added = panel("New Stage");
+      await expect(added).toContainText("2 of 5 in the Pipeline's order");
+      await expect(problems).toContainText("New Stage: give it a route out");
+      await expect(save).toBeDisabled();
+      // Moved later it goes after Tests, earlier back before it, and up into Implement's row.
+      await added.getByRole("button", { name: "Move New Stage later" }).click();
+      await expect(added).toContainText("3 of 5 in the Pipeline's order");
+      await added.getByRole("button", { name: "Move New Stage earlier" }).click();
+      await expect(added).toContainText("2 of 5 in the Pipeline's order");
+      await added.getByRole("button", { name: "Move New Stage up" }).click();
+      await expect(added.getByRole("button", { name: "Move New Stage up" })).toBeDisabled();
+      // Implement's route leads to it, and it on to Tests.
+      await onFlow("Implement").click();
+      await implement
+        .getByRole("region", { name: "Routes out" })
+        .getByRole("button", { name: /→ Tests/ })
+        .click();
+      await panel("Route").getByLabel("Goes to").selectOption({ label: "New Stage" });
+      await onFlow("New Stage").click();
+      await added.getByRole("button", { name: "Add a route" }).click();
+      await expect(panel("Route")).toContainText("Route from New Stage to Tests");
+      await expect(problems).not.toContainText("give it a route out");
+      // It continues Implement's session with the same Role, and with someone to work it the
+      // problems go.
+      await onFlow("New Stage").click();
       await chooseWhoWorks(added, "Reviewer");
+      await expect(problems).toHaveCount(0);
       await added.getByLabel("Session").selectOption("continue");
-      await added.getByText("Optional: skipped when the Definition of Done is already met").click();
+      // A Stage is no longer optional: the walk follows its routes, and the form offers no Optional.
+      await expect(added.getByText(/^Optional/)).toHaveCount(0);
       await added.getByLabel("Name", { exact: true }).fill("Review");
 
-      const tests = editorRow(page, "Tests");
-      await tests.getByRole("button", { name: "Edit Tests" }).click();
-      await tests.getByLabel("On failure").selectOption("new-stage");
-      await tests.getByLabel("Rounds").selectOption("2");
+      // On failure, Tests goes back to Review, offered only the Stages before it.
+      await onFlow("Tests").click();
+      const tests = panel("Tests");
+      const onFailure = tests
+        .getByRole("region", { name: "On failure" })
+        .getByRole("combobox", { name: "On failure" });
+      await expect(onFailure.locator("option")).toHaveText([
+        "No loop",
+        "Go back to Implement",
+        "Go back to Review",
+      ]);
+      await onFailure.selectOption({ label: "Go back to Review" });
       await tests.getByLabel("Project command").selectOption("lint");
-
-      // Tests can't go back to Review from above it: the editor flags it, and Save waits.
-      const save = dialog.getByRole("button", { name: "Save for this Task" });
-      await tests.getByRole("button", { name: "Move Tests up" }).click();
-      await expect(dialog.getByRole("list", { name: "Problems" })).toContainText(
-        "Stage 2 · Tests: on failure it can only go back to an earlier Stage.",
+      await expect(tests.getByRole("list", { name: "When Tests fails" })).toContainText(
+        "Back to Review while it has rounds left: at most 2 times.",
       );
-      await expect(save).toBeDisabled();
-      await tests.getByRole("button", { name: "Move Tests down" }).click();
-      await expect(dialog.getByRole("list", { name: "Problems" })).toHaveCount(0);
 
-      // A Script Stage added and dropped again leaves nothing behind.
-      await dialog.getByRole("button", { name: "Script Stage", exact: true }).click();
-      await editorRow(page, "Script").getByRole("button", { name: "Remove Script" }).click();
-      await expect(editorRow(page, "Script")).toHaveCount(0);
+      // A Script Stage added and removed again leaves nothing behind.
+      await addAStage("Script Stage");
+      await panel("Script").getByRole("button", { name: "More for Script" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Remove Script" }).click();
+      await expect(onFlow("Script")).toHaveCount(0);
+      await expect(problems).toHaveCount(0);
 
-      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-editor.png") });
+      await onFlow("Tests").click();
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task.png") });
       await save.click();
       // The window closes on saving: the swap's toast, in the same words, may still be up.
       await expect(dialog).toHaveCount(0);
@@ -1768,9 +1989,10 @@ test(
       const own = taskStagesSchema.parse(
         await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
       );
+      const ownStages = own.stages?.map(({ stage }) => stage) ?? [];
       const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
-      const [libraryImplement, libraryTests, libraryPublish] = quickFix;
-      expect(own.stages?.map(({ stage }) => stage)).toEqual([
+      const [libraryImplement, libraryTests, libraryPublish] = asStageList(quickFix);
+      expect(asStageList(ownStages)).toEqual([
         {
           ...libraryImplement,
           // Choosing the Reviewer clears the Implements duty the library's Stage names.
@@ -1785,7 +2007,7 @@ test(
           kind: "agent",
           key: "new-stage",
           name: "Review",
-          optional: true,
+          optional: false,
           role: "reviewer",
           brief: "",
           session: "continue",
@@ -1794,6 +2016,14 @@ test(
         { ...libraryTests, command: "lint", onFailure: { goBackTo: "new-stage", rounds: 2 } },
         { kind: "gate", key: "gate", name: "UI acceptance", optional: false },
         libraryPublish,
+      ]);
+      // The routes are the line drawn: Implement, Review, Tests, UI acceptance, Publish, End.
+      expect(ownStages.map(({ key, routes }) => [key, routes?.map(({ to }) => to)])).toEqual([
+        ["implement", ["new-stage"]],
+        ["new-stage", ["tests"]],
+        ["tests", ["gate"]],
+        ["gate", ["publish"]],
+        ["publish", [null]],
       ]);
       // The library's Quick fix stays as it was.
       expect(
@@ -1804,14 +2034,15 @@ test(
 
       // The editor opens on what was saved.
       await page.getByRole("button", { name: "Edit for this Task" }).click();
-      await editorRow(page, "Implement").getByRole("button", { name: "Edit Implement" }).click();
-      await expect(editorRow(page, "Implement").getByLabel("Effort")).toHaveValue("high");
-      await expect(editorRow(page, "Implement").getByLabel("Budget")).toHaveValue("120");
-      await expect(editorRow(page, "Implement").getByLabel("Runs", { exact: true })).toHaveValue(
-        "read-only-git",
-      );
-      await expect(editorRow(page, "Tests")).toContainText("on failure back to Review, at most 2×");
-      await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+      await onFlow("Implement").click();
+      await expect(implement.getByLabel("Effort")).toHaveValue("high");
+      await expect(implement.getByLabel("Budget")).toHaveValue("120");
+      await expect(implement.getByLabel("Runs", { exact: true })).toHaveValue("read-only-git");
+      await onFlow("Tests").click();
+      await expect(onFailure).toHaveValue("new-stage");
+      await expect(onFlow("Review")).toBeVisible();
+      await expect(onFlow("UI acceptance")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
 
       // From the board card's menu, selecting and typing in the editor leaves the card where it is.
       await page.goto("/work");
@@ -1823,20 +2054,20 @@ test(
         .getByRole("menu")
         .getByRole("button", { name: "Edit Stages for this Task" })
         .click();
-      const fromBoard = editorRow(page, "Implement");
-      await fromBoard.getByRole("button", { name: "Edit Implement" }).click();
-      const brief = fromBoard.getByLabel("Brief");
+      await onFlow("Implement").click();
+      const brief = implement.getByLabel("Brief");
+      await brief.scrollIntoViewIfNeeded();
       const box = await brief.boundingBox();
       if (!box) throw new Error("The Brief isn't shown.");
       await page.mouse.move(box.x + 8, box.y + 10);
       await page.mouse.down();
       await page.mouse.move(box.x + 120, box.y + 10, { steps: 5 });
       await page.mouse.up();
-      await fromBoard.getByLabel("Name", { exact: true }).press("End");
+      await implement.getByLabel("Name", { exact: true }).press("End");
       await page.keyboard.type(" again");
       await expect(page).toHaveURL(/\/work$/);
-      await expect(editorRow(page, "Implement again")).toBeVisible();
-      await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+      await expect(onFlow("Implement again")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
     } finally {
       await repository.remove();
@@ -1894,8 +2125,12 @@ test(
       await page.goto(`/tasks/${taskId}`);
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       await pickPipeline(page.getByRole("dialog"), "Pipeline", "Quick fix");
-      const implement = editorRow(page, "Implement");
-      await implement.getByRole("button", { name: "Edit Implement" }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("region", { name: "Flow" })
+        .getByRole("button", { name: "Implement", exact: true })
+        .click();
+      const implement = flowPanel(page.getByRole("dialog"), "Implement");
       await chooseWhoWorks(implement, "Reviewer");
       await expect(
         implement.getByLabel(`MCP tool ${server}/environment-variable`).locator("option"),
@@ -2019,8 +2254,8 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-planning.png") });
   await showPalette(page, "light");
 
-  // Mark Ready waits for every line of "Before Ready", read-only, each unmet line saying where it
-  // is settled, and each ticks as it is met.
+  // Mark Ready waits for a Pipeline and no open Decision; "Before Ready", read-only, says where each
+  // unmet line is settled, and each ticks as it is met.
   const markReady = page.getByRole("button", { name: "Mark Ready" });
   await expect(markReady).toBeDisabled();
   await expect(readinessLine("Plan confirmed")).toContainText("Confirm it on the Plan");
@@ -2069,10 +2304,10 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(readinessLine("Pipeline chosen")).toHaveClass(/task-checklist-met/);
   await expect(markReady).toBeDisabled();
 
-  await decision.getByRole("button", { name: "Keep the query string" }).click();
+  await pickAndSubmit(decision, "Keep the query string");
   await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
   await expect(decision).toHaveCount(0);
-  await expect(inThread).toContainText("Answered by you: Keep the query string");
+  await expectAnsweredByYou(inThread, "Keep the query string (recommended)");
   await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
   await expect(readinessLine("No Decision open")).toHaveClass(/task-checklist-met/);
 
@@ -2518,7 +2753,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await strip.screenshot({ path: path.join(SCREENSHOTS, "dark-strip-needs-you-alert.png") });
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).toHaveAttribute("data-palette", "light");
-  await onNow.getByRole("button", { name: "The page it started from" }).click();
+  await pickAndSubmit(onNow, "The page it started from");
   await expect(onNow).toHaveCount(0);
   await expect(needsYouFigure).toHaveAccessibleName(/^0 need you/);
   await expect(needsYouFigure).not.toHaveClass(/\balert\b/);
@@ -2551,7 +2786,10 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(
     history.getByText("Signing in now returns to the page it started from."),
   ).toBeVisible();
-  await expect(history.getByText("Answered by you: The page it started from")).toBeVisible();
+  await expectAnsweredByYou(
+    history.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` }),
+    "The page it started from (recommended)",
+  );
   await expect(conversation.getByText("Signing in now returns")).toHaveCount(0);
   await expect(history.getByRole("group", { name: "Details" })).toBeVisible();
   await expect(newestRun.getByRole("note")).toHaveText(
@@ -2715,14 +2953,14 @@ async function seedGateFirst(page: Page, taskId: string): Promise<void> {
 }
 
 /**
- * Edits the Task's Stages for it before it starts, as the Stage editor saves them: Quick fix's
+ * Edits the Task's Stages for it before it starts, as Edit for this Task saves them: Quick fix's
  * Implement and Tests, then a Gate before a Build.
  */
 async function seedGatedStages(page: Page, taskId: string): Promise<void> {
   const library = pipelineListSchema.parse(await (await page.request.get("/api/pipelines")).json());
   const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
   const stages = [
-    ...quickFix.filter(({ key }) => key === "implement" || key === "tests"),
+    ...asStageList(quickFix.filter(({ key }) => key === "implement" || key === "tests")),
     { kind: "gate", key: "ui-acceptance", name: "UI acceptance", optional: false },
     { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
   ];
@@ -3006,23 +3244,99 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       [{ gateKey: "ui-acceptance", feedback: GATE_FEEDBACK }, null],
     ]);
 
-    // Edit for this Task while it runs: the started Stages are locked, Build after them changes,
-    // and the library's Quick fix stays as it is.
+    // Edit for this Task while it runs, on the flow: the started Stages are locked with their state,
+    // Build after them changes, and the library's Quick fix stays as it is.
     const library = await (await page.request.get("/api/pipelines")).json();
     await rail.getByRole("button", { name: "Edit for this Task" }).click();
-    for (const name of ["Implement", "Tests", "UI acceptance"]) {
-      await expect(editorRow(page, name)).toContainText("started, so it can't be changed");
-      await expect(editorRow(page, name).getByRole("button", { name: `Edit ${name}` })).toHaveCount(
-        0,
-      );
+    const stagesWindow = page.getByRole("dialog", {
+      name: "Stages of Settings keep their changes",
+    });
+    await expect(stagesWindow).toContainText(
+      "Started Stages, and the routes out of them, are locked.",
+    );
+    const flow = stagesWindow.getByRole("region", { name: "Flow" });
+    const panelOf = (name: string): Locator => flowPanel(stagesWindow, name);
+    for (const [key, name, state] of [
+      ["implement", "Implement", "Done"],
+      ["tests", "Tests", "Done"],
+      ["ui-acceptance", "UI acceptance", "Waiting on you"],
+    ] as const) {
+      const card = flow.locator(`[data-flow-stage="${key}"]`);
+      await expect(
+        card.getByRole("img", { name: `${state}: started, so it can't be changed`, exact: true }),
+      ).toBeVisible();
+      await expect(card).toContainText(state);
+      await expect(card.getByRole("button", { name: `Draw a route from ${name}` })).toHaveCount(0);
+      await flow.getByRole("button", { name, exact: true }).click();
+      await expect(
+        panelOf(name).getByRole("button", { name: `Move ${name} later` }),
+      ).toBeDisabled();
+      await expect(panelOf(name).getByRole("button", { name: `More for ${name}` })).toHaveCount(0);
     }
-    const build = editorRow(page, "Build");
-    await expect(build.getByRole("button", { name: "Move Build up" })).toBeDisabled();
-    await build.getByRole("button", { name: "Edit Build" }).click();
-    await build.getByLabel("Project command").selectOption("lint");
-    await page.getByRole("dialog").getByRole("button", { name: "Save for this Task" }).click();
+    await expect(
+      flow
+        .locator('[data-flow-stage="build"]')
+        .getByRole("button", { name: "Draw a route from Build" }),
+    ).toHaveCount(1);
+    await editForThisTaskScreenshots(page, stagesWindow);
+    // Build comes after the locked columns, so it can't move before them.
+    await flow.getByRole("button", { name: "Build", exact: true }).click();
+    await expect(
+      panelOf("Build").getByRole("button", { name: "Move Build earlier" }),
+    ).toBeDisabled();
+    await panelOf("Build").getByLabel("Project command").selectOption("lint");
+    await stagesWindow.getByRole("button", { name: "Save for this Task" }).click();
     await expect(page.getByText("Stages saved for Settings keep their changes.")).toBeVisible();
+    await expect(stagesWindow).toHaveCount(0);
     expect(await (await page.request.get("/api/pipelines")).json()).toEqual(library);
+    const savedStages = taskStagesSchema.parse(
+      await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+    ).stages;
+    expect(
+      savedStages?.map(({ stage }) => [stage.key, stage.kind === "script" ? stage.command : null]),
+    ).toEqual([
+      ["implement", null],
+      ["tests", "test"],
+      ["ui-acceptance", null],
+      ["build", "lint"],
+    ]);
+
+    // Nothing goes straight after UI acceptance: the route out of it can't take a Stage, and
+    // removing Build, which would carry UI acceptance's route to End, is refused by the check.
+    await rail.getByRole("button", { name: "Edit for this Task" }).click();
+    await flow.getByRole("button", { name: "UI acceptance", exact: true }).click();
+    await panelOf("UI acceptance")
+      .getByRole("region", { name: "Routes out" })
+      .getByRole("button", { name: /→ Build/ })
+      .click();
+    const routePanel = panelOf("Route");
+    await expect(routePanel).toContainText("Route from UI acceptance to Build");
+    const insertOnRoute = routePanel.getByRole("button", { name: "Insert a Stage on this route" });
+    await expect(insertOnRoute).toBeDisabled();
+    await expect(insertOnRoute).toHaveAttribute(
+      "title",
+      "Waiting on you: started, so it can't be changed",
+    );
+    await flow.getByRole("button", { name: "Build", exact: true }).click();
+    await panelOf("Build").getByRole("button", { name: "More for Build" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Remove Build" }).click();
+    await expect(flow.getByRole("button", { name: "Build", exact: true })).toHaveCount(0);
+    const routesOutLocked =
+      "Stage 3 · UI acceptance: it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.";
+    const problems = stagesWindow.getByRole("list", { name: "Problems" });
+    await expect(problems).toContainText(routesOutLocked);
+    await expect(stagesWindow.getByRole("button", { name: "Save for this Task" })).toBeDisabled();
+    // The problem opens the route it is on, read only.
+    await problems.getByRole("button", { name: routesOutLocked }).click();
+    await expect(routePanel).toContainText("Route from UI acceptance to End");
+    // Close drops the draft: Build is still there.
+    await stagesWindow.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(stagesWindow).toHaveCount(0);
+    expect(
+      taskStagesSchema
+        .parse(await (await page.request.get(`/api/tasks/${taskId}/stages`)).json())
+        .stages?.map(({ stage }) => stage.key),
+    ).toEqual(["implement", "tests", "ui-acceptance", "build"]);
 
     // Continue from the Needs you panel, over the Projects page.
     await page.goto("/projects");
@@ -3033,6 +3347,20 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     const panel = page.getByRole("dialog").filter({ hasText: "Needs you" });
     const waiting = panel.getByRole("article", { name: "Gate: Settings keep their changes" });
     await expect(waiting.getByRole("button", { name: "Continue to Build" })).toBeVisible();
+    // Its left edge resizes it, as the chat drawer's does.
+    const panelEdge = panel.getByRole("separator", { name: "Resize the Needs you panel" });
+    await expect(panelEdge).toHaveAttribute("aria-valuenow", "640");
+    await panelEdge.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(panelEdge).toHaveAttribute("aria-valuenow", "656");
+    expect((await panel.boundingBox())?.width).toBe(656);
+    await panelEdge.dblclick();
+    await expect(panelEdge).toHaveAttribute("aria-valuenow", "640");
+    await page.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "needs-you-panel-edge-light-1600.png"),
+      animations: "disabled",
+    });
+    await panelEdge.blur();
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-needs-you-panel.png"),
       animations: "disabled",
@@ -3121,7 +3449,115 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
   }
 });
 
-// After the test above: a Task's Done here would collapse with that one's, which it reads as a toast.
+// The engine replays the Office Manager's chat after the Gate's sessions: Marta asks a two-question
+// Decision and waits for its answer, which reaches her session as the user's next message.
+test("a person asks a Decision in their chat, answered there as a form, never in Needs you", async ({
+  page,
+}) => {
+  const DAY = "Which day should the weekly digest go out?";
+  const WHO = "Who else should get the digest?";
+  const openNeedsYouDecisions = async (): Promise<number> => {
+    const open = notificationListSchema.parse(
+      await (await page.request.get("/api/notifications")).json(),
+    );
+    return open.filter(({ kind }) => kind === "needs-you.decision").length;
+  };
+  const needsYouBefore = nowSchema.parse(await (await page.request.get("/api/now")).json()).needsYou
+    .length;
+  const notificationsBefore = await openNeedsYouDecisions();
+
+  await page.goto("/people");
+  await page.getByRole("button", { name: "Open the chat with Marta" }).click();
+  const marta = chatWith(page, "Marta");
+  await startNewThread(marta);
+  const threadId = await chatThreadShown(page);
+  await marta.getByRole("textbox", { name: "Message" }).fill("Set up the weekly digest.");
+  await marta.getByRole("textbox", { name: "Message" }).press("Enter");
+
+  await expect(marta.getByText("I asked how the digest should go out.")).toBeVisible();
+  const form = marta.getByRole("region", { name: `Decision: ${DAY} (and 1 more question)` });
+  await expect(form).toBeVisible();
+  await expect(form.getByRole("radiogroup", { name: DAY })).toBeVisible();
+  await expect(form).toContainText(WHO);
+  const openAnswer = form
+    .getByRole("group", { name: "Question 2" })
+    .getByRole("textbox", { name: /^Your answer/ });
+  await expect(openAnswer).toBeVisible();
+  await expect(form.getByRole("button", { name: "Submit" })).toBeVisible();
+  await expect(form.getByRole("button", { name: "Ask me again" })).toBeVisible();
+  await expect(form).not.toContainText("Needs you");
+
+  // Never in Needs you: not on Now, not counted in the tab, no Notification.
+  await page.goto(`/now?chat=office-manager&thread=${threadId}`);
+  await expect(form).toBeVisible();
+  await expect(page.locator(".shell-main").getByText(DAY)).toHaveCount(0);
+  const now = nowSchema.parse(await (await page.request.get("/api/now")).json());
+  expect(now.needsYou).toHaveLength(needsYouBefore);
+  await expect(page).toHaveTitle(
+    now.needsYou.length === 0 ? "The Office" : `(${now.needsYou.length}) The Office`,
+  );
+  expect(await openNeedsYouDecisions()).toBe(notificationsBefore);
+
+  const screenshots = async (name: string, card: Locator): Promise<void> => {
+    for (const colorScheme of ["light", "dark"] as const) {
+      await showPalette(page, colorScheme);
+      for (const width of [1600, 900, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        // The card's top in view, its first question on screen.
+        await card.evaluate((box) => box.scrollIntoView({ block: "start" }));
+        await motionSettled(page);
+        expect(await windowOverflow(page)).toBe(0);
+        // Neither the drawer nor its Thread scrolls sideways.
+        const sideways = await marta.evaluate((drawer) =>
+          [drawer, ...drawer.querySelectorAll(".message-list")].map(
+            (box) => box.scrollWidth - box.clientWidth,
+          ),
+        );
+        expect(sideways.every((overflow) => overflow <= 0)).toBe(true);
+        await page.screenshot({
+          path: path.join(TASK_SCREENSHOTS, `${name}-${colorScheme}-${width}.png`),
+        });
+      }
+    }
+    await showPalette(page, "light");
+    await page.setViewportSize({ width: 1600, height: 900 });
+  };
+  await screenshots("chat-decision-inline", form);
+
+  await form
+    .getByRole("radiogroup", { name: DAY })
+    .getByRole("radio", { name: /^Friday/ })
+    .check();
+  const firstQuestion = form.getByRole("group", { name: "Question 1" });
+  await firstQuestion.getByRole("button", { name: "Add a comment" }).click();
+  await firstQuestion.getByRole("textbox", { name: /^Comment/ }).fill("Fridays are quieter.");
+  await openAnswer.fill("The team leads.");
+  await form.getByRole("textbox", { name: "General comment" }).fill("Thanks, Marta.");
+  await form.getByRole("button", { name: "Submit" }).click();
+
+  await expect(
+    marta.getByText("The digest goes out on Fridays, to the team leads too."),
+  ).toBeVisible();
+  // The answered form stays in the chat, with each answer, its comment and the general comment.
+  const answered = marta.locator(".decision-card.settled");
+  await expect(answered.locator(".decision-answered")).toHaveText("Answered by you");
+  await expect(answered.locator(".decision-answer").first()).toContainText("Friday");
+  await expect(answered.locator(".decision-answer").first()).toContainText(
+    "Comment: Fridays are quieter.",
+  );
+  await expect(answered.locator(".decision-answer").nth(1)).toContainText("The team leads.");
+  await expect(answered.locator(".decision-general-comment")).toHaveText(
+    "General comment: Thanks, Marta.",
+  );
+  await expect(answered.getByRole("button", { name: "Submit" })).toHaveCount(0);
+  await screenshots("chat-decision-answered", answered);
+
+  await page.reload();
+  await expect(chatWith(page, "Marta").locator(".decision-card.settled")).toBeVisible();
+});
+
+// After the Gate's test above: a Task's Done here would collapse with that one's, which it reads as
+// a toast.
 test(
   "a Gate's card and window continue past it, and the window drops the Task",
   { tag: "@full" },
@@ -3332,6 +3768,36 @@ test(
   },
 );
 
+/** Answers a Decision form of one choice in place, as the user does: the option, then Submit. */
+async function pickAndSubmit(card: Locator, option: string): Promise<void> {
+  await card.locator("label").filter({ hasText: option }).getByRole("radio").check();
+  await card.getByRole("button", { name: "Submit", exact: true }).click();
+}
+
+/** A sent form of one question in its Thread: its answer, then that the user gave it. */
+async function expectAnsweredByYou(card: Locator, answer: string): Promise<void> {
+  await expect(card.locator(".decision-answer-words")).toHaveText(answer);
+  await expect(card.locator(".decision-answered")).toHaveText("Answered by you");
+}
+
+/**
+ * A Decision of one choice in the columns the service keeps it in: `questions`, its form, and the
+ * one question in `question`, `options` and `recommendation`, which the release before reads.
+ */
+function oneChoiceColumns(
+  question: string,
+  options: readonly string[],
+  reason: string,
+): readonly string[] {
+  const recommendation = { option: 0, reason };
+  return [
+    question,
+    JSON.stringify(options),
+    JSON.stringify(recommendation),
+    JSON.stringify([{ kind: "choice", question, options, recommendation }]),
+  ];
+}
+
 const CONSULTATION_QUESTION = "Is the migration safe to run on the live data?";
 const CONSULTATION_OPTION = "Yes";
 
@@ -3344,14 +3810,17 @@ async function seedConsultation(taskId: string, plannerThreadId: string): Promis
   const decisionId = crypto.randomUUID();
   const consultationId = crypto.randomUUID();
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at, put_to)
-     values ($1, $2, $3, 'planner', 'question', $4, 'The migration rewrites every row.', $5, '{"option":0,"reason":"It ran on the copy."}', now(), 'developer')`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, asked_at, put_to)
+     values ($1, $2, $3, 'planner', 'question', $4, 'The migration rewrites every row.', $5, $6, $7, now(), 'developer')`,
     [
       decisionId,
       plannerThreadId,
       taskId,
-      CONSULTATION_QUESTION,
-      JSON.stringify([CONSULTATION_OPTION, "No"]),
+      ...oneChoiceColumns(
+        CONSULTATION_QUESTION,
+        [CONSULTATION_OPTION, "No"],
+        "It ran on the copy.",
+      ),
     ],
   );
   await queryOfficeDatabase(
@@ -3385,15 +3854,15 @@ const ANSWERED_CONSULTATION_QUESTION = "Does the rollback run in the tests?";
 async function seedAnsweredConsultation(taskId: string, plannerThreadId: string): Promise<void> {
   const decisionId = crypto.randomUUID();
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at, answer, answered_at)
-     values ($1, $2, $3, 'planner', 'question', $4, 'The rollback is new.', $5, '{"option":0,"reason":"It ran."}', now(), $6, now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, asked_at, answer, form_answer, answered_at)
+     values ($1, $2, $3, 'planner', 'question', $4, 'The rollback is new.', $5, $6, $7, now(), $8, $9, now())`,
     [
       decisionId,
       plannerThreadId,
       taskId,
-      ANSWERED_CONSULTATION_QUESTION,
-      JSON.stringify([CONSULTATION_OPTION, "No"]),
+      ...oneChoiceColumns(ANSWERED_CONSULTATION_QUESTION, [CONSULTATION_OPTION, "No"], "It ran."),
       { kind: "option", option: 0, answeredBy: "developer" },
+      { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
     ],
   );
   await queryOfficeDatabase(
@@ -3515,10 +3984,10 @@ test(
       await page.setViewportSize({ width: 1600, height: 900 });
 
       // Taking it over: the user answers in the card, and Jan takes the answer in the asking Thread.
-      await decision.getByRole("button", { name: CONSULTATION_OPTION }).click();
+      await pickAndSubmit(decision, CONSULTATION_OPTION);
       await expect(decision).toHaveCount(0);
       await expect(needsYou).toContainText("Ready: start it when you want");
-      await expect(inThread).toContainText(`Answered by you: ${CONSULTATION_OPTION}`);
+      await expectAnsweredByYou(inThread, `${CONSULTATION_OPTION} (recommended)`);
       await expect(conversation.getByText("Then the migration goes first.")).toBeVisible();
       await expect(adamTab).toHaveCount(0);
 
@@ -4329,7 +4798,11 @@ test(
         optional: false,
         command: "lint",
       };
-      const proposedStages = [...pipeline.stages.slice(0, -1), lint, ...pipeline.stages.slice(-1)];
+      const proposedStages = asStageList([
+        ...pipeline.stages.slice(0, -1),
+        lint,
+        ...pipeline.stages.slice(-1),
+      ]);
       await seedProposal(
         threadId,
         {
@@ -4513,6 +4986,108 @@ test(
 );
 
 test(
+  "the user reads Nina's Proposal of a Pipeline's routes as a flow, shows it on the flow and applies it from there",
+  { tag: "@full" },
+  async ({ page }) => {
+    const quickFix = pipelineSchema.parse(
+      await (await page.request.get("/api/pipelines/quick-fix")).json(),
+    );
+    const pipeline = pipelineSchema.parse(
+      await (
+        await page.request.post("/api/pipelines", {
+          data: { name: `Routed ${Date.now()}`, description: "", stages: quickFix.stages },
+        })
+      ).json(),
+    );
+    const [implement, tests, publish] = pipeline.stages;
+    if (!implement || !tests || !publish) throw new Error("Quick fix has three Stages.");
+    const nina = chatWith(page, "Nina");
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
+    await page.getByRole("button", { name: "Ask Nina", exact: true }).click();
+    await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
+      `Can you propose a change to the ${pipeline.name} Pipeline? `,
+    );
+    const threadId = await chatThreadShown(page);
+
+    // Tests runs only when Implement changed files; otherwise the Task goes straight to Publish.
+    const proposedRoutes = [
+      {
+        to: tests.key,
+        condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
+      },
+      { to: publish.key, condition: null },
+    ];
+    await seedProposal(
+      threadId,
+      {
+        kind: "pipeline",
+        pipelineId: pipeline.id,
+        from: pipeline.stages,
+        to: [{ ...implement, routes: proposedRoutes }, tests, publish],
+        routes: {
+          stages: [
+            {
+              stageKey: implement.key,
+              stageName: implement.name,
+              from: implement.routes,
+              to: proposedRoutes,
+            },
+          ],
+          check: [],
+        },
+      },
+      "devops",
+    );
+    await page.goto(`/settings/pipelines/${pipeline.id}?chat=devops&thread=${threadId}`);
+
+    const card = nina.getByRole("region", {
+      name: `Proposal: Change the ${pipeline.name} Pipeline`,
+    });
+    await expect(
+      card.getByRole("list", { name: "Was: routes out of Implement" }).getByRole("listitem"),
+    ).toHaveText(["→ Tests, always"]);
+    await expect(
+      card.getByRole("list", { name: "Proposed: routes out of Implement" }).getByRole("listitem"),
+    ).toHaveText(["→ Tests when Implement changed files", "→ Publish otherwise"]);
+    const flow = card.getByRole("region", { name: `${pipeline.name}, as proposed` });
+    await expect(flow).toContainText("Checked: every Stage is reached");
+    await expect(flow.locator(".flow-canvas-route-line--proposed")).toHaveCount(2);
+    await expect(flow.locator(".flow-canvas-route-line--taken-away")).toHaveCount(1);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-routes-proposal.png") });
+
+    await flow.getByRole("button", { name: "Show it on the flow" }).click();
+    await expect(page).toHaveURL(new RegExp(`/settings/pipelines/${pipeline.id}\\?proposal=`));
+    const banner = page.getByRole("status", {
+      name: `Nina's Proposal, shown on ${pipeline.name}`,
+    });
+    await expect(banner).toContainText(
+      "Routes out of Implement: to Tests when Implement changed files, otherwise to Publish.",
+    );
+    await expect(banner.getByRole("button", { name: "Back to the Thread" })).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "What the lines mean" })).toHaveText(
+      /As it is\s*Proposed by Nina\s*Taken away/,
+    );
+    // At wide width the chat stays open beside the flow.
+    await expect(card).toBeVisible();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-routes-proposal-on-flow.png"),
+    });
+
+    await banner.getByRole("button", { name: "Apply change" }).click();
+    await expect(
+      page.getByText(`${pipeline.name} changed. Tasks that haven't started follow it.`),
+    ).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/settings/pipelines/${pipeline.id}$`));
+    await expect(banner).toHaveCount(0);
+    await expect(card).toContainText("Applied");
+    const saved = pipelineSchema.parse(
+      await (await page.request.get(`/api/pipelines/${pipeline.id}`)).json(),
+    );
+    expect(saved.stages[0]?.routes?.map(({ to }) => to)).toEqual([tests.key, publish.key]);
+  },
+);
+
+test(
   "the user applies Nina's new Project Pipeline and her change to one; a stale one is refused, and a library Pipeline's Proposal warns what it breaks",
   { tag: "@full" },
   async ({ page }) => {
@@ -4617,7 +5192,7 @@ test(
           kind: "pipeline",
           pipelineId: base.id,
           from: base.stages,
-          to: base.stages.filter(({ key }) => key !== "tests"),
+          to: asStageList(base.stages.filter(({ key }) => key !== "tests")),
         },
         "devops",
       );
@@ -5462,7 +6037,7 @@ test(
       await expect(conversation.getByRole("heading", { name: "Jan · Planner" })).toBeVisible();
       await expect(
         conversation.getByText(
-          "No planning on Usage exports for customers yet. Once it is active with a Task in Backlog, Plan the Initiative starts it with Jan.",
+          "No planning on Usage exports for customers yet. Once it is active with a Task in Backlog, Plan the Initiative has Jan start at once, or Plan with Jan lets you say first how to plan it.",
         ),
       ).toBeVisible();
       await expect(message).toHaveCount(0);
@@ -5801,7 +6376,7 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     await jan.getByRole("link", { name: /^Decision on/ }).click();
 
     const decisionWindow = page.getByRole("dialog");
-    await expect(decisionWindow.getByRole("button", { name: "Answer", exact: true })).toBeVisible();
+    await expect(decisionWindow.getByRole("button", { name: "Submit", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\/work$/);
     await page.keyboard.press("Escape");
     await expect(decisionWindow).toHaveCount(0);
@@ -6144,7 +6719,8 @@ test(
       const task = await createdTask();
       if (!task) throw new Error("Jan created no Task.");
 
-      // Both parts landed as Jan wrote them, Not confirmed: Mark Ready waits for the user.
+      // Both parts landed as Jan wrote them, Not confirmed, and no Pipeline is chosen yet: Mark
+      // Ready waits for one.
       await page.goto(`/tasks/${task.id}`);
       const record = page.getByRole("region", { name: "Record" });
       const plan = record.getByRole("region", { name: "Plan", exact: true });
@@ -6163,7 +6739,7 @@ test(
       await expect(markReady).toHaveCount(0);
       await definitionOfDone.getByRole("button", { name: "Confirm", exact: true }).click();
       await expect(definitionOfDone.getByText("Confirmed", { exact: true })).toBeVisible();
-      // Nor has it a Pipeline: the user chooses one on the rail.
+      // It still has no Pipeline: the user chooses one on the rail.
       await expect(markReady).toHaveCount(0);
       await page
         .getByRole("region", { name: "Pipeline · Not chosen yet" })
@@ -6553,7 +7129,7 @@ test(
       await expect(
         beforeReady.getByRole("listitem").filter({ hasText: "No Decision open" }),
       ).toContainText("1 open, in Needs you");
-      await onTask.getByRole("button", { name: "CSV", exact: true }).click();
+      await pickAndSubmit(onTask, "CSV");
       await expect(onTask).toHaveCount(0);
 
       await expect
@@ -6574,7 +7150,7 @@ test(
       expect(
         (
           await page.request.post(`/api/decisions/${rowCount?.id}/answer`, {
-            data: { kind: "option", option: 0 },
+            data: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
           })
         ).ok(),
       ).toBe(true);
@@ -6778,14 +7354,17 @@ const DECISION_FOR_THE_USER_QUESTION = "Should the old export stay beside the ne
 /** A Decision Jan asked on the Task, waiting on the user, by the id the chat's script names. */
 async function seedDecisionForTheUser(taskId: string, plannerThreadId: string): Promise<void> {
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, asked_at)
-     values ($1, $2, $3, 'planner', 'question', $4, 'Some reports read the old one.', $5, '{"option":0,"reason":"Reports read it."}', now())`,
+    `insert into decisions (id, thread_id, task_id, role_key, kind, question, context, options, recommendation, questions, asked_at)
+     values ($1, $2, $3, 'planner', 'question', $4, 'Some reports read the old one.', $5, $6, $7, now())`,
     [
       DECISION_FOR_THE_USER_ID,
       plannerThreadId,
       taskId,
-      DECISION_FOR_THE_USER_QUESTION,
-      JSON.stringify(["Keep the old export", "Remove the old export"]),
+      ...oneChoiceColumns(
+        DECISION_FOR_THE_USER_QUESTION,
+        ["Keep the old export", "Remove the old export"],
+        "Reports read it.",
+      ),
     ],
   );
   await queryOfficeDatabase(
@@ -6830,8 +7409,11 @@ test(
       const card = conversation.getByRole("region", {
         name: `Decision: ${DECISION_FOR_THE_USER_QUESTION}`,
       });
+      await expect(card.locator(".decision-answer-words")).toHaveText(
+        "Keep the old export (recommended)",
+      );
       await expect(card.locator(".decision-answered")).toHaveText(
-        "Answered by Jan at your request: Keep the old export",
+        "Answered by Jan at your request",
       );
       await expect(
         conversation.getByText("Jan · answering the Decision at your request"),
@@ -6892,8 +7474,11 @@ test(
       await expect(call.locator(".decision-question")).toHaveText(
         "Asked Nina to: Add an End to end test command to Called up.",
       );
+      await expect(call.locator(".decision-answer-words")).toHaveText(
+        "I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+      );
       await expect(call.locator(".decision-answered")).toHaveText(
-        "Answered by Nina: I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat.",
+        "Answered by Nina in a Consultation · Open the Consultation",
       );
       await expect(call).not.toContainText("Needs you");
       await call.scrollIntoViewIfNeeded();
@@ -6943,8 +7528,10 @@ test(
       const library = pipelineListSchema.parse(
         await (await page.request.get("/api/pipelines")).json(),
       );
-      const implementOnly = (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
-        ({ key }) => key === "implement",
+      const implementOnly = asStageList(
+        (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
+          ({ key }) => key === "implement",
+        ),
       );
       const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
         data: { stages: implementOnly },
@@ -7000,6 +7587,312 @@ test(
         await (await page.request.get(`/api/tasks/${taskId}`)).json(),
       );
       expect(resumed).toMatchObject({ pausedBy: null, resumesAt: null });
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+const REPORT_FORMAT_QUESTION = "Which format should the quarterly report export use?";
+
+/** The open Decision whose first question is `question`, as Needs you lists it. */
+async function openDecisionAsking(page: Page, question: string) {
+  return decisionListSchema
+    .parse(await (await page.request.get("/api/decisions/open")).json())
+    .find(({ questions }) => questions[0]?.question === question);
+}
+
+// The engine replays the next session in e2e/sessions.jsonl: Bob's on the Initiative's shaping
+// Thread, which holds at a mark before it opens a Decision of two questions on no Task, and at
+// another before its turn ends; the answer reaches him as his next message, which he answers.
+test(
+  "Bob asks two questions on the whole Initiative while shaping it: the card is answered in the Thread, Needs you and the Notification lead there, and the answer reaches him",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Quarterly reports", "QR");
+      const idea = ideaSchema.parse(
+        await (
+          await page.request.post("/api/ideas", {
+            data: { title: "Quarterly report exports", notes: "", projectId: null },
+          })
+        ).json(),
+      );
+      const initiative = initiativeSchema.parse(
+        await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+      );
+      const task = taskSchema.parse(
+        await (
+          await page.request.post(`/api/initiatives/${initiative.id}/tasks`, {
+            data: {
+              title: "Quarterly report download",
+              projectId: project.id,
+              priority: "normal",
+              blockedBy: [],
+            },
+          })
+        ).json(),
+      );
+      const reach = async (mark: string) =>
+        expect((await page.request.post(`/api/e2e/marks/${mark}`)).status()).toBe(204);
+
+      // Bob opens the Decision while the user is elsewhere: its Notification comes as a toast, once
+      // the page has read those open before it (which it never shows again).
+      const notificationsRead = page.waitForResponse(
+        (response) => new URL(response.url()).pathname === "/api/notifications" && response.ok(),
+      );
+      await page.goto("/projects");
+      await notificationsRead;
+      await reach("report-exports-asks");
+      await expect.poll(() => openDecisionAsking(page, REPORT_FORMAT_QUESTION)).toBeTruthy();
+      const decision = await openDecisionAsking(page, REPORT_FORMAT_QUESTION);
+      if (!decision) throw new Error("Bob's Decision isn't open.");
+      expect(decision.taskId).toBeNull();
+      const threadUrl = `/work/initiatives/${initiative.id}?initiativeThread=${decision.threadId}&decision=${decision.id}`;
+      const notificationOf = async () =>
+        notificationListSchema
+          .parse(await (await page.request.get("/api/notifications")).json())
+          .find(
+            ({ kind, pointsTo }) =>
+              kind === "needs-you.decision" &&
+              pointsTo.kind === "initiative" &&
+              pointsTo.decisionId === decision.id,
+          );
+      await expect.poll(notificationOf).toMatchObject({
+        pointsTo: {
+          kind: "initiative",
+          initiativeId: initiative.id,
+          threadId: decision.threadId,
+          decisionId: decision.id,
+        },
+      });
+      const toast = page.locator(".toasts").getByRole("button", {
+        name: /On the Initiative Quarterly report exports, I need your answer: Which format/,
+      });
+      await toast.click();
+      await expect(page).toHaveURL(
+        new RegExp(
+          `/work/initiatives/${initiative.id}\\?initiativeThread=${decision.threadId}&decision=${decision.id}$`,
+        ),
+      );
+
+      // The card is answered in the Thread, the whole form in place; while Bob's turn runs, the
+      // answer would reach him as it ends.
+      const conversation = page.getByRole("complementary", { name: "Conversation" });
+      const card = conversation.locator(`#decision-card-${decision.id}`);
+      await expect(card).toHaveAttribute(
+        "aria-label",
+        `Decision: ${REPORT_FORMAT_QUESTION} (and 1 more question)`,
+      );
+      await expect(card.locator(".decision-on-task")).toHaveText(
+        "On no Task: about the Initiative as a whole",
+      );
+      await expect(card.getByRole("group", { name: "Question 1" })).toContainText(
+        REPORT_FORMAT_QUESTION,
+      );
+      await expect(card.getByRole("group", { name: "Question 2" })).toContainText(
+        "How often should the export run?",
+      );
+      await expect(card.getByText("Reaches Bob when this turn ends.")).toBeVisible();
+      await reach("report-exports-turn-ends");
+      await expect(
+        conversation.getByText("I asked you two things before I write the outcome."),
+      ).toBeVisible();
+      await expect(card.getByText("Reaches Bob when this turn ends.")).toHaveCount(0);
+      // For a Task's review, the card at the top of its Thread, at each width: in a narrow window the
+      // conversation is a drawer, which the address naming the Thread opens as the page loads.
+      for (const colorScheme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const width of [1600, 900, 390]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(threadUrl);
+          await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
+          await expect(card.getByRole("button", { name: "Submit", exact: true })).toBeVisible();
+          await card.evaluate((shown) => shown.scrollIntoView({ block: "start" }));
+          await motionSettled(page);
+          const sideways = await page
+            .locator("html")
+            .evaluate((html) => html.scrollWidth - html.clientWidth);
+          expect(sideways).toBe(0);
+          await page.screenshot({
+            path: path.join(
+              TASK_SCREENSHOTS,
+              `initiative-decision-card-${colorScheme}-${width}.png`,
+            ),
+          });
+        }
+      }
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.setViewportSize({ width: 1600, height: 900 });
+
+      // The Needs you panel lists it under the Initiative's title and Project, linking to the Thread.
+      await page.goto("/projects");
+      await page
+        .getByRole("status", { name: "Status strip" })
+        .getByRole("button", { name: /needs? you/ })
+        .click();
+      const panel = page.getByRole("dialog").filter({ hasText: "Needs you" });
+      const inPanel = panel.locator('[aria-label="Decision on Quarterly report exports"]');
+      await expect(inPanel.locator("a.needs-you-title")).toHaveText("Quarterly report exports");
+      await expect(inPanel.locator("a.needs-you-title")).toHaveAttribute("href", threadUrl);
+      await expect(inPanel.locator(".needs-you-heading .project-chip")).toContainText(
+        "Quarterly reports",
+      );
+      await expect(
+        inPanel.getByRole("region", { name: /^Decision: Which format should the quarterly/ }),
+      ).toBeVisible();
+      await screenshotScenario(page, "needs-you-initiative-decision", { inView: inPanel });
+      await panel.getByRole("button", { name: "Close" }).click();
+      await expect(panel).toHaveCount(0);
+
+      // So does Now, whose title link opens the Thread at the card.
+      await page.goto("/now");
+      const onNow = page
+        .getByRole("region", { name: "Needs you" })
+        .locator('[aria-label="Decision on Quarterly report exports"]');
+      await expect(onNow.locator(".needs-you-heading .project-chip")).toContainText(
+        "Quarterly reports",
+      );
+      await onNow.locator("a.needs-you-title").click();
+      await expect(page).toHaveURL(new RegExp(`/work/initiatives/${initiative.id}\\?`));
+      await expect(card).toBeInViewport();
+
+      // Submitted, it is answered in the Thread, leaves Needs you and handles the Notification, and
+      // reaches Bob as his next message, which he answers.
+      await card
+        .getByRole("group", { name: "Question 1" })
+        .getByRole("radio", { name: "PDF", exact: true })
+        .check();
+      await card.getByRole("button", { name: "Submit", exact: true }).click();
+      // Answered, it shows what became of it, whole, no longer a card a link lands on.
+      const answered = conversation.getByRole("region", {
+        name: `Decision: ${REPORT_FORMAT_QUESTION} (and 1 more question)`,
+      });
+      await expect(answered.locator(".decision-answered")).toHaveText("Answered by you");
+      await expect(answered).toContainText("PDF");
+      await expect(answered).toContainText("Every quarter");
+      await expect(
+        conversation.getByText("A PDF every quarter: I'll write the outcome that way."),
+      ).toBeVisible();
+      await expect.poll(() => openDecisionAsking(page, REPORT_FORMAT_QUESTION)).toBeUndefined();
+      await expect.poll(notificationOf).toBeUndefined();
+      await page.goto("/now");
+      await expect(
+        page
+          .getByRole("region", { name: "Needs you" })
+          .locator('[aria-label="Decision on Quarterly report exports"]'),
+      ).toHaveCount(0);
+
+      // Nothing of it is left to weigh on the next tests: the Initiative is dropped with its Task.
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/drop`)).ok()).toBe(true);
+      await expect
+        .poll(
+          async () =>
+            taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json()).state,
+        )
+        .toBe("dropped");
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+/** The Tasks the scripted Planner asks about by id, beside a Decision on the whole Initiative. */
+const ARCHIVE_STORE_TASK = "8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e01";
+const ARCHIVE_PAGE_TASK = "8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e02";
+const ARCHIVE_SCOPE_QUESTION = "Should the archive take reports from before this year?";
+
+// The engine replays the next two sessions in e2e/sessions.jsonl: Bob's on the Initiative's
+// shaping Thread, then Jan's, who opens a Decision on each of the two Tasks by their ids and one on
+// no Task, about the Initiative as a whole, and ends his turn.
+test(
+  "in the planning Thread Jan asks about the whole Initiative beside his Decisions on its Tasks",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository, "Report archive", "RA");
+      const idea = ideaSchema.parse(
+        await (
+          await page.request.post("/api/ideas", {
+            data: { title: "Report archive", notes: "", projectId: null },
+          })
+        ).json(),
+      );
+      const initiative = initiativeSchema.parse(
+        await (await page.request.post(`/api/ideas/${idea.id}/initiative`)).json(),
+      );
+      const add = async (title: string) =>
+        taskSchema.parse(
+          await (
+            await page.request.post(`/api/initiatives/${initiative.id}/tasks`, {
+              data: { title, projectId: project.id, priority: "normal", blockedBy: [] },
+            })
+          ).json(),
+        );
+      const store = await add("Archive store");
+      const archivePage = await add("Archive page");
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/confirm`)).ok()).toBe(
+        true,
+      );
+      await giveTasksFixedIds([store.id, ARCHIVE_STORE_TASK], [archivePage.id, ARCHIVE_PAGE_TASK]);
+
+      const initiativeUrl = `/work/initiatives/${initiative.id}`;
+      await page.goto(initiativeUrl);
+      await page.getByRole("button", { name: "Plan the Initiative" }).click();
+      await expect.poll(() => openDecisionAsking(page, ARCHIVE_SCOPE_QUESTION)).toBeTruthy();
+      const { planningThreadId } = initiativeSchema.parse(
+        await (await page.request.get(`/api/initiatives/${initiative.id}`)).json(),
+      );
+      const inThread = async () =>
+        decisionListSchema
+          .parse(await (await page.request.get("/api/decisions/open")).json())
+          .filter(({ threadId }) => threadId === planningThreadId)
+          .map(({ taskId }) => taskId);
+      await expect
+        .poll(inThread)
+        .toEqual(expect.arrayContaining([ARCHIVE_STORE_TASK, ARCHIVE_PAGE_TASK, null]));
+
+      await page.goto(`${initiativeUrl}?initiativeThread=${planningThreadId}`);
+      const conversation = page.getByRole("complementary", { name: "Conversation" });
+      await expect(
+        conversation.getByText(
+          "Both Tasks wait for your answers, and I asked one thing about the whole Initiative.",
+        ),
+      ).toBeVisible();
+      // The one on no Task is the whole form, answered here; each on a Task names it and leads to
+      // its card.
+      const onTheInitiative = conversation.getByRole("region", {
+        name: `Decision: ${ARCHIVE_SCOPE_QUESTION}`,
+      });
+      await expect(onTheInitiative.locator(".decision-on-task")).toHaveText(
+        "On no Task: about the Initiative as a whole",
+      );
+      await expect(
+        onTheInitiative.getByRole("button", { name: "Submit", exact: true }),
+      ).toBeVisible();
+      for (const [question, title] of [
+        ["Where should archived reports be kept?", "Archive store"],
+        ["Should the archive page search inside reports?", "Archive page"],
+      ] as const) {
+        const onTask = conversation.getByRole("region", { name: `Decision: ${question}` });
+        await expect(onTask.locator(".decision-on-task")).toContainText(title);
+        await expect(onTask).toContainText("Waits on you.");
+        await expect(onTask.getByRole("button", { name: "Submit", exact: true })).toHaveCount(0);
+      }
+
+      // Now lists it under the Initiative beside those under their Tasks.
+      await page.goto("/now");
+      const needsYou = page.getByRole("region", { name: "Needs you" });
+      await expect(needsYou.locator('[aria-label="Decision on Report archive"]')).toBeVisible();
+      await expect(needsYou.locator('[aria-label="Decision on Archive store"]')).toBeVisible();
+      await expect(needsYou.locator('[aria-label="Decision on Archive page"]')).toBeVisible();
+
+      // Nothing of it is left to weigh on the next tests: dropped with its Tasks, the Initiative
+      // closes every Decision in its planning Thread.
+      expect((await page.request.post(`/api/initiatives/${initiative.id}/drop`)).ok()).toBe(true);
+      await expect.poll(inThread).toEqual([]);
     } finally {
       await repository.remove();
     }
@@ -7072,5 +7965,334 @@ test.describe("the Live view's comings and goings", { tag: "@full" }, () => {
       expect(await placeOf("Rory")).toBe(placed);
     }
     await page.emulateMedia({ reducedMotion: "no-preference" });
+  });
+});
+
+// The engine replays the last two sessions in e2e/sessions.jsonl: Implement's turn refused on the
+// first engine, its 5-hour window used up (reset a few seconds on, so later files find it free),
+// then the same session resumed on the Stand-in Engine, where it holds at a mark mid-turn and then
+// does the work.
+test.describe("a Stage on a Stand-in Engine", { tag: "@full" }, () => {
+  // A zone with no place keeps noon's light in the Live view.
+  test.use({ timezoneId: "Etc/UTC" });
+
+  test("a Stage refused for a used-up usage window goes on on a Stand-in Engine in the same run, and its Stage history says so", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const standInName = "Stand-in account";
+    const repository = await createTemporaryRepository();
+    try {
+      await saveEngines(page, (engines) => [
+        ...engines,
+        {
+          kind: "claude-code",
+          name: standInName,
+          defaultModel: "claude-sonnet-5-5",
+          claudeCodeP: false,
+        },
+      ]);
+      const settings = engineSettingsSchema.parse(
+        await (await page.request.get("/api/settings/engines")).json(),
+      );
+      const standInId = await engineIdOf(page, standInName);
+      const engineName = settings.engines.find(({ id }) => id === "claude-code")?.name ?? "";
+      expect(engineName).not.toBe("");
+      const standIns = await page.request.put("/api/settings/engines", {
+        data: {
+          ...settings,
+          engines: settings.engines.map((engine) =>
+            engine.kind === "claude-code" ? engine : { ...engine, keySet: undefined },
+          ),
+          standInEngines: [standInId],
+        },
+      });
+      expect(standIns.ok()).toBe(true);
+
+      const project = await addedProject(page, repository, "Sorted export", "SE", PASSING_COMMANDS);
+      const title = "Sorted export keeps its sort order";
+      const taskId = await readyTask(page, project.id, title);
+      const library = pipelineListSchema.parse(
+        await (await page.request.get("/api/pipelines")).json(),
+      );
+      const implementOnly = asStageList(
+        (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
+          ({ key }) => key === "implement",
+        ),
+      );
+      const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
+        data: { stages: implementOnly },
+      });
+      expect(edited.status()).toBe(200);
+      await page.goto(`/tasks/${taskId}`);
+      await page.getByRole("button", { name: "Start", exact: true }).click();
+
+      // The Task goes on Running on the stand-in, never paused, and its head names it as it happens.
+      const head = page.locator(".task-head");
+      await expect(
+        head.getByText(`On a Stand-in Engine: ${standInName} for ${engineName}`),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+      const running = taskSchema.parse(
+        await (await page.request.get(`/api/tasks/${taskId}`)).json(),
+      );
+      expect(running).toMatchObject({ state: "in-progress", pausedBy: null });
+      expect(running.engineStandIns).toMatchObject([{ engineId: "claude-code", standInId }]);
+      await screenshotScenario(page, "stand-in-switch-task-page");
+
+      // The run's head names the stand-in, and its Summary says why the Stage went on there.
+      const switchWords = new RegExp(
+        `^ ?${engineName}'s 5-hour window was used up until \\d\\d:\\d\\d, so the Stage went on on ${standInName}$`,
+      );
+      const rail = page.getByRole("region", { name: /^Pipeline · / });
+      await rail.getByRole("button", { name: "Implement", exact: true }).click();
+      const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+      const run = history.getByRole("region", { name: "Run 1" });
+      await expect(run.locator(".run-details-head")).toContainText(`on ${standInName}`);
+      await expect(run.locator(".run-details-head")).toContainText(`Stand-in for ${engineName}`);
+      await history.getByRole("tab", { name: "Thread" }).click();
+      await expect(run.locator(".message-office").filter({ hasText: switchWords })).toBeVisible();
+      await history.getByRole("tab", { name: "Summary" }).click();
+      await expect(run.locator(".run-engine-switch")).toHaveText(switchWords);
+      await screenshotScenario(page, "stand-in-switch-stage-history");
+      await page.keyboard.press("Escape");
+
+      // The Live view says Ada works on the stand-in, standing in for the first engine.
+      await page.goto("/live-view");
+      await page.getByRole("button", { name: "List" }).click();
+      await expect(
+        page.getByRole("complementary", { name: "People" }).getByRole("link", {
+          name: new RegExp(`on ${standInName}, standing in for ${engineName}$`),
+        }),
+      ).toBeVisible();
+
+      // Let the stand-in's turn end: the Stage is done in the run the refusal came in.
+      expect((await page.request.post("/api/e2e/marks/stand-in-turn-ends")).status()).toBe(204);
+      await page.goto(`/tasks/${taskId}`);
+      await expect(head.getByText("Done", { exact: true })).toBeVisible({ timeout: 60_000 });
+      const stages = taskStagesSchema.parse(
+        await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+      );
+      const [implement] = stages.stages ?? [];
+      expect(implement?.runs).toHaveLength(1);
+      expect(implement?.runs[0]).toMatchObject({
+        outcome: { status: "done" },
+        engine: { engineId: standInId, standInFor: { engineId: "claude-code" } },
+        engineSwitches: [{ fromEngineId: "claude-code", toEngineId: standInId }],
+      });
+    } finally {
+      await removeEngine(page, standInName);
+      await repository.remove();
+    }
+  });
+
+  // The engine replays the next four sessions in e2e/sessions.jsonl: each Task's Implement holds at
+  // a mark, then its first turn is refused for a used-up 5-hour window (reset a minute on), its
+  // context over the size Settings › Engines asks first above; then each Stage, once switched, opens
+  // again on the Stand-in Engine and does the work.
+  test("Stages over the size asked first above wait in one Decision in Needs you, and Switch now moves one to a Stand-in Engine", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const standInName = "Stand-in for choices";
+    const repository = await createTemporaryRepository();
+    const taskLimit = await setDevelopersTaskLimit(page, 3);
+    let resetsAt: string | undefined;
+    const { askBeforeSwitchAbove } = engineSettingsSchema.parse(
+      await (await page.request.get("/api/settings/engines")).json(),
+    );
+    try {
+      await saveEngines(page, (engines) => [
+        ...engines,
+        {
+          kind: "claude-code",
+          name: standInName,
+          defaultModel: "claude-sonnet-5-5",
+          claudeCodeP: false,
+        },
+      ]);
+      const settings = engineSettingsSchema.parse(
+        await (await page.request.get("/api/settings/engines")).json(),
+      );
+      const standInId = await engineIdOf(page, standInName);
+      const engineName = settings.engines.find(({ id }) => id === "claude-code")?.name ?? "";
+      expect(engineName).not.toBe("");
+      // The scripted sessions' context is 30,100 tokens, over the 20,000 asked first above.
+      const standIns = await page.request.put("/api/settings/engines", {
+        data: {
+          ...settings,
+          engines: settings.engines.map((engine) =>
+            engine.kind === "claude-code" ? engine : { ...engine, keySet: undefined },
+          ),
+          standInEngines: [standInId],
+          askBeforeSwitchAbove: 20_000,
+        },
+      });
+      expect(standIns.ok()).toBe(true);
+
+      const project = await addedProject(
+        page,
+        repository,
+        "Choice exports",
+        "CE",
+        PASSING_COMMANDS,
+      );
+      // Both Tasks are started at once.
+      const roomy = await page.request.put(`/api/projects/${project.id}/project-limit`, {
+        data: { projectLimit: 2 },
+      });
+      expect(roomy.status()).toBe(200);
+      const library = pipelineListSchema.parse(
+        await (await page.request.get("/api/pipelines")).json(),
+      );
+      const implementOnly = asStageList(
+        (library.find(({ id }) => id === "quick-fix")?.stages ?? []).filter(
+          ({ key }) => key === "implement",
+        ),
+      );
+      const titles = ["Choice exports keep their columns", "Choice exports keep their totals"];
+      const taskIds: string[] = [];
+      for (const title of titles) {
+        const taskId = await readyTask(page, project.id, title);
+        const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
+          data: { stages: implementOnly },
+        });
+        expect(edited.status()).toBe(200);
+        await page.goto(`/tasks/${taskId}`);
+        await page.getByRole("button", { name: "Start", exact: true }).click();
+        await expect
+          .poll(
+            async () =>
+              taskSchema.parse(await (await page.request.get(`/api/tasks/${taskId}`)).json()).state,
+            { timeout: 30_000 },
+          )
+          .toBe("in-progress");
+        taskIds.push(taskId);
+      }
+      // Both sessions open on the first engine before either turn is refused: the mark is reached
+      // again until both sessions passed it, as it reaches only the sessions open by then.
+      await expect
+        .poll(
+          async () => {
+            const reached = await page.request.post("/api/e2e/marks/stand-in-choices-refused");
+            expect(reached.status()).toBe(204);
+            return standInChoicesResponseSchema.parse(
+              await (await page.request.get("/api/stand-in-choices")).json(),
+            ).choices.length;
+          },
+          { timeout: 30_000 },
+        )
+        .toBe(2);
+
+      // One card in Needs you, a row per Stage, each with Switch now, and Switch all now.
+      await page.goto("/now");
+      const decision = page.locator("section.stand-in-choice");
+      const rows = decision.locator(".stand-in-choice-rows > li");
+      await expect(decision).toHaveCount(1, { timeout: 30_000 });
+      await expect(rows).toHaveCount(2, { timeout: 30_000 });
+      await expect(
+        page.getByText("Decision: switch Stages to a Stand-in Engine", { exact: true }),
+      ).toHaveCount(1);
+      await expect(decision).toContainText(
+        "Their context is over the 20,000 tokens set in Settings › Engines",
+      );
+      for (const title of titles) {
+        const row = decision.getByRole("listitem", { name: `Implement · ${title}` });
+        await expect(row).toContainText(`${engineName} ran out; resets at`);
+        await expect(row).toContainText(`Moves to ${standInName}`);
+        await expect(row.getByRole("button", { name: "Switch now" })).toBeEnabled();
+      }
+      await expect(decision.getByRole("button", { name: "Switch all now" })).toBeEnabled();
+      const choices = standInChoicesResponseSchema.parse(
+        await (await page.request.get("/api/stand-in-choices")).json(),
+      ).choices;
+      expect(choices).toHaveLength(2);
+      resetsAt = choices[0]?.resetsAt;
+      for (const taskId of taskIds) {
+        const paused = taskSchema.parse(
+          await (await page.request.get(`/api/tasks/${taskId}`)).json(),
+        );
+        expect(paused.state).toBe("paused");
+      }
+      await screenshotScenario(page, "stand-in-choice-needs-you");
+
+      // Switch now on the first Task's Stage: it goes on on the Stand-in Engine, one row is left.
+      const [switchedId, waitingId] = taskIds as [string, string];
+      const switched = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/stand-in-choices/switch") &&
+          response.request().method() === "POST",
+      );
+      await decision
+        .getByRole("listitem", { name: `Implement · ${titles[0]}` })
+        .getByRole("button", { name: "Switch now" })
+        .click();
+      const answered = standInSwitchResponseSchema.parse(await (await switched).json());
+      expect(answered.results).toMatchObject([
+        { outcome: "switched", words: `It goes on on ${standInName}.` },
+      ]);
+      await expect(rows).toHaveCount(1);
+      await expect(
+        decision.getByRole("listitem", { name: `Implement · ${titles[1]}` }),
+      ).toBeVisible();
+      await expect(decision.getByRole("button", { name: "Switch all now" })).toHaveCount(0);
+      await expect(decision).toContainText("Its context is over the 20,000 tokens");
+      await screenshotScenario(page, "stand-in-choice-one-left");
+
+      const doneOnStandIn = async (taskId: string) => {
+        await expect
+          .poll(
+            async () =>
+              taskSchema.parse(await (await page.request.get(`/api/tasks/${taskId}`)).json()).state,
+            { timeout: 60_000 },
+          )
+          .toBe("done");
+        const stages = taskStagesSchema.parse(
+          await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+        );
+        const implement = stages.stages?.[0];
+        expect(implement?.runs.at(-1)).toMatchObject({
+          outcome: { status: "done" },
+          engine: { engineId: standInId, standInFor: { engineId: "claude-code" } },
+        });
+      };
+      await doneOnStandIn(switchedId);
+      // The other still waits for the user's choice, Paused.
+      const left = standInChoicesResponseSchema.parse(
+        await (await page.request.get("/api/stand-in-choices")).json(),
+      ).choices;
+      expect(left.map(({ taskId }) => taskId)).toEqual([waitingId]);
+      expect(
+        taskSchema.parse(await (await page.request.get(`/api/tasks/${waitingId}`)).json()).state,
+      ).toBe("paused");
+
+      // Switched too, so nothing is left waiting for the reset.
+      await decision.getByRole("button", { name: "Switch now" }).click();
+      await expect(decision).toHaveCount(0);
+      await doneOnStandIn(waitingId);
+    } finally {
+      // Later files find the first engine's window free again.
+      if (resetsAt !== undefined) {
+        const left = Date.parse(resetsAt) - Date.now();
+        if (left > 0) await page.waitForTimeout(left + 2_000);
+      }
+      await removeEngine(page, standInName);
+      const saved = engineSettingsSchema.parse(
+        await (await page.request.get("/api/settings/engines")).json(),
+      );
+      const restored = await page.request.put("/api/settings/engines", {
+        data: {
+          ...saved,
+          engines: saved.engines.map((engine) =>
+            engine.kind === "claude-code" ? engine : { ...engine, keySet: undefined },
+          ),
+          askBeforeSwitchAbove,
+        },
+      });
+      expect(restored.ok()).toBe(true);
+      await setDevelopersTaskLimit(page, taskLimit);
+      await repository.remove();
+    }
   });
 });

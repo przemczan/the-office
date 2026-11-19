@@ -25,6 +25,7 @@ const TASK: Task = {
   state: "ready",
   plan: "Keep the path.",
   pausedBy: null,
+  engineStandIns: [],
   resumesAt: null,
   autoMode: false,
   initiativePlanningThreadId: null,

@@ -72,11 +72,13 @@ describe("projectPipelineEditProblems", () => {
 
   it("refuses a name an office-wide Pipeline or another of its Project's has, in any case", () => {
     expect(projectPipelineEditProblems(anEdit({ name: " full FOR tests " }), SITE, around)).toEqual(
-      [{ text: 'Another Pipeline is named "full FOR tests".' }],
+      [{ level: "problem", text: 'Another Pipeline is named "full FOR tests".' }],
     );
     expect(
       projectPipelineEditProblems(anEdit({ name: "Full with Linux check" }), SITE, around),
-    ).toEqual([{ text: 'Site has a Pipeline of its own named "Full with Linux check".' }]);
+    ).toEqual([
+      { level: "problem", text: 'Site has a Pipeline of its own named "Full with Linux check".' },
+    ]);
   });
 
   it("lets two Projects share a name", () => {
@@ -91,10 +93,13 @@ describe("projectPipelineEditProblems", () => {
     expect(
       projectPipelineEditProblems(anEdit({ basePipelineId: "with-linux" }), SITE, around),
     ).toEqual([
-      { text: "Its base Pipeline must be an office-wide Pipeline, never a Project Pipeline." },
+      {
+        level: "problem",
+        text: "Its base Pipeline must be an office-wide Pipeline, never a Project Pipeline.",
+      },
     ]);
     expect(projectPipelineEditProblems(anEdit({ basePipelineId: "gone" }), SITE, around)).toEqual([
-      { text: 'There is no office-wide Pipeline "gone" to build it from.' },
+      { level: "problem", text: 'There is no office-wide Pipeline "gone" to build it from.' },
     ]);
   });
 
@@ -107,9 +112,11 @@ describe("projectPipelineEditProblems", () => {
     });
 
     expect(projectPipelineEditProblems(edit, SITE, around)).toEqual([
-      { text: "Stage change 1 gives no field: say what changes, or remove it." },
+      { level: "problem", text: "Stage change 1 gives no field: say what changes, or remove it." },
       {
-        stageIndex: 0,
+        stageKey: "tests",
+        at: { kind: "onFailure" },
+        level: "problem",
         text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
       },
     ]);
@@ -181,7 +188,9 @@ describe("office-wide names against Project Pipelines", () => {
 
     expect(
       pipelineEditProblems(edit, [], [{ name: "full with linux check", projectName: "Site" }]),
-    ).toEqual([{ text: 'Site has a Pipeline of its own named "Full with Linux check".' }]);
+    ).toEqual([
+      { level: "problem", text: 'Site has a Pipeline of its own named "Full with Linux check".' },
+    ]);
   });
 
   it("copies under a name no Project Pipeline has either", () => {

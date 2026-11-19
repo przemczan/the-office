@@ -49,14 +49,17 @@ export class RoleFillings {
   }
 
   /**
-   * Agent Stages from `fromIndex` on whose permissions would widen their Role card's profile, which
-   * a Stage never does (spec §6), so the card's would apply. A Role nobody fills is left to
-   * `of`'s flags; Stages before `fromIndex` have started and keep what they ran with.
+   * Agent Stages whose permissions would widen their Role card's profile, which a Stage never does
+   * (spec §6), so the card's would apply. A Role nobody fills is left to `of`'s flags; Stages whose
+   * keys are in `skipped` have started and keep what they ran with.
    */
-  async permissionProblems(stages: readonly Stage[], fromIndex: number): Promise<StageProblem[]> {
+  async permissionProblems(
+    stages: readonly Stage[],
+    skipped: ReadonlySet<string>,
+  ): Promise<StageProblem[]> {
     const problems = await Promise.all(
       stages.map(async (stage, stageIndex) =>
-        stageIndex < fromIndex
+        skipped.has(stage.key)
           ? []
           : (await this.stagePermissionProblems(stage)).map((problem) =>
               problemOnStage(stage, stageIndex, problem),

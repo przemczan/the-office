@@ -1,5 +1,6 @@
 import { DUTIES } from "../../people/index.js";
-import { startWaitsForUsage, type UsageAtStart } from "./cap-waits.js";
+import type { UsageAtStart } from "./cap-waits.js";
+import { onStandIns, type StandInsAtStart, type UsageOnStandIns } from "./stand-ins-at-start.js";
 import { hasPipeline, NO_PIPELINE_YET, type Task } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
@@ -63,6 +64,8 @@ export interface StartConditions {
   readonly project: StartingProject | undefined;
   /** What the Task is expected to use, against the caps of the engines it spends on. */
   readonly usage: UsageAtStart;
+  /** The Stand-in Engines that may run the Task in place of a cascade's engine with no room. */
+  readonly standIns: StandInsAtStart;
   /**
    * Why a scheduled Office update or restart holds every Start, in the UI's words; undefined when
    * none is.
@@ -147,7 +150,7 @@ export function startReasons(
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...projectLimitWaits(task, conditions.project, others),
       ...taskLimitWaits(stage, conditions.person, others),
-      ...startWaitsForUsage(conditions.usage).waits,
+      ...usageOnStandIns(conditions).waits,
     ],
   };
 }
@@ -168,14 +171,23 @@ export function startTask(
   }
   if (!hasPipeline(task)) throw new TaskRefused([NO_PIPELINE_YET]);
   const personRole = conditions.stages && firstAgentStage(conditions.stages)?.role;
+  const { standIns: engineStandIns } = usageOnStandIns(conditions);
   return withStateChange(
     {
-      task: { ...task, state: "in-progress", personRole },
+      task: { ...task, state: "in-progress", personRole, engineStandIns },
       event: new TaskStarted(task.id, task.pipelineId),
     },
     task,
     by,
   );
+}
+
+/**
+ * What the Task's Start weighs once each cascade's engine with no room is handed to a Stand-in
+ * Engine: the usage it counts, the stand-ins chosen and the waits of its caps.
+ */
+export function usageOnStandIns({ usage, standIns }: StartConditions): UsageOnStandIns {
+  return onStandIns(usage, standIns);
 }
 
 /** The duty's label, such as Implements. */

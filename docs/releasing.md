@@ -2,7 +2,7 @@
 
 Installing, updating and removing a release is in [installing.md](installing.md); this page is about cutting one.
 
-An **Office release** is a version of The Office cut from `main`: the tag `v<version>`, a GitHub Release whose notes are its commits, two tarballs and a container image. Only the **Release** workflow ([.github/workflows/release.yml](../.github/workflows/release.yml)) cuts one, run by hand; nobody tags or publishes a release otherwise. Installing a release and moving to a newer one are the installers' and Self-update's part; an Office update ([running-the-office.md](running-the-office.md)) still moves a checkout to its upstream's newest commit.
+An **Office release** is a version of The Office cut from `main`: the tag `v<version>`, a GitHub Release whose notes are its commits, two tarballs and a container image. Only the **Release** workflow ([.github/workflows/release.yml](../.github/workflows/release.yml)) cuts one, run by hand; nobody tags or publishes a release otherwise. Installing a release and moving to a newer one are the installers' and Self-update's part; an Office update ([running-the-office.md](running-the-office.md)) moves a checkout to its upstream's newest commit.
 
 ## What a release carries
 
@@ -58,9 +58,8 @@ The pack refuses a devDependency in `node_modules`, a package at a version other
 
 `main`'s history from before releases holds hundreds of `feat:` and `fix:` commits and The Office's Stage commits. While no `v*` tag exists, only the commits made after the one that added `.releaserc.json` count for the version and the notes ([tools/release/src/release-commits.ts](../tools/release/src/release-commits.ts)); a commit merged in from older history doesn't count either. So the first release comes from one hand-written commit:
 
-1. Publish the Installation of The Office Initiative to `main`, which brings this workflow there (GitHub offers Run workflow only for a workflow on the default branch).
-2. Run a **Dry run** on `main`. A normal run now would release nothing: no commit counts yet.
-3. On `main`: `git commit --allow-empty -m "feat: The Office installs from released versions, as a tarball or a container image"`, and push it.
-4. Run **Release**: it makes `v1.0.0`, whose notes list only that commit.
-5. In GitHub, **Packages › the-office › Package settings**, make the image public, once.
-6. From then on the Conventional Commits check covers every commit reaching `main` after the tag (AGENTS.md, "Commits and releases").
+1. Run a **Dry run** on `main`. A normal run now would release nothing: no commit counts yet.
+2. On `main`: `git commit --allow-empty -m "feat: The Office installs from released versions, as a tarball or a container image"`, and push it.
+3. Run **Release**: it makes `v1.0.0`, whose notes list only that commit.
+4. In GitHub, **Packages › the-office › Package settings**, make the image public, once.
+5. From then on the Conventional Commits check covers every commit reaching `main` after the tag (AGENTS.md, "Commits and releases").

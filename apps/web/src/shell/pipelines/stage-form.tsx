@@ -10,15 +10,7 @@ import {
   type RoleCardOptions,
   type Stage,
 } from "@the-office/contracts";
-import {
-  Checkbox,
-  Field,
-  GroupedSelect,
-  Input,
-  Select,
-  Textarea,
-  type GroupedSelectOption,
-} from "@the-office/ui";
+import { GroupedSelect, Input, Select, Textarea, type GroupedSelectOption } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { DUTY_LABELS, dutyHolder, STAGE_DUTIES } from "../duty-words.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
@@ -32,7 +24,6 @@ import {
 } from "./stage-commands.ts";
 import {
   canContinue,
-  failureTargets,
   replaceStage,
   stageWorker,
   withCommand,
@@ -42,10 +33,7 @@ import {
   type ScriptStage,
 } from "./stage-edits.ts";
 import { StagePermissionFields } from "./stage-permission-fields.tsx";
-import "./stage-editor.css";
-
-/** The most times a failure may go back, as the click-through offers. */
-const MOST_ROUNDS = 9;
+import "./stage-form.css";
 
 /** A Select's value for "keep the Role's effort": the Stage leaves it out. */
 const ROLE_DEFAULT = "";
@@ -71,13 +59,13 @@ export interface StageFormProps {
   readonly options: RoleCardOptions;
   /** What a Script Stage may run: the Task's Project's commands, or every Project's; none while loading. */
   readonly commands?: StageCommandSource;
-  /** A Stage template's form has no "On failure": going back names an earlier Stage of a Pipeline. */
-  readonly template?: boolean;
 }
 
 /**
- * One Stage's fields (spec §2.3), the same in the Stage editor and for a Stage template, each change
- * answering the list with the Stage replaced.
+ * One Stage's fields (spec §2.3), the same in the flow editor's panel and for a Stage template, each
+ * change answering the list with the Stage replaced. On failure isn't among them: the flow editor
+ * sets it in a section of its own (`flow-on-failure.tsx`), and a Stage template has none, as going
+ * back names an earlier Stage of a Pipeline.
  */
 export function StageForm(props: StageFormProps): ReactNode {
   const { stages, index } = props;
@@ -87,10 +75,10 @@ export function StageForm(props: StageFormProps): ReactNode {
 }
 
 function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNode {
-  const { stage, stages, index, onChange, template = false } = props;
+  const { stage, stages, index, onChange } = props;
   const change = (changed: Stage): void => onChange(replaceStage(stages, index, changed));
   return (
-    <div className="stage-editor-form">
+    <div className="stage-form">
       <Input
         label="Name"
         hint={
@@ -116,20 +104,6 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
         />
       )}
       {stage.kind === "agent" && <AgentFields {...props} stage={stage} change={change} />}
-      {stage.kind !== "gate" && !template && (
-        <div className="stage-editor-wide">
-          <Field label="On failure">
-            <FailureFields {...props} stage={stage} change={change} />
-          </Field>
-        </div>
-      )}
-      <div className="stage-editor-wide">
-        <Checkbox
-          label="Optional: skipped when the Definition of Done is already met"
-          checked={stage.optional}
-          onChange={(optional) => change({ ...stage, optional })}
-        />
-      </div>
     </div>
   );
 }
@@ -258,7 +232,7 @@ function AgentFields({
         ]}
         onChange={(effort) => change({ ...stage, effort: effortSchema.safeParse(effort).data })}
       />
-      <div className="stage-editor-wide">
+      <div className="stage-form-wide">
         <Textarea
           label="Brief"
           hint="Filled with the Task's Plan, Definition of Done and earlier results"
@@ -350,59 +324,6 @@ function PublishFields({
         />
       )}
     </>
-  );
-}
-
-function FailureFields({
-  stage,
-  stages,
-  index,
-  change,
-}: StageFormProps & {
-  readonly stage: Exclude<Stage, { kind: "gate" }>;
-  readonly change: (stage: Stage) => void;
-}): ReactNode {
-  const targets = failureTargets(stages, index);
-  const onFailure = stage.onFailure;
-  const choices = [
-    { value: "", label: "Ask you" },
-    ...targets.map(({ key, name }) => ({ value: key, label: `Go back to ${name}` })),
-  ];
-  if (onFailure && !targets.some(({ key }) => key === onFailure.goBackTo)) {
-    const target = stages.find(({ key }) => key === onFailure.goBackTo);
-    choices.push({
-      value: onFailure.goBackTo,
-      label: `Go back to ${target?.name ?? onFailure.goBackTo} (not earlier)`,
-    });
-  }
-  return (
-    <div className="stage-editor-failure">
-      <Select
-        aria-label="On failure"
-        value={onFailure?.goBackTo ?? ""}
-        options={choices}
-        onChange={(goBackTo) =>
-          change({
-            ...stage,
-            onFailure: goBackTo === "" ? undefined : { goBackTo, rounds: onFailure?.rounds ?? 2 },
-          })
-        }
-      />
-      {onFailure && (
-        <>
-          <span>at most</span>
-          <Select
-            aria-label="Rounds"
-            value={String(onFailure.rounds)}
-            options={Array.from({ length: MOST_ROUNDS }, (_unused, at) => String(at + 1))}
-            onChange={(rounds) =>
-              change({ ...stage, onFailure: { ...onFailure, rounds: Number(rounds) } })
-            }
-          />
-          <span>{onFailure.rounds === 1 ? "time" : "times"}, then ask you</span>
-        </>
-      )}
-    </div>
   );
 }
 

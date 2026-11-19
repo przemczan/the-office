@@ -145,6 +145,40 @@ export function plannerUsage(
   });
 }
 
+/**
+ * What `usage` comes to on another engine id, `engineId`, such as a Stand-in Engine running the
+ * same model: the same tokens and cost, its windows by that engine id's ratios.
+ */
+export function movedTo(
+  usage: EngineUsage,
+  engineId: EngineId,
+  ratios: WindowRatios | undefined,
+): EngineUsage {
+  return { ...usage, engineId, windows: windowsOf(usage.tokens, ratios) };
+}
+
+/** Two estimates on the same engine id, summed: a window or cost either lacks, the other's alone. */
+export function mergedUsage(one: EngineUsage, other: EngineUsage): EngineUsage {
+  const windows =
+    one.windows === undefined || other.windows === undefined
+      ? (one.windows ?? other.windows)
+      : {
+          fiveHour: plus(one.windows.fiveHour, other.windows.fiveHour),
+          sevenDay: plus(one.windows.sevenDay, other.windows.sevenDay),
+        };
+  return {
+    engineId: one.engineId,
+    tokens: one.tokens + other.tokens,
+    windows,
+    cost: plus(one.cost, other.cost),
+  };
+}
+
+/** The sum of two optional amounts: either alone when the other is missing. */
+function plus(a: number | undefined, b: number | undefined): number | undefined {
+  return a === undefined ? b : b === undefined ? a : a + b;
+}
+
 /** Each window's % for `tokens`; none on an engine id without ratios, nor for a window without one. */
 function windowsOf(tokens: number, ratios: WindowRatios | undefined): EngineWindows | undefined {
   if (ratios === undefined) return undefined;

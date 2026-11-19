@@ -24,6 +24,14 @@ export interface UsageWindows {
   readonly source: ReadingSource | undefined;
 }
 
+/**
+ * Whether a reading shows the engine free: every window below 100%. The one judgement of it, which
+ * the early reset and Work's early resume both read (spec §5.4).
+ */
+export function showsFree(windows: UsageWindows): boolean {
+  return windows.fiveHour.percentUsed < 100 && windows.sevenDay.percentUsed < 100;
+}
+
 export function sameUsageWindows(one: UsageWindows, other: UsageWindows): boolean {
   return sameWindow(one.fiveHour, other.fiveHour) && sameWindow(one.sevenDay, other.sevenDay);
 }
@@ -36,7 +44,8 @@ function sameWindow(one: UsageWindow, other: UsageWindow): boolean {
 
 /**
  * The usage windows the Claude Code engine names (docs/engine-check.md,
- * engine.usage-window-refusal): its `rateLimitType`s, in the port's words.
+ * engine.usage-window-refusal): its `rateLimitType`s, in the port's words. A Codex engine's windows
+ * are read as `five-hour` and `seven-day` by their length.
  */
 export const USAGE_WINDOW_NAMES = [
   "five-hour",

@@ -9,7 +9,7 @@ import {
   type ToolContext,
   type ToolOutput,
 } from "./built-in-tool.js";
-import { fileProblem, isBinary } from "./file-problems.js";
+import { fileProblem, isBinary } from "../skills/file-problems.js";
 import { listedFiles, type ListedFile } from "./file-listing.js";
 import {
   matchCount,

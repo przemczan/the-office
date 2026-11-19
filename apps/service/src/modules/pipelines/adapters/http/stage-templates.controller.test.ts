@@ -89,10 +89,22 @@ describe("POST /api/stage-templates", () => {
       stage: scriptStage({ name: "review & FIX", command: "build", publishTarget: "branch-only" }),
     });
 
-    expect(await refusal(blank)).toEqual([{ stageIndex: null, text: "Give it a name." }]);
+    expect(await refusal(blank)).toEqual([
+      { stageKey: null, at: null, level: "problem", text: "Give it a name." },
+    ]);
     expect(await refusal(taken)).toEqual([
-      { stageIndex: null, text: 'Another Stage template is named "review & FIX".' },
-      { stageIndex: null, text: "Only a Publish Stage has a publish target." },
+      {
+        stageKey: null,
+        at: null,
+        level: "problem",
+        text: 'Another Stage template is named "review & FIX".',
+      },
+      {
+        stageKey: null,
+        at: null,
+        level: "problem",
+        text: "Only a Publish Stage has a publish target.",
+      },
     ]);
   });
 });

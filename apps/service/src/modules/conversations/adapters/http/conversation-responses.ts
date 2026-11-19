@@ -1,9 +1,10 @@
 import {
   officeCommandClash,
   projectPipelineFieldsSchema,
+  proposedRoutesSchema,
   stageSchema,
   type ChatActivity as ChatActivityResponse,
-  type DecisionAnswer as DecisionAnswerResponse,
+  type DecisionFormAnswer as DecisionFormAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
   type NewProject as NewProjectResponse,
@@ -11,6 +12,7 @@ import {
   type ProposedProjectCommands as ProposedProjectCommandsResponse,
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
+  type ProposedRoutes as ProposedRoutesResponse,
   type Thread as ThreadResponse,
   type ThreadSummary as ThreadSummaryResponse,
   type TaskConversation,
@@ -21,12 +23,17 @@ import type { ThreadReading } from "../../application/thread-contexts.js";
 import type { TaskThreadSummary, ThreadSummary } from "../../application/thread-summaries.js";
 import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
-import type { Decision, DecisionAnswer } from "../../domain/decision.js";
+import { type Decision, type DecisionAnswer } from "../../domain/decision.js";
 import { hiredKeyOf } from "../../../people/index.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
-import type { Proposal, ProposedChange, ProposedProjectCommands } from "../../domain/proposal.js";
+import type {
+  PipelineRoutes,
+  Proposal,
+  ProposedChange,
+  ProposedProjectCommands,
+} from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 export function toThreadResponse(
@@ -188,11 +195,12 @@ export function toMessageResponse(
     }
     case "decision-answer": {
       const { decisionId, answer, atUsersRequest, ...line } = fields;
+      const decision = decisionOf(message.id, decisionId, decisions);
       return {
         ...line,
-        answer: toAnswerResponse(answer),
+        formAnswer: toFormAnswerResponse(answer),
         atUsersRequest: atUsersRequest ? { ...atUsersRequest } : null,
-        decision: toDecisionResponse(decisionOf(message.id, decisionId, decisions)),
+        decision: toDecisionResponse(decision),
       };
     }
     case "proposal": {
@@ -286,6 +294,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         // Pipelines gave the Stages; Conversations keeps them unread, so they are read here.
         from: STAGES.parse(change.from),
         to: STAGES.parse(change.to),
+        routes: routesOf(change.routes),
       };
     case "stage-template":
       return {
@@ -302,6 +311,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         // The Stage changes are kept unread, as a Pipeline's Stages are.
         from: change.from && projectPipelineFieldsSchema.parse(change.from),
         to: projectPipelineFieldsSchema.parse(change.to),
+        routes: routesOf(change.routes),
       };
     case "project":
       return {
@@ -361,6 +371,11 @@ function toNewProjectResponse(project: NewProject): NewProjectResponse {
 
 const STAGES = stageSchema.array();
 
+/** Pipelines gave the routes; Conversations keeps them unread, so they are read here. */
+function routesOf(routes: PipelineRoutes | undefined): ProposedRoutesResponse | null {
+  return routes ? proposedRoutesSchema.parse(routes) : null;
+}
+
 function toProposedProjectCommandsResponse({
   installCommand,
   installInputs,
@@ -395,10 +410,12 @@ function decisionOf(
   return decision;
 }
 
+/** The Decision with its form and, once answered, the form's answer. */
 export function toDecisionResponse({
   answer,
   askedAt,
   closedAt,
+  questions,
   ...decision
 }: Decision): DecisionResponse {
   return {
@@ -410,13 +427,27 @@ export function toDecisionResponse({
       ...passing,
       passedOnAt: passedOnAt.toISOString(),
     })),
-    options: [...decision.options],
-    recommendation: { ...decision.recommendation },
+    questions: questions.map((question) =>
+      question.kind === "choice"
+        ? {
+            ...question,
+            options: [...question.options],
+            recommendation: { ...question.recommendation },
+          }
+        : { ...question },
+    ),
     attachmentIds: [...decision.attachmentIds],
     askedAt: askedAt.toISOString(),
-    answer: answer ? toAnswerResponse(answer) : null,
+    formAnswer: answer ? toFormAnswerResponse(answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
     closedAt: closedAt?.toISOString() ?? null,
+    // No column keeps why: only a Decision on no Task in an Initiative's Thread closes as its
+    // Initiative ends, every other closes as its Task is dropped.
+    closedBecause: closedAt
+      ? decision.taskId === undefined
+        ? "initiative-ended"
+        : "task-dropped"
+      : null,
     answeredByUser: answer?.user ?? null,
     answeredBy: answer?.answeredBy ?? null,
     atUsersRequest: answer?.atUsersRequest ? { ...answer.atUsersRequest } : null,
@@ -424,8 +455,21 @@ export function toDecisionResponse({
   };
 }
 
-function toAnswerResponse(answer: DecisionAnswer): DecisionAnswerResponse {
-  return answer.kind === "option"
-    ? { kind: "option", option: answer.option }
-    : { kind: "free-answer", text: answer.text };
+function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerResponse {
+  if (answer.kind === "asked-again") {
+    return {
+      kind: "asked-again",
+      ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
+    };
+  }
+  return {
+    kind: "submitted",
+    answers: answer.answers.map((given) => {
+      const comment = given.comment === undefined ? {} : { comment: given.comment };
+      return given.kind === "option"
+        ? { kind: "option", option: given.option, ...comment }
+        : { kind: "words", text: given.text, ...comment };
+    }),
+    ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
+  };
 }

@@ -2,12 +2,11 @@ import { AISLE_ROW, DOOR_OUTSIDE, consultSpot, deskSpot } from "./floor-plan.ts"
 import type { Amenities, FloorPoint, Layout, Spot } from "./live-view-types.ts";
 import type { RouteFloor } from "./routes.ts";
 
-/** Every spot a figure can be sent to: desks, Consultants' desks, meeting seats, pastimes' spots, the door. */
+/** Every spot a figure can be sent to: desks, Consultants' desks, pastimes' spots, the door. */
 export function spotsOf(layout: Layout, amenities: Amenities): Spot[] {
   return [
     ...layout.desks.map(deskSpot),
     ...layout.desks.filter((desk) => desk.group === "consultants").map(consultSpot),
-    ...amenities.meetingSeats,
     ...amenities.pastimeSpots,
     DOOR_OUTSIDE,
   ];

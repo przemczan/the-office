@@ -4,12 +4,14 @@ import {
   chooseInitiativePipeline,
   confirmInitiative,
   dropInitiative,
+  setInitiativePipelines,
   writeShortName,
 } from "./initiative-changes.js";
 import { initiativeEditProblems } from "./initiative-edit.js";
 import {
   InitiativeBranchMade,
   InitiativePipelineChosen,
+  InitiativePipelinesSet,
   InitiativeShortNameWritten,
 } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
@@ -257,6 +259,119 @@ describe("writeShortName", () => {
     ]);
     expect(() =>
       writeShortName(anInitiative({ ...ON_FULL, state: "active" }), "mine", NONE_TAKEN),
+    ).toThrow(InitiativeNotShaping);
+  });
+});
+
+describe("setInitiativePipelines", () => {
+  it("sets every Project's Pipeline and the user's Short name at once while shaping", () => {
+    const change = setInitiativePipelines(
+      anInitiative(ON_FULL),
+      [
+        { projectId: "app", pipelineId: undefined },
+        { projectId: "api", pipelineId: "quick" },
+      ],
+      " sync-2026 ",
+      NONE_TAKEN,
+    );
+
+    expect(change?.initiative).toMatchObject({
+      pipelines: [{ projectId: "api", pipelineId: "quick" }],
+      shortName: "sync-2026",
+    });
+    expect(change?.event).toBeInstanceOf(InitiativePipelinesSet);
+    expect(change?.event).toMatchObject({
+      pipelines: [{ projectId: "api", pipelineId: "quick" }],
+      shortName: "sync-2026",
+    });
+  });
+
+  it("keeps the Pipelines of the Projects it doesn't name", () => {
+    const change = setInitiativePipelines(
+      anInitiative(ON_TWO),
+      [{ projectId: "api", pipelineId: "full" }],
+      "sync-it",
+      NONE_TAKEN,
+    );
+
+    expect(change?.initiative.pipelines).toEqual([
+      { projectId: "app", pipelineId: "full" },
+      { projectId: "api", pipelineId: "full" },
+    ]);
+  });
+
+  it("without a Short name keeps the one it has, or derives one past those taken", () => {
+    const kept = setInitiativePipelines(
+      anInitiative(ON_FULL),
+      [{ projectId: "app", pipelineId: "quick" }],
+      undefined,
+      NONE_TAKEN,
+    );
+    const derived = setInitiativePipelines(
+      anInitiative(SYNC),
+      [{ projectId: "app", pipelineId: "full" }],
+      undefined,
+      new Set(["sync-it"]),
+    );
+
+    expect(kept?.initiative.shortName).toBe("sync-it");
+    expect(derived?.initiative.shortName).toBe("sync-it-2");
+  });
+
+  it("with None in every Project leaves no Short name", () => {
+    const change = setInitiativePipelines(
+      anInitiative(ON_FULL),
+      [{ projectId: "app", pipelineId: undefined }],
+      "sync-it",
+      NONE_TAKEN,
+    );
+
+    expect(change?.initiative).toMatchObject({ pipelines: [], shortName: undefined });
+    expect(change?.event).toMatchObject({ pipelines: [], shortName: undefined });
+  });
+
+  it("changes nothing when the block says so already", () => {
+    expect(
+      setInitiativePipelines(
+        anInitiative(ON_FULL),
+        [{ projectId: "app", pipelineId: "full" }],
+        "sync-it",
+        NONE_TAKEN,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("refuses a Short name that is taken or not of the form, with nothing set", () => {
+    expect(
+      refusalOf(() =>
+        setInitiativePipelines(
+          anInitiative(ON_FULL),
+          [{ projectId: "api", pipelineId: "quick" }],
+          "mine",
+          new Set(["mine"]),
+        ),
+      ),
+    ).toEqual(["Another Initiative has the Short name mine; choose another."]);
+    expect(
+      refusalOf(() =>
+        setInitiativePipelines(
+          anInitiative(ON_FULL),
+          [{ projectId: "app", pipelineId: "full" }],
+          "Mine!",
+          NONE_TAKEN,
+        ),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("refuses once the Initiative is confirmed", () => {
+    expect(() =>
+      setInitiativePipelines(
+        anInitiative({ ...ON_FULL, state: "active" }),
+        [{ projectId: "app", pipelineId: "quick" }],
+        "sync-it",
+        NONE_TAKEN,
+      ),
     ).toThrow(InitiativeNotShaping);
   });
 });

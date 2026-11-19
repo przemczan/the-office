@@ -1,5 +1,5 @@
 import { estimatedTokens, type Brief } from "./brief.js";
-import { answerWords, type Decision } from "./decision.js";
+import { formAnswerWords, type Decision, type DecisionQuestion } from "./decision.js";
 import { userWords } from "./user.js";
 
 /**
@@ -39,28 +39,22 @@ export function withMentionedRecords(said: string, records: readonly MentionedRe
 }
 
 /**
- * A Decision's record as an Agent reads it when the user mentions it: the question with its context,
- * options and the recommendation, where it stands, then the record of the Task it was asked on.
+ * A Decision's record as an Agent reads it when the user mentions it: its context and every
+ * question, numbered from 1, a choice's with its options and the recommendation, an open
+ * question's with why; where it stands, then the record of the Task it was asked on.
  */
 export function decisionRecordText(decision: Decision, taskRecord: string | undefined): string {
-  const { question, context, options, recommendation, taskId } = decision;
-  const where = taskId === undefined ? ", a call made from a chat," : ` on the Task ${taskId},`;
+  const { context, taskId } = decision;
+  const where = taskId === undefined ? ", on no Task," : ` on the Task ${taskId},`;
   const asked =
     decision.kind === "request"
-      ? [
-          `Asked to: ${question}`,
-          ...(context.trim() === "" ? [] : ["", context]),
-          "",
-          `Why: ${recommendation.reason}`,
-        ]
+      ? requestLines(decision)
       : [
-          `Question: ${question}`,
-          ...(context.trim() === "" ? [] : ["", context]),
-          "",
-          "Options:",
-          ...options.map((option, index) => `${index + 1}. ${option}`),
-          "",
-          `Recommended: ${options[recommendation.option] ?? ""}, because ${recommendation.reason}`,
+          ...(context.trim() === "" ? [] : [context, ""]),
+          ...decision.questions.flatMap((question, index) => [
+            ...(index === 0 ? [] : [""]),
+            ...questionLines(question, index),
+          ]),
         ];
   return [
     `Decision ${decision.id}${where} asked ${decision.askedAt.toISOString()} by ${decision.roleKey === undefined ? "The Office" : `the person in the Role ${decision.roleKey}`}`,
@@ -76,6 +70,34 @@ export function decisionRecordText(decision: Decision, taskRecord: string | unde
   ].join("\n");
 }
 
+function requestLines({ questions, context }: Decision): string[] {
+  const [asked] = questions;
+  return [
+    `Asked to: ${asked?.question ?? ""}`,
+    ...(context.trim() === "" ? [] : ["", context]),
+    "",
+    `Why: ${asked?.kind === "open" ? (asked.why ?? "") : ""}`,
+  ];
+}
+
+function questionLines(question: DecisionQuestion, index: number): string[] {
+  const heading = `Question ${index + 1}: ${question.question}`;
+  if (question.kind === "open") {
+    return [
+      heading,
+      "An open question, answered in their own words.",
+      ...(question.why?.trim() ? [`Why: ${question.why}`] : []),
+    ];
+  }
+  const { options, recommendation } = question;
+  return [
+    heading,
+    "Options:",
+    ...options.map((option, place) => `${place + 1}. ${option}`),
+    `Recommended: ${options[recommendation.option] ?? ""}, because ${recommendation.reason}`,
+  ];
+}
+
 function standing(decision: Decision): string {
   const { answer, putTo } = decision;
   if (answer) {
@@ -84,7 +106,13 @@ function standing(decision: Decision): string {
       : answer.answeredBy === undefined
         ? userWords(answer.user ?? null)
         : `the person in the Role ${answer.answeredBy}`;
-    return `Answered by ${by} on ${answer.answeredAt.toISOString()}: ${answerWords(decision, answer)}`;
+    const when = answer.answeredAt.toISOString();
+    if (answer.kind === "asked-again") {
+      const comment = answer.generalComment?.trim();
+      return `Asked again by ${by} on ${when}, answering none of its questions: ${comment ? `General comment: ${comment}` : "they gave no comment."}`;
+    }
+    const words = formAnswerWords(decision, answer);
+    return `Answered by ${by} on ${when}:${words.includes("\n") ? "\n" : " "}${words}`;
   }
   if (decision.closedAt) {
     return `Closed unanswered on ${decision.closedAt.toISOString()}: its Task was dropped.`;

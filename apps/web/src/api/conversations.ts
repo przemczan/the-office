@@ -26,7 +26,7 @@ import {
   threadSchema,
   threadWebEventSchema,
   type ContextOverride,
-  type DecisionAnswer,
+  type DecisionFormAnswer,
   type FireAlarmLifts,
   type Home,
   type MessageImage,
@@ -338,7 +338,7 @@ export function switchChangesOff(id: string): Promise<Thread> {
 }
 
 /** The person who asked takes the answer in their Thread, which this answers with. */
-export function answerDecision(id: string, answer: DecisionAnswer): Promise<Thread> {
+export function answerDecision(id: string, answer: DecisionFormAnswer): Promise<Thread> {
   return sendToApi("POST", `/decisions/${encodeURIComponent(id)}/answer`, answer, threadSchema);
 }
 

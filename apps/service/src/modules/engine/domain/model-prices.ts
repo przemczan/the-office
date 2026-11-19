@@ -10,8 +10,9 @@ export interface ModelPrice {
 
 /**
  * A model with its Model price (spec §5.4): a Claude model has one price on every Claude Code
- * engine, its `engineId` null; an API engine's model has its own, by the engine's id and the
- * model's id there. A removed engine's prices are kept, so its history stays priced.
+ * engine and a Codex model one on every Codex engine, its `engineId` null; an API engine's model
+ * has its own, by the engine's id and the model's id there. A removed engine's prices are kept, so
+ * its history stays priced.
  */
 export interface PricedModel {
   readonly engineId: EngineId | null;
@@ -55,10 +56,10 @@ export function pricedModels(
 
 /**
  * The stored prices kept beside what an edit prices, so a removed engine's history stays priced
- * (spec §5.4): those whose engine is no longer listed (no Claude Code engine, for a Claude model's),
- * and those already kept, until the edit prices that model again, as when an engine added back
- * under its name takes its id back. `offeredBefore` gives the stored engines' models,
- * `offeredNow` the edited ones'.
+ * (spec §5.4): those whose engine is no longer listed (no Claude Code engine, for a Claude model's;
+ * no Codex engine, for a Codex model's), and those already kept, until the edit prices that model
+ * again, as when an engine added back under its name takes its id back. `offeredBefore` gives the
+ * stored engines' models, `offeredNow` the edited ones'.
  */
 export function keptModelPrices(
   stored: readonly PricedModel[],
@@ -71,6 +72,9 @@ export function keptModelPrices(
     (each) =>
       !editedKeys.has(priceKeyOf(each)) &&
       (offeredNow(each.engineId).length === 0 ||
+        // A shared price stays while its model isn't offered now, as with the last Codex engine
+        // removed beside a Claude Code engine.
+        (each.engineId === null && !offeredNow(null).includes(each.model)) ||
         !offeredBefore(each.engineId).includes(each.model)),
   );
 }
@@ -86,9 +90,10 @@ function isPrice({ input, output, cacheWrites, cacheReads }: ModelPrice): boolea
 }
 
 /**
- * The Model price of `model` on `engineId`: the API engine's own, or else the Claude model's when
- * the engine is no API engine. `engines` are those listed now; a removed one is priced by what is
- * kept of it, an API engine when prices of its own are kept.
+ * The Model price of `model` on `engineId`: the API engine's own, or else the shared one of the
+ * Claude or Codex model (`engineId` null) when the engine is no API engine. `engines` are those
+ * listed now; a removed one is priced by what is kept of it, an API engine when prices of its own
+ * are kept.
  */
 export function priceOf(
   prices: readonly PricedModel[],
@@ -98,6 +103,7 @@ export function priceOf(
   const own = prices.find((each) => each.engineId === engineId && each.model === model);
   if (own) return own.price;
   const engine = engines.find(({ id }) => id === engineId);
+  // The Claude and Codex models share a price across engines; an API engine's are its own.
   if (engine?.kind === "openai-compatible-api") return undefined;
   if (engine === undefined && prices.some((each) => each.engineId === engineId)) return undefined;
   return prices.find((each) => each.engineId === null && each.model === model)?.price;

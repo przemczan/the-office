@@ -10,6 +10,7 @@ import {
   type EngineReferences,
 } from "../../application/engine-reference-moves.js";
 import { EngineRemoved } from "../../domain/engine-events.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
 import type { EngineRemoval } from "../../domain/engine-removal.js";
 import { DEFAULT_ENGINE_SETTINGS, FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
@@ -58,6 +59,13 @@ function put(body: unknown): Promise<Response> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+/** The reasons a PUT of Strata's settings with `fields` changed is refused with. */
+async function reasonsOf(fields: Partial<EngineSettingsEdit>): Promise<string[]> {
+  const refused = await put({ ...strataEdit, ...fields });
+  expect(refused.status).toBe(422);
+  return engineSettingsRefusalSchema.parse(await refused.json()).reasons;
 }
 
 /** References that move by `move` and tell of no move beforehand. */
@@ -122,8 +130,52 @@ describe("/api/settings/engines", () => {
         ...UNPRICED_CLAUDE_MODELS,
         { engineId: "strata", model: "qwen3.8-flash", price: null },
       ],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
     expect((await repository.read()).engines[1]).toMatchObject({ id: "strata", key: KEY });
+  });
+
+  it("keeps a Codex engine, never sends its API key back, and keeps the key on a Save", async () => {
+    const codexKey = "sk-codex-never-sent-back";
+    const codex = { name: "OpenAI account", kind: "codex", defaultModel: "gpt-5.6-terra" };
+    const withCodex = { ...strataEdit, engines: [...strataEdit.engines, codex] };
+
+    const added = await put(withCodex);
+    await repository.setCodexApiKey("openai-account", CodexApiKey.of(codexKey));
+    const readText = await read();
+    const renamed = await put({
+      ...withCodex,
+      engines: [
+        ...strataEdit.engines.map((engine, index) =>
+          index === 1 ? { ...engine, id: "strata", key: undefined } : engine,
+        ),
+        { ...codex, id: "openai-account", name: "Work OpenAI", apiKey: "sk-from-the-body" },
+      ],
+    });
+    const renamedText = await renamed.text();
+
+    expect(added.status).toBe(200);
+    expect(renamed.status).toBe(200);
+    expect(readText).not.toContain(codexKey);
+    expect(renamedText).not.toContain(codexKey);
+    expect(readText).not.toContain("apiKey");
+    const sent = engineSettingsSchema.parse(JSON.parse(renamedText));
+    expect(sent.engines[2]).toEqual({
+      id: "openai-account",
+      name: "Work OpenAI",
+      kind: "codex",
+      defaultModel: "gpt-5.6-terra",
+    });
+    expect(sent.modelPrices.map(({ engineId, model }) => [engineId, model])).toEqual([
+      ...UNPRICED_CLAUDE_MODELS.map(({ model }) => [null, model]),
+      [null, "gpt-6-luna"],
+      [null, "gpt-5.6-terra"],
+      [null, "gpt-5.6-luna"],
+      ["strata", "qwen3.8-flash"],
+    ]);
+    const kept = (await repository.read()).engines[2];
+    expect(kept?.kind === "codex" && kept.apiKey?.reveal()).toBe(codexKey);
   });
 
   it("sends Sees images off for a model kept before it was asked", async () => {
@@ -143,6 +195,53 @@ describe("/api/settings/engines", () => {
     expect(sent.engines[1]).toMatchObject({
       models: [{ id: "qwen3.8-flash", contextWindow: 100_000, seesImages: false }],
     });
+  });
+
+  it("sends no Stand-in Engine and asks above 100,000 tokens until the user sets them", async () => {
+    const sent = engineSettingsSchema.parse(JSON.parse(await read()));
+
+    expect(sent).toMatchObject({ standInEngines: [], askBeforeSwitchAbove: 100_000 });
+  });
+
+  it("keeps the Stand-in Engines in order and the ask-above size, and keeps both on a PUT without them", async () => {
+    const saved = await put({
+      ...strataEdit,
+      standInEngines: ["strata", "claude-code"],
+      askBeforeSwitchAbove: 40_000,
+    });
+    const savedSettings = engineSettingsSchema.parse(await saved.json());
+    const kept = await put({
+      ...strataEdit,
+      engines: strataEdit.engines.map((engine, index) =>
+        index === 1 ? { ...engine, id: "strata" } : engine,
+      ),
+    });
+
+    expect(saved.status).toBe(200);
+    expect(savedSettings).toMatchObject({
+      standInEngines: ["strata", "claude-code"],
+      askBeforeSwitchAbove: 40_000,
+    });
+    expect(kept.status).toBe(200);
+    expect(engineSettingsSchema.parse(JSON.parse(await read()))).toMatchObject({
+      standInEngines: ["strata", "claude-code"],
+      askBeforeSwitchAbove: 40_000,
+    });
+  });
+
+  it("refuses an unknown or twice-listed Stand-in Engine and a size that isn't a whole number of 0 or more, in words", async () => {
+    expect(await reasonsOf({ standInEngines: ["gone"] })).toEqual([
+      "Pick each Stand-in Engine among the engines listed.",
+    ]);
+    expect(await reasonsOf({ standInEngines: ["claude-code", "claude-code"] })).toEqual([
+      '"Claude Code" is listed twice as a Stand-in Engine.',
+    ]);
+    for (const askBeforeSwitchAbove of [-1, 2.5, 3_000_000_000]) {
+      expect(await reasonsOf({ askBeforeSwitchAbove })).toEqual([
+        "Give the context size to ask above as a whole number of tokens from 0 to 10,000,000 (0 always asks).",
+      ]);
+    }
+    expect(await repository.read()).toEqual(DEFAULT_ENGINE_SETTINGS);
   });
 
   it("refuses settings that break a rule with every reason, keeping none", async () => {

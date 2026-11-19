@@ -111,10 +111,15 @@ describe("PostgresThreadRepository", () => {
       openDecision(current, {
         id: randomUUID(),
         askedAt: AT,
-        question: "Allow this call? Change the Developer.",
         context: "Why.",
-        options: ["Allow once", "Deny"],
-        recommendation: { option: 0, reason: "Needed." },
+        questions: [
+          {
+            kind: "choice",
+            question: "Allow this call? Change the Developer.",
+            options: ["Allow once", "Deny"],
+            recommendation: { option: 0, reason: "Needed." },
+          },
+        ],
       }),
     );
     const decisionId = waiting.openDecisions[0]?.id ?? "";

@@ -16,9 +16,12 @@ import {
   threadListSchema,
   threadSchema,
   type Decision,
+  type DecisionFormAnswer,
+  type DecisionQuestion,
   type Message,
   type Project,
   type PublishingMode,
+  type QuestionAnswer,
   type Task,
   type TaskStage,
   type Thread,
@@ -64,14 +67,14 @@ export function messageLine(message: Message): string {
       return `failure: ${message.reason}`;
     case "usage-window-used-up":
       return `usage window used up: ${message.engineName}'s ${message.window} until ${message.resetsAt}`;
+    case "engine-switched":
+      return `engine switched: ${message.fromName}'s ${message.window} until ${message.resetsAt}, on ${message.toName}`;
     case "held":
       return `held (${message.heldBy}): ${message.text}`;
-    case "decision": {
-      const { question, options, recommendation } = message.decision;
-      return `decision: ${question} [${options.join(" | ")}], recommends ${recommendation.option + 1}: ${recommendation.reason}`;
-    }
+    case "decision":
+      return `decision: ${message.decision.questions.map(questionLine).join(" / ")}`;
     case "decision-answer":
-      return `decision-answer: ${JSON.stringify(message.answer)}`;
+      return `decision-answer: ${JSON.stringify(message.formAnswer)}`;
     case "proposal":
       return `proposal ${message.proposal.change.kind} (${message.proposal.status.kind}): ${JSON.stringify(message.proposal.change)}`;
     case "link-card":
@@ -89,6 +92,44 @@ export function messageLine(message: Message): string {
     case "consultation-line":
       return `consultation-line: ${message.text}`;
   }
+}
+
+function questionLine(question: DecisionQuestion): string {
+  if (question.kind === "open") return `${question.question} (open)`;
+  const { option, reason } = question.recommendation;
+  return `${question.question} [${question.options.join(" | ")}], recommends ${option + 1}: ${reason}`;
+}
+
+/** A Decision's first question as the checks read it; an open question's options are none. */
+export function firstQuestion(decision: Decision): {
+  readonly question: string;
+  readonly options: readonly string[];
+  readonly recommended: number;
+} {
+  const [first] = decision.questions;
+  if (!first) throw new Error(`Decision ${decision.id} asks no question.`);
+  return first.kind === "choice"
+    ? { question: first.question, options: first.options, recommended: first.recommendation.option }
+    : { question: first.question, options: [], recommended: -1 };
+}
+
+/** What a check answers an open question with, leaving the call to the person who asked. */
+const OPEN_QUESTION_ANSWER = "Your call: go with what you think best.";
+
+/**
+ * Submits the Decision's form: its first question answered with `option`, its recommended one when
+ * left out, every other choice with its recommended option, and each open question in words.
+ */
+export async function submitDecision(api: Api, decision: Decision, option?: number): Promise<void> {
+  const answers = decision.questions.map((question, index): QuestionAnswer => {
+    if (question.kind === "open") return { kind: "words", text: OPEN_QUESTION_ANSWER };
+    return {
+      kind: "option",
+      option: index === 0 && option !== undefined ? option : question.recommendation.option,
+    };
+  });
+  const body: DecisionFormAnswer = { kind: "submitted", answers };
+  await api("POST", `/decisions/${decision.id}/answer`, body);
 }
 
 const run = promisify(execFile);
@@ -225,12 +266,7 @@ export async function planOnQuickFix(
   const planningThread = threadListSchema.parse(await api("GET", `/tasks/${taskId}/threads`))[0];
   if (!planningThread) throw new Error("Planning opened no Thread.");
   await startPlanner(api, planningThread.id, openingMs);
-  for (const asked of await openDecisionsOn(api, taskId)) {
-    await api("POST", `/decisions/${asked.id}/answer`, {
-      kind: "option",
-      option: asked.recommendation.option,
-    });
-  }
+  for (const asked of await openDecisionsOn(api, taskId)) await submitDecision(api, asked);
   await untilThreadWaits(api, planningThread.id, openingMs);
   await api("PUT", `/tasks/${taskId}/plan`, { plan: task.plan });
   await api("PUT", `/tasks/${taskId}/definition-of-done`, {
@@ -326,10 +362,11 @@ export async function untilDone(
 ): Promise<Task> {
   let task = await untilWalkStops(api, taskId, timeoutMs);
   for (const asked of await openDecisionsOn(api, taskId)) {
-    await note(`Asked: ${asked.question} [${asked.options.join(" | ")}]`);
-    const markDone = callingItMet(asked.options);
-    if (!asked.question.includes("Definition of Done") || markDone < 0) break;
-    await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
+    const { question, options } = firstQuestion(asked);
+    await note(`Asked: ${question} [${options.join(" | ")}]`);
+    const markDone = callingItMet(options);
+    if (!question.includes("Definition of Done") || markDone < 0) break;
+    await submitDecision(api, asked, markDone);
     task = await untilWalkStops(api, taskId, timeoutMs);
   }
   return task;

@@ -260,15 +260,28 @@ describe("StageInterpreter's Decisions", () => {
       const answered = new DecisionAnswered(
         aStageThread(taskId),
         {
-          ...asked,
-          kind: "question",
+          id: asked.id,
+          kind: "form",
+          context: asked.context,
+          questions: [
+            {
+              kind: "choice",
+              question: asked.question,
+              options: asked.options,
+              recommendation: asked.recommendation,
+            },
+          ],
           threadId: (await runsOf(pipelines, taskId))[0]?.threadId ?? "",
           taskId,
           roleKey: "developer",
           attachmentIds: [],
           askedAt: new Date(),
           passedOn: [],
-          answer: { kind: "option", option: 0, answeredAt: new Date() },
+          answer: {
+            kind: "submitted",
+            answers: [{ kind: "option", option: 0 }],
+            answeredAt: new Date(),
+          },
         },
         new Date(),
       );
@@ -358,7 +371,7 @@ describe("StageInterpreter's Decisions", () => {
   describe("an optional Stage", () => {
     const review = anAgentStage("review", { optional: true });
 
-    it("is skipped when every statement of the Definition of Done is already reported met", async () => {
+    it("is passed by, with no run, when every statement of the Definition of Done is already reported met", async () => {
       await startWith(agentDone);
 
       const taskId = await walkStages(pipelines, [draft, review]);
@@ -366,9 +379,7 @@ describe("StageInterpreter's Decisions", () => {
       const runs = await runsOf(pipelines, taskId);
       expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
         ["draft", "done"],
-        ["review", "done"],
       ]);
-      expect(runs[1]?.outcome).toMatchObject({ summary: expect.stringContaining("Skipped") });
       expect(pipelines.stageThreads.requests).toHaveLength(1);
       expect(statesOf(taskId)).toEqual(["done"]);
     });

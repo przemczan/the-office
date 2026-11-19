@@ -122,3 +122,23 @@ it("shows a Notification cleared and raised again while loading once, not twice"
 
   expect(inApp.show).toHaveBeenCalledOnce();
 });
+
+it("shows the time a Notification names worded in the browser's time zone", async () => {
+  const task = loadTheTaskSlowly();
+  const at = new Date();
+  const clock = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+
+  setOpen([
+    {
+      ...NOTIFICATION,
+      kind: "outcomes.task-paused",
+      line: "Paused: Claude Code's 5-hour window is used up. Resumes at {time}.",
+      at: at.toISOString(),
+    },
+  ]);
+  await task.finish();
+
+  expect(inApp.show.mock.calls[0]?.[0]).toMatchObject({
+    line: `Paused: Claude Code's 5-hour window is used up. Resumes at ${clock}.`,
+  });
+});

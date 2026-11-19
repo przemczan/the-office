@@ -1,0 +1,1 @@
+ALTER TABLE "stage_runs" ADD COLUMN "engine_switches" jsonb DEFAULT '[]'::jsonb NOT NULL;

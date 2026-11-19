@@ -7,6 +7,7 @@ import { MessageImagesInMemory } from "./message-images.fixtures.js";
 import { z } from "zod";
 import { OPEN_DECISION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
 import {
+  EngineModels,
   FIRST_CLAUDE_CODE_ENGINE,
   OfficeToolRegistry,
   ScriptedEngine,
@@ -14,6 +15,7 @@ import {
   type SessionScript,
   ScriptedEngineModule,
 } from "../../engine/index.js";
+import { oneOptionAnswer } from "../domain/decision.js";
 import { openDecision, answerDecision, startTaskThread } from "../domain/thread-changes.js";
 import { DecisionService } from "./decision-service.js";
 import { StageDecisions } from "./stage-decisions.js";
@@ -52,7 +54,8 @@ import { dutiesProvider } from "./duties.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { CallChains } from "./call-chains.js";
-import { StageThreads, type StageThreadRequest } from "./stage-threads.js";
+import { StageThreads, type StageThread, type StageThreadRequest } from "./stage-threads.js";
+import { SwitchFailed } from "../domain/switch-failed.js";
 import { TaskTokens } from "./task-tokens.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
@@ -130,10 +133,14 @@ function personIn(roleKey: string): Promise<SessionRole> {
   return Promise.resolve(role);
 }
 
-/** Starts the app on `scripted`, its new sessions given `mcpServersOnStart`. */
+/**
+ * Starts the app on `scripted`, its new sessions given `mcpServersOnStart`; with `fallback`, that
+ * one plays the Claude Code engines on its fallback adapter (`claudeCodeP`), as a Stand-in Engine.
+ */
 async function startOn(
   scripted: ScriptedEngine,
   mcpServersOnStart: PreparedMcpServers = NO_MCP_SERVERS,
+  fallback?: ScriptedEngine,
 ): Promise<void> {
   engine = scripted;
   forgotten = [];
@@ -172,7 +179,16 @@ async function startOn(
       BusyWorkModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
-      ScriptedEngineModule.register(engine),
+      ScriptedEngineModule.register(
+        fallback
+          ? {
+              "agent-sdk": engine,
+              "claude-code-p": fallback,
+              "openai-compatible-api": engine,
+              codex: engine,
+            }
+          : engine,
+      ),
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -243,6 +259,10 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     projectId: "admin-panel",
     roleKey: "unset",
     stageName: "Implement",
+    initiativeId: undefined,
+    stageRun: 1,
+    pipelineName: "Feature",
+    projectName: "Admin panel",
     effort: undefined,
     declared: "fresh",
     previousThreadId: undefined,
@@ -253,6 +273,7 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: false,
     projectSkillsOff: [],
+    engineStandIns: [],
     session: {
       instructions: "You work a Stage.",
       profile: PROFILE,
@@ -327,10 +348,15 @@ async function anAnsweredDecision(taskId: string, roleKey: string): Promise<void
     openDecision(latest, {
       id: decisionId,
       askedAt: new Date(),
-      question: "Which page shows the rename?",
       context: "Both pages list devices.",
-      options: ["The device page", "The list"],
-      recommendation: { option: 0, reason: "It has the room." },
+      questions: [
+        {
+          kind: "choice",
+          question: "Which page shows the rename?",
+          options: ["The device page", "The list"],
+          recommendation: { option: 0, reason: "It has the room." },
+        },
+      ],
     }),
   );
   await repository.update(thread.id, (latest) =>
@@ -348,7 +374,7 @@ async function anAnsweredDecision(taskId: string, roleKey: string): Promise<void
       newSession: undefined,
       brief: "",
       decisionId,
-      answer: { kind: "option", option: 0 },
+      answer: oneOptionAnswer(0),
       messageId: randomUUID(),
       answeredAt: new Date(),
     }),
@@ -448,13 +474,14 @@ function anAskingStage(roleKey: string): StageThreadRequest {
   };
 }
 
-const WHICH_PAGE = {
+const WHICH_PAGE_QUESTION = {
   question: "Which page shows the rename?",
-  context: "Both pages list devices.",
   options: ["The device page", "The list"],
   recommended: 1,
   why: "It has the room.",
 };
+
+const WHICH_PAGE = { context: "Both pages list devices.", questions: [WHICH_PAGE_QUESTION] };
 
 /** The hooks every test of both files runs. */
 function onTheirOwnApp(): void {
@@ -511,7 +538,7 @@ describe("StageThreads", () => {
     const opening = session?.received[0];
     const brief = opening?.step === "start" ? opening.brief.text : "";
     expect(brief).toContain("## The Task\n\nRename a device.");
-    expect(brief).toContain("Which page shows the rename?\n  Answer: The device page");
+    expect(brief).toContain("- Which page shows the rename?\n  Answer: The device page");
     expect(brief.endsWith("## What to do now\n\n## The Stage: Implement\n\nBuild it.")).toBe(true);
     expect(session?.options).toMatchObject({
       folder: request.folder,
@@ -804,16 +831,16 @@ describe("StageDecisions", () => {
     });
     const thread = await app
       .get(DecisionService)
-      .answer(id, { kind: "option", option: 1 }, ANSWERED_BY_ANN_LEE);
+      .answer(id, oneOptionAnswer(1), ANSWERED_BY_ANN_LEE);
 
     expect(thread.openDecisions[0]).toBeUndefined();
     const log = drafts(await repository.messages(stageThread.threadId));
     expect(log.slice(-2)).toEqual([
       { kind: "decision", roleKey: undefined, decisionId: id },
-      { kind: "decision-answer", decisionId: id, answer: { kind: "option", option: 1 } },
+      { kind: "decision-answer", decisionId: id, answer: oneOptionAnswer(1) },
     ]);
     expect(answered.map(({ decision }) => [decision.id, decision.answer?.kind])).toEqual([
-      [id, "option"],
+      [id, "submitted"],
     ]);
     // The session ended with the Stage; nothing started another.
     expect(engine.sessions).toHaveLength(1);
@@ -845,10 +872,13 @@ describe("Office tools on a Stage", () => {
     await stageThread.end({ handoverNote: "Waiting.", closing: undefined });
     const answered = answeredEvents();
 
-    await app.get(DecisionService).answer(id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+    await app.get(DecisionService).answer(id, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
 
     expect(answered.map((event) => event.decision.id)).toEqual([id]);
-    expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });
+    expect(await repository.decision(id)).toMatchObject({
+      roleKey: ada,
+      answer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
+    });
   });
 
   it("offer write_run_environment_definition only to a Role with the Run environment capability", async () => {
@@ -1082,5 +1112,275 @@ describe("a turn refused for a used-up usage window", () => {
       resetsAt: "2026-11-13T14:00:00.000Z",
     });
     await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+});
+
+describe("a Stage going on on a Stand-in Engine", () => {
+  const WORK = FIRST_CLAUDE_CODE_ENGINE;
+  const HOME = {
+    ...FIRST_CLAUDE_CODE_ENGINE,
+    id: "home",
+    name: "Claude Code 2",
+    claudeCodeP: true,
+  };
+  const MODEL = "claude-haiku-5-5";
+  const RESETS_AT = new Date("2026-11-13T14:00:00.000Z");
+  const WHY = { window: "five-hour", resetsAt: RESETS_AT } as const;
+
+  /** The work engine's turn refused for its used-up 5-hour window, having taken `consumed`. */
+  const aRefusedTurn = (consumed: string[] = ["brief"]): Step[] => [
+    {
+      step: "event",
+      event: {
+        kind: "turn-ended",
+        outcome: "usage-window-used-up",
+        consumedMessageIds: consumed,
+        usage: USAGE,
+        sessionCostUsd: 0,
+        output: undefined,
+        errors: ["You've hit your limit · resets 2pm (UTC)"],
+        usedUpWindow: { window: "five-hour", resetsAt: RESETS_AT, resetGiven: true },
+      },
+    },
+    { step: "read-context-usage", usage: { tokens: 30_000, window: 1_000_000 } },
+  ];
+
+  let home: ScriptedEngine;
+
+  /** Starts the app with the work engine's `scripts`, and `homeScripts` on the stand-in. */
+  async function startOnBoth(scripts: SessionScript[], homeScripts: SessionScript[]) {
+    home = new ScriptedEngine(homeScripts);
+    await startOn(new ScriptedEngine(scripts), NO_MCP_SERVERS, home);
+    vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([WORK, HOME]);
+  }
+
+  /** Ada's Stage on the work engine, its first turn refused. */
+  async function aRefusedStage(): Promise<{ stageThread: StageThread; ada: string }> {
+    const ada = aPerson("Ada");
+    const request = aStage({ roleKey: ada });
+    cascade.set(ada, { engineId: WORK.id, model: MODEL }, request.projectId);
+    const stageThread = await stageThreads.open(request);
+    const turn = await stageThread.nextTurn();
+    expect(turn.usedUpWindow).toEqual(WHY);
+    return { stageThread, ada };
+  }
+
+  it("carries the session over, logs why and goes on there with the same model", async () => {
+    await startOnBoth(
+      [started(...aRefusedTurn())],
+      [
+        [
+          { step: "resume" },
+          { step: "send", message: { id: "go-on", text: "" }, priority: "later" },
+          ...aTurn({ status: "done" }, "Going on."),
+          { step: "end" },
+        ],
+      ],
+    );
+    const { stageThread } = await aRefusedStage();
+    expect(stageThread.contextTokens()).toBe(30_000);
+    const sessionId = engine.sessions[0]?.id;
+
+    await stageThread.switchTo({ engineId: HOME.id, model: MODEL }, WHY);
+
+    expect(stageThread).toMatchObject({
+      engine: HOME.id,
+      model: MODEL,
+      standInFor: { engineId: WORK.id, engineName: WORK.name },
+    });
+    expect(engine.carried).toEqual([{ sessionId, from: WORK.id, to: HOME.id }]);
+    expect(engine.sessions[0]?.received.at(-1)).toMatchObject({ step: "end" });
+    expect((await threadOf(stageThread.threadId)).session).toMatchObject({
+      id: sessionId,
+      engineId: HOME.id,
+      standInFor: { engineId: WORK.id, engineName: WORK.name },
+    });
+    expect(drafts(await repository.messages(stageThread.threadId)).at(-1)).toEqual({
+      kind: "engine-switched",
+      fromName: WORK.name,
+      toName: HOME.name,
+      window: "five-hour",
+      resetsAt: "2026-11-13T14:00:00.000Z",
+    });
+    const turn = await stageThread.send("Go on where you were.", "Its window was used up.");
+    expect(turn.output).toEqual({ status: "done" });
+    const [onHome] = home.sessions;
+    expect(onHome?.id).toBe(sessionId);
+    expect(onHome?.options).toMatchObject({ engine: { id: HOME.id }, model: MODEL });
+    expect(onHome?.received[1]).toMatchObject({
+      step: "send",
+      message: { text: "Go on where you were." },
+    });
+    await stageThread.end({ handoverNote: "Left: nothing.", closing: undefined });
+    expect(onHome?.received.at(-1)).toMatchObject({ step: "end" });
+  });
+
+  it("sends the user's message the refused turn never took into the stand-in's next turn", async () => {
+    const command = aCommand("npm-test");
+    await startOnBoth(
+      [started(command.call, aBargeIn("barge-in"), command.result, ...aRefusedTurn())],
+      [
+        [
+          { step: "resume" },
+          { step: "send", message: { id: "go-on", text: "" }, priority: "later" },
+          aBargeIn("barge-in"),
+          ...aTurn({ status: "done" }, "Renamed it on the list too.", ["go-on", "barge-in"]),
+          { step: "end" },
+        ],
+      ],
+    );
+    const ada = aPerson("Ada");
+    const request = aStage({ roleKey: ada });
+    cascade.set(ada, { engineId: WORK.id, model: MODEL }, request.projectId);
+    const stageThread = await stageThreads.open(request);
+    await app.get(ThreadRunner).send(stageThread.threadId, "Rename it on the list too.", ANN_LEE);
+    await stageThread.nextTurn();
+
+    await stageThread.switchTo({ engineId: HOME.id, model: MODEL }, WHY);
+    await stageThread.send("Go on where you were.", "Its window was used up.");
+
+    expect(home.sessions[0]?.received[2]).toMatchObject({
+      step: "send",
+      priority: "next",
+      message: { text: expect.stringContaining("Rename it on the list too.") },
+    });
+    expect(
+      (await repository.messages(stageThread.threadId)).find(({ kind }) => kind === "user"),
+    ).toMatchObject({ delivery: "delivered" });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+
+  it("stays on its engine when the session couldn't be carried over", async () => {
+    await startOnBoth([started(...aRefusedTurn())], []);
+    engine.failSessionCarries(new Error("The disk is full."));
+    const { stageThread } = await aRefusedStage();
+
+    const switching = stageThread.switchTo({ engineId: HOME.id, model: MODEL }, WHY);
+
+    await expect(switching).rejects.toBeInstanceOf(SwitchFailed);
+    await expect(switching).rejects.toHaveProperty("cause", new Error("The disk is full."));
+    expect(stageThread.engine).toBe(WORK.id);
+    const thread = await threadOf(stageThread.threadId);
+    expect(thread.session?.engineId).toBe(WORK.id);
+    expect(thread.session?.standInFor).toBeUndefined();
+    const kinds = (await repository.messages(stageThread.threadId)).map(({ kind }) => kind);
+    expect(kinds).not.toContain("engine-switched");
+    expect(home.sessions).toEqual([]);
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+
+  it("moves back to its engine when the stand-in didn't resume it, where the next Stage resumes it", async () => {
+    await startOnBoth(
+      [started(...aRefusedTurn()), resumed(...aTurn({ status: "done" }, "Going on."))],
+      [],
+    );
+    const { stageThread, ada } = await aRefusedStage();
+
+    await expect(
+      stageThread.switchTo({ engineId: HOME.id, model: MODEL }, WHY),
+    ).rejects.toBeInstanceOf(SwitchFailed);
+
+    expect(stageThread.engine).toBe(WORK.id);
+    const thread = await threadOf(stageThread.threadId);
+    expect(thread.session?.engineId).toBe(WORK.id);
+    expect(thread.session?.standInFor).toBeUndefined();
+    expect(drafts(await repository.messages(stageThread.threadId)).at(-1)).toMatchObject({
+      kind: "failure",
+      reason: expect.stringMatching(
+        /^The session didn't resume on Claude Code 2, so it stays on Claude Code: /,
+      ),
+    });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+    const again = await stageThreads.open(
+      aStage({ roleKey: ada, declared: "continue", previousThreadId: stageThread.threadId }),
+    );
+    expect(again).toMatchObject({ engine: WORK.id, move: { move: "resume" } });
+    await again.nextTurn();
+    expect(engine.sessions[1]?.id).toBe(engine.sessions[0]?.id);
+    await again.end({ handoverNote: undefined, closing: undefined });
+  });
+
+  describe("a held Stage Thread moved to the stand-in", () => {
+    const STAND_IN = { engineId: HOME.id, model: MODEL };
+
+    it("carries its idle session over and records it there, opening no session on either engine", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+      const sessionId = engine.sessions[0]?.id;
+
+      await stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, { from: WORK.id, ...WHY });
+
+      expect(engine.carried).toEqual([{ sessionId, from: WORK.id, to: HOME.id }]);
+      expect((await threadOf(stageThread.threadId)).session).toMatchObject({
+        id: sessionId,
+        engineId: HOME.id,
+        standInFor: { engineId: WORK.id, engineName: WORK.name },
+      });
+      expect(drafts(await repository.messages(stageThread.threadId)).at(-1)).toEqual({
+        kind: "engine-switched",
+        fromName: WORK.name,
+        toName: HOME.name,
+        window: "five-hour",
+        resetsAt: "2026-11-13T14:00:00.000Z",
+      });
+      expect(engine.sessions).toHaveLength(1);
+      expect(home.sessions).toEqual([]);
+    });
+
+    it("is refused while the Thread is answering", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+
+      const moving = stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, {
+        from: WORK.id,
+        ...WHY,
+      });
+
+      await expect(moving).rejects.toBeInstanceOf(SwitchFailed);
+      expect(engine.carried).toEqual([]);
+      expect((await threadOf(stageThread.threadId)).session?.engineId).toBe(WORK.id);
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+    });
+
+    it("is refused when its session isn't on the engine it moves from, leaving the Thread as it was", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+
+      const moving = stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, {
+        from: HOME.id,
+        ...WHY,
+      });
+
+      await expect(moving).rejects.toBeInstanceOf(SwitchFailed);
+      expect(engine.carried).toEqual([]);
+      const thread = await threadOf(stageThread.threadId);
+      expect(thread.session?.engineId).toBe(WORK.id);
+      expect(thread.session?.standInFor).toBeUndefined();
+      const kinds = (await repository.messages(stageThread.threadId)).map(({ kind }) => kind);
+      expect(kinds).not.toContain("engine-switched");
+    });
+
+    it("leaves the Thread on its engine when the session couldn't be carried over", async () => {
+      await startOnBoth([started(...aRefusedTurn())], []);
+      const { stageThread } = await aRefusedStage();
+      await stageThread.end({ handoverNote: undefined, closing: undefined });
+      engine.failSessionCarries(new Error("The disk is full."));
+
+      const moving = stageThreads.moveToStandIn(stageThread.threadId, STAND_IN, {
+        from: WORK.id,
+        ...WHY,
+      });
+
+      await expect(moving).rejects.toBeInstanceOf(SwitchFailed);
+      await expect(moving).rejects.toHaveProperty("cause", new Error("The disk is full."));
+      const thread = await threadOf(stageThread.threadId);
+      expect(thread.session?.engineId).toBe(WORK.id);
+      expect(thread.session?.standInFor).toBeUndefined();
+      const kinds = (await repository.messages(stageThread.threadId)).map(({ kind }) => kind);
+      expect(kinds).not.toContain("engine-switched");
+      expect(home.sessions).toEqual([]);
+    });
   });
 });

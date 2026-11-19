@@ -11,7 +11,13 @@ import { DesktopChannel } from "./desktop-channel.ts";
 import { useInAppChannel } from "./in-app-channel.tsx";
 import type { NotificationChannel, ShownNotification } from "./notification-channel.ts";
 import { useNeedsYouTab } from "./needs-you-tab.ts";
-import { aboutLine, personOf, serviceDown, targetOf } from "./notification-words.ts";
+import {
+  aboutLine,
+  notificationLineOf,
+  personOf,
+  serviceDown,
+  targetOf,
+} from "./notification-words.ts";
 
 /**
  * Brings each Notification to its channels as it is raised, and takes it off them as it clears
@@ -100,7 +106,7 @@ async function shownNotification(
   return {
     id: notification.id,
     person: personOf(notification, roles),
-    line: notification.line,
+    line: notificationLineOf(notification.line, notification),
     about: aboutLine(task, projects),
     open: () => open(targetOf(notification)),
   };

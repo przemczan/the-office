@@ -76,6 +76,7 @@ export interface Continuation {
         | "full"
         | "changesAllowed"
         | "heldDuties"
+        | "standInFor"
       >
     | undefined;
   /** Who answers next, by the key of the Role they fill. */
@@ -146,7 +147,7 @@ export function decideContext(
       reason: "context-full",
     };
   }
-  if (continuation.engineId !== undefined && session.engineId !== continuation.engineId) {
+  if (continuation.engineId !== undefined && !onEngine(session, continuation.engineId)) {
     return {
       ...withoutSession(briefTokens),
       contextTokens: session.contextTokens,
@@ -186,6 +187,17 @@ export function decideContext(
         : { override: "continue-anyway", tokens: session.contextTokens },
     ],
   };
+}
+
+/**
+ * Whether the session runs on `engineId`, or stands in for it: a Stage's session moved to a Stand-in
+ * Engine as its own ran out of its usage window goes on there (spec 5.4).
+ */
+function onEngine(
+  { engineId, standInFor }: Pick<ThreadSession, "engineId" | "standInFor">,
+  wanted: EngineId,
+): boolean {
+  return engineId === wanted || standInFor?.engineId === wanted;
 }
 
 /** The move a list's row shows: what `decideContext` decides, without what a Brief would take. */

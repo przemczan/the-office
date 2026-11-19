@@ -6,6 +6,8 @@ import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
 import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
 import { ANN_LEE, aTask, BEN_ITO, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { NO_STAND_INS } from "./stand-ins-at-start.js";
+import { onWorkWithPersonal } from "./stand-ins-at-start.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
 const NO_CHOICE = { now: NOW, onOverlap: undefined, by: ANN_LEE };
@@ -20,6 +22,7 @@ function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartC
     officeWideLimit,
     project: ROOMY_PROJECT,
     usage: NO_USAGE_AT_START,
+    standIns: NO_STAND_INS,
     scheduledExitWait: undefined,
   };
 }
@@ -134,6 +137,35 @@ function alarmOff(tasks: readonly Task[]): Parameters<typeof releaseQueue>[1] {
 }
 
 describe("releaseQueue", () => {
+  it("counts a Task started on a Stand-in Engine against it for the Tasks behind", () => {
+    const onStandIn = { ...conditionsFor("developer", 5), ...onWorkWithPersonal(60, 30) };
+
+    const release = releaseQueue(
+      [queued("one", 1), queued("two", 2)],
+      { tasks: [ready("one"), ready("two")], fireAlarmOn: false, pausedInitiativeIds: new Set() },
+      () => onStandIn,
+    );
+
+    expect(release.started.map(({ task }) => task.engineStandIns[0]?.standInId)).toEqual([
+      "personal",
+    ]);
+    expect(release.startedEstimates.get("one")).toEqual([
+      {
+        engineId: "personal",
+        tokens: 1000,
+        windows: { fiveHour: 30, sevenDay: undefined },
+        cost: undefined,
+      },
+    ]);
+    expect(release.waiting.map(({ taskId, shortReasons }) => [taskId, shortReasons])).toEqual([
+      ["two", ["5-hour window cap (80%) · resets 12:00", "No stand-in with room"]],
+    ]);
+    expect(release.capResets).toEqual([
+      new Date("2026-10-29T12:00:00.000Z"),
+      new Date("2026-10-29T12:00:00.000Z"),
+    ]);
+  });
+
   const conditions = new Map([
     ["a", developer],
     ["b", developer],

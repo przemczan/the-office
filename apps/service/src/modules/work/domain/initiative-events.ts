@@ -61,6 +61,20 @@ export class InitiativePipelineChosen extends DomainEvent {
   }
 }
 
+/**
+ * The Initiative's Pipelines block saved as a whole while shaping: its Pipeline in each Project, and
+ * the Short name it then has, undefined when no Project has a Pipeline.
+ */
+export class InitiativePipelinesSet extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly pipelines: readonly { readonly projectId: string; readonly pipelineId: string }[],
+    readonly shortName: string | undefined,
+  ) {
+    super();
+  }
+}
+
 /** The user's own Short name for the Initiative, written while shaping. */
 export class InitiativeShortNameWritten extends DomainEvent {
   constructor(

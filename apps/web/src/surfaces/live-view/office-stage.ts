@@ -13,10 +13,12 @@ import type {
   OfficeStage,
 } from "./live-view-types.ts";
 import {
+  type SeenAlarm,
   type SeenLight,
   doingsOf,
   lookStatesOf,
   placementsOf,
+  walksAtAlarmChange,
   walksAtLightChange,
 } from "./live-states.ts";
 import {
@@ -54,6 +56,12 @@ const MAX_FRAME_SECONDS = 0.25;
 /** How long the tint takes to ease from one hour's light to the next. */
 const TINT_FADE_SECONDS = 2;
 const NO_DOINGS: ReadonlyMap<string, IdleDoing> = new Map();
+
+/**
+ * How a snapshot moves people: as usual; the fire alarm just sounded in front of the viewer (they
+ * panic, then run out); or the alarm changed unseen (everyone put out, or back, at once).
+ */
+type AlarmMove = "usual" | "sounded" | "jump";
 
 interface Floor {
   readonly layout: Layout;
@@ -111,6 +119,9 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   let seen: SeenLight | null = null;
   /** The people last applied, drawn again when the light changes. */
   let applied: readonly OfficePerson[] | null = null;
+  /** The fire alarm as last applied, and when; the floor is empty while it is on. */
+  let alarmOn = false;
+  let seenAlarm: SeenAlarm | null = null;
   /** The tint easing from `from` to `to`, from the animation clock's `start`; null when still. */
   let fade: { from: number; to: number; start: number } | null = null;
 
@@ -125,7 +136,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     lastTick = now;
     if (floor) walk(floor, seconds);
     if (fade) easeTint(fade);
-    scene.animate(clock, true);
+    scene.animate(clock, true, Date.now());
     cull();
   };
   /** Moves every walk on, the figures and their nameplates with it, and opens the door for them. */
@@ -181,7 +192,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   /** Draws once when nothing ticks: the still office, a hidden page, or before the ticker's next frame. */
   const render = (): void => {
     if (destroyed || ticking()) return;
-    scene.animate(options.reducedMotion ? 0 : clock, !options.reducedMotion);
+    scene.animate(options.reducedMotion ? 0 : clock, !options.reducedMotion, Date.now());
     cull();
     app.render();
   };
@@ -252,13 +263,30 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
 
   /* ---------- The snapshot ---------- */
 
-  const apply = (next: readonly OfficePerson[], now: Date): void => {
+  const apply = (next: readonly OfficePerson[], now: Date, nextAlarmOn: boolean): void => {
     if (destroyed) return;
     applied = next;
-    if (shownLight) applyAt(next, shownLight, now);
+    // The alarm's sounding and all clear walk people only when seen live, as nightfall does.
+    let alarmMove: AlarmMove = "usual";
+    if (seenAlarm !== null && seenAlarm.on !== nextAlarmOn) {
+      const live =
+        !options.reducedMotion &&
+        !document.hidden &&
+        walksAtAlarmChange(seenAlarm, nextAlarmOn, now);
+      if (!live) alarmMove = "jump";
+      else if (nextAlarmOn) alarmMove = "sounded";
+    }
+    alarmOn = nextAlarmOn;
+    seenAlarm = { on: nextAlarmOn, at: now };
+    if (shownLight) applyAt(next, shownLight, now, alarmMove);
   };
 
-  const applyAt = (people: readonly OfficePerson[], light: Light, now: Date): void => {
+  const applyAt = (
+    people: readonly OfficePerson[],
+    light: Light,
+    now: Date,
+    alarmMove: AlarmMove = "usual",
+  ): void => {
     const keys = new Set(people.map((person) => person.roleKey));
     const first = floor === null;
     if (!floor) floor = layOut(people);
@@ -281,7 +309,14 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       // The hire's desk blocks its tiles: walks in flight go round it.
       if (hired) floor.walkers.setFloor(routeFloorOf(floor.layout, floor.amenities));
     }
-    place(floor, people, light, now, !options.reducedMotion && !first);
+    place(
+      floor,
+      people,
+      light,
+      now,
+      !options.reducedMotion && !first && alarmMove !== "jump",
+      alarmMove === "sounded",
+    );
     if (first || view.framing.kind === "office") setView(fitView(view, floor.bounds));
     else setView(view);
   };
@@ -293,9 +328,10 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     light: Light,
     now: Date,
     animate: boolean,
+    alarmSounded = false,
   ): void => {
-    const placements = placementsOf(people, on.layout, on.amenities, light, now);
-    on.walkers.direct(people, placements, { animate });
+    const placements = placementsOf(people, on.layout, on.amenities, light, now, alarmOn);
+    on.walkers.direct(people, placements, { animate, alarm: alarmSounded });
     on.doings = doingsOf(placements);
     on.scene = {
       layout: on.layout,
@@ -305,6 +341,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       lookStates: lookStatesOf(people, now, light),
       walkers: on.walkers,
       light,
+      alarmOn,
     };
     walkersChanged = false;
     scene.build(on.scene);

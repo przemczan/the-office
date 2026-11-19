@@ -65,6 +65,24 @@ export abstract class TaskCommands {
     options: TaskCommandOptions,
   ): Promise<ScriptCommandResult>;
 
+  /**
+   * Runs the Project command a route's condition names (spec §2.3, "The Project-command
+   * condition"), by its key, in the Task's worktree where a Script Stage's command runs, with its
+   * time limit and the Project's own variables, `OFFICE_STAGE_RUNS_FILE` naming `stageRunsFile`.
+   * It runs once, never again on failure, and whatever its kind the worktree is restored after it
+   * and the files it wrote are moved out, to a folder named by `stageRunId`. A key the Project
+   * lacks, a blank line, or a run environment started before it could read the file gives a run
+   * that couldn't run.
+   */
+  abstract runConditionCommand(
+    projectId: string,
+    taskId: string,
+    key: string,
+    stageRunsFile: string,
+    stageRunId: string,
+    options: TaskCommandOptions,
+  ): Promise<ScriptCommandResult>;
+
   /** The Project's before and after publishing lines, each blank when not set. */
   abstract publishingLines(projectId: string): Promise<Readonly<Record<PublishingLine, string>>>;
 

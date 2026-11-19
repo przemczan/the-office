@@ -2,8 +2,8 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import type { ChatMessage } from "./chat-completions.js";
-import { isMissing } from "./file-problems.js";
-import { parsedJson } from "./json-text.js";
+import { isMissing } from "../skills/file-problems.js";
+import { parsedJson } from "../skills/json-text.js";
 
 /**
  * Inside a session's own folder of the Office data directory (`sessions/<session id>/`), which goes

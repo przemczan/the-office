@@ -114,6 +114,8 @@ describe("A Gate", () => {
       ["ship", "done"],
     ]);
     expect(eventsOf(taskId)).toEqual([["reached", "look"], ["continued"]]);
+    const gateRun = (await runsOf(pipelines, taskId)).find(({ stageKey }) => stageKey === "look");
+    expect(gateRun?.changedFiles).toEqual([]);
     expect(pipelines.tasks.changes.map(({ state }) => state)).toEqual([
       "waiting-on-you",
       "in-progress",

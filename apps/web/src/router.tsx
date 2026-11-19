@@ -12,6 +12,7 @@ import {
   LINK_FAILED_PARAMETER,
   SIGN_IN_FAILED_PARAMETER,
   type BoardFilters,
+  type FullStatsRange,
 } from "@the-office/contracts";
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
@@ -22,6 +23,8 @@ import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
+import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
+import { StatsPage } from "./surfaces/stats/stats-page.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
@@ -76,6 +79,7 @@ import {
   type InitiativesFilters,
 } from "./surfaces/work/initiative-columns.ts";
 import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
+import { proposalSearchOf } from "./shell/conversation/proposal-search.ts";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
@@ -285,9 +289,13 @@ const archivedRoute = createRoute({
   staticData: { title: "Work" },
 });
 
-/** An Initiative's page, showing one of its Threads first, as a Task's page does. */
+/**
+ * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's link
+ * also lands on its card in that Thread.
+ */
 export interface InitiativeSearch {
   readonly initiativeThread?: string;
+  readonly decision?: string;
 }
 
 // An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
@@ -295,10 +303,12 @@ const initiativeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "work/initiatives/$initiativeId",
   component: InitiativePage,
-  validateSearch: (search: Record<string, unknown>): InitiativeSearch =>
-    typeof search["initiativeThread"] === "string"
-      ? { initiativeThread: search["initiativeThread"] }
-      : {},
+  validateSearch: (search: Record<string, unknown>): InitiativeSearch => ({
+    ...(typeof search["initiativeThread"] === "string" && {
+      initiativeThread: search["initiativeThread"],
+    }),
+    ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+  }),
   // Until the Initiative is read; the page then names it.
   staticData: { title: "Work" },
 });
@@ -411,6 +421,22 @@ const projectsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+/** Stats, its full stats over the range named, 7 d when none is (spec 2.11). */
+export interface StatsSearch {
+  readonly range?: FullStatsRange;
+}
+
+const statsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "stats",
+  component: StatsPage,
+  validateSearch: (search: Record<string, unknown>): StatsSearch => {
+    const range = statsRangeOf(search["range"]);
+    return range === "7d" ? {} : { range };
+  },
+  staticData: { title: "Stats" },
+});
+
 const liveViewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "live-view",
@@ -454,6 +480,7 @@ const projectPipelineRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "pipelines/$projectPipelineId",
   component: ProjectPipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Projects" },
 });
 
@@ -520,6 +547,7 @@ const settingsPipelineRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/$pipelineId",
   component: PipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Settings" },
 });
 
@@ -706,6 +734,7 @@ export const router = createRouter({
       projectServerValuesRoute,
       projectAppearanceRoute,
     ]),
+    statsRoute,
     liveViewRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,

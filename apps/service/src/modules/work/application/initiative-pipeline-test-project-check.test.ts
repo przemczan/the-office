@@ -40,6 +40,7 @@ import {
   stageLines,
   stagesOf,
   startPlanner,
+  submitDecision,
   tokensOf,
   untilDone,
   untilThreadWaits,
@@ -697,10 +698,7 @@ async function ask(api: Api, threadId: string, text: string): Promise<Asked> {
 
 async function answerDecisions(api: Api, taskId: string, threadId: string): Promise<void> {
   for (const asked of await openDecisionsOn(api, taskId)) {
-    await api("POST", `/decisions/${asked.id}/answer`, {
-      kind: "option",
-      option: asked.recommendation.option,
-    });
+    await submitDecision(api, asked);
     await untilThreadWaits(api, threadId, ANSWER_MS);
   }
 }

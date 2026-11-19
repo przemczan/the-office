@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Initiative, QueuedTask, Task } from "@the-office/contracts";
-import { Icon, PlainMark } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { Button, Icon, PlainMark } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { blockCount } from "./board-blocks.ts";
 import type { Column } from "./board-columns.ts";
 import { InitiativePausedBadge } from "./initiative-pause.tsx";
@@ -18,8 +18,8 @@ export interface InitiativeBlockProps {
   readonly landing: boolean;
   /** The head was hovered or focused (the Initiative's id), or left (undefined). */
   readonly onOutline: (initiativeId: string | undefined) => void;
-  /** The cards, drawn by the board. */
-  readonly children: ReactNode;
+  /** Draws one of the cards, as the board does. */
+  readonly renderCard: (card: Task) => ReactNode;
 }
 
 /**
@@ -35,9 +35,12 @@ export function InitiativeBlock({
   outlined,
   landing,
   onOutline,
-  children,
+  renderCard,
 }: InitiativeBlockProps): ReactNode {
+  const [unfolded, setUnfolded] = useState(false);
   const count = blockCount(cards, column, queue);
+  const foldable = column.key === "done" && cards.length > 1;
+  const shown = foldable && !unfolded ? cards.slice(0, 1) : cards;
   const classes = ["initiative-block", outlined && "outlined", landing && "drop-ok"]
     .filter(Boolean)
     .join(" ");
@@ -69,7 +72,19 @@ export function InitiativeBlock({
           {count.shown}
         </PlainMark>
       </div>
-      <div className="initiative-block-cards">{children}</div>
+      <div className="initiative-block-cards">{shown.map(renderCard)}</div>
+      {foldable && (
+        <Button
+          variant="ghost"
+          size="sm"
+          fullWidth
+          iconLeft={<Icon name={unfolded ? "chevron-up" : "chevron-down"} size={14} />}
+          aria-expanded={unfolded}
+          onClick={() => setUnfolded(!unfolded)}
+        >
+          {unfolded ? "Show fewer" : `Show ${cards.length - 1} more`}
+        </Button>
+      )}
     </div>
   );
 }

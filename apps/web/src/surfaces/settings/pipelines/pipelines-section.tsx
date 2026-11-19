@@ -13,6 +13,10 @@ import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { LibraryPipelineForm } from "./library-pipeline-form.tsx";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
+import {
+  OfficeProposalOnFlow,
+  useProposalShown,
+} from "../../../shell/conversation/proposal-on-flow.tsx";
 import { stagesLine, whoWorks } from "../../../shell/pipelines/pipeline-words.ts";
 import { builtOnByWords, counted } from "../../../shell/pipelines/stage-change-words.ts";
 import {
@@ -45,11 +49,19 @@ export function PipelinesSection(): ReactNode {
   const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
   const [making, setMaking] = useState<Making | undefined>();
+  const onFlow = useProposalShown(pipelineId);
   if (library.error)
     return <RefusalAlert title="The library can't be read" error={library.error} />;
   if (templates.error)
     return <RefusalAlert title="The Stage templates can't be read" error={templates.error} />;
-  if (!library.data || !templates.data || !roles.data || !duties.data || !options.data) {
+  if (
+    !library.data ||
+    !templates.data ||
+    !roles.data ||
+    !duties.data ||
+    !options.data ||
+    onFlow.reading
+  ) {
     return null;
   }
   const openTemplate = making ? undefined : templates.data.find(({ id }) => id === stageTemplateId);
@@ -101,15 +113,25 @@ export function PipelinesSection(): ReactNode {
           <>
             {open && <PipelineHead pipeline={open} />}
             {open && <BuiltOnByCard pipeline={open} />}
-            <LibraryPipelineForm
-              // Each Pipeline, and each new one, starts its own draft.
-              key={open?.id ?? "new"}
-              pipeline={open}
-              roles={roles.data}
-              duties={duties.data}
-              options={options.data}
-              onDone={stopMaking}
-            />
+            {open && onFlow.shown?.change.kind === "pipeline" ? (
+              <OfficeProposalOnFlow
+                proposal={onFlow.shown.proposal}
+                change={onFlow.shown.change}
+                pipelineName={open.name}
+                roles={roles.data}
+                duties={duties.data}
+              />
+            ) : (
+              <LibraryPipelineForm
+                // Each Pipeline, and each new one, starts its own draft.
+                key={open?.id ?? "new"}
+                pipeline={open}
+                roles={roles.data}
+                duties={duties.data}
+                options={options.data}
+                onDone={stopMaking}
+              />
+            )}
           </>
         )}
       </div>
@@ -212,7 +234,7 @@ function LibraryItem({
   const check = useQuery(
     pipelineQueries.libraryCheck({ name, description, stages, pipelineId: id }),
   );
-  const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const needsFixing = (check.data?.problems.length ?? 0) > 0;
   const builtOn = builtOnByTotal(pipeline);
   const broken = brokenBuiltOnByTotal(pipeline);
   return (
@@ -334,7 +356,7 @@ function StageTemplateItem({
 }): ReactNode {
   const { id, stage } = template;
   const check = useQuery(stageTemplateQueries.check({ stage, stageTemplateId: id }));
-  const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const needsFixing = (check.data?.problems.length ?? 0) > 0;
   return (
     <PickListItem
       picked={picked}

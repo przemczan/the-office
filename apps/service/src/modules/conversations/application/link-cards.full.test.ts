@@ -228,6 +228,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     taskTitle: (id) => Promise.resolve(id === taskId ? "Speed up the mobile build" : undefined),
     taskAttachmentIds: () => Promise.resolve([]),
     initiativeTaskAttachmentIds: () => Promise.resolve(undefined),
+    isInitiativePlanningThread: () => Promise.resolve(true),
+    initiativeAttachmentIds: () => Promise.resolve([]),
     initiativeRecord: () => Promise.resolve(undefined),
     initiativeName: () => Promise.resolve(undefined),
     projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),

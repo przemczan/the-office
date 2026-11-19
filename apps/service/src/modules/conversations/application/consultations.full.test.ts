@@ -11,7 +11,7 @@ import {
   ScriptedEngine,
   ScriptedEngineModule,
 } from "../../engine/index.js";
-import type { Decision } from "../domain/decision.js";
+import { oneOptionAnswer, oneWordsAnswer, type Decision } from "../domain/decision.js";
 import type { Thread } from "../domain/thread.js";
 import { STOPPED_BY_THE_FIRE_ALARM, Consultations } from "./consultations.js";
 import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
@@ -244,6 +244,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         useProjectSkills: false,
         projectSkillsOff: [],
         projectId: "admin-panel",
+        initiativeId: undefined,
+        projectName: "Admin panel",
+        pipelineName: "",
         instructions: "On this Task you build.",
         officeTools: ["read_task", CONSULT_TOOL],
         brief: `You work on the Task ${taskId}.`,
@@ -316,11 +319,15 @@ function consults(person: string): Step[] {
   return [
     ...usesTool("c-1", CONSULT_TOOL, {
       person,
-      question: QUESTION,
       context: "The export reads every Project.",
-      options: OPTIONS,
-      recommended: 2,
-      why: "It is what the Projects use.",
+      questions: [
+        {
+          question: QUESTION,
+          options: OPTIONS,
+          recommended: 2,
+          why: "It is what the Projects use.",
+        },
+      ],
     }),
     ...aTurn("brief", "I asked."),
   ];
@@ -589,22 +596,22 @@ describe("a consult of a hired Consultant", () => {
     const open = (await threads.read(asker.id)).openDecisions[0];
     if (!open) throw new Error("No Decision was put.");
 
-    await decisions.answer(open.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+    await decisions.answer(open.id, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
     await settled(asker.id);
 
     const [askerSession] = engine.sessions;
     const answer = askerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `The user Ann Lee answered your Decision "${QUESTION}" with the option "SQLite".`,
+      `The user Ann Lee answered your Decision:\n\n1. ${QUESTION}\n   Answer: SQLite`,
     );
     const consultantSessionId = await vi.waitFor(async () => {
       const session = (await threads.read(consultation.id)).session;
       if (!session) throw new Error("The Consultant has no session yet.");
       return session.id;
     });
-    await expect(
-      consultations.answer(consultantSessionId, { kind: "option", option: 1 }),
-    ).rejects.toThrow(/answered already/);
+    await expect(consultations.answer(consultantSessionId, oneOptionAnswer(1))).rejects.toThrow(
+      /answered already/,
+    );
   });
 });
 
@@ -653,9 +660,9 @@ describe("an approval passed on", () => {
     );
     const devopsSession = asked.find(({ roleKey }) => roleKey === devopsKey)?.session;
     if (!devopsSession) throw new Error("Devops had no session.");
-    await expect(
-      consultations.answer(devopsSession.id, { kind: "option", option: 0 }),
-    ).rejects.toThrow(/answered already|passed this Decision on/);
+    await expect(consultations.answer(devopsSession.id, oneOptionAnswer(0))).rejects.toThrow(
+      /answered already|passed this Decision on/,
+    );
   });
 
   it("falls back to the user when passed on to someone who isn't hired", async () => {
@@ -667,7 +674,10 @@ describe("an approval passed on", () => {
 
     const open = await putToTheUser(asker);
 
-    expect(open).toMatchObject({ putTo: undefined, question: `Allow this call? ${CALL}` });
+    expect(open).toMatchObject({
+      putTo: undefined,
+      questions: [{ question: `Allow this call? ${CALL}` }],
+    });
     expect(open.passedOn).toEqual([
       { roleKey: devopsKey, reason: "Security decides installs.", passedOnAt: expect.any(Date) },
     ]);
@@ -710,8 +720,8 @@ describe("The Office's Decision put to the CTO first", () => {
     await startWith(
       WORKING,
       started(
-        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 3 }),
-        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { answer: "Mock the clock." }),
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 3 }] }),
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { answers: [{ answer: "Mock the clock." }] }),
         ...aTurn("brief", "Sent back."),
       ),
     );
@@ -740,7 +750,7 @@ describe("The Office's Decision put to the CTO first", () => {
     expect(answered).toMatchObject({
       roleKey: undefined,
       putTo: consultantKey,
-      answer: { kind: "free-answer", text: "Mock the clock.", answeredBy: consultantKey },
+      answer: { ...oneWordsAnswer("Mock the clock."), answeredBy: consultantKey },
     });
   });
 
@@ -754,7 +764,7 @@ describe("The Office's Decision put to the CTO first", () => {
 
     const open = await putToTheUser(asker);
 
-    expect(open).toMatchObject({ putTo: undefined, options: FAILED.options });
+    expect(open).toMatchObject({ putTo: undefined, questions: [{ options: FAILED.options }] });
     expect(open.passedOn.map(({ roleKey }) => roleKey)).toEqual([consultantKey]);
     expect(await consultationsOn(asker)).toHaveLength(1);
   });
@@ -766,7 +776,9 @@ describe("The Office's Decision put to the CTO first", () => {
     const putTo = await failureOn(asker, `cto-${randomUUID()}`);
 
     expect(putTo).toBeUndefined();
-    expect(await putToTheUser(asker)).toMatchObject({ question: FAILED.question });
+    expect(await putToTheUser(asker)).toMatchObject({
+      questions: [{ question: FAILED.question }],
+    });
     expect(await consultationsOn(asker)).toEqual([]);
   });
 });

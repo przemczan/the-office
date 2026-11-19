@@ -31,14 +31,18 @@ export function useGitHubRepositoriesEarly(): void {
 
 /**
  * Step 1 of Add a Project from GitHub: the repositories the App is installed on, Recent first.
- * Picking one clones it by its Repository URL, as a typed git URL is.
+ * Clicking one picks it; the bar's Clone then clones it by its Repository URL, as a typed git URL
+ * is.
  */
 export function GitHubRepositoryPicker({
   cloning,
+  picked,
   onPick,
   onUseGitUrl,
 }: {
   readonly cloning: RepositoryCloning;
+  /** The repository picked, which the bar's Clone clones. */
+  readonly picked: GitHubRepository | undefined;
   readonly onPick: (repository: GitHubRepository) => void;
   /** Leaves GitHub for "A git URL", when GitHub can't be used. */
   readonly onUseGitUrl: () => void;
@@ -51,7 +55,12 @@ export function GitHubRepositoryPicker({
     return <SignInFirst state={gitHub.data} onUseGitUrl={onUseGitUrl} />;
   }
   return (
-    <RepositoryList cloning={cloning} installUrl={gitHub.data?.app.installUrl} onPick={onPick} />
+    <RepositoryList
+      cloning={cloning}
+      installUrl={gitHub.data?.app.installUrl}
+      picked={picked}
+      onPick={onPick}
+    />
   );
 }
 
@@ -92,11 +101,13 @@ function SignInFirst({
 function RepositoryList({
   cloning,
   installUrl,
+  picked,
   onPick,
 }: {
   readonly cloning: RepositoryCloning;
   /** Unknown until Sign in with GitHub is read. */
   readonly installUrl: string | undefined;
+  readonly picked: GitHubRepository | undefined;
   readonly onPick: (repository: GitHubRepository) => void;
 }): ReactNode {
   const gitHub = useQuery(gitHubQueries.state());
@@ -194,6 +205,7 @@ function RepositoryList({
                 search={search}
                 now={now}
                 cloning={cloning}
+                selected={picked?.repositoryUrl === row.repository.repositoryUrl}
                 onPick={() => onPick(row.repository)}
               />
             ))}
@@ -212,13 +224,17 @@ function RepositoryList({
   );
 }
 
-/** A repository's row: to pick, cloning, failed, or already added and not to be picked. */
+/**
+ * A repository's row: to pick, cloning, failed (still to pick, so the bar's Clone tries again), or
+ * already added and not to be picked.
+ */
 function RepositoryItem({
   row,
   firstAdded,
   search,
   now,
   cloning,
+  selected,
   onPick,
 }: {
   readonly row: RepositoryRow;
@@ -227,6 +243,7 @@ function RepositoryItem({
   readonly search: string;
   readonly now: Date;
   readonly cloning: RepositoryCloning;
+  readonly selected: boolean;
   readonly onPick: () => void;
 }): ReactNode {
   const { repository, addedAs } = row;
@@ -284,24 +301,19 @@ function RepositoryItem({
         </li>
       )}
       <li className="github-repositories-row">
-        {state === "to-pick" ? (
+        {state === "to-pick" || state === "failed" ? (
           <button
             type="button"
-            className="github-repository"
+            className={`github-repository${state === "failed" ? " failed" : ""}${selected ? " selected" : ""}`}
             aria-label={repository.fullName}
             aria-describedby={detailsId}
-            title={`Clone ${repository.repositoryUrl}`}
+            aria-pressed={selected}
             disabled={cloning.busy}
             onClick={onPick}
           >
             {icon}
             {words}
-            <span className="github-repository-aside">
-              <span className="github-repository-clone-hint" aria-hidden="true">
-                Clone
-              </span>
-              {privateBadge}
-            </span>
+            <span className="github-repository-aside">{privateBadge}</span>
           </button>
         ) : (
           <div
@@ -315,11 +327,6 @@ function RepositoryItem({
             <span className="github-repository-aside">
               {privateBadge}
               {state === "added" && <Badge tone="neutral">Added</Badge>}
-              {state === "failed" && (
-                <Button variant="secondary" size="sm" onClick={onPick}>
-                  Try again
-                </Button>
-              )}
             </span>
           </div>
         )}

@@ -57,6 +57,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     roleKey: undefined,
     session: undefined,
     headCommit: undefined,
+    changedFiles: undefined,
     commandRuns: [],
     startedAt: new Date(0),
     endedAt: each.outcome && new Date(0),
@@ -66,6 +67,8 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     engineId: undefined,
     engineName: undefined,
     model: undefined,
+    standInFor: undefined,
+    engineSwitches: [],
     decisions: each.decisions ?? [],
     heldBy: undefined,
     heldByUser: undefined,
@@ -92,6 +95,39 @@ describe("stagesProgress", () => {
     expect(statesOf([look], runs({ ...reached, gateAction: { kind: "continue" } }))).toEqual([
       "done",
     ]);
+  });
+
+  it("shows a Stage Not taken once no path of routes leads to it from the latest run's Stage", () => {
+    const flow: Stage[] = [
+      {
+        ...implement,
+        routes: [
+          {
+            to: "review",
+            condition: {
+              combine: "all",
+              tests: [{ kind: "definitionOfDone", is: "some-not-met" }],
+            },
+          },
+          { to: "tests", condition: null },
+        ],
+      },
+      { ...review, optional: false, routes: [{ to: "tests", condition: null }] },
+      { ...tests, routes: [{ to: null, condition: null }] },
+    ];
+
+    expect(statesOf(flow, [])).toEqual(["pending", "pending", "pending"]);
+    expect(statesOf(flow, runs({ stageKey: "implement", outcome: done }))).toEqual([
+      "done",
+      "pending",
+      "pending",
+    ]);
+    expect(
+      statesOf(
+        flow,
+        runs({ stageKey: "implement", outcome: done }, { stageKey: "tests", outcome: undefined }),
+      ),
+    ).toEqual(["done", "not-taken", "running"]);
   });
 
   it("has every Stage pending before its first run, and a run without an end running", () => {

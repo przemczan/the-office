@@ -14,6 +14,11 @@ export interface TaskInRunEnvironment {
    * read-only at the same path inside so git reads the worktree's history there.
    */
   readonly repositoryGitFolder: string;
+  /**
+   * The folder of the file of the Task's earlier Stage runs, which a condition command reads
+   * (spec §2.3): made before the run environment starts, mounted read-only at the same path inside.
+   */
+  readonly stageRunsFolder: string;
   readonly installCommand: string;
   /** The Project's Install inputs, relative to the worktree. */
   readonly installInputs: readonly string[];
@@ -44,6 +49,11 @@ export interface TaskRunEnvironmentCommand {
    * it has to start first, goes elsewhere. Undefined writes it to a file of the runner's own.
    */
   readonly outputFile?: string;
+  /**
+   * A condition command, which reads the Task's Stage runs' file: a run environment already running
+   * without its folder mounted ends it `could-not-run`, with nothing run, saying to stop and start it.
+   */
+  readonly readsStageRuns?: boolean;
 }
 
 /**

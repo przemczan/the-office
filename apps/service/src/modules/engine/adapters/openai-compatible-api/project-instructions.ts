@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { markdownFile, markdownFilesIn, textOrNone } from "./markdown-file.js";
+import { markdownFile, markdownFilesIn, textOrNone } from "../skills/markdown-file.js";
 
 /** An instruction file of the session's folder, with what it says. */
 export interface InstructionFile {

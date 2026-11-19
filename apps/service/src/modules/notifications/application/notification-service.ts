@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import {
   DecisionAnswered,
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  decisionSummary,
   TurnEnded,
 } from "../../conversations/index.js";
 import {
@@ -30,6 +32,7 @@ import {
   GateReached,
   NoRetriesLeft,
   SentBackFromGate,
+  StandInChoicesChanged,
 } from "../../pipelines/index.js";
 import {
   InitiativeStateChanged,
@@ -40,6 +43,7 @@ import {
 } from "../../work/index.js";
 import {
   decisionWaiting,
+  decisionWaitingOnInitiative,
   engineDown,
   gateWaiting,
   handles,
@@ -48,6 +52,7 @@ import {
   officeUpdated,
   officeUpdateFailed,
   samePointer,
+  standInChoiceWaiting,
   taskDone,
   taskFailed,
   taskPaused,
@@ -60,6 +65,7 @@ import {
   type Handling,
   type Notification,
   type NotificationDraft,
+  type WindowReading,
 } from "../domain/notification.js";
 import {
   collapsedOutcomes,
@@ -75,9 +81,14 @@ import { KnownPeople } from "../ports/known-people.js";
 import { NotificationRoutingRepository } from "../ports/notification-routing-repository.js";
 import { NotificationRepository } from "../ports/notification-repository.js";
 import { NotificationTimingRepository } from "../ports/notification-timing-repository.js";
+import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
+import { StandInChoicesWaiting } from "../ports/stand-in-choices-waiting.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { NotificationDelivery } from "./notification-delivery.js";
+
+/** Before an engine's first reading since a restart: nothing used, the window not begun. */
+const NO_READING: WindowReading = { percentUsed: 0, resetsAt: undefined };
 
 /** Where the user is in The Office, as the web reports it with their activity. */
 export type Page =
@@ -98,15 +109,18 @@ export type Page =
 export class NotificationService implements OnModuleInit {
   /**
    * Each engine's 5-hour window's last reading, by engine id, which its next is compared with;
-   * unknown after a restart.
+   * unknown after a restart. A lower reading before the window resets leaves the last one standing.
    */
-  private readonly windowPercents = new Map<string, number>();
+  private readonly windowReadings = new Map<string, WindowReading>();
+  private readonly standInChoiceChanges = new KeyedLocks();
 
   constructor(
     private readonly repository: NotificationRepository,
     private readonly tasks: OfficeTasks,
+    private readonly initiatives: OfficeInitiatives,
     private readonly stages: TaskStageProgress,
     private readonly people: KnownPeople,
+    private readonly standInChoices: StandInChoicesWaiting,
     private readonly routing: NotificationRoutingRepository,
     private readonly timing: NotificationTimingRepository,
     private readonly delivery: NotificationDelivery,
@@ -137,18 +151,36 @@ export class NotificationService implements OnModuleInit {
 
   private subscribeToNeedsYou(): void {
     for (const eventClass of [DecisionOpened, DecisionReopened]) {
-      // A Decision put to a Consultant waits on them, not on the user (spec §6), and a call made
-      // from a chat, on no Task, goes back to its caller (spec §2.4): no Notification for either.
-      this.events.subscribe(eventClass, ({ decision: { taskId, ...decision } }) =>
-        decision.putTo || taskId === undefined
-          ? undefined
-          : this.raise(decisionWaiting({ ...decision, taskId })),
-      );
+      // A Decision put to a Consultant waits on them, not on the user (spec §6), and a chat's waits
+      // on the user inline in the chat (spec §2.7): no Notification for either. One on no Task in an
+      // Initiative's Thread waits on the user about the Initiative as a whole.
+      this.events.subscribe(eventClass, async ({ thread, decision }) => {
+        const { id, roleKey, taskId, putTo } = decision;
+        if (putTo || thread.home.kind === "chat") return;
+        const question = decisionSummary(decision);
+        if (taskId !== undefined) {
+          await this.raise(decisionWaiting({ id, roleKey, taskId, question }));
+          return;
+        }
+        if (thread.home.kind !== "initiative") return;
+        const { initiativeId } = thread.home;
+        const initiative = (await this.initiatives.list()).find((held) => held.id === initiativeId);
+        if (!initiative) return;
+        await this.raise(
+          decisionWaitingOnInitiative({
+            id,
+            threadId: decision.threadId,
+            initiativeId,
+            initiativeTitle: initiative.name,
+            roleKey,
+            question,
+          }),
+        );
+      });
     }
+    // A call from a chat raised nothing, so its answer or closing finds nothing to handle.
     this.events.subscribe(DecisionAnswered, ({ decision: { id, taskId } }) =>
-      taskId === undefined
-        ? undefined
-        : this.handle({ kind: "decision-answered", decisionId: id, taskId }),
+      this.handle({ kind: "decision-answered", decisionId: id, taskId }),
     );
     this.events.subscribe(DecisionClosed, ({ decision: { id } }) =>
       this.handle({ kind: "decision-closed", decisionId: id }),
@@ -165,6 +197,23 @@ export class NotificationService implements OnModuleInit {
     this.events.subscribe(GateContinued, gateActed);
     this.events.subscribe(SentBackFromGate, gateActed);
     this.events.subscribe(GateDropped, gateActed);
+    this.events.subscribe(StandInChoicesChanged, () => this.standInChoicesChanged());
+  }
+
+  /**
+   * One Notification for every Stage waiting for the choice of a Stand-in Engine, raised when the
+   * first joins and cleared once none waits; a Stage joining while it is open raises no other.
+   */
+  private async standInChoicesChanged(): Promise<void> {
+    // One at a time, so two Stages pausing together can't each find none open and raise two.
+    await this.standInChoiceChanges.run("stand-in-choice", async () => {
+      const [first, ...rest] = await this.standInChoices.waiting();
+      if (first === undefined) {
+        await this.handle({ kind: "stand-in-choices-made" });
+        return;
+      }
+      await this.raise(standInChoiceWaiting([first, ...rest], await this.defaultPerson()));
+    });
   }
 
   private subscribeToOutcomes(): void {
@@ -179,17 +228,16 @@ export class NotificationService implements OnModuleInit {
         return;
       }
       // A refusal pauses a running Task; one moving a paused Task's resume on was told already, and
-      // a Task handed back to the window by its Initiative's Resume was paused by the user.
-      if (by === "usage-window" && usageWindow !== undefined && from !== "paused") {
+      // a Task handed back to the window by its Initiative's Resume was paused by the user. A Stage
+      // waiting for the choice of a Stand-in Engine is told by that Decision's Notification.
+      if (
+        by === "usage-window" &&
+        usageWindow !== undefined &&
+        usageWindow.awaitsStandInChoice !== true &&
+        from !== "paused"
+      ) {
         const window = usageWindowWords(usageWindow.window);
-        await this.raise(
-          taskPausedByUsageWindow(
-            taskId,
-            personRole,
-            { ...usageWindow, window },
-            this.schedule.now(),
-          ),
-        );
+        await this.raise(taskPausedByUsageWindow(taskId, personRole, { ...usageWindow, window }));
       }
       // The user sounded the alarm, or paused the whole Initiative, themselves; Now shows what the
       // alarm holds, and the Initiative shows it is paused.
@@ -220,11 +268,13 @@ export class NotificationService implements OnModuleInit {
   private subscribeToOffice(): void {
     this.events.subscribe(UsageWindowsChanged, async ({ engineId, engineName, windows }) => {
       const engine = { id: engineId, name: engineName };
-      const percent = windows.fiveHour.percentUsed;
-      const move = windowMove(this.windowPercents.get(engineId) ?? 0, percent);
-      this.windowPercents.set(engineId, percent);
+      const current = windows.fiveHour;
+      const previous = this.windowReadings.get(engineId) ?? NO_READING;
+      const move = windowMove(previous, current, this.schedule.now());
+      const dipped = move !== "reset" && current.percentUsed < previous.percentUsed;
+      if (!dipped) this.windowReadings.set(engineId, current);
       if (move === "nearly-used") {
-        await this.raise(windowNearlyUsed(engine, percent, await this.defaultPerson()));
+        await this.raise(windowNearlyUsed(engine, current.percentUsed, await this.defaultPerson()));
       }
       if (move === "reset") {
         await this.handle({ kind: "window-reset", engineId });
@@ -239,7 +289,6 @@ export class NotificationService implements OnModuleInit {
           { id: engineId, name: engineName },
           { window: usageWindowWords(window), resetsAt },
           await this.defaultPerson(),
-          this.schedule.now(),
         ),
       );
     });
@@ -252,7 +301,7 @@ export class NotificationService implements OnModuleInit {
       ),
     );
     this.events.subscribe(EngineRemoved, async ({ engineId }) => {
-      this.windowPercents.delete(engineId);
+      this.windowReadings.delete(engineId);
       await this.handle({ kind: "engine-removed", engineId });
     });
     // A newer update's result replaces what the last one's said.

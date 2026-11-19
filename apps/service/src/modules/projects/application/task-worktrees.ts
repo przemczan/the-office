@@ -131,6 +131,18 @@ export class TaskWorktrees {
   }
 
   /**
+   * The paths one of the Task's commits changed against its first parent: added, changed and
+   * deleted ones, and both paths of a rename.
+   */
+  async committedPaths(
+    projectId: string,
+    taskId: string,
+    commit: string,
+  ): Promise<readonly string[]> {
+    return this.worktrees.committedPaths(await this.projects.read(projectId), taskId, commit);
+  }
+
+  /**
    * After a Stage's commit, pushes a Publishing Task's Initiative's branch to the base branch's
    * remote, without force, on the Office identity (spec §5.5, "Pushed"); not needed for any other
    * Task, or when the base branch tracks no remote. A refused push answers why, which doesn't fail
@@ -246,6 +258,36 @@ export class TaskWorktrees {
     const project = await this.projects.read(projectId);
     const runs = await this.scriptCommands.run(project, taskId, key, stageRunId, options);
     return { kind: commandOf(project, key)?.kind, runs };
+  }
+
+  /**
+   * Runs the Project command a route's condition names (spec §2.3, "The Project-command
+   * condition"), by its key, where a Script Stage's command runs, with `OFFICE_STAGE_RUNS_FILE`
+   * naming `stageRunsFile`: once, never again on failure, the worktree restored after it and the
+   * files it wrote moved to a folder under `stageRunId`, whatever its kind. Returns the command's
+   * kind, undefined for a key the Project lacks, and its one run.
+   */
+  async runConditionCommand(
+    projectId: string,
+    taskId: string,
+    key: string,
+    stageRunsFile: string,
+    stageRunId: string,
+    options: ScriptCommandOptions,
+  ): Promise<{
+    readonly kind: ProjectCommandKind | undefined;
+    readonly runs: readonly ScriptCommandRun[];
+  }> {
+    const project = await this.projects.read(projectId);
+    const run = await this.scriptCommands.runCondition(
+      project,
+      taskId,
+      key,
+      stageRunsFile,
+      stageRunId,
+      options,
+    );
+    return { kind: commandOf(project, key)?.kind, runs: [run] };
   }
 
   /** The Project's before and after publishing lines, each blank when not set. */

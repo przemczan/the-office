@@ -28,7 +28,7 @@ interface Pod {
   readonly group: DeskGroup;
 }
 
-/** The floor's still layer: the boards, each pod's carpet and the meeting spot's and chill area's rugs. */
+/** The floor's still layer: the boards, each pod's carpet and the entertainment and chill areas' rugs. */
 export function paintFloorLayer(pen: IsoPen, layout: Layout): void {
   const { width: W, depth: D } = layout;
   pen.floor(0, 0, W, D, A.floorA);
@@ -56,9 +56,9 @@ export function paintFloorLayer(pen: IsoPen, layout: Layout): void {
     pen.floor(pod.x - 0.15, pod.top - 0.15, pod.x + 2.15, pod.bottom + 0.15, art.carpetEdge);
     pen.floor(pod.x - 0.05, pod.top - 0.05, pod.x + 2.05, pod.bottom + 0.05, art.carpet);
   }
-  // The meeting spot's rug and the chill area's.
-  pen.floor(1.15, 0.25, 3.85, 2.95, A.meetingRugEdge);
-  pen.floor(1.25, 0.35, 3.75, 2.85, A.meetingRug);
+  // The entertainment area's rug and the chill area's.
+  pen.floor(1.15, 0.25, 3.85, 2.95, A.gamesRugEdge);
+  pen.floor(1.25, 0.35, 3.75, 2.85, A.gamesRug);
   const s0 = layout.chillStart;
   pen.floor(s0 + 0.3, 0.95, s0 + layout.sofaSeats + 2.9, 2.95, A.rugEdge);
   pen.floor(s0 + 0.4, 1.05, s0 + layout.sofaSeats + 2.8, 2.85, A.rug);
@@ -106,7 +106,7 @@ export function paintSunPatches(pen: IsoPen, layout: Layout): void {
 }
 
 /**
- * The back and left walls, the whiteboard, the windows and the exit sign. The glass, its stars and
+ * The back and left walls, the windows and the exit sign. The glass, its stars and
  * the exit sign are painted again over this, untinted, by the sky's palette (`SKY_PALETTES`): the
  * stage paints the same grid with only those indexes.
  */
@@ -131,14 +131,6 @@ export function paintWalls(pen: IsoPen, layout: Layout): void {
     ],
     A.wallTop,
   );
-  // The whiteboard behind the meeting spot.
-  pen.faceY(0, 1.35, 3.65, 13, 34, A.boardFrame);
-  pen.faceY(0, 1.45, 3.55, 14, 33, A.board);
-  pen.line([1.7, 0, 29], [2.6, 0, 29], A.ink);
-  pen.line([1.7, 0, 26], [2.3, 0, 26], A.ink);
-  pen.line([1.7, 0, 23], [2.8, 0, 23], A.ink);
-  pen.line([2.95, 0, 20], [3.35, 0, 27], A.inkRed);
-  pen.line([2.95, 0, 27], [3.35, 0, 20], A.inkRed);
   // Windows: a frame, the glass in two bands, the bars and the sill; the sky paints the glass.
   const { back, left } = windowsOf(layout);
   for (const x of back) paintWindow((a, b, z0, z1, index) => pen.faceY(0, a, b, z0, z1, index), x);

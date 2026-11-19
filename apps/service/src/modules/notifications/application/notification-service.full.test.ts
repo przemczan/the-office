@@ -19,6 +19,7 @@ import {
   DecisionAnswered,
   DecisionClosed,
   DecisionOpened,
+  DecisionReopened,
   TurnEnded,
 } from "../../conversations/index.js";
 import {
@@ -29,7 +30,12 @@ import {
 } from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
 import { CARETAKER } from "../../people/index.js";
-import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
+import {
+  GateContinued,
+  GateReached,
+  NoRetriesLeft,
+  StandInChoicesChanged,
+} from "../../pipelines/index.js";
 import {
   InitiativeStateChanged,
   TaskPaused,
@@ -53,6 +59,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -61,28 +68,66 @@ import {
 
 type DecisionEventParameters = ConstructorParameters<typeof DecisionOpened>;
 
-/** Only what Notifications reads of a Decision: who asks what, on which Task. */
+/** Only what Notifications reads of a Decision: who asks what, on which Task, in what home. */
 function decisionEvent(
-  eventClass: typeof DecisionOpened | typeof DecisionAnswered | typeof DecisionClosed,
-  decision: { readonly id: string; readonly taskId: string; readonly roleKey: string | undefined },
+  eventClass:
+    | typeof DecisionOpened
+    | typeof DecisionReopened
+    | typeof DecisionAnswered
+    | typeof DecisionClosed,
+  decision: { readonly id: string; readonly taskId?: string; readonly roleKey: string | undefined },
+  home: { readonly kind: "task" | "chat" } = { kind: "task" },
 ): DecisionOpened {
-  const [thread, asked] = [{}, { ...decision, question: "Keep the query string?" }] as unknown as [
-    DecisionEventParameters[0],
-    DecisionEventParameters[1],
-  ];
+  const [thread, asked] = [
+    { home },
+    { ...decision, questions: [{ kind: "open", question: "Keep the query string?" }] },
+  ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
   return new eventClass(thread, asked, new Date());
 }
 
-/** An engine's account's windows as the engine reads them, the 5-hour one this much used. */
+/** A Decision event in a Thread of the given home, on no Task. */
+function onNoTask(
+  eventClass:
+    | typeof DecisionOpened
+    | typeof DecisionReopened
+    | typeof DecisionAnswered
+    | typeof DecisionClosed,
+  home:
+    | { readonly kind: "initiative"; readonly initiativeId: string }
+    | { readonly kind: "chat"; readonly roleKey: string },
+  decision: { readonly id: string; readonly threadId: string },
+): DecisionOpened {
+  const [thread, asked] = [
+    { id: decision.threadId, home },
+    {
+      ...decision,
+      taskId: undefined,
+      roleKey: "architect",
+      questions: [{ kind: "open", question: "Split billing out?" }],
+    },
+  ] as unknown as [DecisionEventParameters[0], DecisionEventParameters[1]];
+  return new eventClass(thread, asked, new Date());
+}
+
+/**
+ * An engine's account's windows as the engine reads them, the 5-hour one this much used: in the
+ * window that resets at 14:00 of the test's day, or `window` windows after it.
+ */
 function reading(
   percentUsed: number,
   engine = { id: "claude-code", name: "Claude Code" },
+  window = 0,
 ): UsageWindowsChanged {
   return new UsageWindowsChanged(engine.id, engine.name, {
-    fiveHour: { percentUsed, resetsAt: new Date("2026-10-27T12:00:00Z") },
+    fiveHour: { percentUsed, resetsAt: windowResetsAt(window) },
     sevenDay: { percentUsed: 10, resetsAt: undefined },
     source: "rate-limit-headers",
   });
+}
+
+/** When the test's 5-hour window resets, or the one `window` windows after it. */
+function windowResetsAt(window = 0): Date {
+  return new Date(2001, 0, testDay, 14 + 5 * window);
 }
 
 function down(engineId: string, engineName: string): EngineDown {
@@ -96,6 +141,21 @@ function claudeCodeDown(): EngineDown {
 /** A turn of a session on the engine came back, so that engine answers again. */
 function turnEndedOn(engineId: string): TurnEnded {
   return new TurnEnded({ session: { engineId } } as TurnEnded["thread"], new Date());
+}
+
+/** A Stage of a Task in `projectId` waiting for the choice of a Stand-in Engine since `minute` past 12:00. */
+function waitingStage(
+  projectId: string,
+  minute: number,
+): StandInChoicesWaitingForTests["choices"][number] {
+  return {
+    taskId: randomUUID(),
+    projectId,
+    waitingSince: new Date(2001, 0, testDay, 12, minute),
+    resetsAt: new Date(2001, 0, testDay, 14).toISOString(),
+    standInNow: { engineName: "Spare" },
+    asked: { engineName: "Spare" },
+  };
 }
 
 async function routingOf(response: Response): Promise<NotificationRouting> {
@@ -136,6 +196,7 @@ describe("NotificationService", () => {
           officeStatusCards: OfficeStatusCardsForTests,
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
+          standInChoicesWaiting: StandInChoicesWaitingForTests,
         }),
       ],
     }));
@@ -205,6 +266,15 @@ describe("NotificationService", () => {
     expect((await openNotifications()).map(({ id }) => id)).not.toContain(notification?.id);
   });
 
+  it("raises nothing for a chat's Decision, which waits on the user inline in the chat", async () => {
+    const decision = { id: randomUUID(), roleKey: "developer" };
+
+    await events.publish(decisionEvent(DecisionOpened, decision, { kind: "chat" }));
+    await events.publish(decisionEvent(DecisionReopened, decision, { kind: "chat" }));
+
+    expect(raised).toEqual([]);
+  });
+
   it("clears a Decision's Notification as its Task's Drop closes it", async () => {
     const decision = { id: randomUUID(), taskId: randomUUID(), roleKey: "developer" };
     await events.publish(decisionEvent(DecisionOpened, decision));
@@ -215,6 +285,90 @@ describe("NotificationService", () => {
 
     expect(cleared).toEqual([notification?.id]);
     expect((await openNotifications()).map(({ id }) => id)).not.toContain(notification?.id);
+  });
+
+  function anInitiative(): { readonly kind: "initiative"; readonly initiativeId: string } {
+    const initiativeId = randomUUID();
+    app.get(OfficeInitiativesForTests).initiatives = [
+      { id: initiativeId, name: "Billing", state: "shaping", createdAt: new Date() },
+    ];
+    return { kind: "initiative", initiativeId };
+  }
+
+  describe("a Decision on no Task", () => {
+    it("in an Initiative's Thread names the Initiative and opens its page at that Thread", async () => {
+      const home = anInitiative();
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+
+      expect(raised.map(({ notification }) => notification)).toEqual([
+        expect.objectContaining({
+          kind: "needs-you.decision",
+          roleKey: "architect",
+          line: "On the Initiative Billing, I need your answer: Split billing out?",
+          pointsTo: {
+            kind: "initiative",
+            initiativeId: home.initiativeId,
+            decisionId: decision.id,
+            threadId: decision.threadId,
+          },
+        }),
+      ]);
+      expect((await openNotifications()).map(({ pointsTo }) => pointsTo)).toContainEqual(
+        raised[0]?.notification.pointsTo,
+      );
+    });
+
+    it("stays open as the user opens the Initiative, and clears once answered", async () => {
+      const home = anInitiative();
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+
+      await reportActivity({ kind: "initiative", initiativeId: home.initiativeId });
+      expect(cleared).toEqual([]);
+
+      await events.publish(onNoTask(DecisionAnswered, home, decision));
+      expect(cleared).toEqual([raised[0]?.notification.id]);
+    });
+
+    it("clears once closed as its Initiative ended", async () => {
+      const home = anInitiative();
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+
+      await events.publish(onNoTask(DecisionClosed, home, decision));
+
+      expect(cleared).toEqual([raised[0]?.notification.id]);
+    });
+
+    it("asked again, clears the one answered and raises the one asked anew", async () => {
+      const home = anInitiative();
+      const first = { id: randomUUID(), threadId: randomUUID() };
+      const again = { id: randomUUID(), threadId: first.threadId };
+      await events.publish(onNoTask(DecisionOpened, home, first));
+      await events.publish(onNoTask(DecisionAnswered, home, first));
+
+      await events.publish(onNoTask(DecisionOpened, home, again));
+      await events.publish(onNoTask(DecisionReopened, home, again));
+
+      expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
+        expect.objectContaining({ decisionId: first.id }),
+        expect.objectContaining({ decisionId: again.id }),
+      ]);
+      expect(cleared).toEqual([raised[0]?.notification.id]);
+    });
+
+    it("raises nothing in a chat, and its answer clears nothing", async () => {
+      const decision = { id: randomUUID(), threadId: randomUUID() };
+      const home = { kind: "chat" as const, roleKey: "office-manager" };
+
+      await events.publish(onNoTask(DecisionOpened, home, decision));
+      await events.publish(onNoTask(DecisionAnswered, home, decision));
+
+      expect(raised).toEqual([]);
+      expect(cleared).toEqual([]);
+    });
   });
 
   it("raises a Gate once, in the Task's person's words, and clears it when the user acts", async () => {
@@ -294,7 +448,8 @@ describe("NotificationService", () => {
     expect(raised.map(({ notification }) => notification)).toEqual([
       expect.objectContaining({
         kind: "outcomes.task-paused",
-        line: "Paused: Claude Code's 5-hour window is used up. Resumes at 14:00.",
+        line: "Paused: Claude Code's 5-hour window is used up. Resumes at {time}.",
+        at: resetsAt,
         pointsTo: { kind: "task", taskId: refused },
       }),
     ]);
@@ -302,6 +457,95 @@ describe("NotificationService", () => {
     await events.publish(new TaskResumed(refused));
 
     expect(cleared).toEqual([raised[0]?.notification.id]);
+  });
+
+  it("tells no Task paused for a Stage that waits for the choice of a Stand-in Engine", async () => {
+    const [waits, plain] = [randomUUID(), randomUUID()];
+    const refusal = {
+      engineId: "claude-code",
+      engineName: "Claude Code",
+      window: "five-hour",
+      resetsAt: new Date(2001, 0, testDay, 14),
+    };
+
+    await events.publish(
+      new TaskPaused(waits, "in-progress", "usage-window", {
+        ...refusal,
+        awaitsStandInChoice: true,
+      }),
+    );
+    await events.publish(new TaskPaused(plain, "in-progress", "usage-window", refusal));
+
+    expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
+      { kind: "task", taskId: plain },
+    ]);
+  });
+
+  describe("the Stages waiting for the choice of a Stand-in Engine", () => {
+    let choices: StandInChoicesWaitingForTests;
+
+    /** The rows change, then Pipelines tells it, as it does once the held run is saved. */
+    async function changeTo(waiting: StandInChoicesWaitingForTests["choices"]): Promise<void> {
+      choices.choices = waiting;
+      await events.publish(new StandInChoicesChanged(waiting[0]?.taskId ?? randomUUID()));
+    }
+
+    beforeEach(async () => {
+      choices = app.get(StandInChoicesWaitingForTests);
+      app.get(KnownPeopleForTests).holders.set("default-person-to-talk-to", "office-manager");
+      // The card is one for The Office, so one an earlier test left open is cleared first.
+      await changeTo([]);
+      [raised, cleared] = [[], []];
+    });
+
+    afterEach(async () => {
+      await changeTo([]);
+    });
+
+    it("raises one Notification for two Stages, from the Default person to talk to", async () => {
+      const first = waitingStage("p1", 5);
+      await changeTo([first, waitingStage("p2", 9)]);
+
+      expect(raised.map(({ notification }) => notification)).toEqual([
+        expect.objectContaining({
+          kind: "needs-you.decision",
+          roleKey: "office-manager",
+          line: "2 paused Stages wait for your choice: switch to Spare, or wait for the reset at {time}.",
+          at: new Date(first.resetsAt),
+          pointsTo: { kind: "stand-in-choice" },
+        }),
+      ]);
+    });
+
+    it("words one Stage, and names the Stand-in Engine it was held asking while none has room", async () => {
+      await changeTo([
+        { ...waitingStage("p1", 5), standInNow: null, asked: { engineName: "Backup" } },
+      ]);
+
+      expect(raised.map(({ notification }) => notification.line)).toEqual([
+        "1 paused Stage waits for your choice: switch to Backup, or wait for the reset at {time}.",
+      ]);
+    });
+
+    it("raises none again while it is open, as a Stage joins", async () => {
+      const first = waitingStage("p1", 5);
+      await changeTo([first]);
+      await changeTo([first, waitingStage("p2", 9)]);
+
+      expect(raised).toHaveLength(1);
+    });
+
+    it("clears it once no Stage waits for the choice", async () => {
+      await changeTo([waitingStage("p1", 5)]);
+      const id = raised[0]?.notification.id;
+
+      await changeTo([]);
+
+      expect(cleared).toEqual([id]);
+      expect((await openNotifications()).map(({ pointsTo }) => pointsTo.kind)).not.toContain(
+        "stand-in-choice",
+      );
+    });
   });
 
   it("clears a Task's outcome once the user opens the Task", async () => {
@@ -358,13 +602,37 @@ describe("NotificationService", () => {
   it("tells the 5-hour window nearly used at 90%, and its reset, which clears that", async () => {
     await events.publish(reading(89));
     await events.publish(reading(91));
-    await events.publish(reading(4));
+    await events.publish(reading(4, undefined, 1));
 
     expect(raised.map(({ notification }) => [notification.kind, notification.channels])).toEqual([
       ["office.window.nearly-used", ["in-app"]],
       ["office.window.reset", ["in-app"]],
     ]);
     expect(cleared).toContain(raised[0]?.notification.id);
+  });
+
+  it("tells no reset of a 5-hour window that reads lower before its reset time, nor clears its nearly used", async () => {
+    const engine = { id: "window-dip-account", name: "Dip account" };
+    await events.publish(reading(91, engine));
+    // A dip within the window that resets at 14:00, read at noon: neither a reset nor a crossing.
+    await events.publish(reading(60, engine));
+    await events.publish(reading(92, engine));
+
+    expect(raised.map(({ notification }) => notification.kind)).toEqual([
+      "office.window.nearly-used",
+    ]);
+    expect(cleared).toEqual([]);
+
+    // Once the clock reaches the reset time, a lower reading is the window's reset.
+    await schedule.advanceTo(windowResetsAt());
+    await events.publish(reading(3, engine));
+
+    expect(raised.map(({ notification }) => notification.kind)).toEqual([
+      "office.window.nearly-used",
+      "office.window.reset",
+    ]);
+    expect(cleared).toEqual([raised[0]?.notification.id]);
+    await reportActivity({ kind: "now" });
   });
 
   it("tells an engine's usage window used up in the office.window row, handled at its reset", async () => {
@@ -382,18 +650,25 @@ describe("NotificationService", () => {
       expect.objectContaining({
         kind: "office.window.used-up",
         roleKey: CARETAKER,
-        line: "Claude Code's 5-hour window is used up until 14:00. I've paused the Tasks on it, and the rest wait.",
+        line: "Claude Code's 5-hour window is used up until {time}. I've paused the Tasks on it, and the rest wait.",
+        shortLine: "Claude Code used up until {time}",
+        at: resetsAt,
         pointsTo: { kind: "office", engineId: "claude-code" },
         channels: ["in-app"],
       }),
       expect.objectContaining({
-        line: "Lab account's Opus weekly window is used up until 14:00. I've paused the Tasks on it, and the rest wait.",
+        line: "Lab account's Opus weekly window is used up until {time}. I've paused the Tasks on it, and the rest wait.",
       }),
     ]);
+    // Kept with the instant, which the web words in the browser's time zone.
+    const listed = await openNotifications();
+    expect(listed.find(({ id }) => id === raised[0]?.notification.id)?.at).toBe(
+      resetsAt.toISOString(),
+    );
 
     // A 5-hour reading going down doesn't tell a used-up window reset; its own reset does.
     await events.publish(reading(91));
-    await events.publish(reading(4));
+    await events.publish(reading(4, undefined, 1));
     expect(cleared).not.toContain(raised[0]?.notification.id);
     await events.publish(new UsageWindowReset("claude-code", "five-hour"));
 
@@ -408,7 +683,7 @@ describe("NotificationService", () => {
     await events.publish(reading(10, labAccount));
     await events.publish(reading(92, workAccount));
     await events.publish(reading(95, labAccount));
-    await events.publish(reading(4, workAccount));
+    await events.publish(reading(4, workAccount, 1));
 
     expect(raised.map(({ notification }) => notification.line)).toEqual([
       "We've used 90% of Work account's 5-hour window.",
@@ -430,8 +705,8 @@ describe("NotificationService", () => {
     await reportActivity({ kind: "now" });
 
     people.holders.set("default-person-to-talk-to", "receptionist");
-    await events.publish(reading(4));
-    await events.publish(reading(93));
+    await events.publish(reading(4, undefined, 1));
+    await events.publish(reading(93, undefined, 1));
     await events.publish(claudeCodeDown());
 
     expect(raised.map(({ notification }) => [notification.roleKey, notification.line])).toEqual([

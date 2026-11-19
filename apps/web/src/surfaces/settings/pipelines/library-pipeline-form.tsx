@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { Duty, Pipeline, PipelineEdit, Role, RoleCardOptions } from "@the-office/contracts";
-import { Alert, Button, Card, Input, Textarea } from "@the-office/ui";
+import { Alert, Button, Card, Input, Textarea, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
   addPipeline,
@@ -12,8 +12,11 @@ import {
 import { projectQueries } from "../../../api/projects.ts";
 import { useLibraryCommands } from "../../../shell/pipelines/library-commands.ts";
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
-import { StageEditor } from "../../../shell/pipelines/stage-editor.tsx";
-import { checkAwaited } from "../../../shell/pipelines/stages-check.ts";
+import { ConvertedNote } from "../../../shell/pipelines/flow/converted-note.tsx";
+import { flowProblems } from "../../../shell/pipelines/flow/flow-checks.ts";
+import { asFlow } from "../../../shell/pipelines/flow/flow-model.ts";
+import { OfficeFlowEditor } from "../../../shell/pipelines/flow/office-flow-editor.tsx";
+import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { BreaksDialog } from "./breaks-dialog.tsx";
@@ -22,8 +25,8 @@ import { breaksSentence, breaksTitle } from "./breaks-words.ts";
 const NEW_PIPELINE: PipelineEdit = { name: "", description: "", stages: [] };
 
 /**
- * The open library Pipeline's name, description and Stages in the shared Stage editor, saved or
- * discarded as a whole; a new Pipeline is added the same way. Problems the service would refuse
+ * The open library Pipeline's name, description and Stages in the flow editor, saved or discarded
+ * as a whole; a new Pipeline is added the same way. Problems the service would refuse
  * hold Save; a Role nobody fills is only flagged. A save that would break Project Pipelines built
  * from it warns above the bar, and Save asks first in a window naming them (spec §2.3, "A Broken
  * Project Pipeline").
@@ -52,7 +55,10 @@ export function LibraryPipelineForm({
     ...pipelineQueries.libraryCheck({ ...draft, pipelineId: pipeline?.id }),
     placeholderData: keepPreviousData,
   });
-  const problems = check.data?.problems ?? [];
+  const { problems, warnings } = byLevel([
+    ...(check.data?.problems ?? []),
+    ...flowProblems(draft.stages),
+  ]);
   const breaks = dirty ? (check.data?.breaks ?? []) : [];
   const projects = useQuery(projectQueries.list()).data ?? [];
   const commands = useLibraryCommands();
@@ -78,6 +84,14 @@ export function LibraryPipelineForm({
   const change = (changed: Partial<PipelineEdit>): void => setDraft({ ...draft, ...changed });
   return (
     <>
+      {pipeline && (
+        <ConvertedNote
+          key={pipeline.id}
+          pipelineId={pipeline.id}
+          name={pipeline.name}
+          stages={draft.stages}
+        />
+      )}
       <Card>
         <div className="library-form">
           <Input
@@ -91,13 +105,11 @@ export function LibraryPipelineForm({
             value={draft.description}
             onChange={(event) => change({ description: event.target.value })}
           />
-          <StageEditor
+          <OfficeFlowEditor
             stages={draft.stages}
             onChange={(stages) => change({ stages: [...stages] })}
-            lockedNotes={[]}
             problems={problems}
-            flags={check.data?.flags ?? []}
-            problemsTitle="The Pipeline can't be saved yet"
+            warnings={warnings}
             roles={roles}
             duties={duties}
             options={options}
@@ -114,7 +126,7 @@ export function LibraryPipelineForm({
       {saving.error && <RefusalAlert title="The Pipeline wasn't saved" error={saving.error} />}
       <div className="settings-actions">
         <span className="settings-actions-state">
-          {pipeline ? (dirty ? "Unsaved changes" : "Saved") : "Not in the library yet"}
+          {saveState(pipeline !== undefined, dirty, problems.length)}
         </span>
         {pipeline && (
           <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
@@ -128,13 +140,15 @@ export function LibraryPipelineForm({
         >
           Discard
         </Button>
-        <Button
-          loading={saving.isPending}
-          disabled={!dirty || problems.length > 0 || checkAwaited(check)}
-          onClick={() => (breaks.length > 0 ? setWarning(true) : saving.mutate())}
-        >
-          {pipeline ? "Save the Pipeline" : "Add the Pipeline"}
-        </Button>
+        <HeldSave count={problems.length}>
+          <Button
+            loading={saving.isPending}
+            disabled={!dirty || problems.length > 0 || checkAwaited(check)}
+            onClick={() => (breaks.length > 0 ? setWarning(true) : saving.mutate())}
+          >
+            {pipeline ? "Save the Pipeline" : "Add the Pipeline"}
+          </Button>
+        </HeldSave>
       </div>
       {warning && pipeline && (
         <BreaksDialog
@@ -162,6 +176,33 @@ export function LibraryPipelineForm({
   );
 }
 
+/** The Pipeline as the editor holds it: its Stages a flow, each with its place and routes. */
 function editOf({ name, description, stages }: Pipeline): PipelineEdit {
-  return { name, description, stages };
+  return { name, description, stages: [...asFlow(stages)] };
+}
+
+/** "2 problems hold Save" while one stands; otherwise whether there is anything to save. */
+function saveState(inLibrary: boolean, dirty: boolean, problems: number): string {
+  if (problems > 0) return `${problems} ${problems === 1 ? "problem holds" : "problems hold"} Save`;
+  if (!inLibrary) return "Not in the library yet";
+  return dirty ? "Unsaved changes" : "Saved";
+}
+
+/** Save, disabled while problems stand, says why on hover and focus. */
+function HeldSave({
+  count,
+  children,
+}: {
+  readonly count: number;
+  readonly children: ReactNode;
+}): ReactNode {
+  if (count === 0) return children;
+  return (
+    <Tooltip
+      focusable
+      content={`Fix ${count === 1 ? "the problem" : `the ${count} problems`} above first: Save waits while one stands`}
+    >
+      {children}
+    </Tooltip>
+  );
 }

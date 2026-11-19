@@ -1,4 +1,6 @@
+import type { CodexApiKey } from "../domain/codex-api-key.js";
 import type { EngineSettings } from "../domain/engine-settings.js";
+import type { EngineId } from "../domain/engines.js";
 
 /** Where the engines' Office-wide settings are kept, the API endpoints' keys with them. */
 export abstract class EngineSettingsRepository {
@@ -7,4 +9,10 @@ export abstract class EngineSettingsRepository {
 
   /** Keeps `settings` in place of the ones kept, all at once. */
   abstract replace(settings: EngineSettings): Promise<void>;
+
+  /**
+   * Keeps `key` as the Codex engine's API key, or none, changing nothing else: a Save of
+   * Settings › Engines never sets it.
+   */
+  abstract setCodexApiKey(engineId: EngineId, key: CodexApiKey | null): Promise<void>;
 }

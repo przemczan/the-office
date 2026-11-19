@@ -21,6 +21,12 @@ export abstract class Schedule {
   abstract daily(name: string, job: ScheduledJob): void;
 
   /**
+   * Runs `job` soon, in the background, then `intervalMs` after each run ends, so two runs never
+   * overlap. A run that fails is logged and the next one goes ahead.
+   */
+  abstract every(name: string, intervalMs: number, job: ScheduledJob): void;
+
+  /**
    * Runs `job` once at `at`, in the background, or soon when `at` has passed. A run that fails is
    * logged. Waits are kept in memory: whoever sets them sets them again at boot.
    */

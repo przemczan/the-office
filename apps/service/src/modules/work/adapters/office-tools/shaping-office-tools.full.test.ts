@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { READING_OFFICE_TOOLS } from "../../../conversations/index.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
@@ -9,6 +10,7 @@ import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
 import type { Initiative } from "../../domain/initiative.js";
+import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
 import type { Task } from "../../domain/task.js";
 import {
   ProposalDraftsForTests,
@@ -102,7 +104,14 @@ it("are among a shaping session's Office tools", () => {
       ADD_TASK,
       WRITE_TASK_TITLE,
       WRITE_TASK_DESCRIPTION,
+      OPEN_DECISION_TOOL,
     ]),
+  );
+});
+
+it("tell the shaper to ask the user's choices in one Decision on no Task, then end the turn", () => {
+  expect(SHAPING_INSTRUCTIONS).toContain(
+    "When you need the user's choices, ask them in one Decision with open_decision, leaving taskId out",
   );
 });
 

@@ -26,6 +26,7 @@ import {
   markTaskReady,
   startPlanningTask,
   undoPlanningMove,
+  type MarkReadyChoice,
   type TaskChange,
 } from "../domain/task-changes.js";
 import { rewriteInInitiative, startPlanningInInitiative } from "../domain/initiative-planning.js";
@@ -311,11 +312,24 @@ export class PlanningService {
 
   /**
    * Mark Ready, from Backlog or Planning: refused with the reasons until the Plan and Definition of
-   * Done are confirmed, the Pipeline proposal is answered and no Decision on the Task is open.
+   * Done are confirmed, the Pipeline proposal is answered and no Decision on the Task is open. With
+   * `confirmPlanAndDefinitionOfDone`, the user confirms the Plan and the Definition of Done as they
+   * stand, even empty, in the same save (spec §2.1); the Pipeline and the Decisions still hold.
    */
-  async markReady(taskId: string, by: Author): Promise<Task> {
+  async markReady(
+    taskId: string,
+    by: Author,
+    { confirmPlanAndDefinitionOfDone = false }: Partial<MarkReadyChoice> = {},
+  ): Promise<Task> {
     const openDecisions = await this.decisions.openOn(taskId);
-    return this.update(taskId, (task) => markTaskReady(task, openDecisions, by));
+    const { task, event } = await this.tasks.update(taskId, (latest) =>
+      markTaskReady(latest, openDecisions, by, { confirmPlanAndDefinitionOfDone }),
+    );
+    if (event) {
+      for (const confirmation of event.confirmations) await this.events.publish(confirmation);
+      await this.events.publish(event.stateChanged);
+    }
+    return task;
   }
 
   /** The conditions of Mark Ready and which are met, for the checklist beside the button. */

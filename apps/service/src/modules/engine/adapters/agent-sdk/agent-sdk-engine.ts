@@ -9,6 +9,7 @@ import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { PathRules } from "../../../../platform/os/path-rules.js";
+import { hasUsageWindows, type Engine } from "../../domain/engines.js";
 import type { OfficeRules } from "../../domain/office-rules.js";
 import {
   AgentEngine,
@@ -34,10 +35,14 @@ import { toolDecision, type SessionHolds } from "../office-rules/tool-decision.j
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
+import { carrySessionOver } from "../claude-code/session-carry-over.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
+import { serviceVariables } from "../claude-code/engine-read.js";
 import { sdkMcpConfig, sdkOptions, type SdkSession } from "./sdk-options.js";
+import { readUsageWindowsOnSdk } from "./usage-window-read.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived
@@ -54,6 +59,7 @@ export class AgentSdkEngine extends AgentEngine {
     officeTools: true,
     outputSchema: true,
     languageServers: true,
+    carrySession: true,
   };
 
   private readonly operatingSystem = currentOperatingSystem();
@@ -75,6 +81,24 @@ export class AgentSdkEngine extends AgentEngine {
     return this.open(sessionId, true, options);
   }
 
+  /** On a query opened for the read alone, on the engine's config folder. */
+  async readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
+    if (!this.capabilities.usageWindows || !hasUsageWindows(engine)) return undefined;
+    return readUsageWindowsOnSdk(
+      {
+        configFolder: await preparedEngineConfigFolder(this.officeData, engine.id),
+        environment: serviceVariables(),
+        processTrees: this.operatingSystem.processTrees,
+      },
+      { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+    );
+  }
+
+  /** From one Claude Code engine's config folder to another's (`carrySessionOver`). */
+  override carrySession(sessionId: string, from: Engine, to: Engine): Promise<void> {
+    return carrySessionOver(this.officeData, sessionId, from, to);
+  }
+
   /** Refuses, before any message reaches it, a session without exactly its skills (spec §5.6). */
   private async open(
     id: string,
@@ -82,6 +106,7 @@ export class AgentSdkEngine extends AgentEngine {
     options: SessionOptions,
   ): Promise<AgentSdkSession> {
     const configFolder = await preparedEngineConfigFolder(this.officeData, options.engine.id);
+    const apiKeyHelper = await apiKeyHelperOf(configFolder, this.operatingSystem);
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
       rules: claudeCodeOfficeRules(
@@ -121,6 +146,7 @@ export class AgentSdkEngine extends AgentEngine {
             resumes,
             options,
             configFolder,
+            apiKeyHelper,
             mcpConfigFile: mcpConfigFile?.path,
             languageServerPlugin,
             agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),

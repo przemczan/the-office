@@ -1,6 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  CODEX_CAPABILITIES,
   EngineModels,
   EngineSessions,
   EngineSettingsChecks,
@@ -34,6 +35,18 @@ const engines: readonly Engine[] = [
   },
   { id: "local", name: "Local models", kind: "claude-code", defaultModel: "", claudeCodeP: false },
 ];
+const codex: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: null,
+};
+const onCodex = { engineId: codex.id, model: "gpt-6-luna" };
+/** What the Codex adapter declares it can't do. */
+const missingOnCodex = (
+  Object.keys(CODEX_CAPABILITIES) as (keyof typeof CODEX_CAPABILITIES)[]
+).filter((capability) => !CODEX_CAPABILITIES[capability]);
 /** The Developer has an Office-wide Role override on Claude Code; the CTO is in no Pipeline. */
 const roleOverrides: Readonly<Record<string, EngineModel>> = { developer: officeDefault };
 
@@ -86,12 +99,13 @@ beforeEach(async () => {
     roleTitle: (roleKey) => roleKey.charAt(0).toUpperCase() + roleKey.slice(1),
   };
   const engineModels: Pick<EngineModels, "engines" | "officeDefault"> = {
-    engines: async () => engines,
+    // Codex is listed too, for a Role override on it.
+    engines: async () => [...engines, codex],
     officeDefault: async () => officeDefault,
   };
   const engineSessions: Pick<EngineSessions, "missingCapabilitiesOf"> = {
     missingCapabilitiesOf: (engine): readonly EngineCapability[] =>
-      engine.id === "local" ? ["officeTools"] : [],
+      engine.kind === "codex" ? missingOnCodex : engine.id === "local" ? ["officeTools"] : [],
   };
   rolesNamed = { everywhere: new Set(["developer", "reviewer"]), byProject: new Map() };
   dutyHolders = new Map([["implements", "developer"]]);
@@ -308,6 +322,20 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
       "Outside any Project, the Reviewer would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
       "In Billing, the Reviewer and the Cto would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
     ]);
+  });
+
+  it("lets through an Office default on a Codex engine, which has Office tools and output schemas", async () => {
+    const withCodex = { engines: [...engines, codex], officeDefault };
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: withCodex,
+        after: { ...withCodex, officeDefault: onCodex },
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      roleOverrideChecks.problemsOf({ roleKey: "reviewer", before: null, after: onCodex }),
+    ).resolves.toEqual([]);
   });
 
   it("lets through a save that changes nothing for the Roles a Pipeline names", async () => {

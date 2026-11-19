@@ -63,6 +63,12 @@ export abstract class TaskRepository {
   /** Every Task, in no particular order. */
   abstract list(): Promise<readonly Task[]>;
 
+  /**
+   * The Tasks `engineId`'s usage window holds Paused, in no particular order: none paused before
+   * the engine was kept, nor one its Initiative's Pause took over.
+   */
+  abstract pausedByUsageWindowOn(engineId: string): Promise<readonly Task[]>;
+
   /** The ids of every Dropped Task, archived or not, in no particular order. */
   abstract droppedIds(): Promise<readonly string[]>;
 
@@ -77,6 +83,9 @@ export abstract class TaskRepository {
 
   /** The Task's kept state changes, oldest first; none for a Task The Office doesn't know. */
   abstract stateChangesOf(taskId: string): Promise<readonly StateChange[]>;
+
+  /** The Tasks with a state change to Done at or after `since`, each once, archived ones too. */
+  abstract doneSince(since: Date): Promise<readonly string[]>;
 
   /**
    * Applies `change` to the Task as stored, holding it against other changes until the result is

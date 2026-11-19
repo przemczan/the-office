@@ -1,6 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import { EngineModels, hasUsageWindows, type EngineId } from "../../engine/index.js";
+import {
+  EngineModels,
+  engineThroughStandIns,
+  hasUsageWindows,
+  type Engine,
+  type EngineId,
+} from "../../engine/index.js";
 import { hasPipeline, type Task } from "../domain/task.js";
+import { STARTED_STATES } from "../domain/task-states.js";
 import {
   HISTORY_WINS_AT,
   historyUsage,
@@ -11,6 +18,7 @@ import {
   type StageUsages,
   type UsageEstimate,
   type UsageMeasure,
+  type WindowRatios,
 } from "../domain/usage-estimate.js";
 import { AccountWindowRatios } from "../ports/account-window-ratios.js";
 import { KnownEngineCascade } from "../ports/known-engine-cascade.js";
@@ -64,10 +72,23 @@ export class UsageEstimates {
     );
   }
 
-  /** The engine ids the Task's Pipeline's Agent Stages spend on, estimated or not. */
-  async engineIdsOf(task: Task): Promise<readonly EngineId[]> {
-    const stages = await this.estimatedStages(task);
-    return [...new Set(stages.map(({ engineId }) => engineId))];
+  /**
+   * The models the Task's Pipeline's Agent Stages use on each engine id they spend on, estimated or
+   * not, in the Stages' order.
+   */
+  async modelsOf(task: Task): Promise<ReadonlyMap<EngineId, readonly string[]>> {
+    const models = new Map<EngineId, string[]>();
+    for (const { engineId, model } of await this.estimatedStages(task)) {
+      const onEngine = models.get(engineId) ?? [];
+      if (!onEngine.includes(model)) models.set(engineId, [...onEngine, model]);
+    }
+    return models;
+  }
+
+  /** The window % per token of `engineId`; none for an engine whose account has no usage windows. */
+  async windowRatiosOf(engineId: EngineId): Promise<WindowRatios | undefined> {
+    const engine = await this.engineModels.find(engineId);
+    return engine && hasUsageWindows(engine) ? this.windowRatios.ratios(engineId) : undefined;
   }
 
   private async tickedMeasures(): Promise<readonly UsageMeasure[]> {
@@ -123,25 +144,35 @@ export class UsageEstimates {
 
   /**
    * The Task's Pipeline's Agent Stages with the engine and model the cascade gives each in the
-   * Task's Project; a vacant Role's and an unheld duty's are left out, and every Stage while no engine is listed. None
-   * while the Task has no Pipeline.
+   * Task's Project, a started Task's on the Stand-in Engines its Start chose, as its Stage Threads
+   * open on them (`engineThroughStandIns`); a vacant Role's and an unheld duty's are left out, and
+   * every Stage while no engine is listed. None while the Task has no Pipeline.
    */
   private async estimatedStages(task: Task): Promise<readonly EstimatedStage[]> {
     if (!hasPipeline(task)) return [];
     const { projectId } = task;
     const pipeline = await this.pipelines.read(task.pipelineId);
     const held = await withDutiesHeld(pipeline?.stages ?? [], this.people);
+    const engines = await this.enginesForStandIns(task);
     const stages = await Promise.all(
       held.map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);
         if (!person) return [];
         const applying = await this.engineCascade.applying(person.roleKey, projectId);
-        return applying
-          ? [{ key: stage.key, engineId: applying.engineId, model: applying.model }]
-          : [];
+        if (!applying) return [];
+        const { engineId, model } = engines
+          ? engineThroughStandIns(applying, task.engineStandIns, engines)
+          : applying;
+        return [{ key: stage.key, engineId, model }];
       }),
     );
     return stages.flat();
+  }
+
+  /** The engines listed now, for a started Task with Stand-in Engines; none for any other. */
+  private async enginesForStandIns(task: Task): Promise<readonly Engine[] | undefined> {
+    if (!STARTED_STATES.includes(task.state) || task.engineStandIns.length === 0) return undefined;
+    return this.engineModels.engines();
   }
 
   /** Each Stage's median tokens at the current Model prices, by Stage key. */

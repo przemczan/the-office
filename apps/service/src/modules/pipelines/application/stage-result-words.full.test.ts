@@ -13,7 +13,7 @@ const stages = [
 
 function aRun(stageKey: string, summary: string, handoverNote: string): StageRun {
   const outcome = { status: "done", summary, handoverNote };
-  return { stageKey, outcome } as unknown as StageRun;
+  return { stageKey, outcome, decisions: [] } as unknown as StageRun;
 }
 
 function wordsOf(runs: readonly StageRun[]): StageResultWords {

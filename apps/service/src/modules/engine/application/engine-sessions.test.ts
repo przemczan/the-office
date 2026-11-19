@@ -34,11 +34,13 @@ import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
 import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
+import { ModelPrices } from "./model-prices.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowSamples } from "./usage-window-samples.js";
+import { UsageWindowReadings } from "./usage-window-readings.js";
 import { UsageWindowState } from "./usage-window-state.js";
 
 // What engine-sessions.test.ts and engine-sessions.full.test.ts share.
@@ -134,6 +136,7 @@ function setUp(
       "agent-sdk": new ScriptedEngine(scripts, capabilities),
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -170,11 +173,12 @@ function setUpOn(
     usageWindows,
     officeTools,
     dayUsage,
-    windowSamples,
+    new UsageWindowReadings(usageWindows, windowSamples, schedule),
     new EngineModels(settings),
     running,
     new BusyWork(new EventBus()),
     languageServers,
+    new ModelPrices(settings),
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }
@@ -230,6 +234,7 @@ function twoEngines(scripts: {
       "agent-sdk": agentSdk,
       "claude-code-p": claudeCodeP,
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
     }),
   };
 }
@@ -340,6 +345,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         "agent-sdk": new ScriptedEngine([ONE_TURN, ONE_TURN]),
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
         "openai-compatible-api": new ScriptedEngine([ONE_TURN], { usageWindows: false }),
+        codex: new ScriptedEngine([]),
       });
 
       await oneTurn(sessions, SETTINGS);

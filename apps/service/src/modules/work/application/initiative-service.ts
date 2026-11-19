@@ -25,6 +25,7 @@ import {
   dropInitiative,
   finishInitiative,
   removeDependencyOfItsTask,
+  setInitiativePipelines,
   settleInitiative,
   tasksByInitiative,
   writeOutcome,
@@ -314,6 +315,32 @@ export class InitiativeService implements OnModuleInit {
     return idea;
   }
 
+  /**
+   * The Initiatives of these ids that The Office knows, archived ones too, each with its name as
+   * its title and the Projects its Tasks are in, for Stats.
+   */
+  async titlesOf(ids: readonly string[]): Promise<
+    readonly {
+      readonly initiativeId: string;
+      readonly title: string;
+      readonly projectIds: readonly string[];
+    }[]
+  > {
+    if (ids.length === 0) return [];
+    const wanted = new Set(ids);
+    const [every, byInitiative] = await Promise.all([
+      this.repository.list(),
+      this.tasksByInitiative(),
+    ]);
+    return every
+      .filter(({ id }) => wanted.has(id))
+      .map(({ id, name }) => ({
+        initiativeId: id,
+        title: name,
+        projectIds: initiativeProjectIds(byInitiative.get(id) ?? []),
+      }));
+  }
+
   /** Every Initiative's Pipeline in each Project it spans that has one. */
   async withPipelines(): Promise<readonly InitiativeOnPipeline[]> {
     const [every, byInitiative] = await Promise.all([
@@ -366,6 +393,53 @@ export class InitiativeService implements OnModuleInit {
     );
     if (event) await this.events.publish(event);
     return initiative;
+  }
+
+  /**
+   * The user's Pipelines block saved as a whole while it is being shaped: the Pipeline in each
+   * Project of `choices`, null for None, and the Short name, null to keep or derive it. Refused,
+   * with nothing saved, for any Project it doesn't span or any Pipeline that Project's Tasks
+   * couldn't follow, as choosePipeline refuses it, and for a Short name writeShortName refuses.
+   */
+  async setPipelines(
+    id: string,
+    choices: readonly { readonly projectId: string; readonly pipelineId: string | null }[],
+    shortName: string | null,
+  ): Promise<Initiative> {
+    const tasks = (await this.tasksByInitiative()).get(id) ?? [];
+    const problems = (
+      await Promise.all(
+        choices.map(({ projectId, pipelineId }) =>
+          this.pipelineProblems(tasks, projectId, pipelineId),
+        ),
+      )
+    ).flat();
+    if (problems.length > 0) throw new InitiativeRefused(problems);
+    const set = choices.map(({ projectId, pipelineId }) => ({
+      projectId,
+      pipelineId: pipelineId ?? undefined,
+    }));
+    const { initiative, event } = await this.repository.updateNaming(id, (held, taken) =>
+      setInitiativePipelines(held, set, shortName ?? undefined, taken),
+    );
+    if (event) await this.events.publish(event);
+    return initiative;
+  }
+
+  /**
+   * Every reason the user's choice of `pipelineId` in one Project would be refused, judged by the
+   * Initiative's `tasks`.
+   */
+  private async pipelineProblems(
+    tasks: readonly Task[],
+    projectId: string,
+    pipelineId: string | null,
+  ): Promise<string[]> {
+    const project = await this.spannedProjectIn(tasks, projectId);
+    if (!project) return [notSpannedWords(projectId)];
+    if (pipelineId === null) return [];
+    const choice = await pipelineChoiceIn(projectId, pipelineId, this.pipelines, this.projects);
+    return taskPipelineProblems(choice, project);
   }
 
   /** The user's own Short name, while it is being shaped with a Pipeline chosen. */

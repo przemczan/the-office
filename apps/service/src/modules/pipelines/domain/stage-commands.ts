@@ -2,18 +2,18 @@ import { problemOnStage, type StageProblem } from "./pipeline.js";
 import { commandKeysOfStage, type Stage } from "./stage.js";
 
 /**
- * A problem on each Stage from `fromIndex` on that names a command `commands` lacks, by key
+ * A problem on each Stage but those whose keys are in `skipped` that names a command `commands` lacks, by key
  * (`commandKeysOfStage`), worded by `words` from the missing keys.
  */
 export function missingCommandsOnStages(
   stages: readonly Stage[],
   commands: readonly { readonly key: string }[],
-  fromIndex: number,
+  skipped: ReadonlySet<string>,
   words: (missing: readonly string[]) => string,
 ): StageProblem[] {
   const keys = new Set(commands.map(({ key }) => key));
   return stages.flatMap((stage, stageIndex) => {
-    if (stageIndex < fromIndex) return [];
+    if (skipped.has(stage.key)) return [];
     const missing = commandKeysOfStage(stage, stages).filter((key) => !keys.has(key));
     return missing.length > 0 ? [problemOnStage(stage, stageIndex, words(missing))] : [];
   });

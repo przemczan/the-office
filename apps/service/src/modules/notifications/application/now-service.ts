@@ -22,6 +22,7 @@ import {
   SentBackFromGate,
   StageRunEnded,
   StageRunStarted,
+  StandInChoicesChanged,
   TaskStagesEdited,
 } from "../../pipelines/index.js";
 import {
@@ -65,6 +66,7 @@ import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { OpenDecisions } from "../ports/open-decisions.js";
 import { ResumePlans } from "../ports/resume-plans.js";
+import { StandInChoicesWaiting } from "../ports/stand-in-choices-waiting.js";
 import { StartQueue } from "../ports/start-queue.js";
 import { TaskOutcomeRepository } from "../ports/task-outcome-repository.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
@@ -84,6 +86,7 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   SentBackFromGate,
   GateDropped,
   TaskStagesEdited,
+  StandInChoicesChanged,
   DecisionOpened,
   DecisionAnswered,
   DecisionClosed,
@@ -140,6 +143,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly figures: OfficeDayFigures,
     private readonly fireAlarm: OfficeFireAlarm,
     private readonly resumePlans: ResumePlans,
+    private readonly standInChoices: StandInChoicesWaiting,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
@@ -170,6 +174,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       initiatives,
       initiativeTasks,
       shaper,
+      standInChoices,
     ] = await Promise.all([
       this.startedTasks(),
       this.decisions.listOpen(),
@@ -181,6 +186,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       this.initiatives.list(),
       this.initiatives.tasksByInitiative(),
       this.people.holderOf(SHAPES_INITIATIVES),
+      this.standInChoices.waiting(),
     ]);
     return nowOf({
       started,
@@ -199,6 +205,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       })),
       fireAlarm,
       resumes: fireAlarm.on ? await this.resumesOf(started) : new Map(),
+      standInChoices,
     });
   }
 
@@ -245,9 +252,14 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       to === "done" ? this.keepOutcome(taskId, "done", occurredAt) : this.announceInBackground(),
     );
     // What the fire alarm or an Initiative's Pause holds is no Outcome: Now shows it with the
-    // alarm, and the Initiative that it is paused. A refusal for a used-up usage window is.
+    // alarm, and the Initiative that it is paused. A refusal for a used-up usage window is, unless
+    // its Stage waits for the user's choice of a Stand-in Engine, which Needs you shows instead.
     this.events.subscribe(TaskPaused, ({ taskId, occurredAt, by, from, usageWindow }) =>
-      by === "user" || (by === "usage-window" && usageWindow !== undefined && from !== "paused")
+      by === "user" ||
+      (by === "usage-window" &&
+        usageWindow !== undefined &&
+        usageWindow.awaitsStandInChoice !== true &&
+        from !== "paused")
         ? this.keepOutcome(taskId, "paused", occurredAt)
         : this.announceInBackground(),
     );

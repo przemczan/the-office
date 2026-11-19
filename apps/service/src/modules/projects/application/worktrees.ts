@@ -293,6 +293,15 @@ export class Worktrees {
     return this.git.commit(path, message, this.variablesOf(project));
   }
 
+  /** The paths one of the Task's commits changed against its first parent. */
+  async committedPaths(
+    project: Project,
+    taskId: string,
+    commit: string,
+  ): Promise<readonly string[]> {
+    return this.git.committedPaths(this.pathOf(project, taskId), commit);
+  }
+
   /**
    * Where the Task's worktree is: the after-Stage check compares it with where it was. A worktree
    * Publish removed is made again from the Task's branch first, as for a Stage after Publish.

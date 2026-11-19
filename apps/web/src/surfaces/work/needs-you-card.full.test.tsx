@@ -6,14 +6,23 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { Decision, Readiness, Role, Task, TaskStages, Thread } from "@the-office/contracts";
+import type {
+  Decision,
+  Readiness,
+  Role,
+  StandInChoice,
+  Task,
+  TaskStages,
+  Thread,
+} from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
-import { pipelineQueries } from "../../api/pipelines.ts";
+import { pipelineQueries, standInChoiceQueries } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
+import { DecisionDraftsProvider } from "../../shell/conversation/decision-drafts.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
@@ -42,24 +51,30 @@ function aDecision(id: string, question: string): Decision {
   return {
     id,
     threadId: PLANNING_THREAD,
-    kind: "question",
+    kind: "form",
     taskId: TASK.id,
     roleKey: "planner",
-    question,
+    questions: [
+      {
+        kind: "choice",
+        question,
+        options: ["CSV", "JSON"],
+        recommendation: { option: 0, reason: "Spreadsheets open it." },
+      },
+    ],
     context: "",
-    options: ["CSV", "JSON"],
-    recommendation: { option: 0, reason: "Spreadsheets open it." },
     attachmentIds: [],
     askedAt: "2026-11-10T14:02:00.000Z",
     putTo: null,
     passedOn: [],
-    answer: null,
+    formAnswer: null,
     answeredAt: null,
     answeredByUser: null,
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,
     closedAt: null,
+    closedBecause: null,
   };
 }
 
@@ -82,12 +97,17 @@ const READINESS: Readiness = {
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
 
-async function rendered(): Promise<HTMLElement> {
+async function rendered(
+  task: Task = TASK,
+  decisions: Decision[] = DECISIONS,
+  standInChoices: StandInChoice[] = [],
+): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
-  queryClient.setQueryData(decisionQueries.unanswered(TASK.id).queryKey, DECISIONS);
+  queryClient.setQueryData(decisionQueries.unanswered(TASK.id).queryKey, decisions);
+  queryClient.setQueryData(standInChoiceQueries.list().queryKey, standInChoices);
   queryClient.setQueryData(pipelineQueries.taskStages(TASK.id).queryKey, {
     stages: [],
   } as unknown as TaskStages);
@@ -100,7 +120,7 @@ async function rendered(): Promise<HTMLElement> {
     path: "tasks/$taskId",
     component: () => (
       <ConversationDrawerProvider>
-        <NeedsYouCard task={TASK} />
+        <NeedsYouCard task={task} />
       </ConversationDrawerProvider>
     ),
   });
@@ -114,7 +134,9 @@ async function rendered(): Promise<HTMLElement> {
     createRoot(page).render(
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <RouterProvider router={router} />
+          <DecisionDraftsProvider>
+            <RouterProvider router={router} />
+          </DecisionDraftsProvider>
         </ToastProvider>
       </QueryClientProvider>,
     );
@@ -155,9 +177,12 @@ describe("a Task's Decisions opened in its Initiative's planning Thread", () => 
   it("stay answerable while the Planner works, saying when the answer reaches them", async () => {
     const page = await rendered();
 
-    const options = [...page.querySelectorAll<HTMLButtonElement>(".decision-options button")];
-    expect(options).toHaveLength(4);
-    expect(options.every((option) => !option.disabled)).toBe(true);
+    const submits = [...page.querySelectorAll<HTMLButtonElement>("button")].filter(
+      ({ textContent }) =>
+        textContent?.startsWith("Submit") || textContent?.startsWith("Ask me again"),
+    );
+    expect(submits).toHaveLength(4);
+    expect(submits.every((button) => !button.disabled)).toBe(true);
     expect(page.textContent).toContain("Reaches Angela when this turn ends.");
     expect(page.textContent).not.toContain("is still answering");
   });
@@ -166,5 +191,61 @@ describe("a Task's Decisions opened in its Initiative's planning Thread", () => 
     const page = await rendered();
 
     expect(page.querySelector(".before-ready-line")?.textContent).toContain("2 open, in Needs you");
+  });
+});
+
+const choiceOf = (taskId: string, stageName: string): StandInChoice => ({
+  runId: crypto.randomUUID(),
+  taskId,
+  taskTitle: stageName === "Implement" ? TASK.title : "Another Task",
+  projectId: "billing",
+  stageKey: stageName.toLowerCase(),
+  stageName,
+  engineName: "Claude Code",
+  resetsAt: "2026-11-18T14:00:00.000Z",
+  contextTokens: 182_000,
+  askAbove: 100_000,
+  standIn: { engineId: "claude-code-2", engineName: "Claude Code 2" },
+  waitingSince: "2026-11-18T11:00:00.000Z",
+});
+
+describe("a Task Paused by a used-up usage window, waiting for the user's choice", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("shows The Office's Decision in Needs you, narrowed to this Task's Stage", async () => {
+    const paused = { ...TASK, state: "paused" } as Task;
+    const page = await rendered(
+      paused,
+      [],
+      [choiceOf(TASK.id, "Implement"), choiceOf("another-task", "Review")],
+    );
+
+    const card = page.querySelector("section.needs-you-card");
+    expect(card?.querySelector(".needs-you-summary")?.textContent).toBe("a Stand-in Engine choice");
+    const rows = [...(card?.querySelectorAll("li") ?? [])];
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([
+      `Implement · ${TASK.title}`,
+    ]);
+    expect(card?.textContent).toContain("Decision: switch Stages to a Stand-in Engine");
+  });
+
+  it("shows nothing of it while none of this Task's Stages waits", async () => {
+    const paused = { ...TASK, state: "paused" } as Task;
+    const page = await rendered(paused, [], [choiceOf("another-task", "Review")]);
+
+    expect(page.querySelector("section.needs-you-card")).toBeNull();
+    expect(page.textContent).not.toContain("Stand-in Engine");
   });
 });

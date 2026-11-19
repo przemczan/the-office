@@ -128,4 +128,41 @@ describe("Telemetry", () => {
       "office.tokens.cache_creation": 3_000,
     });
   });
+
+  it("writes an engine call's record in its span, so it carries the call's trace", async () => {
+    const { telemetry, spans, records } = setUp();
+
+    await telemetry.inSpan("engine call", {}, () => {
+      telemetry.recordEngineCall({ "office.task": "task-1", "office.tokens.output": 800 });
+      return Promise.resolve();
+    });
+
+    const [record] = records.getFinishedLogRecords();
+    const span = spans.getFinishedSpans()[0]?.spanContext();
+    expect(record?.eventName).toBe("office.engine.call");
+    expect(record?.severityText).toBe("INFO");
+    expect(record?.attributes).toEqual({ "office.task": "task-1", "office.tokens.output": 800 });
+    expect(record?.spanContext?.traceId).toBe(span?.traceId);
+    expect(record?.spanContext?.spanId).toBe(span?.spanId);
+  });
+
+  it("keeps the last reading of each engine's Usage window", async () => {
+    const { telemetry, metricReader } = setUp();
+
+    telemetry.recordUsageWindow("claude-code", "five_hour", 20);
+    telemetry.recordUsageWindow("claude-code", "five_hour", 35);
+    telemetry.recordUsageWindow("claude-code", "seven_day", 60);
+    telemetry.recordUsageWindow("codex", "five_hour", 0);
+
+    const { resourceMetrics } = await metricReader.collect();
+    const used = resourceMetrics.scopeMetrics
+      .flatMap((scope) => scope.metrics)
+      .find((each) => each.descriptor.name === "office.usage_window.used");
+    expect(used?.descriptor.unit).toBe("%");
+    expect(used?.dataPoints.map((point) => [point.attributes, point.value])).toEqual([
+      [{ "office.engine": "claude-code", "office.usage_window": "five_hour" }, 35],
+      [{ "office.engine": "claude-code", "office.usage_window": "seven_day" }, 60],
+      [{ "office.engine": "codex", "office.usage_window": "five_hour" }, 0],
+    ]);
+  });
 });

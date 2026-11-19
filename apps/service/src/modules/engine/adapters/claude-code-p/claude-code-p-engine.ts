@@ -12,6 +12,7 @@ import { OfficeDataDirectory } from "../../../../platform/office-data/office-dat
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
+import { hasUsageWindows, type Engine } from "../../domain/engines.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import {
   AgentEngine,
@@ -33,6 +34,7 @@ import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
+import { carrySessionOver } from "../claude-code/session-carry-over.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import {
   initProblems,
@@ -40,6 +42,9 @@ import {
   type StartCheckRequests,
 } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
+import { serviceVariables } from "../claude-code/engine-read.js";
+import { sessionEnvironment } from "../claude-code/session-settings.js";
+import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import {
   claudeCodePArguments,
   claudeCodePEnvironment,
@@ -49,6 +54,7 @@ import { OfficeToolServer } from "./office-tool-server.js";
 import { pinnedBinaryPath } from "./pinned-binary.js";
 import { SessionEndpoints, type OpenEndpoints } from "./session-endpoints.js";
 import { StreamJson } from "./stream-json.js";
+import { claudeCodePReadArguments, readUsageWindowsOnStreamJson } from "./usage-window-read.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import {
   officeToolCall,
@@ -66,6 +72,7 @@ export const CLAUDE_CODE_P_CAPABILITIES: EngineCapabilities = {
   officeTools: true,
   outputSchema: true,
   languageServers: true,
+  carrySession: true,
 };
 
 /** What a session opens beside its engine's process, which ending it closes. */
@@ -111,6 +118,27 @@ export class ClaudeCodePEngine extends AgentEngine {
     this.require("resume");
     this.requireFor(options);
     return this.open(sessionId, true, options);
+  }
+
+  /** On the pinned binary started for the read alone, on the engine's config folder. */
+  async readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
+    if (!this.capabilities.usageWindows || !hasUsageWindows(engine)) return undefined;
+    const configFolder = await preparedEngineConfigFolder(this.officeData, engine.id);
+    return readUsageWindowsOnStreamJson(
+      {
+        command: pinnedBinaryPath(this.operatingSystem.claudeCodeBinaries),
+        args: claudeCodePReadArguments(),
+        cwd: configFolder,
+        env: sessionEnvironment(serviceVariables(), configFolder),
+      },
+      this.operatingSystem.processTrees,
+      { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+    );
+  }
+
+  /** From one Claude Code engine's config folder to another's (`carrySessionOver`). */
+  override carrySession(sessionId: string, from: Engine, to: Engine): Promise<void> {
+    return carrySessionOver(this.officeData, sessionId, from, to);
   }
 
   /** Refuses, before any message reaches it, a session without exactly its skills (spec §5.6). */
@@ -166,6 +194,7 @@ export class ClaudeCodePEngine extends AgentEngine {
             resources.folder === undefined ? undefined : join(resources.folder, INSTRUCTIONS_FILE),
           mcpConfigFile: resources.mcpConfigFile?.path,
           languageServerPlugin,
+          apiKeyHelper: await apiKeyHelperOf(configFolder, this.operatingSystem),
         }),
         cwd: options.folder,
         env: claudeCodePEnvironment(

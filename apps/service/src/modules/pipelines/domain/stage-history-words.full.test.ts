@@ -97,6 +97,31 @@ describe("stageHistoryWords", () => {
     expect(words).toContain("Outcome: done. `npm test` passed.");
   });
 
+  it("tells the condition commands kept on the run the routes leave, by the route they weighed", () => {
+    const condition = { key: "lint", to: "tests", routeIndex: 0, testPath: [0] };
+    const weighed = aStageRun({
+      commandRuns: [
+        aCommand({ purpose: "install", commandLine: "npm ci", condition }),
+        aCommand({ purpose: "condition", commandLine: "npm run lint", condition }),
+        aCommand({
+          purpose: "condition",
+          commandLine: "npm run build",
+          condition: { ...condition, to: null },
+        }),
+      ],
+    });
+
+    const words = stageHistoryWords(stages, [weighed], NO_THREADS);
+
+    expect(words).toContain(
+      "1. Install for the condition of the route to Tests: `npm ci`, passed, exit code 0, 1.2 s.",
+    );
+    expect(words).toContain(
+      "2. Condition for the route to Tests: `npm run lint`, passed, exit code 0, 1.2 s.",
+    );
+    expect(words).toContain("3. Condition for the route to End: `npm run build`");
+  });
+
   it("tells an Agent Stage's Decision and its answer, its engine, model and tokens", () => {
     const words = stageHistoryWords(
       stages,
@@ -137,6 +162,29 @@ describe("stageHistoryWords", () => {
       "Tokens: 1200 input, 300 output, 40000 cache read, 2000 cache creation.",
     );
     expect(words).toContain("Project commands: none.");
+  });
+
+  it("tells the engine a Stand-in Engine stood in for, and why", () => {
+    const words = stageHistoryWords(
+      stages,
+      [
+        aStageRun({
+          engineId: "personal",
+          engineName: "Personal",
+          model: "claude-opus-5-5",
+          standInFor: {
+            engineId: "work",
+            engineName: "Work",
+            reason: "The Work engine's 5-hour window would pass its 80% cap",
+          },
+        }),
+      ],
+      NO_THREADS,
+    );
+
+    expect(words).toContain(
+      "Engine: Personal, model claude-opus-5-5, as a Stand-in Engine for Work: The Work engine's 5-hour window would pass its 80% cap.",
+    );
   });
 
   it("tells why a run failed, and a run still going on", () => {

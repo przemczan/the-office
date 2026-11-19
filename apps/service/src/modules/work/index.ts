@@ -11,6 +11,7 @@ export { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
 export { StageScreenshots } from "./application/stage-screenshots.js";
 export { TaskArchiving } from "./application/task-archiving.js";
 export { TaskRecords } from "./application/task-records.js";
+export type { EngineStandIn } from "./domain/stand-ins-at-start.js";
 export { TaskStageEdits, type TaskStageEditLookup } from "./application/task-stage-edits.js";
 export { TaskService } from "./application/task-service.js";
 export { UsageWindowResumes } from "./application/usage-window-resumes.js";
@@ -59,6 +60,7 @@ export {
   TaskStateChanged,
   TaskStopped,
   TaskTakenOutOfInitiative,
+  TaskWentOnOnStandIn,
 } from "./domain/task-events.js";
 export { TaskRefused } from "./domain/task-refused.js";
 export { STARTED_STATES, TASK_STATE_NAMES } from "./domain/task-states.js";

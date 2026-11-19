@@ -15,6 +15,7 @@ import {
   PipelineRemoved,
   PipelineSaved,
 } from "../../domain/pipeline-library-events.js";
+import { straightLineFlow } from "../../domain/flow.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
@@ -88,7 +89,7 @@ describe("POST /api/pipelines", () => {
 
     const pipeline = await added(edit);
 
-    expect(pipeline.stages).toEqual(edit.stages);
+    expect(pipeline.stages).toEqual(straightLineFlow(edit.stages));
   });
 
   it("keeps an Agent Stage's Project commands, and reads them back the same", async () => {
@@ -97,7 +98,7 @@ describe("POST /api/pipelines", () => {
 
     const read = await send("GET", `/pipelines/${pipeline.id}`);
 
-    expect(pipelineSchema.parse(await read.json()).stages).toEqual(edit.stages);
+    expect(pipelineSchema.parse(await read.json()).stages).toEqual(straightLineFlow(edit.stages));
   });
 
   it("refuses an Agent Stage whose Project commands are an empty list, or name install", async () => {
@@ -125,7 +126,12 @@ function anIncapableRole(): string {
 }
 
 function incapableRefusal(roleKey: string) {
-  return { stageIndex: null, text: `The ${roleKey}'s engine can't work an Agent Stage.` };
+  return {
+    stageKey: null,
+    at: null,
+    level: "problem",
+    text: `The ${roleKey}'s engine can't work an Agent Stage.`,
+  };
 }
 
 describe("a Stage naming a Role whose engine can't work an Agent Stage", () => {
@@ -164,10 +170,17 @@ describe("a Stage naming a Role whose engine can't work an Agent Stage", () => {
     expect(stagesEditRefusalSchema.parse(await saved.json()).problems).toEqual([
       incapableRefusal(roleKey),
     ]);
+    // The check also warns that nobody fills the Role, which a save alone wouldn't refuse.
     expect(pipelineCheckSchema.parse(await checked.json()).problems).toEqual([
       incapableRefusal(roleKey),
+      {
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "warning",
+        text: `Stage 1 · Implement: nobody fills ${roleKey}; hire someone or choose who works it.`,
+      },
     ]);
-    expect(await proposed).toEqual([{ text: incapableRefusal(roleKey).text }]);
+    expect(await proposed).toEqual([{ level: "problem", text: incapableRefusal(roleKey).text }]);
   });
 
   it("lets through a Role the library already names, whatever its engine", async () => {
@@ -191,10 +204,12 @@ describe("POST /api/pipelines/check", () => {
 
     expect(response.status).toBe(200);
     expect(pipelineCheckSchema.parse(await response.json())).toEqual({
-      problems: [{ stageIndex: null, text: 'Another Pipeline is named "Full".' }],
-      flags: [
+      problems: [
+        { stageKey: null, at: null, level: "problem", text: 'Another Pipeline is named "Full".' },
         {
-          stageIndex: 0,
+          stageKey: "implement",
+          at: { kind: "stage" },
+          level: "warning",
           text: "Stage 1 · Implement: nobody fills Devops; hire someone or choose who works it.",
         },
       ],
@@ -208,16 +223,17 @@ describe("POST /api/pipelines/check", () => {
     const response = await send("POST", "/pipelines/check", edit);
 
     expect(pipelineCheckSchema.parse(await response.json())).toEqual({
-      problems: [],
-      flags: [
+      problems: [
         {
-          stageIndex: 0,
+          stageKey: "implement",
+          at: { kind: "stage" },
+          level: "warning",
           text: "Stage 1 · Implement: the run permission can only be narrowed from the Role card's.",
         },
       ],
       breaks: [],
     });
-    expect((await added(edit)).stages).toEqual(edit.stages);
+    expect((await added(edit)).stages).toEqual(straightLineFlow(edit.stages));
   });
 
   it("refuses a Stage that would give back editing", async () => {
@@ -241,7 +257,6 @@ describe("POST /api/pipelines/check", () => {
 
     expect(pipelineCheckSchema.parse(await response.json())).toEqual({
       problems: [],
-      flags: [],
       breaks: [],
     });
   });
@@ -270,9 +285,11 @@ describe("PUT /api/pipelines/:id", () => {
 
     expect(response.status).toBe(422);
     expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual([
-      { stageIndex: null, text: "Give the Pipeline a name." },
+      { stageKey: null, at: null, level: "problem", text: "Give the Pipeline a name." },
       {
-        stageIndex: 0,
+        stageKey: "tests",
+        at: { kind: "onFailure" },
+        level: "problem",
         text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
       },
     ]);
@@ -355,7 +372,8 @@ describe("an office-wide Pipeline and the Project Pipelines built from it", () =
     const response = await send("PUT", `/pipelines/${base.id}`, {
       name: base.name,
       description: base.description,
-      stages: [base.stages[0], lint],
+      // Drawn again as a straight line, as the list editor sends it.
+      stages: straightLineFlow([base.stages[0]!, lint]),
     });
 
     expect(response.status).toBe(422);

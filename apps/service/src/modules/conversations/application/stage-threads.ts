@@ -4,7 +4,14 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
-import { EngineSessions, type EngineId, type EngineModel } from "../../engine/index.js";
+import {
+  EngineModels,
+  EngineSessions,
+  engineThroughStandIns,
+  type EngineId,
+  type EngineModel,
+  type UsageWindowName,
+} from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
   Duties,
@@ -18,7 +25,7 @@ import { ApprovalHolds } from "./approval-holds.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
-import type { Decision } from "../domain/decision.js";
+import { decisionSummary, onlyChoice, type Recommendation } from "../domain/decision.js";
 import type {
   Message,
   MessageDelivery,
@@ -41,6 +48,7 @@ import {
 import {
   addTokens,
   NO_TOKENS,
+  type SessionStandIn,
   type Thread,
   type ThreadSession,
   type TokenTotals,
@@ -56,6 +64,8 @@ import {
   freshSession,
   logMessages,
   markDelivery,
+  moveSessionBack,
+  moveSessionToEngine,
   readRunningContext,
   startStageThread,
   type StageWorkEnding,
@@ -63,6 +73,7 @@ import {
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
+import { SwitchFailed } from "../domain/switch-failed.js";
 import type { UserRef } from "../domain/user.js";
 import {
   undeliveredSince,
@@ -103,6 +114,13 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
+  /** The Task's Initiative; undefined when the Task is in none. */
+  readonly initiativeId: string | undefined;
+  /** The Stage run's number, as the Task's Stage history counts them. */
+  readonly stageRun: number;
+  /** The Task's Pipeline's name, and its Project's, which the session's telemetry carries. */
+  readonly pipelineName: string;
+  readonly projectName: string;
   /** The Stage's own effort; undefined keeps the Role card's. */
   readonly effort: SessionSettings["effort"] | undefined;
   /** The session the Stage declares, which wins at a Stage boundary (spec §2.5). */
@@ -126,12 +144,26 @@ export interface StageThreadRequest {
   readonly useProjectSkills: boolean;
   readonly projectSkillsOff: readonly string[];
   readonly session: StageSessionSettings;
+  /**
+   * The Stand-in Engines the Task's Start chose, each for a cascade's engine: the Stage Thread's
+   * session runs on the stand-in while it is listed and serves the cascade's model.
+   */
+  readonly engineStandIns: readonly StageThreadStandIn[];
+}
+
+/** A Stand-in Engine chosen at the Task's Start for the cascade's engine `engineId`, and why. */
+export interface StageThreadStandIn {
+  readonly engineId: EngineId;
+  readonly standInId: EngineId;
+  /** The cascade's engine's name as Start recorded it. */
+  readonly engineName: string;
+  readonly reason: string;
 }
 
 /** What decides a Stage's session: who works it, after which Thread, and the Brief's record. */
 type StageSessionRequest = Pick<
   StageThreadRequest,
-  "taskId" | "projectId" | "roleKey" | "declared" | "previousThreadId" | "record"
+  "taskId" | "projectId" | "roleKey" | "declared" | "previousThreadId" | "record" | "engineStandIns"
 >;
 
 /** What a Stage's session would be were it to begin now. */
@@ -162,11 +194,18 @@ export interface StageTurnContext {
   readonly window: number;
 }
 
-/** A Decision the person asked in a Stage Thread, with the id it is answered by. */
-export type AskedDecision = Pick<
-  Decision,
-  "id" | "question" | "context" | "options" | "recommendation"
->;
+/**
+ * A Decision the person asked in a Stage Thread, with the id it is answered by, as the Pipeline
+ * keeps it: the Decision in one line, and its options and recommendation when it is exactly one
+ * choice, none otherwise.
+ */
+export interface AskedDecision {
+  readonly id: string;
+  readonly question: string;
+  readonly context: string;
+  readonly options: readonly string[];
+  readonly recommendation: Recommendation;
+}
 
 /**
  * The user's messages a Stage's work carries into its session, from the Thread they were written
@@ -182,11 +221,29 @@ interface CarriedMessages {
 export interface StageThread {
   readonly threadId: string;
   readonly move: ContextDecision;
-  /** The engine the session runs on, by its id, and the model, by its id there. */
+  /**
+   * The engine the session runs on now, by its id, which `switchTo` changes, and the model, by its
+   * id there, which it keeps.
+   */
   readonly engine: EngineId;
   readonly model: string;
+  /** The engine the session's Stand-in Engine runs for now; undefined on the cascade's. */
+  readonly standInFor?: SessionStandIn;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
+  /** The session's context: the last turn's reading, else the Thread session's; 0 with none. */
+  contextTokens(): number;
+  /**
+   * Goes on with the session, idle after its engine refused a turn for the used-up window `why`, on
+   * the Stand-in Engine `standIn` with the same model (spec 5.4): the session is carried over to it
+   * and resumed there, the Thread logs an `engine-switched` line, and the user's messages still to
+   * land go with the next turn. Throws `SwitchFailed` when it couldn't be carried over or resumed;
+   * the Thread then stays on the engine it ran on, where its session resumes later.
+   */
+  switchTo(
+    standIn: EngineModel,
+    why: { readonly window: UsageWindowName; readonly resetsAt: Date },
+  ): Promise<void>;
   /**
    * The latest Decision the person opened in the Thread since the Stage's work began, by
    * `open_decision` or `consult`, answered or not; undefined when they asked none.
@@ -235,12 +292,16 @@ export class StageThreads {
     private readonly duties: Duties,
     private readonly schedule: Schedule,
     private readonly images: ThreadImages,
+    private readonly engineModels: EngineModels,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
   async open(request: StageThreadRequest): Promise<StageThread> {
     const now = new Date();
-    const { current, held, applying, previous, brief, move } = await this.decide(request, now);
+    const { current, held, applying, standInFor, previous, brief, move } = await this.decide(
+      request,
+      now,
+    );
     const undelivered =
       previous && request.carryMessagesSince
         ? undeliveredSince(await this.repository.messages(previous.id), request.carryMessagesSince)
@@ -254,14 +315,14 @@ export class StageThreads {
           : undefined,
     };
     if (move.move === "resume" && previous?.session) {
-      return this.continueIn(previous, carrying, { held, applying, move, brief }, now);
+      return this.continueIn(previous, carrying, { held, applying, standInFor, move, brief }, now);
     }
     if (previous?.session) await this.forget(previous.session.id);
     // The user's choice is spent on this run, as a message spends it (`beginStageWork`).
     if (previous?.override) {
       await this.change(previous.id, (latest) => chooseOverride(latest, undefined, now));
     }
-    return this.startIn(carrying, current, { held, applying, move, brief }, now);
+    return this.startIn(carrying, current, { held, applying, standInFor, move, brief }, now);
   }
 
   /**
@@ -300,7 +361,23 @@ export class StageThreads {
   > {
     const current = await this.roleCards.forNewSession(request.roleKey);
     const held = await this.duties.heldBy(request.roleKey);
-    const applying = await this.engineCascade.of(request.roleKey, request.projectId);
+    const cascade = await this.engineCascade.of(request.roleKey, request.projectId);
+    // Mapped before the Context policy compares it with the session's engine, so a session is
+    // never resumed on another engine; a stand-in removed since gives the cascade's back.
+    const applying = engineThroughStandIns(
+      cascade,
+      request.engineStandIns,
+      await this.engineModels.engines(),
+    );
+    const standIn =
+      applying.engineId === cascade.engineId
+        ? undefined
+        : request.engineStandIns.find(({ engineId }) => engineId === cascade.engineId);
+    const standInFor: SessionStandIn | undefined = standIn && {
+      engineId: standIn.engineId,
+      engineName: standIn.engineName,
+      reason: standIn.reason,
+    };
     const previous = await this.previousThread(request.previousThreadId);
     const brief = taskThreadBrief({
       record: request.record,
@@ -326,7 +403,7 @@ export class StageThreads {
       },
       await this.settings.current(),
     );
-    return { current, held, applying, previous, brief, move };
+    return { current, held, applying, standInFor, previous, brief, move };
   }
 
   /**
@@ -397,8 +474,14 @@ export class StageThreads {
       ({ roleKey, askedAt }) => roleKey !== undefined && askedAt >= began,
     );
     if (!asked) return undefined;
-    const { id, question, context, options, recommendation } = asked;
-    return { id, question, context, options, recommendation };
+    const choice = onlyChoice(asked);
+    return {
+      id: asked.id,
+      question: decisionSummary(asked),
+      context: asked.context,
+      options: choice?.options ?? [],
+      recommendation: choice?.recommendation ?? { option: 0, reason: "" },
+    };
   }
 
   private async previousThread(id: string | undefined): Promise<Thread | undefined> {
@@ -432,31 +515,14 @@ export class StageThreads {
         now,
       ),
     );
-    let leftOut: readonly LeftOutMcpServer[] = [];
-    let canInterrupt = false;
     const start = this.startWatch(previous.id, session, role.card.name, "resume");
-    const opened = await this.opening(start, previous.id, undefined, async () => {
-      canInterrupt = (await this.engine.capabilitiesOf(session.engineId)).interrupt;
-      start.at("preparing skills");
-      const skills = await this.sessionSkills.rebuild(session.id);
-      start.at("preparing MCP servers");
-      const servers = await this.sessionMcpServers.rebuild(session.id, request.folder);
-      leftOut = servers.leftOut;
-      start.at("starting on the engine");
-      return this.engine.resume(
-        session.id,
-        this.settingsOf(
-          previous.id,
-          session,
-          request,
-          person,
-          held,
-          applying,
-          skills,
-          servers.servers,
-        ),
-      );
-    });
+    const reopening: Reopening = { threadId: previous.id, request, person, held };
+    const { opened, canInterrupt, leftOut } = await this.opening(
+      start,
+      previous.id,
+      undefined,
+      () => this.reopen(session, reopening, applying, start),
+    );
     const work = { id: randomUUID(), text: request.work };
     opened.send(
       {
@@ -470,8 +536,13 @@ export class StageThreads {
       {
         threadId: previous.id,
         roleKey: role.roleKey,
+        personName: role.card.name,
         engine: session.engineId,
+        // A continued session stays on its engine, as it started: a stand-in or the cascade's.
+        standInFor: session.standInFor,
         canInterrupt,
+        contextTokens: session.contextTokens,
+        reopening,
         model: applying.model,
         folder: request.folder,
         mask: await this.masks.outputMaskOf(request.projectId),
@@ -490,7 +561,7 @@ export class StageThreads {
   private async startIn(
     { request, images, carried }: Carrying,
     role: SessionRole,
-    { held, applying, move, brief }: StageSessionDecision,
+    { held, applying, standInFor, move, brief }: StageSessionDecision,
     now: Date,
   ): Promise<StageThread> {
     const { thread, event } = startStageThread(
@@ -514,6 +585,7 @@ export class StageThreads {
         engineId: applying.engineId,
         changesAllowed: false,
         heldDuties: held,
+        standInFor,
       },
       now,
     );
@@ -525,6 +597,7 @@ export class StageThreads {
       ),
     );
     const briefId = randomUUID();
+    const person = { ...role, officeInstructions: office.text };
     let canInterrupt = false;
     const start = this.startWatch(thread.id, session, role.card.name, "start");
     const opened = await this.opening(start, thread.id, session.id, async () => {
@@ -554,7 +627,7 @@ export class StageThreads {
           thread.id,
           session,
           request,
-          { ...role, officeInstructions: office.text },
+          person,
           held,
           applying,
           skills,
@@ -571,8 +644,12 @@ export class StageThreads {
       {
         threadId: thread.id,
         roleKey: role.roleKey,
+        personName: role.card.name,
         engine: applying.engineId,
+        standInFor,
         canInterrupt,
+        contextTokens: 0,
+        reopening: { threadId: thread.id, request, person, held },
         model: applying.model,
         folder: request.folder,
         mask: await this.masks.outputMaskOf(request.projectId),
@@ -608,12 +685,12 @@ export class StageThreads {
    * Opens the session, or logs why it didn't open and the Thread waits: a new session that never
    * ran gives way to none, and its skills go.
    */
-  private async opening(
+  private async opening<Opened>(
     start: SessionStartWatch,
     threadId: string,
     newSessionId: string | undefined,
-    open: () => Promise<EngineSession>,
-  ): Promise<EngineSession> {
+    open: () => Promise<Opened>,
+  ): Promise<Opened> {
     try {
       const opened = await open();
       start.at("waiting for the engine's first event");
@@ -628,6 +705,29 @@ export class StageThreads {
       if (newSessionId) await this.forget(newSessionId);
       throw error;
     }
+  }
+
+  /**
+   * Resumes the Thread's session on its engine, `session.engineId`, with the model `applying` gives,
+   * its skills and MCP servers rebuilt: as a Stage goes on in the Thread, or on a Stand-in Engine.
+   */
+  private async reopen(
+    session: ThreadSession,
+    { threadId, request, person, held }: Reopening,
+    applying: EngineModel,
+    start: SessionStartWatch,
+  ): Promise<Reopened> {
+    const canInterrupt = (await this.engine.capabilitiesOf(session.engineId)).interrupt;
+    start.at("preparing skills");
+    const skills = await this.sessionSkills.rebuild(session.id);
+    start.at("preparing MCP servers");
+    const servers = await this.sessionMcpServers.rebuild(session.id, request.folder);
+    start.at("starting on the engine");
+    const opened = await this.engine.resume(
+      session.id,
+      this.settingsOf(threadId, session, request, person, held, applying, skills, servers.servers),
+    );
+    return { opened, canInterrupt, leftOut: servers.leftOut };
   }
 
   private settingsOf(
@@ -681,28 +781,25 @@ export class StageThreads {
       subAgentsInForeground: true,
       approvalHold: this.approvalHolds.of(id),
       turnLabel: `${card.name} in the Stage ${request.stageName}`,
-      telemetry: {
-        span: {
-          "office.task": request.taskId,
-          "office.thread": threadId,
-          "office.role": roleKey,
-          "office.stage": request.stageName,
-        },
-        metric: { "office.conversation.home": "task" },
-      },
+      telemetry: stageThreadTelemetry(threadId, roleKey, request),
     };
   }
 
   /**
    * The Stage's session at work in its Thread. The user's messages its work carries are waiting
-   * again, and delivered once a turn has taken the work, as a barge-in is.
+   * again, and delivered once a turn has taken the work, as a barge-in is. The engine session is
+   * held as it stands now: `switchTo` replaces it with the same session resumed on a Stand-in Engine.
    */
   private async live(
     {
       threadId,
       roleKey,
-      engine,
-      canInterrupt,
+      personName,
+      engine: startedOn,
+      standInFor: startedFor,
+      canInterrupt: startedInterruptible,
+      contextTokens: contextBefore,
+      reopening,
       model,
       folder,
       mask,
@@ -711,25 +808,29 @@ export class StageThreads {
       subAgentsLabel,
     }: StageWorkPlace,
     move: ContextDecision,
-    session: EngineSession,
+    opened: EngineSession,
     start: SessionStartWatch,
     carried: CarriedMessages | undefined,
   ): Promise<StageThread> {
     let carrying = carried;
     if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "waiting");
-    const reading = this.read(
-      session,
-      {
-        threadId,
-        home: { kind: "task", taskId },
-        sessionId: session.id,
-        folder,
-        mask,
-        subAgentsLabel,
-      },
-      start,
-    );
-    const events = reading.turnEvents[Symbol.asyncIterator]();
+    let session = opened;
+    let engine = startedOn;
+    let standInFor = startedFor;
+    let canInterrupt = startedInterruptible;
+    let contextTokens = contextBefore;
+    // MCP servers a resume on a Stand-in Engine left out, which The Office's next message names.
+    let leftOut: readonly LeftOutMcpServer[] = [];
+    const followed = (sessionId: string): FollowedSession => ({
+      threadId,
+      home: { kind: "task", taskId },
+      sessionId,
+      folder,
+      mask,
+      subAgentsLabel,
+    });
+    let reading = this.read(session, followed(session.id), start);
+    let events = reading.turnEvents[Symbol.asyncIterator]();
     const logger = { roleKey, folder, handingOver: false, mask };
     const bargeIns = new BargeIns((message) => session.send(message, "next"));
     this.bargeIns.set(threadId, bargeIns);
@@ -743,6 +844,7 @@ export class StageThreads {
         if (next.done) throw new Error("The session ended before the Stage's turn did.");
         if (next.value.kind === "turn-ended") {
           const turn = await this.turnEnded(threadId, session, engine, next.value);
+          if (turn.context) contextTokens = turn.context.tokens;
           const { delivered, stillToLand } = bargeIns.turnEnded(
             next.value.consumedMessageIds,
             next.value.outcome === "completed",
@@ -773,31 +875,100 @@ export class StageThreads {
         if (lines.length > 0) await this.log(threadId, lines);
       }
     };
+    // The engine session held now ends once, and with it what it left running.
+    let closing: Promise<void> | undefined;
+    const closeSession = (): Promise<void> => {
+      const ending = session;
+      const ended = reading.finished;
+      closing ??= (async () => {
+        await ending.end().catch((error: unknown) => {
+          this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
+        });
+        await ended;
+      })();
+      return closing;
+    };
     let sessionEnded: Promise<void> | undefined;
-    // The engine ends what the session left running as the session ends.
     const endSession = (): Promise<void> => {
       sessionEnded ??= (async () => {
         this.bargeIns.delete(threadId);
         await this.mark(threadId, bargeIns.end(), "not-delivered");
         if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "not-delivered");
         carrying = undefined;
-        await session.end().catch((error: unknown) => {
-          this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
-        });
-        await reading.finished;
+        await closeSession();
       })();
       return sessionEnded;
+    };
+    const switchTo = async (
+      standIn: EngineModel,
+      why: { readonly window: UsageWindowName; readonly resetsAt: Date },
+    ): Promise<void> => {
+      const from = engine;
+      const failed = (cause: unknown) => new SwitchFailed(threadId, from, standIn.engineId, cause);
+      if (sessionEnded) throw failed(new Error("The Stage's session has ended."));
+      const before = { engineId: from, standInFor };
+      // Copied, then recorded, then resumed: at a crash in between, the engine the Thread records
+      // holds its session.
+      let moved: ThreadSession;
+      let names: { readonly fromName: string; readonly toName: string };
+      try {
+        await closeSession();
+        ({ session: moved, ...names } = await this.carrySession(threadId, session.id, {
+          from,
+          to: standIn.engineId,
+          ...why,
+        }));
+      } catch (error) {
+        throw failed(error);
+      }
+      const watch = this.startWatch(threadId, moved, personName, "resume");
+      let reopened: Reopened;
+      try {
+        reopened = await this.reopen(moved, reopening, standIn, watch);
+        watch.at("waiting for the engine's first event");
+      } catch (error) {
+        watch.failed(error);
+        await this.change(threadId, (latest) =>
+          moveSessionBack(latest, { from: standIn.engineId, to: before }, new Date()),
+        );
+        // The line logged as it moved said it went on there: this one says it didn't.
+        await this.log(threadId, [
+          {
+            kind: "failure",
+            reason: `The session didn't resume on ${names.toName}, so it stays on ${names.fromName}: ${messageOf(error)}`,
+          },
+        ]);
+        throw failed(error);
+      }
+      session = reopened.opened;
+      closing = undefined;
+      reading = this.read(session, followed(session.id), watch);
+      events = reading.turnEvents[Symbol.asyncIterator]();
+      engine = standIn.engineId;
+      standInFor = moved.standInFor;
+      canInterrupt = reopened.canInterrupt;
+      leftOut = reopened.leftOut;
+      // The new session never got what was sent into the old one: it goes with the next turn.
+      bargeIns.sessionReplaced();
     };
     return {
       threadId,
       move,
-      engine,
+      get engine() {
+        return engine;
+      },
       model,
+      get standInFor() {
+        return standInFor;
+      },
       nextTurn,
+      contextTokens: () => contextTokens,
+      switchTo,
       askedDecision: () => this.askedIn(threadId, began),
       send: async (text, why) => {
         await this.log(threadId, [{ kind: "failure", reason: why }]);
-        session.send({ id: randomUUID(), text }, "later");
+        session.send({ id: randomUUID(), text: withLeftOutServers(text, leftOut) }, "later");
+        leftOut = [];
         turnRunning = true;
         bargeIns.turnStarted();
         return nextTurn();
@@ -930,6 +1101,79 @@ export class StageThreads {
     await this.change(threadId, (thread) => logMessages(thread, messages, at));
   }
 
+  /**
+   * Moves the idle session of a held run's Stage Thread from the engine `from` to the Stand-in
+   * Engine `standIn`, as the user chose (spec 5.4): carried over and recorded there, opening no
+   * session on either engine, so the Stage's next run resumes it there. Refused while the Thread
+   * is answering or its session isn't on `from`; a failed carry leaves the Thread on `from`.
+   */
+  async moveToStandIn(
+    threadId: string,
+    standIn: EngineModel,
+    {
+      from,
+      ...why
+    }: {
+      readonly from: EngineId;
+      readonly window: UsageWindowName;
+      readonly resetsAt: Date;
+    },
+  ): Promise<void> {
+    const thread = await this.repository.find(threadId);
+    const failed = (cause: unknown) => new SwitchFailed(threadId, from, standIn.engineId, cause);
+    if (!thread?.session) throw failed(new Error(`Thread ${threadId} has no session.`));
+    if (thread.state === "answering" || this.bargeIns.has(threadId)) {
+      throw failed(new Error("Its session is answering."));
+    }
+    if (thread.session.engineId !== from) {
+      throw failed(new Error(`Its session runs on ${thread.session.engineId}, not ${from}.`));
+    }
+    try {
+      await this.carrySession(threadId, thread.session.id, { from, to: standIn.engineId, ...why });
+    } catch (error) {
+      throw failed(error);
+    }
+  }
+
+  /**
+   * Carries the Thread's session `sessionId` from the engine `from` to `to`, then records it there
+   * and logs why (spec 5.4): copied, then recorded, so at a crash in between the engine the Thread
+   * records holds its session. Answers the moved session and both engines' names.
+   */
+  private async carrySession(
+    threadId: string,
+    sessionId: string,
+    {
+      from,
+      to,
+      ...why
+    }: {
+      readonly from: EngineId;
+      readonly to: EngineId;
+      readonly window: UsageWindowName;
+      readonly resetsAt: Date;
+    },
+  ): Promise<{
+    readonly session: ThreadSession;
+    readonly fromName: string;
+    readonly toName: string;
+  }> {
+    const names = {
+      fromName: await this.engine.nameOf(from),
+      toName: await this.engine.nameOf(to),
+    };
+    await this.engine.carrySession(sessionId, from, to);
+    const thread = await this.change(threadId, (latest) =>
+      moveSessionToEngine(
+        latest,
+        { messageId: randomUUID(), from, to, ...names, ...why },
+        new Date(),
+      ),
+    );
+    if (!thread.session) throw new Error(`Thread ${threadId} has no session.`);
+    return { session: thread.session, ...names };
+  }
+
   private async change<Event extends DomainEvent>(
     threadId: string,
     change: (thread: Thread) => ThreadChange<Event> | undefined,
@@ -947,12 +1191,20 @@ export class StageThreads {
 interface StageWorkPlace {
   readonly threadId: string;
   readonly roleKey: string;
+  /** The person's name, as the service log names them. */
+  readonly personName: string;
   readonly engine: EngineId;
+  /** The cascade's engine `engine` stands in for; undefined when it is the cascade's. */
+  readonly standInFor: SessionStandIn | undefined;
   /**
    * Read as the session opens: Stop must still reach a session whose engine was removed since,
    * as it finishes on the old engine (spec §5.4).
    */
   readonly canInterrupt: boolean;
+  /** The session's context as the Stage's work begins: the Thread session's; 0 for a new one. */
+  readonly contextTokens: number;
+  /** What resumes the session on a Stand-in Engine, as it was opened. */
+  readonly reopening: Reopening;
   readonly model: string;
   readonly folder: string;
   /** Hides the Project's Secret variables in what the session writes into the Thread. */
@@ -970,8 +1222,25 @@ interface StageWorkPlace {
 interface StageSessionDecision {
   readonly held: HeldDuties;
   readonly applying: EngineModel;
+  /** The cascade's engine `applying` stands in for; undefined when it is the cascade's. */
+  readonly standInFor: SessionStandIn | undefined;
   readonly move: ContextDecision;
   readonly brief: Brief;
+}
+
+/** What a Stage's session is resumed with: its Thread, the Stage's request, its person and duties. */
+interface Reopening {
+  readonly threadId: string;
+  readonly request: StageThreadRequest;
+  readonly person: SessionRole & Pick<SessionPerson, "officeInstructions">;
+  readonly held: HeldDuties;
+}
+
+/** A session resumed, whether its engine can interrupt a turn, and the MCP servers left out. */
+interface Reopened {
+  readonly opened: EngineSession;
+  readonly canInterrupt: boolean;
+  readonly leftOut: readonly LeftOutMcpServer[];
 }
 
 /** A Stage's request with its work carrying the user's undelivered messages, if any. */
@@ -994,6 +1263,39 @@ const BACKGROUND_EVENT_KINDS: ReadonlySet<SessionEvent["kind"]> = new Set([
 ]);
 
 const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
+
+/**
+ * What a Stage's engine calls carry (spec §5.2): ids on the span, which the `office.engine.call`
+ * record reads, and only names on the metric. A Task in no Initiative carries `""`.
+ */
+export function stageThreadTelemetry(
+  threadId: string,
+  roleKey: string,
+  request: Pick<
+    StageThreadRequest,
+    "taskId" | "initiativeId" | "stageName" | "stageRun" | "pipelineName" | "projectName"
+  >,
+): NonNullable<SessionSettings["telemetry"]> {
+  return {
+    span: {
+      "office.task": request.taskId,
+      "office.initiative": request.initiativeId ?? "",
+      "office.thread": threadId,
+      "office.role": roleKey,
+      "office.stage": request.stageName,
+      "office.stage.run": request.stageRun,
+      "office.pipeline": request.pipelineName,
+      "office.project": request.projectName,
+    },
+    metric: {
+      "office.conversation.home": "task",
+      "office.role": roleKey,
+      "office.stage": request.stageName,
+      "office.pipeline": request.pipelineName,
+      "office.project": request.projectName,
+    },
+  };
+}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

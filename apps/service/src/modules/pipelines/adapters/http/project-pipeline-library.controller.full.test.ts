@@ -8,6 +8,7 @@ import {
   stagesEditRefusalSchema,
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { straightLineFlow } from "../../domain/flow.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
@@ -132,14 +133,17 @@ describe("saving a Project Pipeline, weighed against its own Project only", () =
 
     expect(response.status).toBe(200);
     expect(projectPipelineCheckSchema.parse(await response.json())).toMatchObject({
-      problems: [],
-      flags: [
+      problems: [
         {
-          stageIndex: 2,
+          stageKey: "deploy",
+          at: { kind: "stage" },
+          level: "warning",
           text: "Stage 3 · Deploy: nobody fills Devops; hire someone or choose who works it.",
         },
         {
-          stageIndex: 0,
+          stageKey: "implement",
+          at: { kind: "stage" },
+          level: "warning",
           text: "Stage 1 · Implement: the run permission can only be narrowed from the Role card's.",
         },
       ],
@@ -220,7 +224,7 @@ describe("a Broken Project Pipeline", () => {
         text: `Inserts Verify on Linux after Tests, which ${base.name} no longer has.`,
       },
     ]);
-    expect(read.stages).toEqual([agentStage()]);
+    expect(read.stages).toEqual(straightLineFlow([agentStage()]));
     const listed = projectPipelineListSchema.parse(
       await (await send("GET", `/project-pipelines?projectId=${projectId}`)).json(),
     );

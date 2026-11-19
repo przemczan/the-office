@@ -67,6 +67,7 @@ const MISSING_CAPABILITY_WORDS: Readonly<Record<EngineCapability, string>> = {
   officeTools: "It can't use Office tools.",
   outputSchema: "It can't hold a Stage's answer to a schema.",
   languageServers: "It has no LSP tool, so its Agents get no language servers.",
+  carrySession: "It can't carry a session over to a Stand-in Engine.",
 };
 
 /** The words for what an engine can't do; undefined when it can do everything. */

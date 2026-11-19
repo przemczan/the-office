@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { conversationTabs } from "./conversation-tabs.js";
+import { decisionSummary, formAnswerWords, oneOptionAnswer, oneWordsAnswer } from "./decision.js";
 import { aDecision } from "./decision.fixtures.js";
 import type { Thread } from "./thread.js";
 import { aThread } from "./thread.fixtures.js";
@@ -85,7 +86,7 @@ describe("a Task's conversation tabs", () => {
   it("gives a Consultant who answered a tab with their Consultation and its note", () => {
     const answeredAt = LATER;
     const decision = aDecision({
-      answer: { kind: "free-answer", text: "Keep the cookie.", answeredAt, answeredBy: "cto" },
+      answer: { ...oneWordsAnswer("Keep the cookie."), answeredAt, answeredBy: "cto" },
     });
 
     const [, cto] = conversationTabs(
@@ -102,8 +103,8 @@ describe("a Task's conversation tabs", () => {
         {
           threadId: "consulted",
           decisionId: decision.id,
-          question: decision.question,
-          note: "Keep the cookie.",
+          question: decisionSummary(decision),
+          note: formAnswerWords(decision, oneWordsAnswer("Keep the cookie.")),
           answeredAt,
         },
       ],
@@ -112,7 +113,7 @@ describe("a Task's conversation tabs", () => {
 
   it("gives a Consultant a tab as soon as the Consultation starts, listed after those answered", () => {
     const answered = aDecision({
-      answer: { kind: "free-answer", text: "Keep it.", answeredAt: LATER, answeredBy: "cto" },
+      answer: { ...oneWordsAnswer("Keep it."), answeredAt: LATER, answeredBy: "cto" },
     });
     const waiting = aDecision({ putTo: "cto" });
 
@@ -123,11 +124,15 @@ describe("a Task's conversation tabs", () => {
     );
 
     expect(cto?.consultations).toEqual([
-      expect.objectContaining({ threadId: "answered", note: "Keep it.", answeredAt: LATER }),
+      expect.objectContaining({
+        threadId: "answered",
+        note: formAnswerWords(answered, oneWordsAnswer("Keep it.")),
+        answeredAt: LATER,
+      }),
       {
         threadId: "waiting",
         decisionId: waiting.id,
-        question: waiting.question,
+        question: decisionSummary(waiting),
         note: undefined,
         answeredAt: undefined,
       },
@@ -135,7 +140,7 @@ describe("a Task's conversation tabs", () => {
   });
 
   it("gives no tab to a Consultant the user answered before, or who passed it on", () => {
-    const taken = aDecision({ answer: { kind: "option", option: 0, answeredAt: LATER } });
+    const taken = aDecision({ answer: { ...oneOptionAnswer(0), answeredAt: LATER } });
     const passedOn = aDecision({ putTo: "cto" });
 
     const tabs = conversationTabs(

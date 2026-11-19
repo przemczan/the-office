@@ -1,8 +1,10 @@
 import { ONBOARD_PIPELINE, SET_UP_RUN_ENVIRONMENT_PIPELINE } from "./built-in-pipelines.js";
-import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
+import { asFlow, pipelineOrder } from "./flow.js";
+import { pipelineProblem, stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { comparableName, pipelineNameProblems, type TakenName } from "./pipeline-names.js";
 import type { ProjectPipeline } from "./project-pipeline.js";
+import { unnamedRoutes } from "./route.js";
 import { sameAsKept, type Stage } from "./stage.js";
 import { commandsWords, missingCommandsOnStages } from "./stage-commands.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
@@ -97,13 +99,14 @@ export function pipelineEditFlags(
   edit: PipelineEdit,
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
-  return staffingProblems(edit.stages, 0, roles);
+  return staffingProblems(edit.stages, new Set(), roles);
 }
 
 /**
  * Every reason a Proposal of the Pipeline's new Stages (`to`) can't be saved on it now: its Stages
  * changed since the Proposal was drafted (`from`), nothing would change, or the new Stages break a
- * rule the library editor keeps. Its name and description stay.
+ * rule the library editor keeps, warnings aside. Its name and description stay. Both are weighed as
+ * flows, so a Proposal drafted as a plain list reads as its straight line.
  */
 export function proposedStagesProblems(
   pipeline: Pipeline,
@@ -112,12 +115,15 @@ export function proposedStagesProblems(
   otherPipelines: readonly Pipeline[],
   projectPipelineNames: readonly TakenName[],
 ): StageProblem[] {
-  if (!sameAsKept(pipeline.stages, from)) {
-    return [{ text: `${pipeline.name}'s Stages changed since this was proposed.` }];
+  // A draft from before flows, or one sending a plain list, reads as its conversion.
+  if (!sameAsKept(comparedFlow(pipeline.stages), comparedFlow(from))) {
+    return [pipelineProblem(`${pipeline.name}'s Stages changed since this was proposed.`)];
   }
-  if (sameAsKept(from, to)) {
+  if (sameAsKept(comparedFlow(from), comparedFlow(to))) {
     return [
-      { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
+      pipelineProblem(
+        "Nothing changes: give the Pipeline's Stages as they should be, all of them.",
+      ),
     ];
   }
   return pipelineEditProblems(proposedEdit(pipeline, to), otherPipelines, projectPipelineNames);
@@ -230,7 +236,7 @@ export function missingCommandProblems(
       ? missingCommandsOnStages(
           stages,
           project.commands,
-          0,
+          new Set(),
           (keys) => `${project.name} has no ${commandsWords(keys)} (${why})`,
         )
       : [];
@@ -320,6 +326,18 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
   return problems;
 }
 
+function flowInOrder(stages: readonly Stage[]): Stage[] {
+  return pipelineOrder(asFlow(stages));
+}
+
+/** The flow in order as a Proposal compares it: the Stages' names in routes are for words alone. */
+function comparedFlow(stages: readonly Stage[]): Stage[] {
+  return pipelineOrder(asFlow(stages)).map((stage) => ({
+    ...stage,
+    routes: unnamedRoutes(stage.routes),
+  }));
+}
+
 function pipelineOf(id: string, { name, description, stages }: PipelineEdit): Pipeline {
-  return { id, name: name.trim(), description: description.trim(), stages };
+  return { id, name: name.trim(), description: description.trim(), stages: flowInOrder(stages) };
 }

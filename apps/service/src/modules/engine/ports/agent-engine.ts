@@ -1,3 +1,5 @@
+import type { Engine } from "../domain/engines.js";
+import type { UsageWindows } from "../domain/usage-windows.js";
 import type { EngineSession, UserMessage } from "./engine-session.js";
 import type { SessionOptions } from "./session-options.js";
 
@@ -19,6 +21,11 @@ export interface EngineCapabilities {
   readonly outputSchema: boolean;
   /** Sessions have the LSP tool, on the workstation's language servers. */
   readonly languageServers: boolean;
+  /**
+   * An ended session can be carried over to another engine of the same kind, to resume there, as
+   * a Stand-in Engine takes over a Stage whose engine's usage window is used up.
+   */
+  readonly carrySession: boolean;
 }
 
 export type EngineCapability = keyof EngineCapabilities;
@@ -85,6 +92,28 @@ export class NoEngineListed extends Error {
   }
 }
 
+/** A session to carry over that the engine it ran on holds no transcript of. */
+export class SessionNotCarried extends Error {
+  constructor(
+    readonly sessionId: string,
+    readonly engineId: string,
+  ) {
+    super(`Engine ${engineId} holds no session ${sessionId} to carry over.`);
+    this.name = "SessionNotCarried";
+  }
+}
+
+/** How long an engine-level read, such as `readUsageWindows`, may take before it is ended. */
+export const ENGINE_READ_TIMEOUT_MS = 30_000;
+
+/** An engine-level read took longer than `ENGINE_READ_TIMEOUT_MS`; its process or query was ended. */
+export class EngineReadTimedOut extends Error {
+  constructor(what: string) {
+    super(`${what} took longer than ${ENGINE_READ_TIMEOUT_MS / 1000} seconds and was ended.`);
+    this.name = "EngineReadTimedOut";
+  }
+}
+
 export interface NewSession {
   /** Chosen by the caller, so what is named after the session, such as its skills folder, exists before it starts. */
   readonly id: string;
@@ -112,6 +141,29 @@ export abstract class AgentEngine {
    * for a message. Needs the `resume` capability; throws `SessionSkillsDiffer` as `start` does.
    */
   abstract resume(sessionId: string, options: SessionOptions): Promise<EngineSession>;
+
+  /**
+   * Reads the usage windows of `engine`'s account with no session and no model call, so they are
+   * read while nothing runs on it (spec §5.4). Undefined without the `usageWindows` capability or
+   * for an account without windows. Whatever process or query it opens ends before it answers, on
+   * failure too, and within `ENGINE_READ_TIMEOUT_MS`, after which it throws `EngineReadTimedOut`;
+   * `signal` ends it sooner, as the service stops, throwing its reason.
+   */
+  abstract readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined>;
+
+  /**
+   * Carries the ended session `sessionId` over from engine `from` to engine `to`, so `to` resumes
+   * it with its conversation. Idempotent, and `from`'s copy is left as it was. Needs the
+   * `carrySession` capability; throws `SessionNotCarried` when `from` holds no such session.
+   */
+  carrySession(sessionId: string, from: Engine, to: Engine): Promise<void> {
+    void sessionId;
+    void from;
+    void to;
+    this.require("carrySession");
+    // An engine declaring the capability overrides this.
+    return Promise.reject(new CapabilityMissing("carrySession"));
+  }
 
   /** Throws `CapabilityMissing` unless the engine has `capability`. */
   protected require(capability: EngineCapability): void {

@@ -12,6 +12,7 @@ import {
   type TaskThreadRequest,
 } from "../../../conversations/index.js";
 import { TaskService } from "../../application/task-service.js";
+import { confirmPipeline } from "../../domain/planning-changes.js";
 import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
@@ -156,6 +157,9 @@ describe("a planning Thread's session", () => {
 
     expect(setup).toEqual({
       projectId,
+      initiativeId: undefined,
+      projectName: `The ${projectId}`,
+      pipelineName: "",
       folder: join("/worktrees", projectId, task.id),
       environment: { PROJECT: projectId },
       useProjectSkills: true,
@@ -195,6 +199,7 @@ describe("a planning Thread's session", () => {
 
     const setup = await work.app.get(TaskThreadSetups).of(planningRequest(button.id));
 
+    expect(setup.initiativeId).toBe(initiative.id);
     expect(setup.brief).toContain(
       [
         "## Linked records",
@@ -214,6 +219,26 @@ describe("a planning Thread's session", () => {
         "## Attachments",
       ].join("\n\n"),
     );
+  });
+
+  it("names the Task's Pipeline for its telemetry, by its id once the Pipeline is gone", async () => {
+    const task = await aTaskIn("planning");
+    await work.app
+      .get(TaskRepository)
+      .update(task.id, (latest) => confirmPipeline(latest, "retired-pipeline"));
+
+    const planning = await setups().of(planningRequest(task.id));
+    const asking = await setups().of(aPersonsThread(task.id, "oscar"));
+
+    expect(planning).toMatchObject({
+      projectName: `The ${task.projectId}`,
+      pipelineName: "retired-pipeline",
+    });
+    expect(asking).toMatchObject({
+      initiativeId: undefined,
+      projectName: `The ${task.projectId}`,
+      pipelineName: "retired-pipeline",
+    });
   });
 
   it.each([

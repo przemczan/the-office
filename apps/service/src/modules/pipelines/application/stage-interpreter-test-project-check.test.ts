@@ -22,11 +22,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   addTestProject,
   checkApi,
+  firstQuestion,
   git,
   hireOnHaiku,
   openDecisionsOn,
   stageLines,
   stagesOf,
+  submitDecision,
   tokensOf,
   startPlanner,
   untilThreadWaits,
@@ -156,10 +158,11 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           // The opening may already ask where the version comes from: the Plan's answer.
           const asked = (await openDecisionsOn(api, taskId))[0];
           if (asked) {
-            const chosen = asked.options.findIndex((option) => option.includes("package.json"));
-            const option = chosen >= 0 ? chosen : asked.recommendation.option;
-            await note(`Planning asked: ${asked.question}; answered: ${asked.options[option]}`);
-            await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option });
+            const { question, options, recommended } = firstQuestion(asked);
+            const chosen = options.findIndex((option) => option.includes("package.json"));
+            const option = chosen >= 0 ? chosen : recommended;
+            await note(`Planning asked: ${question}; answered: ${options[option] ?? "in words"}`);
+            await submitDecision(api, asked, option >= 0 ? option : undefined);
             await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
           }
           await api("PUT", `/tasks/${taskId}/plan`, { plan: PLAN });
@@ -195,9 +198,10 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             // The walk opens the Decision before it marks the Task Waiting on you.
             const open = await openDecisionsOn(api, taskId);
             await note(
-              ...open.map(
-                ({ question, options }) => `Waiting on you: ${question} [${options.join(" | ")}]`,
-              ),
+              ...open.map((decision) => {
+                const { question, options } = firstQuestion(decision);
+                return `Waiting on you: ${question} [${options.join(" | ")}]`;
+              }),
             );
             const budgetReached = (await stagesOf(api, taskId)).some(({ runs }) => {
               const outcome = runs.at(-1)?.outcome;
@@ -205,8 +209,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             });
             const raise = budgetReached && open.length === 1 ? open[0] : undefined;
             if (!raise || raises >= MOST_RAISES) break;
-            await note(`Answered: ${raise.options[0]}`);
-            await api("POST", `/decisions/${raise.id}/answer`, { kind: "option", option: 0 });
+            await note(`Answered: ${firstQuestion(raise).options[0]}`);
+            await submitDecision(api, raise, 0);
             task = await untilWalkStops(api, taskId, WALK_MS);
           }
           await app.get(StageInterpreter, { strict: false }).walked(taskId);

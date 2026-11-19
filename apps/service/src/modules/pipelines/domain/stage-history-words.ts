@@ -2,10 +2,12 @@ import { STAGE_KIND_NAMES, type Stage } from "./stage.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import type {
+  EngineSwitch,
   GateAction,
   PublishedWork,
   RefusedTurn,
   HoldingUser,
+  StageDecision,
   StageInterruption,
   StageOutcome,
   StageRun,
@@ -169,10 +171,13 @@ function runParts(
     ...gateActionLines(stages, run.gateAction),
     ...decisionLines(run.decisions),
     ...engineLines(run),
+    ...run.engineSwitches.map(
+      (engineSwitch) => `Engine switch: ${engineSwitchWords(engineSwitch)}`,
+    ),
     tokensLine(run),
     ...threadLines,
   ];
-  return [wordsPart(lines.join("\n")), ...commandParts(run.commandRuns, outputs)];
+  return [wordsPart(lines.join("\n")), ...commandParts(stages, run.commandRuns, outputs)];
 }
 
 function stageName(stages: readonly Stage[], stageKey: string): string {
@@ -232,10 +237,17 @@ function outcomeWords(outcome: StageOutcome | undefined): string {
         ? `Outcome: skipped. ${outcome.summary}`
         : `Outcome: done. ${outcome.summary}${pullRequestWords(outcome.pullRequestUrl)}`;
     case "needs-decision":
-      return `Outcome: needs a decision. The Agent asked: "${outcome.question}"\nOptions: ${outcome.options.map((option, index) => `${index + 1}. ${option}`).join("; ")}. Recommended: ${outcome.recommendation.option}, as ${outcome.recommendation.reason}`;
+      return `Outcome: needs a decision. The Agent asked: "${outcome.question}"${optionWords(outcome)}`;
     case "failed":
       return `Outcome: failed${failedWhy(outcome)}.\n${outcome.error}`;
   }
+}
+
+/** The options of the Agent's question, when it was one choice: a form of several has none kept. */
+function optionWords({ options, recommendation }: StageDecision): string {
+  if (options.length === 0) return "";
+  const listed = options.map((option, index) => `${index + 1}. ${option}`).join("; ");
+  return `\nOptions: ${listed}. Recommended: ${recommendation.option}, as ${recommendation.reason}`;
 }
 
 function pullRequestWords(url: string | undefined): string {
@@ -273,10 +285,52 @@ function failedWhy(outcome: Extract<StageOutcome, { status: "failed" }>): string
   return reasons.length === 0 ? "" : ` (${reasons.join("; ")})`;
 }
 
-/** "the engine refused the correction: Claude Code's 5-hour window is used up until …". */
-function refusedWords({ message, engineName, windowWords, resetsAt }: RefusedTurn): string {
+/**
+ * "the engine refused the correction: Claude Code's 5-hour window is used up until …", and when a
+ * Stand-in Engine had room but the context was over the size to ask first above, why it waits.
+ */
+function refusedWords({
+  message,
+  engineName,
+  windowWords,
+  resetsAt,
+  standInChoice,
+}: RefusedTurn): string {
   const refused = message === "work" ? "the Stage's work" : "the correction";
-  return `the engine refused ${refused}: ${engineName}'s ${windowWords} is used up until ${resetsAt}`;
+  const words = `the engine refused ${refused}: ${engineName}'s ${windowWords} is used up until ${resetsAt}`;
+  return standInChoice ? `${words}; ${standInChoiceWords(standInChoice)}` : words;
+}
+
+/**
+ * "its context of 182,000 tokens is over the 100,000 set in Settings › Engines, so it waits for the
+ * user's choice to go on on Claude Code 2, or the reset".
+ */
+export function standInChoiceWords({
+  engineName,
+  contextTokens,
+  askAbove,
+}: NonNullable<RefusedTurn["standInChoice"]>): string {
+  return `its context of ${tokenCount(contextTokens)} tokens is over the ${tokenCount(askAbove)} set in Settings › Engines, so it waits for the user's choice to go on on ${engineName}, or the reset`;
+}
+
+/**
+ * "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on Claude
+ * Code 2.", the reset worded as a Stage Thread's line words it, ending "…, as the user Ann Lee
+ * chose." for a switch the user chose.
+ */
+export function engineSwitchWords({
+  fromEngineName,
+  toEngineName,
+  windowWords,
+  resetsAt,
+  chosenBy,
+}: EngineSwitch): string {
+  const chosen = chosenBy ? `, as ${holdingUserWords(chosenBy)} chose` : "";
+  return `${fromEngineName}'s ${windowWords} was used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC, so the Stage went on on ${toEngineName}${chosen}.`;
+}
+
+function tokenCount(tokens: number): string {
+  return tokens.toLocaleString("en-US");
 }
 
 function publishedWords({ kind, branch, pullRequestUrl }: PublishedWork): string {
@@ -321,6 +375,7 @@ const WALK_DECISION_WORDS: Readonly<Record<WalkDecisionKind, string>> = {
   "base-moved": "The branch conflicts with the base branch at Publish",
   "branch-moved": "The branch moved outside The Office",
   "after-publishing-failed": "Publish shipped the work, but the after publishing line failed",
+  "no-route-holds": "None of the Stage's routes held",
 };
 
 function decisionLines(decisions: readonly StageRunDecision[]): string[] {
@@ -356,15 +411,21 @@ function answerWords(answer: WalkAnswer | undefined): string {
       return "Answered: the user resolved the conflict in the worktree.";
     case "keep-branch":
       return `Answered: keep the branch as it is${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
+    case "follow-route":
+      return `Answered: ${answer.to === null ? "end the Pipeline here" : `go on to the Stage "${answer.to}"`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
     case "drop":
       return "Answered: drop the Task.";
   }
 }
 
-function engineLines({ engineName, engineId, model }: StageRun): string[] {
+function engineLines({ engineName, engineId, model, standInFor }: StageRun): string[] {
   if (engineId === undefined && model === undefined) return [];
   const engine = engineName ?? engineId ?? "unknown";
-  return [`Engine: ${engine}, model ${model ?? "unknown"}.`];
+  const ran = `Engine: ${engine}, model ${model ?? "unknown"}`;
+  if (standInFor === undefined) return [`${ran}.`];
+  const reason = standInFor.reason.trim();
+  const because = reason === "" ? "." : `: ${/[.!?…]$/.test(reason) ? reason : `${reason}.`}`;
+  return [`${ran}, as a Stand-in Engine for ${standInFor.engineName}${because}`];
 }
 
 function tokensLine({ tokens }: StageRun): string {
@@ -377,6 +438,7 @@ const PURPOSE_WORDS: Readonly<Record<StageCommandPurpose, string>> = {
   "re-run": "Re-run",
   "before-publishing": "Before publishing",
   "after-publishing": "After publishing",
+  condition: "Condition",
 };
 
 const OUTCOME_WORDS: Readonly<Record<CommandOutcome, string>> = {
@@ -387,31 +449,42 @@ const OUTCOME_WORDS: Readonly<Record<CommandOutcome, string>> = {
   stopped: "stopped by The Office",
 };
 
-function commandParts(commandRuns: readonly StageCommandRun[], outputs: readonly string[]): Part[] {
+function commandParts(
+  stages: readonly Stage[],
+  commandRuns: readonly StageCommandRun[],
+  outputs: readonly string[],
+): Part[] {
   if (commandRuns.length === 0) return [wordsPart("\n\nProject commands: none.")];
   return [
     wordsPart("\n\nProject commands:"),
     ...commandRuns.flatMap((command, index) => [
-      wordsPart(`\n\n${index + 1}. ${commandHeading(command)}\n\n`),
+      wordsPart(`\n\n${index + 1}. ${commandHeading(stages, command)}\n\n`),
       { kind: "output" as const, text: outputs[index] ?? command.output },
     ]),
   ];
 }
 
-function commandHeading({
-  purpose,
-  commandLine,
-  outcome,
-  exitCode,
-  durationMs,
-  movedFiles,
-}: StageCommandRun): string {
+function commandHeading(
+  stages: readonly Stage[],
+  { purpose, commandLine, outcome, exitCode, durationMs, movedFiles, condition }: StageCommandRun,
+): string {
   const exit = exitCode === undefined ? "no exit code" : `exit code ${exitCode}`;
   const moved =
     movedFiles && movedFiles.paths.length > 0
       ? `\n   Files the test run wrote, moved out of the worktree: ${movedFiles.paths.join(", ")}`
       : "";
-  return `${PURPOSE_WORDS[purpose]}: \`${commandLine}\`, ${OUTCOME_WORDS[outcome]}, ${exit}, ${durationWords(durationMs)}.${moved}\n   Output:`;
+  const forCondition = condition ? conditionWords(stages, purpose, condition.to) : "";
+  return `${PURPOSE_WORDS[purpose]}${forCondition}: \`${commandLine}\`, ${OUTCOME_WORDS[outcome]}, ${exit}, ${durationWords(durationMs)}.${moved}\n   Output:`;
+}
+
+/** Which route a condition command, or the install before it, was run for. */
+function conditionWords(
+  stages: readonly Stage[],
+  purpose: StageCommandPurpose,
+  to: string | null,
+): string {
+  const route = `the route to ${to === null ? "End" : nameOf(stages, to)}`;
+  return purpose === "condition" ? ` for ${route}` : ` for the condition of ${route}`;
 }
 
 function durationWords(ms: number): string {

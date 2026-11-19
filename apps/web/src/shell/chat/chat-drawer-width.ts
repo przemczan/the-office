@@ -13,7 +13,8 @@ const PAGE_LEAST_UNDER = 240;
 
 const OVER_WINDOW_WIDTH = 900;
 const FILLS_WINDOW_WIDTH = 600;
-const OVER_QUERY = `(max-width: ${OVER_WINDOW_WIDTH}px)`;
+/** The windows the drawer lies over the page in, which a test matches to stand in a narrow one. */
+export const OVER_QUERY = `(max-width: ${OVER_WINDOW_WIDTH}px)`;
 const FILLS_QUERY = `(max-width: ${FILLS_WINDOW_WIDTH}px)`;
 
 /** Beside the page, pushing it aside; lying over it with no backdrop; or filling the window. */

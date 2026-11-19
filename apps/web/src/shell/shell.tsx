@@ -4,6 +4,7 @@ import { AccountAppearance } from "./account-appearance.tsx";
 import { ChatDrawer } from "./chat/chat-drawer.tsx";
 import { useChatDrawerLayout } from "./chat/chat-drawer-width.ts";
 import { ChatProvider, useChat } from "./chat/use-chat.tsx";
+import { DecisionDraftsProvider } from "./conversation/decision-drafts.tsx";
 import { HandoverNotesProvider } from "./conversation/handover-notes.tsx";
 import { ThreadDraftsProvider } from "./conversation/thread-drafts.tsx";
 import { FireAlarmReviewProvider } from "./fire-alarm/fire-alarm-review.tsx";
@@ -25,13 +26,15 @@ export function Shell(): ReactNode {
       <AccountAppearance />
       <HandoverNotesProvider>
         <ThreadDraftsProvider>
-          <ChatProvider>
-            <FireAlarmReviewProvider>
-              <ShellFrame />
-            </FireAlarmReviewProvider>
-            <NeedsYouPanel />
-            <NotificationChannels />
-          </ChatProvider>
+          <DecisionDraftsProvider>
+            <ChatProvider>
+              <FireAlarmReviewProvider>
+                <ShellFrame />
+              </FireAlarmReviewProvider>
+              <NeedsYouPanel />
+              <NotificationChannels />
+            </ChatProvider>
+          </DecisionDraftsProvider>
         </ThreadDraftsProvider>
       </HandoverNotesProvider>
     </ToastProvider>

@@ -23,8 +23,18 @@ describe("stageProblems", () => {
 
   it("names the Stage each problem is on", () => {
     expect(stageProblems([agentStage(), agentStage({ key: "again", role: "" })])).toEqual([
-      { stageIndex: 1, text: 'Stage 2 · Implement: another Stage is named "Implement".' },
-      { stageIndex: 1, text: "Stage 2 · Implement: choose who works it." },
+      {
+        stageKey: "again",
+        at: { kind: "stage" },
+        level: "problem",
+        text: 'Stage 2 · Implement: another Stage is named "Implement".',
+      },
+      {
+        stageKey: "again",
+        at: { kind: "stage" },
+        level: "problem",
+        text: "Stage 2 · Implement: choose who works it.",
+      },
     ]);
   });
 

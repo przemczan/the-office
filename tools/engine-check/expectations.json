@@ -1,4 +1,261 @@
 {
+  "codex.approvals": {
+    "linux": {
+      "untrusted": {
+        "turnsEnded": ["completed"],
+        "approvalMethods": [
+          "item/commandExecution/requestApproval",
+          "item/fileChange/requestApproval"
+        ],
+        "asked": {
+          "writingCommand": true,
+          "readOnlyCommand": true,
+          "fileChange": true
+        },
+        "acceptedCommand": {
+          "itemStatuses": ["completed"],
+          "fileWritten": true
+        },
+        "declinedCommand": {
+          "itemStatuses": ["declined"],
+          "fileWritten": false,
+          "retried": false
+        },
+        "declinedFileChange": {
+          "itemStatuses": ["declined"],
+          "fileWritten": false
+        },
+        "acceptedFileChange": {
+          "itemStatuses": ["completed"],
+          "fileWritten": true
+        },
+        "commandRequestsCarryReason": false
+      },
+      "on-request": {
+        "turnsEnded": ["completed"],
+        "approvalMethods": [],
+        "asked": {
+          "writingCommand": false,
+          "readOnlyCommand": false,
+          "fileChange": false
+        },
+        "acceptedCommand": {
+          "itemStatuses": ["completed"],
+          "fileWritten": true
+        },
+        "declinedCommand": {
+          "itemStatuses": ["completed"],
+          "fileWritten": true,
+          "retried": false
+        },
+        "declinedFileChange": {
+          "itemStatuses": ["completed"],
+          "fileWritten": true
+        },
+        "acceptedFileChange": {
+          "itemStatuses": ["completed"],
+          "fileWritten": true
+        },
+        "commandRequestsCarryReason": false
+      }
+    }
+  },
+  "codex.barge-in": {
+    "linux": {
+      "steer": "accepted",
+      "turnEnded": "completed",
+      "sameTurn": true,
+      "steerInTurn": true,
+      "commandItemStatuses": ["completed"],
+      "steerRead": true,
+      "commandStartedOnce": true
+    }
+  },
+  "codex.interrupt": {
+    "linux": {
+      "interruptedTurnEnded": "interrupted",
+      "endedWithinTenSeconds": true,
+      "nextTurnEnded": "completed",
+      "commandItemStatuses": ["completed"],
+      "commandRanToItsEndAfterInterrupt": true,
+      "appServerEndedOnClosedInput": true,
+      "commandRanToItsEndAfterClose": false
+    }
+  },
+  "codex.office-tool": {
+    "linux": {
+      "accepted": {
+        "turnEnded": "completed",
+        "toolCalls": ["office/handover_note: completed"]
+      },
+      "declined": {
+        "turnEnded": "completed",
+        "toolCalls": ["office/handover_note: failed"]
+      },
+      "requestsCarriedToken": true,
+      "requestsRefused": 0,
+      "mcpMethods": ["initialize", "notifications/initialized", "tools/call", "tools/list"],
+      "handlerRanWith": ["Checked."],
+      "approvalMethods": ["mcpServer/elicitation/request"],
+      "approvalBeforeHandler": true,
+      "approvalKinds": ["mcp_tool_call"],
+      "approvalNamesToolAndArguments": true
+    }
+  },
+  "codex.output-schema": {
+    "linux": {
+      "turnEnded": "completed",
+      "finalMessageMatches": true
+    }
+  },
+  "codex.resume": {
+    "linux": {
+      "firstTurnEnded": "completed",
+      "sameThread": true,
+      "resumedTurnEnded": "completed",
+      "wordRemembered": true,
+      "inputFromCache": true
+    }
+  },
+  "codex.sandbox": {
+    "linux": {
+      "never": {
+        "turnEnded": "completed",
+        "approvals": 0,
+        "approvalFields": [],
+        "itemStatuses": ["completed"],
+        "probe": {
+          "inside": "written",
+          "beside": "EROFS",
+          "network": "EAI_AGAIN",
+          "noNewPrivs": true
+        }
+      },
+      "untrustedApproved": {
+        "turnEnded": "completed",
+        "approvals": 1,
+        "approvalFields": [
+          "availableDecisions",
+          "command",
+          "commandActions",
+          "cwd",
+          "environmentId",
+          "itemId",
+          "kind",
+          "proposedExecpolicyAmendment",
+          "startedAtMs",
+          "threadId",
+          "turnId"
+        ],
+        "itemStatuses": ["completed"],
+        "probe": {
+          "inside": "written",
+          "beside": "EROFS",
+          "network": "EAI_AGAIN",
+          "noNewPrivs": true
+        }
+      },
+      "untrustedEscalated": {
+        "turnEnded": "completed",
+        "approvals": 1,
+        "approvalFields": [
+          "availableDecisions",
+          "command",
+          "commandActions",
+          "cwd",
+          "environmentId",
+          "itemId",
+          "kind",
+          "proposedExecpolicyAmendment",
+          "reason",
+          "startedAtMs",
+          "threadId",
+          "turnId"
+        ],
+        "itemStatuses": ["completed"],
+        "probe": {
+          "inside": "written",
+          "beside": "written",
+          "network": "reached",
+          "noNewPrivs": false
+        }
+      }
+    }
+  },
+  "codex.start": {
+    "linux": {
+      "versionMatchesPin": true,
+      "codexHomeIsTheFolder": true,
+      "signIn": "chatgpt",
+      "checkModelListed": true,
+      "checkEffortSupported": true,
+      "configLayers": ["project", "sessionFlags", "system", "user"],
+      "userConfigInFolder": true,
+      "readFromHomeCodex": false,
+      "projectTrustedByThreadStart": "none",
+      "projectConfigRead": {
+        "beforeThread": false,
+        "afterThread": false
+      },
+      "projectLayerDisabled": true,
+      "thread": {
+        "model": "gpt-6-luna",
+        "approvalPolicy": "untrusted",
+        "sandbox": "workspaceWrite",
+        "reasoningEffort": "low"
+      }
+    }
+  },
+  "codex.usage-reading": {
+    "linux": {
+      "turnEnded": "completed",
+      "before": {
+        "limitId": "codex",
+        "primary": {
+          "windowDurationMins": 43200,
+          "usedPercentIsNumber": true,
+          "resetsAtInFuture": true
+        },
+        "secondary": null,
+        "planTypeGiven": true
+      },
+      "after": {
+        "limitId": "codex",
+        "primary": {
+          "windowDurationMins": 43200,
+          "usedPercentIsNumber": true,
+          "resetsAtInFuture": true
+        },
+        "secondary": null,
+        "planTypeGiven": true
+      },
+      "limitIds": ["codex"],
+      "updatedDuringTurn": true,
+      "updateShape": {
+        "limitId": "codex",
+        "primary": {
+          "windowDurationMins": 43200,
+          "usedPercentIsNumber": true,
+          "resetsAtInFuture": true
+        },
+        "secondary": null,
+        "planTypeGiven": true
+      },
+      "tokenUsage": {
+        "updates": true,
+        "fields": [
+          "cacheWriteInputTokens",
+          "cachedInputTokens",
+          "inputTokens",
+          "outputTokens",
+          "reasoningOutputTokens",
+          "totalTokens"
+        ],
+        "contextWindowGiven": true
+      }
+    }
+  },
+  "engine.api-key-sign-in": {},
   "engine.auto-memory": {
     "win32": {
       "officeOptions": {

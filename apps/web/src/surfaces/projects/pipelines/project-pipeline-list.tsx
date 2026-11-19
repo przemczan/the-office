@@ -78,8 +78,7 @@ function ProjectPipelineItem({
     }),
   );
   const isBroken = broken.length > 0;
-  const needsFixing =
-    !isBroken && (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const needsFixing = !isBroken && (check.data?.problems.length ?? 0) > 0;
   const isDefault = project.defaultPipeline === id;
   return (
     <PickListItem

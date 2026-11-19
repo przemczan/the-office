@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { markThreadSeen, startChatThread, threadQueries } from "../../api/conversations.ts";
 import { rowsOf, totalOf } from "../../api/pages.ts";
 import { roleQueries } from "../../api/people.ts";
-import { MentionedDecisionWindow } from "../conversation/decision-on-task.tsx";
+import { MentionedDecisionWindow } from "../conversation/decision-window.tsx";
 import { ThreadView } from "../conversation/thread-view.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
 import { OpenMentionedDecisionContext } from "../record-mention.tsx";

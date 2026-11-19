@@ -25,6 +25,59 @@
   gap: 12px;
 }
 
+/* The Stand-in Engines: an ordered row per engine with its tools, then Add and the switch's size. */
+.stand-in-engines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stand-in-engine-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.stand-in-engine-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+}
+
+.stand-in-engine-row + .stand-in-engine-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.stand-in-engine-place {
+  font: var(--type-caption);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.stand-in-engine-name {
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.stand-in-engine-tools {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.stand-in-engine-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
 .engine-detail {
   display: flex;
   flex-direction: column;
@@ -85,7 +138,10 @@
   color: var(--warning-fg);
 }
 
-/* A saved Claude Code engine's account: its line and actions, then what a Sign in or a token asks. */
+/*
+ * A saved Claude Code or Codex engine's account: its line and actions, then what a Sign in, a token
+ * or an API key asks.
+ */
 .engine-account {
   display: flex;
   flex-direction: column;
@@ -125,6 +181,14 @@
   color: var(--accent);
 }
 
+/* A Codex Sign in's code, entered on its page. */
+.engine-account-code {
+  align-self: flex-start;
+  font: var(--type-mono);
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+
 .engine-account-entry {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -157,7 +221,8 @@
 @container page (max-width: 904px) {
   .engine-defaults,
   .engine-default-fields,
-  .engine-fields {
+  .engine-fields,
+  .stand-in-engine-fields {
     grid-template-columns: 1fr;
   }
 

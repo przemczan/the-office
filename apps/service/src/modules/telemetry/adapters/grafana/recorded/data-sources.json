@@ -1,0 +1,54 @@
+{
+  "range": null,
+  "status": 200,
+  "body": [
+    {
+      "id": 1,
+      "uid": "prometheus",
+      "orgId": 1,
+      "name": "Prometheus",
+      "type": "prometheus",
+      "typeName": "Prometheus",
+      "access": "proxy",
+      "url": "http://localhost:9090",
+      "isDefault": true,
+      "readOnly": true
+    },
+    {
+      "id": 2,
+      "uid": "tempo",
+      "orgId": 1,
+      "name": "Tempo",
+      "type": "tempo",
+      "typeName": "Tempo",
+      "access": "proxy",
+      "url": "http://localhost:3200",
+      "isDefault": false,
+      "readOnly": true
+    },
+    {
+      "id": 3,
+      "uid": "loki",
+      "orgId": 1,
+      "name": "Loki",
+      "type": "loki",
+      "typeName": "Loki",
+      "access": "proxy",
+      "url": "http://localhost:3100",
+      "isDefault": false,
+      "readOnly": true
+    },
+    {
+      "id": 4,
+      "uid": "pyroscope",
+      "orgId": 1,
+      "name": "Pyroscope",
+      "type": "grafana-pyroscope-datasource",
+      "typeName": "Grafana Pyroscope",
+      "access": "proxy",
+      "url": "http://localhost:4040",
+      "isDefault": false,
+      "readOnly": true
+    }
+  ]
+}

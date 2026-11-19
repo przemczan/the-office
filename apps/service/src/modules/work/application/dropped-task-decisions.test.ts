@@ -90,3 +90,32 @@ describe("a dropped Task's open Decisions", () => {
     expect(closedOn()).not.toContain(backlog.id);
   });
 });
+
+function closedOnInitiatives(): readonly string[] {
+  return work.app.get(TaskDecisionsForTests).closedOnInitiatives;
+}
+
+describe("an ended Initiative's open Decisions on no Task", () => {
+  it("are closed as the user drops the Initiative", async () => {
+    const initiative = await shape(await capture());
+    await addTask(initiative);
+    await post(initiative, "confirm");
+
+    await post(initiative, "drop");
+
+    expect(closedOnInitiatives()).toEqual([initiative.id]);
+  });
+
+  it("are closed as the Initiative becomes Done, and not before", async () => {
+    const initiative = await shape(await capture());
+    const first = await addTask(initiative);
+    const last = await addTask(initiative);
+    await post(initiative, "confirm");
+
+    await end(first, "done");
+    expect(closedOnInitiatives()).toEqual([]);
+
+    await end(last, "done");
+    expect(closedOnInitiatives()).toEqual([initiative.id]);
+  });
+});

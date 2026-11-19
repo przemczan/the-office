@@ -49,6 +49,8 @@ function aRun(
     waitingSince: null,
     threadId: null,
     session: null,
+    engine: null,
+    engineSwitches: [],
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,

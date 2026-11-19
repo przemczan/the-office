@@ -95,6 +95,7 @@ describe("Stop", () => {
     expect(run).toMatchObject({ heldBy: "stop", heldByUser: BEN_ITO });
     expect(run?.tokens.output).toBe(40);
     expect(run?.headCommit).toBe(PLANNED_COMMIT);
+    expect(run?.changedFiles).toEqual([]);
     expect(more).toEqual([]);
     expect(pipelines.stageThreads.interrupted).toEqual([run?.threadId]);
     // No correction is asked of an interrupted turn, and nothing is committed or asked.

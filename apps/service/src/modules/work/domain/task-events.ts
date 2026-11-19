@@ -209,6 +209,21 @@ export class TaskAcceptedInAutoMode extends DomainEvent {
 }
 
 /**
+ * The user marked the Task Ready confirming its Plan and Definition of Done as they stand, even
+ * empty, in one save (spec §2.1). Never published itself: its `confirmations`, then its
+ * `stateChanged`, are, as for the user's own Confirms and Mark Ready.
+ */
+export class TaskMarkedReadyAsItStands extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly confirmations: readonly (TaskPlanConfirmed | TaskDefinitionOfDoneConfirmed)[],
+    readonly stateChanged: TaskStateChanged,
+  ) {
+    super();
+  }
+}
+
+/**
  * The Planner rewrote a part of an already planned Task from its Initiative's planning Thread
  * (spec §2.1): `written` is the part's own event, and `moves` the moves the same save made, such
  * as a Ready Task's to Backlog and on to Planning, published after it.
@@ -240,6 +255,11 @@ export interface UsageWindowRefusal {
   readonly engineName: string;
   readonly window: string;
   readonly resetsAt: Date;
+  /**
+   * Set when the Stage waits for the user's choice of a Stand-in Engine (spec 5.4), which The
+   * Office's own Decision in Needs you asks, so no separate Task paused Notification is raised.
+   */
+  readonly awaitsStandInChoice?: true;
 }
 
 /**
@@ -289,6 +309,20 @@ export class TaskHeldAtAllClear extends DomainEvent {
 /** Paused → In progress: the user resumed the Task, whose Pipeline goes on where it was held. */
 export class TaskResumed extends DomainEvent {
   constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+/**
+ * A Stage of the Task went on on the Stand-in Engine `standInId` in place of the cascade's engine
+ * `engineId`, whose usage window was used up (spec 5.4): the run's later Stages open on it too.
+ */
+export class TaskWentOnOnStandIn extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly engineId: string,
+    readonly standInId: string,
+  ) {
     super();
   }
 }

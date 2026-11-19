@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Injectable } from "@nestjs/common";
@@ -5,7 +6,7 @@ import { OfficeDataDirectory } from "../../../platform/office-data/office-data-d
 import type { CommandRun } from "../domain/command-run.js";
 import { commandOf, isCommandSet, type Project, type ProjectCommand } from "../domain/project.js";
 import { keepingScreenshots } from "./screenshots-folder.js";
-import { TaskCommandRunner } from "./task-command-runner.js";
+import { TaskCommandRunner, type TaskCommand } from "./task-command-runner.js";
 import type { CommandWait } from "./task-run-environments.js";
 import { Worktrees } from "./worktrees.js";
 
@@ -17,13 +18,23 @@ export interface MovedFiles {
   readonly paths: readonly string[];
 }
 
-/** A run of a Script Stage's command. */
+/** A run of a Script Stage's command, or of a condition's. */
 export interface ScriptCommandRun extends CommandRun {
-  /** Undefined when it wrote no file, and after a command that isn't of kind test. */
+  /**
+   * Undefined when it wrote no file, and after a command that isn't of kind test, unless it ran
+   * for a condition.
+   */
   readonly movedFiles: MovedFiles | undefined;
 }
 
 const SCRIPT_COMMAND_TIMEOUT_MS = 30 * 60_000;
+
+/**
+ * The variable naming the JSON file of the Task's earlier Stage runs, which a condition command
+ * reads (spec §2.3, "The Project-command condition"): a host path, the same inside the Task's run
+ * environment, where its folder is mounted read-only.
+ */
+export const STAGE_RUNS_FILE_VARIABLE = "OFFICE_STAGE_RUNS_FILE";
 
 /** How a Script Stage's command is stopped, and told of a wait for its run environment. */
 export interface ScriptCommandOptions {
@@ -38,7 +49,8 @@ export interface ScriptCommandOptions {
  * command of kind test changed never reaches the work (spec §5.5): tracked files are restored after
  * it, the files it wrote are moved out of the worktree for the user to see, and the screenshots
  * folder is put back as the Agent left it, so only the Agent's screenshots are attached. A failing
- * test command runs once more before it counts as failed (research §11.5).
+ * test command runs once more before it counts as failed (research §11.5). A condition's command
+ * is handled as a test run whatever its kind, and never runs twice.
  */
 @Injectable()
 export class ScriptCommands {
@@ -61,20 +73,8 @@ export class ScriptCommands {
     stageRunId: string,
     options: ScriptCommandOptions = {},
   ): Promise<readonly ScriptCommandRun[]> {
-    const command = commandOf(project, key);
-    if (!command)
-      return [
-        couldNotRun(
-          `The Project has no ${key} command. Add it on the Project's page, or ask whoever onboards Projects.`,
-        ),
-      ];
-    if (!isCommandSet(command.commandLine)) {
-      return [
-        couldNotRun(
-          `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask whoever onboards Projects.`,
-        ),
-      ];
-    }
+    const command = setCommandOf(project, key);
+    if (!("kind" in command)) return [command];
     if (command.kind !== "test") {
       const run = await this.runOnce(project, taskId, command, options);
       return [{ ...run, movedFiles: undefined }];
@@ -84,6 +84,33 @@ export class ScriptCommands {
     // the second time either, and one that ran out of time would take as long again.
     if (first.outcome !== "failed") return [first];
     return [first, await this.runTests(project, taskId, command, join(stageRunId, "2"), options)];
+  }
+
+  /**
+   * Runs the Project command a route's condition names (spec §2.3, "The Project-command
+   * condition"), with STAGE_RUNS_FILE_VARIABLE naming `stageRunsFile` over the Project's variables:
+   * once, never again on failure, and whatever its kind as a test run is handled, the worktree
+   * restored after it and the files it wrote moved out, to `<stageRunId>/condition-<key>-<id>`, an
+   * id of its own per run, as one Stage run may weigh several conditions, the same key among them.
+   * A key the Project has no command by, or one whose line is blank, can't run, as in `run`.
+   */
+  async runCondition(
+    project: Project,
+    taskId: string,
+    key: string,
+    stageRunsFile: string,
+    stageRunId: string,
+    options: ScriptCommandOptions = {},
+  ): Promise<ScriptCommandRun> {
+    const command = setCommandOf(project, key);
+    if (!("kind" in command)) return command;
+    const outputFolder = join(stageRunId, `condition-${key}-${randomUUID().slice(0, 8)}`);
+    return this.restoring(project, taskId, outputFolder, () =>
+      this.runOnce(project, taskId, command, options, {
+        variables: { [STAGE_RUNS_FILE_VARIABLE]: stageRunsFile },
+        readsStageRuns: true,
+      }),
+    );
   }
 
   /**
@@ -107,18 +134,33 @@ export class ScriptCommands {
     });
   }
 
-  private async runTests(
+  private runTests(
     project: Project,
     taskId: string,
     command: ProjectCommand,
     outputFolder: string,
     options: ScriptCommandOptions,
   ): Promise<ScriptCommandRun> {
+    return this.restoring(project, taskId, outputFolder, () =>
+      this.runOnce(project, taskId, command, options),
+    );
+  }
+
+  /**
+   * Runs `runIt` leaving the work as it was: the screenshots folder put back, tracked files
+   * restored, and the files it wrote moved out to `outputFolder`.
+   */
+  private async restoring(
+    project: Project,
+    taskId: string,
+    outputFolder: string,
+    runIt: () => Promise<CommandRun>,
+  ): Promise<ScriptCommandRun> {
     const before = new Set(await this.worktrees.untracked(project, taskId));
     const run = await keepingScreenshots(
       this.worktrees.pathOf(project, taskId),
       `${this.outputFolder(outputFolder)}.screenshots`,
-      () => this.runOnce(project, taskId, command, options),
+      runIt,
     );
     await this.worktrees.restore(project, taskId);
     const written = (await this.worktrees.untracked(project, taskId)).filter(
@@ -132,12 +174,14 @@ export class ScriptCommands {
     taskId: string,
     command: ProjectCommand,
     { signal, wait }: ScriptCommandOptions,
+    extra: Pick<TaskCommand, "variables" | "readsStageRuns"> = {},
   ): Promise<CommandRun> {
     return this.commands.run(project, taskId, this.worktrees.pathOf(project, taskId), {
       commandLine: command.commandLine,
       timeoutMs: SCRIPT_COMMAND_TIMEOUT_MS,
       signal,
       wait,
+      ...extra,
     });
   }
 
@@ -162,6 +206,25 @@ export class ScriptCommands {
   private outputFolder(name: string): string {
     return join(this.officeData.folder("test-output"), name);
   }
+}
+
+/**
+ * The Project's command by the key, or, for a key it has no command by or one whose line is blank,
+ * the run that couldn't run, saying how to set it.
+ */
+function setCommandOf(project: Project, key: string): ProjectCommand | ScriptCommandRun {
+  const command = commandOf(project, key);
+  if (!command) {
+    return couldNotRun(
+      `The Project has no ${key} command. Add it on the Project's page, or ask whoever onboards Projects.`,
+    );
+  }
+  if (!isCommandSet(command.commandLine)) {
+    return couldNotRun(
+      `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask whoever onboards Projects.`,
+    );
+  }
+  return command;
 }
 
 /** A Stage whose command the Project lacks or hasn't set can't run it, so it never passes on its own. */

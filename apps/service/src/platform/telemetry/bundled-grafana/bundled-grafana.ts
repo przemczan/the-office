@@ -9,6 +9,13 @@ export const BUNDLED_GRAFANA_IMAGE =
 export const BUNDLED_GRAFANA_PROJECT = "the-office-grafana";
 
 /**
+ * Where the service reads the bundled Grafana, the full stats' data (spec 2.11): its port 3300 on
+ * this machine, as the service runs beside it in the direct install and with `network_mode: host`
+ * in the Compose one. The address the card shows the user is `BUNDLED_GRAFANA_ADDRESS`.
+ */
+export const BUNDLED_GRAFANA_READ_ADDRESS = "http://127.0.0.1:3300";
+
+/**
  * What runs of The Office's own bundled Grafana: no container of its project (`absent`), a
  * container that is stopped, starting (running, its healthcheck not yet passed), `unhealthy`, or
  * `running` and healthy.

@@ -65,6 +65,11 @@ export interface SessionPlace {
   /** What its engine calls are tagged with, beside the Thread and the person. */
   readonly span: Readonly<Record<string, string>>;
   /**
+   * The names its engine calls' metrics carry, beside the home and the person (spec §5.2): the
+   * Project's and the Pipeline's, each `""` where none applies. Never an id.
+   */
+  readonly metric: SessionMetric;
+  /**
    * The duties the Thread's person holds now, which decide their built-in tools and instructions;
    * a session started with others is never resumed (spec §2.2).
    */
@@ -73,6 +78,15 @@ export interface SessionPlace {
   /** Readies the folder as a session opens on it. */
   ready(): Promise<void>;
 }
+
+/** The names a session's metrics carry from its home. */
+export interface SessionMetric {
+  readonly "office.project": string;
+  readonly "office.pipeline": string;
+}
+
+/** A session on no Project nor Pipeline: a chat's, or an Initiative's, which spans Projects. */
+const NO_PROJECT_METRIC: SessionMetric = { "office.project": "", "office.pipeline": "" };
 
 /** A session's place as its home sets it up, before the duties its person holds. */
 type HomePlace = Omit<SessionPlace, "heldDuties">;
@@ -145,7 +159,8 @@ export class SessionPlaces {
       readsEngineTranscripts: false,
       refusalAdvice: undefined,
       brief: await this.briefs.forTaskThread(thread, setup),
-      span: { "office.task": taskId },
+      span: { "office.task": taskId, "office.initiative": setup.initiativeId ?? "" },
+      metric: { "office.project": setup.projectName, "office.pipeline": setup.pipelineName },
       ...(thread.consultation
         ? await this.consultationTools(thread, held)
         : {
@@ -228,6 +243,7 @@ export class SessionPlaces {
         ...(await this.consultationTools(thread, held)),
         brief,
         span: {},
+        metric: NO_PROJECT_METRIC,
         workstation: false,
         readsEngineTranscripts: false,
         refusalAdvice: undefined,
@@ -239,6 +255,7 @@ export class SessionPlaces {
       callsCanWait: false,
       brief,
       span: {},
+      metric: NO_PROJECT_METRIC,
     };
     if (caretaker) return { ...chat, ...(await this.caretakerPlace(thread)) };
     return {
@@ -254,7 +271,7 @@ export class SessionPlaces {
   /** The Caretaker reads as any chat does until the user allows changes in the Thread. */
   private async caretakerPlace(
     thread: Thread,
-  ): Promise<Omit<HomePlace, "officeTools" | "callsCanWait" | "brief" | "span">> {
+  ): Promise<Omit<HomePlace, "officeTools" | "callsCanWait" | "brief" | "span" | "metric">> {
     if (!(await this.changesAllowed.isAllowed(thread.id))) {
       return {
         ...this.basesPlace(thread),
@@ -301,6 +318,7 @@ export class SessionPlaces {
       refusalAdvice: undefined,
       brief: await this.briefs.forInitiativeThread(thread, setup),
       span: { "office.initiative": initiativeId },
+      metric: NO_PROJECT_METRIC,
       instructions: (person) => workThreadInstructions(person, setup.instructions),
     };
   }

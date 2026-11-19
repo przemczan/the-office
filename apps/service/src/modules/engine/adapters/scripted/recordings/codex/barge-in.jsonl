@@ -1,0 +1,19 @@
+{"step":"start","brief":{"id":"3c1e8ac2-6149-4e24-af05-f1d7a64a4fdf","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"context-read","tokens":8841}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8841,"output":24,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-19454d62-541a-4a9a-b1d2-b22f326591c4","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"send","message":{"id":"411b89c5-8392-4d42-b82f-04358a84bff7","text":"Also reply with the single word: extra"},"priority":"next"}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-19454d62-541a-4a9a-b1d2-b22f326591c4","text":"Go on.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8957}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9094,"output":49,"cacheRead":8704,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"context-read","tokens":9022}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9284,"output":74,"cacheRead":17536,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"text","text":"done extra","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9090}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":18374,"output":80,"cacheRead":17536,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["3c1e8ac2-6149-4e24-af05-f1d7a64a4fdf","411b89c5-8392-4d42-b82f-04358a84bff7"],"usage":{"input":18374,"output":80,"cacheRead":17536,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

@@ -20,6 +20,13 @@ export interface WorkRecordSource {
     initiativeId: string,
     taskId: string,
   ): Promise<readonly string[] | undefined>;
+  /**
+   * Whether the Thread is one of the Initiative's planning Threads; every other Thread on it is a
+   * shaping Thread.
+   */
+  isInitiativePlanningThread(initiativeId: string, threadId: string): Promise<boolean>;
+  /** The ids of the Initiative's own Attachments, which a Decision on no Task in its Threads may name. */
+  initiativeAttachmentIds(initiativeId: string): Promise<readonly string[]>;
   initiativeRecord(initiativeId: string): Promise<string | undefined>;
   /** The Initiative's name, which names a Thread on it. */
   initiativeName(initiativeId: string): Promise<string | undefined>;
@@ -76,6 +83,14 @@ export class WorkRecords implements WorkRecordSource {
     taskId: string,
   ): Promise<readonly string[] | undefined> {
     return this.registered().initiativeTaskAttachmentIds(initiativeId, taskId);
+  }
+
+  isInitiativePlanningThread(initiativeId: string, threadId: string): Promise<boolean> {
+    return this.registered().isInitiativePlanningThread(initiativeId, threadId);
+  }
+
+  initiativeAttachmentIds(initiativeId: string): Promise<readonly string[]> {
+    return this.registered().initiativeAttachmentIds(initiativeId);
   }
 
   initiativeRecord(initiativeId: string): Promise<string | undefined> {

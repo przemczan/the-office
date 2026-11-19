@@ -51,7 +51,7 @@ If you have subagents (an Agent or a Task tool), hand each Task's research and d
 
 You write each Task's parts yourself, naming it by its Task id: write_plan with its files to change and the token estimate, write_definition_of_done, propose_pipeline and write_tags, reusing Tags already in use where they fit. Suggest its commit message with write_commit_message too, the message of the one commit its Publish lands it as, following the commit convention its Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), or with none its title with a short summary below it. Then call mark_planned for it; your Brief says what follows.
 
-When a Task needs an answer from the user, open a Decision on it with open_decision, giving its taskId. Leave that Task, and every Task that waits for it, and keep planning the rest. End your turn only when every Task left waits for an answer, or all are planned, saying which Tasks you planned and which wait and why. Each answer comes as a message: carry on from it.
+When a Task needs an answer from the user, open a Decision on it with open_decision, giving its taskId and asking every question that Task has in that one Decision. Leave that Task, and every Task that waits for it, and keep planning the rest. When a choice is about the Initiative as a whole rather than one Task, open one Decision leaving taskId out, with every such question in it; only one is open at a time, beside those on Tasks. Then plan the Tasks that don't need its answer, or end your turn when none is left. End your turn only when every Task left waits for an answer, or all are planned, saying which Tasks you planned and which wait and why. Each answer comes as a message: carry on from it.
 
 When an answer, or a decision you make later, changes what an already planned Task assumed, Ready ones included, rewrite its parts with write_plan, write_definition_of_done or propose_pipeline by its Task id, then call mark_planned for it again. A Task that has started, or one planned in its own planning Thread, is never rewritten: open a Decision on it instead, saying what changed and what you recommend.`;
 
@@ -90,19 +90,25 @@ export function initiativePlanningProblems(
   return [];
 }
 
+/** How a new planning Thread on an Initiative is started, and by whom. */
+export interface InitiativePlanningStart {
+  readonly threadId: string;
+  readonly autoMode: boolean;
+  /** Opened by Plan with…: the planner waits for the user's first message on how to plan it. */
+  readonly withUser: boolean;
+  readonly by: Author;
+}
+
 /**
- * Plan the Initiative: its new planning Thread `threadId` becomes the one that plans its Tasks, in
- * auto mode or not, kept before the Thread opens so its first session's Brief and tools find it,
- * with `by`, who asked for it. Refused with the reasons of `initiativePlanningProblems`.
+ * Plan the Initiative, or Plan with…: its new planning Thread `threadId` becomes the one that plans
+ * its Tasks, in auto mode or not, kept before the Thread opens so its first session's Brief and
+ * tools find it, with `by`, who asked for it. Refused with the reasons of
+ * `initiativePlanningProblems`.
  */
 export function startInitiativePlanning(
   initiative: Initiative,
   tasks: readonly Task[],
-  {
-    threadId,
-    autoMode,
-    by,
-  }: { readonly threadId: string; readonly autoMode: boolean; readonly by: Author },
+  { threadId, autoMode, withUser, by }: InitiativePlanningStart,
 ): InitiativeChange<InitiativePlanningStarted> {
   const problems = initiativePlanningProblems(initiative, tasks);
   if (problems.length > 0) throw new InitiativeRefused(problems);
@@ -112,6 +118,7 @@ export function startInitiativePlanning(
       planningThreadId: threadId,
       planningThreadIds: [...initiative.planningThreadIds, threadId],
       planningAutoMode: autoMode,
+      planningWithUser: withUser,
       planningStartedBy: by,
     },
     event: new InitiativePlanningStarted(initiative.id, threadId, autoMode),
@@ -283,16 +290,19 @@ export interface InitiativePlanningProject extends PlanningProject {
   readonly ownPipelines: readonly PlanningPipeline[];
 }
 
-/** A Decision waiting on the user in a Thread, by the Task it is on and its question. */
+/**
+ * A Decision waiting on the user in a Thread, by the Task it is on and its question; on no Task,
+ * on the Initiative as a whole.
+ */
 export interface OpenTaskDecision {
-  readonly taskId: string;
+  readonly taskId: string | undefined;
   readonly question: string;
 }
 
 /** What an Initiative's planning Brief is assembled from, with no model call. */
 export interface InitiativePlanningRecord {
   readonly initiative: Initiative;
-  /** The Decisions open in this planning Thread, by the Task each is on. */
+  /** The Decisions open in this planning Thread, by the Task each is on, or on none. */
   readonly waiting: readonly OpenTaskDecision[];
   /** Its record as every session reads it: outcome, Tasks, dependencies and Attachments. */
   readonly record: string;
@@ -320,6 +330,7 @@ export function initiativePlanningBrief({
     "You are planning an Initiative's Tasks, in its planning Thread.",
     record,
     initiativePlanningWhoAskedSection(initiative),
+    initiative.planningWithUser ? WITH_THE_USER_SECTION : undefined,
     toPlanSection(tasks, projects),
     unfinishedSection(initiative, tasks),
     waitingSection(waiting, tasks),
@@ -336,6 +347,13 @@ export function initiativePlanningBrief({
     .filter((section) => section !== undefined)
     .join("\n\n");
 }
+
+/**
+ * Plan with…'s Thread: the user's own words on how to plan come before the default way the
+ * instructions give, which stay the same for every session so they stay in the cached prefix.
+ */
+const WITH_THE_USER_SECTION =
+  "## Planning with the user\n\nThe user opened this Thread to plan the Initiative with you: their messages say how to plan it. Follow them where they differ from the default way your instructions give; ask in the Thread what is unclear.";
 
 function toPlanSection(
   tasks: readonly Task[],
@@ -379,19 +397,23 @@ function unfinishedSection(initiative: Initiative, tasks: readonly Task[]): stri
 }
 
 /**
- * The Decisions this Thread opened that wait on the user, for a fresh session: it leaves their
- * Tasks, and the Tasks waiting for them, until each answer comes as a message.
+ * The Decisions on Tasks this Thread opened that wait on the user, for a fresh session: it leaves
+ * their Tasks, and the Tasks waiting for them, until each answer comes as a message. The one on the
+ * Initiative as a whole is left to Conversations' own section of every Initiative Thread's Brief.
  */
 function waitingSection(
   waiting: readonly OpenTaskDecision[],
   tasks: readonly Task[],
 ): string | undefined {
-  if (waiting.length === 0) return undefined;
+  const onTasks = waiting.flatMap(({ taskId, question }) =>
+    taskId === undefined ? [] : [{ taskId, question }],
+  );
+  if (onTasks.length === 0) return undefined;
   const titleOf = (id: string) => tasks.find((task) => task.id === id)?.title ?? id;
-  const lines = waiting.map(
+  const lines = onTasks.map(
     ({ taskId, question }) => `- "${titleOf(taskId)}" (Task ${taskId}): "${question}"`,
   );
-  return `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n${lines.join("\n")}`;
+  return `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: don't ask them again, and leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n${lines.join("\n")}`;
 }
 
 function projectsSection(

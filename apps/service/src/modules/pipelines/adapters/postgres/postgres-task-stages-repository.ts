@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { asFlow, pipelineOrder } from "../../domain/flow.js";
 import type { TaskStages, TaskTrace } from "../../domain/task-stages.js";
 import { TaskStagesRepository } from "../../ports/task-stages-repository.js";
 import { taskStages } from "./task-stages.schema.js";
@@ -12,7 +13,9 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
   }
 
   async save(given: TaskStages): Promise<void> {
-    const row = { ...given, stages: [...given.stages], trace: given.trace ?? null };
+    // In the Pipeline's order, as the previous release reads them.
+    const stages = pipelineOrder(asFlow(given.stages));
+    const row = { ...given, stages, trace: given.trace ?? null };
     await this.database
       .insert(taskStages)
       .values(row)
@@ -41,6 +44,7 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
   }
 }
 
+/** A row's Task's Stages, a flow even when a rolled-back release wrote them as a list. */
 function taskStagesOf(row: typeof taskStages.$inferSelect): TaskStages {
-  return { ...row, trace: row.trace ?? undefined };
+  return { ...row, stages: asFlow(row.stages), trace: row.trace ?? undefined };
 }

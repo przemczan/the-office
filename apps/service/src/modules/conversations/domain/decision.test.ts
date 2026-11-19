@@ -6,7 +6,19 @@ import {
   DeliveryMarked,
 } from "./conversation-events.js";
 import { approvalQuestion, APPROVAL_OPTIONS } from "./consult.js";
-import { answerForUserProblems, answerGivenBy, answerProblems, isOpen } from "./decision.js";
+import {
+  answerForUserProblems,
+  answerGivenBy,
+  answerProblems,
+  closedDecisionRefusal,
+  decisionProblems,
+  decisionSummary,
+  isOpen,
+  oneOptionAnswer,
+  oneWordsAnswer,
+  type Decision,
+  type DecisionAnswer,
+} from "./decision.js";
 import {
   answerDecision,
   closeDecision,
@@ -16,7 +28,16 @@ import {
   recordDecisionAnswer,
 } from "./thread-changes.js";
 import { aThread } from "./thread.fixtures.js";
-import { aDecision, AT, TASK_HOME, SESSION, DRAFT, WARM, refusalOf } from "./decision.fixtures.js";
+import {
+  aDecision,
+  AT,
+  TASK_HOME,
+  SESSION,
+  DRAFT,
+  THREE_QUESTIONS,
+  WARM,
+  refusalOf,
+} from "./decision.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "./user.fixtures.js";
 
 describe("opening a Decision", () => {
@@ -27,7 +48,7 @@ describe("opening a Decision", () => {
 
     const decision = {
       ...DRAFT,
-      kind: "question" as const,
+      kind: "form" as const,
       id: "decision-1",
       threadId: thread.id,
       taskId: "task-1",
@@ -62,7 +83,7 @@ describe("answering a Decision", () => {
     newSession: undefined,
     brief: "The record.",
     decisionId: "decision-1",
-    answer: { kind: "free-answer", text: "Only this year's." },
+    answer: oneWordsAnswer("Only this year's."),
     messageId: "message-1",
     answeredAt: AT,
   } as const;
@@ -72,9 +93,7 @@ describe("answering a Decision", () => {
       "This Decision is answered already.",
     ]);
     expect(
-      refusalOf(() =>
-        answerDecision(waiting, { ...answering, answer: { kind: "option", option: 5 } }),
-      ),
+      refusalOf(() => answerDecision(waiting, { ...answering, answer: oneOptionAnswer(5) })),
     ).toEqual(["Choose one of the Decision's options."]);
     expect(refusalOf(() => answerDecision({ ...waiting, state: "answering" }, answering))).toEqual([
       "Jan is still answering. Answer once they finish.",
@@ -104,9 +123,18 @@ describe("closing a Decision as its Task is dropped", () => {
 
   it("refuses an answer to a closed Decision, by the user or a person at their request", () => {
     const closed = { ...open, closedAt: AT };
-    const words = ["This Decision was closed: its Task was dropped."];
-    expect(answerProblems(closed, { kind: "option", option: 0 })).toEqual(words);
+    const words = [closedDecisionRefusal(closed)];
+    expect(words).toEqual(["This Decision was closed: its Task was dropped."]);
+    expect(answerProblems(closed, oneOptionAnswer(0))).toEqual(words);
+    expect(answerProblems(closed, { kind: "asked-again" })).toEqual(words);
     expect(answerForUserProblems(closed, aThread({ id: "thread-of-the-cto" }))).toEqual(words);
+  });
+
+  it("says a Decision on no Task was closed as its Initiative ended", () => {
+    const closed = { ...open, taskId: undefined, closedAt: AT };
+    expect(answerProblems(closed, oneOptionAnswer(0))).toEqual([
+      "This Decision was closed: its Initiative ended.",
+    ]);
   });
 });
 
@@ -122,17 +150,16 @@ describe("answering a Decision for the user, at their request", () => {
       newSession: undefined,
       brief: "The record.",
       decisionId: "decision-1",
-      answer: { kind: "option", option: 1 },
+      answer: oneOptionAnswer(1),
       messageId: "message-1",
       answeredAt: AT,
       atUsersRequest: AT_USERS_REQUEST,
     });
 
-    const decision = {
+    const decision: Decision = {
       ...open,
       answer: {
-        kind: "option" as const,
-        option: 1,
+        ...oneOptionAnswer(1),
         answeredAt: AT,
         atUsersRequest: AT_USERS_REQUEST,
       },
@@ -154,15 +181,14 @@ describe("answering a Decision for the user, at their request", () => {
 
     const recorded = recordDecisionAnswer(stageThread, {
       decisionId: "decision-1",
-      answer: { kind: "free-answer", text: "Every Project." },
+      answer: oneWordsAnswer("Every Project."),
       messageId: "message-1",
       answeredAt: AT,
       atUsersRequest: AT_USERS_REQUEST,
     });
 
     expect(recorded.decision?.answer).toEqual({
-      kind: "free-answer",
-      text: "Every Project.",
+      ...oneWordsAnswer("Every Project."),
       answeredAt: AT,
       atUsersRequest: AT_USERS_REQUEST,
     });
@@ -194,16 +220,11 @@ describe("what keeps a person from answering a Decision for the user", () => {
     expect(answerForUserProblems(aDecision({ putTo: "devops" }), callersThread)).toEqual([
       "This Decision is put to the person in the Role devops, who answers it in a Consultation; only a Decision waiting on the user can be answered for them.",
     ]);
-    const approval = aDecision({
-      kind: "approval",
-      question: approvalQuestion("Install ffmpeg on the machine."),
-      options: APPROVAL_OPTIONS,
-    });
-    expect(answerForUserProblems(approval, callersThread)).toEqual([
+    expect(answerForUserProblems(APPROVAL, callersThread)).toEqual([
       "This Decision asks the user's approval of a call: only the user gives it, on its card. Tell them where it waits.",
     ]);
     const answered = aDecision({
-      answer: { kind: "option", option: 0, answeredAt: AT },
+      answer: { ...oneOptionAnswer(0), answeredAt: AT },
     });
     expect(answerForUserProblems(answered, callersThread)).toEqual([
       "This Decision is answered already.",
@@ -229,6 +250,51 @@ describe("what keeps a person from answering a Decision for the user", () => {
   });
 });
 
+describe("Decisions in an Initiative's shaping Thread", () => {
+  const INITIATIVE_HOME = { kind: "initiative", initiativeId: "initiative-1" } as const;
+  const shaping = aThread({ home: INITIATIVE_HOME, session: SESSION, state: "answering" });
+  const opening = { ...DRAFT, askedAt: AT, initiativeThread: "shaping" } as const;
+
+  it("opens one on no Task, on the Initiative as a whole", () => {
+    const opened = openDecision(shaping, { ...opening, id: "decision-a" });
+
+    expect(opened.decision?.taskId).toBeUndefined();
+    expect(opened.thread.openDecisions.map(({ id }) => id)).toEqual(["decision-a"]);
+  });
+
+  it("refuses a second one, or a call, while one waits, and any naming a Task", () => {
+    const { thread: waiting } = openDecision(shaping, { ...opening, id: "decision-a" });
+    const refusal = [
+      `Your Decision "${decisionSummary(DRAFT)}" on the Initiative still waits on its answer. End your turn: it comes as your next message.`,
+    ];
+
+    expect(refusalOf(() => openDecision(waiting, { ...opening, id: "decision-b" }))).toEqual(
+      refusal,
+    );
+    expect(
+      refusalOf(() => openDecision(waiting, { ...opening, id: "call-1", putTo: "devops" })),
+    ).toEqual(refusal);
+    expect(
+      refusalOf(() => openDecision(shaping, { ...opening, id: "decision-b", taskId: "task-a" })),
+    ).toEqual(["In the shaping Thread a Decision is on no Task: leave taskId out."]);
+  });
+
+  it("checks the Attachments it names against those given, the Initiative's", () => {
+    expect(
+      refusalOf(() =>
+        openDecision(shaping, {
+          ...opening,
+          id: "decision-a",
+          attachmentIds: ["of-another-initiative"],
+          attachmentsOfTheTask: ["of-the-initiative"],
+        }),
+      ),
+    ).toEqual([
+      "A Decision names Attachments of its own Initiative only, and these aren't: of-another-initiative.",
+    ]);
+  });
+});
+
 describe("Decisions in an Initiative's planning Thread", () => {
   const INITIATIVE_HOME = { kind: "initiative", initiativeId: "initiative-1" } as const;
   const planning = aThread({ home: INITIATIVE_HOME, session: SESSION, state: "answering" });
@@ -242,7 +308,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     });
     const second = openDecision(first.thread, {
       ...DRAFT,
-      question: "Which format?",
+      questions: THREE_QUESTIONS.slice(2),
       id: "decision-b",
       askedAt: AT,
       taskId: "task-b",
@@ -257,16 +323,44 @@ describe("Decisions in an Initiative's planning Thread", () => {
         openDecision(second.thread, { ...DRAFT, id: "decision-c", askedAt: AT, taskId: "task-a" }),
       ),
     ).toEqual([
-      `Your Decision "${DRAFT.question}" on this Task still waits on the user. Plan the Tasks that don't wait for it; its answer comes as a message.`,
+      `Your Decision "${decisionSummary(DRAFT)}" on this Task still waits on the user. Plan the Tasks that don't wait for it; its answer comes as a message.`,
     ]);
   });
 
-  it("is refused naming no Task, and a Thread on a Task keeps one at a time on its own Task", () => {
-    expect(
-      refusalOf(() => openDecision(planning, { ...DRAFT, id: "decision-a", askedAt: AT })),
-    ).toEqual([
-      "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks. Only a call to a person may name none.",
+  it("opens one on the Initiative as a whole beside those on Tasks, one at a time", () => {
+    const onA = openDecision(planning, {
+      ...DRAFT,
+      id: "decision-a",
+      askedAt: AT,
+      taskId: "task-a",
+    });
+    const onTheInitiative = openDecision(onA.thread, { ...DRAFT, id: "decision-i", askedAt: AT });
+    const onB = openDecision(onTheInitiative.thread, {
+      ...DRAFT,
+      id: "decision-b",
+      askedAt: AT,
+      taskId: "task-b",
+    });
+
+    expect(onB.thread.openDecisions.map(({ id, taskId }) => ({ id, taskId }))).toEqual([
+      { id: "decision-a", taskId: "task-a" },
+      { id: "decision-i", taskId: undefined },
+      { id: "decision-b", taskId: "task-b" },
     ]);
+    const refusal = [
+      `Your Decision "${decisionSummary(DRAFT)}" on the Initiative still waits on its answer. End your turn, or plan the Tasks that don't need it: its answer comes as your next message.`,
+    ];
+    expect(
+      refusalOf(() => openDecision(onB.thread, { ...DRAFT, id: "decision-j", askedAt: AT })),
+    ).toEqual(refusal);
+    expect(
+      refusalOf(() =>
+        openDecision(onB.thread, { ...DRAFT, id: "call-1", askedAt: AT, putTo: "devops" }),
+      ),
+    ).toEqual(refusal);
+  });
+
+  it("a Thread on a Task keeps one at a time on its own Task", () => {
     const onTask = aThread({ home: TASK_HOME, session: SESSION, state: "answering" });
     expect(
       refusalOf(() =>
@@ -277,7 +371,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     expect(
       refusalOf(() => openDecision(waiting.thread, { ...DRAFT, id: "decision-b", askedAt: AT })),
     ).toEqual([
-      `Your Decision "${DRAFT.question}" still waits on the user. End your turn: their answer comes as your next message.`,
+      `Your Decision "${decisionSummary(DRAFT)}" still waits on the user. End your turn: their answer comes as your next message.`,
     ]);
   });
 
@@ -285,7 +379,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
   const onB = aDecision({ id: "decision-b", taskId: "task-b" });
   const recording = {
     decisionId: "decision-a",
-    answer: { kind: "option", option: 1 },
+    answer: oneOptionAnswer(1),
     messageId: "line-a",
     answeredAt: AT,
   } as const;
@@ -296,7 +390,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
     const kept = keepAnswerForTurnEnd(working, recording, "Angela");
 
     expect(kept.thread).toEqual({ ...working, openDecisions: [onB] });
-    expect(kept.decision?.answer).toEqual({ kind: "option", option: 1, answeredAt: AT });
+    expect(kept.decision?.answer).toEqual({ ...oneOptionAnswer(1), answeredAt: AT });
     expect(kept.logged).toEqual([
       {
         kind: "decision-answer",
@@ -304,7 +398,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
         threadId: working.id,
         at: AT,
         decisionId: "decision-a",
-        answer: { kind: "option", option: 1 },
+        answer: oneOptionAnswer(1),
         delivery: "waiting",
       },
     ]);
@@ -339,7 +433,7 @@ describe("Decisions in an Initiative's planning Thread", () => {
       newSession: undefined,
       brief: "",
       decisionId: "decision-b",
-      answer: { kind: "option", option: 0 },
+      answer: oneOptionAnswer(0),
       messageId: "line-b",
       answeredAt: AT,
       waitingAnswerIds: ["line-a"],
@@ -350,19 +444,19 @@ describe("Decisions in an Initiative's planning Thread", () => {
   });
 });
 
-describe("a call made from a chat", () => {
+describe("a Decision in a person's chat", () => {
   const chat = aThread({ home: { kind: "chat", roleKey: "planner" }, session: SESSION });
   const request = {
     kind: "request" as const,
-    question: "Set up the Project's commands.",
     context: "The user asked for it.",
-    options: [],
-    recommendation: { option: 0, reason: "Only Devops drafts them." },
+    questions: [
+      { kind: "open", question: "Set up the Project's commands.", why: "Only Devops drafts them." },
+    ] as const,
     id: "decision-1",
     askedAt: AT,
   };
 
-  it("opens a Decision on no Task when it is put to a person, one at a time", () => {
+  it("opens a call on no Task when it is put to a person, one at a time", () => {
     const opened = openDecision(chat, { ...request, putTo: "devops" });
 
     expect(opened.decision).toMatchObject({ kind: "request", taskId: undefined, putTo: "devops" });
@@ -373,10 +467,40 @@ describe("a call made from a chat", () => {
     ]);
   });
 
-  it("is refused when it would wait on the user, as a chat has no Needs you", () => {
-    expect(refusalOf(() => openDecision(chat, request))).toEqual([
-      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+  it("opens a form waiting on the user on no Task, and refuses another, call or not", () => {
+    const opened = openDecision(chat, { ...DRAFT, id: "decision-1", askedAt: AT });
+
+    expect(opened.decision).toMatchObject({ kind: "form", taskId: undefined, putTo: undefined });
+    expect(opened.logged).toEqual([expect.objectContaining({ kind: "decision" })]);
+    const second = `Your Decision "${decisionSummary(DRAFT)}" still waits on its answer. End your turn: it comes as your next message.`;
+    expect(refusalOf(() => openDecision(opened.thread, { ...request, id: "decision-2" }))).toEqual([
+      second,
     ]);
+    expect(
+      refusalOf(() => openDecision(opened.thread, { ...request, id: "decision-2", putTo: "cto" })),
+    ).toEqual([second]);
+  });
+
+  it("is refused naming a Task", () => {
+    expect(refusalOf(() => openDecision(chat, { ...request, taskId: "task-1" }))).toEqual([
+      "A Decision in your chat is on no Task: leave taskId out, and ask about the Task in the form.",
+    ]);
+  });
+
+  it("is refused in a Consultation sitting in a chat unless it is a call", () => {
+    const consultation = aThread({
+      home: { kind: "chat", roleKey: "devops" },
+      session: SESSION,
+      consultation: { decisionId: "asked", askerThreadId: "asker", askerRoleKey: "planner" },
+    });
+
+    expect(refusalOf(() => openDecision(consultation, request))).toEqual([
+      "A Consultation opens no Decision of its own: answer in words.",
+    ]);
+    expect(openDecision(consultation, { ...request, putTo: "cto" }).decision).toMatchObject({
+      taskId: undefined,
+      putTo: "cto",
+    });
   });
 });
 
@@ -384,28 +508,33 @@ describe("a request", () => {
   const thread = aThread({ home: TASK_HOME, session: SESSION });
   const request = {
     kind: "request" as const,
-    question: "Set up the Project's commands.",
     context: "",
-    options: [],
-    recommendation: { option: 0, reason: "Only Devops drafts them." },
+    questions: [
+      { kind: "open", question: "Set up the Project's commands.", why: "Only Devops drafts them." },
+    ] as const,
     id: "decision-1",
     askedAt: AT,
   };
 
-  it("has no options, and says what is asked and why", () => {
+  it("asks one thing, in words, saying what is asked and why", () => {
+    expect(
+      refusalOf(() =>
+        openDecision(thread, { ...request, questions: [{ kind: "open", question: " " }] }),
+      ),
+    ).toEqual(["Say what you ask them to do.", "Say why you need it."]);
+    expect(
+      refusalOf(() => openDecision(thread, { ...request, questions: DRAFT.questions })),
+    ).toEqual(["A request has no options: they answer in their own words."]);
     expect(
       refusalOf(() =>
         openDecision(thread, {
           ...request,
-          question: " ",
-          options: ["Yes", "No"],
-          recommendation: { option: 0, reason: "" },
+          questions: [...request.questions, ...request.questions],
         }),
       ),
-    ).toEqual([
-      "Say what you ask them to do.",
-      "A request has no options: they answer in their own words.",
-      "Say why you need it.",
+    ).toEqual(["A request asks one thing."]);
+    expect(refusalOf(() => openDecision(thread, { ...request, questions: [] }))).toEqual([
+      "A request asks one thing.",
     ]);
   });
 
@@ -413,9 +542,193 @@ describe("a request", () => {
     const open = openDecision(thread, request).decision;
     if (!open) throw new Error("No Decision was opened.");
 
-    expect(answerProblems(open, { kind: "option", option: 0 })).toEqual([
+    expect(answerProblems(open, oneOptionAnswer(0))).toEqual([
       "A request has no options: answer in your own words, saying what you did or why not.",
     ]);
-    expect(answerProblems(open, { kind: "free-answer", text: "Drafted it." })).toEqual([]);
+    expect(answerProblems(open, oneWordsAnswer("Drafted it."))).toEqual([]);
+  });
+});
+
+const APPROVAL = aDecision({
+  kind: "approval",
+  questions: [
+    {
+      kind: "choice",
+      question: approvalQuestion("Install ffmpeg on the machine."),
+      options: APPROVAL_OPTIONS,
+      recommendation: { option: 0, reason: "The Task converts videos." },
+    },
+  ],
+});
+
+describe("what an Agent asks in a form", () => {
+  it("asks at least one question, each a choice or an open question", () => {
+    expect(decisionProblems({ context: "", questions: THREE_QUESTIONS })).toEqual([]);
+    expect(decisionProblems({ context: "", questions: [] })).toEqual([
+      "Ask at least one question.",
+    ]);
+  });
+
+  it("gives a choice two or more options of their own and a recommended one, with its reason", () => {
+    expect(
+      decisionProblems({
+        context: "",
+        questions: [
+          {
+            kind: "choice",
+            question: " ",
+            options: ["Yes"],
+            recommendation: { option: 3, reason: "" },
+          },
+        ],
+      }),
+    ).toEqual([
+      "Write the question.",
+      "Give the user at least two options.",
+      "Recommend one of the options.",
+      "Say why you recommend it.",
+    ]);
+    expect(
+      decisionProblems({
+        context: "",
+        questions: [
+          {
+            kind: "choice",
+            question: "Which?",
+            options: ["Every Project", "every project ", ""],
+            recommendation: { option: 0, reason: "It is all." },
+          },
+        ],
+      }),
+    ).toEqual(["Name every option.", "Give each option a name of its own."]);
+  });
+
+  it("writes an open question's text", () => {
+    expect(
+      decisionProblems({ context: "", questions: [{ kind: "open", question: "  " }] }),
+    ).toEqual(["Write the question."]);
+  });
+
+  it("names the question of each problem when it asks several", () => {
+    expect(
+      decisionProblems({
+        context: "",
+        questions: [
+          THREE_QUESTIONS[0]!,
+          { kind: "open", question: "" },
+          {
+            kind: "choice",
+            question: "Which format?",
+            options: ["CSV"],
+            recommendation: { option: 0, reason: "Short." },
+          },
+        ],
+      }),
+    ).toEqual([
+      "Question 2: Write the question.",
+      "Question 3: Give the user at least two options.",
+    ]);
+  });
+});
+
+/** The form's answer sent with Submit. */
+function submitted(
+  answers: Extract<DecisionAnswer, { kind: "submitted" }>["answers"],
+  generalComment?: string,
+): DecisionAnswer {
+  return { kind: "submitted", answers, generalComment };
+}
+
+describe("answering a form", () => {
+  const form = aDecision({ questions: THREE_QUESTIONS });
+
+  it("submits an answer to every question, with optional comments and a general comment", () => {
+    expect(
+      answerProblems(
+        form,
+        submitted(
+          [
+            { kind: "option", option: 1, comment: "Archived ones too." },
+            { kind: "words", text: "2025 and 2026" },
+            { kind: "option", option: 0 },
+          ],
+          "Thanks.",
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("is refused unless every question has an answer", () => {
+    expect(answerProblems(form, submitted([{ kind: "option", option: 1 }]))).toEqual([
+      "Answer every question: this Decision asks 3.",
+    ]);
+    expect(answerProblems(aDecision(), submitted([]))).toEqual(["Answer the question first."]);
+  });
+
+  it("takes a choice answered in words alone, and refuses empty words and an option it hasn't", () => {
+    expect(
+      answerProblems(
+        form,
+        submitted([
+          { kind: "words", text: "Ask the CTO." },
+          { kind: "words", text: "This year" },
+          { kind: "words", text: "Whichever is quicker." },
+        ]),
+      ),
+    ).toEqual([]);
+    expect(
+      answerProblems(
+        form,
+        submitted([
+          { kind: "words", text: " " },
+          { kind: "option", option: 0 },
+          { kind: "option", option: 2 },
+        ]),
+      ),
+    ).toEqual([
+      "Question 1: Write your answer first.",
+      "Question 2: It is an open question: answer in your own words.",
+      "Question 3: Choose one of the Decision's options.",
+    ]);
+    expect(answerProblems(aDecision(), oneOptionAnswer(-1))).toEqual([
+      "Choose one of the Decision's options.",
+    ]);
+  });
+
+  it("asks again with or without a general comment", () => {
+    expect(answerProblems(form, { kind: "asked-again" })).toEqual([]);
+    expect(
+      answerProblems(form, { kind: "asked-again", generalComment: "Why not both formats?" }),
+    ).toEqual([]);
+  });
+
+  it("refuses Ask me again on an approval and on The Office's own Decision", () => {
+    expect(answerProblems(APPROVAL, { kind: "asked-again" })).toEqual([
+      "An approval has no Ask me again: answer Allow once or Deny.",
+    ]);
+    expect(
+      answerProblems(aDecision({ roleKey: undefined }), {
+        kind: "asked-again",
+        generalComment: "Explain.",
+      }),
+    ).toEqual(["The Office's own Decisions have no Ask me again: nobody is there to ask again."]);
+  });
+
+  it("answers an approval with one of its options and no comments", () => {
+    expect(answerProblems(APPROVAL, oneOptionAnswer(1))).toEqual([]);
+    expect(answerProblems(APPROVAL, oneOptionAnswer(2))).toEqual(["Choose Allow once or Deny."]);
+    expect(answerProblems(APPROVAL, oneWordsAnswer("Yes"))).toEqual(["Choose Allow once or Deny."]);
+    expect(
+      answerProblems(APPROVAL, submitted([{ kind: "option", option: 0, comment: "Once only." }])),
+    ).toEqual(["An approval takes no comments: choose Allow once or Deny."]);
+    expect(answerProblems(APPROVAL, submitted([{ kind: "option", option: 0 }], "Fine."))).toEqual([
+      "An approval takes no comments: choose Allow once or Deny.",
+    ]);
+  });
+
+  it("takes an approval's empty comment boxes as no comments", () => {
+    expect(
+      answerProblems(APPROVAL, submitted([{ kind: "option", option: 0, comment: " " }], "")),
+    ).toEqual([]);
   });
 });

@@ -1,0 +1,21 @@
+{
+  "range": {
+    "from": "2026-11-17T10:00:00.000Z",
+    "to": "2026-11-17T11:00:00.000Z",
+    "stepSeconds": 600
+  },
+  "status": 400,
+  "body": {
+    "results": {
+      "tokens": {
+        "error": "bad_data: invalid parameter \"query\": 1:28: parse error: unexpected \"}\" in label matching",
+        "errorSource": "downstream",
+        "status": 400
+      },
+      "cost": {
+        "status": 200,
+        "frames": []
+      }
+    }
+  }
+}

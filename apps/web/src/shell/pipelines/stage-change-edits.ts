@@ -1,6 +1,7 @@
 import type {
   BrokenReason,
   BuiltStage,
+  Route,
   Stage,
   StageChange,
   StageFieldChanges,
@@ -18,8 +19,12 @@ import { addStage, addStageFrom, keyAmong, type StageKind } from "./stage-edits.
  * name, not by the rows' indexes, so an answer the service gave for the edit before still reads.
  */
 
-/** The fields a Change may give a Stage, in the Stage form's order. */
-export type StageField = keyof StageFieldChanges;
+/**
+ * The fields a Change may give a Stage, in the Stage form's order. `optional` is left out: the walk
+ * no longer reads it, so the editor neither offers nor shows it, though a Change may still carry
+ * it for the release before.
+ */
+export type StageField = Exclude<keyof StageFieldChanges, "optional">;
 
 export const STAGE_FIELDS: readonly StageField[] = [
   "name",
@@ -34,8 +39,12 @@ export const STAGE_FIELDS: readonly StageField[] = [
   "brief",
   "permissions",
   "onFailure",
-  "optional",
 ];
+
+/** Whether a field the service names is one the editor shows. */
+export function isStageField(field: string): field is StageField {
+  return (STAGE_FIELDS as readonly string[]).includes(field);
+}
 
 /** A Stage names a Role or a duty, never both: a Change giving one clears the other (spec §2.3). */
 const WORKER_FIELD_CLEARED: Readonly<Record<string, StageField | undefined>> = {
@@ -53,11 +62,13 @@ export interface StageChangeRow {
   readonly number: number | undefined;
   /** The Stage change that marks it; undefined for a Stage of the base Pipeline as it is. */
   readonly stageChange: StageChange | undefined;
+  /** Whether the draft has a Change routes Stage change of its Stage, found by its key. */
+  readonly routesChanged: boolean;
   /** Why the built Stages are Broken on this row, such as a loop whose target is gone. */
   readonly broken: readonly BrokenReason[];
-  /** What saving would be refused for, and what is only flagged, on this row's Stage. */
+  /** What saving would be refused for, and what it is only warned about, on this row's Stage. */
   readonly problems: readonly StageProblem[];
-  readonly flags: readonly StageProblem[];
+  readonly warnings: readonly StageProblem[];
 }
 
 /** How a Stage change that doesn't apply is fixed in place, beside "Remove this Stage change". */
@@ -80,9 +91,12 @@ export interface StageChangesShown {
   readonly notApplying: readonly NotApplying[];
   /** Broken reasons on no row and no Stage change. */
   readonly brokenElsewhere: readonly BrokenReason[];
-  /** Problems and flags on no Stage, Broken reasons left out as they show where they are. */
+  /**
+   * Problems and warnings on no row's Stage, Broken reasons left out as they show where they are:
+   * the Pipeline's as a whole, and any on a Stage the draft no longer has.
+   */
   readonly problems: readonly StageProblem[];
-  readonly flags: readonly StageProblem[];
+  readonly warnings: readonly StageProblem[];
 }
 
 /** The service's built Stages, as its read and its check answer them. */
@@ -93,18 +107,23 @@ export interface BuiltRows {
 
 /**
  * Each built row with its number, the Stage change that marks it and what is wrong on it; the
- * Stage changes that don't apply apart, as they have no row. `problems` and `flags` name a Stage by
- * its index among the Stages a Task gets, as the service's check does.
+ * Stage changes that don't apply apart, as they have no row. `problems` and `warnings` name a Stage
+ * by its key, as the service's check does.
  */
 export function stageChangesShown(
   built: BuiltRows,
   stageChanges: readonly StageChange[],
   problems: readonly StageProblem[] = [],
-  flags: readonly StageProblem[] = [],
+  warnings: readonly StageProblem[] = [],
 ): StageChangesShown {
   const brokenTexts = new Set(built.broken.map(({ text }) => text));
-  const onStage = (list: readonly StageProblem[], index: number): StageProblem[] =>
-    list.filter(({ stageIndex, text }) => stageIndex === index && !brokenTexts.has(text));
+  const onStage = (list: readonly StageProblem[], key: string): StageProblem[] =>
+    list.filter(({ stageKey, text }) => stageKey === key && !brokenTexts.has(text));
+  const rowKeys = new Set(
+    built.rows.flatMap(({ origin, stage }) => (origin === "removed" ? [] : [stage.key])),
+  );
+  const onNoRow = ({ stageKey }: StageProblem): boolean =>
+    stageKey === null || !rowKeys.has(stageKey);
   let number = 0;
   const rows = built.rows.map((row): StageChangeRow => {
     if (row.origin === "removed") {
@@ -112,9 +131,10 @@ export function stageChangesShown(
         built: row,
         number: undefined,
         stageChange: stageChangeOf(stageChanges, row),
+        routesChanged: false,
         broken: [],
         problems: [],
-        flags: [],
+        warnings: [],
       };
     }
     const stageIndex = number;
@@ -123,11 +143,12 @@ export function stageChangesShown(
       built: row,
       number,
       stageChange: stageChangeOf(stageChanges, row),
+      routesChanged: routesChangeOf(stageChanges, row.stage.key) !== undefined,
       broken: built.broken.filter(
         (reason) => reason.stageChangeIndex === null && reason.stageIndex === stageIndex,
       ),
-      problems: onStage(problems, stageIndex),
-      flags: onStage(flags, stageIndex),
+      problems: onStage(problems, row.stage.key),
+      warnings: onStage(warnings, row.stage.key),
     };
   });
   const notApplying = built.broken.flatMap((reason): NotApplying[] => {
@@ -151,10 +172,8 @@ export function stageChangesShown(
         reason.stageIndex === null &&
         (reason.stageChangeIndex === null || !stageChanges[reason.stageChangeIndex]),
     ),
-    problems: problems.filter(
-      ({ stageIndex, text }) => stageIndex === null && !brokenTexts.has(text),
-    ),
-    flags: flags.filter(({ stageIndex }) => stageIndex === null),
+    problems: problems.filter((problem) => onNoRow(problem) && !brokenTexts.has(problem.text)),
+    warnings: warnings.filter(onNoRow),
   };
 }
 
@@ -182,7 +201,13 @@ function markingIndexes(stageChanges: readonly StageChange[], row: BuiltStage): 
         (stageChange) => stageChange.kind === "replace" && stageChange.stage.key === key,
       );
     case "changed":
-      return changeIndexes(stageChanges, key);
+      // A Change of its fields first, as the row's Stage form edits that one.
+      return [
+        ...changeIndexes(stageChanges, key),
+        ...matches(
+          (stageChange) => stageChange.kind === "change-routes" && stageChange.stageKey === key,
+        ),
+      ];
     case "removed":
       return matches(
         (stageChange) => stageChange.kind === "remove" && stageChange.stageKey === key,
@@ -386,8 +411,7 @@ export function newStageAmong(
     ...rows.map(({ stage }) => stage),
     ...stageChanges.filter(bringsStage).map(({ stage }) => stage),
   ];
-  const added =
-    typeof from === "string" ? addStage(stages, from, 0) : addStageFrom(stages, from, 0);
+  const added = typeof from === "string" ? addStage(stages, from) : addStageFrom(stages, from);
   const stage = added.stages[added.index];
   if (!stage) throw new Error("The added Stage isn't among the Stages.");
   return stage;
@@ -514,6 +538,69 @@ export function insertPlaces(
       { kind: "insert-before", stage },
       { kind: "insert-after", stage },
     ]);
+}
+
+/** The Change routes Stage change of the Stage with `key`, found by the key it names. */
+export function routesChangeOf(
+  stageChanges: readonly StageChange[],
+  key: string,
+): Extract<StageChange, { kind: "change-routes" }> | undefined {
+  return stageChanges.find(
+    (stageChange): stageChange is Extract<StageChange, { kind: "change-routes" }> =>
+      stageChange.kind === "change-routes" && stageChange.stageKey === key,
+  );
+}
+
+/**
+ * The Stage changes once the user edited the routes out of the Stage with `key`, on the built rows:
+ * one Change routes Stage change giving them whole, last, so it applies to the Stages as they are
+ * shown, with every Stage change before it applied; none once they are the routes the Stage would
+ * have without it again. Those are the row's routes while it has none yet, and the base Pipeline's
+ * Stage's once it has one (an inserted Stage's are only dropped by Undo).
+ */
+export function withRoutesChanged(
+  stageChanges: readonly StageChange[],
+  rows: readonly BuiltStage[],
+  key: string,
+  routes: readonly Route[],
+): StageChange[] {
+  const row = rows.find(({ origin, stage }) => origin !== "removed" && stage.key === key);
+  const without = withoutRoutesChanged(stageChanges, key);
+  const had = without.length !== stageChanges.length;
+  const routesWithout = !had
+    ? row?.stage.routes
+    : row?.origin === "inserted"
+      ? undefined
+      : row?.baseStage?.routes;
+  if (routesWithout !== undefined && sameRoutes(routesWithout, routes)) return without;
+  return [
+    ...without,
+    {
+      kind: "change-routes",
+      stageKey: key,
+      stageName: row?.stage.name ?? key,
+      routes: [...routes],
+    },
+  ];
+}
+
+/** Undo of a Change routes: the Stage's routes as its Stage changes but that one give them. */
+export function withoutRoutesChanged(
+  stageChanges: readonly StageChange[],
+  key: string,
+): StageChange[] {
+  return stageChanges.filter(
+    (stageChange) => !(stageChange.kind === "change-routes" && stageChange.stageKey === key),
+  );
+}
+
+/** Two lists of routes alike, the names kept for their words alone left out. */
+export function sameRoutes(one: readonly Route[], other: readonly Route[]): boolean {
+  return JSON.stringify(one, unnamedKeys) === JSON.stringify(other, unnamedKeys);
+}
+
+function unnamedKeys(key: string, value: unknown): unknown {
+  return key === "toName" || key === "stageName" ? undefined : sortedKeys(key, value);
 }
 
 /** The values of two fields alike whatever order their keys came in. */

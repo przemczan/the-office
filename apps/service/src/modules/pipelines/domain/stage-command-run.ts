@@ -30,17 +30,37 @@ export interface ScriptCommandRun extends CommandRun {
 
 /**
  * Why The Office ran a command for a Stage: the dependencies' install before it, the Script
- * Stage's command, a failing test command's one re-run, or a Publish's before or after publishing
- * line.
+ * Stage's command, a failing test command's one re-run, a Publish's before or after publishing
+ * line, or the Project command a condition of one of the Stage's routes out names.
  */
 export type StageCommandPurpose =
-  "install" | "command" | "re-run" | "before-publishing" | "after-publishing";
+  "install" | "command" | "re-run" | "before-publishing" | "after-publishing" | "condition";
+
+/**
+ * The Project-command test a condition command was run for (spec §2.3, "The Project-command
+ * condition"): the test's place among the routes out of the run's Stage, which the walk replays its
+ * result by.
+ */
+export interface ConditionCommandTest {
+  readonly key: string;
+  /** The key of the Stage the route leads to; null for End. */
+  readonly to: string | null;
+  /** The route's place among the Stage's routes out, from 0. */
+  readonly routeIndex: number;
+  /** The test's place in the route's condition: its index in each nested group in turn, from 0. */
+  readonly testPath: readonly number[];
+}
 
 /** A command a Stage run ran, as the run records it; its whole output is read apart from it. */
 export interface StageCommandRun extends Omit<CommandRun, "wholeOutput"> {
   readonly purpose: StageCommandPurpose;
   /** The files a test run wrote, moved out of the worktree; undefined for none. */
   readonly movedFiles?: MovedFiles;
+  /**
+   * Set on a condition command's run and on the install run before it: the test it was run for,
+   * on the run of the Stage the route leaves.
+   */
+  readonly condition?: ConditionCommandTest;
 }
 
 /** A command a Stage run ran, as it is saved. */
@@ -52,9 +72,16 @@ export interface StageCommandRunWithOutput extends StageCommandRun {
 export type Installation =
   { readonly kind: "up-to-date" } | { readonly kind: "ran"; readonly run: CommandRun };
 
-/** The install's run when it ran, as a Stage run records it. */
-export function installRuns(installation: Installation): StageCommandRunWithOutput[] {
-  return installation.kind === "ran" ? [{ ...installation.run, purpose: "install" }] : [];
+/**
+ * The install's run when it ran, as a Stage run records it; `condition` marks one run before a
+ * condition command.
+ */
+export function installRuns(
+  installation: Installation,
+  condition?: ConditionCommandTest,
+): StageCommandRunWithOutput[] {
+  if (installation.kind !== "ran") return [];
+  return [{ ...installation.run, purpose: "install", ...(condition && { condition }) }];
 }
 
 /** The install's run when it ran and didn't pass. */
@@ -73,8 +100,21 @@ export function commandRunsOf(runs: readonly ScriptCommandRun[]): StageCommandRu
   }));
 }
 
+/** A condition command's runs, each marked with the test it was run for. */
+export function conditionRunsOf(
+  runs: readonly ScriptCommandRun[],
+  condition: ConditionCommandTest,
+): StageCommandRunWithOutput[] {
+  return runs.map(({ movedFiles, ...run }) => ({
+    ...run,
+    purpose: "condition",
+    condition,
+    ...(movedFiles && { movedFiles }),
+  }));
+}
+
 /** How a command ended, in a sentence's words. */
-export function howItEnded(run: CommandRun): string {
+export function howItEnded(run: Pick<CommandRun, "outcome" | "exitCode" | "durationMs">): string {
   switch (run.outcome) {
     case "passed":
       return "passed";

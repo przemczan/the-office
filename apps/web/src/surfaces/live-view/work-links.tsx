@@ -1,5 +1,5 @@
 import { Link, linkOptions } from "@tanstack/react-router";
-import { Icon } from "@the-office/ui";
+import { Icon, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import type { WorkLink, WorkTarget } from "./live-view-types.ts";
 
@@ -46,14 +46,19 @@ const TARGET_ICONS: Record<WorkTarget["kind"], string> = {
 export function WorkLinks({ links }: { readonly links: readonly WorkLink[] }): ReactNode {
   return (
     <ul className="live-work-links">
-      {links.map((link) => (
-        <li key={JSON.stringify(link.target)}>
+      {links.map((link) => {
+        const anchor = (
           <Link {...workLinkOptions(link.target)} className="live-work-link">
             <Icon name={TARGET_ICONS[link.target.kind]} size={14} />
             <span>{link.words}</span>
           </Link>
-        </li>
-      ))}
+        );
+        return (
+          <li key={JSON.stringify(link.target)}>
+            {link.reason === undefined ? anchor : <Tooltip content={link.reason}>{anchor}</Tooltip>}
+          </li>
+        );
+      })}
     </ul>
   );
 }

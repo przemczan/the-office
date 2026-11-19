@@ -11,6 +11,7 @@ import type {
   Project,
   ProjectPipelineBreak,
   RoleCardOptions,
+  StageProblem,
 } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -53,12 +54,23 @@ const BREAK: ProjectPipelineBreak = {
   ],
 };
 
-/** Answers the check with `breaks` and a save with the Pipeline, recording what was sent. */
-function serving(breaks: readonly ProjectPipelineBreak[]) {
+/**
+ * Answers the check with `breaks` and `problems` and a save with the Pipeline, recording what was
+ * sent.
+ */
+function serving(breaks: readonly ProjectPipelineBreak[], problems: readonly StageProblem[] = []) {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
   const fetched = vi.fn<typeof fetch>((input, init) => {
     const url = String(input);
     if (url.endsWith("/pipelines/check")) {
-      const check: PipelineCheck = { problems: [], flags: [], breaks: [...breaks] };
+      const check: PipelineCheck = { problems: [...problems], breaks: [...breaks] };
       return Promise.resolve(Response.json(check));
     }
     if (init?.method === "PUT")
@@ -164,6 +176,47 @@ describe("saving an office-wide Pipeline that Project Pipelines are built from",
     await press("Save the Pipeline");
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(saves(fetched)).toBe(1);
+  });
+});
+
+describe("an office-wide Pipeline in the flow editor", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+    localStorage.clear();
+  });
+
+  it("shows its Stages as a flow, and says once that it was converted", async () => {
+    serving([]);
+    const page = await rendered();
+    expect(page.textContent).toContain("Stages and routes");
+    expect(page.textContent).toContain("2 Stages · 2 routes · 0 On failure loops");
+    expect(page.querySelector('[role="region"][aria-label="Flow"]')).not.toBeNull();
+    expect(page.textContent).toContain("Full is now drawn as a flow");
+
+    await press("Hide this note");
+    expect(page.textContent).not.toContain("Full is now drawn as a flow");
+    expect(localStorage.getItem("the-office.converted-note-hidden.full")).toBe("true");
+  });
+
+  it("holds Save while a problem stands, saying how many", async () => {
+    const problem: StageProblem = {
+      stageKey: "review",
+      at: { kind: "stage" },
+      level: "problem",
+      text: "Review has no route out: add one to a later Stage, or to End to make it a final Stage.",
+    };
+    const fetched = serving([], [problem]);
+    const page = await rendered();
+    await describeIt(page, "Implement, test and publish.");
+    expect(page.textContent).toContain("1 problem holds Save");
+    const save = [...document.querySelectorAll("button")].find(
+      (button) => wordsOf(button) === "Save the Pipeline",
+    );
+    expect(save?.disabled).toBe(true);
+    await press(problem.text);
+    expect(document.querySelector('section[aria-label="Review"]')).not.toBeNull();
+    expect(saves(fetched)).toBe(0);
   });
 });
 

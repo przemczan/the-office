@@ -7,6 +7,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionClosed, DecisionOpened } from "../../conversations/index.js";
+import { StandInChoicesChanged } from "../../pipelines/index.js";
 import { InitiativeStateChanged } from "../../work/index.js";
 import { NowChanged } from "../domain/now-events.js";
 import { NotificationsModule } from "../notifications.module.js";
@@ -19,6 +20,7 @@ import {
   OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -51,6 +53,7 @@ describe("NowService", () => {
           officeStatusCards: OfficeStatusCardsForTests,
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
+          standInChoicesWaiting: StandInChoicesWaitingForTests,
         }),
       ],
     }));
@@ -91,7 +94,7 @@ describe("NowService", () => {
       },
     ]);
     app.get(OpenDecisionsForTests).open = [
-      { id: decisionId, taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
+      { id: decisionId, threadId: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
     ];
     app.get(DeskLimitForTests).limit = 4;
     const usage = app.get(AccountUsageForTests).readingsByEngine;
@@ -148,7 +151,12 @@ describe("NowService", () => {
 
   it("no longer lists a Decision its Task's Drop closed, and announces it", async () => {
     const taskId = randomUUID();
-    const decision = { id: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") };
+    const decision = {
+      id: randomUUID(),
+      threadId: randomUUID(),
+      taskId,
+      askedAt: new Date("2026-10-27T09:05:00Z"),
+    };
     tasks.tasks = [
       {
         id: taskId,
@@ -173,6 +181,47 @@ describe("NowService", () => {
 
     await vi.waitFor(() => expect(announced.at(-1)?.now.needsYou).toEqual([]));
     expect((await readNow()).needsYou).toEqual([]);
+  });
+
+  it("lists the Stages waiting for a Stand-in Engine as one item, announced as they change", async () => {
+    const choices = app.get(StandInChoicesWaitingForTests);
+    const choice = {
+      resetsAt: "2026-10-27T14:00:00.000Z",
+      standInNow: { engineName: "Spare" },
+      asked: { engineName: "Spare" },
+    };
+    choices.choices = [
+      {
+        ...choice,
+        taskId: randomUUID(),
+        projectId: "p1",
+        waitingSince: new Date("2026-10-27T09:05:00Z"),
+      },
+      {
+        ...choice,
+        taskId: randomUUID(),
+        projectId: "p2",
+        waitingSince: new Date("2026-10-27T09:10:00Z"),
+      },
+    ];
+
+    const now = await readNow();
+
+    expect(now.needsYou).toEqual([
+      {
+        kind: "stand-in-choice",
+        projectIds: ["p1", "p2"],
+        waitingSince: "2026-10-27T09:05:00.000Z",
+        count: 2,
+      },
+    ]);
+    // Needs you's tab counts the card as one, however many Stages wait.
+    expect(now.needsYou).toHaveLength(1);
+
+    choices.choices = [];
+    await events.publish(new StandInChoicesChanged(randomUUID()));
+
+    await vi.waitFor(() => expect(announced.at(-1)?.now.needsYou).toEqual([]));
   });
 
   it("carries the fire alarm while it is on, with how each Task it paused would resume", async () => {
@@ -303,7 +352,7 @@ function decisionEvent(
   eventClass: typeof DecisionOpened | typeof DecisionClosed,
   decision: { readonly id: string; readonly taskId: string },
 ): DecisionOpened | DecisionClosed {
-  const [thread, asked] = [{}, decision] as unknown as [
+  const [thread, asked] = [{ home: { kind: "task" } }, decision] as unknown as [
     DecisionEventParameters[0],
     DecisionEventParameters[1],
   ];

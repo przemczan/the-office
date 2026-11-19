@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import type { DutyKey } from "../../people/index.js";
 import { RESOLVE_TEST_COMMAND } from "./resolve-stages.js";
+import { commandKeysOfRoutes, type Route, type StagePlace } from "./route.js";
 import type { StagePermissions } from "./stage-permissions.js";
 
 /** One step of a Pipeline (spec §2.3): work by an Agent in a Role, a Project command, or a Gate. */
@@ -61,8 +62,18 @@ interface StageFields {
   /** Names the Stage within its Pipeline and stays when the Stage is renamed. */
   readonly key: string;
   readonly name: string;
-  /** Skipped when the Definition of Done is already met. */
+  /**
+   * Read only by the previous release, which skipped the Stage once the Definition of Done was met:
+   * kept for a rollback, and written as routes by the conversion (`straightLineFlow`).
+   */
   readonly optional: boolean;
+  /**
+   * Its routes out, in the order the walk weighs them. Absent only on a Stage template and a Stage a
+   * Stage change gives; a Pipeline's and a Task's Stages carry them, read through `asFlow`.
+   */
+  readonly routes?: Route[];
+  /** Absent where `routes` is. */
+  readonly place?: StagePlace;
 }
 
 export interface AgentStage extends StageFields {
@@ -141,10 +152,15 @@ export function sameWorkerNamed(one: Stage, other: Stage): boolean {
 /**
  * The Project commands, by key, that `stage` among `stages` may run: a Script Stage's own, the
  * Project's `test` for a Publish by the publishing mode, whose conflict Resolve and its Test take
- * when an Agent Stage can work Resolve, and the keys an Agent Stage narrows its Project commands
- * to (spec §2.3). The one source every missing-command check reads.
+ * when an Agent Stage can work Resolve, the keys an Agent Stage narrows its Project commands to,
+ * and those its routes' command tests run (spec §2.3). The one source every missing-command check
+ * reads.
  */
 export function commandKeysOfStage(stage: Stage, stages: readonly Stage[]): readonly string[] {
+  return [...ownCommandKeys(stage, stages), ...commandKeysOfRoutes(stage.routes ?? [])];
+}
+
+function ownCommandKeys(stage: Stage, stages: readonly Stage[]): readonly string[] {
   if (stage.kind === "agent") return stage.permissions?.commands ?? [];
   if (stage.kind !== "script") return [];
   if (stage.command !== PUBLISH_COMMAND) return [stage.command];

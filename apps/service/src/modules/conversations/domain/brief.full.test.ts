@@ -12,7 +12,8 @@ import {
   type BriefMemoryNote,
   type BriefProject,
 } from "./brief.js";
-import { aDecision } from "./decision.fixtures.js";
+import { oneOptionAnswer } from "./decision.js";
+import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
 import type { Message, MessageDraft } from "./message.js";
 import { ANN_LEE } from "./user.fixtures.js";
 
@@ -107,6 +108,25 @@ describe("The Projects in a Brief for a Thread on an Initiative", () => {
   });
 });
 
+describe("a Brief for a Thread on an Initiative waiting on a Decision on no Task", () => {
+  it("names it, says it waits on the user and isn't asked again, and that the answer comes as a message", () => {
+    const brief = initiativeThreadBrief({
+      record: "## The Initiative",
+      continuing: true,
+      memory: NO_MEMORY,
+      projects: PROJECTS,
+      open: aDecision({ taskId: undefined, questions: THREE_QUESTIONS.slice(0, 1) }),
+    }).text;
+
+    expect(brief).toContain(
+      "## Your open Decision on the Initiative\n\nYou asked the user:\n\n1. ",
+    );
+    expect(brief).toContain(
+      "It still waits on the user: don't ask it again. Their answer comes as a message in this Thread.",
+    );
+  });
+});
+
 describe("a chat Thread's Brief when it continues fresh", () => {
   it("holds the title, the latest Handover note and the exchanges, without tool activity", () => {
     const log = [
@@ -187,13 +207,31 @@ describe("a Brief for a Thread on a Task", () => {
       record: "## The Task",
       continuing: true,
       answered: [
-        aDecision({ answer: { kind: "option", option: 1, answeredAt } }),
+        aDecision({ answer: { ...oneOptionAnswer(1), answeredAt } }),
         aDecision({
-          question: "Which format?",
-          answer: { kind: "free-answer", text: "CSV, like the old one.", answeredAt },
+          questions: THREE_QUESTIONS.slice(1),
+          answer: {
+            kind: "submitted",
+            answers: [
+              { kind: "words", text: "This year" },
+              { kind: "words", text: "CSV, like the old one." },
+            ],
+            generalComment: "Thanks.",
+            answeredAt,
+          },
         }),
       ],
-      open: aDecision({ question: "Which columns?", options: ["All", "The visible ones"] }),
+      open: aDecision({
+        questions: [
+          {
+            kind: "choice",
+            question: "Which columns?",
+            options: ["All", "The visible ones"],
+            recommendation: { option: 1, reason: "They are what people read." },
+          },
+          { kind: "open", question: "Any column to rename?" },
+        ],
+      }),
       memory: NO_MEMORY,
     });
 
@@ -205,12 +243,34 @@ describe("a Brief for a Thread on a Task", () => {
         "- Should the export include archived Projects?",
       ].join(String.fromCharCode(10, 10)),
     );
-    expect(text).toContain("  Answer: Every Project");
-    expect(text).toContain("- Which format?");
-    expect(text).toContain("  Answer: CSV, like the old one.");
-    expect(text).toContain("## Your open Decision");
-    expect(text).toContain('You asked the user "Which columns?", with the options:');
-    expect(text).toContain("- The visible ones");
+    expect(text).toContain(
+      "- Should the export include archived Projects?\n  Answer: Every Project\n- Which years",
+    );
+    expect(text).toContain(
+      [
+        "- Which years should it cover? (and 1 more question)",
+        "  1. Which years should it cover?",
+        "     Answer, in their own words: This year",
+        "  2. Which format?",
+        "     Answer, in their own words: CSV, like the old one.",
+        "",
+        "  General comment: Thanks.",
+      ].join("\n"),
+    );
+    expect(text).toContain(
+      [
+        "## Your open Decision",
+        "",
+        "You asked the user:",
+        "",
+        "1. Which columns?",
+        "   - All",
+        "   - The visible ones",
+        "",
+        "2. Any column to rename?",
+        "   An open question, answered in their own words.",
+      ].join("\n"),
+    );
     expect(text).toMatch(/They haven't answered it yet/);
   });
 });

@@ -25,7 +25,7 @@ import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DecisionAnswered } from "../../domain/conversation-events.js";
-import type { Decision } from "../../domain/decision.js";
+import { oneWordsAnswer, type Decision, type DecisionDraft } from "../../domain/decision.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
 import { aThread } from "../../domain/thread.fixtures.js";
@@ -327,6 +327,9 @@ function setUpEachTest(): void {
           useProjectSkills: false,
           projectSkillsOff: [],
           projectId: "admin-panel",
+          initiativeId: undefined,
+          projectName: "Admin panel",
+          pipelineName: "",
           instructions: "On this Task you plan.",
           officeTools: [],
           brief: "The Task's record.",
@@ -768,11 +771,15 @@ describe("an image pasted into a Thread", () => {
 });
 
 describe("a Decision", () => {
-  const draft = {
+  const question = {
+    kind: "choice",
     question: "Should the export include archived Projects?",
-    context: "Archived Projects have no worktree.",
     options: ["Only active Projects", "Every Project"],
     recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+  } as const;
+  const draft: DecisionDraft = {
+    context: "Archived Projects have no worktree.",
+    questions: [question],
   };
 
   /** A planning Thread on a Task of its own whose session opened a Decision. */
@@ -812,8 +819,9 @@ describe("a Decision", () => {
     );
 
     const shown = {
-      ...draft,
-      kind: "question",
+      kind: "form",
+      context: draft.context,
+      questions: [question],
       id: decision.id,
       threadId: thread.id,
       taskId: decision.taskId,
@@ -822,13 +830,14 @@ describe("a Decision", () => {
       askedAt: decision.askedAt.toISOString(),
       putTo: null,
       passedOn: [],
-      answer: null,
+      formAnswer: null,
       answeredAt: null,
       answeredByUser: null,
       answeredBy: null,
       atUsersRequest: null,
       answeredByTheOffice: false,
       closedAt: null,
+      closedBecause: null,
     };
     expect(open).toContainEqual(shown);
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([
@@ -846,7 +855,7 @@ describe("a Decision", () => {
     const { thread, decision } = await opened();
     const answered: Decision = {
       ...decision,
-      answer: { kind: "free-answer", text: "Only this year's.", answeredAt: new Date() },
+      answer: { ...oneWordsAnswer("Only this year's."), answeredAt: new Date() },
     };
     await app.get(ThreadRepository).update(thread.id, (current) => {
       const waiting = { ...current, openDecisions: [] };
@@ -856,7 +865,7 @@ describe("a Decision", () => {
         threadId: thread.id,
         at: new Date(),
         decisionId: decision.id,
-        answer: { kind: "free-answer", text: "Only this year's." },
+        answer: oneWordsAnswer("Only this year's."),
       } as const;
       return {
         thread: waiting,
@@ -867,8 +876,8 @@ describe("a Decision", () => {
     });
 
     const again = await send("POST", `/decisions/${decision.id}/answer`, {
-      kind: "option",
-      option: 0,
+      kind: "submitted",
+      answers: [{ kind: "option", option: 0 }],
     });
     const messages = messageListSchema.parse(
       await (await get(`/threads/${thread.id}/messages`)).json(),
@@ -880,8 +889,8 @@ describe("a Decision", () => {
     ]);
     expect(messages.map((message) => message.kind)).toEqual(["decision", "decision-answer"]);
     expect(messages[1]).toMatchObject({
-      answer: { kind: "free-answer", text: "Only this year's." },
-      decision: { answer: { kind: "free-answer", text: "Only this year's." } },
+      formAnswer: oneWordsAnswer("Only this year's."),
+      decision: { formAnswer: oneWordsAnswer("Only this year's.") },
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
     expect(open.map(({ id }) => id)).not.toContain(decision.id);
@@ -942,16 +951,21 @@ describe("what each signed-in user does", () => {
         { kind: "user", text: "Export every column.", delivery: "delivered", writtenBy: ANN_LEE },
       ]);
     const { decision } = await app.get(DecisionService).open(sessionId, {
-      question: "Which columns?",
       context: "The export is wide.",
-      options: ["All", "Visible"],
-      recommendation: { option: 1, reason: "Fewer to read." },
+      questions: [
+        {
+          kind: "choice",
+          question: "Which columns?",
+          options: ["All", "Visible"],
+          recommendation: { option: 1, reason: "Fewer to read." },
+        },
+      ],
     });
 
     const answering = await send(
       "POST",
       `/decisions/${decision.id}/answer`,
-      { kind: "option", option: 0 },
+      { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
       BY_BEN,
     );
     const log = messageListSchema.parse(await (await get(`/threads/${thread.id}/messages`)).json());
@@ -961,7 +975,10 @@ describe("what each signed-in user does", () => {
     expect(log[0]).toMatchObject({ kind: "user", writtenBy: ANN_LEE });
     expect(log[2]).toMatchObject({
       kind: "decision-answer",
-      decision: { answer: { kind: "option", option: 0 }, answeredByUser: BEN_ITO },
+      decision: {
+        formAnswer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
+        answeredByUser: BEN_ITO,
+      },
     });
     expect((await app.get(ThreadRepository).decision(decision.id))?.answer?.user).toEqual(BEN_ITO);
   });

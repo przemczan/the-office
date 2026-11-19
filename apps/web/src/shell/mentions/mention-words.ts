@@ -67,7 +67,8 @@ export function mentionables(
         label: name,
         path: recordPath({ kind: "initiative", initiativeId: id }),
       })),
-    // Every Decision waiting on the user is on a Task: a call made from a chat never is.
+    // A Decision is mentioned by its Task's link, so one on no Task, about an Initiative as a
+    // whole in its Thread, is left out; a call made from a chat never waits on the user here.
     ...decisions.flatMap(({ id, taskId, threadId }) =>
       taskId === null
         ? []

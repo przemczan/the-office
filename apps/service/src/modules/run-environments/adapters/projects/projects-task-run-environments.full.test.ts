@@ -54,6 +54,7 @@ async function aTask(taskId: string): Promise<TaskInRunEnvironment> {
     projectId: "shop",
     worktree,
     repositoryGitFolder: join(testbed.folder, "repository", ".git"),
+    stageRunsFolder: join(testbed.folder, "stage-runs", taskId),
     installCommand: "npm ci",
     installInputs: ["package-lock.json"],
     installVariables: [],

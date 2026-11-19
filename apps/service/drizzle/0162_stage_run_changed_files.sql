@@ -1,0 +1,1 @@
+ALTER TABLE "stage_runs" ADD COLUMN "changed_files" jsonb;

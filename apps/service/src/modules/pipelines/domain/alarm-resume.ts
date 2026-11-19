@@ -74,9 +74,9 @@ export function walkAhead(
       return { kind: "waits-on-you" };
     case "complete":
     case "drop":
+    // A condition's command runs before the next Stage is known.
+    case "weigh-command":
       return { kind: "goes-on", stage: undefined };
-    case "skip":
-      return { kind: "goes-on", stage: move.stage };
     case "run":
       return runAhead(move.stage);
   }

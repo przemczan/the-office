@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, inArray, isNull, not, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, not, or, sql, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
@@ -24,7 +24,7 @@ import {
   type PersonsTasksQuery,
   type TaskUpdate,
 } from "../../ports/task-repository.js";
-import { tasks } from "./work.schema.js";
+import { tasks, taskStateChanges } from "./work.schema.js";
 import {
   changeDependenciesHeld,
   changeEveryDependencyHeld,
@@ -64,6 +64,20 @@ export class PostgresTaskRepository extends TaskRepository {
 
   async list(): Promise<readonly Task[]> {
     return (await this.database.select().from(tasks)).map(toTask);
+  }
+
+  async pausedByUsageWindowOn(engineId: string): Promise<readonly Task[]> {
+    const rows = await this.database
+      .select()
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.state, "paused"),
+          eq(tasks.pausedBy, "usage-window"),
+          eq(tasks.usageWindowEngineId, engineId),
+        ),
+      );
+    return rows.map(toTask);
   }
 
   async droppedIds(): Promise<readonly string[]> {
@@ -118,6 +132,14 @@ export class PostgresTaskRepository extends TaskRepository {
 
   async stateChangesOf(taskId: string): Promise<readonly StateChange[]> {
     return stateChangesOf(this.database, taskId);
+  }
+
+  async doneSince(since: Date): Promise<readonly string[]> {
+    const rows = await this.database
+      .selectDistinct({ taskId: taskStateChanges.taskId })
+      .from(taskStateChanges)
+      .where(and(eq(taskStateChanges.toState, "done"), gte(taskStateChanges.changedAt, since)));
+    return rows.map(({ taskId }) => taskId);
   }
 
   async update<Event extends DomainEvent>(

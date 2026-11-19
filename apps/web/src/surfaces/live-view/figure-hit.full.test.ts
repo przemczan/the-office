@@ -57,7 +57,7 @@ describe("the figure under the pointer", () => {
     expect(figureAt(at(89, 105), view, [lying])).toBe("developer");
     expect(figureAt(at(100, 100), view, [lying])).toBe("developer");
     // Past its head and its feet, and well above it, where a standing figure's head would be.
-    expect(figureAt(at(116, 87), view, [lying])).toBeNull();
+    expect(figureAt(at(117, 87), view, [lying])).toBeNull();
     expect(figureAt(at(84, 105), view, [lying])).toBeNull();
     expect(figureAt(at(100, 77), view, [lying])).toBeNull();
     // A standing figure there is not hit as far out as the lying one's head.

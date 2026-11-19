@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { CodexApiKey } from "./codex-api-key.js";
 import {
   CLAUDE_CODE_MODELS,
+  CODEX_MODELS,
   engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
   offeredModels,
   type ApiEngine,
+  type CodexEngine,
 } from "./engines.js";
 
 const strata: ApiEngine = {
@@ -21,14 +24,26 @@ const strata: ApiEngine = {
   ],
 };
 
+const codex: CodexEngine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: null,
+};
+
 describe("an engine", () => {
-  it("offers the Claude models on Claude Code, and an API engine's own by their ids", () => {
+  it("offers the Claude models on Claude Code, the Codex models on Codex, and an API engine's own by their ids", () => {
     expect(offeredModels(FIRST_CLAUDE_CODE_ENGINE)).toEqual(CLAUDE_CODE_MODELS);
+    expect(offeredModels(codex)).toEqual(CODEX_MODELS);
     expect(offeredModels(strata)).toEqual(["qwen3", "org/coder:q4"]);
   });
 
-  it("has usage windows only on Claude Code", () => {
+  it("has usage windows on Claude Code and on Codex signed in with ChatGPT, not on an API key", () => {
     expect(hasUsageWindows(FIRST_CLAUDE_CODE_ENGINE)).toBe(true);
+    expect(hasUsageWindows({ ...FIRST_CLAUDE_CODE_ENGINE, signedInByApiKey: true })).toBe(false);
+    expect(hasUsageWindows(codex)).toBe(true);
+    expect(hasUsageWindows({ ...codex, apiKey: CodexApiKey.of("sk-test") })).toBe(false);
     expect(hasUsageWindows(strata)).toBe(false);
   });
 });

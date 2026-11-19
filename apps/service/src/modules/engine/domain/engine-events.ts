@@ -4,8 +4,8 @@ import type { UsageWindowName, UsageWindows } from "./usage-windows.js";
 
 /**
  * An engine's account's usage windows changed, as read after the engine signalled a rate limit
- * (spec §5.4). Each Claude Code engine is an account of its own, so it names the engine, with its
- * name at the time for the words.
+ * (spec §5.4). Each Claude Code engine and Codex engine is an account of its own, so it names the
+ * engine, with its name at the time for the words.
  */
 export class UsageWindowsChanged extends DomainEvent {
   constructor(
@@ -32,7 +32,10 @@ export class UsageWindowUsedUp extends DomainEvent {
   }
 }
 
-/** The used-up window of `engineId`'s account reached its reset: its turns may run again. */
+/**
+ * The used-up window of `engineId`'s account reached its reset, or a reading showed the engine free
+ * before it: its turns may run again.
+ */
 export class UsageWindowReset extends DomainEvent {
   constructor(
     readonly engineId: EngineId,
@@ -45,13 +48,15 @@ export class UsageWindowReset extends DomainEvent {
 /**
  * An engine's account's usage windows were read, changed or not: each reading tells what The Office
  * used of them since, so what was expected of the Starts before it on that engine is known now
- * (spec §2.1).
+ * (spec §2.1). `free` is Engine's judgement of whether the engine runs turns again (`showsFree`,
+ * false while a limit the reading doesn't show holds it), which Work resumes paused Tasks by.
  */
 export class UsageWindowsRead extends DomainEvent {
   constructor(
     readonly engineId: EngineId,
     readonly windows: UsageWindows,
     readonly readAt: Date,
+    readonly free: boolean,
   ) {
     super();
   }
@@ -81,8 +86,8 @@ export class EngineRemoved extends DomainEvent {
 }
 
 /**
- * A Sign in of a Claude Code engine ended, signed in or not, so its account may differ now
- * (spec §5.4).
+ * A Sign in of a Claude Code or Codex engine ended, signed in or not, or a token was pasted, an API
+ * key set or a Sign out made, so its account may differ now (spec §5.4).
  */
 export class EngineAccountChanged extends DomainEvent {
   constructor(readonly engineId: EngineId) {

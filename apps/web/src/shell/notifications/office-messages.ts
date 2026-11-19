@@ -1,4 +1,5 @@
 import type { Notification } from "@the-office/contracts";
+import { notificationLineOf } from "./notification-words.ts";
 
 /**
  * What The Office tells the user in the status strip's one slot: that the web lost the service,
@@ -83,7 +84,11 @@ const NOTIFICATION_LOOKS: Readonly<
   "office.update.failed": { tone: "danger", icon: "triangle-alert" },
 };
 
-export function officeMessageWords(message: OfficeMessage): OfficeMessageWords {
+/** `now` words the time a Notification names: on its day by the clock, with the day otherwise. */
+export function officeMessageWords(
+  message: OfficeMessage,
+  now: Date = new Date(),
+): OfficeMessageWords {
   switch (message.kind) {
     case "reconnecting":
       return {
@@ -94,8 +99,13 @@ export function officeMessageWords(message: OfficeMessage): OfficeMessageWords {
         icon: "wifi-off",
       };
     case "notification": {
-      const { kind, line, shortLine } = message.notification;
-      const looks = NOTIFICATION_LOOKS[kind] ?? {
+      const { notification } = message;
+      const line = notificationLineOf(notification.line, notification, now);
+      const shortLine =
+        notification.shortLine === undefined
+          ? undefined
+          : notificationLineOf(notification.shortLine, notification, now);
+      const looks = NOTIFICATION_LOOKS[notification.kind] ?? {
         tone: "neutral",
         icon: "bell",
       };

@@ -13,7 +13,7 @@ import {
   thousands,
   whoWorks,
 } from "./pipeline-words.ts";
-import type { StageChangeRow, StageField } from "./stage-change-edits.ts";
+import { isStageField, type StageChangeRow, type StageField } from "./stage-change-edits.ts";
 import { commandWords } from "./stage-commands.ts";
 
 /**
@@ -41,7 +41,6 @@ export const STAGE_FIELD_LABELS: Readonly<Record<StageField, string>> = {
   brief: "Brief",
   permissions: "Permissions",
   onFailure: "On failure",
-  optional: "Optional",
 };
 
 export const STAGE_CHANGE_KIND_NAMES: Readonly<Record<StageChange["kind"], string>> = {
@@ -50,6 +49,7 @@ export const STAGE_CHANGE_KIND_NAMES: Readonly<Record<StageChange["kind"], strin
   replace: "Replace",
   change: "Change",
   remove: "Remove",
+  "change-routes": "Change routes",
 };
 
 /** A row's mark: where its Stage comes from, and the tone of its edge. */
@@ -58,12 +58,26 @@ export interface OriginWords {
   readonly text: string;
 }
 
-/** "From Full", "Inserted after Review & fix", "Replaces Tests", "Changed: Brief, Effort", "Removed". */
+/**
+ * "From Full", "Inserted after Review & fix", "Replaces Tests", "Changed: Brief, Effort", "Routes
+ * changed", "Changed: Brief, and its routes", "Removed".
+ */
 export function originWords(row: StageChangeRow, baseName: string): OriginWords {
-  const { built, stageChange } = row;
+  const { built, stageChange, routesChanged } = row;
   switch (built.origin) {
     case "base":
-      return { tone: "plain", text: `From ${baseName}` };
+    case "changed": {
+      const fields = changedFieldsWords(built.origin === "changed" ? built.changedFields : []);
+      if (fields === "") {
+        return routesChanged
+          ? { tone: "warning", text: ROUTES_CHANGED }
+          : { tone: "plain", text: `From ${baseName}` };
+      }
+      return {
+        tone: "warning",
+        text: `Changed: ${fields}${routesChanged ? ", and its routes" : ""}`,
+      };
+    }
     case "inserted":
       return {
         tone: "success",
@@ -74,16 +88,35 @@ export function originWords(row: StageChangeRow, baseName: string): OriginWords 
       };
     case "replaced":
       return { tone: "info", text: `Replaces ${stageChange?.stageName ?? built.baseStage?.name}` };
-    case "changed":
-      return { tone: "warning", text: `Changed: ${changedFieldsWords(built.changedFields)}` };
     case "removed":
       return { tone: "neutral", text: "Removed" };
   }
 }
 
-/** "Brief, Effort": the fields Changes gave a Stage, by their labels. */
+/** The mark of a Stage of the base Pipeline whose routes alone a Change routes changes. */
+export const ROUTES_CHANGED = "Routes changed";
+
+/** "Undo: give Review & fix Full's routes back"; an inserted Stage's "Undo: give … its routes back". */
+export function routesUndoWords(stageName: string, baseName: string | undefined): string {
+  return baseName === undefined
+    ? `Undo: give ${stageName} its routes back`
+    : `Undo: give ${stageName} ${baseName}'s routes back`;
+}
+
+/**
+ * The label of `optional`, which the form no longer offers but a Change saved before may still
+ * give: the service still draws a converted line's routes again from it, so its words name it.
+ */
+const OPTIONAL_LABEL = "Optional";
+
+/** "Brief, Effort": the fields Changes gave a Stage, by their labels; one nobody knows left out. */
 export function changedFieldsWords(fields: readonly string[]): string {
-  return fields.map((field) => STAGE_FIELD_LABELS[field as StageField] ?? field).join(", ");
+  return fields
+    .flatMap((field) => {
+      if (isStageField(field)) return [STAGE_FIELD_LABELS[field]];
+      return field === "optional" ? [OPTIONAL_LABEL] : [];
+    })
+    .join(", ");
 }
 
 /** What Undo gives back, as its tooltip and name say it. */
@@ -116,6 +149,8 @@ export function stageChangeLine(stageChange: StageChange): string {
       return `Changes ${named}: ${changedFieldsWords(Object.keys(stageChange.fields))}`;
     case "remove":
       return `Removes ${named}`;
+    case "change-routes":
+      return `Changes ${named}'s routes`;
   }
 }
 
@@ -161,8 +196,6 @@ export function fieldWords(stage: Stage, field: StageField, context: FieldWordsC
       return stage.kind === "agent" && stage.permissions ? "Narrowed" : "The Role card's";
     case "onFailure":
       return onFailureWords(stage, context.stages);
-    case "optional":
-      return stage.optional ? "Yes" : "No";
     case "brief":
     case "name":
       return typeof value === "string" && value.trim() !== "" ? value : "None";

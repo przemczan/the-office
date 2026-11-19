@@ -211,9 +211,8 @@ export function Board(): ReactNode {
           onOutline={(initiativeId) => {
             if (!dragged) setOutlined(initiativeId);
           }}
-        >
-          {item.cards.map(cardOf)}
-        </InitiativeBlock>
+          renderCard={cardOf}
+        />
       );
     });
 

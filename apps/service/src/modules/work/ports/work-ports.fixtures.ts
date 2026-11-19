@@ -28,7 +28,11 @@ import { AccountWindows } from "./account-windows.js";
 import { DayUsage, type ModelDayUsage } from "./day-usage.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
-import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
+import {
+  InitiativeThreads,
+  type InitiativeThreadOpening,
+  type InitiativeThreadWaiting,
+} from "./initiative-threads.js";
 import { KnownEngineCascade } from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import {
@@ -492,14 +496,21 @@ export class TaskThreadsForTests extends TaskThreads {
 }
 
 /**
- * Keeps each Thread opened on an Initiative, without a session, and each asked again; or fails,
- * once `failure` is set.
+ * Keeps each Thread opened on an Initiative, without a session: those started at once in `opened`,
+ * those waiting for the user in `waiting`; and each asked again. Or fails, once `failure` is set.
  */
 @Injectable()
 export class InitiativeThreadsForTests extends InitiativeThreads {
   readonly opened: InitiativeThreadOpening[] = [];
+  readonly waiting: InitiativeThreadWaiting[] = [];
   readonly askedAgain: AskedAgain[] = [];
   failure: Error | undefined;
+
+  async openOnInitiative(waiting: InitiativeThreadWaiting): Promise<{ readonly id: string }> {
+    if (this.failure) throw this.failure;
+    this.waiting.push(waiting);
+    return { id: waiting.threadId ?? crypto.randomUUID() };
+  }
 
   async askAgain(threadId: string, opening: string): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;
@@ -522,6 +533,8 @@ export class TaskDecisionsForTests extends TaskDecisions {
   readonly waiting = new Map<string, readonly DecisionWaitingOnTheUser[]>();
   /** The Tasks whose open Decisions Work closed, in the order it closed them. */
   readonly closedOn: string[] = [];
+  /** The ended Initiatives whose open Decisions on no Task Work closed, in that order. */
+  readonly closedOnInitiatives: string[] = [];
 
   async openOn(taskId: string): Promise<number> {
     return this.open.get(taskId) ?? 0;
@@ -543,6 +556,10 @@ export class TaskDecisionsForTests extends TaskDecisions {
     this.closedOn.push(taskId);
     this.open.delete(taskId);
     this.waiting.delete(taskId);
+  }
+
+  async closeOnInitiative(initiativeId: string): Promise<void> {
+    this.closedOnInitiatives.push(initiativeId);
   }
 }
 
@@ -591,16 +608,18 @@ export class ModelPricesForTests extends ModelPrices {
 
 /**
  * The windows of the test's own, so no test weighs a reading another file's session made: none
- * unless a test gives one, which counts for the first Claude Code engine's account.
+ * unless a test gives one, `reading` for the first Claude Code engine's account and `readings` for
+ * any other engine id's.
  */
 @Injectable()
 export class AccountWindowsForTests extends AccountWindows {
   reading: AccountWindowsReading | undefined;
+  readonly readings = new Map<EngineId, AccountWindowsReading>();
   /** The used-up window of each engine id a test gives, kept until the test's own clock passes it. */
   readonly usedUp = new Map<EngineId, UsedUpWindowReading>();
 
   of(engineId: EngineId): AccountWindowsReading | undefined {
-    return engineId === FIRST_CLAUDE_CODE_ENGINE.id ? this.reading : undefined;
+    return engineId === FIRST_CLAUDE_CODE_ENGINE.id ? this.reading : this.readings.get(engineId);
   }
 
   usedUpUntil(engineId: EngineId): UsedUpWindowReading | undefined {

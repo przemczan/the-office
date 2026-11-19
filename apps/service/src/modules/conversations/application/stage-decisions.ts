@@ -2,17 +2,31 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
-import type { DecisionAnswer, DecisionDraft, GivenAnswer } from "../domain/decision.js";
+import type { Recommendation } from "../domain/decision.js";
+import { stageAnswerOf, type StageAnswer } from "../domain/stage-answer.js";
 import { openDecision } from "../domain/thread-changes.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Consultations } from "./consultations.js";
+
+/**
+ * What a Task's Pipeline asks as The Office: one question, picked from its options, the
+ * recommended one preselected.
+ */
+export interface StageQuestion {
+  readonly question: string;
+  /** What the user needs to know to decide. */
+  readonly context: string;
+  readonly options: readonly string[];
+  readonly recommendation: Recommendation;
+}
 
 /** A Decision a Task's Pipeline puts to the user, or first to a Consultant, as The Office. */
 export interface StageDecisionRequest {
   readonly taskId: string;
   /** The Stage Thread it is asked in; undefined puts it in the Task's newest Thread. */
   readonly threadId: string | undefined;
-  readonly draft: DecisionDraft;
+  /** Asked as a form of one choice (spec §2.3). */
+  readonly draft: StageQuestion;
   /** The Consultant to put it to before the user, by the key of their Role. */
   readonly putTo?: string;
 }
@@ -53,9 +67,12 @@ export class StageDecisions {
     const thread = await this.threadFor(taskId, threadId);
     const id = randomUUID();
     const consultant = await this.consultantFor(putTo);
+    const { question, context, options, recommendation } = draft;
     const { thread: asking, event } = await this.repository.update(thread, (latest) =>
       openDecision(latest, {
-        ...draft,
+        kind: "form",
+        context,
+        questions: [{ kind: "choice", question, options, recommendation }],
         id,
         askedAt: new Date(),
         byTheOffice: true,
@@ -72,18 +89,9 @@ export class StageDecisions {
    * Pipeline reads it as it would wait, for an answer given before its run kept the Decision. One a
    * person gave for the user at their request is the user's own to the Pipeline.
    */
-  async answerOf(
-    id: string,
-  ): Promise<(DecisionAnswer & Pick<GivenAnswer, "answeredBy">) | undefined> {
-    const answer = (await this.repository.decision(id))?.answer;
-    if (!answer) return undefined;
-    const {
-      answeredAt: _answeredAt,
-      atUsersRequest: _atUsersRequest,
-      user: _user,
-      ...given
-    } = answer;
-    return given;
+  async answerOf(id: string): Promise<StageAnswer | undefined> {
+    const decision = await this.repository.decision(id);
+    return decision && stageAnswerOf(decision);
   }
 
   private async consultantFor(roleKey: string | undefined): Promise<string | undefined> {

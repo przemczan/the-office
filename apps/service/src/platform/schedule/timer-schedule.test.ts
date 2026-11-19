@@ -28,6 +28,28 @@ describe("TimerSchedule", () => {
     await schedule.beforeApplicationShutdown();
   });
 
+  it("runs a repeating job at once, then its interval after each run ends", async () => {
+    const schedule = new TimerSchedule(DAY_MS);
+    const finishing: (() => void)[] = [];
+    const job = vi.fn<() => Promise<void>>(
+      () => new Promise((resolve) => void finishing.push(resolve)),
+    );
+
+    schedule.every("a job", 100, job);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(job).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(job).toHaveBeenCalledTimes(1);
+    finishing.shift()?.();
+    await vi.advanceTimersByTimeAsync(99);
+    expect(job).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(job).toHaveBeenCalledTimes(2);
+
+    finishing.shift()?.();
+    await schedule.beforeApplicationShutdown();
+  });
+
   it("waits for a running job at shutdown, and runs none after", async () => {
     const schedule = new TimerSchedule(DAY_MS);
     const finishing: (() => void)[] = [];

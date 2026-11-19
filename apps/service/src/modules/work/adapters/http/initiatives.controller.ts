@@ -14,6 +14,7 @@ import {
 import {
   archivedInitiativesQuerySchema,
   initiativePipelineChoiceSchema,
+  initiativePipelinesChangeSchema,
   initiativePlanningSchema,
   newInitiativeTaskSchema,
   outcomeChangeSchema,
@@ -24,6 +25,7 @@ import {
   type Initiative as InitiativeResponse,
   type InitiativePauseAnswer,
   type InitiativePipelineChoice,
+  type InitiativePipelinesChange,
   type InitiativePlanningRequest,
   type NewInitiativeTask,
   type OutcomeChange,
@@ -131,6 +133,19 @@ export class InitiativesController {
     );
   }
 
+  /**
+   * The user's Pipelines block saved as a whole: every Project's Pipeline and the Short name, all
+   * or nothing; refused once the Initiative is no longer being shaped.
+   */
+  @Put(":id/pipelines")
+  async setPipelines(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(initiativePipelinesChangeSchema))
+    { pipelines, shortName }: InitiativePipelinesChange,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.setPipelines(id, pipelines, shortName));
+  }
+
   /** The user's own Short name; refused once the Initiative is no longer being shaped. */
   @Put(":id/short-name")
   async writeShortName(
@@ -194,6 +209,19 @@ export class InitiativesController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<InitiativeResponse> {
     return this.respond(await this.planning.plan(id, autoMode, authorOf(signedIn)));
+  }
+
+  /**
+   * Plan with…: a new planning Thread with the Planner, who waits for the user's first message on
+   * how to plan the Initiative, with auto mode off and the remembered default left as it is.
+   */
+  @Post(":id/plan-with")
+  @HttpCode(HttpStatus.OK)
+  async planWith(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.planning.planWith(id, authorOf(signedIn)));
   }
 
   /**

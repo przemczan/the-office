@@ -1,5 +1,5 @@
-import type { Task } from "@the-office/contracts";
-import { Button, Icon, IconButton, Switch, Tooltip } from "@the-office/ui";
+import type { Readiness, Task } from "@the-office/contracts";
+import { Button, Dialog, Icon, IconButton, Switch, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import type { RecordAction } from "./record-actions.tsx";
@@ -7,7 +7,7 @@ import {
   useMakingAPlan,
   useMarkingReady,
   usePlanning,
-  useReadyConditionsMet,
+  useReadinessLines,
   useRememberedAutoMode,
 } from "./use-planning.ts";
 
@@ -100,21 +100,104 @@ export function planningNoteWords(task: Task, planner: string | undefined): stri
 }
 
 /**
- * Mark Ready: on a Task in Planning, disabled until every line of its "Before Ready" checklist is
- * met (Before Ready says which are not); in Backlog, where the user wrote the parts without
- * Planning, only once every line is met.
+ * Mark Ready: in Planning and in Backlog, once a Pipeline is chosen and no Decision is open; in
+ * Planning it shows disabled until then (Before Ready says why). With every line of "Before Ready"
+ * met it marks the Task Ready at once; with the Plan or the Definition of Done not confirmed yet,
+ * it asks first (`MarkReadyAnywayDialog`), and Mark Ready anyway confirms them as they stand.
  */
 function useMarkReadyAction(task: Task): RecordAction | undefined {
   const marking = useMarkingReady();
-  const conditionsMet = useReadyConditionsMet(task);
-  if (task.state !== "planning" && !(task.state === "backlog" && conditionsMet)) return undefined;
+  const lines = useReadinessLines(task);
+  const [asking, setAsking] = useState(false);
+  const offered = lines !== undefined && markReadyOffered(lines);
+  if (task.state !== "planning" && !(task.state === "backlog" && offered)) return undefined;
+  const unconfirmed = lines ? unconfirmedWords(task, lines) : [];
   return {
     key: "mark-ready",
     label: "Mark Ready",
     icon: "check",
     variant: "primary",
-    disabled: !conditionsMet,
+    disabled: !offered,
     pending: marking.isPending,
-    onSelect: () => marking.mutate(task),
+    onSelect: () => {
+      if (unconfirmed.length > 0) setAsking(true);
+      else marking.mutate({ task });
+    },
+    ...(asking && {
+      dialog: (
+        <MarkReadyAnywayDialog
+          task={task}
+          unconfirmed={unconfirmed}
+          pending={marking.isPending}
+          onMarkReady={() =>
+            marking.mutate(
+              { task, confirmPlanAndDefinitionOfDone: true },
+              { onSettled: () => setAsking(false) },
+            )
+          }
+          onClose={() => setAsking(false)}
+        />
+      ),
+    }),
   };
+}
+
+/** Mark Ready is offered once a Pipeline is chosen and no Decision is open. */
+function markReadyOffered(lines: Readiness["lines"]): boolean {
+  return lines
+    .filter(({ part }) => part === "pipeline" || part === "decisions")
+    .every(({ met }) => met);
+}
+
+/**
+ * What Mark Ready anyway confirms as it stands, one sentence for each of the Plan and the
+ * Definition of Done whose line isn't met: not written when it is empty, else not confirmed.
+ */
+export function unconfirmedWords(task: Task, lines: Readiness["lines"]): string[] {
+  const unmet = new Set(lines.filter(({ met }) => !met).map(({ part }) => part));
+  const words: string[] = [];
+  if (unmet.has("plan"))
+    words.push(task.plan.trim() === "" ? "The Plan isn't written." : "The Plan isn't confirmed.");
+  if (unmet.has("definition-of-done"))
+    words.push(
+      task.definitionOfDone.length === 0
+        ? "The Definition of Done isn't written."
+        : "The Definition of Done isn't confirmed.",
+    );
+  return words;
+}
+
+/** Asks before marking Ready a Task whose Plan or Definition of Done isn't confirmed. */
+function MarkReadyAnywayDialog({
+  task,
+  unconfirmed,
+  pending,
+  onMarkReady,
+  onClose,
+}: {
+  readonly task: Task;
+  readonly unconfirmed: readonly string[];
+  readonly pending: boolean;
+  readonly onMarkReady: () => void;
+  readonly onClose: () => void;
+}): ReactNode {
+  return (
+    <Dialog
+      size="small"
+      title={`Mark ${task.title} Ready?`}
+      onClose={onClose}
+      actions={
+        <Button variant="primary" loading={pending} onClick={onMarkReady}>
+          Mark Ready anyway
+        </Button>
+      }
+    >
+      <div className="dialog-stack">
+        <p className="dialog-text">{unconfirmed.join(" ")}</p>
+        <p className="dialog-text">
+          Marking it Ready confirms the Plan and the Definition of Done as they stand.
+        </p>
+      </div>
+    </Dialog>
+  );
 }

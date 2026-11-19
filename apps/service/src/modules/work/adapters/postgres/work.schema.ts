@@ -18,6 +18,7 @@ import type { AttachmentKind } from "../../domain/attachment.js";
 import type { ArchivedBy, Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
+import type { EngineStandIn } from "../../domain/stand-ins-at-start.js";
 import type { StateChangeCause } from "../../domain/state-change.js";
 import type {
   Priority,
@@ -113,6 +114,8 @@ export const initiatives = pgTable(
     /** Who asked for its latest planning Thread; null until it is first planned. */
     planningStartedBy: jsonb("planning_started_by").$type<AuthorRow>(),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
+    /** Whether its latest planning Thread was opened by Plan with…, waiting for the user. */
+    planningWithUser: boolean("planning_with_user").notNull().default(false),
     /**
      * The Initiative's Pipeline in each Project it was given one or None for (Initiative.pipelines);
      * a Project without an entry has None.
@@ -179,10 +182,22 @@ export const tasks = pgTable(
     hasPlanningThread: boolean("has_planning_thread").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
+    /** The Stand-in Engines its last Start chose; engines are kept by Engine, so no foreign key. */
+    engineStandIns: jsonb("engine_stand_ins")
+      .$type<EngineStandIn[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     /** Null unless the fire alarm, its Initiative's Pause or the usage window holds it Paused. */
     pausedBy: text("paused_by").$type<TaskHolder>(),
     /** Null unless the usage window paused it: the window's reset, when it resumes by itself. */
     resumesAt: timestamp("resumes_at", { withTimezone: true }),
+    /**
+     * Null unless the usage window paused it: the engine whose window did, kept by Engine, so no
+     * foreign key; null too for one paused before it was kept, which resumes at its reset.
+     */
+    usageWindowEngineId: text("usage_window_engine_id"),
+    /** Null unless the usage window paused it: when it last did, by The Office's clock. */
+    usageWindowPausedAt: timestamp("usage_window_paused_at", { withTimezone: true }),
     /** Null for a Task the user or an Agent made. */
     madeFor: text("made_for").$type<TaskMadeFor>(),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */

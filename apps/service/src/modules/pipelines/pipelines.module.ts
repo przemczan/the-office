@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
@@ -12,6 +13,9 @@ import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-sta
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { StageBranchUpdate } from "./application/stage-branch-update.js";
 import { StageCommandRuns } from "./application/stage-command-runs.js";
+import { StandInChoices } from "./application/stand-in-choices.js";
+import { StandInSwitches } from "./application/stand-in-switches.js";
+import { StandInChoicesController } from "./adapters/http/stand-in-choices.controller.js";
 import { StageHistory } from "./application/stage-history.js";
 import { StageProjectCommands } from "./application/stage-project-commands.js";
 import { StageRunEnvironmentDefinitions } from "./application/stage-run-environment-definitions.js";
@@ -27,6 +31,8 @@ import { RolesNamedInStages } from "./application/roles-named-in-stages.js";
 import { ScriptStageRunner } from "./application/script-stage-runner.js";
 import { ResolveStageGit } from "./application/resolve-stage-git.js";
 import { StageRunWaits } from "./application/stage-run-waits.js";
+import { StageRunsFiles } from "./application/stage-runs-files.js";
+import { ConditionCommands } from "./application/condition-commands.js";
 import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
 import { StageTemplateLibraryEditor } from "./application/stage-template-library-editor.js";
@@ -116,6 +122,7 @@ export class PipelinesModule {
         UsageHistoryModule,
         EngineModule,
         ScheduleModule,
+        TaskLocksModule,
         BusyWorkModule,
         ...imports,
       ],
@@ -125,6 +132,7 @@ export class PipelinesModule {
         PipelineLibraryController,
         ProjectPipelineLibraryController,
         StageTemplateLibraryController,
+        StandInChoicesController,
       ],
       providers: [
         { provide: StartedTasks, useExisting: startedTasks },
@@ -157,6 +165,8 @@ export class PipelinesModule {
         DroppedPublishingTasks,
         StageGit,
         StageRunWaits,
+        StageRunsFiles,
+        ConditionCommands,
         ResolveStageGit,
         StageBranchUpdate,
         StageCommandRuns,
@@ -170,10 +180,12 @@ export class PipelinesModule {
         GateService,
         PipelineProposals,
         StageHistory,
+        StandInChoices,
+        StandInSwitches,
         PipelineOfficeTools,
         PipelinesWebEvents,
       ],
-      exports: [PipelineLibraryModule, TaskStagesService, AlarmResumes],
+      exports: [PipelineLibraryModule, TaskStagesService, AlarmResumes, StandInChoices],
     };
   }
 }

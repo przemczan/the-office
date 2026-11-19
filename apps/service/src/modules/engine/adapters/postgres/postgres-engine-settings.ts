@@ -1,8 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { FIRST_OFFICE_DEFAULT, type EngineSettings } from "../../domain/engine-settings.js";
-import type { Engine, EngineModel } from "../../domain/engines.js";
+import { CodexApiKey } from "../../domain/codex-api-key.js";
+import {
+  DEFAULT_ENGINE_SETTINGS,
+  FIRST_OFFICE_DEFAULT,
+  type EngineSettings,
+} from "../../domain/engine-settings.js";
+import type { Engine, EngineId, EngineModel } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
 
@@ -24,11 +29,17 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       // The Claude models first, as Settings › Engines lists them.
       .orderBy(sql`${modelPrices.engineId} ASC NULLS FIRST`, asc(modelPrices.model));
     const searchEndpointUrl = row?.searchEndpointUrl ?? null;
+    const listed = rows.map(engineOf);
     return {
-      engines: rows.map(engineOf),
+      engines: listed,
       officeDefault: row ? officeDefaultOf(row) : FIRST_OFFICE_DEFAULT,
       searchEndpoint: searchEndpointUrl === null ? null : { baseUrl: searchEndpointUrl },
       modelPrices: prices.map(({ engineId, model, ...price }) => ({ engineId, model, price })),
+      standInEngines: (row?.standInEngineIds ?? DEFAULT_ENGINE_SETTINGS.standInEngines).filter(
+        (engineId) => listed.some(({ id }) => id === engineId),
+      ),
+      askBeforeSwitchAbove:
+        row?.askBeforeSwitchAbove ?? DEFAULT_ENGINE_SETTINGS.askBeforeSwitchAbove,
     };
   }
 
@@ -37,8 +48,12 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
     officeDefault,
     searchEndpoint,
     modelPrices: priced,
+    standInEngines,
+    askBeforeSwitchAbove,
   }: EngineSettings): Promise<void> {
     const settingsRow = {
+      standInEngineIds: [...standInEngines],
+      askBeforeSwitchAbove,
       searchEndpointUrl: searchEndpoint?.baseUrl ?? null,
       officeDefaultEngineId: officeDefault?.engineId ?? null,
       officeDefaultModel: officeDefault?.model ?? null,
@@ -57,6 +72,13 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
           .values(priced.map(({ engineId, model, price }) => ({ engineId, model, ...price })));
       }
     });
+  }
+
+  async setCodexApiKey(engineId: EngineId, key: CodexApiKey | null): Promise<void> {
+    await this.database
+      .update(engines)
+      .set({ key: key?.reveal() ?? null })
+      .where(and(eq(engines.id, engineId), eq(engines.kind, "codex")));
   }
 }
 
@@ -78,6 +100,9 @@ function engineOf({
   models,
 }: EngineRow): Engine {
   if (kind === "claude-code") return { id, name, kind, defaultModel, claudeCodeP };
+  if (kind === "codex") {
+    return { id, name, kind, defaultModel, apiKey: key === null ? null : CodexApiKey.of(key) };
+  }
   return {
     id,
     name,
@@ -92,13 +117,24 @@ function engineOf({
 function engineRowOf(engine: Engine, position: number): EngineRow {
   const { id, name, kind, defaultModel } = engine;
   const common = { id, position, name, kind, defaultModel };
-  return engine.kind === "claude-code"
-    ? { ...common, claudeCodeP: engine.claudeCodeP, baseUrl: null, key: null, models: null }
-    : {
+  switch (engine.kind) {
+    case "claude-code":
+      return { ...common, claudeCodeP: engine.claudeCodeP, baseUrl: null, key: null, models: null };
+    case "codex":
+      return {
+        ...common,
+        claudeCodeP: false,
+        baseUrl: null,
+        key: engine.apiKey?.reveal() ?? null,
+        models: null,
+      };
+    case "openai-compatible-api":
+      return {
         ...common,
         claudeCodeP: false,
         baseUrl: engine.baseUrl,
         key: engine.key,
         models: engine.models,
       };
+  }
 }

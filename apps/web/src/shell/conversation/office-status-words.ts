@@ -3,7 +3,10 @@ import type { NeedsYouItem, RunningTask } from "@the-office/contracts";
 /** "Waiting on you: 1 Decision, 2 Gates", or "Nothing waits on you." */
 export function waitingWords(needsYou: readonly NeedsYouItem[]): string {
   const counts = [
-    counted(needsYou.filter(({ kind }) => kind === "decision").length, "Decision"),
+    counted(
+      needsYou.filter(({ kind }) => kind === "decision" || kind === "initiative-decision").length,
+      "Decision",
+    ),
     counted(needsYou.filter(({ kind }) => kind === "gate").length, "Gate"),
   ].filter((count) => count !== undefined);
   return counts.length === 0 ? "Nothing waits on you." : `Waiting on you: ${counts.join(", ")}`;

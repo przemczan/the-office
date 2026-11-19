@@ -9,6 +9,7 @@ import type {
   OpenDecision,
   QueuedOnNow,
   StageOfTask,
+  StandInChoiceWaiting,
   TaskResume,
 } from "../domain/now.js";
 import { AccountUsage } from "./account-usage.js";
@@ -20,6 +21,7 @@ import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OpenDecisions } from "./open-decisions.js";
 import { ResumePlans } from "./resume-plans.js";
+import { StandInChoicesWaiting } from "./stand-in-choices-waiting.js";
 import { StartQueue } from "./start-queue.js";
 import { TaskStageProgress } from "./task-stage-progress.js";
 
@@ -130,6 +132,15 @@ export class ResumePlansForTests extends ResumePlans {
   }
 }
 
+/** The Stages waiting for the choice of a Stand-in Engine, as a test sets them; none unless set. */
+export class StandInChoicesWaitingForTests extends StandInChoicesWaiting {
+  choices: StandInChoiceWaiting[] = [];
+
+  async waiting(): Promise<readonly StandInChoiceWaiting[]> {
+    return this.choices;
+  }
+}
+
 const PORTS = [
   OfficeTasksForTests,
   OfficeInitiativesForTests,
@@ -142,6 +153,7 @@ const PORTS = [
   OfficeStatusCardsForTests,
   OfficeFireAlarmForTests,
   ResumePlansForTests,
+  StandInChoicesWaitingForTests,
   OfficeToolRegistry,
 ];
 

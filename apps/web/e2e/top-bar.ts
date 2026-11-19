@@ -1,9 +1,14 @@
-import type { Locator, Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
-/** Opens the top bar's Create and picks what to create, which opens its dialog. */
+/**
+ * Opens the top bar's Create and chooses what to create at its top: Task, chosen as it opens, shows
+ * New Task, and Idea Capture an Idea, its title field focused.
+ */
 export async function createFromTopBar(page: Page, item: "Task" | "Idea"): Promise<void> {
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await page.getByRole("menu").getByRole("button", { name: item, exact: true }).click();
+  const choice = page.getByRole("dialog").getByRole("tab", { name: item, exact: true });
+  if (item === "Idea") await choice.click();
+  await expect(choice).toHaveAttribute("aria-selected", "true");
 }
 
 /** Opens the top bar's user menu, named by the signed-in user's name, and answers the menu. */

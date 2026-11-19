@@ -18,8 +18,9 @@ import {
   type StageTemplate,
 } from "@the-office/contracts";
 import { asOwnUser } from "./own-user.ts";
+import { addedBasePipeline, addedProjectPipeline } from "./project-pipelines.ts";
 import { createTemporaryRepository } from "./temporary-repository.ts";
-import { screenshotScenario } from "./task-screenshots.ts";
+import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -425,27 +426,99 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   await page.getByRole("button", { name: "New Pipeline" }).click();
   await expect(page.getByText("Give the Pipeline a name.")).toBeVisible();
   await page.getByLabel("Name", { exact: true }).first().fill(name);
-  await page.getByRole("button", { name: "Script Stage" }).click();
-  await page.getByLabel("Project command").selectOption({ label: "Publish" });
-  const afterConflict = page.getByLabel("After a conflict");
+  const flow = page.getByRole("region", { name: "Flow" });
+  const add = page.getByRole("button", { name: "Add the Pipeline" });
+  const held = page.getByText("1 problem holds Save");
+
+  // Added from the keyboard, a Stage is picked and unconnected: its missing route out holds Save.
+  await page.getByRole("button", { name: "Add a Stage" }).press("Enter");
+  await page.getByRole("menu").getByRole("button", { name: "Script Stage" }).press("Enter");
+  const script = page.getByRole("region", { name: "Script", exact: true });
+  await script.getByLabel("Project command").selectOption({ label: "Publish" });
+  const afterConflict = script.getByLabel("After a conflict");
   await expect(afterConflict).toHaveValue("publish");
   await afterConflict.selectOption({ label: "Wait at a Gate for your review" });
-  await page
+  await script
     .getByLabel("Publishes")
     .selectOption({ label: "Push the branch only (proof of concept)" });
   await expect(afterConflict).toHaveCount(0);
-  await page.getByRole("button", { name: "Gate", exact: true }).click();
-  await expect(page.getByText("pushes the branch only")).toBeVisible();
-  await page.getByRole("button", { name: "Add the Pipeline" }).click();
+  await expect(held).toBeVisible();
+  await expect(add).toBeDisabled();
+  await expect(page.getByText("give it a route out").first()).toBeVisible();
+  await script.getByRole("button", { name: "Add a route" }).click();
+  await expect(page.getByRole("region", { name: "Route" })).toContainText(
+    "Route from Script to End",
+  );
+  await expect(held).toHaveCount(0);
+
+  // A Gate added beside Script, then moved before it by the keyboard on the canvas.
+  await flow.getByRole("button", { name: "Script", exact: true }).click();
+  await page.getByRole("button", { name: "Add a Stage" }).click();
+  await page.getByRole("menu").getByRole("button", { name: "Gate", exact: true }).click();
+  const gate = page.getByRole("region", { name: "Gate", exact: true });
+  await expect(gate).toContainText("2 of 2 in the Pipeline's order");
+  await flow.getByRole("button", { name: "Gate", exact: true }).press("Shift+ArrowLeft");
+  await expect(gate).toContainText("1 of 2 in the Pipeline's order");
+  await expect(flow.getByRole("button", { name: "Gate", exact: true })).toBeFocused();
+
+  // Gate's routes: one to Script, then one to End drawn before it, with a condition.
+  await gate.getByRole("button", { name: "Add a route" }).click();
+  await expect(held).toHaveCount(0);
+  await flow.getByRole("button", { name: "Gate", exact: true }).click();
+  await gate.getByRole("button", { name: "Add a route" }).click();
+  const route = page.getByRole("region", { name: "Route" });
+  await expect(route).toContainText("Route from Gate to End");
+  await expect(route.getByRole("radio", { name: /When these hold/ })).toBeChecked();
+  // With no test yet, its condition holds Save until one is added.
+  await expect(held).toBeVisible();
+  await expect(route).toContainText("has a group with no test yet");
+  await route.getByRole("button", { name: "Add a test" }).click();
+  await expect(held).toHaveCount(0);
+  await route.getByLabel("Test", { exact: true }).selectOption({ label: "was Skipped" });
+  await expect(route).toContainText("Followed when Gate was Skipped.");
+  await screenshotScenario(page, "settings-pipeline-flow", { inView: flow });
+  await screenshotScenario(page, "settings-pipeline-flow-condition", {
+    inView: route.getByRole("group", { name: "Condition", exact: true }).last(),
+  });
+
+  // Weighed after the route with no condition, it is never followed: that holds Save, until moved back.
+  await flow.getByRole("button", { name: "Gate", exact: true }).click();
+  await gate.getByRole("button", { name: "Move the route to End down" }).click();
+  await expect(held).toBeVisible();
+  await expect(add).toBeDisabled();
+  await expect(
+    page.getByText("comes after one with no condition, so it is never followed").first(),
+  ).toBeVisible();
+  await gate.getByRole("button", { name: "Move the route to End up" }).click();
+  await expect(held).toHaveCount(0);
+  await add.click();
 
   await expect(page.getByText(`${name} added to the library.`)).toBeVisible();
   await expect(page).toHaveURL(/\/settings\/pipelines\/[\da-f-]{36}$/);
   const saved = await page.request.get(`/api/pipelines/${page.url().split("/").at(-1)}`);
   expect(await saved.json()).toMatchObject({
-    stages: expect.arrayContaining([expect.objectContaining({ afterConflict: "review" })]),
+    stages: expect.arrayContaining([
+      expect.objectContaining({
+        kind: "gate",
+        routes: [
+          {
+            to: null,
+            condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "skipped" }] },
+          },
+          { to: "script", condition: null },
+        ],
+      }),
+      expect.objectContaining({
+        kind: "script",
+        afterConflict: "review",
+        routes: [{ to: null, condition: null }],
+      }),
+    ]),
   });
   const item = library.getByRole("link", { name: new RegExp(`^${name}`) });
   await expect(item).toContainText("Gate → Script");
+  await page.reload();
+  await expect(flow.getByRole("button", { name: "Route from Gate to End" })).toBeVisible();
   await expect(
     page.getByText(
       "Default for no Project · 0 not started Tasks use it · 0 running Tasks keep the copy they started with",
@@ -468,6 +541,9 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   await page.getByRole("button", { name: "Remove", exact: true }).click();
   await page.getByRole("button", { name: "Remove the Pipeline" }).click();
   await expect(page.getByText(`${name} (copy) removed from the library.`)).toBeVisible();
+  // The toast comes before the list refreshes and the form leaves the copy's address: a click
+  // on another Pipeline before then would be undone by that navigation.
+  await expect(page).toHaveURL(/\/settings\/pipelines$/);
   await expect(library.getByRole("link", { name: new RegExp(`^${name} \\(copy\\)`) })).toHaveCount(
     0,
   );
@@ -525,7 +601,6 @@ test(
     await expect(page.getByLabel("Project command")).toHaveValue("lint");
     await page.getByLabel("Project command").selectOption({ label: "Another key…" });
     await page.getByLabel("Command key").fill("build");
-    await page.getByText("Optional: skipped when the Definition of Done is already met").click();
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     await page.getByRole("button", { name: "Save the template" }).click();
     await expect(
@@ -569,7 +644,18 @@ test(
       },
     ]);
     await page.goto(`/settings/pipelines/${pipeline.id}`);
-    await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
+    const saveAsTemplate = async (): Promise<void> => {
+      await page.getByRole("button", { name: `More for ${stageName}` }).click();
+      await page
+        .getByRole("menu")
+        .getByRole("button", { name: `Save ${stageName} as a template` })
+        .click();
+    };
+    await page
+      .getByRole("region", { name: "Flow" })
+      .getByRole("button", { name: stageName, exact: true })
+      .click();
+    await saveAsTemplate();
     await expect(page.getByText(`${stageName} saved as a Stage template.`)).toBeVisible();
     const templates = page.getByRole("navigation", { name: "Stage templates" });
     await expect(templates.getByRole("link", { name: new RegExp(stageName) })).toBeVisible();
@@ -584,7 +670,7 @@ test(
     });
 
     // Saved again, the name is taken: the service's reason shows.
-    await page.getByRole("button", { name: `Save ${stageName} as a template` }).click();
+    await saveAsTemplate();
     await expect(page.getByText(`${stageName} wasn't saved as a Stage template`)).toBeVisible();
     await expect(page.getByText(`Another Stage template is named "${stageName}".`)).toBeVisible();
     await removeStageTemplate(page, saved);
@@ -623,20 +709,38 @@ test(
 
     // In a library Pipeline.
     await page.goto(`/settings/pipelines/${pipeline.id}`);
-    await page.getByRole("button", { name: "From a template" }).click();
+    const flow = page.getByRole("region", { name: "Flow" });
+    await flow.getByRole("button", { name: "Tests", exact: true }).click();
+    await page.getByRole("button", { name: "Add a Stage" }).click();
     await page.getByRole("menu").getByRole("button", { name: templateName }).click();
-    const row = page
-      .getByRole("list", { name: "Stages" })
-      .getByRole("listitem", { name: templateName, exact: true });
-    await expect(row.getByLabel("Project command")).toHaveValue("publish");
-    await expect(row.getByLabel("Publishes")).toHaveValue("branch-only");
+    const panel = page.getByRole("region", { name: templateName, exact: true });
+    await expect(panel.getByLabel("Project command")).toHaveValue("publish");
+    await expect(panel.getByLabel("Publishes")).toHaveValue("branch-only");
+    // Added unconnected: Tests' route leads to it, and it to End.
+    await flow.getByRole("button", { name: "Tests", exact: true }).click();
+    await page
+      .getByRole("region", { name: "Tests", exact: true })
+      .getByRole("button", { name: /→ End/ })
+      .click();
+    await page
+      .getByRole("region", { name: "Route" })
+      .getByLabel("Goes to")
+      .selectOption({ label: templateName });
+    await flow.getByRole("button", { name: templateName, exact: true }).click();
+    await panel.getByRole("button", { name: "Add a route" }).click();
     await page.getByRole("button", { name: "Save the Pipeline" }).click();
     await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
     await page.reload();
-    await expect(row).toContainText("pushes the branch only");
+    await flow.getByRole("button", { name: templateName, exact: true }).click();
+    await expect(panel.getByLabel("Publishes")).toHaveValue("branch-only");
     const savedStages = (await libraryPipeline(page, pipeline.id)).stages;
     // Its own key, from its name, as any added Stage's.
-    expect(savedStages[1]).toEqual({ ...copied, key: `publish-preview-${stamp}` });
+    expect(savedStages[1]).toEqual({
+      ...copied,
+      key: `publish-preview-${stamp}`,
+      place: expect.any(Object),
+      routes: [{ to: null, condition: null }],
+    });
     await page.locator(".settings-split").screenshot({
       path: path.join(SCREENSHOTS, "light-1600-settings-stage-from-template.png"),
     });
@@ -661,13 +765,30 @@ test(
       await page.goto(`/tasks/${taskId}`);
       await page.getByRole("button", { name: "Edit for this Task" }).click();
       const dialog = page.getByRole("dialog");
-      await dialog.getByRole("button", { name: "From a template" }).click();
-      await dialog.getByRole("menu").getByRole("button", { name: templateName }).click();
+      const taskFlow = dialog.getByRole("region", { name: "Flow" });
+      // The Add a Stage menu lists the templates under From a template, after the kinds.
+      await dialog.getByRole("button", { name: "Add a Stage" }).click();
+      const addMenu = page.getByRole("menu");
+      await expect(addMenu).toContainText("From a template");
+      await addMenu.getByRole("button", { name: templateName }).click();
       // The Task's Stages already hold the Pipeline's copy, so this one is named apart.
       const copyName = `${templateName} 2`;
-      await expect(
-        dialog.getByRole("listitem", { name: copyName, exact: true }).getByLabel("Publishes"),
-      ).toHaveValue("branch-only");
+      const copyPanel = dialog.getByRole("region", { name: copyName, exact: true });
+      await expect(copyPanel.getByLabel("Publishes")).toHaveValue("branch-only");
+      // Added unconnected after the last Stage: the Pipeline's copy leads to it, and it to End.
+      await expect(dialog.getByRole("button", { name: "Save for this Task" })).toBeDisabled();
+      await taskFlow.getByRole("button", { name: templateName, exact: true }).click();
+      await dialog
+        .getByRole("region", { name: templateName, exact: true })
+        .getByRole("button", { name: /→ End/ })
+        .click();
+      await dialog
+        .getByRole("region", { name: "Route" })
+        .getByLabel("Goes to")
+        .selectOption({ label: copyName });
+      await taskFlow.getByRole("button", { name: copyName, exact: true }).click();
+      await copyPanel.getByRole("button", { name: "Add a route" }).click();
+      await expect(dialog.getByRole("list", { name: "Problems" })).toHaveCount(0);
       await page.screenshot({
         path: path.join(SCREENSHOTS, "light-1600-edit-for-this-task-from-template.png"),
       });
@@ -681,7 +802,13 @@ test(
           ).stages ?? []
         ).map(({ stage }) => stage);
       const copy = (await taskStages()).find(({ name }) => name === copyName);
-      expect(copy).toEqual({ ...copied, name: copyName, key: `publish-preview-${stamp}-2` });
+      expect(copy).toEqual({
+        ...copied,
+        name: copyName,
+        key: `publish-preview-${stamp}-2`,
+        place: expect.any(Object),
+        routes: expect.any(Array),
+      });
 
       // Editing the template, then removing it, leaves every copy as it was.
       await page.goto(`/settings/pipelines/stage-templates/${template.id}`);
@@ -702,7 +829,7 @@ test(
 
 // Script Stages and Gates only, as nobody may fill a Role in this file (see the Pipeline test above).
 test(
-  "the user adds a Project Pipeline on its Project's page, edits its Stage changes, sees it Broken by a base Pipeline's save and fixes it",
+  "the user adds a Project Pipeline on its Project's page, edits it in the flow editor, sees it Broken by a base Pipeline's save and fixes it",
   { tag: "@full" },
   async ({ page }) => {
     const stamp = Date.now();
@@ -743,33 +870,63 @@ test(
       await screenshotScenario(page, "project-pipelines-list");
 
       // Insert a Gate after Tests, change Lint's command, remove Review.
-      const gets = page.getByRole("list", { name: `What ${project.name} gets` });
-      const row = (stageName: string): Locator =>
-        gets.getByRole("listitem", { name: stageName, exact: true });
+      const flow = page.getByRole("region", { name: "Flow" });
+      const card = (stageName: string): Locator =>
+        flow.locator("[data-flow-stage]").filter({
+          has: page.getByRole("button", { name: stageName, exact: true }),
+        });
+      const pickStage = (stageName: string): Promise<void> =>
+        flow.getByRole("button", { name: stageName, exact: true }).click();
+      const panel = (stageName: string): Locator =>
+        page.getByRole("region", { name: stageName, exact: true });
+      await expect(page.getByRole("button", { name: "Insert a Stage" })).toBeDisabled();
+      await pickStage("Tests");
       await page.getByRole("button", { name: "Insert after Tests" }).click();
-      await page.getByRole("menu").getByRole("button", { name: "Gate", exact: true }).click();
-      await expect(row("Gate")).toContainText("Inserted after Tests");
+      const inserting = page.getByRole("menu");
+      for (const kind of ["Agent Stage", "Script Stage", "Gate before Tests"]) {
+        await expect(inserting.getByRole("button", { name: kind, exact: true })).toBeVisible();
+      }
+      await inserting.getByRole("button", { name: "Gate", exact: true }).click();
+      await expect(card("Gate")).toContainText("Inserted after Tests");
+      await expect(panel("Gate")).toBeVisible();
       await screenshotScenario(page, "project-pipelines-inserted");
-      await row("Gate").getByRole("button", { name: "Done editing Gate" }).click();
-      await row("Lint").getByRole("button", { name: "Edit Lint" }).click();
+      await pickStage("Lint");
       // The Project's own commands alone.
-      await row("Lint").getByLabel("Project command").selectOption("build");
-      await expect(row("Lint")).toContainText("Changed: Project command");
-      await row("Lint").getByRole("button", { name: "Done editing Lint" }).click();
-      await row("Review").getByRole("button", { name: "More for Review" }).click();
+      await panel("Lint").getByLabel("Project command").selectOption("build");
+      await expect(card("Lint")).toContainText("Changed: Project command");
+      await expect(panel("Lint").getByRole("table")).toContainText(`${base.name} has`);
+
+      // Change routes: a route Review lacks, shown beside the base Pipeline's, then undone.
+      await pickStage("Review");
+      await panel("Review").getByRole("button", { name: "Add a route" }).click();
+      await expect(card("Review")).toContainText("Routes changed");
+      const routes = page.getByRole("group", { name: "Review's routes" });
+      await expect(routes).toContainText(`${base.name} has`);
+      await expect(routes).toContainText(`${project.name} gets`);
+      await expect(page.getByRole("region", { name: "Route" })).toContainText(
+        "Route from Review to End",
+      );
+      await screenshotScenario(page, "project-pipeline-flow", { inView: flow });
+      await screenshotScenario(page, "project-pipeline-flow-routes", { inView: routes });
+      await page
+        .getByRole("button", { name: `Undo: give Review ${base.name}'s routes back` })
+        .click();
+      await expect(card("Review")).not.toContainText("Routes changed");
+      await expect(routes).toHaveCount(0);
+
+      await pickStage("Review");
+      await panel("Review").getByRole("button", { name: "More for Review" }).click();
       await page
         .getByRole("menu")
         .getByRole("button", { name: `Remove from ${project.name}'s Stages` })
         .click();
-      await expect(row("Review")).toContainText("Removed");
-      await row("Lint").getByRole("button", { name: "Show what changed" }).click();
-      await expect(row("Lint").getByRole("table")).toContainText(`${base.name} has`);
+      await expect(card("Review")).toContainText("Removed");
       await screenshotScenario(page, "project-pipelines-kinds");
 
       await page.getByRole("button", { name: "Save the Pipeline" }).click();
       await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
       await page.reload();
-      await expect(row("Review")).toContainText("Removed");
+      await expect(card("Review")).toContainText("Removed");
       expect((await projectPipeline(page, projectPipelineId)).stageChanges).toEqual([
         expect.objectContaining({
           kind: "insert-after",
@@ -781,10 +938,11 @@ test(
       ]);
 
       // Undo one Stage change alone.
-      await row("Review")
+      await pickStage("Review");
+      await panel("Review")
         .getByRole("button", { name: `Undo: put ${base.name}'s Review back` })
         .click();
-      await expect(row("Review")).toContainText(`From ${base.name}`);
+      await expect(card("Review")).not.toContainText("Removed");
       await page.getByRole("button", { name: "Save the Pipeline" }).click();
       await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
       expect((await projectPipeline(page, projectPipelineId)).stageChanges).toHaveLength(2);
@@ -796,7 +954,9 @@ test(
           .getByRole("navigation", { name: "Office-wide Pipelines" })
           .getByRole("link", { name: new RegExp(`^${base.name}`) }),
       ).toContainText("Built on by 1 Project Pipeline");
-      await page.getByRole("button", { name: "Remove Tests" }).click();
+      await pickStage("Tests");
+      await panel("Tests").getByRole("button", { name: "More for Tests" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Remove Tests" }).click();
       await expect(page.getByText("Saving breaks 1 Project Pipeline")).toBeVisible();
       await page.getByRole("button", { name: "Save the Pipeline" }).click();
       const warning = page.getByRole("dialog");
@@ -843,6 +1003,97 @@ test(
     }
   },
 );
+
+test(
+  "on a wide canvas the user drags a Stage into a new column and draws a route from a Stage's + to End",
+  { tag: "@full" },
+  async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    const pipeline = await addedPipeline(page, `Dragged ${Date.now()}`, [
+      { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
+      { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
+      { kind: "gate", key: "review", name: "Review", optional: false },
+    ]);
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
+    const flow = page.getByRole("region", { name: "Flow" });
+    await expect(flow).toHaveAttribute("data-orientation", "across");
+
+    // Review dropped at the left edge of Tests' column goes into a new column before it.
+    const review = await boxOf(flow.locator('[data-flow-stage="review"]'));
+    const tests = await boxOf(flow.locator('[data-flow-stage="tests"]'));
+    await page.mouse.move(review.x + review.width / 2, review.y + review.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(tests.x + 4, tests.y + tests.height / 2, { steps: 12 });
+    await expect(flow.locator(".flow-canvas-drop--column")).toBeVisible();
+    await page.mouse.up();
+    await expect(page.getByRole("region", { name: "Review", exact: true })).toContainText(
+      "2 of 3 in the Pipeline's order",
+    );
+    // Tests' route to Review now leads back, which holds Save.
+    await expect(page.getByText("1 problem holds Save")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save the Pipeline" })).toBeDisabled();
+
+    // From Build's + to End: a second route out of Build, drawn before its route with no condition.
+    const handle = await boxOf(flow.getByRole("button", { name: "Draw a route from Build" }));
+    const end = await boxOf(flow.getByRole("img", { name: "End" }));
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(end.x + end.width / 2, end.y + end.height / 2, { steps: 12 });
+    await expect(flow.locator(".flow-canvas-drawing")).toHaveCount(1);
+    await page.mouse.up();
+    await expect(page.getByText("Route drawn from Build to End.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Route" })).toContainText(
+      "Route from Build to End",
+    );
+    await expect(flow.getByRole("button", { name: "Route from Build to End" })).toBeVisible();
+    await page.getByRole("button", { name: "Discard" }).click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  },
+);
+
+test(
+  "at 390 wide the flow editor runs top to bottom and nothing scrolls sideways, in Settings › Pipelines and on a Project page",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await addedProject(page, repository.path, `Narrow ${Date.now()}`, "full");
+      const base = await addedBasePipeline(page, "Narrow base");
+      const own = await addedProjectPipeline(page, project.id, base, "Narrow own");
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const address of [
+        `/settings/pipelines/${base.id}`,
+        `/projects/${project.id}/pipelines/${own.id}`,
+      ]) {
+        await page.goto(address);
+        const flow = page.getByRole("region", { name: "Flow" });
+        await expect(flow).toHaveAttribute("data-orientation", "down");
+        await flow.getByRole("button", { name: "Tests", exact: true }).click();
+        await expect(page.getByRole("region", { name: "Tests", exact: true })).toBeVisible();
+        const sideways = await page.evaluate(() => {
+          const scrolling = document.scrollingElement;
+          return scrolling ? scrolling.scrollWidth - scrolling.clientWidth : 0;
+        });
+        expect(sideways).toBeLessThanOrEqual(0);
+        // Down, each Stage sits under the one before it.
+        const build = await boxOf(flow.locator('[data-flow-stage="build"]'));
+        const tests = await boxOf(flow.locator('[data-flow-stage="tests"]'));
+        expect(tests.y).toBeGreaterThan(build.y + build.height - 1);
+      }
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+async function boxOf(
+  locator: Locator,
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  await locator.scrollIntoViewIfNeeded();
+  const box = await locator.boundingBox();
+  if (!box) throw new Error("Not laid out");
+  return box;
+}
 
 async function projectPipeline(page: Page, projectPipelineId: string): Promise<ProjectPipeline> {
   return projectPipelineSchema.parse(
@@ -944,11 +1195,110 @@ test(
     });
     await page.reload();
     await expect(list).toHaveText(
-      "No engine yet. Add a Claude Code engine or an API endpoint with Add an engine.",
+      "No engine yet. Add a Claude Code engine, a Codex engine or an API endpoint with Add an engine.",
     );
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-settings-engines-empty.png"),
     });
+  },
+);
+
+// The engines' settings are routed, never saved: people.e2e.ts adds and removes engines meanwhile,
+// and a Save sends every engine whole. The PUT is checked and answered as the service answers it.
+test(
+  "Settings › Engines' Stand-in Engines are added, reordered and saved with the switch's context size",
+  { tag: "@full" },
+  async ({ page }) => {
+    const nightRuns = {
+      id: "night-runs",
+      name: "Night runs",
+      kind: "claude-code",
+      defaultModel: "claude-sonnet-5-5",
+      claudeCodeP: false,
+    } as const;
+    let stored: Pick<EngineSettings, "standInEngines" | "askBeforeSwitchAbove"> | undefined;
+    const sent: unknown[] = [];
+    await page.route("**/api/settings/engines", async (route) => {
+      // Read apart from the page, which page.route doesn't reach.
+      const saved = (await (
+        await page.request.get("/api/settings/engines")
+      ).json()) as EngineSettings;
+      const shown: EngineSettings = {
+        ...saved,
+        engines: [...saved.engines, nightRuns],
+        standInEngines: [],
+        ...stored,
+      };
+      if (route.request().method() === "PUT") {
+        const edit = route.request().postDataJSON() as Pick<
+          EngineSettings,
+          "standInEngines" | "askBeforeSwitchAbove"
+        >;
+        sent.push(edit);
+        stored = {
+          standInEngines: edit.standInEngines,
+          askBeforeSwitchAbove: edit.askBeforeSwitchAbove,
+        };
+        return route.fulfill({ json: { ...shown, ...stored } });
+      }
+      return route.fulfill({ json: shown });
+    });
+    await page.goto("/settings/engines");
+    const firstSaved = (
+      (await (await page.request.get("/api/settings/engines")).json()) as EngineSettings
+    ).engines[0];
+    expect(firstSaved).toBeDefined();
+    const firstName = firstSaved?.name ?? "";
+
+    const card = page
+      .locator("section")
+      .filter({ has: page.locator(".stand-in-engines") })
+      .last();
+    await expect(card).toContainText("No Stand-in Engine yet");
+    const add = card.getByLabel("Add a stand-in");
+    await add.selectOption({ label: nightRuns.name });
+    await add.selectOption({ label: firstName });
+    const rows = card.getByRole("list", { name: "Stand-in Engines" }).getByRole("listitem");
+    await expect(rows).toHaveText([`1${nightRuns.name}`, `2${firstName}`]);
+    // Every saved engine is listed: nothing is left to add.
+    await expect(add).toBeDisabled();
+    await expect(card.getByRole("button", { name: `Move ${nightRuns.name} up` })).toBeDisabled();
+    await expect(card.getByRole("button", { name: `Move ${firstName} down` })).toBeDisabled();
+    await card.getByRole("button", { name: `Move ${firstName} up` }).click();
+    await expect(rows).toHaveText([`1${firstName}`, `2${nightRuns.name}`]);
+
+    const size = card.getByLabel("Ask before switching a Stage whose context is over");
+    await expect(size).toHaveValue("100000");
+    // A size that isn't a whole number of tokens holds Save.
+    await size.fill("150k");
+    await expect(card).toContainText("Give a whole number of tokens");
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await expect(page.locator(".settings-actions").getByRole("status")).toContainText(
+      "The context size under Stand-in Engines needs fixing before Save.",
+    );
+    await size.fill("150000");
+    await size.blur();
+    await card.scrollIntoViewIfNeeded();
+    await card.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "settings-engines-stand-in-engines.png"),
+    });
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    expect(sent).toEqual([
+      expect.objectContaining({
+        standInEngines: [firstSaved?.id, nightRuns.id],
+        askBeforeSwitchAbove: 150_000,
+      }),
+    ]);
+
+    await page.reload();
+    await expect(rows).toHaveText([`1${firstName}`, `2${nightRuns.name}`]);
+    await expect(size).toHaveValue("150000");
+    await card
+      .getByRole("button", { name: `Remove ${nightRuns.name} from the Stand-in Engines` })
+      .click();
+    await expect(rows).toHaveText([`1${firstName}`]);
+    await expect(add).toBeEnabled();
   },
 );
 

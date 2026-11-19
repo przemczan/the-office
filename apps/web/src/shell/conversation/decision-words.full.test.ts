@@ -23,12 +23,27 @@ describe("namedAttachments", () => {
 });
 
 describe("decisionDetailsWords", () => {
-  it("counts the answers and the Attachments", () => {
+  const choice = {
+    kind: "choice" as const,
+    question: "Which?",
+    options: ["Yes", "No"],
+    recommendation: { option: 0, reason: "" },
+  };
+  const open = { kind: "open" as const, question: "Why?" };
+
+  it("counts the questions and the Attachments", () => {
     expect(
-      decisionDetailsWords({ options: ["Yes", "No"] }, [anAttachment("a"), anAttachment("b")]),
-    ).toBe("2 answers · 2 Attachments");
-    expect(decisionDetailsWords({ options: ["Yes"] }, [anAttachment("a")])).toBe(
-      "1 answer · 1 Attachment",
+      decisionDetailsWords({ questions: [choice, open, choice] }, [
+        anAttachment("a"),
+        anAttachment("b"),
+      ]),
+    ).toBe("3 questions · 2 Attachments");
+    expect(decisionDetailsWords({ questions: [choice] }, [anAttachment("a")])).toBe(
+      "1 question · 1 Attachment",
     );
+  });
+
+  it("leaves the Attachments out when there are none", () => {
+    expect(decisionDetailsWords({ questions: [choice, open] }, [])).toBe("2 questions");
   });
 });

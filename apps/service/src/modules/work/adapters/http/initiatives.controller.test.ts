@@ -13,6 +13,7 @@ import {
   workRefusalSchema,
   type Initiative,
   type InitiativePauseAnswer,
+  type InitiativePipelinesChange,
   type ReadyTasksStarted,
   type Task,
 } from "@the-office/contracts";
@@ -640,6 +641,13 @@ async function choose(
   });
 }
 
+async function setPipelines(
+  initiative: Initiative,
+  change: InitiativePipelinesChange,
+): Promise<Response> {
+  return sendJson(work, "PUT", `/initiatives/${initiative.id}/pipelines`, change);
+}
+
 /** `pipelineId` chosen in each of `projectIds`, answering the Initiative as the last made it. */
 async function chooseIn(
   initiative: Initiative,
@@ -780,6 +788,89 @@ describe("the Initiative's Pipeline and branches", () => {
         }),
       ),
     ).toHaveLength(1);
+  });
+
+  it("saves the Pipelines block as a whole: each Project's Pipeline and the Short name at once", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [first, second] = [aProjectId(), aProjectId()];
+    await addTask(initiative, first);
+    await addTask(initiative, second);
+    const written = `own-${randomUUID().slice(0, 8)}`;
+    work.published.length = 0;
+
+    const saved = await initiativeFrom(
+      await setPipelines(initiative, {
+        pipelines: [
+          { projectId: first, pipelineId: "full" },
+          { projectId: second, pipelineId: null },
+        ],
+        shortName: written,
+      }),
+    );
+
+    expect(saved).toMatchObject({
+      pipelines: [
+        { projectId: first, pipelineId: "full" },
+        { projectId: second, pipelineId: null },
+      ],
+      shortName: written,
+    });
+    expect(webEventsOf(work)).toContainEqual({
+      type: "initiative.pipelines-set",
+      initiativeId: initiative.id,
+    });
+    const none = await initiativeFrom(
+      await setPipelines(initiative, {
+        pipelines: [{ projectId: first, pipelineId: null }],
+        shortName: null,
+      }),
+    );
+    expect(none.shortName).toBeNull();
+  });
+
+  it("refuses the whole block, saving nothing, when one Project's Pipeline or the Short name is refused", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [lacking, other] = [aProjectId(), aProjectId()];
+    work.app.get(KnownProjectsForTests).commands.set(lacking, []);
+    await addTask(initiative, lacking);
+    await addTask(initiative, other);
+    const elsewhere = aProjectId();
+
+    expect(
+      await reasonsOf(
+        await setPipelines(initiative, {
+          pipelines: [
+            { projectId: other, pipelineId: "full" },
+            { projectId: lacking, pipelineId: "full" },
+            { projectId: elsewhere, pipelineId: "full" },
+          ],
+          shortName: null,
+        }),
+      ),
+    ).toEqual([
+      `The Pipeline Full runs test, which The ${lacking} has no command for. Add it on the Project page, or choose another Pipeline.`,
+      `The Initiative has no Task in the Project "${elsewhere}", so it has no Pipeline there.`,
+    ]);
+    expect(
+      await reasonsOf(
+        await setPipelines(initiative, {
+          pipelines: [{ projectId: other, pipelineId: "full" }],
+          shortName: "Not Valid",
+        }),
+      ),
+    ).toHaveLength(1);
+    expect(await read(initiative)).toMatchObject({ shortName: null });
+    expect(
+      (
+        await setPipelines(initiative, {
+          pipelines: [
+            { projectId: other, pipelineId: "full" },
+            { projectId: other, pipelineId: null },
+          ],
+          shortName: null,
+        })
+      ).status,
+    ).toBe(400);
   });
 
   it("makes the branch in each Project with a Pipeline at Confirm, and keeps them after a Drop", async () => {

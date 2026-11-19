@@ -47,6 +47,8 @@ describe("GET /api/pipelines/:id", () => {
         brief: "Make the smallest change that meets the Definition of Done.",
         session: "fresh",
         budget: 200_000,
+        routes: [{ to: "tests", condition: null }],
+        place: { column: 0, row: 0 },
       },
       {
         kind: "script",
@@ -55,8 +57,18 @@ describe("GET /api/pipelines/:id", () => {
         optional: false,
         command: "test",
         onFailure: { goBackTo: "implement", rounds: 2 },
+        routes: [{ to: "publish", condition: null }],
+        place: { column: 1, row: 0 },
       },
-      { kind: "script", key: "publish", name: "Publish", optional: false, command: "publish" },
+      {
+        kind: "script",
+        key: "publish",
+        name: "Publish",
+        optional: false,
+        command: "publish",
+        routes: [{ to: null, condition: null }],
+        place: { column: 2, row: 0 },
+      },
     ]);
   });
 

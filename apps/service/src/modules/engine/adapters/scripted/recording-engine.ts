@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import type { Engine } from "../../domain/engines.js";
 import { AgentEngine, type EngineCapabilities, type NewSession } from "../../ports/agent-engine.js";
 import type {
   ContextUsage,
@@ -34,6 +35,11 @@ export class RecordingEngine extends AgentEngine {
 
   async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
     return this.record(options, { step: "resume" }, () => this.engine.resume(sessionId, options));
+  }
+
+  /** Not recorded: a recording holds sessions, and this read opens none. */
+  readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
+    return this.engine.readUsageWindows(engine, signal);
   }
 
   async save(file: string): Promise<void> {

@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Task } from "@the-office/contracts";
+import type { Readiness, Task } from "@the-office/contracts";
 import { autoModeQuery, makeAPlan, markReady, planTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useOnPlanned } from "../../shell/work/use-idea-planning.ts";
@@ -62,21 +62,37 @@ export function useRememberedAutoMode(): boolean {
   return useQuery(autoModeQuery()).data?.autoMode ?? false;
 }
 
-/** Whether every line of the Task's "Before Ready" checklist is met; false until it is known. */
-export function useReadyConditionsMet(task: Task): boolean {
+/**
+ * The Task's "Before Ready" checklist, line by line, while it is in Planning or Backlog, where Mark
+ * Ready is offered; undefined until it is known.
+ */
+export function useReadinessLines(task: Task): Readiness["lines"] | undefined {
   const readiness = useQuery({
     ...taskQueries.readiness(task.id),
     enabled: task.state === "planning" || task.state === "backlog",
   });
-  return readiness.data?.lines.every(({ met }) => met) ?? false;
+  return readiness.data?.lines;
 }
 
-/** Mark Ready, which the checklist keeps from being offered before every line is met. */
-export function useMarkingReady(): UseMutationResult<Task, Error, Task> {
+/**
+ * What Mark Ready is asked: the Task, and whether its Plan and Definition of Done are confirmed as
+ * they stand, which the user agreed to when either isn't confirmed yet.
+ */
+export interface MarkingReady {
+  readonly task: Task;
+  readonly confirmPlanAndDefinitionOfDone?: boolean;
+}
+
+/** Mark Ready; a refusal, such as a Decision opened since, shows with its reason. */
+export function useMarkingReady(): UseMutationResult<Task, Error, MarkingReady> {
   const queryClient = useQueryClient();
   const showToast = useToast();
   return useMutation({
-    mutationFn: (task: Task) => markReady(task.id),
+    mutationFn: ({ task, confirmPlanAndDefinitionOfDone }: MarkingReady) =>
+      markReady(
+        task.id,
+        confirmPlanAndDefinitionOfDone ? { confirmPlanAndDefinitionOfDone: true } : {},
+      ),
     onSuccess: (ready) => showToast(`${ready.title} is Ready. Starting it is your call.`),
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),

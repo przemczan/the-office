@@ -153,6 +153,16 @@ export class ProjectService {
     return project;
   }
 
+  /** The Projects of these ids that The Office knows, with their names now, for Stats. */
+  async namesOf(
+    ids: readonly string[],
+  ): Promise<readonly { readonly projectId: string; readonly name: string }[]> {
+    const wanted = new Set(ids);
+    return (await this.repository.list())
+      .filter(({ id }) => wanted.has(id))
+      .map(({ id, name }) => ({ projectId: id, name }));
+  }
+
   /** Undefined when there is no such Project. */
   async find(id: string): Promise<Project | undefined> {
     return this.repository.find(id);

@@ -46,8 +46,7 @@ export class StageTemplateLibraryController {
   ): Promise<PipelineCheck> {
     const { problems, flags } = await this.editor.check(stage, stageTemplateId);
     return {
-      problems: problems.map(toStageProblemResponse),
-      flags: flags.map(toStageProblemResponse),
+      problems: [...problems, ...flags].map(toStageProblemResponse),
       breaks: [],
     };
   }

@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Module, type DynamicModule, type INestApplication } from "@nestjs/common";
-import { startTestApplication } from "../../../test/test-application.js";
+import { startTestApplication, type ProviderOverride } from "../../../test/test-application.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
+import { OfficeDataModule } from "../../platform/office-data/office-data.module.js";
 import { Telemetry } from "../../platform/telemetry/telemetry.js";
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
@@ -11,8 +15,9 @@ import {
   EngineModule,
   ScriptedEngine,
   ScriptedEngineModule,
+  type EngineId,
   type SessionScript,
-  type StandInEngine,
+  type ScriptedEngineProcess,
 } from "../engine/index.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
 import type { Stage } from "./domain/stage.js";
@@ -81,21 +86,51 @@ class TelemetryForTestsModule {
 }
 
 /**
- * Agent Stages' sessions replay `scripts` in order, one per Stage, each with a real `standIn`
- * engine process when a test gives one; spans go to `telemetry` when a test gives one.
+ * Agent Stages' sessions replay `scripts` in order, one per Stage, each with a real
+ * `engineProcess` when a test gives one; spans go to `telemetry` when a test gives one.
  */
 export async function startPipelinesApplication(
   scripts: readonly SessionScript[] = [],
-  standIn?: StandInEngine,
+  engineProcess?: ScriptedEngineProcess,
   telemetry?: Telemetry,
 ): Promise<PipelinesApplication> {
-  const engine = new ScriptedEngine(scripts, {}, standIn);
+  return startOn(new ScriptedEngine(scripts, {}, engineProcess), [], telemetry);
+}
+
+/**
+ * As `startPipelinesApplication`, every Agent Stage's session on the engine `engineId`, replaying
+ * `scripts` with `capabilities`, such as a Codex engine's; `overrides` list it, such as Settings ›
+ * Engines of the test's own.
+ */
+export async function startPipelinesApplicationOn(
+  { engineId, capabilities, overrides }: PipelinesEngine,
+  scripts: readonly SessionScript[],
+): Promise<PipelinesApplication> {
+  const pipelines = await startOn(new ScriptedEngine(scripts, capabilities), overrides);
+  pipelines.stageThreads.engineId = engineId;
+  return pipelines;
+}
+
+/** The engine a test's Agent Stages run on, and what lists it. */
+export interface PipelinesEngine {
+  readonly engineId: EngineId;
+  readonly capabilities: ConstructorParameters<typeof ScriptedEngine>[1];
+  readonly overrides: readonly ProviderOverride[];
+}
+
+async function startOn(
+  engine: ScriptedEngine,
+  overrides: readonly ProviderOverride[],
+  telemetry?: Telemetry,
+): Promise<PipelinesApplication> {
   const engineModule = ScriptedEngineModule.register(engine);
   const { app } = await startTestApplication({
     database: true,
+    overrides,
     imports: [
       EventsModule,
       EventStreamModule,
+      OfficeDataModule.forRoot(await mkdtemp(join(tmpdir(), "office-pipelines-"))),
       telemetry ? TelemetryForTestsModule.register(telemetry) : TelemetryModule,
       engineModule,
       PipelinesModule.register({

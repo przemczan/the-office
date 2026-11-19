@@ -1,18 +1,35 @@
 import { z } from "zod";
 
 /**
- * A Claude Code engine's account, as `claude auth status` gives it (spec §5.4), signed in by Sign
- * in or by a pasted token, which tells no email or plan.
+ * A Claude Code engine's account, as `claude auth status` gives it, signed in by Sign in or by a
+ * pasted token, which tells no email or plan, or by an Anthropic API key, which tells none either;
+ * or a Codex engine's, as the app-server's `account/read` gives it, signed in by Sign in with
+ * ChatGPT or by an OpenAI API key (spec §5.4).
  */
 export type EngineAccount =
   | { readonly signedIn: false }
   | {
       readonly signedIn: true;
+      /** A token pasted with "Paste a token instead" signs a Claude Code engine in. */
       readonly pastedToken: boolean;
+      /**
+       * An API key signs the engine in: an Anthropic one given a Claude Code engine with "Use an
+       * API key", or an OpenAI one given a Codex engine with "Use an API key instead".
+       */
+      readonly apiKey: boolean;
       readonly email: string | undefined;
-      /** The Claude subscription, such as `max` or `pro`. */
+      /** The Claude or ChatGPT subscription, such as `max` or `plus`. */
       readonly plan: string | undefined;
     };
+
+/** An engine signed in by an API key: no email or plan is told. */
+export const API_KEY_ACCOUNT: EngineAccount = {
+  signedIn: true,
+  pastedToken: false,
+  apiKey: true,
+  email: undefined,
+  plan: undefined,
+};
 
 /** The account's status could not be read: the binary gave no status, in words. */
 export class EngineAccountUnreadable extends Error {}
@@ -42,12 +59,40 @@ export function engineAccountOf(output: string, pastedToken: boolean): EngineAcc
   }
   const { loggedIn, email, subscriptionType } = status.data;
   if (!loggedIn) return { signedIn: false };
-  if (pastedToken) return { signedIn: true, pastedToken, email: undefined, plan: undefined };
+  if (pastedToken) {
+    return { signedIn: true, pastedToken, apiKey: false, email: undefined, plan: undefined };
+  }
   return {
     signedIn: true,
     pastedToken,
+    apiKey: false,
     email: textOrUndefined(email),
     plan: textOrUndefined(subscriptionType),
+  };
+}
+
+/** The account the app-server's `account/read` answered: none, an API key, or a ChatGPT login. */
+export type CodexAccountRead = null | {
+  readonly type: string;
+  readonly email?: string | null;
+  readonly planType?: string | null;
+};
+
+/**
+ * The Codex engine's account as `account/read` gave it: signed out without one, an API key, or a
+ * ChatGPT login with its email and plan when told. A kind of login The Office doesn't know signs it
+ * in all the same, telling nothing more.
+ */
+export function codexEngineAccountOf(account: CodexAccountRead): EngineAccount {
+  if (account === null) return { signedIn: false };
+  if (account.type === "apiKey") return API_KEY_ACCOUNT;
+  const chatgpt = account.type === "chatgpt";
+  return {
+    signedIn: true,
+    pastedToken: false,
+    apiKey: false,
+    email: chatgpt ? textOrUndefined(account.email) : undefined,
+    plan: chatgpt ? textOrUndefined(account.planType) : undefined,
   };
 }
 

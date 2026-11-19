@@ -1,9 +1,11 @@
 import { chmod } from "node:fs/promises";
 import { posix } from "node:path";
 import { setTimeout } from "node:timers/promises";
+import { codexBuild } from "./codex-build.js";
 import { runningInGroup } from "./linux-processes.js";
 import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
+import { printFileCommand, shQuoted } from "./print-file-command.js";
 import type { ProcessTrees } from "./process-trees.js";
 import type { AgentShellProgram, Shell } from "./shell.js";
 
@@ -48,6 +50,8 @@ export function linux({
       const builds = [`linux-${process.arch}`, `linux-${process.arch}-musl`];
       return (hasGlibc() ? builds : builds.toReversed()).map((build) => `${build}/claude`);
     },
+    // Codex ships one Linux build per processor, linked against musl.
+    codexBinary: codexBuild("linux", "unknown-linux-musl", "codex"),
     secretPaths: [
       posix.join(homeDirectory, ".ssh"),
       posix.join(
@@ -66,6 +70,7 @@ export function linux({
     sshPrograms: { ssh: "ssh", keygen: "ssh-keygen", keyscan: "ssh-keyscan" },
     hasLoadAverage: true,
     sameVariableName: (one, other) => one === other,
+    printFileCommand: (file) => printFileCommand(shQuoted, file),
     gitHomeDirectory: (commandVariables) => commandVariables["HOME"] || homeDirectory,
     restrictToOwner: (path, kind) => chmod(path, kind === "folder" ? 0o700 : 0o600),
   };

@@ -1,5 +1,6 @@
 import type { TelemetryChoice } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { choiceToSave, savedChoiceOf } from "./telemetry-choice.js";
 import {
   isSetByEnvironment,
   sameTelemetry,
@@ -126,5 +127,74 @@ describe("sameTelemetry", () => {
       sameTelemetry(telemetrySettingsFrom(undefined, {}), { kind: "off", setByEnvironment: true }),
     ).toBe(true);
     expect(sameTelemetry(telemetrySettingsFrom(undefined, {}), exported)).toBe(false);
+  });
+});
+
+describe("the own endpoint's Grafana", () => {
+  const GRAFANA = { readAddress: "https://grafana.example.com", readToken: "glsa_read" };
+  const SAVED: TelemetryChoice = { ...OWN, grafana: GRAFANA };
+
+  it("saves the read address trimmed, without a trailing /, and the read token", () => {
+    const { choice } = choiceToSave(
+      {
+        ...OWN,
+        grafana: { readAddress: " https://grafana.example.com/ ", readToken: "glsa_read" },
+      },
+      undefined,
+    );
+
+    expect(choice).toMatchObject({ grafana: GRAFANA });
+  });
+
+  it.each(["ftp://grafana.example.com", "grafana.example.com", ""])(
+    "refuses %j as a read address",
+    (readAddress) => {
+      const { problems } = choiceToSave({ ...OWN, grafana: { readAddress } }, undefined);
+
+      expect(problems).toEqual([expect.stringContaining("Grafana read address")]);
+    },
+  );
+
+  it("refuses a read token holding a line break", () => {
+    const { problems } = choiceToSave(
+      { ...OWN, grafana: { readAddress: GRAFANA.readAddress, readToken: "glsa\nX-Evil: 1" } },
+      undefined,
+    );
+
+    expect(problems).toEqual(["The read token can't hold a line break."]);
+  });
+
+  it("keeps the saved read token when the token is sent empty or left out", () => {
+    const changedAddress = { readAddress: "https://other.example.com" };
+
+    expect(
+      choiceToSave({ ...OWN, grafana: { ...changedAddress, readToken: "" } }, SAVED).choice,
+    ).toMatchObject({ grafana: { ...changedAddress, readToken: "glsa_read" } });
+    expect(choiceToSave({ ...OWN, grafana: changedAddress }, SAVED).choice).toMatchObject({
+      grafana: { ...changedAddress, readToken: "glsa_read" },
+    });
+  });
+
+  it("keeps the saved Grafana when it is left out, and removes it when sent null", () => {
+    expect(choiceToSave(OWN, SAVED).choice).toMatchObject({ grafana: GRAFANA });
+    expect(choiceToSave({ ...OWN, grafana: null }, SAVED).choice).not.toHaveProperty("grafana");
+  });
+
+  it("shows the browser whether a read token is saved, never the token", () => {
+    const shown = savedChoiceOf(SAVED);
+
+    expect(shown).toMatchObject({
+      grafana: { readAddress: GRAFANA.readAddress, hasReadToken: true },
+    });
+    expect(JSON.stringify(shown)).not.toContain("glsa_read");
+    expect(savedChoiceOf({ ...OWN, grafana: { readAddress: GRAFANA.readAddress } })).toMatchObject({
+      grafana: { hasReadToken: false },
+    });
+  });
+
+  it("exports alike with or without it, so it never waits for the next start", () => {
+    expect(sameTelemetry(telemetrySettingsFrom(SAVED, {}), telemetrySettingsFrom(OWN, {}))).toBe(
+      true,
+    );
   });
 });

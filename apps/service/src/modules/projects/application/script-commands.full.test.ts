@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
@@ -14,7 +14,7 @@ import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project, ProjectCommand } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
-import { ScriptCommands } from "./script-commands.js";
+import { ScriptCommands, STAGE_RUNS_FILE_VARIABLE } from "./script-commands.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
 import { ScriptedTaskRunEnvironments } from "./task-run-environments.fixtures.js";
 import { Worktrees } from "./worktrees.js";
@@ -73,7 +73,7 @@ beforeAll(async () => {
   officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
   runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
   const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
-  const taskCommands = taskCommandsOver(commands, git, runEnvironments.registry());
+  const taskCommands = taskCommandsOver(commands, git, runEnvironments.registry(), officeData);
   worktrees = new Worktrees(git, commands, taskCommands, officeData, new TaskBasesForTests(git));
   scriptCommands = new ScriptCommands(worktrees, taskCommands, officeData);
 });
@@ -300,6 +300,7 @@ describe("ScriptCommands.run with the Project's run environment On", REAL_GIT_TE
           worktree: worktreePath,
           // Named by git on the host, which gives real paths.
           repositoryGitFolder: await realpath(join(repository.path, ".git")),
+          stageRunsFolder: officeData.stageRunsFolder(taskId),
           installCommand: project.installCommand,
           installInputs: project.installInputs,
           installVariables: project.environment.set,
@@ -386,4 +387,92 @@ describe("ScriptCommands.run with the Project's run environment On", REAL_GIT_TE
       expect(await exists(runLog)).toBe(true);
     },
   );
+});
+
+/** A condition command that prints the file of the Stage runs it is given, and passes. */
+const READ_STAGE_RUNS = `node -e "console.log(require('fs').readFileSync(process.env.${STAGE_RUNS_FILE_VARIABLE}, 'utf8'))"`;
+
+/** The Task's Stage runs' file, written as Pipelines writes it before a condition command. */
+async function aStageRunsFile(taskId: string): Promise<{ file: string; json: string }> {
+  const folder = officeData.stageRunsFolder(taskId);
+  await mkdir(folder, { recursive: true });
+  const file = join(folder, "stage-runs.json");
+  const json = JSON.stringify({ version: 1, stageRuns: [{ stage: "build", outcome: "passed" }] });
+  await writeFile(file, json);
+  return { file, json };
+}
+
+describe("ScriptCommands.runCondition", REAL_GIT_TEST, () => {
+  it("runs on the host with the variable naming the Stage runs' file", async () => {
+    const { project, taskId } = await aTask(1, { lint: READ_STAGE_RUNS });
+    const { file, json } = await aStageRunsFile(taskId);
+    const before = runEnvironments.runs.length;
+
+    const run = await scriptCommands.runCondition(project, taskId, "lint", file, "stage-run-c1");
+
+    expect(run).toEqual(expect.objectContaining({ outcome: "passed", exitCode: 0 }));
+    expect(run.output).toContain(json);
+    expect(runEnvironments.runs.length).toBe(before);
+  });
+
+  it("restores the worktree after a build-kind command and moves out what it wrote", async () => {
+    const { project, taskId, worktreePath } = await aTask(1);
+    const { file } = await aStageRunsFile(taskId);
+
+    const run = await scriptCommands.runCondition(project, taskId, "build", file, "stage-run-c2");
+
+    expect(run.outcome).toBe("passed");
+    expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
+    expect(run.movedFiles?.paths).toEqual(["screenshots/run-1.txt"]);
+    expect(run.movedFiles?.folder).toMatch(
+      new RegExp(`stage-run-c2[\\\\/]condition-build-[0-9a-f]{8}$`),
+    );
+    expect(await exists(join(worktreePath, "screenshots", "run-1.txt"))).toBe(false);
+    expect(await readdir(join(worktreePath, ".office", "screenshots"))).toEqual([]);
+  });
+
+  it("runs a failing test-kind command once, never again", async () => {
+    const { project, taskId, worktreePath, runLog } = await aTask(2);
+    const { file } = await aStageRunsFile(taskId);
+
+    const run = await scriptCommands.runCondition(project, taskId, "test", file, "stage-run-c3");
+
+    expect(run).toEqual(expect.objectContaining({ outcome: "failed", exitCode: 1 }));
+    expect(await readFile(runLog, "utf8")).toBe("x");
+    expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
+  });
+
+  it("runs nothing for a command the Project lacks, naming it", async () => {
+    const { project, taskId, runLog } = await aTask(1);
+
+    const run = await scriptCommands.runCondition(project, taskId, "e2e", "/none", "stage-run-c4");
+
+    expect(run).toEqual(
+      expect.objectContaining({
+        commandLine: "",
+        outcome: "could-not-run",
+        output:
+          "The Project has no e2e command. Add it on the Project's page, or ask whoever onboards Projects.",
+      }),
+    );
+    expect(await exists(runLog)).toBe(false);
+  });
+
+  it("runs in the Task's run environment, telling it the command reads the Stage runs' file", async () => {
+    const { project, taskId } = await aTask(1, { lint: READ_STAGE_RUNS }, "on");
+    const { file, json } = await aStageRunsFile(taskId);
+    const before = runEnvironments.runs.length;
+
+    const run = await scriptCommands.runCondition(project, taskId, "lint", file, "stage-run-c5");
+
+    expect(run.output).toContain(json);
+    const [given] = runEnvironments.runs.slice(before);
+    expect(given?.task.stageRunsFolder).toBe(officeData.stageRunsFolder(taskId));
+    expect(given?.command.readsStageRuns).toBe(true);
+    expect(given?.command.environment.set).toContainEqual({
+      name: STAGE_RUNS_FILE_VARIABLE,
+      value: file,
+      secret: false,
+    });
+  });
 });

@@ -454,7 +454,6 @@ function RailStage({
           >
             {stage.name}
           </button>
-          {stage.optional && <span className="pipeline-rail-optional"> · optional</span>}
         </span>
         <span className="pipeline-rail-worker">
           <StageWorker taskStage={taskStage} roles={roles} />

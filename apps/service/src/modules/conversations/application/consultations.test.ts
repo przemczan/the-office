@@ -37,6 +37,7 @@ import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-to
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import type { Thread } from "../domain/thread.js";
 import { startStageThread } from "../domain/thread-changes.js";
+import { oneOptionAnswer, oneWordsAnswer } from "../domain/decision.js";
 import { SESSION } from "../domain/decision.fixtures.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
@@ -266,6 +267,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         useProjectSkills: false,
         projectSkillsOff: [],
         projectId: "admin-panel",
+        initiativeId: undefined,
+        projectName: "Admin panel",
+        pipelineName: "",
         instructions: "On this Task you build.",
         officeTools: ["read_task", CONSULT_TOOL],
         brief: `You work on the Task ${taskId}.`,
@@ -291,6 +295,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     taskTitle: () => Promise.resolve("Build the export"),
     taskAttachmentIds: () => Promise.resolve([]),
     initiativeTaskAttachmentIds: () => Promise.resolve([]),
+    isInitiativePlanningThread: () => Promise.resolve(true),
+    initiativeAttachmentIds: () => Promise.resolve([]),
     initiativeRecord: () => Promise.resolve(undefined),
     initiativeName: () => Promise.resolve(undefined),
     projectWork: () => Promise.resolve({ taskIds: [], initiativeIds: [] }),
@@ -368,11 +374,15 @@ function consults(person: string): Step[] {
   return [
     ...usesTool("c-1", CONSULT_TOOL, {
       person,
-      question: QUESTION,
       context: "The export reads every Project.",
-      options: OPTIONS,
-      recommended: 2,
-      why: "It is what the Projects use.",
+      questions: [
+        {
+          question: QUESTION,
+          options: OPTIONS,
+          recommended: 2,
+          why: "It is what the Projects use.",
+        },
+      ],
     }),
     ...aTurn("brief", "I asked."),
   ];
@@ -474,7 +484,7 @@ describe("a consult of a hired Consultant", () => {
     await startWith(
       started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER),
       started(
-        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
         ...aTurn("brief", "Done."),
       ),
     );
@@ -500,7 +510,7 @@ describe("a consult of a hired Consultant", () => {
     });
     expect(answeredAsker).toMatchObject({
       putTo: consultantKey,
-      answer: { kind: "option", option: 1, answeredBy: consultantKey },
+      answer: { ...oneOptionAnswer(1), answeredBy: consultantKey },
     });
     const [askerSession, consultantSession] = engine.sessions;
     const opening = consultantSession?.received[0];
@@ -512,12 +522,86 @@ describe("a consult of a hired Consultant", () => {
     expect(consultationLog).toContainEqual(
       expect.objectContaining({
         kind: "consultation-line",
-        text: "Your answer to Dana: Postgres",
+        text: `Your answer to Dana:\n\n1. ${QUESTION}\n   Answer: Postgres`,
       }),
     );
     const answer = askerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `Casey answered your Decision "${QUESTION}" with the option "Postgres".`,
+      `Casey answered your Decision:\n\n1. ${QUESTION}\n   Answer: Postgres`,
+    );
+  });
+  it("asks a form of two questions, which the Consultant answers question by question", async () => {
+    await startWith(
+      started(
+        ...usesTool("c-1", CONSULT_TOOL, {
+          person: "CTO",
+          context: "The export reads every Project.",
+          questions: [
+            {
+              question: QUESTION,
+              options: OPTIONS,
+              recommended: 2,
+              why: "It is what the Projects use.",
+            },
+            { question: "Which years should it cover?" },
+          ],
+        }),
+        ...aTurn("brief", "I asked."),
+        ...ASKER_TAKES_THE_ANSWER,
+      ),
+      started(
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, {
+          answers: [{ option: 2, comment: "It runs already." }, { answer: "This year." }],
+          generalComment: "Ask me about the format later.",
+        }),
+        ...aTurn("brief", "Done."),
+      ),
+    );
+    const asker = await developerOnATask();
+
+    const consultation = await consultationOn(asker);
+    await settled(consultation.id);
+    const answered = await answeredIn(asker.id);
+    await settled(asker.id);
+
+    const opening = engine.sessions[1]?.received[0];
+    const brief = opening?.step === "start" ? opening.brief.text : "";
+    expect(brief).toContain(QUESTION);
+    expect(brief).toContain("Which years should it cover?");
+    const [refused] =
+      engine.sessions[1]?.reportedEvents.filter((event) => event.kind === "tool-result") ?? [];
+    expect(refused).toMatchObject({
+      isError: true,
+      text: "Answer every question: this Decision asks 2.",
+    });
+    expect(answered.answer).toMatchObject({
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 1, comment: "It runs already." },
+        { kind: "words", text: "This year." },
+      ],
+      generalComment: "Ask me about the format later.",
+      answeredBy: consultantKey,
+    });
+    const words = [
+      `1. ${QUESTION}`,
+      "   Answer: Postgres",
+      "   Comment: It runs already.",
+      "2. Which years should it cover?",
+      "   Answer, in their own words: This year.",
+      "",
+      "General comment: Ask me about the format later.",
+    ].join("\n");
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `Casey answered your Decision:\n\n${words}`,
+    );
+    expect(await threads.messages(consultation.id)).toContainEqual(
+      expect.objectContaining({
+        kind: "consultation-line",
+        text: `Your answer to Dana:\n\n${words}`,
+      }),
     );
   });
 });
@@ -529,7 +613,7 @@ describe("a consult on a Task with no worktree yet", () => {
     await startWith(
       started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER),
       started(
-        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
         ...aTurn("brief", "Done."),
       ),
     );
@@ -541,7 +625,7 @@ describe("a consult on a Task with no worktree yet", () => {
     await settled(consultation.id);
     const answered = await answeredIn(asker.id);
 
-    expect(answered).toMatchObject({ answer: { kind: "option", option: 1 } });
+    expect(answered).toMatchObject({ answer: oneOptionAnswer(1) });
     expect(engine.sessions[1]?.options.folder).toBe(join(officeData, "bases"));
     expect(await threads.messages(consultation.id)).not.toContainEqual(
       expect.objectContaining({ kind: "failure" }),
@@ -652,7 +736,7 @@ describe("a call from a chat", () => {
       started(...requests("Devops"), ...ASKER_TAKES_THE_ANSWER),
       started(
         ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, {
-          answer: "I drafted a Proposal of the Project's commands.",
+          answers: [{ answer: "I drafted a Proposal of the Project's commands." }],
         }),
         ...aTurn("brief", "Done."),
       ),
@@ -674,8 +758,7 @@ describe("a call from a chat", () => {
       taskId: undefined,
       putTo: devopsKey,
       answer: {
-        kind: "free-answer",
-        text: "I drafted a Proposal of the Project's commands.",
+        ...oneWordsAnswer("I drafted a Proposal of the Project's commands."),
         answeredBy: devopsKey,
       },
     });
@@ -686,14 +769,14 @@ describe("a call from a chat", () => {
     );
     const answer = callerSession?.received.find((step) => step.step === "send");
     expect(answer?.step === "send" && answer.message.text).toBe(
-      `Riley answered your request "Set up the Project's commands." in their own words:\n\nI drafted a Proposal of the Project's commands.`,
+      `Riley answered your request:\n\n1. Set up the Project's commands.\n   Answer, in their own words: I drafted a Proposal of the Project's commands.`,
     );
     const lines = (await threads.messages(consultation.id))
       .filter((message) => message.kind === "consultation-line")
       .map((line) => line.kind === "consultation-line" && line.text);
     expect(lines).toEqual([
       "Dana asks you to: Set up the Project's commands.",
-      "Your answer to Dana: I drafted a Proposal of the Project's commands.",
+      "Your answer to Dana:\n\n1. Set up the Project's commands.\n   Answer, in their own words: I drafted a Proposal of the Project's commands.",
     ]);
   });
 
@@ -719,20 +802,29 @@ describe("a call from a chat", () => {
     expect(calleeSession?.options.readsEngineTranscripts).toBe(false);
   });
 
-  it("refuses a call naming nobody who can be called: the caller asks the user in their answer", async () => {
-    await startWith(started(...requests("Janitor"), ...aTurn("brief", "I'll ask the user.")));
+  it("waits on the user inline in the chat when it names nobody who can be called", async () => {
+    await startWith(started(...requests("Janitor"), ...aTurn("brief", "I asked the user.")));
     const caller = await aChatWith(askerKey, "Ask the janitor.");
 
     await settled(caller.id);
 
     expect(toolResultOf(engine.sessions[0], "c-1")).toMatchObject({
-      isError: true,
-      text: "Nobody who can be called fills that Role: ask the user in your answer instead.",
+      isError: false,
+      text: expect.stringContaining("The Office put your consult to the user in place of Janitor"),
     });
-    expect(await decisions.listInThread(caller.id)).toEqual([]);
+    const [waiting] = (await threads.read(caller.id)).openDecisions;
+    expect(waiting).toMatchObject({
+      kind: "request",
+      taskId: undefined,
+      putTo: undefined,
+      answer: undefined,
+    });
+    expect(await decisions.listOpen()).not.toContainEqual(
+      expect.objectContaining({ id: waiting?.id }),
+    );
   });
 
-  it("goes back to the caller as a line when the callee passes it on to the user", async () => {
+  it("waits on the user inline in the chat when the callee passes it on to the user", async () => {
     await startWith(
       started(
         ...usesTool("c-1", CONSULT_TOOL, {
@@ -743,7 +835,6 @@ describe("a call from a chat", () => {
           why: "No other way.",
         }),
         ...aTurn("brief", "I asked."),
-        ...ASKER_TAKES_THE_ANSWER,
       ),
       started(
         ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, {
@@ -754,19 +845,64 @@ describe("a call from a chat", () => {
     );
     const caller = await aChatWith(askerKey, "Ask Devops whether ffmpeg may be installed.");
 
-    const answered = await answeredIn(caller.id);
+    const waiting = await waitingOnTheUserIn(caller.id);
     await settled(caller.id);
 
-    expect(answered.answer).toMatchObject({ kind: "free-answer", byTheOffice: true });
+    expect(waiting).toMatchObject({
+      kind: "approval",
+      taskId: undefined,
+      answer: undefined,
+      passedOn: [{ roleKey: devopsKey, reason: "It changes the machine." }],
+    });
     expect(await decisions.listOpen()).not.toContainEqual(
-      expect.objectContaining({ id: answered.id }),
+      expect.objectContaining({ id: waiting.id }),
     );
-    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
-    expect(answer?.step === "send" && answer.message.text).toContain(
-      "Riley passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
+    expect(engine.sessions[0]?.received.find((step) => step.step === "send")).toBeUndefined();
+  });
+
+  it("waits on the user inline in the chat when the callee's Consultation couldn't answer", async () => {
+    await startWith(
+      started(...requests("Devops")),
+      // The callee's session ends before its answer is finished: a failure.
+      started({
+        step: "event",
+        event: { kind: "text", text: "Let me", withinToolCall: undefined },
+      }),
     );
+    const caller = await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const waiting = await waitingOnTheUserIn(caller.id);
+
+    expect(waiting).toMatchObject({
+      taskId: undefined,
+      answer: undefined,
+      passedOn: [{ roleKey: devopsKey }],
+    });
+    // The line is logged just after the Decision turns to the user.
+    await vi.waitFor(async () =>
+      expect(await threads.messages(caller.id)).toContainEqual(
+        expect.objectContaining({
+          kind: "consultation-line",
+          decisionId: waiting.id,
+          text: expect.stringContaining("The Decision waits on the user now."),
+        }),
+      ),
+    );
+    expect(engine.sessions[0]?.received.find((step) => step.step === "send")).toBeUndefined();
   });
 });
+
+/** The Thread's Decision once it no longer waits on a Consultant but on the user. */
+async function waitingOnTheUserIn(threadId: string) {
+  return vi.waitFor(
+    async () => {
+      const [waiting] = (await threads.read(threadId)).openDecisions;
+      if (!waiting || waiting.putTo !== undefined) throw new Error("Not the user's yet.");
+      return waiting;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
 
 /** The asker's shaping Thread on a new Initiative, where they start on the user's ask at once. */
 function onAnInitiative(): Promise<Thread> {
@@ -826,7 +962,7 @@ describe("a call from an Initiative's Thread", () => {
     expect(consultation).toMatchObject({ home: { kind: "task", taskId }, roleKey: devopsKey });
   });
 
-  it("refuses one naming nobody who can be called and no Task, as a chat's call", async () => {
+  it("refuses one naming nobody who can be called and no Task, having nowhere to ask the user", async () => {
     await startWith(started(...requests("Janitor"), ...aTurn("brief", "I'll ask the user.")));
     const caller = await onAnInitiative();
 
@@ -846,19 +982,25 @@ describe("a call from a Consultation", () => {
       started(
         ...usesTool("c-2", CONSULT_TOOL, {
           person: "CTO",
-          question: QUESTION,
           context: "Before I draft the commands.",
-          options: OPTIONS,
-          recommended: 2,
-          why: "It is what the Projects use.",
+          questions: [
+            {
+              question: QUESTION,
+              options: OPTIONS,
+              recommended: 2,
+              why: "It is what the Projects use.",
+            },
+          ],
         }),
         ...aTurn("brief", "I asked the CTO."),
         { step: "send", message: { id: "cto-answer", text: "" }, priority: "later" },
-        ...usesTool("c-4", ANSWER_CONSULTATION_TOOL, { answer: "Drafted, for Postgres." }),
+        ...usesTool("c-4", ANSWER_CONSULTATION_TOOL, {
+          answers: [{ answer: "Drafted, for Postgres." }],
+        }),
         ...aTurn("cto-answer", "Done."),
       ),
       started(
-        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
         ...aTurn("brief", "Postgres."),
       ),
     );
@@ -874,13 +1016,50 @@ describe("a call from a Consultation", () => {
       askerRoleKey: devopsKey,
     });
     expect(answered.answer).toMatchObject({
-      text: "Drafted, for Postgres.",
+      ...oneWordsAnswer("Drafted, for Postgres."),
       answeredBy: devopsKey,
     });
     const [, devopsSession, ctoSession] = engine.sessions;
     expect(devopsSession?.options.officeTools.map(({ name }) => name)).toContain(CONSULT_TOOL);
     // The chain has asked two people: the CTO can call nobody else.
     expect(ctoSession?.options.officeTools.map(({ name }) => name)).not.toContain(CONSULT_TOOL);
+  });
+
+  it("gets The Office's answer when its call on no Task is passed on to the user", async () => {
+    await startWith(
+      started(...requests("Devops")),
+      started(
+        ...usesTool("c-2", CONSULT_TOOL, {
+          person: "CTO",
+          kind: "approval",
+          question: "Install ffmpeg on the machine.",
+          context: "Video exports need it.",
+          why: "No other way.",
+        }),
+        ...aTurn("brief", "I asked the CTO."),
+        { step: "send", message: { id: "office-answer", text: "" }, priority: "later" },
+        ...aTurn("office-answer", "I'll tell Dana."),
+      ),
+      started(
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, {
+          passOn: { why: "It changes the machine." },
+        }),
+        ...aTurn("brief", "Passed on."),
+      ),
+    );
+    await aChatWith(askerKey, "Ask Devops to set that up.");
+
+    const devopsConsultation = await consultationInChatOf(devopsKey);
+    const answered = await answeredIn(devopsConsultation.id);
+    await settled(devopsConsultation.id);
+
+    expect(answered).toMatchObject({ taskId: undefined, putTo: undefined });
+    expect(answered.answer).toMatchObject({
+      kind: "asked-again",
+      generalComment:
+        "Casey passed it on to the user: It changes the machine. So it is the user's now: ask them in your reply.",
+      byTheOffice: true,
+    });
   });
 
   it("refuses calling someone already in the chain, naming them", async () => {

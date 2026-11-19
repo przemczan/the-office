@@ -21,7 +21,7 @@
 {"step":"event","event":{"kind":"tool-result","callId":"plan-2","text":"","isError":false}}
 {"step":"event","event":{"kind":"tool-call","callId":"plan-3","tool":"propose_pipeline","officeTool":true,"input":{"pipelineId":"quick-fix","why":"A small change with tests and no review needed."},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"plan-3","text":"","isError":false}}
-{"step":"event","event":{"kind":"tool-call","callId":"plan-4","tool":"open_decision","officeTool":true,"input":{"question":"Should sign-in keep the query string on the way back?","context":"The redirect drops everything after the path today.","options":["Keep the query string","Drop the query string"],"recommended":1,"why":"Filters live in the query string."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"plan-4","tool":"open_decision","officeTool":true,"input":{"context":"The redirect drops everything after the path today.","questions":[{"question":"Should sign-in keep the query string on the way back?","options":["Keep the query string","Drop the query string"],"recommended":1,"why":"Filters live in the query string."}]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"plan-4","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"I wrote the Plan and the Definition of Done, and asked about the query string.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-planning"],"usage":{"input":3,"output":420,"cacheRead":0,"cacheCreation":33800},"sessionCostUsd":0.02,"output":null,"errors":[]}}
@@ -63,7 +63,7 @@
 {"step":"read-context-usage","usage":{"tokens":31100,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-implement","text":"Implement the Task"}}
-{"step":"event","event":{"kind":"tool-call","callId":"implement-1","tool":"open_decision","officeTool":true,"input":{"question":"Which page should sign-in return to when the session expired?","context":"An expired session sends the user to sign-in from any page.","options":["The page it started from","The dashboard"],"recommended":1,"why":"The user goes on where they were."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"implement-1","tool":"open_decision","officeTool":true,"input":{"context":"An expired session sends the user to sign-in from any page.","questions":[{"question":"Which page should sign-in return to when the session expired?","options":["The page it started from","The dashboard"],"recommended":1,"why":"The user goes on where they were."}]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"implement-1","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"I asked which page sign-in returns to.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-implement"],"usage":{"input":3,"output":180,"cacheRead":0,"cacheCreation":30200},"sessionCostUsd":0.02,"output":{"status":"needs_decision","summary":"Asked which page sign-in returns to."},"errors":[]}}
@@ -91,6 +91,17 @@
 {"step":"event","event":{"kind":"text","text":"The button reads Save now.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-gate-sent-back"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"Renamed the button Save.","handoverNote":"The button reads Save.","definitionOfDoneMet":[1]},"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-marta-asks-decision","text":"Marta asks a Decision in her chat"}}
+{"step":"event","event":{"kind":"tool-call","callId":"digest-decision","tool":"open_decision","officeTool":true,"input":{"context":"The weekly digest isn't scheduled yet.","questions":[{"question":"Which day should the weekly digest go out?","options":["Monday","Friday"],"recommended":1,"why":"People plan their week on Monday."},{"question":"Who else should get the digest?"}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"digest-decision","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I asked how the digest should go out.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-marta-asks-decision"],"usage":{"input":3,"output":120,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"marta-decision-answer","text":"The user's answer to the Decision"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"The digest goes out on Fridays, to the team leads too.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["marta-decision-answer"],"usage":{"input":3,"output":40,"cacheRead":30000,"cacheCreation":60},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-consult-take-over","text":"Jan takes the user's answer"}}
 {"step":"event","event":{"kind":"text","text":"Then the migration goes first.","withinToolCall":null}}
@@ -246,9 +257,9 @@
 {"step":"start","brief":{"id":"brief-plan-with-decisions","text":"Plan the Initiative"}}
 {"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-1","tool":"start_planning","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01"},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-1","text":"","isError":false}}
-{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-2","tool":"open_decision","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01","question":"Which format should the invoice export use?","context":"Accounting imports CSV; the API clients read JSON.","options":["CSV","JSON"],"recommended":1,"why":"Accounting is who asked for it."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-2","tool":"open_decision","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e01","context":"Accounting imports CSV; the API clients read JSON.","questions":[{"question":"Which format should the invoice export use?","options":["CSV","JSON"],"recommended":1,"why":"Accounting is who asked for it."}]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-2","text":"","isError":false}}
-{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-3","tool":"open_decision","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03","question":"Should the invoice chart show a row count?","context":"Long exports are hard to check by eye.","options":["Show the row count","Leave it out"],"recommended":1,"why":"It shows at a glance that nothing was cut."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-3","tool":"open_decision","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03","context":"Long exports are hard to check by eye.","questions":[{"question":"Should the invoice chart show a row count?","options":["Show the row count","Leave it out"],"recommended":1,"why":"It shows at a glance that nothing was cut."}]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-3","text":"","isError":false}}
 {"step":"event","event":{"kind":"tool-call","callId":"planning-with-decisions-4","tool":"start_planning","officeTool":true,"input":{"taskId":"7d1e3b9f-2c4a-4e8b-a5d6-0f1b2c3d4e03"},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"planning-with-decisions-4","text":"","isError":false}}
@@ -335,7 +346,7 @@
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-answer-for-the-user","text":"Jan answers his Decision for the user, in his chat"}}
-{"step":"event","event":{"kind":"tool-call","callId":"answer-for-the-user","tool":"answer_decision","officeTool":true,"input":{"decisionId":"5d0b8c1e-7a3f-4e2b-9c6d-1f8a2b3c4d5e","option":1},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"answer-for-the-user","tool":"answer_decision","officeTool":true,"input":{"decisionId":"5d0b8c1e-7a3f-4e2b-9c6d-1f8a2b3c4d5e","answers":[{"option":1}]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"answer-for-the-user","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"I answered it for you: keep it.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-answer-for-the-user"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
@@ -360,7 +371,7 @@
 {"step":"start","brief":{"id":"brief-nina-called","text":"Nina's Consultation in her chat"}}
 {"step":"event","event":{"kind":"tool-call","callId":"draft-commands","tool":"propose_project_commands","officeTool":true,"input":{"project":"called-up","change":{"commands":[{"key":"test-e2e","name":"End to end","kind":"test","commandLine":"npm run e2e"}]}},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"draft-commands","text":"","isError":false}}
-{"step":"event","event":{"kind":"tool-call","callId":"answer-jan","tool":"answer_consultation","officeTool":true,"input":{"answer":"I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-call","callId":"answer-jan","tool":"answer_consultation","officeTool":true,"input":{"answers":[{"answer":"I drafted a Proposal adding the End to end command to Called up, for the user to apply in my chat."}]},"withinToolCall":null}}
 {"step":"event","event":{"kind":"tool-result","callId":"answer-jan","text":"","isError":false}}
 {"step":"event","event":{"kind":"text","text":"Drafted, and answered Jan.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-nina-called"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
@@ -374,5 +385,68 @@
 {"step":"start","brief":{"id":"brief-usage-window-resumed","text":"Implement the Task again after the reset"}}
 {"step":"event","event":{"kind":"text","text":"The export keeps its filter now.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-usage-window-resumed"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"The export keeps its filter.","handoverNote":"The filter is kept in the export.","definitionOfDoneMet":[1]},"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-shape-report-exports","text":"Shape the Initiative"}}
+{"step":"wait","mark":"report-exports-asks"}
+{"step":"event","event":{"kind":"tool-call","callId":"report-exports-decision","tool":"open_decision","officeTool":true,"input":{"context":"Accounting files the quarterly report as a PDF; the finance team reworks it in a spreadsheet.","questions":[{"question":"Which format should the quarterly report export use?","options":["CSV","PDF"],"recommended":1,"why":"The finance team reworks the figures."},{"question":"How often should the export run?","options":["Every quarter","Every month"],"recommended":1,"why":"The report is quarterly."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-exports-decision","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I asked you two things before I write the outcome.","withinToolCall":null}}
+{"step":"wait","mark":"report-exports-turn-ends"}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-shape-report-exports"],"usage":{"input":3,"output":60,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"send","message":{"id":"answer-report-exports","text":"The answer"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"A PDF every quarter: I'll write the outcome that way.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-report-exports"],"usage":{"input":3,"output":30,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-shape-report-archive","text":"Shape the Initiative"}}
+{"step":"event","event":{"kind":"text","text":"What should be true once reports are archived?","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-shape-report-archive"],"usage":{"input":3,"output":20,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-plan-report-archive","text":"Plan the Initiative"}}
+{"step":"event","event":{"kind":"tool-call","callId":"report-archive-1","tool":"open_decision","officeTool":true,"input":{"taskId":"8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e01","context":"The archive grows by a few gigabytes a year.","questions":[{"question":"Where should archived reports be kept?","options":["Object storage","The database"],"recommended":1,"why":"It keeps the database small."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-archive-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"report-archive-2","tool":"open_decision","officeTool":true,"input":{"taskId":"8e2f4c0a-3d5b-4f9c-b6e7-1a2b3c4d5e02","context":"Searching every archived report is slow without an index.","questions":[{"question":"Should the archive page search inside reports?","options":["Titles only","Inside reports too"],"recommended":1,"why":"Titles are enough to start."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-archive-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"report-archive-3","tool":"open_decision","officeTool":true,"input":{"context":"Reports before this year are in the old format.","questions":[{"question":"Should the archive take reports from before this year?","options":["Only from this year on","Every report"],"recommended":1,"why":"The old format needs its own reader."}]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"report-archive-3","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"Both Tasks wait for your answers, and I asked one thing about the whole Initiative.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-plan-report-archive"],"usage":{"input":3,"output":200,"cacheRead":0,"cacheCreation":36000},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":37000,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-stand-in-refused","text":"Implement the Task whose turn its engine refuses"}}
+{"step":"event","event":{"kind":"rate-limit","status":"rejected","window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"usage-window-used-up","consumedMessageIds":["brief-stand-in-refused"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":["You've hit your limit · resets 2pm (UTC)"],"usedUpWindow":{"window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z","resetGiven":true}},"resetsInSeconds":5}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"resume"}
+{"step":"send","message":{"id":"stand-in-sent-again","text":"The refused work again, on the Stand-in Engine"},"priority":"later"}
+{"step":"wait","mark":"stand-in-turn-ends"}
+{"step":"event","event":{"kind":"text","text":"The export keeps its sort order now.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["stand-in-sent-again"],"usage":{"input":3,"output":90,"cacheRead":30100,"cacheCreation":200},"sessionCostUsd":0.02,"output":{"status":"done","summary":"The export keeps its sort order.","handoverNote":"The sort order is kept in the export.","definitionOfDoneMet":[1]},"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-stand-in-choice-1","text":"Implement the Task whose turn its engine refuses, its context over the size asked first above"}}
+{"step":"wait","mark":"stand-in-choices-refused"}
+{"step":"event","event":{"kind":"rate-limit","status":"rejected","window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"usage-window-used-up","consumedMessageIds":["brief-stand-in-choice-1"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":["You've hit your limit · resets 2pm (UTC)"],"usedUpWindow":{"window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z","resetGiven":true}},"resetsInSeconds":60}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-stand-in-choice-2","text":"Implement the Task whose turn its engine refuses, its context over the size asked first above"}}
+{"step":"wait","mark":"stand-in-choices-refused"}
+{"step":"event","event":{"kind":"rate-limit","status":"rejected","window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"usage-window-used-up","consumedMessageIds":["brief-stand-in-choice-2"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":["You've hit your limit · resets 2pm (UTC)"],"usedUpWindow":{"window":"five-hour","resetsAt":"2026-11-13T14:00:00.000Z","resetGiven":true}},"resetsInSeconds":60}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-stand-in-chosen-1","text":"Implement the Task again on the Stand-in Engine the user chose"}}
+{"step":"event","event":{"kind":"text","text":"The export keeps its columns and totals now.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-stand-in-chosen-1"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"The export keeps its columns and totals.","handoverNote":"The columns and totals are kept in the export.","definitionOfDoneMet":[1]},"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-stand-in-chosen-2","text":"Implement the Task again on the Stand-in Engine the user chose"}}
+{"step":"event","event":{"kind":"text","text":"The export keeps its columns and totals now.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-stand-in-chosen-2"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"The export keeps its columns and totals.","handoverNote":"The columns and totals are kept in the export.","definitionOfDoneMet":[1]},"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
 {"step":"end"}

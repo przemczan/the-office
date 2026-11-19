@@ -30,6 +30,24 @@ export interface UsageWindowRefusal {
   readonly engineName: string;
   readonly window: string;
   readonly resetsAt: Date;
+  /**
+   * Set when the Stage waits for the user's choice of a Stand-in Engine (spec 5.4), which The
+   * Office's own Decision asks, so no separate Task paused Notification is raised.
+   */
+  readonly awaitsStandInChoice?: true;
+}
+
+/**
+ * A Stand-in Engine a running Stage went on on in place of the cascade's engine `engineId` (spec
+ * 5.4), each by its id and its name, with why in full and in short.
+ */
+export interface StandInTakingOver {
+  readonly engineId: string;
+  readonly engineName: string;
+  readonly standInId: string;
+  readonly standInName: string;
+  readonly reason: string;
+  readonly short: string;
 }
 
 /** A Task another waits for, as the walk names it. */
@@ -87,6 +105,13 @@ export abstract class StartedTasks {
    * Stage isn't asked to pause: the Stage runner ends the run held itself.
    */
   abstract pauseForUsageWindow(taskId: string, refusal: UsageWindowRefusal): Promise<StartedTask>;
+
+  /**
+   * A running Stage of the Task went on on a Stand-in Engine: the Task's Stand-in Engines name it for
+   * the cascade's engine from now on, so the run's later Stages open on it; the next Start chooses
+   * them afresh.
+   */
+  abstract wentOnOnStandIn(taskId: string, standIn: StandInTakingOver): Promise<unknown>;
 
   /** Resumes a Paused Task, as the user's Resume does. */
   abstract resume(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask>;

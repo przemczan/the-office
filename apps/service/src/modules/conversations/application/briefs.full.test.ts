@@ -16,7 +16,7 @@ import {
   type BriefProject,
 } from "../domain/brief.js";
 import { TurnEnded } from "../domain/conversation-events.js";
-import type { Decision } from "../domain/decision.js";
+import { oneOptionAnswer, oneWordsAnswer, type Decision } from "../domain/decision.js";
 import { aDecision } from "../domain/decision.fixtures.js";
 import type { Thread } from "../domain/thread.js";
 import { logMessages } from "../domain/thread-changes.js";
@@ -101,6 +101,9 @@ beforeAll(async () => {
     setUp: ({ taskId }: TaskThreadRequest) =>
       Promise.resolve({
         projectId: "admin-panel",
+        initiativeId: undefined,
+        projectName: "Admin panel",
+        pipelineName: "",
         folder: `/office/worktrees/admin-panel/${taskId}`,
         environment: {},
         useProjectSkills: true,
@@ -233,20 +236,24 @@ describe("Briefs", () => {
     const first = aDecision({
       threadId: another.id,
       taskId,
-      answer: { kind: "option", option: 1, answeredAt },
+      answer: { ...oneOptionAnswer(1), answeredAt },
     });
     const second = aDecision({
       threadId: planning.id,
       taskId,
-      question: "Which format?",
-      answer: { kind: "free-answer", text: "CSV.", answeredAt: new Date(answeredAt.getTime() + 1) },
+      questions: [{ kind: "open", question: "Which format?" }],
+      answer: { ...oneWordsAnswer("CSV."), answeredAt: new Date(answeredAt.getTime() + 1) },
     });
-    const open = aDecision({ threadId: planning.id, taskId, question: "Which columns?" });
+    const open = aDecision({
+      threadId: planning.id,
+      taskId,
+      questions: [{ kind: "open", question: "Which columns?" }],
+    });
     const elsewhere = aDecision({
       threadId: (
         await added(aThread({ id: randomUUID(), home: { kind: "task", taskId: randomUUID() } }))
       ).id,
-      answer: { kind: "option", option: 0, answeredAt },
+      answer: { ...oneOptionAnswer(0), answeredAt },
     });
     await added(planning);
     await added(another);

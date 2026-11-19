@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { lstat, readFile, rm, stat } from "node:fs/promises";
+import { lstat, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -108,6 +108,7 @@ describe.skipIf(missing !== undefined)(
         worktree,
         // A main checkout's, inside the worktree: no git folder to mount, as none exists here.
         repositoryGitFolder: join(worktree, ".git"),
+        stageRunsFolder: join(testbed.folder, "stage-runs", taskId),
         installCommand: "echo installed",
         installInputs: ["package-lock.json"],
         installVariables: [],
@@ -134,6 +135,7 @@ describe.skipIf(missing !== undefined)(
           "--path-format=absolute",
           "--git-common-dir",
         ).trim(),
+        stageRunsFolder: join(testbed.folder, "stage-runs", taskId),
         installCommand: "apk add --no-cache git",
         installInputs: ["package-lock.json"],
         installVariables: [],
@@ -201,6 +203,30 @@ describe.skipIf(missing !== undefined)(
       expect(commit.output).toMatch(/Read-only file system/);
       expect(gitIn(task.worktree, "rev-parse", "HEAD")).toBe(head);
     });
+
+    it("reads the Stage runs' file written after it started, and can't write there", async () => {
+      await testbed.environments.remove("task-4");
+      const task = await aTask("task-5");
+      await registry.run(task, aCommand("true"));
+      const file = join(task.stageRunsFolder, "stage-runs.json");
+      await writeFile(file, '{"version":1}');
+
+      const reads = await registry.run(
+        task,
+        aCommand('cat "$STAGE_RUNS" && ! echo changed > "$STAGE_RUNS"', {
+          environment: {
+            set: [{ name: "STAGE_RUNS", value: file, secret: false }],
+            unset: [],
+            prependPath: [],
+          },
+          readsStageRuns: true,
+        }),
+      );
+
+      expect(reads).toMatchObject({ outcome: "passed" });
+      expect(reads.output).toContain('{"version":1}');
+      expect(await readFile(file, "utf8")).toBe('{"version":1}');
+    });
   },
 );
 
@@ -251,6 +277,7 @@ describe.skipIf(missing !== undefined)(
         projectId: "shop",
         worktree,
         repositoryGitFolder: join(worktree, ".git"),
+        stageRunsFolder: join(testbed.folder, "stage-runs", "task-1"),
         installCommand: "echo installed",
         installInputs: ["package-lock.json"],
         installVariables: [],
@@ -289,6 +316,7 @@ describe.skipIf(missing !== undefined)(
           "--path-format=absolute",
           "--git-common-dir",
         ).trim(),
+        stageRunsFolder: join(testbed.folder, "stage-runs", "task-2"),
         installCommand: "apk add --no-cache git",
         installInputs: ["package-lock.json"],
         installVariables: [],

@@ -1,10 +1,13 @@
-import { StageRunEnded, StageRunStarted } from "./stage-run-events.js";
+import { engineSwitchWords } from "./stage-history-words.js";
+import { StageRunEngineSwitched, StageRunEnded, StageRunStarted } from "./stage-run-events.js";
 import {
   NO_STAGE_TOKENS,
   type CarriedFailure,
+  type EngineSwitch,
   type SentBack,
   type StageOutcome,
   type StageRun,
+  type StageRunStandIn,
 } from "./stage-run.js";
 
 export interface NewStageRun {
@@ -32,7 +35,10 @@ export function startStageRun(
     engineId: undefined,
     engineName: undefined,
     model: undefined,
+    standInFor: undefined,
+    engineSwitches: [],
     headCommit: undefined,
+    changedFiles: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     context: undefined,
@@ -59,5 +65,53 @@ export function endStageRun(
   return {
     run: { ...run, outcome, endedAt, waitingSince: undefined },
     event: new StageRunEnded(run.taskId, run.id, run.stageKey, outcome.status),
+  };
+}
+
+/** An engine as a run records it: its id and its name at the time. */
+export interface NamedEngine {
+  readonly engineId: string;
+  readonly engineName: string;
+}
+
+/**
+ * The run's session went on on the Stand-in Engine `to`, as `from` refused its turn for a used-up
+ * window (spec 5.4): the switch the run appends, what the run's engine now stands in for (the
+ * cascade's engine, `cascade`, why given as the switch's words), and the event that announces it.
+ */
+export function engineSwitched(
+  run: Pick<StageRun, "id" | "taskId" | "stageKey">,
+  {
+    from,
+    to,
+    cascade,
+    windowWords,
+    resetsAt,
+  }: {
+    readonly from: NamedEngine;
+    readonly to: NamedEngine;
+    readonly cascade: NamedEngine;
+    readonly windowWords: string;
+    readonly resetsAt: Date;
+  },
+  at: Date,
+): {
+  readonly engineSwitch: EngineSwitch;
+  readonly standInFor: StageRunStandIn;
+  readonly event: StageRunEngineSwitched;
+} {
+  const engineSwitch: EngineSwitch = {
+    fromEngineId: from.engineId,
+    fromEngineName: from.engineName,
+    toEngineId: to.engineId,
+    toEngineName: to.engineName,
+    windowWords,
+    resetsAt: resetsAt.toISOString(),
+    at: at.toISOString(),
+  };
+  return {
+    engineSwitch,
+    standInFor: { ...cascade, reason: engineSwitchWords(engineSwitch) },
+    event: new StageRunEngineSwitched(run.taskId, run.id, run.stageKey, from.engineId, to.engineId),
   };
 }

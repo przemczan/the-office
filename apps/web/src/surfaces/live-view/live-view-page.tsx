@@ -12,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 import { liveViewQueries } from "../../api/live-view.ts";
+import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
@@ -38,6 +39,8 @@ export function LiveViewPage(): ReactNode {
   const roles = useQuery(roleQueries.list());
   const tasks = useQuery(taskQueries.list());
   const initiatives = useQuery(initiativeQueries.list());
+  // While the fire alarm is on, the floor is empty; kept fresh by its sounded and all clear events.
+  const alarmOn = (useQuery(nowQueries.now()).data?.fireAlarm ?? null) !== null;
   // Asleep, "New" and the light turn on the minute.
   const now = useClock(MINUTE_MS);
   const narrow = useNarrowPage();
@@ -60,7 +63,7 @@ export function LiveViewPage(): ReactNode {
   const names = useMemo(() => personNamesOf(people), [people]);
   const light = useMemo(() => lightAt(now, zone), [now, zone]);
   const lookStates = useMemo(() => lookStatesOf(people, now, light), [people, now, light]);
-  const summary = summaryWords(people, light, lookStates);
+  const summary = summaryWords(people, light, lookStates, alarmOn);
   usePageHeading({
     title: "Live view",
     crumb: people.length === 1 ? "1 person" : `${people.length} people`,
@@ -102,8 +105,8 @@ export function LiveViewPage(): ReactNode {
   // The stage's first `apply` lays out the floor, so it waits for the people: applied before they
   // load, everyone would walk in as a hire once they do.
   useEffect(() => {
-    if (loaded) floor.stage?.apply(loaded, now);
-  }, [floor.stage, loaded, now]);
+    if (loaded) floor.stage?.apply(loaded, now, alarmOn);
+  }, [floor.stage, loaded, now, alarmOn]);
   // What each idle person is doing: where the floor put them, or before it has, what they picked.
   const doings = floor.view?.doings;
   const shown = useMemo(

@@ -37,8 +37,9 @@ import {
   type Idea,
   type Initiative,
   type InitiativePauseAnswer,
-  type InitiativePipelineChoice,
+  type InitiativePipelinesChange,
   type IdeaEdit,
+  type MarkReadyRequest,
   type NewIdea,
   type NewInitiativeTask,
   type NewLink,
@@ -54,7 +55,6 @@ import {
   type Readiness,
   type ReadyTasksStarted,
   type SavedView,
-  type ShortNameChange,
   type QueuedTask,
   type StartAnswer,
   type StartCheck,
@@ -408,6 +408,14 @@ export function planInitiative(id: string, autoMode: boolean): Promise<Initiativ
 }
 
 /**
+ * Plan with…: a new planning Thread with whoever holds Plans, who waits for the user's first
+ * message on how to plan the Initiative, with auto mode off and the remembered default unchanged.
+ */
+export function planInitiativeWith(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/plan-with`, {}, initiativeSchema);
+}
+
+/**
  * Start Ready Tasks: the normal Start on each of the Initiative's Ready Tasks, an Overlap queued
  * behind; what started, what was queued and what was refused.
  */
@@ -454,20 +462,15 @@ export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promi
 }
 
 /**
- * The Initiative's Pipeline in one Project it spans, an office-wide Pipeline, one of that Project's
- * own or None (null), chosen while it is being shaped.
+ * The Initiative's Pipelines block saved as a whole while it is being shaped: each Project's
+ * Pipeline, an office-wide one, one of that Project's own or None (null), and the Short name its
+ * branch is named by.
  */
-export function chooseInitiativePipeline(
+export function setInitiativePipelines(
   id: string,
-  choice: InitiativePipelineChoice,
+  change: InitiativePipelinesChange,
 ): Promise<Initiative> {
-  return sendToApi("PUT", `${initiativePath(id)}/pipeline`, choice, initiativeSchema);
-}
-
-/** The Short name its branches are named by, edited while it is being shaped with a Pipeline. */
-export function writeShortName(id: string, shortName: string): Promise<Initiative> {
-  const change: ShortNameChange = { shortName };
-  return sendToApi("PUT", `${initiativePath(id)}/short-name`, change, initiativeSchema);
+  return sendToApi("PUT", `${initiativePath(id)}/pipelines`, change, initiativeSchema);
 }
 
 /**
@@ -585,9 +588,12 @@ export function takeOutOfInitiative(initiativeId: string, taskId: string): Promi
   return callOfficeAction(TAKE_OUT_OF_INITIATIVE_ACTION, { initiativeId, taskId });
 }
 
-/** Refused with the reasons until the Plan and the Definition of Done are confirmed. */
-export function markReady(id: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/ready`, {}, taskSchema);
+/**
+ * Refused with the reasons until the Plan and the Definition of Done are confirmed, unless the
+ * request confirms them as they stand; a Pipeline and no open Decision are needed either way.
+ */
+export function markReady(id: string, request: MarkReadyRequest = {}): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/ready`, request, taskSchema);
 }
 
 /**
@@ -736,6 +742,7 @@ export const workEventInvalidations: Readonly<
   "initiative.state-changed": () => [INITIATIVES],
   "initiative.outcome-written": () => [INITIATIVES],
   "initiative.pipeline-chosen": () => [INITIATIVES],
+  "initiative.pipelines-set": () => [INITIATIVES],
   "initiative.short-name-written": () => [INITIATIVES],
   "initiative.branch-made": () => [INITIATIVES],
   "initiative.archived": () => [INITIATIVES],
@@ -756,6 +763,7 @@ export const workEventInvalidations: Readonly<
   "task.paused": () => [TASKS],
   "task.stopped": () => [TASKS],
   "task.resumed": () => [TASKS],
+  "task.went-on-on-stand-in": () => [TASKS],
   "task.queued": () => [TASKS],
   "task.left-queue": () => [TASKS],
   "task.queue-reasons-changed": () => [TASKS],

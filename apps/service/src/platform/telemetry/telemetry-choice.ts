@@ -1,4 +1,10 @@
-import type { SavedTelemetryChoice, TelemetryChoice, TelemetryHeader } from "@the-office/contracts";
+import type {
+  OwnGrafana,
+  SavedOwnGrafana,
+  SavedTelemetryChoice,
+  TelemetryChoice,
+  TelemetryHeader,
+} from "@the-office/contracts";
 
 // An HTTP header name is a token (RFC 9110 §5.6.2).
 const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
@@ -13,14 +19,16 @@ export type ChoiceToSave =
 /**
  * Checks the choice the user sent and makes it the one to save: an own endpoint must be an http
  * or https URL and its headers valid; `headers` left out keeps the saved ones, and a header sent
- * with an empty value keeps the saved value of the header of that name.
+ * with an empty value keeps the saved value of the header of that name. Its Grafana, kept alike:
+ * left out keeps the saved one, `null` removes it, and an empty read token keeps the saved token.
  */
 export function choiceToSave(
   sent: TelemetryChoice,
   saved: TelemetryChoice | undefined,
 ): ChoiceToSave {
   if (sent.kind !== "own-endpoint") return { choice: sent };
-  const savedHeaders = saved?.kind === "own-endpoint" ? (saved.headers ?? []) : [];
+  const savedOwn = saved?.kind === "own-endpoint" ? saved : undefined;
+  const savedHeaders = savedOwn?.headers ?? [];
   const endpoint = sent.endpoint.trim();
   const problems: string[] = [];
   if (!isHttpUrl(endpoint)) {
@@ -57,6 +65,12 @@ export function choiceToSave(
       headers.push({ name, value });
     }
   }
+  const grafana =
+    sent.grafana === undefined
+      ? savedOwn?.grafana
+      : sent.grafana === null
+        ? undefined
+        : grafanaToSave(sent.grafana, savedOwn?.grafana ?? undefined, problems);
   if (problems.length > 0) return { problems };
   return {
     choice: {
@@ -66,11 +80,39 @@ export function choiceToSave(
       ...(sent.timeoutMilliseconds !== undefined && {
         timeoutMilliseconds: sent.timeoutMilliseconds,
       }),
+      ...(grafana && { grafana }),
     },
   };
 }
 
-/** The saved choice as the browser may see it: its headers by name, never their values. */
+/**
+ * The own Grafana to save, adding why it can't be to `problems`: its read address an http or https
+ * URL, kept without a trailing `/`; its read token, when sent empty, the saved one.
+ */
+function grafanaToSave(
+  sent: OwnGrafana,
+  saved: OwnGrafana | undefined,
+  problems: string[],
+): OwnGrafana | undefined {
+  const readAddress = sent.readAddress.trim().replace(/\/+$/, "");
+  const before = problems.length;
+  if (!isHttpUrl(readAddress)) {
+    problems.push(
+      "The Grafana read address must be an http:// or https:// address, such as https://grafana.example.com.",
+    );
+  }
+  const readToken = sent.readToken?.trim() || saved?.readToken;
+  if (readToken !== undefined && HEADER_VALUE_BREAK.test(readToken)) {
+    problems.push("The read token can't hold a line break.");
+  }
+  if (problems.length > before) return undefined;
+  return { readAddress, ...(readToken !== undefined && { readToken }) };
+}
+
+/**
+ * The saved choice as the browser may see it: its headers by name, never their values, and its
+ * Grafana's read address with whether a read token is saved, never the token.
+ */
 export function savedChoiceOf(saved: TelemetryChoice | undefined): SavedTelemetryChoice {
   if (saved === undefined) return { kind: "off" };
   if (saved.kind !== "own-endpoint") return saved;
@@ -81,7 +123,12 @@ export function savedChoiceOf(saved: TelemetryChoice | undefined): SavedTelemetr
     ...(saved.timeoutMilliseconds !== undefined && {
       timeoutMilliseconds: saved.timeoutMilliseconds,
     }),
+    ...(saved.grafana && { grafana: savedGrafanaOf(saved.grafana) }),
   };
+}
+
+function savedGrafanaOf(grafana: OwnGrafana): SavedOwnGrafana {
+  return { readAddress: grafana.readAddress, hasReadToken: Boolean(grafana.readToken) };
 }
 
 function isHttpUrl(text: string): boolean {

@@ -47,7 +47,10 @@ export type StageOutcome = (
       readonly definitionOfDoneOutOfReach?: readonly OutOfReachStatement[];
       /** The pull request a Publish opened. Undefined on runs stored before it was kept. */
       readonly pullRequestUrl?: string;
-      /** Set on an optional Stage's run recorded as skipped, which ran nothing. */
+      /**
+       * Set on a run recorded as skipped, which ran nothing: an optional Stage's, as the previous
+       * release recorded them.
+       */
       readonly skipped?: true;
     }
   | ({ readonly status: "needs-decision" } & StageDecision)
@@ -113,8 +116,51 @@ export interface RefusedTurn {
   readonly engineName: string;
   /** The used-up window as the user reads it, such as "5-hour window". */
   readonly windowWords: string;
+  /**
+   * The used-up window by the engine module's name for it, such as `five_hour`; undefined for runs
+   * held before it was kept.
+   */
+  readonly window?: string;
   /** When the window resets, as an ISO time: the run is kept as JSON. */
   readonly resetsAt: string;
+  /**
+   * Set when a Stand-in Engine had room but the session's context was over the size Settings ›
+   * Engines asks first above (spec 5.4): the run waits for the user's choice of going on there or
+   * waiting for the reset.
+   */
+  readonly standInChoice?: StandInChoice;
+}
+
+/** The Stand-in Engine a held run could go on on, and why The Office asks first. */
+export interface StandInChoice {
+  /** The Stand-in Engine with room, by its id and its name at the time. */
+  readonly engineId: string;
+  readonly engineName: string;
+  /** The session's context when its turn was refused, in tokens. */
+  readonly contextTokens: number;
+  /** The size above which Settings › Engines asks before a switch, in tokens. */
+  readonly askAbove: number;
+}
+
+/**
+ * A run's session moved to a Stand-in Engine as its engine refused a turn for a used-up usage
+ * window (spec 5.4): from which engine to which, each by its id and its name at the time, the
+ * window's words, its reset as an ISO time, and when it moved.
+ */
+export interface EngineSwitch {
+  readonly fromEngineId: string;
+  readonly fromEngineName: string;
+  readonly toEngineId: string;
+  readonly toEngineName: string;
+  /** The used-up window as the user reads it, such as "5-hour window". */
+  readonly windowWords: string;
+  readonly resetsAt: string;
+  readonly at: string;
+  /**
+   * The user who chose the switch for a run held waiting for their choice (spec 5.4), recorded on
+   * that held run; undefined for a switch The Office made by itself while the run ran.
+   */
+  readonly chosenBy?: HoldingUser;
 }
 
 /**
@@ -250,7 +296,8 @@ export interface SentBack {
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
  * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), a Publish
  * that found the Task's branch no longer applies cleanly on the base branch, a branch moved
- * outside The Office, or a Publish that shipped but whose after publishing line failed.
+ * outside The Office, a Publish that shipped but whose after publishing line failed, or no route
+ * out of an ended Stage holding.
  */
 export type StageDecisionKind =
   | "agent"
@@ -260,7 +307,8 @@ export type StageDecisionKind =
   | "restart"
   | "base-moved"
   | "branch-moved"
-  | "after-publishing-failed";
+  | "after-publishing-failed"
+  | "no-route-holds";
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =
@@ -287,6 +335,11 @@ export type WalkAnswer =
   | { readonly kind: "resolved-in-worktree" }
   /** The Stage runs from the branch as it is now, guided by the user's words, if any. */
   | { readonly kind: "keep-branch"; readonly guidance: string | undefined }
+  /**
+   * The walk follows the route to `to` (null: the Pipeline's End) though none held, with the
+   * user's notes for the Stage it goes on to, if any.
+   */
+  | { readonly kind: "follow-route"; readonly to: string | null; readonly guidance?: string }
   | { readonly kind: "drop" };
 
 /**
@@ -302,6 +355,16 @@ interface RunDecisionFields {
   readonly options: readonly WalkAnswer[];
   /** Undefined while it waits on the user. */
   readonly answer: WalkAnswer | undefined;
+}
+
+/**
+ * The cascade's engine a run's Stand-in Engine ran for: its id, its name as the Task's Start
+ * recorded it, and why the stand-in was chosen.
+ */
+export interface StageRunStandIn {
+  readonly engineId: string;
+  readonly engineName: string;
+  readonly reason: string;
 }
 
 /** The Agent's own question, whose answer goes with its Stage's next run. */
@@ -346,6 +409,13 @@ export interface StageRun {
    * Stage expects HEAD there. Undefined for a run that leaves git as it was.
    */
   readonly headCommit: string | undefined;
+  /**
+   * The paths of the commit The Office made of the run's work, against its first parent, both
+   * paths of a rename; none for a run that ended with nothing committed, a base update not being
+   * its own change. Undefined until The Office records where the run left the branch, and for runs
+   * kept before this was recorded.
+   */
+  readonly changedFiles: readonly string[] | undefined;
   /** The Project commands The Office ran for the run, in order; none when it ran none. */
   readonly commandRuns: readonly StageCommandRun[];
   /**
@@ -356,6 +426,17 @@ export interface StageRun {
   readonly engineId: string | undefined;
   readonly engineName: string | undefined;
   readonly model: string | undefined;
+  /**
+   * The cascade's engine the run's engine stood in for, as a Stand-in Engine the Task's Start chose
+   * (spec §5.4); undefined for a run on the cascade's own engine, one that opened no session, and
+   * runs kept before it was recorded.
+   */
+  readonly standInFor: StageRunStandIn | undefined;
+  /**
+   * Each time its session moved to a Stand-in Engine during the run, in order; `engineId` is the
+   * engine it moved to last. None for a run that stayed on one engine.
+   */
+  readonly engineSwitches: readonly EngineSwitch[];
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;
   /**

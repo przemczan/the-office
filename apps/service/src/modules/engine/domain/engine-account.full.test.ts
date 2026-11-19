@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { engineAccountOf, EngineAccountUnreadable } from "./engine-account.js";
+import {
+  codexEngineAccountOf,
+  engineAccountOf,
+  EngineAccountUnreadable,
+} from "./engine-account.js";
 
 /** What the 2.1.310 binary printed for an empty folder, as task 47's step 1e read it. */
 const SIGNED_OUT = JSON.stringify({
@@ -22,6 +26,7 @@ describe("an engine's account, read from `claude auth status --json`", () => {
     expect(engineAccountOf(JSON.stringify(status), false)).toEqual({
       signedIn: true,
       pastedToken: false,
+      apiKey: false,
       email: "ada@example.com",
       plan: "max",
     });
@@ -33,6 +38,7 @@ describe("an engine's account, read from `claude auth status --json`", () => {
     expect(engineAccountOf(JSON.stringify(status), false)).toEqual({
       signedIn: true,
       pastedToken: false,
+      apiKey: false,
       email: undefined,
       plan: undefined,
     });
@@ -44,6 +50,7 @@ describe("an engine's account, read from `claude auth status --json`", () => {
     expect(engineAccountOf(JSON.stringify(status), true)).toEqual({
       signedIn: true,
       pastedToken: true,
+      apiKey: false,
       email: undefined,
       plan: undefined,
     });
@@ -57,5 +64,48 @@ describe("an engine's account, read from `claude auth status --json`", () => {
       ),
     );
     expect(() => engineAccountOf("", false)).toThrow("Claude Code gave no account status.");
+  });
+});
+
+describe("a Codex engine's account, read from the app-server's `account/read`", () => {
+  it("is signed out with no account", () => {
+    expect(codexEngineAccountOf(null)).toEqual({ signedIn: false });
+  });
+
+  it("tells an API key signs it in, with no email or plan", () => {
+    expect(codexEngineAccountOf({ type: "apiKey" })).toEqual({
+      signedIn: true,
+      pastedToken: false,
+      apiKey: true,
+      email: undefined,
+      plan: undefined,
+    });
+  });
+
+  it("gives a ChatGPT login's email and plan, leaving out what it doesn't tell", () => {
+    expect(
+      codexEngineAccountOf({ type: "chatgpt", email: "ada@example.com", planType: "plus" }),
+    ).toEqual({
+      signedIn: true,
+      pastedToken: false,
+      apiKey: false,
+      email: "ada@example.com",
+      plan: "plus",
+    });
+    expect(codexEngineAccountOf({ type: "chatgpt", email: null })).toMatchObject({
+      signedIn: true,
+      email: undefined,
+      plan: undefined,
+    });
+  });
+
+  it("is signed in by a kind of login it doesn't know, telling nothing more", () => {
+    expect(codexEngineAccountOf({ type: "amazonBedrock" })).toEqual({
+      signedIn: true,
+      pastedToken: false,
+      apiKey: false,
+      email: undefined,
+      plan: undefined,
+    });
   });
 });
