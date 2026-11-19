@@ -1,6 +1,6 @@
 # Engine check
 
-What The Office relies on in the engine, checked against live sessions on the pinned versions: the skills mechanism of [spec §5.6](spec/5.6-skills-per-session.md), the permission build rules of [§6](spec/6-permissions-and-safety.md) and the engine behaviours of [§5.4](spec/5.4-the-engine.md), on the Claude Code and Codex engines and on the GitHub Copilot CLI, a proposed Copilot engine. The check lives in [tools/engine-check](../tools/engine-check); each entry below names the check id it shares with `tools/engine-check/expectations.json`, where the observed facts are recorded per platform.
+What The Office relies on in the engine, checked against live sessions on the pinned versions: the skills mechanism of [spec §5.6](spec/5.6-skills-per-session.md), the permission build rules of [§6](spec/6-permissions-and-safety.md) and the engine behaviours of [§5.4](spec/5.4-the-engine.md), on the Claude Code, Codex and Copilot CLI engines. The check lives in [tools/engine-check](../tools/engine-check); each entry below names the check id it shares with `tools/engine-check/expectations.json`, where the observed facts are recorded per platform.
 
 ## When to run
 
@@ -28,7 +28,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Model for the Codex checks | `gpt-6-luna` at `low` effort (`CODEX_CHECK_MODEL` in `tools/engine-check/src/codex/options.ts`), the cheapest `model/list` shows: no `-mini` model is listed |
 | `@microsoft/copilot-sdk` | 2.0.1 (exact pin in `tools/engine-check/package.json`) |
 | The Copilot CLI runtime, bundled by the SDK | 1.0.114 (in `@microsoft/copilot-sdk-<platform>`; `copilotCliVersion` in the SDK's `package.json`) |
-| Model for the Copilot checks | `gpt-5-mini` (`COPILOT_CHECK_MODEL` in `tools/engine-check/src/copilot-cli/options.ts`), a 0× premium-request model on Copilot's paid plans |
+| Model for the Copilot checks | `gpt-5-mini` (`COPILOT_CHECK_MODEL` in `tools/engine-check/src/copilot-cli/options.ts`), a 0× premium-request model on Copilot's paid plans; the 2026-11-19 run named none, and Auto ran `mai-code-2-flash` ([Runs](#runs)) |
 
 ## Runs
 
@@ -37,7 +37,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 - **Recorded on both:** every `skills.*`, `permissions.*`, `engine.*` and `fallback.*` check but those below. Results differ between the platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 - **Recorded on one:** `permissions.powershell-twin` runs on Windows only. `skills.overrides-library` and the `codex.*` checks are recorded on Linux only, the Codex checks on `gpt-6-luna` with a ChatGPT sign-in (Free plan) in a folder made for the check; a full Codex run takes about 3 minutes and about 80k input, 1k output and 390k cache-read tokens.
 - **Not recorded on either:** `skills.skill-command`, `permissions.devcontainer`, `engine.long-office-tool`, `engine.usage-window-refusal`, `engine.session-carry-over`, `engine.usage-read-alone`, `engine.lsp-tool`, `engine.background-tasks`, `engine.foreground-sub-agents`, `engine.api-key-sign-in`, `fallback.long-office-tool`, `fallback.usage-window-refusal`, `fallback.session-carry-over`, `fallback.background-tasks`, `fallback.foreground-sub-agents` and `codex.usage-read-alone`. Each needs a signed-in machine, and some more (their entries say what); a run reports them `unrecorded`.
-- **The `copilot.*` checks are recorded on neither platform yet:** there was no Copilot token where the Task that added them ran. A run on 2026-11-19 on Linux (the Office's machine) without a token skipped all 18.
+- **The `copilot.*` checks were run on Linux only, on 2026-11-19, and not recorded in `expectations.json`:** the check's code as it stands can't run them, so the run patched two things for itself alone. The client ran in `mode: "coding-agent"`, since the SDK refuses a session in `mode: "empty"` that names no `tools.availableTools`; and no model was named, since the account (a fine-grained token with "Copilot Requests") lists no models and the runtime refuses any model named, so Auto ran `mai-code-2-flash`. Each **Observed** below is from that run, about 1.1M input and 3k output tokens in 5.5 minutes, every check answering. Fixing the check's options and recording it, on Windows too, is the Copilot CLI adapter's Task.
 
 ## How a check runs
 
@@ -486,7 +486,7 @@ Each check records facts that hold run to run, and gives each step a turn of its
 
 ## GitHub Copilot CLI
 
-What a Copilot engine would rest on, on the pinned `@microsoft/copilot-sdk` and the Copilot CLI runtime it bundles. There is no Copilot engine in the spec yet; the [proposed amendment](#proposed-amendment-to-spec-54) below is for the next Task, with the user. A `copilot.*` check starts one runtime process per session (`copilot-cli/copilot-session.ts`), the SDK speaking JSON-RPC over the runtime's stdio (`RuntimeConnection.forSpawnedStdio`):
+What the Copilot CLI engine ([spec §5.4](spec/5.4-the-engine.md#defaults), "The Copilot CLI engine") rests on, on the pinned `@microsoft/copilot-sdk` and the Copilot CLI runtime it bundles; the [spec amendments](#spec-amendments) below are what the spec took from it. A `copilot.*` check starts one runtime process per session (`copilot-cli/copilot-session.ts`), the SDK speaking JSON-RPC over the runtime's stdio (`RuntimeConnection.forSpawnedStdio`):
 
 - the client in `mode: "empty"`, `COPILOT_HOME` (the connection's `baseDirectory`) a folder inside the check's sandbox shared by the check's sessions, so a resume finds its session; signed in with `github.token` from `COPILOT_GITHUB_TOKEN` and `useLoggedInUser: false`, so no keychain or `gh` sign-in is read; a check is skipped when the run has no token;
 - the environment above without `COPILOT*`, `GH_*` and `GITHUB_*` variables, plus `COPILOT_TELEMETRY_DISABLED=true`;
@@ -498,123 +498,119 @@ What a Copilot engine would rest on, on the pinned `@microsoft/copilot-sdk` and 
 
 **Why this route:** the SDK drives the CLI's own server mode, with a long-lived session, streamed typed events, `send` with `mode: "immediate"` or `"enqueue"` while a turn runs, `abort()`, `resumeSession`, hooks in the host's process that can refuse a call before it runs, custom tools answered in the host's process, MCP servers per session, skill folders and `responseSchema`. `copilot -p` takes one prompt per process. ACP (`copilot --acp`) gives the host no pre-tool hook of its own.
 
-Each check records facts that hold run to run, never model text. None has been run yet: each **Observed** below waits for a run with a token, and **Documented** is what the pinned SDK's README says, not an observation.
+Each check records facts that hold run to run, never model text. Each **Observed** below is from the run on Linux on 2026-11-19 ([Runs](#runs)), and **Documented** is what the pinned SDK's README says, not an observation.
 
 ### copilot.start
 
 - **Run:** a session on the Office's options; the runtime's status, the sign-in and the model list; one turn asking for `READY`. No tool.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the runtime and `session.start` name the pinned 1.0.114, the sign-in type, whether the account lists `gpt-5-mini`, the model `assistant.usage` names, whether deltas stream, and the kinds of event.
+- **Observed:** on Linux, 2026-11-19: the runtime and `session.start` name the pinned 1.0.114; signed in by `token`; deltas stream and the turn answers `READY`. The account lists no models (`listModels` empty, so `gpt-5-mini` isn't listed), and a session naming any model, `gpt-5-mini` or the one Auto picked, fails its turn with `Model "…" is not available`; with no model named the runtime's auto mode (`session.auto_mode_resolved`) ran `mai-code-2-flash`, which `assistant.usage` names. Events include `assistant.usage`, `session.usage_info`, `session.usage_checkpoint`, `session.skills_loaded`, `session.mcp_servers_loaded`, `session.tools_updated` and the `hook.start`/`hook.end` pairs.
 
 ### copilot.hook-refusal
 
 - **Run:** one turn asking for a file `refused.txt`; `onPreToolUse` refuses any call naming it, with a reason; the model is told not to try another way.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the hook saw the write, with which tool and input fields, whether the file was written, whether the call started, whether the reason reaches the tool's result and the model's answer, whether a permission request or a post hook came for it, and whether the model retried.
+- **Observed:** on Linux, 2026-11-19: **a refusal stops the call before it runs.** The hook saw the write as a `bash` call (`command`, `description`), refused it, and `refused.txt` was not written. The runtime emitted `tool.execution_start` for it before the hook was called; the call then ended with `Denied by preToolUse hook: <reason>` (`code: "denied"`), the reason reached the tool's result and the model's answer, no permission request and no post hook came for it, and the model didn't retry another way.
 - **Documented:** `onPreToolUse` is "called before each tool execution" and answers `allow`, `deny` or `ask`, with arguments it may change.
 
 ### copilot.hook-sees-every-call
 
 - **Run:** seven turns, one call each: a shell command, a file read, a file created, a file edited, a search, the stand-in MCP server's tool and an Office tool.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the tools the hook saw and those that ran, whether every run was hooked first (by tool-call id), each tool's input fields, the kinds of permission request beside the hook, whether the MCP server's process ran the call, and the post hooks.
+- **Observed:** on Linux, 2026-11-19: the hook saw every call that ran, by its tool-call id: `bash`, `view`, `apply_patch` (the file created and the one edited), `rg`, the MCP tool as `project-tools-read_code_word` and the Office tool `office_status`; the MCP server's process ran its call. Each `tool.execution_start` comes just before its `preToolUse` call, so the check's "hooked first" reads false although no call ran unhooked. Input fields: `bash` `command`, `description`; `view` `path`; `rg` `pattern`, `paths`, `output_mode`, `-n`; `apply_patch`, the MCP and the Office tool none the hook sees as fields. No permission request came; `postToolUse` came after each.
 - **Documented:** `onPostToolUse` does not fire for a failed call; `onPostToolUseFailure` does.
 
 ### copilot.hook-after-resume
 
 - **Run:** a turn, the session closed with its process; a new process resumes it by id, and the hook refuses a write of `after-resume.txt`.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the session id, whether the hook saw the write, and whether the file was written.
+- **Observed:** on Linux, 2026-11-19: the session id is kept, the hook registered on the resume saw the write and refused it, and the file was not written.
 
 ### copilot.tools
 
 - **Run:** a repository holding `AGENTS.md`, `.github/copilot-instructions.md`, an agent under `.github/agents/`, `.github/mcp.json` and `.vscode/mcp.json`, and a config folder holding `mcp-config.json` and an agent; one session on the lean options, one with discovery and instructions on, each listing agents, MCP servers and skills and asked for the code words; then a session whose `availableTools` holds only the read tool and the shell, asked to create a file.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the built-in tools for the check model, what each session loaded, and, under `availableTools`, the tools offered, run and hooked, and whether the file was written.
+- **Observed:** on Linux, 2026-11-19: `tools.list` for the check model gives `bash`, `create`, `edit`, `glob`, `grep`, `list_agents`, `list_bash`, `read_agent`, `read_bash`, `skill`, `stop_bash`, `task`, `view`, `web_fetch`, `write_agent`; no LSP tool. The lean session loaded no agents, skills, `AGENTS.md` or `.github/copilot-instructions.md`, but did load the config folder's MCP server (`home-config`); with discovery and instructions on it loaded both instruction files and the agents of the repository and of the config folder (`reviewer`, `home-reviewer`), and still only `home-config` of the MCP servers. Under `availableTools: [bash, view]` the session was offered and hooked only those, and wrote the file through `bash`.
 
 ### copilot.mcp-servers
 
 - **Run:** a session with the stand-in MCP server and two Office tools; one turn calling the MCP tool, one calling `office_status`; then a turn calling a slow Office tool, with a message sent `mode: "immediate"` while its handler runs, answered 2 s later.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the server's process ran the call, the hook saw it by its runtime name, the server's status and both answers read; and whether the barge-in landed before the slow tool's result and the answer reads both.
+- **Observed:** on Linux, 2026-11-19: the server connected, its process ran the call, the hook saw it by its runtime name, and both answers were read. The barge-in sent during the slow Office tool landed after the tool's result, not before it, and was read in the same turn (one idle).
 
 ### copilot.resume
 
 - **Run:** a turn asked to remember a word; the session closed with its process; a new process, `resumeSession`, a turn asking for the word.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the word is remembered, the id kept, files written under the config folder, and the session listed by the client.
+- **Observed:** on Linux, 2026-11-19: the word is remembered, the session id is kept, its files are under the config folder (`session-state/`), and the client lists the session.
 
 ### copilot.priority-next, copilot.priority-later
 
 - **Run:** a turn running `sleep 4` twice, as separate shell calls; while the first runs, a message sent with `mode: "immediate"` (`next`) or `"enqueue"` (`later`).
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records where the message landed (before or after the second call, after the turn, or not delivered), how many idles came, whether the second call ran, and whether the answer holds the word asked for.
+- **Observed:** on Linux, 2026-11-19: `immediate` (`next`) landed before the turn's second call; `enqueue` (`later`) after it, at the turn's end. In both one idle came, the second call ran, and the answer holds the word.
 - **Documented:** `send` takes `mode?: "enqueue" | "immediate"`; with a `responseSchema`, `immediate` is refused, and ordinary immediate steering joins the running turn's schema.
 
 ### copilot.interrupt
 
 - **Run (Linux):** a turn running `sh -c 'echo $$ > pid.txt; exec sleep 120'` in the foreground, so the id written is the sleep's own and not the shell tool's; `abort()` once it is written; 2 s later, whether that process still runs; then a turn on the same session.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the session went idle within 30 s, an `abort` event came, the command still runs, and the next turn answered.
+- **Observed:** on Linux, 2026-11-19: the session went idle within 30 s, an `abort` event came, the command no longer ran 2 s later, and the next turn answered.
 - **Documented:** `abort()` aborts "the currently processing message"; the README says nothing of a running command.
 
 ### copilot.images
 
 - **Run:** a 64×64 red PNG, sent as a blob (its bytes in the message) in one session and as a file attachment in another, asking for its colour.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether each answer names red.
+- **Observed:** on Linux, 2026-11-19: both answers name red.
 - **Documented:** images attach by a file path, which the runtime reads, or as base64 in a blob.
 
 ### copilot.skills
 
 - **Run:** a skill in a folder the Office names, one under the repository's `.github/skills/`, one under `.claude/skills/` and one under the config folder's `skills/`; a session on the lean options with the named folder, one with discovery on, and one with skills off.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records each session's skills by name and source, and whether any is enabled with skills off.
+- **Observed:** on Linux, 2026-11-19: the lean session lists the named folder's skill (`custom`) and the runtime's bundled `customize-cloud-agent`, `github-pr-media` and `pr-stack` (`builtin`); with discovery on, the repository's (`.github/skills/` and `.claude/skills/`, `project`) and the config folder's (`personal-copilot`) too; with skills off, none.
 
 ### copilot.skill-command
 
 - **Run:** a skill `code-word` in the named folder, its body asking for a word; one turn sending `/code-word`.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether the skill is listed, user-invocable and under which command name, the `skill.invoked` events, and whether the answer follows the body.
+- **Observed:** on Linux, 2026-11-19: the skill is listed and user-invocable as `code-word`; `/code-word` invoked it and the answer holds its word.
 
 ### copilot.sub-agents
 
 - **Run:** a turn asking for a search delegated to a Sub-agent; a session with `includedBuiltinAgents: []`; a session whose hook refuses the tool that starts a Sub-agent.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the built-in agents with and without the default set, the Sub-agents started and the tool that starts them, whether the hook saw that call and the Sub-agent's own calls, and whether a refusal kept the Sub-agent from starting.
+- **Observed:** on Linux, 2026-11-19: the built-in agents are `code-review`, `explore`, `general-purpose`, `research`, `rubber-duck`, `security-review` and `task`, none with `includedBuiltinAgents: []`. The model started `explore` and `task` through the `task` tool, whose call the hook saw; **both Sub-agents failed at once with `400 The requested model is not supported`**, so none made a call, and whether a Sub-agent's own calls reach the hook is still unknown. Refusing the `task` call kept the Sub-agent from starting.
 - **Documented:** `onSubagentStart` and `onSubagentStop` hooks observe a Sub-agent. The check tells a Sub-agent's calls apart by the hook input's `agentId`.
 
 ### copilot.background-tasks
 
 - **Run (Linux):** a turn asking for `sleep 30` in the background; then a session whose hook refuses a shell call whose input asks for the background.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the shell call's input fields and those choosing the background, whether `session.background_tasks_changed` came, the task list's count, and the same after the refusal.
+- **Observed:** on Linux, 2026-11-19: the shell call's input has `command`, `description`, `detach` and `mode`, the background chosen by `detach: true` and `mode: "async"`; `session.background_tasks_changed` came and the task list held one. The hook refused such a call: no event, no task.
 
 ### copilot.output-schema
 
 - **Run:** a turn under `responseSchema` (`{answer: integer}`, asking 19 + 23); then, as a stand-in, a turn answering through an Office tool marked `isTerminal` whose parameters are the schema.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records whether `responseSchema` is taken (else the error's kind), whether the answer parses to exactly `{answer: 42}`, and whether the submit tool was called with it and the turn ended after it.
+- **Observed:** on Linux, 2026-11-19: `responseSchema` is taken natively, the answer parses to exactly `{answer: 42}`; the terminal submit tool was called with matching arguments and the turn ended after it.
 - **Documented:** structured output is a preview that "requires a runtime build with `responseFormat`"; the schema holds for the whole run, tool calls included, and is not kept on resume.
 
 ### copilot.sign-in
 
 - **Run:** a session signed in with the token; the files the config folder gained; whether any file there holds the token (the token itself never recorded); `~/.copilot` before and after.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the sign-in type, the new entries in the config folder, whether the token is in it, and whether `~/.copilot` was created or changed.
+- **Observed:** on Linux, 2026-11-19: signed in by `token`; the config folder gained `installed-plugins`, `logs` and `session-state`, none holding the token; `~/.copilot` didn't exist before and wasn't made.
 - **Documented:** `baseDirectory` sets `COPILOT_HOME`, `~/.copilot` when unset; `useLoggedInUser` is false when `github.token` is given.
 
 ### copilot.usage
 
 - **Run:** one turn running `git status --short`; then the session's quota, the account's quota and the session's usage metrics.
-- **Observed:** Not yet recorded: needs a run with `COPILOT_GITHUB_TOKEN`. It records the fields of `assistant.usage` and its `copilotUsage`, of `session.usage_info`, whether `session.quota_observation` came, the quota snapshots by name and their fields, the metrics' fields, and the tokens rounded to 10k.
+- **Observed:** on Linux, 2026-11-19: `assistant.usage` gives `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `reasoningTokens`, `cost`, `copilotUsage` (`tokenDetails`, `totalNanoAiu`), `quotaSnapshots` and the model, among others; `session.usage_info` gives `currentTokens`, `tokenLimit`, `systemTokens`, `toolDefinitionsTokens` and `conversationTokens`. No `session.quota_observation` came. The session's quota has a `chat` snapshot, the account's `chat`, `completions` and `premium_interactions`, each with `entitlementRequests`, `usedRequests`, `remainingPercentage`, `resetDateEpochMs`, overage fields and `isUnlimitedEntitlement`; the metrics add `totalPremiumRequestCost` and per-model metrics. The turn counted about 40k input tokens.
 
-### Proposed amendment to spec §5.4
+### Spec amendments
 
-A proposal for the next Task, with the user; nothing here is in the spec. **Whether a call can be refused before it runs (`copilot.hook-refusal`) is documented by the SDK but not yet observed.** The Initiative's gate holds until a run with a token records it: if the run shows a refusal doesn't stop the call, the Initiative stops and goes back to the user.
+What the spec took from these checks, each with the date the user agreed it.
 
-- **Route:** a **Copilot** engine in Settings › Engines is one GitHub account with Copilot. Its sessions run the Copilot CLI runtime bundled by the pinned `@microsoft/copilot-sdk`, one runtime process per session over stdio, `COPILOT_HOME` its own folder, `<office-data>/engines/<engine id>/`, signed in with the engine's token (`useLoggedInUser: false`); nothing else of the user's (`~/.copilot`, `COPILOT*`, `GH_*` and `GITHUB_*` variables) reaches it. Sessions start with config discovery, custom instructions, the cross-session store, telemetry and the co-author trailer off.
-- **`bargeIn`:** documented by the SDK; to be confirmed by `copilot.priority-next` (`mode: "immediate"`) and, at an Office tool's end, `copilot.mcp-servers`. `later` as `mode: "enqueue"`, by `copilot.priority-later`.
-- **`interrupt`:** documented by the SDK (`abort()`); to be confirmed by `copilot.interrupt`, which also shows whether a running command ends with it.
-- **`resume`:** documented by the SDK (`resumeSession`); to be confirmed by `copilot.resume`, the hooks registered again by `copilot.hook-after-resume`.
-- **`usageWindows`:** no, by decision: Copilot counts premium requests per month, not usage windows. `copilot.usage` shows what quota reads there are.
-- **`contextUsage`:** to confirm by `copilot.usage` (`session.usage_info`).
-- **`officeTools`:** documented by the SDK (tools answered in the host's process); to be confirmed by `copilot.mcp-servers` and `copilot.hook-sees-every-call`.
-- **`outputSchema`:** documented by the SDK as a preview (`responseSchema`); to be confirmed by `copilot.output-schema`, with a terminal submit tool as the stand-in if it isn't taken.
-- **`languageServers`:** to confirm by `copilot.tools`' built-in list; no, unless it holds an LSP tool.
-- **`carrySession`:** no, as on the Codex engine: a session resumes only on the engine whose folder holds it.
-- **The Office rules:** `onPreToolUse` judges every call, as the hook does on Claude Code; documented by the SDK; to be confirmed by `copilot.hook-refusal`, `copilot.hook-sees-every-call` and `copilot.hook-after-resume`. `permissions.onRequest` answers what the hook allowed.
-- **Sub-agents:** to confirm by `copilot.sub-agents`: whether their calls reach the hook, and whether refusing the tool that starts one keeps it from starting.
-- **Background commands:** to confirm by `copilot.background-tasks`, whether the hook can refuse a shell call asking for the background.
-- **Skills:** documented by the SDK (`skills.directories`); to be confirmed by `copilot.skills` (only the named folders load) and `copilot.skill-command` (`/<name>` runs one).
-- **Images:** documented by the SDK (blob and file attachments); to be confirmed by `copilot.images`.
-- **MCP servers:** documented by the SDK (per session); to be confirmed by `copilot.mcp-servers`, the Role's servers named in the session's options and judged by the hook under `<server>-<tool>`; `copilot.tools` confirms a Project's `.github/mcp.json` and `.vscode/mcp.json` stay out.
-- **Sign-in and the config folder:** documented by the SDK; to be confirmed by `copilot.sign-in`: the token signs the runtime in, stays out of the folder, and `~/.copilot` is untouched.
-- **Tokens and premium requests:** tokens from `assistant.usage`, to be confirmed by `copilot.usage`, which also shows the fields `copilotUsage` and the quota reads give for pricing premium requests.
+| Agreed | Spec | Amendment | From |
+|---|---|---|---|
+| 2026-11-19 | §5.4 Engine kinds, Versions are pinned | A new engine kind, **Copilot CLI**, one GitHub account with Copilot, on the Copilot CLI runtime that the pinned `@microsoft/copilot-sdk` bundles, through the SDK, one runtime process per session; not `copilot -p` (one prompt per process) nor ACP (no hook before a tool runs) | `copilot.start`, the route above |
+| 2026-11-19 | §5.4 Engines are a list | The Copilot CLI engine's folder, `<office-data>/engines/<engine id>/` as `COPILOT_HOME`; Sign in by GitHub's device flow; Paste a token instead, a fine-grained token with "Copilot Requests", kept in the database and given only as the SDK's `github.token`; Sign out; what it shows | `copilot.sign-in`, `copilot.start` |
+| 2026-11-19 | §5.4 Engines are a list | Its models are what the runtime lists and **Auto**, its default model | `copilot.start`: the account listed none and the runtime refused any model named |
+| 2026-11-19 | §5.4 The Copilot CLI engine | The Office rules judge every tool call in `onPreToolUse` before it runs; a refusal is `deny` with the reason; how the runtime's tools map onto the tools the rules judge; an unmapped tool is refused | `copilot.hook-refusal`, `copilot.hook-sees-every-call`, `copilot.hook-after-resume`, `copilot.background-tasks`, `copilot.tools` |
+| 2026-11-19 | §5.4 The Copilot CLI engine, MCP servers for Agents | Office tools as SDK tools in the service's process; the Role's MCP servers in the session's `mcp.servers` | `copilot.mcp-servers`, `copilot.tools` |
+| 2026-11-19 | §5.4 The Copilot CLI engine | Config discovery, custom instructions, the cross-session store, telemetry and the co-author trailer off; the runtime's own folder and bundled skills kept out | `copilot.tools`, `copilot.skills` |
+| 2026-11-19 | §5.4 The Copilot CLI engine, A Stage's Sub-agents | No Sub-agents until the check sees their own calls reach the hook | `copilot.sub-agents` |
+| 2026-11-19 | §5.4 The Copilot CLI engine | Capabilities: `bargeIn`, `interrupt`, `resume`, `contextUsage`, `officeTools`, `outputSchema` yes; `languageServers` no; images yes; any Role | `copilot.priority-next`, `copilot.priority-later`, `copilot.mcp-servers`, `copilot.interrupt`, `copilot.resume`, `copilot.usage`, `copilot.output-schema`, `copilot.tools`, `copilot.images` |
+| 2026-11-19 | §5.4, §2.11, §5.2, GLOSSARY Usage window | `usageWindows` no, by decision: no Window caps and no readings of the usage windows; the premium-request quota left for later | the user's decision; `copilot.usage` shows the quota reads there are |
+| 2026-11-19 | §5.4 Native features used, §2.11, §5.2, GLOSSARY Model price | Cost priced by Model prices, one per engine and model, as on the OpenAI-compatible API engines; the runtime's own cost unused; "no cost" with no price | the user's decision |
+| 2026-11-19 | §5.4 Stand-in Engines, The Copilot CLI engine | `carrySession` no: a session resumes only on the engine whose folder holds it | the user's decision; `copilot.resume` |
+| 2026-11-19 | §2.4, §5.1, §5.6, §6, §8, the spec's README | The Copilot CLI engine named where they list the engine kinds | the amendments above |
 
 ## The OpenAI-compatible API
 
@@ -643,4 +639,4 @@ Seen while running the checks, recorded so a bump can be compared against them.
 - On the `-p` fallback: priority `now` (not used), a hook that answers too late or with an error status rather than not at all, and whether the Skill tool asks for permission without the `Skill(…)` rule.
 - Which engine-owned paths outside the worktree, other than the auto-memory folder, the engine auto-allows writes to. The hook fences writes regardless.
 - Whether `forkSession` resumes read the parent's cache, a non-child process posting into a session's inbox on Windows, concurrency limits beyond three sessions and how cache reads count against plan quota, `projectConfigRoot` and `CLAUDE_SECURESTORAGE_CONFIG_DIR`. The Office uses none of them.
-- On the Copilot CLI: every `copilot.*` check, on both platforms, until a run is given a token; Windows at all (`copilot.interrupt` and `copilot.background-tasks` run on Linux only); BYOK providers, cloud sessions, Autopilot, the in-process (FFI) runtime connection, managed settings and `copilot --acp`.
+- On the Copilot CLI: a recorded run of the `copilot.*` checks on the check's own options (see [Runs](#runs)); whether a Sub-agent's own calls reach the hook, as the account couldn't run the Sub-agents' model; GitHub's device-flow sign-in and where the runtime keeps it; a named model on an account that lists models; Windows at all (`copilot.interrupt` and `copilot.background-tasks` run on Linux only); BYOK providers, cloud sessions, Autopilot, the in-process (FFI) runtime connection, managed settings and `copilot --acp`.

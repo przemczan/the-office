@@ -114,7 +114,7 @@ Where each default lives:
 - A Stage names a Role or a duty: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The holder of Asked first on failures: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - Office actions: [5.4 The engine](5.4-the-engine.md#defaults)
-- The OpenAI-compatible API engine, the Codex engine, engines as a list, the engine cascade, removing an engine: [5.4 The engine](5.4-the-engine.md#defaults)
+- The OpenAI-compatible API engine, the Codex engine, the Copilot CLI engine, engines as a list, the engine cascade, removing an engine: [5.4 The engine](5.4-the-engine.md#defaults)
 - MCP servers and language servers for Agents: [5.4 The engine](5.4-the-engine.md#defaults)
 - Stand-in Engines: [5.4 The engine](5.4-the-engine.md#defaults)
 - Users is its own module: [5.3 Modules](5.3-modules.md#defaults)
