@@ -14,6 +14,7 @@ import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
+import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { FireAlarmLiftsController } from "./adapters/http/fire-alarm-lifts.controller.js";
@@ -34,6 +35,7 @@ import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js"
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { ThreadHistoryOfficeTool } from "./adapters/office-tools/thread-history-office-tool.js";
 import { ConversationsEarlierRecords } from "./adapters/postgres/conversations-earlier-records.js";
+import { ConversationsPromptTemplates } from "./adapters/prompt-templates/conversations-prompt-templates.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresOfficeInstructionsRepository } from "./adapters/postgres/postgres-office-instructions-repository.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
@@ -128,6 +130,7 @@ export class ConversationsModule implements NestModule {
         SkillsModule,
         McpServersModule,
         BusyWorkModule,
+        PromptTemplatesModule,
         // Times how long a session takes to start (SessionStartWatch).
         ScheduleModule,
       ],
@@ -208,6 +211,7 @@ export class ConversationsModule implements NestModule {
         MemoryOfficeTools,
         ThreadHistory,
         ThreadHistoryOfficeTool,
+        ConversationsPromptTemplates,
         ConversationsEarlierRecords,
         ThreadWebEvents,
         LiveViewWebEvents,

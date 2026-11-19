@@ -93,6 +93,7 @@ import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-rep
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
 
 /** The Role holding Onboards and repairs Projects by default. */
 const DEVOPS = "devops";
@@ -177,6 +178,7 @@ async function startOn(
   ({ app } = await startTestApplication({
     database: true,
     imports: [
+      ConversationsPromptTemplatesForTests,
       EventsModule,
       ScheduleModule,
       BusyWorkModule,

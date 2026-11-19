@@ -57,7 +57,6 @@ import {
   CONSULT_TOOL,
   CREATE_INITIATIVE_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
-  HANDOVER_REQUEST,
   POST_LINK_CARD_TOOL,
   READ_REPOSITORY_TOOL,
 } from "../domain/session-instructions.js";
@@ -137,6 +136,13 @@ import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postg
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import type { UserRef } from "../domain/user.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
+import { CHAT_INSTRUCTIONS, HANDOVER_REQUEST } from "../domain/session-instruction-templates.js";
 
 /** Who holds each duty: their default Roles, until a test moves one. */
 let duties: DutiesStandIn;
@@ -156,6 +162,8 @@ const WINDOW = 1_000_000;
 
 let app: INestApplication;
 let engine: ScriptedEngine;
+/** The prompt templates' saved texts, the test's own, as a test saving a real template's text needs. */
+let promptTexts: PromptTemplateRepositoryForTests;
 let officeData: string;
 /** Each card version of the Planner's Role, from 1, under a key of this test's own. */
 let versions: Card[];
@@ -270,6 +278,7 @@ async function startOn(
   api?: ApiEngineOnFakeServer,
 ): Promise<void> {
   engine = new ScriptedEngine(scripts);
+  promptTexts = new PromptTemplateRepositoryForTests();
   forgotten = [];
   prepared = [];
   mcpServers = sessionMcpServersStandIn(mcpServersOnStart, mcpServersOnResume);
@@ -300,6 +309,7 @@ async function startOn(
   ({ app } = await startTestApplication({
     database: true,
     imports: [
+      ConversationsPromptTemplatesForTests,
       EventsModule,
       ScheduleModule,
       EventStreamModule,
@@ -362,6 +372,7 @@ async function startOn(
       DecisionOfficeTools,
     ],
     overrides: [
+      { provide: PromptTemplateRepository, useValue: promptTexts },
       signedInWithGitHubForTests(GITHUB_USER_TOKEN),
       ...(api === undefined ? [] : [listing(api)]),
     ],
@@ -663,6 +674,28 @@ describe("a new Thread's first message", () => {
         full: false,
       },
     });
+  });
+});
+
+describe("a chat's instructions", () => {
+  it("come from the chat instructions' saved text as a new session starts", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    await app
+      .get(PromptTemplates)
+      .save(
+        CHAT_INSTRUCTIONS.key,
+        "{{personInstructions}}\n\nAnswer in one sentence.{{#onboardsProjects}} Onboard.{{/onboardsProjects}}",
+        ANN_LEE,
+      );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello", ANN_LEE);
+    await answered(thread.id, 3);
+
+    const instructions = engine.sessions[0]?.options.instructions;
+    expect(instructions).toMatch(/^You are Jan, the Planner in The Office/);
+    expect(instructions).toMatch(/\n\nAnswer in one sentence\.$/);
+    expect(instructions).not.toContain("In your chat you read and answer");
   });
 });
 
@@ -3760,7 +3793,7 @@ describe("near the context limit", () => {
 
     const [full] = engine.sessions;
     const request = full?.received.find((step) => step.step === "send");
-    expect(request?.step === "send" && request.message.text).toBe(HANDOVER_REQUEST);
+    expect(request?.step === "send" && request.message.text).toBe(HANDOVER_REQUEST.text);
     expect(drafts(log).at(-1)).toEqual({
       kind: "handover-note",
       roleKey,

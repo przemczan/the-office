@@ -112,6 +112,7 @@ import {
   ANOTHER_SIGNED_IN_FOR_TESTS,
   signedInAs,
 } from "../../../../platform/http/signed-in-requests.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../prompt-templates/conversations-prompt-templates.fixtures.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -247,6 +248,7 @@ function setUpEachTest(): void {
     ({ app, url } = await startTestApplication({
       database: true,
       imports: [
+        ConversationsPromptTemplatesForTests,
         EventsModule,
         ScheduleModule,
         BusyWorkModule,

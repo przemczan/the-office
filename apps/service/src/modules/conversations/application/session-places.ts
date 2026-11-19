@@ -2,17 +2,21 @@ import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { CARETAKER, Duties } from "../../people/index.js";
+import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import type { Brief } from "../domain/brief.js";
 import { canCall } from "../domain/consult.js";
 import {
-  ALLOW_CHANGES_ADVICE,
   caretakerChatInstructions,
-  caretakerChatOfficeTools,
-  chatOfficeTools,
   chatInstructions,
   consultationInstructions,
-  consultationOfficeTools,
+  SESSION_INSTRUCTION_TEMPLATES,
   workThreadInstructions,
+} from "../domain/session-instruction-templates.js";
+import {
+  ALLOW_CHANGES_ADVICE,
+  caretakerChatOfficeTools,
+  chatOfficeTools,
+  consultationOfficeTools,
   type HeldDuties,
   type SessionPerson,
 } from "../domain/session-instructions.js";
@@ -88,8 +92,13 @@ export interface SessionMetric {
 /** A session on no Project nor Pipeline: a chat's, or an Initiative's, which spans Projects. */
 const NO_PROJECT_METRIC: SessionMetric = { "office.project": "", "office.pipeline": "" };
 
-/** A session's place as its home sets it up, before the duties its person holds. */
-type HomePlace = Omit<SessionPlace, "heldDuties">;
+/**
+ * A session's place as its home sets it up, before the duties its person holds and the texts its
+ * instructions render with.
+ */
+type HomePlace = Omit<SessionPlace, "heldDuties" | "instructions"> & {
+  instructions(prompts: PromptTexts, person: SessionPerson): string;
+};
 
 /** Where a session that only reads Projects' checkouts works. */
 type ReadingPlace = Pick<
@@ -119,19 +128,28 @@ export class SessionPlaces {
     private readonly chains: CallChains,
     private readonly duties: Duties,
     private readonly tools: OfficeToolRegistry,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /**
    * Every Thread the user talks to a person in also gets the Office actions' tools their held
-   * duties cover (spec 5.4); a Stage's Thread does its Stage's work only, so gets none.
+   * duties cover (spec 5.4); a Stage's Thread does its Stage's work only, so gets none. Its
+   * instructions render with the templates' texts as they are now, so a resumed session gets the
+   * current text too.
    */
   async of(thread: Thread): Promise<SessionPlace> {
     const held = await this.duties.heldBy(thread.roleKey);
     const home = await this.homePlace(thread, held);
+    const prompts = await this.promptTemplates.textsOf(SESSION_INSTRUCTION_TEMPLATES);
     const actionTools = thread.stageThread
       ? []
       : this.tools.coveredBy(held).filter((name) => !home.officeTools.includes(name));
-    return { ...home, officeTools: [...home.officeTools, ...actionTools], heldDuties: held };
+    return {
+      ...home,
+      officeTools: [...home.officeTools, ...actionTools],
+      heldDuties: held,
+      instructions: (person) => home.instructions(prompts, person),
+    };
   }
 
   private async homePlace(thread: Thread, held: HeldDuties): Promise<HomePlace> {
@@ -166,8 +184,8 @@ export class SessionPlaces {
         : {
             officeTools: setup.officeTools,
             callsCanWait: !setup.asking,
-            instructions: (person: SessionPerson) =>
-              workThreadInstructions(person, setup.instructions),
+            instructions: (prompts: PromptTexts, person: SessionPerson) =>
+              workThreadInstructions(prompts, person, setup.instructions),
           }),
     };
   }
@@ -226,12 +244,12 @@ export class SessionPlaces {
   private async consultationTools(
     thread: Thread,
     held: HeldDuties,
-  ): Promise<Pick<SessionPlace, "officeTools" | "callsCanWait" | "instructions">> {
+  ): Promise<Pick<HomePlace, "officeTools" | "callsCanWait" | "instructions">> {
     const canCallMore = canCall(await this.chains.ofCaller(thread));
     return {
       officeTools: consultationOfficeTools(held, canCallMore),
       callsCanWait: false,
-      instructions: (person) => consultationInstructions(person, canCallMore),
+      instructions: (prompts, person) => consultationInstructions(prompts, person, canCallMore),
     };
   }
 
@@ -264,7 +282,7 @@ export class SessionPlaces {
       workstation: false,
       readsEngineTranscripts: false,
       refusalAdvice: undefined,
-      instructions: (person) => chatInstructions(person, held),
+      instructions: (prompts, person) => chatInstructions(prompts, person, held),
     };
   }
 
@@ -278,7 +296,7 @@ export class SessionPlaces {
         workstation: false,
         readsEngineTranscripts: true,
         refusalAdvice: ALLOW_CHANGES_ADVICE,
-        instructions: (person) => caretakerChatInstructions(person, false),
+        instructions: (prompts, person) => caretakerChatInstructions(prompts, person, false),
       };
     }
     return {
@@ -290,7 +308,7 @@ export class SessionPlaces {
       workstation: true,
       readsEngineTranscripts: true,
       refusalAdvice: undefined,
-      instructions: (person) => caretakerChatInstructions(person, true),
+      instructions: (prompts, person) => caretakerChatInstructions(prompts, person, true),
       ready: () => Promise.resolve(),
     };
   }
@@ -319,7 +337,8 @@ export class SessionPlaces {
       brief: await this.briefs.forInitiativeThread(thread, setup),
       span: { "office.initiative": initiativeId },
       metric: NO_PROJECT_METRIC,
-      instructions: (person) => workThreadInstructions(person, setup.instructions),
+      instructions: (prompts, person) =>
+        workThreadInstructions(prompts, person, setup.instructions),
     };
   }
 

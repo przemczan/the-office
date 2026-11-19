@@ -31,6 +31,17 @@ import {
 } from "./initiative-thread-setups.js";
 import { sessionMemoryProvider, type MemoryAsk } from "./session-memory.fixtures.js";
 import { TaskThreadSetups, type TaskThreadRequest } from "./task-thread-setups.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
+import { defaultPromptTexts, PromptTemplates } from "../../prompt-templates/index.js";
+import { CONVERSATIONS_PROMPT_TEMPLATES } from "../domain/conversations-prompt-templates.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
+import { TASK_THREAD_BRIEF } from "../domain/brief-templates.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
+
+const PROMPTS = defaultPromptTexts(CONVERSATIONS_PROMPT_TEMPLATES);
 
 const ADMIN_PANEL: BriefProject = {
   projectId: "admin-panel",
@@ -70,7 +81,12 @@ beforeAll(async () => {
     },
   };
   ({ app } = await startTestApplication({
+    imports: [ConversationsPromptTemplatesForTests],
     database: true,
+    // The test saves a real template's text, which every other test file would read.
+    overrides: [
+      { provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() },
+    ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: ProjectBases, useValue: bases },
@@ -140,7 +156,7 @@ const A_SESSION = {
 describe("Briefs", () => {
   it("briefs a Thread nobody answered in yet as a new one", async () => {
     await expect(briefs.forThread(aThread({ id: randomUUID() }))).resolves.toEqual(
-      newChatThreadBrief(PROJECTS, MEMORY),
+      newChatThreadBrief(PROMPTS, PROJECTS, MEMORY),
     );
   });
 
@@ -156,7 +172,7 @@ describe("Briefs", () => {
     );
 
     await expect(briefs.forThread(titled)).resolves.toEqual(
-      freshChatThreadBrief({
+      freshChatThreadBrief(PROMPTS, {
         title: "Read the deploy workflow",
         log: [said],
         projects: PROJECTS,
@@ -185,11 +201,31 @@ describe("Briefs", () => {
     const record = { record: recordOf(taskId), answered: [], open: undefined, memory: MEMORY };
 
     await expect(briefs.forThread(aThread({ home }))).resolves.toEqual(
-      taskThreadBrief({ ...record, continuing: false }),
+      taskThreadBrief(PROMPTS, { ...record, continuing: false }),
     );
     await expect(briefs.forThread(aThread({ home, session: A_SESSION }))).resolves.toEqual(
-      taskThreadBrief({ ...record, continuing: true }),
+      taskThreadBrief(PROMPTS, { ...record, continuing: true }),
     );
+  });
+
+  it("briefs a Thread on a Task in the Task Thread's Brief's saved text", async () => {
+    const taskId = randomUUID();
+    const templates = app.get(PromptTemplates);
+    await templates.save(
+      TASK_THREAD_BRIEF.key,
+      "{{record}}\n\nAsk before you start.{{#memory}}\n\n{{memory}}{{/memory}}",
+      ANN_LEE,
+    );
+
+    try {
+      const brief = await briefs.forThread(aThread({ home: { kind: "task", taskId } }));
+
+      expect(brief.text).toBe(
+        `${recordOf(taskId)}\n\nAsk before you start.\n\n## Your Memory\n\nNotes you wrote in earlier sessions, oldest first:\n\n- 2026-10-10: Prefers short answers.\n\n1 older note left out.`,
+      );
+    } finally {
+      await templates.resetToDefault(TASK_THREAD_BRIEF.key, ANN_LEE);
+    }
   });
 
   it("briefs a Thread on an Initiative from its record, the Memory for no Project and every Project", async () => {
@@ -199,11 +235,11 @@ describe("Briefs", () => {
     const record = { record: recordOf(initiativeId), memory: MEMORY, projects: PROJECTS };
 
     await expect(briefs.forThread(aThread({ roleKey: "cto", home }))).resolves.toEqual(
-      initiativeThreadBrief({ ...record, continuing: false }),
+      initiativeThreadBrief(PROMPTS, { ...record, continuing: false }),
     );
     await expect(
       briefs.forThread(aThread({ roleKey: "cto", home, session: A_SESSION })),
-    ).resolves.toEqual(initiativeThreadBrief({ ...record, continuing: true }));
+    ).resolves.toEqual(initiativeThreadBrief(PROMPTS, { ...record, continuing: true }));
     expect(asked).toEqual([
       { roleKey: "cto", reach: { kind: "all-projects" } },
       { roleKey: "cto", reach: { kind: "all-projects" } },
@@ -217,7 +253,7 @@ describe("Briefs", () => {
     const home = { kind: "initiative", initiativeId } as const;
 
     await expect(briefs.forThread(aThread({ roleKey: "cto", home }))).resolves.toEqual(
-      initiativeThreadBrief({
+      initiativeThreadBrief(PROMPTS, {
         record: recordOf(initiativeId),
         memory: MEMORY,
         projects: ON_THE_BRANCH,
@@ -263,7 +299,7 @@ describe("Briefs", () => {
 
     expect(thread?.openDecisions[0]).toEqual(open);
     await expect(briefs.forThread(thread ?? planning)).resolves.toEqual(
-      taskThreadBrief({
+      taskThreadBrief(PROMPTS, {
         record: recordOf(taskId),
         continuing: false,
         answered: [first, second],

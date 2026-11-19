@@ -13,14 +13,11 @@ import {
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
-  caretakerChatInstructions,
   CHAT_OFFICE_TOOLS,
   CREATE_INITIATIVE_TOOL,
-  chatInstructions,
   chatOfficeTools,
   CONSULT_TOOL,
   consultationOfficeTools,
-  consultationInstructions,
   LIST_PIPELINES_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
   LIST_STAGE_TEMPLATES_TOOL,
@@ -40,10 +37,19 @@ import {
   READ_STAGE_HISTORY_TOOL,
   roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
-  workThreadInstructions,
   type HeldDuties,
   WRITING_FOR_THE_USER_RULE,
 } from "./session-instructions.js";
+import { defaultPromptTexts } from "../../prompt-templates/index.js";
+import { CONVERSATIONS_PROMPT_TEMPLATES } from "./conversations-prompt-templates.js";
+import {
+  caretakerChatInstructions,
+  chatInstructions,
+  consultationInstructions,
+  workThreadInstructions,
+} from "./session-instruction-templates.js";
+
+const PROMPTS = defaultPromptTexts(CONVERSATIONS_PROMPT_TEMPLATES);
 
 /** The duties each default Role holds while nobody moved them; the Caretaker holds none. */
 const OFFICE_MANAGER: HeldDuties = ["default-person-to-talk-to"];
@@ -60,14 +66,14 @@ describe("chatInstructions", () => {
   };
 
   it("tells Devops to read a repository that is not a Project yet only with its tool", () => {
-    expect(chatInstructions(nina, DEVOPS)).toContain(
+    expect(chatInstructions(PROMPTS, nina, DEVOPS)).toContain(
       `Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}`,
     );
-    expect(chatInstructions(nina, PLANNER)).not.toContain(READ_REPOSITORY_TOOL);
+    expect(chatInstructions(PROMPTS, nina, PLANNER)).not.toContain(READ_REPOSITORY_TOOL);
   });
 
   it("tells Devops to onboard a repository on a host by its Repository URL", () => {
-    expect(chatInstructions(nina, DEVOPS)).toContain(
+    expect(chatInstructions(PROMPTS, nina, DEVOPS)).toContain(
       "onboarded by that URL: The Office clones it when the user applies the Proposal.",
     );
   });
@@ -87,31 +93,31 @@ describe("the Office instructions in a session's standing instructions", () => {
     {
       kind: "a chat",
       standing: (officeInstructions: string) =>
-        chatInstructions({ card, officeInstructions }, DEVELOPER),
+        chatInstructions(PROMPTS, { card, officeInstructions }, DEVELOPER),
       theRest: "In your chat you read and answer",
     },
     {
       kind: "the Caretaker's chat, only reading",
       standing: (officeInstructions: string) =>
-        caretakerChatInstructions({ card, officeInstructions }, false),
+        caretakerChatInstructions(PROMPTS, { card, officeInstructions }, false),
       theRest: "This Thread only reads until the user allows changes",
     },
     {
       kind: "the Caretaker's chat with changes allowed",
       standing: (officeInstructions: string) =>
-        caretakerChatInstructions({ card, officeInstructions }, true),
+        caretakerChatInstructions(PROMPTS, { card, officeInstructions }, true),
       theRest: "The user allowed changes in this Thread",
     },
     {
       kind: "a Task or Initiative Thread, or an Agent Stage",
       standing: (officeInstructions: string) =>
-        workThreadInstructions({ card, officeInstructions }, "You work a Stage."),
+        workThreadInstructions(PROMPTS, { card, officeInstructions }, "You work a Stage."),
       theRest: "You work a Stage.",
     },
     {
       kind: "a Consultation",
       standing: (officeInstructions: string) =>
-        consultationInstructions({ card, officeInstructions }, true),
+        consultationInstructions(PROMPTS, { card, officeInstructions }, true),
       theRest: "You are in a Consultation",
     },
   ])("in $kind", ({ standing, theRest }) => {

@@ -16,6 +16,11 @@ import { SessionPlaces } from "./session-places.js";
 import { stageThreadTelemetry } from "./stage-threads.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 import { threadTelemetry } from "./thread-runner.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
 
 const TASK = "11111111-1111-4111-8111-111111111111";
 const INITIATIVE = "22222222-2222-4222-8222-222222222222";
@@ -49,6 +54,11 @@ function taskSetup(): TaskThreadSetup {
 
 beforeAll(async () => {
   ({ app } = await startTestApplication({
+    imports: [ConversationsPromptTemplatesForTests],
+    // No database: the templates render their defaults.
+    overrides: [
+      { provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() },
+    ],
     providers: [
       SessionPlaces,
       TaskThreadSetups,

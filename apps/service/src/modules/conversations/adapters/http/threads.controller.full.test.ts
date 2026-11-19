@@ -109,6 +109,7 @@ import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-
 import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../prompt-templates/conversations-prompt-templates.fixtures.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -227,6 +228,7 @@ function setUpEachTest(): void {
     ({ app, url } = await startTestApplication({
       database: true,
       imports: [
+        ConversationsPromptTemplatesForTests,
         EventsModule,
         ScheduleModule,
         BusyWorkModule,
