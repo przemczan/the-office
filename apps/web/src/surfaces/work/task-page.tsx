@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
-import { Badge, Tabs, Tooltip } from "@the-office/ui";
+import { Badge, Skeleton, Tabs, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
-import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
+import { BlockLoader, type BlockRead } from "../../shell/block-loader.tsx";
+import { useEveryPipelineRead } from "../../shell/pipelines/use-pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries, taskQueries } from "../../api/work.ts";
 import { stoppedAtCurrentStage } from "./stage-rail-words.ts";
@@ -27,7 +28,7 @@ import { ArchivedBadge } from "./archive-parts.tsx";
 import { AttachmentsBlock } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { MissingRecord } from "./missing-record.tsx";
-import { PipelineRail } from "./pipeline-rail.tsx";
+import { PipelineRail, RailLoader } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
 import { RecordActions } from "./record-actions.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "../../shell/work/record-tab.ts";
@@ -52,7 +53,7 @@ export function TaskPage(): ReactNode {
   const { taskThread, decision, recordTab } = useSearch({ from: "/tasks/$taskId" });
   const task = useQuery(taskQueries.one(taskId));
   const projects = useQuery(projectQueries.list());
-  const pipelines = useEveryPipeline();
+  const { pipelines, reads: pipelineReads } = useEveryPipelineRead();
   const threads = useQuery(threadQueries.onTask(taskId));
   usePageHeading({
     title: task.data?.title ?? "Work",
@@ -66,6 +67,7 @@ export function TaskPage(): ReactNode {
     return (
       <div className="task-page">
         <WorkTabs shown="tasks" />
+        <TaskPageLoader pipelineReads={pipelineReads} />
       </div>
     );
   }
@@ -79,7 +81,6 @@ export function TaskPage(): ReactNode {
         key={record.id}
         task={record}
         pipeline={pipeline}
-        threads={threads.data}
         taskThread={taskThread}
         decisionId={decision}
         recordTab={recordTab}
@@ -95,14 +96,12 @@ export function TaskPage(): ReactNode {
 function TaskBody({
   task,
   pipeline,
-  threads,
   taskThread,
   decisionId,
   recordTab,
 }: {
   readonly task: Task;
   readonly pipeline: Pipeline | undefined;
-  readonly threads: readonly Thread[] | undefined;
   readonly taskThread: string | undefined;
   readonly decisionId: string | undefined;
   readonly recordTab: RecordTab | undefined;
@@ -127,12 +126,41 @@ function TaskBody({
         </div>
         <TaskConversation
           task={task}
-          threads={threads}
           onShowStage={stageHistory.show}
           asked={stageHistory.askedThread}
         />
       </div>
     </ConversationDrawerProvider>
+  );
+}
+
+/**
+ * The page's frame until the Task and the Pipelines are read, shaped as the page: the head, the
+ * rail, the record beside the conversation. The Task's own failure shows as MissingRecord instead.
+ */
+function TaskPageLoader({
+  pipelineReads,
+}: {
+  readonly pipelineReads: readonly BlockRead[];
+}): ReactNode {
+  return (
+    <>
+      {/* Part of the record's loader for screen readers, which says the Task loads. */}
+      <div className="block-loader task-head-loader">
+        <Skeleton width={120} height={10} />
+        <Skeleton width="46%" height={22} />
+        <Skeleton width="34%" height={12} />
+      </div>
+      <RailLoader reads={pipelineReads} />
+      <div className="task-columns">
+        <div className="task-record-column">
+          <BlockLoader shape="text" label="Loading the Task…" />
+        </div>
+        <div className="task-conversation task-conversation-loading">
+          <BlockLoader shape="turns" label="Loading the conversation…" />
+        </div>
+      </div>
+    </>
   );
 }
 

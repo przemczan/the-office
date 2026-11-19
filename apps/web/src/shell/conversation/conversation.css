@@ -8,6 +8,10 @@
   height: 100%;
 }
 
+.thread-log-loading {
+  padding: 16px;
+}
+
 .thread-title {
   display: flex;
   align-items: center;

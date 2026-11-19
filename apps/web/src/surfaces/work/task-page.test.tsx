@@ -1,8 +1,20 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 import type { EngineStandIn, Task } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
-import { EngineStandInsMark } from "./task-page.tsx";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { pipelineQueries, projectPipelineQueries } from "../../api/pipelines.ts";
+import { taskQueries } from "../../api/work.ts";
+import { PageHeadingProvider } from "../../shell/page-heading.tsx";
+import { ToastProvider } from "../../shell/toasts.tsx";
+import { EngineStandInsMark, TaskPage } from "./task-page.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -72,6 +84,7 @@ const roots: Root[] = [];
 afterEach(() => {
   act(() => roots.splice(0).forEach((root) => root.unmount()));
   document.body.replaceChildren();
+  vi.unstubAllGlobals();
 });
 
 function show(task: Task): HTMLElement {
@@ -101,5 +114,143 @@ describe("EngineStandInsMark", () => {
 
   it("shows nothing once the Task is no longer started", () => {
     expect(show(aTask({ state: "done", engineStandIns: [FOR_WORK] })).textContent).toBe("");
+  });
+});
+
+/**
+ * The service as the page reads it: each path that fails answers its problem, every other read
+ * stays on its way, so what the test put in the cache is all that has arrived.
+ */
+function stubService(failing: Readonly<Record<string, string>> = {}): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn<typeof fetch>(async (input) => {
+      const path = new URL(String(input), "http://office").pathname.replace(/^\/api/, "");
+      const problem = failing[path];
+      if (problem === undefined) return new Promise<Response>(() => undefined);
+      return Response.json({ message: problem }, { status: 500 });
+    }),
+  );
+}
+
+/** The Task page at the Task's address, with what has arrived already in its cache. */
+async function openTaskPage(arrived: (queryClient: QueryClient) => void): Promise<HTMLElement> {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  });
+  arrived(queryClient);
+  const rootRoute = createRootRoute();
+  const taskRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "tasks/$taskId",
+    component: TaskPage,
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([taskRoute]),
+    history: createMemoryHistory({ initialEntries: [`/tasks/${TASK.id}`] }),
+  });
+  const page = document.createElement("div");
+  document.body.append(page);
+  const root = createRoot(page);
+  roots.push(root);
+  await act(async () => {
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <PageHeadingProvider setPageHeading={() => undefined}>
+            <RouterProvider router={router} />
+          </PageHeadingProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+    await router.load();
+  });
+  return page;
+}
+
+const TASK = aTask({});
+
+function taskAndPipelinesArrived(queryClient: QueryClient): void {
+  queryClient.setQueryData(taskQueries.one(TASK.id).queryKey, TASK);
+  queryClient.setQueryData(pipelineQueries.list().queryKey, []);
+  queryClient.setQueryData(projectPipelineQueries.every().queryKey, []);
+}
+
+/** What each loader says to screen readers. */
+function loadersIn(page: HTMLElement): (string | null)[] {
+  return [...page.querySelectorAll('[role="status"] > .visually-hidden')].map(
+    ({ textContent }) => textContent,
+  );
+}
+
+/** What each block whose read failed says: the design system's Alert is a status too. */
+function problemsIn(page: HTMLElement): (string | null)[] {
+  return [...page.querySelectorAll('[role="status"]:not(.block-loader)')].map(
+    ({ textContent }) => textContent,
+  );
+}
+
+/** Waits for the reads that fail to answer and the page to show it. */
+async function settled(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+describe("the Task page while it loads", () => {
+  it("shows its frame, with the rail, the record and the conversation loading, until the Task arrives", async () => {
+    stubService();
+
+    const page = await openTaskPage(() => undefined);
+
+    expect(loadersIn(page)).toEqual([
+      "Loading the Pipeline…",
+      "Loading the Task…",
+      "Loading the conversation…",
+    ]);
+    expect(page.querySelector(".task-head-loader")).not.toBeNull();
+    expect(
+      page.querySelector(".task-columns .task-record-column .block-loader.text"),
+    ).not.toBeNull();
+    expect(
+      page.querySelector(".task-columns .task-conversation .block-loader.turns"),
+    ).not.toBeNull();
+  });
+
+  it("keeps the rail's and the conversation's loaders once the Task arrives, until their own reads do", async () => {
+    stubService();
+
+    const page = await openTaskPage(taskAndPipelinesArrived);
+
+    expect(page.querySelector(".task-head h2")?.textContent).toBe(TASK.title);
+    expect(page.querySelector(".task-head-loader")).toBeNull();
+    expect(loadersIn(page)).toEqual(["Loading the Pipeline…", "Loading the conversation…"]);
+  });
+
+  it("shows the problem of a read that failed in its block's place", async () => {
+    stubService({
+      [`/tasks/${TASK.id}/stages`]: "The Stages can't be read",
+      [`/tasks/${TASK.id}/conversation`]: "The conversation can't be read",
+    });
+
+    const page = await openTaskPage(taskAndPipelinesArrived);
+    await settled();
+
+    const problems = problemsIn(page);
+    expect(problems).toContain("The Stages can't be read");
+    expect(problems).toContain("The conversation can't be read");
+    expect(loadersIn(page)).not.toContain("Loading the Pipeline…");
+    expect(loadersIn(page)).not.toContain("Loading the conversation…");
+  });
+
+  it("shows the Pipelines' problem in the rail's place when they fail before the Task arrives", async () => {
+    stubService({ "/pipelines": "The Pipelines can't be read" });
+
+    const page = await openTaskPage(() => undefined);
+    await settled();
+
+    const problems = problemsIn(page);
+    expect(problems).toEqual(["The Pipelines can't be read"]);
+    expect(loadersIn(page)).toEqual(["Loading the Task…", "Loading the conversation…"]);
   });
 });

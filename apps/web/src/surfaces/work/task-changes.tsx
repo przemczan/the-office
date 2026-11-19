@@ -11,6 +11,7 @@ import { Badge, Button, FoldButton, Icon } from "@the-office/ui";
 import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { BlockLoader } from "../../shell/block-loader.tsx";
 import { UnifiedDiffView } from "../../shell/unified-diff-view.tsx";
 import { diffsOfFiles, editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
 import { RecordBlock } from "./record-block.tsx";
@@ -34,7 +35,7 @@ export function ChangesTab({ task }: { readonly task: Task }): ReactNode {
       </RecordBlock>
     );
   }
-  if (!changes.data) return null;
+  if (!changes.data) return <BlockLoader shape="rows" count={4} label="Loading the changes…" />;
   return <ChangesView changes={changes.data} testResults={stages.data?.testResults ?? []} />;
 }
 

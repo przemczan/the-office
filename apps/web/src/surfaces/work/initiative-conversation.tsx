@@ -13,7 +13,7 @@ import { dutyQueries, roleQueries } from "../../api/people.ts";
 import { startShapingThread } from "../../api/work.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { threadTitle } from "../../shell/conversation/thread-title.ts";
-import { ThreadLog, ThreadTitle } from "../../shell/conversation/thread-view.tsx";
+import { ThreadLoader, ThreadLog, ThreadTitle } from "../../shell/conversation/thread-view.tsx";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { roleName } from "../../shell/person-name.ts";
 import { PersonTag } from "../../shell/person-tag.tsx";
@@ -427,6 +427,10 @@ function ChapterLog({
   readonly threadId: string;
   readonly personName: string;
 }): ReactNode {
-  const thread = useQuery(threadQueries.one(threadId)).data;
-  return thread ? <ThreadLog thread={thread} personName={personName} inTimeline /> : null;
+  const thread = useQuery(threadQueries.one(threadId));
+  return thread.data ? (
+    <ThreadLog thread={thread.data} personName={personName} inTimeline />
+  ) : (
+    <ThreadLoader reads={[thread]} />
+  );
 }

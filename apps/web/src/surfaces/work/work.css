@@ -1054,6 +1054,13 @@
   color: var(--border-strong);
 }
 
+/* The head's place while the Task loads: its crumb, title and meta line. */
+.task-head-loader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .pipeline-rail-place {
   display: flex;
   flex-direction: column;
@@ -2439,6 +2446,10 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
+}
+
+.task-conversation-loading {
+  padding: var(--space-4);
 }
 
 .task-conversation:has(> .empty-card) {

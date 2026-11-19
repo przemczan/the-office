@@ -5,10 +5,11 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { ConversationTab, Role, Task } from "@the-office/contracts";
+import type { ConversationTab, Role, Task, Thread } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { TabLog } from "./person-tab.tsx";
 
@@ -43,16 +44,20 @@ const PLANNERS_TAB: ConversationTab = {
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
 
 /** Renders the tab in a router of its own, so its link has somewhere to point. */
-async function rendered(): Promise<HTMLElement> {
+async function rendered(
+  tab: ConversationTab = PLANNERS_TAB,
+  arrived: (queryClient: QueryClient) => void = () => undefined,
+): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
+  arrived(queryClient);
   const rootRoute = createRootRoute({
     component: () => (
       <TabLog
         task={TASK}
-        tab={PLANNERS_TAB}
+        tab={tab}
         personName="Angela"
         emptyWords=""
         readOnlyReason={undefined}
@@ -76,6 +81,83 @@ async function rendered(): Promise<HTMLElement> {
   });
   return page;
 }
+
+const DEVELOPERS_THREAD = {
+  id: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
+  roleKey: "developer",
+  title: null,
+  state: "waiting",
+  stageThread: false,
+} as unknown as Thread;
+
+const DEVELOPERS_TAB: ConversationTab = {
+  roleKey: "developer",
+  threadId: DEVELOPERS_THREAD.id,
+  stageRunning: false,
+  consultations: [],
+  planningThreadElsewhere: null,
+};
+
+/** Each Thread read fails with its problem when given one, and is otherwise still on its way. */
+function stubThreadReads(problem?: string): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn<typeof fetch>(async () =>
+      problem === undefined
+        ? new Promise<Response>(() => undefined)
+        : Response.json({ message: problem }, { status: 500 }),
+    ),
+  );
+}
+
+describe("a person's tab while their Thread loads", () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.unstubAllGlobals();
+  });
+
+  it("shows the turns loader, not an empty Thread, until the Thread arrives", async () => {
+    stubThreadReads();
+
+    const page = await rendered(DEVELOPERS_TAB);
+
+    const loader = page.querySelector('[role="status"].block-loader.turns');
+    expect(loader?.querySelector(".visually-hidden")?.textContent).toBe("Loading the Thread…");
+  });
+
+  it("keeps the loader until the Thread's messages arrive", async () => {
+    stubThreadReads();
+
+    const page = await rendered(DEVELOPERS_TAB, (queryClient) =>
+      queryClient.setQueryData(threadQueries.one(DEVELOPERS_THREAD.id).queryKey, DEVELOPERS_THREAD),
+    );
+
+    expect(page.querySelector('[role="status"].block-loader.turns')).not.toBeNull();
+  });
+
+  it("shows the log once the messages arrive", async () => {
+    stubThreadReads();
+
+    const page = await rendered(DEVELOPERS_TAB, (queryClient) => {
+      queryClient.setQueryData(threadQueries.one(DEVELOPERS_THREAD.id).queryKey, DEVELOPERS_THREAD);
+      queryClient.setQueryData(threadQueries.messages(DEVELOPERS_THREAD.id).queryKey, []);
+    });
+
+    expect(page.querySelector(".block-loader")).toBeNull();
+  });
+
+  it("shows the problem of a read that failed instead of the loader", async () => {
+    stubThreadReads("The Thread can't be read");
+
+    const page = await rendered(DEVELOPERS_TAB);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(page.querySelector(".block-loader")).toBeNull();
+    expect(page.querySelector('[role="status"]')?.textContent).toBe("The Thread can't be read");
+  });
+});
 
 describe("the Planner's tab of a Task planned in its Initiative's planning Thread", () => {
   afterEach(() => document.body.replaceChildren());

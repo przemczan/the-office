@@ -11,6 +11,7 @@ import { useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { roleQueries } from "../../api/people.ts";
+import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { roleFirstName, roleName } from "../../shell/person-name.ts";
 import {
@@ -38,19 +39,21 @@ import { useTimelineScroll } from "./use-timeline-scroll.ts";
  */
 export function TaskConversation({
   task,
-  threads,
   asked,
   onShowStage,
 }: {
   readonly task: Task;
-  readonly threads: readonly Thread[] | undefined;
   /** What the address names, unless it is a Stage run. */
   readonly asked: string | undefined;
   /** Opens the Stage's history. */
   readonly onShowStage: (stageKey: string) => void;
 }): ReactNode {
-  const tabs = useQuery(threadQueries.conversationOnTask(task.id)).data?.tabs;
-  const decisions = useQuery(decisionQueries.unanswered(task.id)).data;
+  const conversation = useQuery(threadQueries.conversationOnTask(task.id));
+  const unanswered = useQuery(decisionQueries.unanswered(task.id));
+  const threadsRead = useQuery(threadQueries.onTask(task.id));
+  const tabs = conversation.data?.tabs;
+  const decisions = unanswered.data;
+  const threads = threadsRead.data;
   const { decision: decisionId } = useSearch({ from: "/tasks/$taskId" });
   useDrawerFollowsAddress(
     decisions && tabs
@@ -68,7 +71,20 @@ export function TaskConversation({
   const holding = askedTab ?? opening;
   if (holding !== held) setHeld(holding);
   const shown = tabs?.find(({ roleKey }) => roleKey === holding) ?? tabs?.[0];
-  if (!tabs || !threads || !shown) return null;
+  if (!tabs || !threads || !decisions) {
+    return (
+      <ConversationPanel unread={0}>
+        <div className="task-conversation-loading">
+          <BlockLoaderOrProblem
+            reads={[conversation, unanswered, threadsRead]}
+            shape="turns"
+            label="Loading the conversation…"
+          />
+        </div>
+      </ConversationPanel>
+    );
+  }
+  if (!shown) return null;
   return (
     <PeopleTabs task={task} threads={threads} tabs={tabs} shown={shown} onShowStage={onShowStage} />
   );

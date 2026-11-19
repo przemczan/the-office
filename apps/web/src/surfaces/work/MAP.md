@@ -102,7 +102,7 @@ An Initiative's block is a `group`, never a region or a heading: the e2e tests f
 - `person-tab.tsx`: TabLog, TabFoot
 - `pipeline-in-small.tsx`: PipelineInSmall
 - `pipeline-proposal.tsx`: PIPELINE_PROPOSAL_ELEMENT_ID, PipelineProposal
-- `pipeline-rail.tsx`: PipelineRail
+- `pipeline-rail.tsx`: PipelineRail, RailLoader
 - `planning-actions.tsx`: usePlanningActions, MakeAPlan, PlanOnCardButton, planningNoteWords, unconfirmedWords
 - `planning-parts.tsx`: DefinitionOfDoneBlock, PlanBlock, useRecordChange
 - `planning-words.ts`: statementsOf, leavesReadyWords, definitionOfDoneSummary, NO_DESCRIPTION, descriptionSummary, planSummary

@@ -54,6 +54,46 @@
   margin-top: var(--space-4);
 }
 
+.block-loader.turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.block-loader-turn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.block-loader.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The rail's own padding and height, so the page doesn't move when the Stages arrive. */
+.block-loader.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 10px var(--space-4) var(--space-4);
+}
+
+.block-loader-stages {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-3);
+}
+
+.block-loader-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
 /* The bars hold still; the fade stays, as it moves nothing. The design system's Skeleton sets its
    shimmer inline, so only !important overrides it. */
 @media (prefers-reduced-motion: reduce) {

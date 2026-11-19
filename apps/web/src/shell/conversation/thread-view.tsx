@@ -3,6 +3,7 @@ import type { OpenPage, Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { homeThreadsKey, renameThread, threadQueries } from "../../api/conversations.ts";
+import { BlockLoaderOrProblem, type BlockRead } from "../block-loader.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { AllowChangesBar } from "./allow-changes.tsx";
 import { ContextBar } from "./context-bar.tsx";
@@ -37,7 +38,13 @@ export function ThreadView({
   readonly onLeaveOutOpenPage?: () => void;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId));
-  if (!thread.data) return null;
+  if (!thread.data) {
+    return (
+      <section className="thread-view">
+        <ThreadLoader reads={[thread]} />
+      </section>
+    );
+  }
   return (
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
       <div className="thread-view-head">
@@ -86,10 +93,13 @@ export function ThreadLog({
 }): ReactNode {
   const messages = useQuery(threadQueries.messages(thread.id));
   const details = useDetails();
+  if (!messages.data) {
+    return <ThreadLoader reads={[messages]} />;
+  }
   return (
     <>
       <MessageList
-        messages={messages.data ?? []}
+        messages={messages.data}
         roleKey={thread.roleKey}
         personName={personName}
         answering={thread.state === "answering"}
@@ -101,6 +111,15 @@ export function ThreadLog({
         {...(logLines && { logLines })}
       />
     </>
+  );
+}
+
+/** A Thread's place until it and its messages first load: their turns, or the read's problem. */
+export function ThreadLoader({ reads }: { readonly reads: readonly BlockRead[] }): ReactNode {
+  return (
+    <div className="thread-log-loading">
+      <BlockLoaderOrProblem reads={reads} shape="turns" label="Loading the Thread…" />
+    </div>
   );
 }
 

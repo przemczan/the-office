@@ -11,7 +11,7 @@ import type { UploadMessageImages } from "../../shell/conversation/message-image
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { useThreadDrafts } from "../../shell/conversation/thread-drafts.tsx";
 import { writingPlaceholder } from "../../shell/conversation/thread-writing.ts";
-import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
+import { ThreadLoader, ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -109,8 +109,12 @@ function PersonsThread({
   readonly threadId: string;
   readonly personName: string;
 }): ReactNode {
-  const thread = useQuery(threadQueries.one(threadId)).data;
-  return thread ? <ThreadLog thread={thread} personName={personName} inTimeline /> : null;
+  const thread = useQuery(threadQueries.one(threadId));
+  return thread.data ? (
+    <ThreadLog thread={thread.data} personName={personName} inTimeline />
+  ) : (
+    <ThreadLoader reads={[thread]} />
+  );
 }
 
 function NoThreadYet({

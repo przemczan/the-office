@@ -12,7 +12,7 @@ import { ContextReading, SessionRow } from "../../shell/conversation/context-rea
 import { endedRunReadingLook } from "../../shell/conversation/context-reading-words.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
-import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
+import { ThreadLoader, ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { takesMessages } from "../../shell/conversation/thread-writing.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
@@ -423,9 +423,10 @@ function RunThread({
   /** Its line switches to the run's tab. */
   readonly onShowSubAgentsAndProcesses: () => void;
 }): ReactNode {
-  const thread = useQuery(threadQueries.one(threadId)).data;
+  const threadRead = useQuery(threadQueries.one(threadId));
   const [drafting, setDrafting] = useState(false);
-  if (!thread) return null;
+  const thread = threadRead.data;
+  if (!thread) return <ThreadLoader reads={[threadRead]} />;
   const handoverNoteReader = (note: string): (() => void) | undefined => {
     const place = runOfHandoverNote(stages, threadId, note);
     return place && (() => onReadSummary(place));

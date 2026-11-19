@@ -12,6 +12,7 @@ import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
+import { BlockLoader, BlockLoaderOrProblem, type BlockRead } from "../../shell/block-loader.tsx";
 import { useProjectPipelineChoices } from "../../shell/pipelines/use-pipelines.ts";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { useClock } from "../../shell/use-clock.ts";
@@ -78,11 +79,12 @@ export function PipelineRail({
   readonly onSelect: (stageKey: string) => void;
   readonly onCloseHistory: () => void;
 }): ReactNode {
-  const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
+  const taskStagesRead = useQuery(pipelineQueries.taskStages(task.id));
   const roles = useQuery(roleQueries.list()).data;
   const [editing, setEditing] = useState(false);
+  const taskStages = taskStagesRead.data;
   // Until the Task's Stages are read, the library's would show a started Task as not started.
-  if (!taskStages) return null;
+  if (!taskStages) return <RailLoader reads={[taskStagesRead]} />;
   if (task.pipelineId === null) return <NotChosenRail task={task} />;
   const stages = stagesOnRail(taskStages.stages, pipeline?.stages);
   const finished = task.state === "done" || task.state === "dropped";
@@ -126,6 +128,21 @@ export function PipelineRail({
       )}
       {editing && <EditTaskStagesDialog task={task} onClose={() => setEditing(false)} />}
     </>
+  );
+}
+
+/** The rail's place while what it shows is read: Stages in its frame, or the read's problem. */
+export function RailLoader({ reads }: { readonly reads: readonly BlockRead[] }): ReactNode {
+  return (
+    <div className="pipeline-rail-place">
+      {reads.some(({ error }) => error !== null) ? (
+        <BlockLoaderOrProblem reads={reads} shape="rail" />
+      ) : (
+        <div className="pipeline-rail">
+          <BlockLoader shape="rail" label="Loading the Pipeline…" />
+        </div>
+      )}
+    </div>
   );
 }
 
