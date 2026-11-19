@@ -1,10 +1,14 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import { TaskStateChanged } from "../../work/index.js";
 import { baseWords } from "../domain/base-words.js";
 import {
   afterResolveTestFailed,
   conflictCameBackTooOften,
+  RESOLVE_AFTER_GATE,
+  RESOLVE_AFTER_TEST,
+  RESOLVE_BRIEF,
   RESOLVE_KEY,
   resolveBrief,
   resolvedByTheUser,
@@ -28,12 +32,6 @@ export type ResolveBegun =
       readonly merging: boolean;
     };
 
-const AFTER_TEST_BRIEF =
-  "The Project's Test failed after The Office merged the base branch into the Task's branch. Fix what the merge left broken, as the failure below shows, keeping what both sides meant. Don't run git: The Office commits your changes.";
-
-const AFTER_GATE_BRIEF =
-  "The user reviewed how the conflict with the base branch was resolved and sent it back. The merge is committed already: change what their feedback below asks, keeping what both sides meant. Don't run git: The Office commits your changes.";
-
 /**
  * The git of a Resolve Stage around its Agent (spec §2.3, "Conflicts at Publish"; §5.5): The
  * Office merges the base in and leaves the conflicted files for the Agent, then commits the merge
@@ -51,6 +49,7 @@ export class ResolveStageGit implements OnModuleInit {
     private readonly runs: StageRunRepository,
     private readonly records: TaskRecords,
     private readonly events: EventBus,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   onModuleInit(): void {
@@ -89,11 +88,18 @@ export class ResolveStageGit implements OnModuleInit {
       });
       return { kind: "ended", outcome };
     }
+    const prompts = await this.promptTemplates.textsOf([
+      RESOLVE_AFTER_TEST,
+      RESOLVE_AFTER_GATE,
+      RESOLVE_BRIEF,
+    ]);
     if (afterResolveTestFailed(run.carriedFailure)) {
-      return { kind: "agent", brief: AFTER_TEST_BRIEF, merging: false };
+      return { kind: "agent", brief: prompts.render(RESOLVE_AFTER_TEST, {}), merging: false };
     }
     // The merge is committed already: the Gate's feedback is an ordinary round on the merged branch.
-    if (run.sentBack) return { kind: "agent", brief: AFTER_GATE_BRIEF, merging: false };
+    if (run.sentBack) {
+      return { kind: "agent", brief: prompts.render(RESOLVE_AFTER_GATE, {}), merging: false };
+    }
     const start = await this.publishing.startResolve(task.project.id, run.taskId);
     switch (start.kind) {
       case "failed":
@@ -124,7 +130,7 @@ export class ResolveStageGit implements OnModuleInit {
         }
         return {
           kind: "agent",
-          brief: resolveBrief(start.base.branch, start.conflictedFiles),
+          brief: resolveBrief(prompts, start.base.branch, start.conflictedFiles),
           merging: true,
         };
       }

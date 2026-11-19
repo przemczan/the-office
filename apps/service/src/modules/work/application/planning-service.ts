@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Author } from "../domain/author.js";
@@ -6,6 +7,7 @@ import { taskPipelineProblems } from "../domain/pipeline-commands.js";
 import { pipelineChoiceIn } from "./pipeline-choice.js";
 import { NOBODY_PLANS, PLANS } from "../domain/duties.js";
 import { makeAPlanOpening, PLANNING_THREAD_TITLE } from "../domain/planning.js";
+import { MAKE_A_PLAN_OPENING } from "../domain/work-prompt-templates.js";
 import {
   acceptInAutoMode,
   confirmDefinitionOfDone,
@@ -93,6 +95,7 @@ export class PlanningService {
     private readonly decisions: TaskDecisions,
     private readonly settings: WorkSettings,
     private readonly events: EventBus,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /**
@@ -216,9 +219,15 @@ export class PlanningService {
   ): Promise<void> {
     const opening = { taskId, roleKey: planner, title: PLANNING_THREAD_TITLE };
     try {
-      await (plannerJoins === "at-once"
-        ? this.threads.startOnTask({ ...opening, opening: makeAPlanOpening(autoMode) })
-        : this.threads.openOnTask(opening));
+      if (plannerJoins === "at-once") {
+        const prompts = await this.promptTemplates.textsOf([MAKE_A_PLAN_OPENING]);
+        await this.threads.startOnTask({
+          ...opening,
+          opening: makeAPlanOpening(prompts, autoMode),
+        });
+      } else {
+        await this.threads.openOnTask(opening);
+      }
     } catch (error) {
       const { event } = await this.tasks.update(taskId, undoPlanningMove);
       if (event) await this.events.publish(event);

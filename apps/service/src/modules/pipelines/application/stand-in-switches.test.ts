@@ -312,6 +312,9 @@ describe("StandInSwitches, Switch now on a Stage waiting for a Stand-in Engine (
 
     await switches().switch([runId], ANN_LEE);
 
-    expect(pipelines.published.slice(before)).toContainEqual(new StandInChoicesChanged(taskId));
+    const told = pipelines.published
+      .slice(before)
+      .filter((event) => event instanceof StandInChoicesChanged);
+    expect(told.map((event) => event.taskId)).toEqual([taskId]);
   });
 });

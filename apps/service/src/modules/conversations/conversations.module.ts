@@ -14,6 +14,7 @@ import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
+import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { FireAlarmLiftsController } from "./adapters/http/fire-alarm-lifts.controller.js";
@@ -28,17 +29,20 @@ import {
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
+import { PromptTemplateOfficeTools } from "./adapters/office-tools/prompt-template-office-tools.js";
 import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
 import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { ThreadHistoryOfficeTool } from "./adapters/office-tools/thread-history-office-tool.js";
 import { ConversationsEarlierRecords } from "./adapters/postgres/conversations-earlier-records.js";
+import { ConversationsPromptTemplates } from "./adapters/prompt-templates/conversations-prompt-templates.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresOfficeInstructionsRepository } from "./adapters/postgres/postgres-office-instructions-repository.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
 import { DutyProposals } from "./adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "./adapters/proposals/office-instructions-proposals.js";
+import { PromptTemplateProposals } from "./adapters/proposals/prompt-template-proposals.js";
 import { SizeThresholdProposals } from "./adapters/proposals/size-threshold-proposals.js";
 import { LiveViewWebEvents } from "./adapters/websocket/live-view-web-events.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
@@ -128,6 +132,9 @@ export class ConversationsModule implements NestModule {
         SkillsModule,
         McpServersModule,
         BusyWorkModule,
+        // Sessions load Conversations' prompt templates; the Default person to talk to reads
+        // them all and drafts changes to them.
+        PromptTemplatesModule,
         // Times how long a session takes to start (SessionStartWatch).
         ScheduleModule,
       ],
@@ -196,9 +203,11 @@ export class ConversationsModule implements NestModule {
         SizeThresholdProposals,
         OfficeInstructionsProposals,
         DutyProposals,
+        PromptTemplateProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
         ProposalOfficeTools,
+        PromptTemplateOfficeTools,
         ProjectCommandOfficeTools,
         SkillOfficeTools,
         LinkCards,
@@ -208,6 +217,7 @@ export class ConversationsModule implements NestModule {
         MemoryOfficeTools,
         ThreadHistory,
         ThreadHistoryOfficeTool,
+        ConversationsPromptTemplates,
         ConversationsEarlierRecords,
         ThreadWebEvents,
         LiveViewWebEvents,

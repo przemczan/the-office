@@ -3,18 +3,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ANSWER_DECISION_TOOL, CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { NO_WORKTREE_YET } from "../../domain/planning.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
 import { StageResults } from "../../ports/stage-results.js";
 import { ProjectWorktreesForTests, StageResultsForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
-import {
-  ASKING_OFFICE_TOOLS,
-  ASKING_THREAD_INSTRUCTIONS,
-  PLANNING_OFFICE_TOOLS,
-  PLANNING_THREAD_INSTRUCTIONS,
-} from "./task-thread-records.js";
+import { ASKING_OFFICE_TOOLS, PLANNING_OFFICE_TOOLS } from "./task-thread-records.js";
+import { withCallingRule } from "./calling-rule.js";
+import { askingInstructions } from "../../domain/asking.js";
+import { NO_WORKTREE_YET, planningInstructions } from "../../domain/planning.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import { aPersonsThread, taskThreads } from "../../task-thread-records.fixtures.js";
+
+const prompts = defaultWorkPrompts();
+const ASKING_THREAD_INSTRUCTIONS = withCallingRule(askingInstructions(prompts));
+const PLANNING_THREAD_INSTRUCTIONS = withCallingRule(planningInstructions(prompts));
 
 let officeData: string;
 let work: WorkApplication;

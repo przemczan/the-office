@@ -6,7 +6,6 @@ import {
   OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import {
-  CALLING_RULE,
   TaskThreadSetups,
   type PlanningThreadElsewhere,
   type TaskThreadRequest,
@@ -15,28 +14,36 @@ import {
   PERSON_READING_OFFICE_TOOLS,
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
+import { PromptTemplates, type PromptTexts } from "../../../prompt-templates/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
-import { ASKING_INSTRUCTIONS, askingBrief } from "../../domain/asking.js";
+import { askingBrief, askingInstructions } from "../../domain/asking.js";
 import { pipelineIn, type Initiative } from "../../domain/initiative.js";
 import { PLANS } from "../../domain/duties.js";
 import {
-  PLANNING_INSTRUCTIONS,
   planningBrief,
+  planningInstructions,
   type InitiativeBranchStart,
   type PlanningPipeline,
 } from "../../domain/planning.js";
 import type { Task } from "../../domain/task.js";
 import { taskBranchBase } from "../../domain/task-branch-base.js";
 import { MOVED_AS_IT_OPENED } from "../../domain/task-move.js";
+import {
+  ASKING_BRIEF,
+  ASKING_INSTRUCTIONS,
+  PLANNING_BRIEF,
+  PLANNING_INSTRUCTIONS,
+} from "../../domain/work-prompt-templates.js";
 import { KnownPeople } from "../../ports/known-people.js";
 import { WRITE_COMMIT_MESSAGE } from "../office-tools/commit-message-office-tools.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../../ports/project-worktrees.js";
 import { StageResults } from "../../ports/stage-results.js";
+import { withCallingRule } from "./calling-rule.js";
 import { initiativeBranchReads } from "./initiative-branch-reads.js";
 
 /**
@@ -57,13 +64,13 @@ export const PLANNING_OFFICE_TOOLS = [
   CONSULT_TOOL,
 ] as const;
 
-/**
- * What whoever holds Plans does in the Planning Thread, calling a person only when the user asks.
- */
-export const PLANNING_THREAD_INSTRUCTIONS = `${PLANNING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
-
-/** What a person does in their Thread on a Task, calling someone only when the user asks. */
-export const ASKING_THREAD_INSTRUCTIONS = `${ASKING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
+/** The templates a Task's Thread renders its instructions and Brief from. */
+const TASK_THREAD_PROMPT_TEMPLATES = [
+  PLANNING_INSTRUCTIONS,
+  PLANNING_BRIEF,
+  ASKING_INSTRUCTIONS,
+  ASKING_BRIEF,
+];
 
 /**
  * The Office tools of a person's Thread on a Task: it reads every record and Attachment, and the
@@ -97,6 +104,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     private readonly worktrees: ProjectWorktrees,
     private readonly stageResults: StageResults,
     private readonly people: KnownPeople,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   onModuleInit(): void {
@@ -107,9 +115,10 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     const task = await this.tasks.read(request.taskId);
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
+    const prompts = await this.promptTemplates.textsOf(TASK_THREAD_PROMPT_TEMPLATES);
     return request.personsThread && !plansIt(task, request.roleKey, await this.planner())
-      ? this.asking(request, task, project)
-      : this.planning(task, project);
+      ? this.asking(prompts, request, task, project)
+      : this.planning(prompts, task, project);
   }
 
   planner(): Promise<string | undefined> {
@@ -135,6 +144,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   }
 
   private async asking(
+    prompts: PromptTexts,
     { roleKey, firstSession }: TaskThreadRequest,
     task: Task,
     project: KnownProject,
@@ -154,10 +164,10 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,
       projectSkillsOff: project.projectSkillsOff,
-      instructions: ASKING_THREAD_INSTRUCTIONS,
+      instructions: withCallingRule(askingInstructions(prompts)),
       officeTools: ASKING_OFFICE_TOOLS,
       brief: firstSession
-        ? await this.record(roleKey, task, project, made ? worktree : undefined)
+        ? await this.record(prompts, roleKey, task, project, made ? worktree : undefined)
         : undefined,
       asking: true,
       sessionRefusal,
@@ -165,6 +175,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
   }
 
   private async record(
+    prompts: PromptTexts,
     roleKey: string,
     task: Task,
     project: KnownProject,
@@ -175,7 +186,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       this.stageResults.of(task.id, roleKey),
       this.changesOf(task),
     ]);
-    return askingBrief({
+    return askingBrief(prompts, {
       task,
       projectName: project.name,
       worktree,
@@ -199,7 +210,11 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     });
   }
 
-  private async planning(task: Task, project: KnownProject): Promise<TaskThreadSetup> {
+  private async planning(
+    prompts: PromptTexts,
+    task: Task,
+    project: KnownProject,
+  ): Promise<TaskThreadSetup> {
     const [worktree, made, links, attachments, pipelines, initiative, stateChanges] =
       await Promise.all([
         this.worktrees.find(task.projectId, task.id),
@@ -226,9 +241,9 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,
       projectSkillsOff: project.projectSkillsOff,
-      instructions: PLANNING_THREAD_INSTRUCTIONS,
+      instructions: withCallingRule(planningInstructions(prompts)),
       officeTools: PLANNING_OFFICE_TOOLS,
-      brief: planningBrief({
+      brief: planningBrief(prompts, {
         task,
         stateChanges,
         project,

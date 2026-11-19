@@ -25,6 +25,9 @@ test("a user added in Settings › Users signs in with their one-time password, 
   page,
   browser,
 }, testInfo) => {
+  // A second browser signs in twice and sets a password: about 17s with every step passing, past
+  // the default timeout under the Tests Stage's load.
+  test.setTimeout(60_000);
   const unique = randomUUID().slice(0, 8);
   const name = `Grace Hopper ${unique}`;
   const email = `grace-${unique}@e2e.example`;

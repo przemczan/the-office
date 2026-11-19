@@ -7,8 +7,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
 import { START_PLANNING } from "../adapters/office-tools/planning-office-tools.js";
-import { INITIATIVE_PLANNING_AFTER_RESTART_OPENING } from "../domain/initiative-planning.js";
-import { PLANNING_AFTER_RESTART_OPENING } from "../domain/planning.js";
+import { initiativePlanningAfterRestartOpening } from "../domain/initiative-planning.js";
+import { planningAfterRestartOpening } from "../domain/planning.js";
+import { defaultWorkPrompts } from "../domain/work-prompt-templates.fixtures.js";
 import {
   InitiativeThreadsForTests,
   SessionInitiativesForTests,
@@ -21,6 +22,10 @@ import {
 } from "../work-application.fixtures.js";
 import { FireAlarmService } from "./fire-alarm-service.js";
 import { PlanningAfterRestart } from "./planning-after-restart.js";
+
+const prompts = defaultWorkPrompts();
+const PLANNING_AFTER_RESTART_OPENING = planningAfterRestartOpening(prompts);
+const INITIATIVE_PLANNING_AFTER_RESTART_OPENING = initiativePlanningAfterRestartOpening(prompts);
 
 let officeData: string;
 let work: WorkApplication;

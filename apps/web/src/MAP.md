@@ -44,7 +44,7 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TaskSearch, HireSearch, StatsSearch, OfficeIdentitySearch, FirstRunSetupSearch, router, OfficeRouter
+- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TaskSearch, HireSearch, StatsSearch, OfficeIdentitySearch, PromptTemplatesSearch, FirstRunSetupSearch, router, OfficeRouter
 - `signed-out.ts`: officeQueryClient, sendToSignIn
 - Tests: app.test.tsx, first-run-setup.test.tsx
 
@@ -70,6 +70,7 @@
 - `pipeline-keys.ts`: PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY, staleStaffing
 - `pipelines.ts`: pipelineQueries, standInChoiceQueries, projectPipelineQueries, stageTemplateQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, addProjectPipeline, saveProjectPipeline, removeProjectPipeline, addStageTemplate, saveStageTemplate, removeStageTemplate, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, switchToStandIn, pipelineEventInvalidations
 - `projects.ts`: REMOTE_NEEDS, RUN_ENVIRONMENTS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeInstallCommand, changeBeforePublishingCommand, changeAfterPublishingCommand, addCommand, changeCommand, removeCommand, changeInstallInputs, saveEnvironment, startEnvironmentCheck, changePublishingMode, changeRunEnvironment, setUpRunEnvironment, changeMark, changeProjectLimit, ProjectImageVersion, uploadProjectImage, chooseProjectImage, removeProjectImage, projectImageAddress, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectSkillUse, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
+- `prompt-templates.ts`: PROMPT_TEMPLATES, promptTemplateQueries, savePromptTemplate, resetPromptTemplate, promptTemplateEventInvalidations
 - `run-environments.ts`: runEnvironmentOfficeLimitsQuery, changeRunEnvironmentOfficeLimits, runEnvironmentEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations, skillEventCacheUpdates
 - `telemetry.ts`: TELEMETRY_SETTINGS, BASIC_STATS, BASIC_STATS_REFRESH_MS, FULL_STATS, FULL_STATS_STARTING_REFRESH_MS, statsQueries, telemetryQueries, saveTelemetry, startBundledGrafana, checkGrafana

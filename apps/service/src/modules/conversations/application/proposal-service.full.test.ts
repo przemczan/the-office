@@ -22,8 +22,10 @@ import { aProposedCard } from "../domain/proposal.fixtures.js";
 import {
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_TOOL,
   PROPOSE_ROLE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  READ_PROMPT_TEMPLATE_TOOL,
   READ_ROLE_TOOL,
   caretakerChatOfficeTools,
   chatOfficeTools,
@@ -56,12 +58,24 @@ import {
   RoleRepository,
 } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
+import {
+  PromptTemplateCatalog,
+  PromptTemplates,
+  PromptTemplatesModule,
+  promptTemplate,
+} from "../../prompt-templates/index.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
 import { SessionSkills } from "../../skills/index.js";
 import { skillCommandsProvider } from "./skill-commands.fixtures.js";
+import { PromptTemplateOfficeTools } from "../adapters/office-tools/prompt-template-office-tools.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DutyProposals } from "../adapters/proposals/duty-proposals.js";
 import { OfficeInstructionsProposals } from "../adapters/proposals/office-instructions-proposals.js";
+import { PromptTemplateProposals } from "../adapters/proposals/prompt-template-proposals.js";
 import { SizeThresholdProposals } from "../adapters/proposals/size-threshold-proposals.js";
 import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
 import type { Thread } from "../domain/thread.js";
@@ -107,6 +121,7 @@ import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-rep
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, BEN_ITO } from "../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
 
 /** The Role holding Default person to talk to by default. */
 const OFFICE_MANAGER = "office-manager";
@@ -193,6 +208,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   ({ app } = await startTestApplication({
     database: true,
     imports: [
+      ConversationsPromptTemplatesForTests,
       EventsModule,
       ScheduleModule,
       BusyWorkModule,
@@ -201,6 +217,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       OfficeDataModule.forRoot(officeData),
       EngineModule,
       PeopleModule,
+      PromptTemplatesModule,
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -248,6 +265,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       OfficeInstructionsProposals,
       DutyProposals,
       ProposalOfficeTools,
+      PromptTemplateProposals,
+      PromptTemplateOfficeTools,
       chatToolStandIns(),
       {
         provide: "office-wide limit proposals",
@@ -262,6 +281,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     overrides: [
       { provide: RoleCards, useValue: roleCards },
       { provide: DutyRepository, useValue: new DutyRepositoryForTests() },
+      // As every test file shares the templates' stored versions.
+      { provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() },
       // A set-up's duties are kept on the duties above, never on the shared database.
       {
         provide: OfficeSetupRepository,
@@ -317,6 +338,10 @@ const TOOLS_OF_PROPOSAL_OFFICE_TOOLS: readonly string[] = [
   READ_OFFICE_INSTRUCTIONS_TOOL,
 ];
 
+const TOOLS_OF_PROMPT_TEMPLATE_OFFICE_TOOLS: readonly string[] = chatOfficeTools([
+  "default-person-to-talk-to",
+]).filter((name) => name.includes("prompt_template"));
+
 /** People's own, which PeopleModule, booted here for its Roles, registers on the sessions' registry. */
 const TOOLS_OF_PEOPLE: readonly string[] = ["list_people", READ_ROLE_TOOL];
 
@@ -331,7 +356,11 @@ function chatToolStandIns(): FactoryProvider {
         ...caretakerChatOfficeTools([]),
       ]);
       for (const name of names) {
-        if (TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) || TOOLS_OF_PEOPLE.includes(name)) {
+        if (
+          TOOLS_OF_PROPOSAL_OFFICE_TOOLS.includes(name) ||
+          TOOLS_OF_PROMPT_TEMPLATE_OFFICE_TOOLS.includes(name) ||
+          TOOLS_OF_PEOPLE.includes(name)
+        ) {
           continue;
         }
         registry.register({
@@ -733,6 +762,65 @@ describe("a Proposal of the Office instructions", () => {
     await askOfficeManager("What do the Office instructions say?");
 
     expect(toolResultRead()).toEqual({ text: "Write in plain words.", isError: false });
+  });
+});
+
+describe("a Proposal of a prompt template", () => {
+  const greeting = promptTemplate({
+    key: "conversations.a-greeting",
+    domain: "conversations",
+    name: "A greeting",
+    description: "Greets the user.",
+    variables: { userName: { kind: "text", description: "The user's name." } },
+    text: "Hello {{userName}}.",
+  });
+
+  async function startDrafting(text: string): Promise<PromptTemplates> {
+    await startWith([
+      { step: "start", brief: { id: "brief", text: "" } },
+      ...officeToolCall("c-1", READ_PROMPT_TEMPLATE_TOOL, { key: greeting.key }),
+      ...officeToolCall("c-2", PROPOSE_PROMPT_TEMPLATE_TOOL, { key: greeting.key, text }),
+      ...endsTurn("Here is the card."),
+    ]);
+    app.get(PromptTemplateCatalog).register([greeting]);
+    return app.get(PromptTemplates);
+  }
+
+  it("is drafted from the text the Office Manager reads, and saved with who applied it", async () => {
+    const templates = await startDrafting("Hi {{userName}}.");
+
+    const proposal = await theOnlyProposal("Greet me with Hi.");
+
+    expect(toolResultRead("c-1").text).toContain("Text now:\nHello {{userName}}.");
+    expect(proposal.change).toEqual({
+      kind: "prompt-template",
+      key: greeting.key,
+      name: "A greeting",
+      from: "Hello {{userName}}.",
+      to: "Hi {{userName}}.",
+    });
+    expect((await templates.read(greeting.key)).customised).toBe(false);
+
+    await proposals.apply(proposal.id, ANN_LEE);
+
+    expect(await templates.read(greeting.key)).toMatchObject({
+      text: "Hi {{userName}}.",
+      saved: { version: 1, savedBy: ANN_LEE },
+    });
+    expect((await proposals.read(proposal.id)).status).toMatchObject({ kind: "applied" });
+  });
+
+  it("is refused once the template changed since the draft, and stays open", async () => {
+    const templates = await startDrafting("Hi {{userName}}.");
+    const proposal = await theOnlyProposal("Greet me with Hi.");
+    await templates.save(greeting.key, "Hey {{userName}}.", ANN_LEE);
+
+    await expect(proposals.apply(proposal.id, ANN_LEE)).rejects.toThrow(
+      "The prompt template changed after this was drafted",
+    );
+
+    expect((await proposals.read(proposal.id)).status).toEqual({ kind: "open" });
+    expect((await templates.read(greeting.key)).text).toBe("Hey {{userName}}.");
   });
 });
 

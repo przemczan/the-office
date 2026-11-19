@@ -53,6 +53,7 @@ describe("TaskRecords", () => {
       plan: "",
       definitionOfDone: [],
       initiativeId: undefined,
+      engineStandIns: [],
       commitMessage: {
         text: "Rename a device\n\nLet me name each device as I call it.",
         written: false,

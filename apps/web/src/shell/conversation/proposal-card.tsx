@@ -175,6 +175,28 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
           />
         </ProposalFrame>
       );
+    case "prompt-template":
+      return (
+        <ProposalFrame
+          title={
+            change.to === null
+              ? `Reset ${change.name} to its default`
+              : `Change the prompt template · ${change.name}`
+          }
+        >
+          <ProposedPromptTemplate text={change.to} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[["settings", "prompt-templates"]]}
+            appliedToast={
+              change.to === null
+                ? "Prompt template reset to its default."
+                : "Prompt template changed."
+            }
+            openNote={`Applies to prompts rendered after it. ${STALE_NOTE}`}
+          />
+        </ProposalFrame>
+      );
     case "duties":
       return (
         <ProposalFrame title="Change duties">
@@ -785,6 +807,21 @@ function ProposedOfficeInstructions({ text }: { readonly text: string }): ReactN
       <ProposedField label="New Office instructions">
         {text === "" ? (
           "None: the Office instructions would be emptied, so sessions that start after this get none."
+        ) : (
+          <div className="proposal-text">{text}</div>
+        )}
+      </ProposedField>
+    </dl>
+  );
+}
+
+/** The new text whole, as the prompts will be rendered from it; `null` is back to the default. */
+function ProposedPromptTemplate({ text }: { readonly text: string | null }): ReactNode {
+  return (
+    <dl className="proposal-fields">
+      <ProposedField label="New text">
+        {text === null ? (
+          "Back to the default that ships with The Office"
         ) : (
           <div className="proposal-text">{text}</div>
         )}

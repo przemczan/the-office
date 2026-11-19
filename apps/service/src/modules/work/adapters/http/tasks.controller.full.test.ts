@@ -21,6 +21,7 @@ import {
   signedInAs,
 } from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { makeAPlanOpening } from "../../domain/planning.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
@@ -489,7 +490,12 @@ describe("POST /api/tasks/:id/make-a-plan", () => {
     expect(work.app.get(ProjectWorktreesForTests).opened).toContain(`${projectId}/${task.id}`);
     const threads = work.app.get(TaskThreadsForTests);
     expect(threads.started).toEqual([
-      { taskId: task.id, roleKey: "planner", title: "Planning", opening: makeAPlanOpening(false) },
+      {
+        taskId: task.id,
+        roleKey: "planner",
+        title: "Planning",
+        opening: makeAPlanOpening(defaultWorkPrompts(), false),
+      },
     ]);
     expect(threads.opened).toEqual([]);
     expect(webEventsOf(work)).toEqual([

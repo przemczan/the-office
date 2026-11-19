@@ -197,6 +197,10 @@ function proposedWords(change: ProposedChange): string {
       return "change the Office instructions";
     case "duties":
       return `change who holds ${Object.keys(change.to).join(", ")}`;
+    case "prompt-template":
+      return change.to === null
+        ? `reset the prompt template ${change.key} to its default`
+        : `change the prompt template ${change.key}`;
     case "office-setup":
       return `set up The Office: hire ${change.hires.length} and assign ${change.duties.length} duties`;
     case "initiative":

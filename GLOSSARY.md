@@ -495,6 +495,10 @@ _Avoid_: Profile picture, photo
 The one text of general guidelines the user writes in Settings, which every person's session gets with their Role's instructions; a Role's instructions and a Project's `CLAUDE.md` win where they disagree.
 _Avoid_: Global instructions, guidelines, house rules, agents.md
 
+**Prompt template**:
+One text The Office gives an Agent or a session, such as Resolve's Brief, with a default that ships with The Office and the variables it can use in `{{ }}`; the user can change it in Settings and reset it to its default.
+_Avoid_: system prompt, template (alone)
+
 **Engine**:
 What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
 _Avoid_: Provider, backend, account (as the thing picked), engine id; Copilot, Copilot engine, GitHub engine (for a Copilot CLI engine)
@@ -644,7 +648,7 @@ A Stage run whose Stage already had a run on the same Task, whenever that one ra
 _Avoid_: Rerun, attempt, repeat
 
 **Proposal**:
-A new or changed Role card or Office setting drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
+A new or changed Role card or Office setting, or a Prompt template's new text or reset to its default (drafted only when the user asks), drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
 
 **Caretaker**:

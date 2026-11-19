@@ -1,6 +1,8 @@
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { Module } from "@nestjs/common";
+import { PromptTemplatesModule } from "../prompt-templates/index.js";
+import { EnginePromptTemplates } from "./adapters/prompt-templates/engine-prompt-templates.js";
 import { McpClientModule } from "../../platform/mcp/mcp-client.module.js";
 import { AgentSdkEngine } from "./adapters/agent-sdk/agent-sdk-engine.js";
 import { ClaudeCodePEngine } from "./adapters/claude-code-p/claude-code-p-engine.js";
@@ -29,7 +31,13 @@ import { SessionLanguageServers } from "./ports/session-language-servers.js";
 import { UsageWindowSampleRepository } from "./ports/usage-window-sample-repository.js";
 
 @Module({
-  imports: [EngineSettingsModule, ScheduleModule, McpClientModule, BusyWorkModule],
+  imports: [
+    EngineSettingsModule,
+    PromptTemplatesModule,
+    ScheduleModule,
+    McpClientModule,
+    BusyWorkModule,
+  ],
   controllers: [SessionEndpointsController],
   providers: [
     AgentSdkEngine,
@@ -67,6 +75,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
     UsageWindowsNow,
     { provide: SessionLanguageServers, useClass: WorkstationLanguageServers },
     EngineSessions,
+    EnginePromptTemplates,
   ],
   exports: [
     EngineSessions,

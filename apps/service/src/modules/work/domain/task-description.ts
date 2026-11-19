@@ -10,8 +10,12 @@ export const NO_DESCRIPTION = "None: the title is all there is.";
 
 /** The Description as a section of a Brief: the Planner's and every Agent Stage's (spec §2.5). */
 export function descriptionSection(description: string): string {
-  const words = description === "" ? NO_DESCRIPTION : description;
-  return `## What the user wants, in their own words\n\n${words}`;
+  return `## What the user wants, in their own words\n\n${descriptionWords(description)}`;
+}
+
+/** The Description as an Agent reads it, an empty one saying so. */
+export function descriptionWords(description: string): string {
+  return description === "" ? NO_DESCRIPTION : description;
 }
 
 /**

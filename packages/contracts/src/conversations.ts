@@ -497,6 +497,12 @@ export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 /** The Office tool anyone drafts a written skill with in their chat, hidden alike. */
 export const PROPOSE_SKILL_TOOL = "propose_skill";
 
+/** The Office tool the Office Manager drafts a change to a prompt template with, hidden alike. */
+export const PROPOSE_PROMPT_TEMPLATE_TOOL = "propose_prompt_template";
+
+/** The Office tool the Office Manager drafts a prompt template's reset with, hidden alike. */
+export const PROPOSE_PROMPT_TEMPLATE_RESET_TOOL = "propose_prompt_template_reset";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -567,6 +573,17 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
    * drafted; both name only the duties that change. Applying changes them all or none.
    */
   z.object({ kind: z.literal("duties"), from: dutyHoldersSchema, to: dutyHoldersSchema }),
+  /**
+   * A new text for a prompt template (`key`, named `name`), whole, and its text when drafted, the
+   * saved one or the default (`from`); `to` null resets it to its default. Prompt templates applies it.
+   */
+  z.object({
+    kind: z.literal("prompt-template"),
+    key: z.string(),
+    name: z.string(),
+    from: z.string(),
+    to: z.string().nullable(),
+  }),
   /**
    * The Caretaker's set-up of The Office: people to hire, from presets or from scratch, and the
    * duties that go to another Role, each with the Role key it named when drafted (`from`); `to` may

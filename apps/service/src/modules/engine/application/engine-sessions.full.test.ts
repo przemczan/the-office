@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { SdkMcpClient } from "../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { CODEX_CAPABILITIES, CodexAppServerEngine } from "../adapters/codex/codex-engine.js";
+import { defaultEnginePromptTemplates } from "../adapters/prompt-templates/engine-prompt-templates.fixtures.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import {
@@ -898,7 +899,11 @@ describe("EngineSessions on each engine's adapter", () => {
           "agent-sdk": new ScriptedEngine([]),
           "claude-code-p": new ScriptedEngine([]),
           "openai-compatible-api": new ScriptedEngine([]),
-          codex: new CodexAppServerEngine(new OfficeDataDirectory(officeData), new SdkMcpClient()),
+          codex: new CodexAppServerEngine(
+            new OfficeDataDirectory(officeData),
+            new SdkMcpClient(),
+            defaultEnginePromptTemplates(),
+          ),
         },
         new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, codex] }),
       );

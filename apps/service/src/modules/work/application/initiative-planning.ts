@@ -1,12 +1,13 @@
 import type { Author } from "../domain/author.js";
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Initiative } from "../domain/initiative.js";
 import type { InitiativePlanningStarted } from "../domain/initiative-events.js";
 import {
-  INITIATIVE_PLANNING_OPENING,
   INITIATIVE_PLANNING_THREAD_TITLE,
+  initiativePlanningOpening,
   startInitiativePlanning,
   type InitiativePlanningStart,
 } from "../domain/initiative-planning.js";
@@ -16,6 +17,7 @@ import { InitiativeRepository, type InitiativeUpdate } from "../ports/initiative
 import { InitiativeThreads } from "../ports/initiative-threads.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { WorkSettings } from "../ports/work-settings.js";
+import { INITIATIVE_PLANNING_OPENING } from "../domain/work-prompt-templates.js";
 
 /**
  * Plan the Initiative and Plan with… (spec §2.1): one planning Thread with whoever holds Plans on an
@@ -31,6 +33,7 @@ export class InitiativePlanning {
     private readonly people: KnownPeople,
     private readonly settings: WorkSettings,
     private readonly events: EventBus,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /**
@@ -48,12 +51,13 @@ export class InitiativePlanning {
       by,
     });
     await this.settings.changeAutoMode(autoMode);
+    const prompts = await this.promptTemplates.textsOf([INITIATIVE_PLANNING_OPENING]);
     await this.threads.startOnInitiative({
       threadId,
       initiativeId,
       roleKey: planner,
       title: INITIATIVE_PLANNING_THREAD_TITLE,
-      opening: INITIATIVE_PLANNING_OPENING,
+      opening: initiativePlanningOpening(prompts),
     });
     // Published once the Thread is there, for the page's link to open it.
     if (event) await this.events.publish(event);

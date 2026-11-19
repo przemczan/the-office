@@ -94,6 +94,59 @@ function button(page: HTMLElement, name: string): HTMLButtonElement {
   return found;
 }
 
+function promptTemplateProposal(to: string | null): Proposal {
+  return {
+    id: PROPOSAL_ID,
+    threadId: "6f1c2a52-1d0e-4a59-9d55-3c1f7f1f0a02",
+    draftedBy: "office-manager",
+    draftedAt: AT,
+    change: {
+      kind: "prompt-template",
+      key: "resolve-brief",
+      name: "Resolve's Brief",
+      from: "Old.",
+      to,
+    },
+    status: { kind: "open" },
+  };
+}
+
+describe("ProposalCard on a prompt template", () => {
+  it("names the template and shows the new text whole", () => {
+    serviceAnswering(promptTemplateProposal(SEVERAL_LINES));
+    const card = cardOf(promptTemplateProposal(SEVERAL_LINES));
+    expect(card.textContent).toContain("Change the prompt template · Resolve's Brief");
+    expect(card.querySelector(".proposal-text")?.textContent).toBe(SEVERAL_LINES);
+    expect(card.textContent).toContain("Applies to prompts rendered after it.");
+  });
+
+  it("says a reset goes back to the default", () => {
+    serviceAnswering(promptTemplateProposal(null));
+    const card = cardOf(promptTemplateProposal(null));
+    expect(card.textContent).toContain("Reset Resolve's Brief to its default");
+    expect(card.textContent).toContain("Back to the default that ships with The Office");
+    expect(card.querySelector(".proposal-text")).toBeNull();
+  });
+
+  it("applies through the Proposal's apply endpoint", async () => {
+    const fetched = serviceAnswering({
+      ...promptTemplateProposal(SEVERAL_LINES),
+      status: { kind: "applied", at: AT, by: null },
+    });
+    const card = cardOf(promptTemplateProposal(SEVERAL_LINES));
+    await act(async () => {
+      button(card, "Apply change").click();
+      await vi.waitFor(() =>
+        expect(document.body.textContent).toContain("Prompt template changed."),
+      );
+    });
+    expect(fetched).toHaveBeenCalledWith(
+      `/api/proposals/${PROPOSAL_ID}/apply`,
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
 describe("ProposalCard on the Office instructions", () => {
   it("says what it changes and shows the whole text with its line breaks", () => {
     serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));

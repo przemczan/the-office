@@ -86,6 +86,7 @@ import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-rep
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
 
 // What stage-threads.test.ts and stage-threads.full.test.ts share: the app each test starts on its scripted engine, and the Stages, turns and people it runs.
 
@@ -174,6 +175,7 @@ async function startOn(
   ({ app } = await startTestApplication({
     database: true,
     imports: [
+      ConversationsPromptTemplatesForTests,
       EventsModule,
       ScheduleModule,
       BusyWorkModule,

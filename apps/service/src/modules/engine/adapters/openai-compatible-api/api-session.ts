@@ -65,6 +65,8 @@ export interface ApiSessionParts {
   readonly skills: readonly ListedSkill[];
   /** Whether each turn ends in output given through StructuredOutput. */
   readonly answersInSchema: boolean;
+  /** What a turn that must end in output is told when its model answers without giving it. */
+  readonly outputReminder: string;
   /** Where the conversation is kept after each turn, so the session resumes from it. */
   readonly conversationFile: ConversationFile;
   /** The conversation a resumed session kept; empty for a new one. */
@@ -80,8 +82,6 @@ const NO_TOKENS: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation
  * StructuredOutput, before the turn fails, as Claude Code retries it within the turn.
  */
 const OUTPUT_REMINDERS = 2;
-
-const OUTPUT_REMINDER = `Your turn isn't over: call the ${STRUCTURED_OUTPUT_TOOL} tool with your answer, in the shape its input asks for.`;
 
 /** What the conversation says where a turn was interrupted, as Claude Code marks it. */
 const INTERRUPTED_NOTE = "[The user interrupted this turn.]";
@@ -226,7 +226,7 @@ export class ApiSession implements EngineSession {
             return;
           }
           reminders += 1;
-          this.conversation.push({ role: "user", content: OUTPUT_REMINDER });
+          this.conversation.push({ role: "user", content: this.parts.outputReminder });
           continue;
         }
         this.reported.push({ kind: "context-read", tokens: this.contextTokens() });

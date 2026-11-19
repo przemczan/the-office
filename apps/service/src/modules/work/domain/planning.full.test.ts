@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { planningBrief, type PlanningPipeline, type PlanningRecord } from "./planning.js";
 import type { TaskLinks } from "./linked-records.js";
 import { aLink, anIdea, anInitiative, aPlannedTask, aTask } from "./work.fixtures.js";
+import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
+
+const prompts = defaultWorkPrompts();
 
 const PIPELINES: readonly PlanningPipeline[] = [
   {
@@ -52,7 +55,7 @@ const RECORD: PlanningRecord = {
 
 describe("a planning Brief", () => {
   it("carries the Task, where it is worked, where it came from, its linked records, its Attachments, the commands and the Pipelines", () => {
-    expect(planningBrief(RECORD)).toBe(
+    expect(planningBrief(prompts, RECORD)).toBe(
       [
         "You are planning a Task with the user, in the Task's planning Thread.",
         "## The Task\n\nFix the login redirect (Task task-1), in the Project Admin panel.",
@@ -73,15 +76,18 @@ describe("a planning Brief", () => {
   it("carries the user's Description", () => {
     const task = aTask({ description: "After signing in, land on the page I came from." });
 
-    expect(planningBrief({ ...RECORD, task })).toContain(
+    expect(planningBrief(prompts, { ...RECORD, task })).toContain(
       "## What the user wants, in their own words\n\nAfter signing in, land on the page I came from.",
     );
   });
 
   it("quotes the Idea's notes only once the Description differs from them", () => {
     const notes = "Monthly, per Project, for the accountant.";
-    const shaped = planningBrief({ ...RECORD, task: aTask({ description: notes }) });
-    const edited = planningBrief({ ...RECORD, task: aTask({ description: "Yearly too." }) });
+    const shaped = planningBrief(prompts, { ...RECORD, task: aTask({ description: notes }) });
+    const edited = planningBrief(prompts, {
+      ...RECORD,
+      task: aTask({ description: "Yearly too." }),
+    });
 
     expect(shaped).toContain(
       '## Where it came from\n\nThe Idea "Export usage as CSV", whose notes are the Description.',
@@ -91,7 +97,7 @@ describe("a planning Brief", () => {
   });
 
   it("says when the Task came from no Idea and has no Attachment", () => {
-    const brief = planningBrief({ ...RECORD, links: NO_LINKS, attachments: [] });
+    const brief = planningBrief(prompts, { ...RECORD, links: NO_LINKS, attachments: [] });
 
     expect(brief).toContain(
       "## Where it came from\n\nThe Task was created as it is, from no Idea.",
@@ -100,17 +106,19 @@ describe("a planning Brief", () => {
   });
 
   it("leaves out the linked records when the Task has none", () => {
-    expect(planningBrief({ ...RECORD, links: NO_LINKS })).not.toContain("## Linked records");
+    expect(planningBrief(prompts, { ...RECORD, links: NO_LINKS })).not.toContain(
+      "## Linked records",
+    );
   });
 
   it("has no Initiative section for a Task outside an Initiative", () => {
-    expect(planningBrief(RECORD)).not.toContain("## The Initiative");
+    expect(planningBrief(prompts, RECORD)).not.toContain("## The Initiative");
   });
 
   it("gives the Initiative the Task is part of after its linked records", () => {
     const task = aTask({ originIdeaId: "idea-1", initiativeId: "initiative-1" });
     const initiative = anInitiative({ state: "active" });
-    const brief = planningBrief({
+    const brief = planningBrief(prompts, {
       ...RECORD,
       task,
       links: { ...RECORD.links, initiative },
@@ -134,7 +142,7 @@ describe("a planning Brief", () => {
   });
 
   it("says a Task of an Initiative with a Pipeline starts from and publishes into its branch, naming the Pipeline", () => {
-    const brief = planningBrief({
+    const brief = planningBrief(prompts, {
       ...RECORD,
       startsFrom: { branch: "initiative/usage-exports", initiativePipeline: "Full (full)" },
     });
@@ -148,7 +156,7 @@ describe("a planning Brief", () => {
   });
 
   it("says nothing of an Initiative's branch for a Task of the base branch", () => {
-    const brief = planningBrief(RECORD);
+    const brief = planningBrief(prompts, RECORD);
 
     expect(brief).toContain("which started from the freshly fetched main.");
     expect(brief).not.toContain("## The Initiative's branch");
@@ -172,7 +180,7 @@ describe("a planning Brief", () => {
       initiative: anInitiative({ state: "active" }),
     };
 
-    expect(planningBrief({ ...RECORD, links })).toContain(
+    expect(planningBrief(prompts, { ...RECORD, links })).toContain(
       [
         "## Linked records",
         "",
@@ -188,7 +196,10 @@ describe("a planning Brief", () => {
   });
 
   it("carries the Plan and the Definition of Done once written, each confirmed or proposed", () => {
-    const brief = planningBrief({ ...RECORD, task: aPlannedTask({ planConfirmed: false }) });
+    const brief = planningBrief(prompts, {
+      ...RECORD,
+      task: aPlannedTask({ planConfirmed: false }),
+    });
 
     expect(brief).toMatch(
       /## The Plan, not yet confirmed\n\nKeep the requested path through the sign-in\.\n\n## The Definition of Done, confirmed\n\n- Signing in returns the user to the page they asked for\.$/,
@@ -198,7 +209,7 @@ describe("a planning Brief", () => {
   it("says the Task has no Pipeline yet and names the Project's default", () => {
     const task = aTask({ pipelineId: undefined });
 
-    expect(planningBrief({ ...RECORD, task })).toContain(
+    expect(planningBrief(prompts, { ...RECORD, task })).toContain(
       "## The Pipelines\n\nThe Task has no Pipeline yet; the Project's default is Full (full). Propose the one its Definition of Done needs with propose_pipeline:",
     );
   });
@@ -227,7 +238,7 @@ describe("a planning Brief", () => {
     ];
     const task = aTask({ pipelineId: undefined });
 
-    const brief = planningBrief({
+    const brief = planningBrief(prompts, {
       ...RECORD,
       task,
       project: { ...RECORD.project, defaultPipeline: "spec-change" },
@@ -246,7 +257,7 @@ describe("a planning Brief", () => {
   it("carries the Pipeline the Planner proposed, waiting for the user", () => {
     const task = aTask({ proposedPipeline: { pipelineId: "document", reason: "A report." } });
 
-    expect(planningBrief({ ...RECORD, task })).toMatch(
+    expect(planningBrief(prompts, { ...RECORD, task })).toMatch(
       /For a document as the result\.\n\nYou proposed Document \(document\): A report\. It waits for the user to confirm it\.\n\n## Auto mode/,
     );
   });
@@ -254,7 +265,7 @@ describe("a planning Brief", () => {
   it("says what marking the Task planned does in auto mode", () => {
     const task = aTask({ state: "planning", autoMode: true });
 
-    expect(planningBrief({ ...RECORD, task })).toContain(
+    expect(planningBrief(prompts, { ...RECORD, task })).toContain(
       "## Auto mode\n\nOn: once you mark the Task planned with mark_planned and no Decision on it is open, The Office confirms the Plan, the Definition of Done and the proposed Pipeline and marks the Task Ready.",
     );
   });

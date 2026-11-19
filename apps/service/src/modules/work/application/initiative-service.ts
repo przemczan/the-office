@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
@@ -64,6 +65,10 @@ import { initiativeRecordText, type InitiativeRecord } from "../domain/record-wo
 import { searchWords } from "../domain/search.js";
 import { NOBODY_SHAPES_INITIATIVES, SHAPES_INITIATIVES } from "../domain/duties.js";
 import { SHAPING_THREAD_TITLE, shapingOpeningOf } from "../domain/shaping.js";
+import {
+  CREATED_INITIATIVE_SHAPING_OPENING,
+  SHAPING_OPENING,
+} from "../domain/work-prompt-templates.js";
 import { isPublishingTask, newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import { createdWaitingFor } from "../domain/task-dependencies.js";
@@ -146,6 +151,7 @@ export class InitiativeService implements OnModuleInit {
     private readonly proposals: ProposalDrafts,
     private readonly search: WorkSearch,
     private readonly events: EventBus,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   onModuleInit(): void {
@@ -222,11 +228,15 @@ export class InitiativeService implements OnModuleInit {
     initiative: Initiative,
     shaper: string,
   ): Promise<{ readonly id: string }> {
+    const prompts = await this.promptTemplates.textsOf([
+      SHAPING_OPENING,
+      CREATED_INITIATIVE_SHAPING_OPENING,
+    ]);
     return this.threads.startOnInitiative({
       initiativeId: initiative.id,
       roleKey: shaper,
       title: SHAPING_THREAD_TITLE,
-      opening: shapingOpeningOf(initiative),
+      opening: shapingOpeningOf(prompts, initiative),
     });
   }
 

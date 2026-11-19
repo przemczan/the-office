@@ -15,6 +15,7 @@ import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { EngineModule } from "../engine/index.js";
+import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { FilesystemAttachmentFiles } from "./adapters/filesystem/filesystem-attachment-files.js";
 import { UnpdfPdfPages } from "./adapters/pdf/unpdf-pdf-pages.js";
 import { FilesystemWorktreeFiles } from "./adapters/filesystem/worktree-files.js";
@@ -64,6 +65,7 @@ import { WorkEarlierRecords } from "./adapters/postgres/work-earlier-records.js"
 import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
+import { WorkPromptTemplates } from "./adapters/prompt-templates/work-prompt-templates-registration.js";
 import { AttachmentService } from "./application/attachment-service.js";
 import { FireAlarmService } from "./application/fire-alarm-service.js";
 import { IdeaRecords } from "./application/idea-records.js";
@@ -204,7 +206,14 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     return {
       module: WorkModule,
       // Chats read Work and capture Ideas through Office tools on the Engine's registry.
-      imports: [...imports, EngineModule, ScheduleModule, TaskLocksModule, BusyWorkModule],
+      imports: [
+        ...imports,
+        EngineModule,
+        ScheduleModule,
+        TaskLocksModule,
+        BusyWorkModule,
+        PromptTemplatesModule,
+      ],
       controllers: [
         IdeasController,
         InitiativesController,
@@ -294,6 +303,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         IdeaRecords,
         StageScreenshots,
         WorkWebEvents,
+        WorkPromptTemplates,
         WorkOfficeTools,
         PlanningOfficeTools,
         CommitMessageOfficeTools,

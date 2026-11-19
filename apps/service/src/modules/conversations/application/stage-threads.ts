@@ -13,6 +13,7 @@ import {
   type UsageWindowName,
 } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
+import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import {
   Duties,
   EngineCascade,
@@ -24,6 +25,7 @@ import {
 import { ApprovalHolds } from "./approval-holds.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
+import { BRIEF_TEMPLATES } from "../domain/brief-templates.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import { decisionSummary, onlyChoice, type Recommendation } from "../domain/decision.js";
 import type {
@@ -41,10 +43,13 @@ import {
   roleOfficeTools,
   sessionOfficeTools,
   stageCapabilityOfficeTools,
-  workThreadInstructions,
   type HeldDuties,
   type SessionPerson,
 } from "../domain/session-instructions.js";
+import {
+  SESSION_INSTRUCTION_TEMPLATES,
+  workThreadInstructions,
+} from "../domain/session-instruction-templates.js";
 import {
   addTokens,
   NO_TOKENS,
@@ -293,15 +298,14 @@ export class StageThreads {
     private readonly schedule: Schedule,
     private readonly images: ThreadImages,
     private readonly engineModels: EngineModels,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
   async open(request: StageThreadRequest): Promise<StageThread> {
     const now = new Date();
-    const { current, held, applying, standInFor, previous, brief, move } = await this.decide(
-      request,
-      now,
-    );
+    const { current, held, applying, standInFor, previous, brief, move, prompts } =
+      await this.decide(request, now);
     const undelivered =
       previous && request.carryMessagesSince
         ? undeliveredSince(await this.repository.messages(previous.id), request.carryMessagesSince)
@@ -315,14 +319,24 @@ export class StageThreads {
           : undefined,
     };
     if (move.move === "resume" && previous?.session) {
-      return this.continueIn(previous, carrying, { held, applying, standInFor, move, brief }, now);
+      return this.continueIn(
+        previous,
+        carrying,
+        { held, applying, standInFor, move, brief, prompts },
+        now,
+      );
     }
     if (previous?.session) await this.forget(previous.session.id);
     // The user's choice is spent on this run, as a message spends it (`beginStageWork`).
     if (previous?.override) {
       await this.change(previous.id, (latest) => chooseOverride(latest, undefined, now));
     }
-    return this.startIn(carrying, current, { held, applying, standInFor, move, brief }, now);
+    return this.startIn(
+      carrying,
+      current,
+      { held, applying, standInFor, move, brief, prompts },
+      now,
+    );
   }
 
   /**
@@ -379,7 +393,11 @@ export class StageThreads {
       reason: standIn.reason,
     };
     const previous = await this.previousThread(request.previousThreadId);
-    const brief = taskThreadBrief({
+    const prompts = await this.promptTemplates.textsOf([
+      ...BRIEF_TEMPLATES,
+      ...SESSION_INSTRUCTION_TEMPLATES,
+    ]);
+    const brief = taskThreadBrief(prompts, {
       record: request.record,
       continuing: false,
       answered: await this.repository.answeredOn(request.taskId),
@@ -403,7 +421,7 @@ export class StageThreads {
       },
       await this.settings.current(),
     );
-    return { current, held, applying, standInFor, previous, brief, move };
+    return { current, held, applying, standInFor, previous, brief, move, prompts };
   }
 
   /**
@@ -561,7 +579,7 @@ export class StageThreads {
   private async startIn(
     { request, images, carried }: Carrying,
     role: SessionRole,
-    { held, applying, standInFor, move, brief }: StageSessionDecision,
+    { held, applying, standInFor, move, brief, prompts }: StageSessionDecision,
     now: Date,
   ): Promise<StageThread> {
     const { thread, event } = startStageThread(
@@ -624,6 +642,7 @@ export class StageThreads {
       return this.engine.start({
         id: session.id,
         settings: this.settingsOf(
+          prompts,
           thread.id,
           session,
           request,
@@ -718,6 +737,8 @@ export class StageThreads {
     start: SessionStartWatch,
   ): Promise<Reopened> {
     const canInterrupt = (await this.engine.capabilitiesOf(session.engineId)).interrupt;
+    // Loaded again, as a Stand-in switch resumes a session long after the Stage opened it.
+    const prompts = await this.promptTemplates.textsOf(SESSION_INSTRUCTION_TEMPLATES);
     start.at("preparing skills");
     const skills = await this.sessionSkills.rebuild(session.id);
     start.at("preparing MCP servers");
@@ -725,12 +746,23 @@ export class StageThreads {
     start.at("starting on the engine");
     const opened = await this.engine.resume(
       session.id,
-      this.settingsOf(threadId, session, request, person, held, applying, skills, servers.servers),
+      this.settingsOf(
+        prompts,
+        threadId,
+        session,
+        request,
+        person,
+        held,
+        applying,
+        skills,
+        servers.servers,
+      ),
     );
     return { opened, canInterrupt, leftOut: servers.leftOut };
   }
 
   private settingsOf(
+    prompts: PromptTexts,
     threadId: string,
     { id, engineId }: ThreadSession,
     request: StageThreadRequest,
@@ -752,6 +784,7 @@ export class StageThreads {
       environment: request.environment,
       effort: request.effort ?? card.effort,
       instructions: workThreadInstructions(
+        prompts,
         { card, officeInstructions },
         request.session.instructions,
       ),
@@ -1226,6 +1259,8 @@ interface StageSessionDecision {
   readonly standInFor: SessionStandIn | undefined;
   readonly move: ContextDecision;
   readonly brief: Brief;
+  /** The Brief's and the instructions' template texts, loaded as the session was decided. */
+  readonly prompts: PromptTexts;
 }
 
 /** What a Stage's session is resumed with: its Thread, the Stage's request, its person and duties. */

@@ -3,9 +3,16 @@ import { execFile } from "node:child_process";
 import { dirname } from "node:path";
 import { promisify } from "node:util";
 import { McpClient } from "../../../../platform/mcp/mcp-client.js";
+import { flagField, PromptTemplates, type PromptTexts } from "../../../prompt-templates/index.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
+import {
+  CODEX_INSTRUCTIONS,
+  DECLINED_CALLS,
+  ENGINE_PROMPT_TEMPLATES,
+  FILE_CHANGES,
+} from "../../domain/engine-prompt-templates.js";
 import { CODEX_MODELS, hasUsageWindows, type Engine } from "../../domain/engines.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import { listingProblems } from "../../domain/skill-listing.js";
@@ -110,6 +117,7 @@ export class CodexAppServerEngine extends AgentEngine {
   constructor(
     private readonly officeData: OfficeDataDirectory,
     private readonly mcpClient: McpClient,
+    private readonly promptTemplates: PromptTemplates,
     @Optional() @Inject(CODEX_ENGINE_SETUP) private readonly setup: CodexEngineSetup = {},
   ) {
     super();
@@ -190,6 +198,7 @@ export class CodexAppServerEngine extends AgentEngine {
     keptThread: string | undefined,
   ): Promise<CodexSession> {
     const model = offeredModel(options);
+    const prompts = await this.promptTemplates.textsOf(ENGINE_PROMPT_TEMPLATES);
     const skills = await listedSkills(options.folder, options.skills);
     const problems = listingProblems(
       options.skills?.expected ?? [],
@@ -228,6 +237,7 @@ export class CodexAppServerEngine extends AgentEngine {
         connections,
       });
       const settings = threadSettings(options, model, {
+        prompts,
         projectRoot: await mainCheckout(options.folder),
         skills,
         mcpServers: codexMcpServers(endpoint, servedServers(options, skills, endpoint)),
@@ -344,10 +354,12 @@ function threadSettings(
   options: SessionOptions,
   model: string,
   {
+    prompts,
     projectRoot,
     skills,
     mcpServers,
   }: {
+    readonly prompts: PromptTexts;
     readonly projectRoot: string;
     readonly skills: readonly ListedSkill[];
     readonly mcpServers: Readonly<Record<string, unknown>>;
@@ -358,7 +370,7 @@ function threadSettings(
     model,
     approvalPolicy: "untrusted",
     sandbox: "workspace-write",
-    developerInstructions: codexInstructions(options.instructions, skills),
+    developerInstructions: codexInstructions(prompts, options.instructions, skills),
     config: {
       model_reasoning_effort: codexEffort(options.effort),
       projects: { [projectRoot]: { trust_level: "untrusted" } },
@@ -367,36 +379,29 @@ function threadSettings(
   };
 }
 
-/** What a declined call means, as a decline tells the model nothing more (spec §5.4 Defaults). */
-export const DECLINED_CALLS =
-  "A command, file change or tool call of yours that is declined was refused by the Office rules, the rules this workspace holds every Agent to; a note follows with the rule's words.";
+export { DECLINED_CALLS, FILE_CHANGES };
 
 /**
- * The Office rules judge a file change by what it changes and a command as a command, as on the
- * Claude Code engines, where Edit and Write change files: a file written by a command would be
- * refused under a profile that allows edits but only read-only commands.
+ * The session's developer instructions: its own, then, as the Codex instructions template words
+ * them, the skills the model may load with the `Skill` tool of the `office` MCP server (spec §5.6),
+ * how to change files and what a declined call means.
  */
-export const FILE_CHANGES = "Create and change files with apply_patch, never with a shell command.";
-
-/**
- * The session's developer instructions: its own, then the skills the model may load with the
- * `Skill` tool of the `office` MCP server (spec §5.6), then how to change files and what a
- * declined call means.
- */
-export function codexInstructions(instructions: string, skills: readonly ListedSkill[]): string {
+export function codexInstructions(
+  prompts: PromptTexts,
+  instructions: string,
+  skills: readonly ListedSkill[],
+): string {
   const offered = modelListing(skills);
-  const listing =
-    offered.length === 0
-      ? ""
-      : [
-          `Skills: when a task matches one of these, load it with the Skill tool of the ${OFFICE_TOOL_SERVER} MCP server before you start, then follow its instructions.`,
-          ...offered.map(({ name, description }) =>
-            description === "" ? `- ${name}` : `- ${name}: ${description}`,
-          ),
-        ].join("\n");
-  return [instructions, listing, `${FILE_CHANGES} ${DECLINED_CALLS}`]
-    .filter((part) => part.trim() !== "")
-    .join("\n\n");
+  const office = prompts.render(CODEX_INSTRUCTIONS, {
+    officeToolServer: OFFICE_TOOL_SERVER,
+    hasSkills: offered.length > 0,
+    skills: offered.map(({ name, description }) => ({
+      name,
+      description,
+      described: flagField(description !== ""),
+    })),
+  });
+  return [instructions, office].filter((part) => part.trim() !== "").join("\n\n");
 }
 
 /**

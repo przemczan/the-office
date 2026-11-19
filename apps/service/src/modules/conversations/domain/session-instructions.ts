@@ -1,4 +1,4 @@
-import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
+import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import type { DutyKey } from "../../people/index.js";
 import {
   decisionSummary,
@@ -36,24 +36,6 @@ export const SESSION_SHAPING_DUTIES: readonly DutyKey[] = [
 ];
 
 /**
- * A chat session's standing instructions: who the person is, the Office instructions, their card's
- * instructions, and that a chat only reads (spec §2.4, §6). The same for every session of a card
- * version, an Office instructions version and the duties held, so they stay in the cached prefix.
- */
-export function chatInstructions(person: SessionPerson, held: HeldDuties): string {
-  return [
-    ...personInstructions(person),
-    `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it, giving it a Description of what the user wants when they said more than the title. When you and the user already know how it will be done and what must be true when it is, give it a Plan and a Definition of Done too, both or neither, for the user to confirm on the Task page.`,
-    ...(held.includes("default-person-to-talk-to") ? [DEFAULT_PERSON_CALLING_RULE] : []),
-    CALLING_RULE,
-    CHAT_DECISION_RULE,
-    // Devops reached for Grep on the repository it onboarded, refused outside its folders (task
-    // 33's run).
-    ...(held.includes("onboards-projects") ? [READ_REPOSITORY_RULE] : []),
-  ].join("\n\n");
-}
-
-/**
  * The Office tool a person consults or calls another with (spec §2.2); the contracts name it too,
  * and a test keeps the two the same.
  */
@@ -82,7 +64,7 @@ export const CHAT_DECISION_RULE = `When you need the user's choice, or several a
  * The Default person to talk to calls someone only when the user asks (spec §2.2): otherwise they
  * still point the user to whoever is responsible rather than relay the work.
  */
-const DEFAULT_PERSON_CALLING_RULE =
+export const DEFAULT_PERSON_CALLING_RULE =
   "You point the user to whoever is responsible with a Link card rather than relay their work or answer for someone else; call a person yourself only when the user asks you to.";
 
 /**
@@ -103,7 +85,7 @@ export const PROPOSE_OFFICE_SETUP_TOOL = "propose_office_setup";
  * How the Caretaker sets up The Office (spec §2.2, "Setting up an Office with nobody hired"). The
  * same whether changes are allowed or not, so the cached prefix stays.
  */
-const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows nobody hired but you, offer to set The Office up. Ask what the user works on, then recommend whom to hire: presets, saying the duties and capabilities each brings, or Roles from scratch for what no preset covers. Draft them with ${PROPOSE_OFFICE_SETUP_TOOL}, as one Proposal the user applies with a click. A hired preset holds its own duties with no assignment: assign a duty only to give it to a Role other than its preset's, such as a Role from scratch. You may draft a set-up at any time the user asks, and you never hire anyone or change a duty yourself.`;
+export const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows nobody hired but you, offer to set The Office up. Ask what the user works on, then recommend whom to hire: presets, saying the duties and capabilities each brings, or Roles from scratch for what no preset covers. Draft them with ${PROPOSE_OFFICE_SETUP_TOOL}, as one Proposal the user applies with a click. A hired preset holds its own duties with no assignment: assign a duty only to give it to a Role other than its preset's, such as a Role from scratch. You may draft a set-up at any time the user asks, and you never hire anyone or change a duty yourself.`;
 
 /**
  * Where the Caretaker finds a session's transcript, to diagnose a Thread (spec §6, the user's answer
@@ -114,40 +96,10 @@ export const ENGINE_TRANSCRIPTS_RULE =
   "Reading a session's transcript, to find out what a Thread's session did: each Claude Code engine keeps its sessions' transcripts in The Office's data folder (OFFICE_DATA_DIR; by default %LOCALAPPDATA%\\the-office on Windows and ~/.local/share/the-office on Linux), as engines/<engine id>/projects/<session folder>/<session id>.jsonl, one JSON event per line. You read them with Read, Grep and Glob whether changes are allowed or not. Search inside an engine's projects/ folder, such as with Glob **/<session id>.jsonl there: engines/ and an engine's folder named whole hold its account and stay refused. The service log names each Thread's session as it starts or resumes, with its session id and its engine id. The OpenAI-compatible API engine's conversations aren't readable.";
 
 /**
- * The standing instructions of the Caretaker's chat (spec §2.4): it reads as any chat does until
- * the user allows changes in the Thread; then it reaches the whole workstation but secrets.
- */
-export function caretakerChatInstructions(person: SessionPerson, changesAllowed: boolean): string {
-  return [
-    ...personInstructions(person),
-    changesAllowed
-      ? "The user allowed changes in this Thread: you work in their home folder, and you may read and edit any file and run any command on the workstation, The Office's data folder and every git command included. Their secrets stay refused: SSH keys, the Claude, GitHub CLI and AWS credentials, browser profiles, the Office identity and the database credentials. Say what you are about to change before you change it, and prefer what can be undone. The engine's own Edit and Write may still refuse .git, .claude and .mcp.json: change those with a command."
-      : `This Thread only reads until the user allows changes: you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and read The Office's records with its tools. Diagnose first; to change a file or run a command that changes something, ${lowerFirst(ALLOW_CHANGES_ADVICE)}`,
-    ENGINE_TRANSCRIPTS_RULE,
-    OFFICE_SETUP_RULE,
-    CALLING_RULE,
-    CHAT_DECISION_RULE,
-  ].join("\n\n");
-}
-
-function lowerFirst(text: string): string {
-  return text.charAt(0).toLowerCase() + text.slice(1);
-}
-
-/**
- * The standing instructions of a session on a Task or an Initiative: who the person is, the Office
- * instructions, their card's instructions, and what they do in the Thread, as the module keeping
- * Work words it.
- */
-export function workThreadInstructions(person: SessionPerson, inTheThread: string): string {
-  return [...personInstructions(person), inTheThread].join("\n\n");
-}
-
-/**
  * Fixed words, so the cached prefix changes only with the text. "A Project's own" holds for a
  * session with no single Project too, such as a chat.
  */
-const OFFICE_INSTRUCTIONS_LEAD_IN =
+export const OFFICE_INSTRUCTIONS_LEAD_IN =
   "The user's general guidelines for everyone in The Office. Where they disagree, your Role's instructions and a Project's own CLAUDE.md win.";
 
 /**
@@ -157,21 +109,6 @@ const OFFICE_INSTRUCTIONS_LEAD_IN =
  */
 export const WRITING_FOR_THE_USER_RULE =
   "When you mention a Task, Initiative, Idea or Project to the user, write it as a Markdown link to its page with its full ID, never a shortened one: `[title](/tasks/<id>)`, `[name](/work/initiatives/<id>)`, `[title](/work/ideas?idea=<id>)`, `[name](/projects/<id>)`. Put text the user is meant to copy, such as a message, a command or a passage you propose, in a fenced code block: it has a Copy button.";
-
-function personInstructions({
-  card: { name, title, responsibilities, instructions },
-  officeInstructions,
-}: SessionPerson): string[] {
-  const whoTheyAre = `You are ${name}, the ${title} in The Office, where people like you work with the user on their Projects. ${responsibilities}`;
-  if (officeInstructions === "") return [whoTheyAre, instructions, WRITING_FOR_THE_USER_RULE];
-  return [
-    whoTheyAre,
-    `## Office instructions\n\n${OFFICE_INSTRUCTIONS_LEAD_IN}\n\n${officeInstructions}`,
-    // Closes the section above, or the Role's words would read as part of what they overrule.
-    `## Your Role's instructions\n\n${instructions}`,
-    WRITING_FOR_THE_USER_RULE,
-  ];
-}
 
 /**
  * The Office tool anyone drafts a written skill with in their chat (spec §2.6); the contracts name
@@ -270,6 +207,22 @@ export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
  */
 export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
 
+/** The Office tool the Default person to talk to lists the prompt templates with, all or by domain. */
+export const LIST_PROMPT_TEMPLATES_TOOL = "list_prompt_templates";
+
+/**
+ * The Office tool the Default person to talk to reads a prompt template with before drafting a
+ * change: its text now, its default, its variables and its stored text's problems.
+ */
+export const READ_PROMPT_TEMPLATE_TOOL = "read_prompt_template";
+
+/**
+ * The Office tools the Default person to talk to drafts a Proposal of a prompt template's new text,
+ * or of its reset to the default, with; named as above.
+ */
+export const PROPOSE_PROMPT_TEMPLATE_TOOL = "propose_prompt_template";
+export const PROPOSE_PROMPT_TEMPLATE_RESET_TOOL = "propose_prompt_template_reset";
+
 /**
  * The Office tool the Default person to talk to points the user to someone with, a Link card; named
  * as above.
@@ -352,7 +305,7 @@ export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
  */
 export const READ_REPOSITORY_TOOL = "read_repository";
 
-const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument. A repository on a host, such as GitHub, is read by its Repository URL in place of a path, without cloning it, and onboarded by that URL: The Office clones it when the user applies the Proposal.`;
+export const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument. A repository on a host, such as GitHub, is read by its Repository URL in place of a path, without cloning it, and onboarded by that URL: The Office clones it when the user applies the Proposal.`;
 
 /**
  * The Office tool whoever shapes Initiatives and the Default person to talk to create an Initiative
@@ -366,6 +319,10 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
   PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  LIST_PROMPT_TEMPLATES_TOOL,
+  READ_PROMPT_TEMPLATE_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
   POST_LINK_CARD_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
 ] as const;
@@ -374,7 +331,8 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
  * A chat's Office tools for a person, by the duties they hold (spec §2.2): the Default person to
  * talk to doesn't turn work into Tasks but points to whoever plans, so never creates one, though
  * they may create an Initiative, for whoever shapes Initiatives to shape into Tasks; they draft
- * Roles and Office settings as Proposals the user applies, point the user to whoever is
+ * Roles, Office settings and prompt templates (a new text or a reset to the default, only when the
+ * user asks) as Proposals the user applies, point the user to whoever is
  * responsible with a Link card, and show the Office status (ticket 06); they redirect with a Link
  * card and never relay, calling a person only when the user asks, as anyone else does (spec
  * §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
@@ -476,21 +434,6 @@ export function consultationOfficeTools(held: HeldDuties, canCall: boolean): rea
 }
 
 /**
- * The standing instructions of a Consultant in a Consultation: who they are, the Office
- * instructions, their card's instructions, and that they answer one person's question or request,
- * with their own tools, changing no file.
- */
-export function consultationInstructions(person: SessionPerson, canCall: boolean): string {
-  return [
-    ...personInstructions(person),
-    "You are in a Consultation: another person of The Office asked for your answer, or asked you to do something, and the user may read along or join. You work with your own tools and permissions, never theirs, and you change no file: what you can set up is a record or a Proposal your tools draft, which the user applies. Read what you need, using the Task's record when it is on a Task, then give your answer with the answer_consultation tool: one of their options, or your own words, saying what you did or why you can't. Say plainly why when you decline a call; pass an approval on, to the person your authority names or to the user, only when the call isn't yours to decide. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.",
-    canCall
-      ? `Call another person with the ${CONSULT_TOOL} tool only when you can't answer without them, never someone already in this chain of calls; end your turn then, and answer once their answer comes.`
-      : "This chain of calls can ask nobody else: answer from what you have, or pass an approval on to the user.",
-  ].join("\n\n");
-}
-
-/**
  * The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on.
  */
 export const REMEMBER_TOOL = "remember";
@@ -522,10 +465,6 @@ export function sessionOfficeTools(
       : []),
   ];
 }
-
-/** What The Office asks for when a session's context nears its limit (spec §2.5). */
-export const HANDOVER_REQUEST =
-  "Your context is nearly full, so this session ends after your next answer and the Thread continues in a fresh one. Write your Handover note for it now, in a few lines: where you are, what is left, and what to watch. Reply with the note alone.";
 
 /**
  * The first message of a session started with a Brief: the Brief, then the message, under a heading

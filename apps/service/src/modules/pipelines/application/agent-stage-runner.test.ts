@@ -15,14 +15,25 @@ import {
   anAgentStage,
   runsOf,
   startPipelinesApplication,
+  startPipelinesApplicationWith,
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
+import { userOf } from "../../../platform/http/signed-in-requests.js";
+import { STAGE_BRIEF, STAGE_MESSAGE } from "../domain/agent-stage-brief-templates.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import { implement, corrected } from "../agent-stage-runner.fixtures.js";
 import { aScriptStage, failing, passing } from "./script-stage-runner.fixtures.js";
+
+const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
 let pipelines: PipelinesApplication;
 
@@ -249,6 +260,31 @@ describe("AgentStageRunner", () => {
       error: 'Nobody fills the Role "developer" this Stage needs: hire them on People.',
     });
     expect(pipelines.stageThreads.requests).toEqual([]);
+  });
+
+  it("briefs the Stage and words its message as the user saved their Prompt templates", async () => {
+    // Texts of the test's own: every test file shares the database, where the runner reads them.
+    pipelines = await startPipelinesApplicationWith(
+      [{ provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() }],
+      [anAgentSession(aDoneResult("Added the dialog.", "Left: the list's refresh."))],
+    );
+    const promptTemplates = pipelines.app.get(PromptTemplates);
+    await promptTemplates.save(
+      STAGE_BRIEF.key,
+      "Task: {{title}} ({{projectName}}), on {{worktreeBranch}}.{{#hasDefinitionOfDone}} Done when:{{#definitionOfDone}} {{number}}) {{statement}}{{/definitionOfDone}}{{/hasDefinitionOfDone}}",
+      ANN,
+    );
+    await promptTemplates.save(STAGE_MESSAGE.key, "Now: {{stageName}}. {{stageBrief}}", ANN);
+
+    await walkStages(pipelines, [implement]);
+
+    const [request] = pipelines.stageThreads.requests;
+    expect(request?.record).toBe(
+      "Task: Rename a device (Admin panel), on office/task. Done when: 1) The new name shows on the list 2) The rename persists",
+    );
+    expect(request?.work).toBe(
+      "Now: Implement. Implement the Plan until the Definition of Done is met.",
+    );
   });
 });
 

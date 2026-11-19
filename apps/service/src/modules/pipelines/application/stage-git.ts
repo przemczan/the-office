@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import {
+  BRANCH_NEWS,
   branchKept,
   branchMovedWords,
   branchUpdateWords,
@@ -37,6 +39,7 @@ export class StageGit {
   constructor(
     private readonly git: TaskGit,
     private readonly runs: StageRunRepository,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /**
@@ -45,7 +48,8 @@ export class StageGit {
    * user said to keep it or it moved along the base; any other move refuses the Stage (spec §2.3).
    */
   async start(work: StageAt, task: TaskRecord): Promise<StageStart> {
-    const updateNews = await this.updatedForFirstStage(work, task);
+    const prompts = await this.promptTemplates.textsOf([BRANCH_NEWS]);
+    const updateNews = await this.updatedForFirstStage(prompts, work, task);
     const expected = await this.expectedHead(work, task);
     const head = await this.git.head(task.project.id, work.run.taskId);
     const problem = headProblem(expected, head);
@@ -54,7 +58,7 @@ export class StageGit {
       return {
         expected: { ...expected, commit: head.commit },
         refusal: undefined,
-        branchNews: branchMovedWords(expected.commit, head.commit),
+        branchNews: branchMovedWords(prompts, expected.commit, head.commit),
       };
     }
     await this.leaveAt(work.run, expected);
@@ -71,12 +75,13 @@ export class StageGit {
 
   /** Brings the branch to the base before the Task's first Stage; what its Agent should know. */
   private async updatedForFirstStage(
+    prompts: PromptTexts,
     { run, earlierRuns }: StageAt,
     task: TaskRecord,
   ): Promise<string | undefined> {
     if (earlierRuns.some(({ headCommit }) => headCommit !== undefined)) return undefined;
     const update = await this.git.updateFromBase(task.project.id, run.taskId, "give-back");
-    return branchUpdateWords(update, baseWords(task));
+    return branchUpdateWords(prompts, update, baseWords(task));
   }
 
   private async takesMove(

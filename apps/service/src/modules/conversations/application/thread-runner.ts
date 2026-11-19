@@ -10,6 +10,7 @@ import {
   RoleCards,
   type SessionRole,
 } from "../../people/index.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { BargeIns } from "./barge-ins.js";
 import { SessionSkills, SkillCommands } from "../../skills/index.js";
@@ -27,12 +28,12 @@ import {
   briefedMessage,
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
-  HANDOVER_REQUEST,
   messageFromUser,
   openingMessage,
   sessionOfficeTools,
   withLeftOutServers,
 } from "../domain/session-instructions.js";
+import { HANDOVER_REQUEST, handoverRequest } from "../domain/session-instruction-templates.js";
 import {
   DEFAULT_CONTEXT_POLICY_SETTINGS,
   decideContext,
@@ -253,6 +254,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly schedule: Schedule,
     private readonly skillCommands: SkillCommands,
     private readonly threadImages: ThreadImages,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /**
@@ -1226,9 +1228,10 @@ export class ThreadRunner implements OnModuleDestroy {
     // The engine starts the next turn with the user's messages, which is read as this one was.
     if (stillToLand) return;
     if (handingOver) {
+      const request = handoverRequest(await this.promptTemplates.textsOf([HANDOVER_REQUEST]));
       live.handingOver = true;
       this.turnBegan(live);
-      live.session.send({ id: randomUUID(), text: HANDOVER_REQUEST }, "later");
+      live.session.send({ id: randomUUID(), text: request }, "later");
       return;
     }
     if (wroteNote) {

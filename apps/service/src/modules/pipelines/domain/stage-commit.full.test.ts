@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { baseWords } from "./base-words.js";
 import { branchUpdateWords, headProblem, stageCommitMessage } from "./stage-commit.js";
+import { defaultPromptTexts } from "../../prompt-templates/index.js";
+import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
+
+const prompts = defaultPromptTexts(PIPELINES_PROMPT_TEMPLATES);
 
 describe("stageCommitMessage", () => {
   it("keeps the subject to one short line when the Task's title is long", () => {
@@ -65,7 +69,7 @@ describe("branchUpdateWords", () => {
   });
 
   it("names the Initiative's branch, then the base, as what the branch was brought up to date with", () => {
-    expect(branchUpdateWords({ kind: "updated", commit: "c".repeat(40) }, bases)).toBe(
+    expect(branchUpdateWords(prompts, { kind: "updated", commit: "c".repeat(40) }, bases)).toBe(
       "The Office brought the Task's branch up to date with initiative/usage-exports, then main as this Stage started, so the code may be newer than the Plan.",
     );
   });
@@ -73,10 +77,10 @@ describe("branchUpdateWords", () => {
   it("names the branch that conflicted, and keeps a clean merge before it", () => {
     const conflicted = { kind: "conflicted", conflictedFiles: ["a.ts"], from: "main" } as const;
 
-    expect(branchUpdateWords(conflicted, bases)).toBe(
+    expect(branchUpdateWords(prompts, conflicted, bases)).toBe(
       "The Task's branch is behind main and conflicts with it in a.ts, so it stays as it was. When your work needs what the base has, call update_branch and resolve the conflict in the files.",
     );
-    expect(branchUpdateWords({ ...conflicted, commit: "c".repeat(40) }, bases)).toContain(
+    expect(branchUpdateWords(prompts, { ...conflicted, commit: "c".repeat(40) }, bases)).toContain(
       "conflicts with it in a.ts, so it took in what came before it and stays without it.",
     );
   });

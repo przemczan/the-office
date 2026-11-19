@@ -1,3 +1,4 @@
+import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
 import type { StageOutcome, StageRun } from "./stage-run.js";
 import type { AcceptedIssue } from "./walk-decisions.js";
 
@@ -90,26 +91,100 @@ export function branchKept(runs: readonly StageRun[]): boolean {
 }
 
 /**
+ * What a Stage's Agent is told of its Task's branch: how bringing it up to date with the base went
+ * as the Task's first Stage started, or that it moved since the last Stage (spec §2.3). Exactly one
+ * of updated, conflicted, failed and moved is true.
+ */
+export const BRANCH_NEWS = promptTemplate({
+  key: "pipelines.branch-news",
+  domain: "pipelines",
+  name: "News of the Task's branch",
+  description:
+    "What an Agent is told about its Task's branch when a Stage starts: brought up to date with the base, conflicting with it, not updated, or moved since the last Stage.",
+  variables: {
+    updated: {
+      kind: "flag",
+      description: "The branch was brought up to date with the base as the Stage started.",
+    },
+    conflicted: {
+      kind: "flag",
+      description: "The branch is behind the base and conflicts with it.",
+    },
+    failed: {
+      kind: "flag",
+      description: "The Office couldn't bring the branch up to date.",
+    },
+    moved: {
+      kind: "flag",
+      description: "The branch moved since the last Stage, outside The Office.",
+    },
+    bases: {
+      kind: "text",
+      description: "What the branch takes in: its Initiative's branch, then the base branch.",
+    },
+    from: {
+      kind: "text",
+      description: "The branch whose merge conflicted; the bases when it isn't known.",
+    },
+    files: {
+      kind: "text",
+      description: "The files the merge conflicts in, separated by commas.",
+    },
+    keptBefore: {
+      kind: "flag",
+      description: "Whether a clean merge of an earlier base stays, the conflicting one left out.",
+    },
+    error: { kind: "text", description: "What git said when the update failed." },
+    updateBranchTool: {
+      kind: "text",
+      description: "The tool that brings the branch up to date from the Stage.",
+    },
+    movedFrom: { kind: "text", description: "The commit the branch was at, shortened." },
+    movedTo: { kind: "text", description: "The commit the branch is at now, shortened." },
+  },
+  text: `{{#updated}}The Office brought the Task's branch up to date with {{bases}} as this Stage started, so the code may be newer than the Plan.{{/updated}}{{#conflicted}}The Task's branch is behind {{from}} and conflicts with it in {{files}}, {{#keptBefore}}so it took in what came before it and stays without it{{/keptBefore}}{{^keptBefore}}so it stays as it was{{/keptBefore}}. When your work needs what the base has, call {{updateBranchTool}} and resolve the conflict in the files.{{/conflicted}}{{#failed}}The Office couldn't bring the Task's branch up to date with {{bases}}, so it may be behind. If your work needs what the base has, call {{updateBranchTool}}. git said: {{error}}{{/failed}}{{#moved}}The Task's branch moved from {{movedFrom}} to {{movedTo}} since the last Stage: read again whatever you read before.{{/moved}}`,
+});
+
+const NO_NEWS = {
+  updated: false,
+  conflicted: false,
+  failed: false,
+  moved: false,
+  bases: "",
+  from: "",
+  files: "",
+  keptBefore: false,
+  error: "",
+  updateBranchTool: UPDATE_BRANCH_TOOL,
+  movedFrom: "",
+  movedTo: "",
+};
+
+/**
  * What a Task's first Agent is told of the branch's update as its Stage started (spec §2.3);
  * `bases` names what the branch takes in (`baseWords`).
  */
-export function branchUpdateWords(update: BranchUpdate, bases: string): string | undefined {
+export function branchUpdateWords(
+  prompts: PromptTexts,
+  update: BranchUpdate,
+  bases: string,
+): string | undefined {
   switch (update.kind) {
     case "up-to-date":
       return undefined;
     case "updated":
-      return `The Office brought the Task's branch up to date with ${bases} as this Stage started, so the code may be newer than the Plan.`;
-    case "conflicted": {
-      const from = update.from ?? bases;
-      const files = update.conflictedFiles.join(", ");
-      const kept =
-        update.commit === undefined
-          ? "so it stays as it was"
-          : "so it took in what came before it and stays without it";
-      return `The Task's branch is behind ${from} and conflicts with it in ${files}, ${kept}. When your work needs what the base has, call ${UPDATE_BRANCH_TOOL} and resolve the conflict in the files.`;
-    }
+      return prompts.render(BRANCH_NEWS, { ...NO_NEWS, updated: true, bases });
+    case "conflicted":
+      return prompts.render(BRANCH_NEWS, {
+        ...NO_NEWS,
+        conflicted: true,
+        bases,
+        from: update.from ?? bases,
+        files: update.conflictedFiles.join(", "),
+        keptBefore: update.commit !== undefined,
+      });
     case "failed":
-      return `The Office couldn't bring the Task's branch up to date with ${bases}, so it may be behind. If your work needs what the base has, call ${UPDATE_BRANCH_TOOL}. git said: ${update.error}`;
+      return prompts.render(BRANCH_NEWS, { ...NO_NEWS, failed: true, bases, error: update.error });
   }
 }
 
@@ -143,8 +218,13 @@ export function pushFailedWords(push: PublishingBranchPush, branch: string): str
     : undefined;
 }
 
-export function branchMovedWords(from: string, to: string): string {
-  return `The Task's branch moved from ${short(from)} to ${short(to)} since the last Stage: read again whatever you read before.`;
+export function branchMovedWords(prompts: PromptTexts, from: string, to: string): string {
+  return prompts.render(BRANCH_NEWS, {
+    ...NO_NEWS,
+    moved: true,
+    movedFrom: short(from),
+    movedTo: short(to),
+  });
 }
 
 function resultText(outcome: StageOutcome): string {

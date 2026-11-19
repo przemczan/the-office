@@ -10,7 +10,8 @@ import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
 import type { Initiative } from "../../domain/initiative.js";
-import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
+import { shapingInstructions } from "../../domain/shaping.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import type { Task } from "../../domain/task.js";
 import {
   ProposalDraftsForTests,
@@ -110,7 +111,7 @@ it("are among a shaping session's Office tools", () => {
 });
 
 it("tell the shaper to ask the user's choices in one Decision on no Task, then end the turn", () => {
-  expect(SHAPING_INSTRUCTIONS).toContain(
+  expect(shapingInstructions(defaultWorkPrompts())).toContain(
     "When you need the user's choices, ask them in one Decision with open_decision, leaving taskId out",
   );
 });

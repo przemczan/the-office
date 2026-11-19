@@ -21,6 +21,7 @@ export * from "./people.js";
 export * from "./pipelines.js";
 export * from "./project-filter.js";
 export * from "./projects.js";
+export * from "./prompt-templates.js";
 export * from "./record-links.js";
 export * from "./run-environments.js";
 export * from "./skills.js";

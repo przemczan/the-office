@@ -252,6 +252,14 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
       return { kind: change.kind, from: change.from, to: change.to };
     case "duties":
       return { kind: change.kind, from: change.from, to: change.to };
+    case "prompt-template":
+      return {
+        kind: change.kind,
+        key: change.key,
+        name: change.name,
+        from: change.from,
+        to: change.to,
+      };
     case "office-setup":
       return {
         kind: "office-setup",

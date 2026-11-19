@@ -82,6 +82,7 @@ import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-rep
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE } from "../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
 
 // What consultations.test.ts and consultations.full.test.ts share.
 
@@ -189,6 +190,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   ({ app } = await startTestApplication({
     database: true,
     imports: [
+      ConversationsPromptTemplatesForTests,
       EventsModule,
       ScheduleModule,
       BusyWorkModule,
@@ -657,12 +659,17 @@ describe("a Consultation that couldn't answer", () => {
     expect(await threads.messages(consultation.id)).toContainEqual(
       expect.objectContaining({ kind: "failure", reason: "spawn git ENOENT" }),
     );
-    expect(await threads.messages(asker.id)).toContainEqual(
-      expect.objectContaining({
-        kind: "consultation-line",
-        decisionId: decision?.id,
-        text: "Casey couldn't answer: spawn git ENOENT. The Decision waits on the user now.",
-      }),
+    // The asker's Thread logs the line after the Decision is passed on.
+    await vi.waitFor(
+      async () =>
+        expect(await threads.messages(asker.id)).toContainEqual(
+          expect.objectContaining({
+            kind: "consultation-line",
+            decisionId: decision?.id,
+            text: "Casey couldn't answer: spawn git ENOENT. The Decision waits on the user now.",
+          }),
+        ),
+      { timeout: 5_000, interval: 20 },
     );
   });
 });

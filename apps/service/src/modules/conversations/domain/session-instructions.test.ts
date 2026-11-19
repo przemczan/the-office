@@ -15,27 +15,37 @@ import {
   OPEN_DECISION_TOOL,
   CREATE_INITIATIVE_TOOL,
   consultationOfficeTools,
-  caretakerChatInstructions,
   caretakerChatOfficeTools,
-  chatInstructions,
   chatOfficeTools,
-  consultationInstructions,
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
   ENGINE_TRANSCRIPTS_RULE,
+  LIST_PROMPT_TEMPLATES_TOOL,
   PERSON_READING_OFFICE_TOOLS,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  READ_PROMPT_TEMPLATE_TOOL,
   READ_REPOSITORY_TOOL,
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
   PROPOSE_ROLE_TOOL,
   type HeldDuties,
-  workThreadInstructions,
   WRITING_FOR_THE_USER_RULE,
 } from "./session-instructions.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "./user.fixtures.js";
+import { defaultPromptTexts } from "../../prompt-templates/index.js";
+import { CONVERSATIONS_PROMPT_TEMPLATES } from "./conversations-prompt-templates.js";
+import {
+  caretakerChatInstructions,
+  chatInstructions,
+  consultationInstructions,
+  workThreadInstructions,
+} from "./session-instruction-templates.js";
+
+const PROMPTS = defaultPromptTexts(CONVERSATIONS_PROMPT_TEMPLATES);
 
 /** The duties each default Role holds while nobody moved them; the Caretaker holds none. */
 const OFFICE_MANAGER: HeldDuties = ["default-person-to-talk-to"];
@@ -56,31 +66,32 @@ describe("the Office instructions in a session's standing instructions", () => {
   describe.each([
     {
       kind: "a chat",
-      standing: (officeInstructions: string) => chatInstructions({ card, officeInstructions }, []),
+      standing: (officeInstructions: string) =>
+        chatInstructions(PROMPTS, { card, officeInstructions }, []),
       theRest: "In your chat you read and answer",
     },
     {
       kind: "the Caretaker's chat, only reading",
       standing: (officeInstructions: string) =>
-        caretakerChatInstructions({ card, officeInstructions }, false),
+        caretakerChatInstructions(PROMPTS, { card, officeInstructions }, false),
       theRest: "This Thread only reads until the user allows changes",
     },
     {
       kind: "the Caretaker's chat with changes allowed",
       standing: (officeInstructions: string) =>
-        caretakerChatInstructions({ card, officeInstructions }, true),
+        caretakerChatInstructions(PROMPTS, { card, officeInstructions }, true),
       theRest: "The user allowed changes in this Thread",
     },
     {
       kind: "a Task or Initiative Thread, or an Agent Stage",
       standing: (officeInstructions: string) =>
-        workThreadInstructions({ card, officeInstructions }, "You work a Stage."),
+        workThreadInstructions(PROMPTS, { card, officeInstructions }, "You work a Stage."),
       theRest: "You work a Stage.",
     },
     {
       kind: "a Consultation",
       standing: (officeInstructions: string) =>
-        consultationInstructions({ card, officeInstructions }, true),
+        consultationInstructions(PROMPTS, { card, officeInstructions }, true),
       theRest: "You are in a Consultation",
     },
   ])("in $kind", ({ standing, theRest }) => {
@@ -125,8 +136,8 @@ describe("the Caretaker's chat instructions", () => {
   };
 
   it("offer setting The Office up while nobody is hired, the same whether changes are allowed or not", () => {
-    const reading = caretakerChatInstructions(person, false);
-    const changing = caretakerChatInstructions(person, true);
+    const reading = caretakerChatInstructions(PROMPTS, person, false);
+    const changing = caretakerChatInstructions(PROMPTS, person, true);
     const setUp = /Setting up The Office:[^\n]*/.exec(reading)?.[0];
 
     expect(setUp).toContain(
@@ -141,7 +152,7 @@ describe("the Caretaker's chat instructions", () => {
   it.each([false, true])(
     "say where the engines' transcripts are and how to find one, with changes allowed %s",
     (changesAllowed) => {
-      const text = caretakerChatInstructions(person, changesAllowed);
+      const text = caretakerChatInstructions(PROMPTS, person, changesAllowed);
 
       expect(text).toContain(ENGINE_TRANSCRIPTS_RULE);
       expect(ENGINE_TRANSCRIPTS_RULE).toContain(
@@ -166,6 +177,23 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_ROLE_TOOL);
     expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
     expect(chatOfficeTools(PLANNER)).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
+  });
+
+  it("gives only the Default person to talk to reading prompt templates and drafting their changes and resets", () => {
+    const promptTemplateTools = [
+      LIST_PROMPT_TEMPLATES_TOOL,
+      READ_PROMPT_TEMPLATE_TOOL,
+      PROPOSE_PROMPT_TEMPLATE_TOOL,
+      PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
+    ];
+
+    expect(chatOfficeTools(OFFICE_MANAGER)).toEqual(expect.arrayContaining(promptTemplateTools));
+    for (const held of [PLANNER, DEVOPS]) {
+      for (const tool of promptTemplateTools) expect(chatOfficeTools(held)).not.toContain(tool);
+    }
+    for (const tool of promptTemplateTools) {
+      expect(caretakerChatOfficeTools(CARETAKER)).not.toContain(tool);
+    }
   });
 
   it("gives the Caretaker drafting the set-up of The Office, and no other Proposal of a Role", () => {
@@ -217,13 +245,13 @@ describe("open_decision in a chat", () => {
     const person = { card, officeInstructions: "" };
 
     for (const instructions of [
-      chatInstructions(person, PLANNER),
-      chatInstructions(person, OFFICE_MANAGER),
-      caretakerChatInstructions(person, false),
+      chatInstructions(PROMPTS, person, PLANNER),
+      chatInstructions(PROMPTS, person, OFFICE_MANAGER),
+      caretakerChatInstructions(PROMPTS, person, false),
     ]) {
       expect(instructions).toContain(`${CALLING_RULE}\n\n${CHAT_DECISION_RULE}`);
     }
-    expect(consultationInstructions(person, true)).not.toContain(CHAT_DECISION_RULE);
+    expect(consultationInstructions(PROMPTS, person, true)).not.toContain(CHAT_DECISION_RULE);
   });
 });
 
@@ -352,12 +380,12 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
     );
     expect(tools).not.toContain("create_task");
     expect(tools).toContain(CONSULT_TOOL);
-    const instructions = chatInstructions(person, ["default-person-to-talk-to"]);
+    const instructions = chatInstructions(PROMPTS, person, ["default-person-to-talk-to"]);
     expect(instructions).toContain(CALLING_RULE);
     expect(instructions).toContain(
       "You point the user to whoever is responsible with a Link card rather than relay their work",
     );
-    expect(chatInstructions(person, [])).not.toContain("rather than relay");
+    expect(chatInstructions(PROMPTS, person, [])).not.toContain("rather than relay");
   });
 
   it("give whoever holds Onboards Projects the Project tools and reading a repository, with its rule", () => {
@@ -375,9 +403,9 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
       ]),
     );
     expect(tools).not.toContain(PROPOSE_ROLE_TOOL);
-    expect(chatInstructions(person, ["onboards-projects"])).toContain(CALLING_RULE);
-    expect(chatInstructions(person, ["onboards-projects"])).not.toEqual(
-      chatInstructions(person, []),
+    expect(chatInstructions(PROMPTS, person, ["onboards-projects"])).toContain(CALLING_RULE);
+    expect(chatInstructions(PROMPTS, person, ["onboards-projects"])).not.toEqual(
+      chatInstructions(PROMPTS, person, []),
     );
   });
 
@@ -403,7 +431,7 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
     ]) {
       expect(tools).not.toContain(builtIn);
     }
-    expect(chatInstructions(person, [])).toContain(CALLING_RULE);
+    expect(chatInstructions(PROMPTS, person, [])).toContain(CALLING_RULE);
     expect(CALLING_RULE).toContain('"ask a colleague to set that up"');
   });
 

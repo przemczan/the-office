@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import {
   freshChatThreadBrief,
   freshPersonsThreadBrief,
@@ -7,6 +8,7 @@ import {
   taskThreadBrief,
   type Brief,
 } from "../domain/brief.js";
+import { BRIEF_TEMPLATES } from "../domain/brief-templates.js";
 import type { Thread } from "../domain/thread.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -15,7 +17,10 @@ import { SessionMemory } from "./session-memory.js";
 import { ThreadImages } from "./thread-images.js";
 import { taskThreadRequest, TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 
-/** Assembles each new session's Brief from the record, with no model call (spec §2.5). */
+/**
+ * Assembles each new session's Brief from the record, with no model call (spec §2.5), in the Brief
+ * templates' texts as they are when it is assembled.
+ */
 @Injectable()
 export class Briefs {
   constructor(
@@ -25,6 +30,7 @@ export class Briefs {
     private readonly initiativeThreads: InitiativeThreadSetups,
     private readonly memory: SessionMemory,
     private readonly images: ThreadImages,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /** The Brief of the Thread's next session. Read before the message it answers is logged. */
@@ -57,6 +63,7 @@ export class Briefs {
    */
   async forTaskThread(thread: Thread, setup: TaskThreadSetup): Promise<Brief> {
     if (thread.home.kind !== "task") throw new Error(`Thread ${thread.id} is not on a Task.`);
+    const prompts = await this.texts();
     const memory = await this.memory.forBrief(thread.roleKey, {
       kind: "project",
       projectId: setup.projectId,
@@ -64,9 +71,14 @@ export class Briefs {
     if (setup.brief === undefined) {
       const log = await this.repository.messages(thread.id);
       const removedImages = await this.images.removedIn(log);
-      return freshPersonsThreadBrief({ title: thread.title, log, removedImages, memory });
+      return freshPersonsThreadBrief(prompts, {
+        title: thread.title,
+        log,
+        removedImages,
+        memory,
+      });
     }
-    return taskThreadBrief({
+    return taskThreadBrief(prompts, {
       record: setup.brief,
       continuing: thread.session !== undefined,
       answered: await this.repository.answeredOn(thread.home.taskId),
@@ -85,7 +97,7 @@ export class Briefs {
       firstSession: true,
     });
     if (setup.brief === undefined) throw new Error(`Task ${taskId} gave no first session's Brief.`);
-    return taskThreadBrief({
+    return taskThreadBrief(await this.texts(), {
       record: setup.brief,
       continuing: false,
       answered: await this.repository.answeredOn(taskId),
@@ -99,7 +111,7 @@ export class Briefs {
    * the Decision on no Task the Thread waits on.
    */
   async forInitiativeThread(thread: Thread, setup: InitiativeThreadSetup): Promise<Brief> {
-    return initiativeThreadBrief({
+    return initiativeThreadBrief(await this.texts(), {
       // A Thread on an Initiative waits on one Decision on no Task at most.
       open: thread.openDecisions.find(({ taskId }) => taskId === undefined),
       record: setup.record,
@@ -114,12 +126,23 @@ export class Briefs {
 
   /** A new chat Thread's, or the one it continues fresh with from its log so far. */
   private async forChatThread(thread: Thread): Promise<Brief> {
+    const prompts = await this.texts();
     const projects = await this.bases.list();
     // A chat reads every Project, so it reads every note.
     const memory = await this.memory.forBrief(thread.roleKey, { kind: "every-note", projects });
-    if (thread.session === undefined) return newChatThreadBrief(projects, memory);
+    if (thread.session === undefined) return newChatThreadBrief(prompts, projects, memory);
     const log = await this.repository.messages(thread.id);
     const removedImages = await this.images.removedIn(log);
-    return freshChatThreadBrief({ title: thread.title, log, removedImages, projects, memory });
+    return freshChatThreadBrief(prompts, {
+      title: thread.title,
+      log,
+      removedImages,
+      projects,
+      memory,
+    });
+  }
+
+  private texts(): Promise<PromptTexts> {
+    return this.promptTemplates.textsOf(BRIEF_TEMPLATES);
   }
 }

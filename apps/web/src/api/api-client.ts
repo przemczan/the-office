@@ -159,13 +159,14 @@ export async function sendToApiRefusedAs<
   Schema extends z.ZodType,
   RefusalSchema extends z.ZodType<{ readonly message: string }>,
 >(
+  method: "POST" | "PUT",
   path: `/${string}`,
   body: unknown,
   schema: Schema,
   refusalSchema: RefusalSchema,
 ): Promise<z.infer<Schema>> {
   const response = await fetch(`${API_PATH}${path}`, {
-    method: "POST",
+    method,
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
