@@ -76,8 +76,13 @@ const APPEARANCE_BLOCKS = ["How it looks", "Mark", "Images"];
 
 /** A Project's sections in the menu's order: each one's address and the blocks only it shows. */
 const SECTIONS = [
-  { name: "Overview", address: "", blocks: ["Onboarding", "Environment", "Work"] },
+  { name: "Overview", address: "", blocks: ["Onboarding", "Work"] },
   { name: "Commands", address: "/commands", blocks: ["Commands"] },
+  {
+    name: "Environment",
+    address: "/environment",
+    blocks: ["Environment variables", "Environment check"],
+  },
   { name: "Pipelines", address: "/pipelines", blocks: ["Default Pipeline"] },
   { name: "Run environment", address: "/run-environment", blocks: ["Run environment"] },
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
@@ -87,7 +92,7 @@ const SECTIONS = [
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Run environment|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
+  /^(Onboarding|Environment variables|Environment check|Work|Commands|Default Pipeline|Run environment|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 
@@ -788,7 +793,17 @@ test(
   },
 );
 
-test("the environment check shows each check, and saves the environment only once all pass", async ({
+/** Presses the Environment section's Save and waits for the service to keep the environment. */
+async function saveEnvironment(page: Page): Promise<void> {
+  const saving = page.waitForResponse(
+    (response) => response.url().endsWith("/environment") && response.request().method() === "PUT",
+  );
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await saving).ok()).toBe(true);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+}
+
+test("the environment is saved by Save, and the environment check tries it without changing it", async ({
   page,
 }) => {
   const passes = `node -e "process.exit(0)"`;
@@ -798,11 +813,21 @@ test("the environment check shows each check, and saves the environment only onc
     lint: `node -e "console.error('lint error: 1 problem'); process.exit(1)"`,
     test: `node -e "process.exit(process.env.GREETING === 'hello' ? 0 : 1)"`,
   });
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/environment`);
   await expect(page.getByText("Not checked yet.")).toBeVisible();
   const checks = page.getByRole("list", { name: "Environment checks" });
+  const variables = page.getByLabel("Variables to set");
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
 
-  await page.getByLabel("Variables to set").fill("GREETING=hello");
+  // Discard drops an edit; Save keeps one, with no check.
+  await variables.fill("GREETING=bye");
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(variables).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Discard" })).toHaveCount(0);
+  await variables.fill("GREETING=hello");
+  await saveEnvironment(page);
+  await expect(page.getByText("Not checked yet.")).toBeVisible();
+
   await page.getByRole("button", { name: "Run the environment check" }).click();
 
   await expect(page.getByText("Failed", { exact: true })).toBeVisible({ timeout: 30_000 });
@@ -812,6 +837,9 @@ test("the environment check shows each check, and saves the environment only onc
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-project-environment-failed.png"),
   });
+  // A failed check leaves the saved environment as it is.
+  await page.reload();
+  await expect(variables).toHaveValue("GREETING=hello");
 
   await page.request.put(`/api/projects/${project.id}/commands/lint`, {
     data: { name: "Lint", kind: "lint", commandLine: passes },
@@ -819,8 +847,6 @@ test("the environment check shows each check, and saves the environment only onc
   await page.getByRole("button", { name: "Run the environment check" }).click();
 
   await expect(page.getByText("Ready", { exact: true })).toBeVisible({ timeout: 30_000 });
-  await page.reload();
-  await expect(page.getByLabel("Variables to set")).toHaveValue("GREETING=hello");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-environment.png") });
 });
 
@@ -837,7 +863,7 @@ test("a Secret variable is set, kept and removed, and its value never comes back
     lint: passes,
     test: `node -e "console.log('token: ' + (process.env.NPM_TOKEN ?? 'none'))"`,
   });
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/environment`);
   const secrets = page.getByRole("group", { name: "Secret variables" });
   const checks = page.getByRole("list", { name: "Environment checks" });
   const run = page.getByRole("button", { name: "Run the environment check" });
@@ -879,7 +905,7 @@ test("a Secret variable is set, kept and removed, and its value never comes back
   const row = secrets.getByRole("group", { name: "the Secret variable NPM_TOKEN" });
   await row.getByLabel("Value").fill("12345");
   await page.getByLabel("Variables to set").fill("NPM_TOKEN=plain");
-  await run.click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   const reasons = page.getByRole("alert").filter({ hasText: "Secret variable" });
   await expect(reasons).toContainText(
     "The value of the Secret variable NPM_TOKEN is shorter than 6 characters",
@@ -891,10 +917,11 @@ test("a Secret variable is set, kept and removed, and its value never comes back
   // Set: the commands get it, and its output hides it.
   await page.getByLabel("Variables to set").fill("");
   await row.getByLabel("Value").fill(token);
+  await saveEnvironment(page);
   await runCheck();
   await expect(await testOutput()).toHaveText("token: [secret NPM_TOKEN]");
 
-  // Kept: never shown again, in the page or the API, and given again when left empty.
+  // Kept: never shown again, in the page or the API, and given again with nothing typed.
   await page.reload();
   await expect(row.getByLabel("Value")).toHaveValue("");
   await expect(
@@ -919,8 +946,9 @@ test("a Secret variable is set, kept and removed, and its value never comes back
     expect(await (await page.request.get(address)).text()).not.toContain(token);
   }
 
-  // Removed: the commands no longer get it.
+  // Removed and saved: the commands no longer get it.
   await row.getByRole("button", { name: "Remove the Secret variable NPM_TOKEN" }).click();
+  await saveEnvironment(page);
   await runCheck();
   await expect(await testOutput()).toHaveText("token: none");
   const saved = projectSchema.parse(

@@ -30,9 +30,7 @@ test("Settings › Updates checks, schedules an update and a restart that wait f
   page,
 }) => {
   const project = await slowProject(page);
-  const started = await page.request.post(`/api/projects/${project.id}/environment-check`, {
-    data: { environment: { set: [], unset: [], prependPath: [] } },
-  });
+  const started = await page.request.post(`/api/projects/${project.id}/environment-check`);
   expect(started.ok()).toBe(true);
 
   await page.goto("/settings/updates");

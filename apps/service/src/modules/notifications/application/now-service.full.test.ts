@@ -177,6 +177,22 @@ describe("NowService", () => {
         cacheCreation: 0,
       });
     });
+
+    it("announces a token count with today's tokens alone, reading no Task again", async () => {
+      await events.publish(new StageRunStarted(randomUUID(), randomUUID(), "build"));
+      await vi.waitFor(() => expect(lastAnnounced()).toBeDefined());
+      const before = lastAnnounced()!.now.tokensToday;
+      const listed = vi.spyOn(tasks, "list");
+      const listedStarted = vi.spyOn(tasks, "listStarted");
+
+      await events.publish(new TokensCounted(threadWith(randomUUID(), 0, 70), new Date()));
+
+      await vi.waitFor(() =>
+        expect(lastAnnounced()?.now.tokensToday.cacheRead).toBe(before.cacheRead + 70),
+      );
+      expect(listed).not.toHaveBeenCalled();
+      expect(listedStarted).not.toHaveBeenCalled();
+    });
   });
 
   it("sends Now to the web whole", async () => {

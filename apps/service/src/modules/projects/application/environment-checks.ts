@@ -14,16 +14,10 @@ import {
 } from "../domain/environment-check-changes.js";
 import type { EnvironmentCheckStarted } from "../domain/environment-check-events.js";
 import type { Project } from "../domain/project.js";
-import {
-  editedEnvironment,
-  trimmedEnvironment,
-  type ProjectEnvironment,
-  type ProjectEnvironmentEdit,
-} from "../domain/project-environment.js";
+import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { EnvironmentCheckRepository } from "../ports/environment-check-repository.js";
 import { GitCommandFailed } from "../ports/git.js";
-import { ProjectChecks } from "./project-checks.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
@@ -41,8 +35,8 @@ interface RunningCheck {
 
 /**
  * The environment check (spec §5.5): a throwaway worktree of the freshly fetched base branch,
- * then install and each of the Project's commands in it with the environment tried, which is saved only when
- * every check passes. One runs at a time per Project; a running one lives here, and only finished
+ * then install and each of the Project's commands in it with the Project's saved environment; it
+ * changes nothing. One runs at a time per Project; a running one lives here, and only finished
  * ones are kept, so a restart never finds one that was left running.
  */
 @Injectable()
@@ -52,7 +46,6 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
 
   constructor(
     private readonly projects: ProjectService,
-    private readonly rules: ProjectChecks,
     private readonly worktrees: Worktrees,
     private readonly remotes: ProjectRemotes,
     private readonly commands: ProjectCommandRunner,
@@ -62,23 +55,21 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
   ) {}
 
   /**
-   * Starts a check of `given` and returns it as it starts; it goes on in the background. A Secret
-   * variable given without a value keeps the one the last check tried, or else the Project's.
-   * Refuses with every reason, running nothing, when the environment breaks a rule or a check is
-   * running.
+   * Starts a check of the Project's saved environment and returns it as it starts; it goes on in
+   * the background. Refuses, running nothing, while a check is running.
    */
-  async start(projectId: string, given: ProjectEnvironmentEdit): Promise<EnvironmentCheck> {
+  async start(projectId: string): Promise<EnvironmentCheck> {
     const project = await this.projects.read(projectId);
-    const lastTried = await this.repository.find(projectId);
-    const kept = [...(lastTried ? [lastTried.environment] : []), project.environment];
-    const environment = trimmedEnvironment(editedEnvironment(given, kept));
-    const problems = this.rules.environmentProblems(environment);
     // Nothing is awaited from here until the check is held, so two starts can't both pass.
     if (this.running.has(projectId)) {
-      problems.push("An environment check is already running for this Project.");
+      throw new ProjectRefused(["An environment check is already running for this Project."]);
     }
-    if (problems.length > 0) throw new ProjectRefused(problems);
-    const { check, event } = startEnvironmentCheck(projectId, project, environment, new Date());
+    const { check, event } = startEnvironmentCheck(
+      projectId,
+      project,
+      project.environment,
+      new Date(),
+    );
     const running: RunningCheck = { check, stop: new AbortController(), done: Promise.resolve() };
     this.running.set(projectId, running);
     const busy = {
@@ -224,13 +215,10 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     });
   }
 
-  /** Saves the environment when every check passed, then the check, and announces both. */
+  /** Saves the finished check and announces it. */
   private async finish(project: Project, running: RunningCheck, stopped: boolean): Promise<void> {
     const { check, event } = finishEnvironmentCheck(running.check, new Date(), stopped);
     try {
-      if (check.state === "passed") {
-        await this.projects.changeEnvironment(project.id, check.environment);
-      }
       await this.repository.save(check);
       running.check = check;
     } finally {

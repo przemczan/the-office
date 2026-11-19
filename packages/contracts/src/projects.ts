@@ -143,8 +143,8 @@ export type ProjectEnvironment = z.infer<typeof projectEnvironmentSchema>;
 export type ProjectVariable = ProjectEnvironment["set"][number];
 
 /**
- * An environment to check, as the Project page saves it: a Secret variable without a `value`, or
- * with an empty one, keeps the value kept under its name.
+ * An environment as the Project page saves it: a Secret variable without a `value`, or with an
+ * empty one, keeps the value the Project has under its name.
  */
 export const projectEnvironmentEditSchema = z.object({
   set: z.array(
@@ -316,6 +316,10 @@ export type CommandChange = z.infer<typeof commandChangeSchema>;
 export const installInputsChangeSchema = z.object({ installInputs: z.array(z.string()) });
 export type InstallInputsChange = z.infer<typeof installInputsChangeSchema>;
 
+/** PUT /projects/:id/environment: the whole environment, saved as it is given. */
+export const environmentChangeSchema = z.object({ environment: projectEnvironmentEditSchema });
+export type EnvironmentChange = z.infer<typeof environmentChangeSchema>;
+
 /** PUT /projects/:id/publishing-mode */
 export const publishingModeChangeSchema = z.object({ publishingMode: publishingModeSchema });
 export type PublishingModeChange = z.infer<typeof publishingModeChangeSchema>;
@@ -419,7 +423,7 @@ export type CommandCheck = z.infer<typeof commandCheckSchema>;
 export const environmentCheckStateSchema = z.enum(["running", "passed", "failed", "stopped"]);
 export type EnvironmentCheckState = z.infer<typeof environmentCheckStateSchema>;
 
-/** A try of an environment in a fresh worktree; it is saved only when every check passes. */
+/** A try of the Project's saved environment in a fresh worktree; it changes nothing. */
 export const environmentCheckSchema = z.object({
   projectId: z.string(),
   environment: projectEnvironmentSchema,
@@ -436,10 +440,6 @@ export type EnvironmentCheck = z.infer<typeof environmentCheckSchema>;
 /** GET /projects/:id/environment-check: the running check, or the last finished one. */
 export const latestEnvironmentCheckSchema = z.object({ check: environmentCheckSchema.nullable() });
 export type LatestEnvironmentCheck = z.infer<typeof latestEnvironmentCheckSchema>;
-
-/** POST /projects/:id/environment-check */
-export const environmentCheckStartSchema = z.object({ environment: projectEnvironmentEditSchema });
-export type EnvironmentCheckStart = z.infer<typeof environmentCheckStartSchema>;
 
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const projectRefusalSchema = z.object({

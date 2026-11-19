@@ -5,6 +5,7 @@ import {
   beforePublishingCommandChangeSchema,
   commandChangeSchema,
   defaultPipelineChangeSchema,
+  environmentChangeSchema,
   installCommandChangeSchema,
   installInputsChangeSchema,
   markChangeSchema,
@@ -22,6 +23,7 @@ import {
   type BeforePublishingCommandChange,
   type CommandChange,
   type DefaultPipelineChange,
+  type EnvironmentChange,
   type InstallCommandChange,
   type InstallInputsChange,
   type MarkChange,
@@ -118,6 +120,14 @@ export class ProjectsController {
     @Body(new ContractPipe(installInputsChangeSchema)) { installInputs }: InstallInputsChange,
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.projects.changeInstallInputs(id, installInputs));
+  }
+
+  @Put(":id/environment")
+  async changeEnvironment(
+    @Param("id") id: string,
+    @Body(new ContractPipe(environmentChangeSchema)) { environment }: EnvironmentChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeEnvironment(id, environment));
   }
 
   @Put(":id/publishing-mode")

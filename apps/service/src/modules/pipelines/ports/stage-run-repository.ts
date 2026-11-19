@@ -12,6 +12,7 @@ import type {
   AskedInterruption,
   HoldingUser,
 } from "../domain/stage-run.js";
+import type { StageRunUsage } from "../domain/usage-history.js";
 
 /**
  * The Stage Thread a run works in, how its session began, and what the session runs on: the
@@ -138,6 +139,15 @@ export abstract class StageRunRepository {
 
   /** The runs of each of the Tasks, each Task's oldest first, as `list` gives them. */
   abstract listOfTasks(taskIds: readonly string[]): Promise<readonly StageRun[]>;
+
+  /**
+   * What the ended runs of the `limit` Tasks among `taskIds` whose last run ended latest used, each
+   * Task's oldest first: only their usage, as a Usage estimate reads many Tasks' runs at once.
+   */
+  abstract latestTasksUsage(
+    taskIds: readonly string[],
+    limit: number,
+  ): Promise<readonly StageRunUsage[]>;
 
   /**
    * What each command of the Task's run printed, in the order of its command runs; a run saved
