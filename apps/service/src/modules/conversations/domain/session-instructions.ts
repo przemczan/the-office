@@ -207,6 +207,22 @@ export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
  */
 export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
 
+/** The Office tool the Default person to talk to lists the prompt templates with, all or by domain. */
+export const LIST_PROMPT_TEMPLATES_TOOL = "list_prompt_templates";
+
+/**
+ * The Office tool the Default person to talk to reads a prompt template with before drafting a
+ * change: its text now, its default, its variables and its stored text's problems.
+ */
+export const READ_PROMPT_TEMPLATE_TOOL = "read_prompt_template";
+
+/**
+ * The Office tools the Default person to talk to drafts a Proposal of a prompt template's new text,
+ * or of its reset to the default, with; named as above.
+ */
+export const PROPOSE_PROMPT_TEMPLATE_TOOL = "propose_prompt_template";
+export const PROPOSE_PROMPT_TEMPLATE_RESET_TOOL = "propose_prompt_template_reset";
+
 /**
  * The Office tool the Default person to talk to points the user to someone with, a Link card; named
  * as above.
@@ -303,6 +319,10 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
   PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  LIST_PROMPT_TEMPLATES_TOOL,
+  READ_PROMPT_TEMPLATE_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
   POST_LINK_CARD_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
 ] as const;
@@ -311,7 +331,8 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
  * A chat's Office tools for a person, by the duties they hold (spec §2.2): the Default person to
  * talk to doesn't turn work into Tasks but points to whoever plans, so never creates one, though
  * they may create an Initiative, for whoever shapes Initiatives to shape into Tasks; they draft
- * Roles and Office settings as Proposals the user applies, point the user to whoever is
+ * Roles, Office settings and prompt templates (a new text or a reset to the default, only when the
+ * user asks) as Proposals the user applies, point the user to whoever is
  * responsible with a Link card, and show the Office status (ticket 06); they redirect with a Link
  * card and never relay, calling a person only when the user asks, as anyone else does (spec
  * §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an

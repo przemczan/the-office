@@ -17,6 +17,7 @@ export interface ProposedChanges {
   readonly "size-threshold": ProposedSettingChange<"size-threshold">;
   readonly "office-instructions": ProposedSettingChange<"office-instructions">;
   readonly duties: ProposedSettingChange<"duties">;
+  readonly "prompt-template": ProposedPromptTemplateChange;
   readonly "office-setup": ProposedOfficeSetup;
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
@@ -131,6 +132,19 @@ export type ProposedSettingValue = {
     readonly value: OfficeSettingValues[Setting];
   };
 }[OfficeSetting];
+
+/**
+ * A new text for a prompt template (spec §2.2), given whole (`to`), or its reset to the default
+ * (`to` null), with its text when drafted, saved or the default (`from`); Prompt templates refuses
+ * to apply it once that text changed. `name` keeps what the card and the Thread's history call it.
+ */
+export interface ProposedPromptTemplateChange {
+  readonly kind: "prompt-template";
+  readonly key: string;
+  readonly name: string;
+  readonly from: string;
+  readonly to: string | null;
+}
 
 /**
  * A change whoever shapes Initiatives wants to an active Initiative (spec §2.1 Defaults), which

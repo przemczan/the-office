@@ -20,10 +20,14 @@ import {
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
   ENGINE_TRANSCRIPTS_RULE,
+  LIST_PROMPT_TEMPLATES_TOOL,
   PERSON_READING_OFFICE_TOOLS,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
+  PROPOSE_PROMPT_TEMPLATE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
+  READ_PROMPT_TEMPLATE_TOOL,
   READ_REPOSITORY_TOOL,
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
@@ -173,6 +177,23 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_ROLE_TOOL);
     expect(chatOfficeTools(PLANNER)).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
     expect(chatOfficeTools(PLANNER)).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
+  });
+
+  it("gives only the Default person to talk to reading prompt templates and drafting their changes and resets", () => {
+    const promptTemplateTools = [
+      LIST_PROMPT_TEMPLATES_TOOL,
+      READ_PROMPT_TEMPLATE_TOOL,
+      PROPOSE_PROMPT_TEMPLATE_TOOL,
+      PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
+    ];
+
+    expect(chatOfficeTools(OFFICE_MANAGER)).toEqual(expect.arrayContaining(promptTemplateTools));
+    for (const held of [PLANNER, DEVOPS]) {
+      for (const tool of promptTemplateTools) expect(chatOfficeTools(held)).not.toContain(tool);
+    }
+    for (const tool of promptTemplateTools) {
+      expect(caretakerChatOfficeTools(CARETAKER)).not.toContain(tool);
+    }
   });
 
   it("gives the Caretaker drafting the set-up of The Office, and no other Proposal of a Role", () => {
