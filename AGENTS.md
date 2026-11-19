@@ -9,8 +9,8 @@ Load only what the Task needs: whatever a session reads stays in its context and
 1. Before changing a module or a surface, read its `MAP.md` (`apps/service/src/modules/<module>/`, `apps/service/src/platform/`, `apps/web/src/`, `apps/web/src/surfaces/<surface>/`, `apps/web/e2e/`, `packages/contracts/src/`): what it owns, what it talks to and its traps, then its routes, events, tables and files. From there, find symbols with LSP and read code by range.
 2. Read the rest only when the Task needs it:
    - the [glossary](GLOSSARY.md), when naming something new;
-   - the [UI rules](docs/spec/4.1-ui-rules.md), before building or changing anything the user sees;
-   - a section from [the spec's index](docs/spec/README.md), when the cited sections leave a question open;
+   - the [UI rules](docs/spec/4.1-ui-rules.md) and the screen's page in [docs/spec/screens/](docs/spec/README.md#screens), before building or changing anything the user sees;
+   - the spec pages the module or surface cites; for anything else, the [topic map](docs/spec/README.md#topic-map), then the one page and heading it links to;
    - the [module template](apps/service/docs/module-template.md), when adding a module or a kind of file a module doesn't have yet, or when a boundary lint error is unclear; [testing](apps/service/docs/testing.md), before a kind of test the module doesn't have yet, a live check or a check on the Test Project.
 3. When a change touches a module's or surface's files, `npm run maps` refreshes the generated part of its map; update the handwritten part when what it owns, what it talks to or a trap changed.
 4. While working, run only the tests of the module or surface being changed; never `npm run verify` (or `test:e2e`) in the middle of the work. Inside a Stage of The Office, whose message lists the Stages after it, `npm run verify` is left to the later Stage that runs it, and the Agent doesn't run it; it runs only the tests of what it changed. When no later Stage runs it, the Agent runs the full `npm run verify` once the work is written, in the Task's run environment (`.devcontainer/`, Linux with a Postgres of its own) through the Office tool, and reruns it only after fixing what it found; on the workstation it runs on the host. `verify` runs the default run (critical and smoke tests); the full run (`test:full`, `test:e2e:full`, `verify:full`) is on demand ([testing](apps/service/docs/testing.md)).
@@ -46,7 +46,13 @@ Choices the spec leaves open. Change one only with the user, and update this lis
 
 - **The spec is the source of truth.** When code, the engine or a check contradicts the spec or a Task, stop, note what was found, and ask the user; the spec changes only with their answer.
 - **One language:** the [glossary](GLOSSARY.md)'s terms, exactly, in the UI, the API, the code and the database. "Session" means only the engine's session behind a Thread; a browser a user signed in from is a signed-in device.
-- **The UI spec:** [spec §4](docs/spec/4-ux-direction.md) and [§4.1](docs/spec/4.1-ui-rules.md), plus the designs [docs/design/README.md](docs/design/README.md) lists, one per screen; where an entry there says "Built differently", the code wins. Build it in React with `packages/ui`.
+- **The UI spec:** [spec §4](docs/spec/4-ux-direction.md) and [§4.1](docs/spec/4.1-ui-rules.md), plus one page per screen as built in [docs/spec/screens/](docs/spec/README.md#screens). The mock-ups [docs/design/README.md](docs/design/README.md) lists are drawings for design work only; where one differs, the screen page wins. Build it in React with `packages/ui`.
+- **Knowledge base:** the spec is also the knowledge base Agents read about The Office ([docs/spec/README.md](docs/spec/README.md)).
+  - A change to behaviour, to a default, or to what a screen shows updates the affected spec pages and screen pages in the same change, in their fixed form (title, one-line Covers, a short heading per concept, one fact per bullet, Defaults last).
+  - A fact lives in one place; other pages link to it.
+  - A new concept gets a line in the topic map, and a new default a line in the README's Defaults.
+  - Before changing a module or a surface, read the spec pages it cites.
+  - Review checks that the docs match the change.
 - **Reference is behaviour, not code:** `D:\Projects\software-factory` shows how something worked and what went wrong; write fresh code. That repository stays untouched.
 - **Architecture:** modules as bounded contexts, layered and talking through application services and domain events ([spec 5.3](docs/spec/5.3-modules.md)); the template is [apps/service/docs/module-template.md](apps/service/docs/module-template.md).
 - **Model calls cost quota:** tests use the scripted engine adapter; real sessions run only in the engine check and in a Task's check on the Test Project, with the cheapest model that proves the point.

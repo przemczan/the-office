@@ -1,150 +1,253 @@
-# 4. UX direction
+# 4 UX direction
 
-**The UI spec** is this section and [4.1](4.1-ui-rules.md), with the [designs](../design/README.md) for the screens they name: among them [the chat drawer](../design/chat-drawer.html), [the Decision card](../design/decision-form.html), [Add a Project](../design/add-project.html), [the Pipeline flow editor](../design/pipeline-flow.html), [Project Pipelines](../design/project-pipelines.html), [the Task page](../design/task-page-2.html), [the Initiative page](../design/initiative-page.html) and [its Pipelines block](../design/initiative-pipelines-block.html), and [the Live view](../design/live-view.html). Every screen is built in React with the design system's components.
+Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, densities, brand, copy, screens.
 
-- **Seven surfaces,** in the rail's order: **Now** (home: Needs you, Running, the queue for Start, the Initiatives being shaped, Since you left, today's tokens; nothing else), **Work** (per Project: Ideas, the Task board by state, Initiatives with their graph, Pull requests, CI, Archived), **People** (a grid of same-size cards; a page per person with Overview, Work, Conversations, Role card, Memory; hiring), **Projects** (a page per Project: its Files (the repository's files on any branch it knows, previewed; see Defaults), commands, its Environment (the variables to set, the Secret variables, the variables to remove and the folders in front of PATH, saved by Save, and the environment check of the saved environment), its Pipelines, its run environment, its Engine block (the Project default, "Use for every Role" and the Project's Role overrides), the repository's skills, the MCP servers' values, and Appearance with its mark, Icon and Logo), **Stats** (how The Office performs, above all what it spends in tokens and Usage windows: the basic stats from what The Office keeps, and once Grafana answers the full stats with estimated cost, which The Office draws itself; [2.11](2.11-stats.md), [the design](../design/stats.html)), the **Live view** (The Office as an isometric pixel-art office: each person a figure at a desk, drawn by what they are doing now, a click away from their work, with a list of everyone and their state. It follows local day and night, from sunrise and sunset worked out in the browser from its time zone, with nothing asked or sent, and at night idle people have gone home) and, at the rail's foot, **Settings** (Pipelines with their Stage templates, Duties, the skill library, MCP servers, Engines with their Model prices and Stand-in Engines, the Office identity (Sign in with GitHub and the Office ssh key), Office limits (with the measures Usage estimates show and each engine's Window caps and Daily caps), the Office instructions ([2.2](2.2-people.md)), Prompt templates ([2.2](2.2-people.md)), Notifications, Updates, Users, Signing in, where Continue with Google is set up ([2.10](2.10-users-and-signing-in.md)), and Telemetry). Outside them, the sign-in pages and First-run setup stand alone, without the shell, and the top bar's user menu holds the signed-in user's name, **Account** (their own page: name, email, password, authenticator, recovery codes, linked identities, passkeys, signed-in devices, Appearance) and **Sign out**.
-- **Project Pipelines** ([2.3](2.3-pipelines.md#defaults), "Project Pipelines" and "A Broken Project Pipeline"): Project Pipelines live on their Project's page, in its **Pipelines** section: the default first, its picker offering the Project's own Project Pipelines and the office-wide ones and flagging the default when it is Broken, then the Project's own Pipelines, the default marked, with "Add a Pipeline built from…"; the editor opens beside that list. Settings › Pipelines lists the office-wide Pipelines only, one that Project Pipelines are built from saying "Built on by N Project Pipelines" and listing the Projects with how many each has, each a link to that Project's Pipelines, never the Project Pipelines by name; each one the warning on saving a base Pipeline lists is a link to its Project's page. The Task's Pipeline picker lists the Project's default first, then its other Project Pipelines, then the office-wide ones, a Broken one listed and flagged with why but not choosable. The editor shows one view of what the Project gets: the built flow, its Stages in the Pipeline's order with their routes, each Stage marked as from the base Pipeline, inserted, replaced, changed (each field beside the base Pipeline's value) or removed (kept in place, struck through), each Stage change with its own Undo; a Broken one says why in plain words where it is and is fixed there ([the design](../design/project-pipelines.html)).
-- **The Pipeline flow editor** ([2.3](2.3-pipelines.md), "A Pipeline is a flow"): in Settings › Pipelines and a Project page's Pipelines section, the Pipeline is a canvas. The Stages stand in columns in the Pipeline's order, each listing inside it its routes out in the order they are weighed, each route with its condition in plain words ("otherwise" for the one with none). The routes are drawn as lines to the Stages they lead to or to End, and each On failure loop as a dashed red line above the Stages, never as a route. The user drags a Stage to a place and draws a route from a Stage's +. The same is done without dragging from the panel under the canvas (Move, Routes out, Goes to) or in the List, which shows the flow a Stage a row; at 390px the canvas runs top to bottom. A Stage keeps its size on the canvas, so a large Pipeline grows past it: the canvas moves by a drag with the right mouse button (or the middle one, Space + drag, or a drag on the empty canvas), zooms from 25% to 100% with Ctrl/⌘ + scroll or its controls, fits the whole Pipeline with Fit, shows an Overview in its corner while the Pipeline doesn't fit, and goes full screen; under 60% a Stage shows only its name ([the design](../design/pipeline-editor.html)). A plain scroll stays the page's. The same editor serves Settings › Pipelines, a Project page, the Task's Stages window and a Proposal shown on the flow; a Project Pipeline's Stages keep their base Pipeline's places, and dragging one says so. The panel holds the picked Stage's settings, its Routes out and its On failure, or the picked route's condition, built from the built-in tests and Project commands in All of and Any of groups. Each problem of the Validation rules is said in plain words where it is and listed above the bar, and Save waits while one stands. A Project Pipeline's Stage changes keep their marks on the canvas, and a Proposal's routes show as Was and Proposed on its card and, before it is applied, on the canvas ([the design](../design/pipeline-flow.html)).
-- **Shell A3 · Desk**: a 56px icon rail with the seven surfaces, which a toggle at its foot expands to show each one's name beside its icon (the choice kept in this browser); a top bar with the title, the Project filter, search, **Create** (one window, Task or Idea chosen at its top, each starting in the Project of the page or the one the filter shows; the one place to create either, as Work has no "+ Task"), the fire alarm, the user menu and the Chat button; a fixed **status strip**, each figure a label over its value ([the design](../design/status-strip.html)): needs you, the 5-hour window (one engine's 5-hour window with its meter, reset time and 7-day window, each engine's 5-hour window for two or three, the highest 5-hour window and a count for four or more, amber from 90% and red when used up, a press on it listing each engine's windows and reset times), desks in use and tokens today on the left, never hidden, the fire alarm after them while it is on; on the right the **Workstation figure**, the CPU use now and the logical cores of the computer The Office runs on, opening a panel with its CPU, memory, The Office's own memory and uptime, refreshed every 2 s while the tab is visible, and one slot of a fixed width for what The Office tells the user (its Notifications, reconnecting, a scheduled update, the desktop notifications ask), its newest by a short line, the rest in a list. It lays itself out by its own width and takes a second row under 600px; content as three panels filling the width, folding to two then one; every item a card with air around it; **each block's left edge coloured by its type or status** (a deliberate deviation from the design system).
-- **Progressive disclosure by frequency**: many-times-a-day features on the surface, daily ones one step away, occasional and rare ones folded where they apply.
-- **The Task page** ([the design](../design/task-page-2.html)): a full-width **Pipeline rail** shows every Stage of the Task's flow in the Pipeline's order with its person or command, state, runs, time and tokens, a Stage the walk went past on another path shown Not taken ([2.3](2.3-pipelines.md)), loop-backs drawn square, and the Planner's Pipeline proposal at its foot, centred. Below it, record left, conversation right.
-  - **The record's column:** **Needs you** first, with the Task's open Decisions and waiting Gate; with nothing waiting, **Before Ready** takes its place, a read-only list (Plan confirmed, Definition of Done confirmed, Pipeline chosen, No Decision open) whose unmet lines each say where they are settled and link there, shown in Backlog only once a part is written. Then the tabs Overview (foldable blocks: the **Description** above the Plan, with Edit, reading "None: the title is all there is" when empty, and below its text the Task's **Dependencies**, with Add before the Task starts, and its **Origin**, when it has one; the Description starts open in every state; the Plan and the Definition of Done, each with Confirm beside its Not confirmed badge), **Changes** (files, diff and test results) and Attachments. The head's actions: in Backlog, Plan with…, and Mark Ready once a Pipeline is chosen and no Decision is open; in Planning, Mark Ready, likewise; with the Plan or the Definition of Done not confirmed, Mark Ready first asks in a dialog naming what is missing, and going on confirms them as they stand ([§2.1](2.1-work.md)). In every state, **Browse files** opens the Project's Files tab on the Task's branch (`office/<task id>`, or for a Publishing Task its Initiative's branch), shown only while that branch exists on this workstation.
-  - **A Decision** is a form ([2.4](2.4-conversations.md); [the design](../design/decision-form.html)). With nothing to look at it is answered in place: the context, then each question in order, a choice's options each on its own line with the recommended one preselected and marked with its reason, an open question's box for the answer in words, and under each question an optional comment; then the general comment, and **Submit** and **Ask me again**. Submit stays disabled while a question has no answer, saying which on hover, so a form of choices alone is sent in one click as recommended. One with Attachments, or more questions than fit in the card, shows its context's first line, its first question with the recommended option and its reason, how many questions follow, Accept when every question is a choice (Submit with every recommended option and no comments), and Open details, which opens a large window: the context, the pictures, every question as in place, the general comment, and Ask me again and Submit in its bar.
-  - **Once sent**, the card stays in the Thread, read-only, at the place it was asked: each question with its answer (the option picked, or the words) and its comment, the general comment, and who answered and when ("Answered by Ana", "Answered by <person> at your request"). One asked again reads "Asked again" with the general comment, and the Agent's new form follows in the Thread. A Decision closed because its Task was dropped says so.
-  - **An approval** of a call past a Hard switch or of an MCP tool at Ask me is a card of its own, never a form: the call, and Allow once and Deny.
-  - **The Gate's card** shows what it waits for, a line of its facts, Continue and Show details. Show details opens a large window with the four facts (files changed, lines, tests, Definition of Done), the Attachments no earlier Gate on the Task showed, up to the end of this Gate's run or until now while it waits (pictures as thumbnails, everything else as chips; an HTML file opens in a sandboxed preview), and Continue, Open Changes, Send back with notes… and Drop in its bar; Send back's notes open over the bar.
-  - **The Stage history:** selecting a Stage opens a large window of one height. Its head has the Stage's name, its person or command, its state and the ← → hint; its body starts with the Pipeline in small (each Stage's mark and name, pressed or reached with ← and → to move to it). The runs list on the left, newest first, a line or two each (number, state, times, tokens, ↺ when briefed with a failure, two lines of its outcome); everything about the run picked on the right. An Agent run has **Summary** (the outcome, the carried failure, the Gate action and the Handover note at reading width) and **Thread** (with the Details switch on that tab's row), opening on Thread while it runs; a running Stage's Thread follows live and takes a message, which lands at the next safe point, and an ended one's is read-only with "Ask <name> about it", the row above it keeping the run's last context reading ("Ended at 132k of 200k", [2.5](2.5-context-policy.md)). A Project command's run has its outcome and each command's line, result, duration and output (the last 64 KB). A Gate's run has what it waits for and a link to Needs you. In a Thread, a Handover note shows its first four lines and "Read it in full", which opens that run's Summary.
-  - **The conversation:** a tab per person ([2.4](2.4-conversations.md)): the holder of Plans first, then each person who ran an Agent Stage of the Task, then each Consultant; a live dot while their Stage runs, a count of unseen messages. The first tab shown is the one whose Thread holds an open Decision, else the person whose Stage runs, else the holder of Plans. A tab holds that person's one Thread, a **Details** switch, and one composer that always writes there, with a To line marking the cache before the person's name ([2.5](2.5-context-policy.md)) and Auto, Continue and Start fresh under it. While the person's Stage runs, a banner says so and opens the Stage history: "To write into that work, open its Stage history." In Backlog the holder of Plans' tab has no composer and offers **Make a plan**; while nobody holds Plans the tab shows "Nobody holds Plans" with a link to Settings › Duties ([2.1](2.1-work.md)). Stage Threads show only in the Stage history; a Decision's link to its Stage run opens the Stage history at that run.
-  - Every window follows [4.1](4.1-ui-rules.md).
-- **The Work board:** a Task's card shows its title in words and everything else as marks in one row under it ([the design](../design/task-card-icons.html), Foot row): the Project's mark, then what needs the user (Waiting on you, Paused, Dropped), what holds the Task (the lock with how many Tasks block it, the Queued clock), the quiet ones (Planning, the Usage estimate), and at the right end who is working on it or, in Backlog, Plan; the priority stays before the title and the Task menu after it. Each mark's words show on hover, or in a popover on a press for the lock and the clock ([4.1](4.1-ui-rules.md#components)). Who is working on it right now: their avatars with a live dot, at most three and then "+N", the names in its tooltip. A person counts while one of their Threads on the Task (a Stage Thread, their own Thread or a Consultation) is answering with no open Decision. When the Task's current Stage is worked by one of them, the tooltip names it too; Planning, a Script Stage or a Gate, and someone else's Thread name no Stage. The card shows no Tags: they stay on the Task page, in "New Task" and in the board's search.
-- **The Initiative page:** its foldable blocks left, and right its conversation as the Task page's: a tab per person, the holder of Shapes Initiatives' first and the holder of Plans', each always shown, one tab when one person holds both, and while a duty is unheld its tab shows the fallback and points to Settings › Duties, then anyone else with a Thread on it; each tab with the person's name and title, what they do here, and Details, over that person's Threads (one shown directly; with several, the earlier ones folded to a line until pressed) and a composer whose To line goes to their newest Thread and lets the user pick another of theirs. Its head has **Browse files**, which opens the Project's Files tab on the Initiative's branch, shown only while that branch exists on this workstation; when it spans several Projects, one per Project whose branch exists, "Browse files in <Project>". No rail and no Needs you card, since an Initiative has no Stages; a Decision opened in its shaping or planning Thread on no Task shows as a card in that Thread, and in Now and the Needs you panel. Its Tasks block folds like the record's blocks. At the top of its record, a **Pipelines** block shows each Project's Initiative's Pipeline ([2.1](2.1-work.md#defaults)) as a diagram: a block per Project with its Stages, its Initiative's branch and, once added, its Publishing Task's progress through them, each Stage opening that Task's Stage history; while shaping each Project offers None, the office-wide Pipelines and that Project's own Project Pipelines, grouped as a Task's picker groups them, with the warning "publishes without your review" for one without a Gate, and the Short name above them. Where a Project's Stages don't fit across, they stack, a Stage a row. How it looks is [the Initiative page design](../design/initiative-page.html), the Pipelines block [its own](../design/initiative-pipelines-block.html).
-- **Settings › Duties:** a page of its own in Settings, in the Settings layout. It lists each duty ([2.2](2.2-people.md#defaults), "Duties") with its holder, picked from the hired Roles or none, and its fallback while none; beside a holder with Consultant off on a Consultant duty it says that holder is passed over and the user is asked.
-- **Settings › Prompt templates:** a page of its own in Settings, in the Settings layout, a tab per domain that has templates (Conversations, Work, Pipelines, Engine), each with its count. Under each tab the domain's templates are listed as Settings › Pipelines lists Pipelines, each with its name, **Customised** while its text isn't the default, and a warning mark while its saved text no longer passes the check; the open one beside the list, its tab and template in the address. A template's card shows its name, description, who saved it and when (or that it is the default that ships with The Office), **Customised** or **Default**, the editor with its text, and every variable it can use with how it is written in `{{ }}` and its description. A saved text that no longer passes the check is flagged on the card with each problem. **Save** is refused with each problem's line and column, keeping what was typed; **Reset to default** asks first. A save or reset made elsewhere refreshes the open page and never replaces text being typed.
-- **Duties on screen:** the Role card's Overview and People's cards list the duties the person holds. People's empty state and the preset picker show each preset's default duties and capabilities. A button or tab named for a duty names its holder, as in "Ask Dwight"; while the duty is unheld it shows the fallback and links to Settings › Duties. The Chat button with no Thread open goes to the holder of Default person to talk to, or to the Caretaker while nobody holds it.
-- **Chats open in the chat drawer**, a side panel on the right edge beside any page, opened from the **Chat button** at the top bar's right end, with the same **Details** switch as the Task page. It stays open through any link, the rail, Back and Forward, and a reload keeps it in that browser tab ([the design](../design/chat-drawer.html)). Every person opened in it gets a **tab** in a row under its head, with the answered or answering dot, to switch back to where the user left them without the person switch; a tab's × closes it, and opening the person again brings it back. Its composer shows the **Open page** a message goes with, the record whose page is beside it, with Leave out ([§2.4](2.4-conversations.md)). A **Needs you panel** opens Decisions and Gates anywhere. Now and the panel show the Task page's Decision and Gate cards, read and answered as there, each under its Task's title and Project chip, or a Decision on no Task under its Initiative's title, as nothing around them says which Task it is. A Decision says when it was asked, not where. A Decision in a person's chat isn't there: it shows inline in the chat, the same card at its place in the Thread, answered and sent there. A Gate's Show details opens the same window, and its Open Changes goes to the Task, closing the panel.
-- **A Thread reads like a team channel** (the Rows design of [thread-dialog.html](../design/thread-dialog.html)): each Turn has its avatar, name and time on the left, and the user's and the person's differ by their avatar and name only, the user's avatar neutral. A person's avatar is their Avatar, or their initials and tint without one ([2.2](2.2-people.md)). Decisions, Handover notes and the other cards stay as they are.
-  - **Tool calls:** neighbouring ones fold to one line with their count and the latest call, and open to every call; a lone one is a plain line with nothing to open. Details hides them; with Details off, the latest call sits beside "is working" on one line and opens to show it whole. A call's whole text is kept, line breaks included, and shows at any width: it wraps, and only a very long one scrolls in its place.
-  - **The Office's lines** have no box: a run or a day sits on a hairline, the others are small centred notes, and a Thread that spans days opens each day with a line. A failure and an MCP server that didn't start show as a tinted strip.
-- **Every item shows its Project mark and name.** The mark is chosen when a Project is added and changed at any time in the Project page's Appearance section. Its colour may be any colour: one of the four offered, or a custom one the user picks, with the label turning dark or white to stay readable. **Icon and Logo:** Appearance also takes an Icon and a Logo, each a PNG, JPEG, WebP or SVG of at most 2 MB, read from the file's contents and shown as uploaded. Either is uploaded or chosen from the repository in the Repository file browser, which shows only those four kinds by their extensions; a chosen file is copied into The Office and is then treated as an upload, so a later change to it in the repository does nothing until it is chosen again. The Icon shows in place of the mark's letters and colour wherever the mark shows. The Logo has no tile and shows at its own proportions on the Project's page and card, in place of the mark. Each takes a light and a dark version, each uploaded, chosen, replaced or removed on its own and saved as soon as it is picked; wherever the image shows, the version for the palette shown (Account › Appearance) is used, and switching the palette swaps it without a reload. One version alone shows in both palettes, and a version that can't be loaded gives way to the other. Each version shows in its own tile on the Images card, on that palette's page colour whatever palette is shown, taking a dropped file or a press to browse, and an empty tile says which version shows instead. Either can be removed; Logo falls back to Icon, and Icon to the letters and colour, also when an image can't be loaded. An SVG is only ever shown as an image, so a script inside it can't run. Appearance previews the result beside what is being changed, the Project's page head, its card and its mark beside an item, in the palette shown or the other one, so a mark shows as it will look before it is saved. The Project filter narrows every surface, never Office-wide numbers or the rail badge.
-- **Colour, palettes and densities:** muted text, borders and surfaces; status colours, accent, badges and icons at the design system's values; dark mode is dark gray; logos in brand colours. Aubergine, Lavender, Lagoon and Cobalt tint their surfaces and sidebar more strongly and colour their primary buttons, while the text, accent and status rules still hold; Emerald and Citrine each pair tinted surfaces with a contrasting metal or ink: gold buttons and a gold active sidebar item on emerald, and indigo buttons on a butter-yellow page with a golden active sidebar item.
-  - **Three layers:** the design system's tokens (ramps, type, motion) are never changed; a **palette** remaps the colour aliases (backgrounds, surfaces, text, borders, status); a **density** remaps the spacing, control and text-size aliases. Components use aliases only, so a palette or a density changes colours and air, never layout. Brand marks use the design system's ramp colours directly, so no palette mutes them. The status colours (badges, edges, dots) and the accent are aliases too, but every palette keeps the design system's values.
-  - **Palettes**, picked in Account › Appearance or from the rail's Theme menu: **Light** (the default, muted), **Dark** (dark gray, not black), **Graphite** (dark, cool) and **Paper** (light and warm, from the brand system's beige), **Midnight** (dark, a deep blue-tinted navy, not black), **Mist** (light, a cool soft blue-grey), **Mocha** (dark, a warm brown-grey) **Sage** (light, a soft muted green-grey), **Aubergine** (dark, a deep plum-violet with lavender buttons), **Lavender** (light, a soft violet page with deep violet buttons), **Lagoon** (dark, a deep teal with sea-green buttons) and **Cobalt** (light, crisp white on a clearly blue page with cobalt buttons), **Emerald** (dark, a deep emerald green with champagne-gold buttons and a gold active sidebar item) and **Citrine** (light, crisp white on a butter-yellow page with deep indigo buttons and a golden active sidebar item), or following the system, which shows Light or Dark. Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald count as dark, and Paper, Mist, Sage, Lavender, Cobalt and Citrine as light: that decides which version of a Project's Icon and Logo shows, and anything else that follows the palette shown.
-  - **Graphite** sets every alias Dark sets:
-    - `--bg: #15171A`, `--surface: #1C1F23`, `--surface-raised: #23272C`, `--surface-sunken: #111316`, `--surface-hover: #22262B`, `--surface-selected: #2B2522`, `--surface-inverse: #E3E6EA`;
-    - `--sidebar-bg: #15171A`, `--sidebar-fg: #A4ABB5`, `--sidebar-active-bg: #23272C`, `--sidebar-active-fg: #E3E6EA`;
-    - `--fg-1: #D6DAE0`, `--fg-2: #939AA5`, `--fg-3: #6A717C`, `--fg-inverse: #15171A`;
-    - `--border: #262B31`, `--border-subtle: #212529`, `--border-strong: #343A42`;
-    - `--primary: #D6DAE0`, `--primary-fg: #15171A`, `--primary-hover: #E3E6EA`;
-    - `--control-hover: #262B31`, `--control-press: #2E343B`;
-    - `--neutral-subtle: #23272C`, `--neutral-fg: #939AA5`, `--neutral-border: #2E343B`;
-    - `--brand-ink: #F4F4F2`.
-  - **Paper** sets these and keeps Light's values for every other alias (`--primary`, `--primary-fg`, `--primary-hover`, `--surface-inverse`, `--fg-inverse`, `--brand-ink`):
-    - `--bg: #F3EFE8`, `--surface: #FBF9F5`, `--surface-raised: #FFFFFF`, `--surface-sunken: #EDE8DF`, `--surface-hover: #F6F2EB`, `--surface-selected: #F7E9E2`;
-    - `--sidebar-bg: #F3EFE8`, `--sidebar-fg: #7A7369`, `--sidebar-active-bg: #E9E3D9`, `--sidebar-active-fg: #2C2823`;
-    - `--fg-1: #2C2823`, `--fg-2: #6E675E`, `--fg-3: #9A928A`;
-    - `--border: #E6E0D6`, `--border-subtle: #ECE7DE`, `--border-strong: #D9D2C6`;
-    - `--control-hover: #EDE8DF`, `--control-press: #E3DDD2`;
-    - `--neutral-subtle: #EDE8DF`, `--neutral-fg: #6E675E`, `--neutral-border: #E1DBD0`.
-  - **Midnight** sets every alias Dark sets:
-    - `--bg: #121826`, `--surface: #182033`, `--surface-raised: #1E2740`, `--surface-sunken: #0E1320`, `--surface-hover: #1D2539`, `--surface-selected: #2B2430`, `--surface-inverse: #E2E7F0`;
-    - `--sidebar-bg: #121826`, `--sidebar-fg: #A0AABD`, `--sidebar-active-bg: #1E2740`, `--sidebar-active-fg: #E2E7F0`;
-    - `--fg-1: #D4DBE7`, `--fg-2: #929DB3`, `--fg-3: #667189`, `--fg-inverse: #121826`;
-    - `--border: #232C42`, `--border-subtle: #1E263A`, `--border-strong: #303A54`;
-    - `--primary: #D4DBE7`, `--primary-fg: #121826`, `--primary-hover: #E2E7F0`;
-    - `--control-hover: #232C42`, `--control-press: #2B3550`;
-    - `--neutral-subtle: #1E2740`, `--neutral-fg: #929DB3`, `--neutral-border: #2B3550`.
-  - **Mocha** sets every alias Dark sets:
-    - `--bg: #1A1715`, `--surface: #221E1B`, `--surface-raised: #2A2521`, `--surface-sunken: #151210`, `--surface-hover: #28231F`, `--surface-selected: #33261F`, `--surface-inverse: #EBE4DC`;
-    - `--sidebar-bg: #1A1715`, `--sidebar-fg: #B0A69B`, `--sidebar-active-bg: #2A2521`, `--sidebar-active-fg: #EBE4DC`;
-    - `--fg-1: #DDD5CC`, `--fg-2: #A0958A`, `--fg-3: #766C62`, `--fg-inverse: #1A1715`;
-    - `--border: #2E2824`, `--border-subtle: #28231F`, `--border-strong: #3C352F`;
-    - `--primary: #DDD5CC`, `--primary-fg: #1A1715`, `--primary-hover: #EBE4DC`;
-    - `--control-hover: #2E2824`, `--control-press: #37302B`;
-    - `--neutral-subtle: #2A2521`, `--neutral-fg: #A0958A`, `--neutral-border: #37302B`.
-  - **Mist** sets these and keeps Light's values for every other alias, as Paper does:
-    - `--bg: #EDF1F5`, `--surface: #F8FAFC`, `--surface-raised: #FFFFFF`, `--surface-sunken: #E5EAF0`, `--surface-hover: #F1F4F8`, `--surface-selected: #F5E8E3`;
-    - `--sidebar-bg: #EDF1F5`, `--sidebar-fg: #6B7685`, `--sidebar-active-bg: #E1E7EE`, `--sidebar-active-fg: #232A33`;
-    - `--fg-1: #232A33`, `--fg-2: #5C6775`, `--fg-3: #8D97A4`;
-    - `--border: #DDE3EA`, `--border-subtle: #E5EAF0`, `--border-strong: #CDD5DF`;
-    - `--control-hover: #E5EAF0`, `--control-press: #DAE1E9`;
-    - `--neutral-subtle: #E5EAF0`, `--neutral-fg: #5C6775`, `--neutral-border: #D8DFE7`.
-  - **Sage** sets these and keeps Light's values for every other alias, as Paper does:
-    - `--bg: #EEF1EC`, `--surface: #F8FAF7`, `--surface-raised: #FFFFFF`, `--surface-sunken: #E5E9E2`, `--surface-hover: #F2F5F0`, `--surface-selected: #F5E9E2`;
-    - `--sidebar-bg: #EEF1EC`, `--sidebar-fg: #6D7769`, `--sidebar-active-bg: #E2E7DE`, `--sidebar-active-fg: #262C24`;
-    - `--fg-1: #262C24`, `--fg-2: #5E685A`, `--fg-3: #8F988B`;
-    - `--border: #DDE3D9`, `--border-subtle: #E5E9E2`, `--border-strong: #CDD5C8`;
-    - `--control-hover: #E5E9E2`, `--control-press: #DBE1D6`;
-    - `--neutral-subtle: #E5E9E2`, `--neutral-fg: #5E685A`, `--neutral-border: #D7DDD2`.
-  - **Aubergine** sets every alias Dark sets:
-    - `--bg: #1C1424`, `--surface: #241A2F`, `--surface-raised: #2C2139`, `--surface-sunken: #160F1C`, `--surface-hover: #2A1F35`, `--surface-selected: #3A1F2B`, `--surface-inverse: #EEE6F7`;
-    - `--sidebar-bg: #1C1424`, `--sidebar-fg: #B3A6C6`, `--sidebar-active-bg: #33264A`, `--sidebar-active-fg: #EEE6F7`;
-    - `--fg-1: #E6DDF0`, `--fg-2: #A89BBB`, `--fg-3: #7A6D8E`, `--fg-inverse: #1C1424`;
-    - `--border: #30243F`, `--border-subtle: #281E34`, `--border-strong: #3F3052`;
-    - `--primary: #CDB8F2`, `--primary-fg: #1C1424`, `--primary-hover: #DCCBF7`, `--primary-press: #BBA2EC`;
-    - `--control-hover: #30243F`, `--control-press: #3A2C4C`;
-    - `--neutral-subtle: #2C2139`, `--neutral-fg: #A89BBB`, `--neutral-border: #3A2C4C`.
-  - **Lavender** sets these and keeps Light's values for every other alias, as Paper does, except the primary ones it sets:
-    - `--bg: #F0ECF8`, `--surface: #F9F7FD`, `--surface-raised: #FFFFFF`, `--surface-sunken: #E7E1F3`, `--surface-hover: #F4F1FB`, `--surface-selected: #F8E9EC`;
-    - `--sidebar-bg: #F0ECF8`, `--sidebar-fg: #6B5F82`, `--sidebar-active-bg: #E1D8F2`, `--sidebar-active-fg: #241B33`;
-    - `--fg-1: #241B33`, `--fg-2: #5E527A`, `--fg-3: #948AAA`;
-    - `--border: #E1DAEE`, `--border-subtle: #E9E4F4`, `--border-strong: #D1C7E6`;
-    - `--primary: #5A3D99`, `--primary-fg: #FFFFFF`, `--primary-hover: #6849AB`, `--primary-press: #7455B5`;
-    - `--control-hover: #E7E1F3`, `--control-press: #DDD5EF`;
-    - `--neutral-subtle: #E7E1F3`, `--neutral-fg: #5E527A`, `--neutral-border: #DAD1EC`.
-  - **Lagoon** sets every alias Dark sets:
-    - `--bg: #0E1C1E`, `--surface: #132527`, `--surface-raised: #192E31`, `--surface-sunken: #0A1517`, `--surface-hover: #172A2D`, `--surface-selected: #2E2725`, `--surface-inverse: #E0EEEE`;
-    - `--sidebar-bg: #0E1C1E`, `--sidebar-fg: #9DB6B6`, `--sidebar-active-bg: #1C3A3C`, `--sidebar-active-fg: #E0EEEE`;
-    - `--fg-1: #D3E6E6`, `--fg-2: #8FAAAA`, `--fg-3: #62807F`, `--fg-inverse: #0E1C1E`;
-    - `--border: #1F3336`, `--border-subtle: #192C2E`, `--border-strong: #2B4447`;
-    - `--primary: #7FD1C7`, `--primary-fg: #0E1C1E`, `--primary-hover: #9ADDD5`, `--primary-press: #68C2B7`;
-    - `--control-hover: #1F3336`, `--control-press: #27403F`;
-    - `--neutral-subtle: #192E31`, `--neutral-fg: #8FAAAA`, `--neutral-border: #27403F`.
-  - **Cobalt** sets these and keeps Light's values for every other alias, as Paper does, except the primary ones it sets:
-    - `--bg: #E9EEFA`, `--surface: #F6F8FE`, `--surface-raised: #FFFFFF`, `--surface-sunken: #DFE6F6`, `--surface-hover: #EFF3FC`, `--surface-selected: #F5E9EA`;
-    - `--sidebar-bg: #E9EEFA`, `--sidebar-fg: #5A6789`, `--sidebar-active-bg: #D5DEF5`, `--sidebar-active-fg: #18213A`;
-    - `--fg-1: #18213A`, `--fg-2: #4E5B7D`, `--fg-3: #8591AE`;
-    - `--border: #D6DEF0`, `--border-subtle: #E0E6F5`, `--border-strong: #C3CEE8`;
-    - `--primary: #2343B0`, `--primary-fg: #FFFFFF`, `--primary-hover: #2D50C4`, `--primary-press: #3A5CCC`;
-    - `--control-hover: #DFE6F6`, `--control-press: #D3DCF2`;
-    - `--neutral-subtle: #DFE6F6`, `--neutral-fg: #4E5B7D`, `--neutral-border: #CDD7EE`.
-  - **Emerald** sets every alias Dark sets:
-    - `--bg: #0C1A15`, `--surface: #11231C`, `--surface-raised: #172C24`, `--surface-sunken: #08130F`, `--surface-hover: #152A22`, `--surface-selected: #33231A`, `--surface-inverse: #E6F0EA`;
-    - `--sidebar-bg: #0C1A15`, `--sidebar-fg: #A3BBAF`, `--sidebar-active-bg: #3A3320`, `--sidebar-active-fg: #F1E2B6`;
-    - `--fg-1: #DCEBE2`, `--fg-2: #93AE9F`, `--fg-3: #64806F`, `--fg-inverse: #0C1A15`;
-    - `--border: #1D332A`, `--border-subtle: #172B23`, `--border-strong: #29453A`;
-    - `--primary: #E2C27D`, `--primary-fg: #0C1A15`, `--primary-hover: #EBD196`, `--primary-press: #D6B163`;
-    - `--control-hover: #1D332A`, `--control-press: #254036`;
-    - `--neutral-subtle: #172C24`, `--neutral-fg: #93AE9F`, `--neutral-border: #254036`.
-  - **Citrine** sets these and keeps Light's values for every other alias, as Paper does, except the primary ones it sets:
-    - `--bg: #F7F0D4`, `--surface: #FCF9EC`, `--surface-raised: #FFFFFF`, `--surface-sunken: #EFE6C2`, `--surface-hover: #FAF5E0`, `--surface-selected: #FBE5D5`;
-    - `--sidebar-bg: #F7F0D4`, `--sidebar-fg: #6E6440`, `--sidebar-active-bg: #EBDFAE`, `--sidebar-active-fg: #26210F`;
-    - `--fg-1: #26210F`, `--fg-2: #615838`, `--fg-3: #978D68`;
-    - `--border: #E7DDB5`, `--border-subtle: #EEE6C6`, `--border-strong: #D9CC98`;
-    - `--primary: #2E3A8C`, `--primary-fg: #FFFFFF`, `--primary-hover: #3A479E`, `--primary-press: #4653AB`;
-    - `--control-hover: #EFE6C2`, `--control-press: #E6DBB0`;
-    - `--neutral-subtle: #EFE6C2`, `--neutral-fg: #615838`, `--neutral-border: #E0D4A4`.
-  - Aubergine, Lavender, Lagoon, Cobalt, Emerald and Citrine keep the Ember tint of `--surface-selected`, each as a step of its own page, so a selected item looks the same in every palette; their sidebar stays the page's lightness.
-  - Midnight, Mocha, Mist, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald and Citrine leave `--brand-ink` to their base. In every palette that sets them, `--fg-1` and `--fg-2` reach at least 4.5:1 contrast on `--bg`, `--surface` and `--surface-raised`, and `--primary-fg` reaches at least 4.5:1 on `--primary` and `--primary-hover`.
-  - **Densities**, picked in Account › Appearance or from the rail's Theme menu: **Compact**, **Comfortable** (the default) and **Relaxed**. A density changes only these spacing, control and text-size aliases:
+## The UI spec
 
-    | Alias           | Compact     | Comfortable | Relaxed     |
-    | --------------- | ----------- | ----------- | ----------- |
-    | `--pad-card`    | `10px 12px` | `16px 18px` | `22px 24px` |
-    | `--gap-card`    | `6px`       | `12px`      | `16px`      |
-    | `--pad-row`     | `8px 12px`  | `14px 18px` | `18px 24px` |
-    | `--pad-page`    | `16px`      | `24px`      | `32px`      |
-    | `--gap-panel`   | `12px`      | `20px`      | `28px`      |
-    | `--radius-card` | `6px`       | `10px`      | `12px`      |
-    | `--text-item`   | `13px`      | `14px`      | `15px`      |
-    | `--text-body`   | `12px`      | `13px`      | `14px`      |
-    | `--control-h`   | `24px`      | `28px`      | `32px`      |
-    | `--line`        | `1.4`       | `1.5`       | `1.6`       |
+- The UI spec is this page and [4.1](4.1-ui-rules.md), with the [designs](../design/README.md) for the screens they name: [the chat drawer](../design/chat-drawer.html), [the Decision card](../design/decision-form.html), [Add a Project](../design/add-project.html), [the Pipeline flow editor](../design/pipeline-flow.html), [Project Pipelines](../design/project-pipelines.html), [the Task page](../design/task-page-2.html), [the Initiative page](../design/initiative-page.html) and [its Pipelines block](../design/initiative-pipelines-block.html), [the Live view](../design/live-view.html).
+- Every screen is built in React with the design system's components ([4.1](4.1-ui-rules.md#components)).
+- Every window follows [4.1](4.1-ui-rules.md#windows).
+- The code wins over a design where [the designs' README](../design/README.md) says it was built differently.
 
-  - The palette and the density are each the signed-in user's own, kept with their account and followed on every device they sign in on ([2.10](2.10-users-and-signing-in.md)).
-- **Brand:** The Office's own mark, in the rail; Ember is the accent. The design system ([design-system/readme.md](../../design-system/readme.md)) is a component library plus brand; its admin sidebar layout is not used.
-- **Copy:** UI copy follows the design system (sentence case, no "I"/"we", verb + object buttons). Everything an Agent says is content: Agents speak in the first person, and their actions are attributed to the person, never to "System".
+## Screens
+
+- Seven surfaces, in the rail's order: Now, Work, People, Projects, Stats, Live view; **Settings** at the rail's foot.
+- Outside the shell: the sign-in pages and First-run setup stand alone, without the shell.
+- [shell.md](screens/shell.md): rail, top bar, status strip, Create, Chat button, Needs you panel, chat drawer.
+- [now.md](screens/now.md): home: Needs you, Running, the queue for Start, the Initiatives being shaped, Since you left, today's tokens; nothing else.
+- [thread.md](screens/thread.md): how a Thread reads (Turns, tool calls, the Office's lines).
+- [decision-card.md](screens/decision-card.md): the Decision form, its sent state, an approval, the Gate's card.
+- [sign-in.md](screens/sign-in.md): the sign-in pages and First-run setup.
+- [account.md](screens/account.md): the user menu's Account page (name, email, password, authenticator, recovery codes, linked identities, passkeys, signed-in devices, Appearance).
+- [work-board.md](screens/work-board.md): Work's Task board by state and its Task cards.
+- [ideas.md](screens/ideas.md): Work's Ideas.
+- [initiatives-tab.md](screens/initiatives-tab.md): Work's Initiatives with their graph.
+- [pull-requests.md](screens/pull-requests.md): Work's Pull requests.
+- [ci-runs.md](screens/ci-runs.md): Work's CI.
+- [archived.md](screens/archived.md): Work's Archived.
+- [task-page.md](screens/task-page.md): the Task page: Pipeline rail, record, Stage history, conversation, Browse files, Open in editor.
+- [initiative-page.md](screens/initiative-page.md): the Initiative page and its Pipelines block.
+- [projects.md](screens/projects.md): the Projects list and Add a Project.
+- [project-page.md](screens/project-page.md): a Project's page: Files, commands, Environment, Pipelines, run environment, Engine, skills, MCP servers' values, Appearance (mark, Icon, Logo).
+- [pipeline-flow-editor.md](screens/pipeline-flow-editor.md): the Pipeline flow editor, in Settings › Pipelines and a Project's Pipelines section.
+- [people.md](screens/people.md): a grid of same-size cards; a page per person (Overview, Work, Conversations, Role card, Memory); hiring; duties on screen.
+- [settings.md](screens/settings.md): Pipelines with their Stage templates, Duties, the skill library, MCP servers, Engines (Model prices, Stand-in Engines), the Office identity (Sign in with GitHub, the Office ssh key), Office limits, Office instructions ([2.2](2.2-people.md)), Prompt templates ([2.2](2.2-people.md)), Notifications, Updates, Users, Signing in (where Continue with Google is set up, [2.10](2.10-users-and-signing-in.md)), Telemetry.
+- [stats.md](screens/stats.md): how The Office performs, above all tokens and Usage windows ([2.11](2.11-stats.md), [the design](../design/stats.html)).
+- [live-view.md](screens/live-view.md): The Office as an isometric pixel-art office, each person a figure at a desk, drawn by what they are doing now, a click away from their work, with a list of everyone and their state; follows local day and night.
+
+## Shell A3 · Desk
+
+- A 56px icon **rail** with the seven surfaces; a toggle at its foot expands it to show each one's name beside its icon, the choice kept in this browser.
+- A top bar: the title, the Project filter, search, **Create**, the fire alarm, the user menu and the Chat button.
+- **Create** is one window, Task or Idea chosen at its top, each starting in the Project of the page or the one the filter shows; it is the one place to create either, as Work has no "+ Task".
+- The top bar's user menu holds the signed-in user's name, **Account** and **Sign out**.
+- The Chat button with no Thread open goes to the holder of Default person to talk to, or to the Caretaker while nobody holds it.
+- Chats open in the chat drawer, a side panel on the right edge ([thread.md](screens/thread.md), [4.1](4.1-ui-rules.md#the-chat-drawer)); the Needs you panel opens Decisions and Gates anywhere ([decision-card.md](screens/decision-card.md)).
+- A fixed **status strip**, each figure a label over its value ([the design](../design/status-strip.html)): on the left, never hidden: needs you, the 5-hour window, desks in use and tokens today; the fire alarm after them while it is on.
+- The 5-hour window figure: one engine's 5-hour window with its meter, reset time and 7-day window; each engine's 5-hour window for two or three engines; the highest 5-hour window and a count for four or more; amber from 90% and red when used up; a press on it lists each engine's windows and reset times.
+- On the right: the **Workstation figure**, the CPU use now and the logical cores of the computer The Office runs on, opening a panel with its CPU, memory, The Office's own memory and uptime, refreshed every 2 s while the tab is visible.
+- Also on the right, one slot of a fixed width for what The Office tells the user (its Notifications, reconnecting, a scheduled update, the desktop notifications ask): its newest by a short line, the rest in a list.
+- The status strip lays itself out by its own width and takes a second row under 600px.
+- Content is three panels filling the width, folding to two then one; every item is a card with air around it.
+- **Each block's left edge is coloured by its type or status**, a deliberate deviation from the design system.
+
+## Project mark
+
+- Every item shows its Project mark and name.
+- The mark is chosen when a Project is added and changed at any time in the Project page's Appearance section ([project-page.md](screens/project-page.md)); its colour may be any colour: one of the four offered, or a custom one the user picks, with the label turning dark or white to stay readable.
+- The Project filter narrows every surface, never Office-wide numbers or the rail badge.
+- An Icon or Logo replaces the mark where set ([2.1.1](2.1.1-projects.md)).
+
+## Progressive disclosure
+
+- Many-times-a-day features are on the surface, daily ones one step away, occasional and rare ones folded where they apply.
+
+## Palettes
+
+- Colour is muted text, borders and surfaces; status colours, accent, badges and icons at the design system's values; dark mode is dark gray; logos in brand colours.
+- Aubergine, Lavender, Lagoon and Cobalt tint their surfaces and sidebar more strongly and colour their primary buttons, while the text, accent and status rules still hold.
+- Emerald and Citrine each pair tinted surfaces with a contrasting metal or ink: gold buttons and a gold active sidebar item on emerald; indigo buttons on a butter-yellow page with a golden active sidebar item.
+- Three layers: the design system's tokens (ramps, type, motion) are never changed; a **palette** remaps the colour aliases (backgrounds, surfaces, text, borders, status); a **density** remaps the spacing, control and text-size aliases.
+- Components use aliases only, so a palette or a density changes colours and air, never layout.
+- Brand marks use the design system's ramp colours directly, so no palette mutes them.
+- The status colours (badges, edges, dots) and the accent are aliases too, but every palette keeps the design system's values.
+- Palettes are picked in Account › Appearance or from the rail's Theme menu: **Light** (the default, muted), **Dark** (dark gray, not black), **Graphite** (dark, cool), **Paper** (light and warm, from the brand system's beige), **Midnight** (dark, a deep blue-tinted navy, not black), **Mist** (light, a cool soft blue-grey), **Mocha** (dark, a warm brown-grey), **Sage** (light, a soft muted green-grey), **Aubergine** (dark, a deep plum-violet with lavender buttons), **Lavender** (light, a soft violet page with deep violet buttons), **Lagoon** (dark, a deep teal with sea-green buttons), **Cobalt** (light, crisp white on a clearly blue page with cobalt buttons), **Emerald** (dark, a deep emerald green with champagne-gold buttons and a gold active sidebar item) and **Citrine** (light, crisp white on a butter-yellow page with deep indigo buttons and a golden active sidebar item); or following the system, which shows Light or Dark.
+- Dark palettes: Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon, Emerald.
+- Light palettes: Light, Paper, Mist, Sage, Lavender, Cobalt, Citrine.
+- Dark or light decides which version of a Project's Icon and Logo shows, and anything else that follows the palette shown.
+- Aubergine, Lavender, Lagoon, Cobalt, Emerald and Citrine keep the Ember tint of `--surface-selected`, each as a step of its own page, so a selected item looks the same in every palette; their sidebar stays the page's lightness.
+- Midnight, Mocha, Mist, Sage, Aubergine, Lavender, Lagoon, Cobalt, Emerald and Citrine leave `--brand-ink` to their base.
+- In every palette that sets them, `--fg-1` and `--fg-2` reach at least 4.5:1 contrast on `--bg`, `--surface` and `--surface-raised`, and `--primary-fg` reaches at least 4.5:1 on `--primary` and `--primary-hover`.
+- The palette and the density are each the signed-in user's own, kept with their account and followed on every device they sign in on ([2.10](2.10-users-and-signing-in.md)).
+
+### Graphite
+
+- Graphite sets every alias Dark sets
+- `--bg: #15171A`, `--surface: #1C1F23`, `--surface-raised: #23272C`, `--surface-sunken: #111316`, `--surface-hover: #22262B`, `--surface-selected: #2B2522`, `--surface-inverse: #E3E6EA`;
+- `--sidebar-bg: #15171A`, `--sidebar-fg: #A4ABB5`, `--sidebar-active-bg: #23272C`, `--sidebar-active-fg: #E3E6EA`;
+- `--fg-1: #D6DAE0`, `--fg-2: #939AA5`, `--fg-3: #6A717C`, `--fg-inverse: #15171A`;
+- `--border: #262B31`, `--border-subtle: #212529`, `--border-strong: #343A42`;
+- `--primary: #D6DAE0`, `--primary-fg: #15171A`, `--primary-hover: #E3E6EA`;
+- `--control-hover: #262B31`, `--control-press: #2E343B`;
+- `--neutral-subtle: #23272C`, `--neutral-fg: #939AA5`, `--neutral-border: #2E343B`;
+- `--brand-ink: #F4F4F2`.
+
+### Paper
+
+- Paper sets these and keeps Light's values for every other alias (`--primary`, `--primary-fg`, `--primary-hover`, `--surface-inverse`, `--fg-inverse`, `--brand-ink`)
+- `--bg: #F3EFE8`, `--surface: #FBF9F5`, `--surface-raised: #FFFFFF`, `--surface-sunken: #EDE8DF`, `--surface-hover: #F6F2EB`, `--surface-selected: #F7E9E2`;
+- `--sidebar-bg: #F3EFE8`, `--sidebar-fg: #7A7369`, `--sidebar-active-bg: #E9E3D9`, `--sidebar-active-fg: #2C2823`;
+- `--fg-1: #2C2823`, `--fg-2: #6E675E`, `--fg-3: #9A928A`;
+- `--border: #E6E0D6`, `--border-subtle: #ECE7DE`, `--border-strong: #D9D2C6`;
+- `--control-hover: #EDE8DF`, `--control-press: #E3DDD2`;
+- `--neutral-subtle: #EDE8DF`, `--neutral-fg: #6E675E`, `--neutral-border: #E1DBD0`.
+
+### Midnight
+
+- Midnight sets every alias Dark sets
+- `--bg: #121826`, `--surface: #182033`, `--surface-raised: #1E2740`, `--surface-sunken: #0E1320`, `--surface-hover: #1D2539`, `--surface-selected: #2B2430`, `--surface-inverse: #E2E7F0`;
+- `--sidebar-bg: #121826`, `--sidebar-fg: #A0AABD`, `--sidebar-active-bg: #1E2740`, `--sidebar-active-fg: #E2E7F0`;
+- `--fg-1: #D4DBE7`, `--fg-2: #929DB3`, `--fg-3: #667189`, `--fg-inverse: #121826`;
+- `--border: #232C42`, `--border-subtle: #1E263A`, `--border-strong: #303A54`;
+- `--primary: #D4DBE7`, `--primary-fg: #121826`, `--primary-hover: #E2E7F0`;
+- `--control-hover: #232C42`, `--control-press: #2B3550`;
+- `--neutral-subtle: #1E2740`, `--neutral-fg: #929DB3`, `--neutral-border: #2B3550`.
+
+### Mocha
+
+- Mocha sets every alias Dark sets
+- `--bg: #1A1715`, `--surface: #221E1B`, `--surface-raised: #2A2521`, `--surface-sunken: #151210`, `--surface-hover: #28231F`, `--surface-selected: #33261F`, `--surface-inverse: #EBE4DC`;
+- `--sidebar-bg: #1A1715`, `--sidebar-fg: #B0A69B`, `--sidebar-active-bg: #2A2521`, `--sidebar-active-fg: #EBE4DC`;
+- `--fg-1: #DDD5CC`, `--fg-2: #A0958A`, `--fg-3: #766C62`, `--fg-inverse: #1A1715`;
+- `--border: #2E2824`, `--border-subtle: #28231F`, `--border-strong: #3C352F`;
+- `--primary: #DDD5CC`, `--primary-fg: #1A1715`, `--primary-hover: #EBE4DC`;
+- `--control-hover: #2E2824`, `--control-press: #37302B`;
+- `--neutral-subtle: #2A2521`, `--neutral-fg: #A0958A`, `--neutral-border: #37302B`.
+
+### Mist
+
+- Mist sets these and keeps Light's values for every other alias, as Paper does
+- `--bg: #EDF1F5`, `--surface: #F8FAFC`, `--surface-raised: #FFFFFF`, `--surface-sunken: #E5EAF0`, `--surface-hover: #F1F4F8`, `--surface-selected: #F5E8E3`;
+- `--sidebar-bg: #EDF1F5`, `--sidebar-fg: #6B7685`, `--sidebar-active-bg: #E1E7EE`, `--sidebar-active-fg: #232A33`;
+- `--fg-1: #232A33`, `--fg-2: #5C6775`, `--fg-3: #8D97A4`;
+- `--border: #DDE3EA`, `--border-subtle: #E5EAF0`, `--border-strong: #CDD5DF`;
+- `--control-hover: #E5EAF0`, `--control-press: #DAE1E9`;
+- `--neutral-subtle: #E5EAF0`, `--neutral-fg: #5C6775`, `--neutral-border: #D8DFE7`.
+
+### Sage
+
+- Sage sets these and keeps Light's values for every other alias, as Paper does
+- `--bg: #EEF1EC`, `--surface: #F8FAF7`, `--surface-raised: #FFFFFF`, `--surface-sunken: #E5E9E2`, `--surface-hover: #F2F5F0`, `--surface-selected: #F5E9E2`;
+- `--sidebar-bg: #EEF1EC`, `--sidebar-fg: #6D7769`, `--sidebar-active-bg: #E2E7DE`, `--sidebar-active-fg: #262C24`;
+- `--fg-1: #262C24`, `--fg-2: #5E685A`, `--fg-3: #8F988B`;
+- `--border: #DDE3D9`, `--border-subtle: #E5E9E2`, `--border-strong: #CDD5C8`;
+- `--control-hover: #E5E9E2`, `--control-press: #DBE1D6`;
+- `--neutral-subtle: #E5E9E2`, `--neutral-fg: #5E685A`, `--neutral-border: #D7DDD2`.
+
+### Aubergine
+
+- Aubergine sets every alias Dark sets
+- `--bg: #1C1424`, `--surface: #241A2F`, `--surface-raised: #2C2139`, `--surface-sunken: #160F1C`, `--surface-hover: #2A1F35`, `--surface-selected: #3A1F2B`, `--surface-inverse: #EEE6F7`;
+- `--sidebar-bg: #1C1424`, `--sidebar-fg: #B3A6C6`, `--sidebar-active-bg: #33264A`, `--sidebar-active-fg: #EEE6F7`;
+- `--fg-1: #E6DDF0`, `--fg-2: #A89BBB`, `--fg-3: #7A6D8E`, `--fg-inverse: #1C1424`;
+- `--border: #30243F`, `--border-subtle: #281E34`, `--border-strong: #3F3052`;
+- `--primary: #CDB8F2`, `--primary-fg: #1C1424`, `--primary-hover: #DCCBF7`, `--primary-press: #BBA2EC`;
+- `--control-hover: #30243F`, `--control-press: #3A2C4C`;
+- `--neutral-subtle: #2C2139`, `--neutral-fg: #A89BBB`, `--neutral-border: #3A2C4C`.
+
+### Lavender
+
+- Lavender sets these and keeps Light's values for every other alias, as Paper does, except the primary ones it sets
+- `--bg: #F0ECF8`, `--surface: #F9F7FD`, `--surface-raised: #FFFFFF`, `--surface-sunken: #E7E1F3`, `--surface-hover: #F4F1FB`, `--surface-selected: #F8E9EC`;
+- `--sidebar-bg: #F0ECF8`, `--sidebar-fg: #6B5F82`, `--sidebar-active-bg: #E1D8F2`, `--sidebar-active-fg: #241B33`;
+- `--fg-1: #241B33`, `--fg-2: #5E527A`, `--fg-3: #948AAA`;
+- `--border: #E1DAEE`, `--border-subtle: #E9E4F4`, `--border-strong: #D1C7E6`;
+- `--primary: #5A3D99`, `--primary-fg: #FFFFFF`, `--primary-hover: #6849AB`, `--primary-press: #7455B5`;
+- `--control-hover: #E7E1F3`, `--control-press: #DDD5EF`;
+- `--neutral-subtle: #E7E1F3`, `--neutral-fg: #5E527A`, `--neutral-border: #DAD1EC`.
+
+### Lagoon
+
+- Lagoon sets every alias Dark sets
+- `--bg: #0E1C1E`, `--surface: #132527`, `--surface-raised: #192E31`, `--surface-sunken: #0A1517`, `--surface-hover: #172A2D`, `--surface-selected: #2E2725`, `--surface-inverse: #E0EEEE`;
+- `--sidebar-bg: #0E1C1E`, `--sidebar-fg: #9DB6B6`, `--sidebar-active-bg: #1C3A3C`, `--sidebar-active-fg: #E0EEEE`;
+- `--fg-1: #D3E6E6`, `--fg-2: #8FAAAA`, `--fg-3: #62807F`, `--fg-inverse: #0E1C1E`;
+- `--border: #1F3336`, `--border-subtle: #192C2E`, `--border-strong: #2B4447`;
+- `--primary: #7FD1C7`, `--primary-fg: #0E1C1E`, `--primary-hover: #9ADDD5`, `--primary-press: #68C2B7`;
+- `--control-hover: #1F3336`, `--control-press: #27403F`;
+- `--neutral-subtle: #192E31`, `--neutral-fg: #8FAAAA`, `--neutral-border: #27403F`.
+
+### Cobalt
+
+- Cobalt sets these and keeps Light's values for every other alias, as Paper does, except the primary ones it sets
+- `--bg: #E9EEFA`, `--surface: #F6F8FE`, `--surface-raised: #FFFFFF`, `--surface-sunken: #DFE6F6`, `--surface-hover: #EFF3FC`, `--surface-selected: #F5E9EA`;
+- `--sidebar-bg: #E9EEFA`, `--sidebar-fg: #5A6789`, `--sidebar-active-bg: #D5DEF5`, `--sidebar-active-fg: #18213A`;
+- `--fg-1: #18213A`, `--fg-2: #4E5B7D`, `--fg-3: #8591AE`;
+- `--border: #D6DEF0`, `--border-subtle: #E0E6F5`, `--border-strong: #C3CEE8`;
+- `--primary: #2343B0`, `--primary-fg: #FFFFFF`, `--primary-hover: #2D50C4`, `--primary-press: #3A5CCC`;
+- `--control-hover: #DFE6F6`, `--control-press: #D3DCF2`;
+- `--neutral-subtle: #DFE6F6`, `--neutral-fg: #4E5B7D`, `--neutral-border: #CDD7EE`.
+
+### Emerald
+
+- Emerald sets every alias Dark sets
+- `--bg: #0C1A15`, `--surface: #11231C`, `--surface-raised: #172C24`, `--surface-sunken: #08130F`, `--surface-hover: #152A22`, `--surface-selected: #33231A`, `--surface-inverse: #E6F0EA`;
+- `--sidebar-bg: #0C1A15`, `--sidebar-fg: #A3BBAF`, `--sidebar-active-bg: #3A3320`, `--sidebar-active-fg: #F1E2B6`;
+- `--fg-1: #DCEBE2`, `--fg-2: #93AE9F`, `--fg-3: #64806F`, `--fg-inverse: #0C1A15`;
+- `--border: #1D332A`, `--border-subtle: #172B23`, `--border-strong: #29453A`;
+- `--primary: #E2C27D`, `--primary-fg: #0C1A15`, `--primary-hover: #EBD196`, `--primary-press: #D6B163`;
+- `--control-hover: #1D332A`, `--control-press: #254036`;
+- `--neutral-subtle: #172C24`, `--neutral-fg: #93AE9F`, `--neutral-border: #254036`.
+
+### Citrine
+
+- Citrine sets these and keeps Light's values for every other alias, as Paper does, except the primary ones it sets
+- `--bg: #F7F0D4`, `--surface: #FCF9EC`, `--surface-raised: #FFFFFF`, `--surface-sunken: #EFE6C2`, `--surface-hover: #FAF5E0`, `--surface-selected: #FBE5D5`;
+- `--sidebar-bg: #F7F0D4`, `--sidebar-fg: #6E6440`, `--sidebar-active-bg: #EBDFAE`, `--sidebar-active-fg: #26210F`;
+- `--fg-1: #26210F`, `--fg-2: #615838`, `--fg-3: #978D68`;
+- `--border: #E7DDB5`, `--border-subtle: #EEE6C6`, `--border-strong: #D9CC98`;
+- `--primary: #2E3A8C`, `--primary-fg: #FFFFFF`, `--primary-hover: #3A479E`, `--primary-press: #4653AB`;
+- `--control-hover: #EFE6C2`, `--control-press: #E6DBB0`;
+- `--neutral-subtle: #EFE6C2`, `--neutral-fg: #615838`, `--neutral-border: #E0D4A4`.
+
+## Densities
+
+- Picked in Account › Appearance or from the rail's Theme menu: **Compact**, **Comfortable** (the default) and **Relaxed**.
+- A density changes only these spacing, control and text-size aliases:
+
+| Alias           | Compact     | Comfortable | Relaxed     |
+| --------------- | ----------- | ----------- | ----------- |
+| `--pad-card`    | `10px 12px` | `16px 18px` | `22px 24px` |
+| `--gap-card`    | `6px`       | `12px`      | `16px`      |
+| `--pad-row`     | `8px 12px`  | `14px 18px` | `18px 24px` |
+| `--pad-page`    | `16px`      | `24px`      | `32px`      |
+| `--gap-panel`   | `12px`      | `20px`      | `28px`      |
+| `--radius-card` | `6px`       | `10px`      | `12px`      |
+| `--text-item`   | `13px`      | `14px`      | `15px`      |
+| `--text-body`   | `12px`      | `13px`      | `14px`      |
+| `--control-h`   | `24px`      | `28px`      | `32px`      |
+| `--line`        | `1.4`       | `1.5`       | `1.6`       |
+
+## Brand
+
+- The Office's own mark is in the rail; Ember is the accent.
+- The design system ([design-system/readme.md](../../design-system/readme.md)) is a component library plus brand; its admin sidebar layout is not used.
+
+## Copy
+
+- UI copy follows the design system: sentence case, no "I" or "we", verb + object buttons.
+- Everything an Agent says is content: Agents speak in the first person, and their actions are attributed to the person, never to "System".
 
 ## Defaults
 
-- **The Files tab:** a Project page's Files section shows the repository's files on one branch, read from that branch's commit, with a tree on the left and the file selected on the right. The tree reads a folder only once it is unfolded, one folder a request, and works by keyboard as a tree does (↑ ↓ to move, → to unfold or enter, ← to fold or go up, Enter or Space to select). The **Branch** selector groups the base branch (marked "base branch", shown first), the local branches and the remote branches; the remotes are fetched as the tab opens, and when the fetch fails the tab says "Showing the last commits known on this workstation" with the reason, showing what is known. The file selected shows by its kind: text with line numbers; Markdown rendered, with a Rendered/Source switch to its text; an image as itself; and anything else (binary, or over the preview's size) "This file can't be previewed", with Download. Above it, **Download**, **Copy path** (its path in the repository) and **Copy link** (the address of this file on this branch). The branch and the file are the tab's address (`/projects/<id>/files?branch=&path=`, the base branch when none is named), so a link or a reload reopens the same file, its folders unfolded down to it; a branch that isn't known here says so and offers the base branch. Nothing is checked out: the tab reads committed files only, never a worktree.
-- **Open in editor:** the Changes block's "Open in editor" opens the Task's worktree folder in VS Code through a `vscode://file/<worktree path>` link, and each file in the list links to that file the same way. Both show only while the Task has its worktree, so not before it is made or after Publish removes it. The Office launches no editor itself.
+### Palette
+
+- Light.
+
+### Density
+
+- Comfortable.
+
+### Rail
+
+- Icons only, 56px; the expanded choice is kept in this browser.
