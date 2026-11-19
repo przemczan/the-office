@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { EngineSessions, type EngineModel } from "../../engine/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskPaused, TaskResumed, TaskStateChanged, TaskStopped } from "../../work/index.js";
@@ -84,7 +85,7 @@ export class StandInChoices implements OnModuleInit {
   /** Every Stage waiting for the choice, oldest first, each with the Stand-in Engine it would move to now. */
   async waiting(): Promise<WaitingStandInChoice[]> {
     const held = await this.held();
-    return Promise.all(held.map(({ task, choice }) => this.withWords(task, choice)));
+    return readEach(held, ({ task, choice }) => this.withWords(task, choice));
   }
 
   /**

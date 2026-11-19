@@ -31,6 +31,9 @@ import { TaskPaused } from "../../domain/task-events.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { TaskRepository } from "../../ports/task-repository.js";
+import { KnownPipelines } from "../../ports/known-pipelines.js";
+import { KnownProjects } from "../../ports/known-projects.js";
+import { QueueService } from "../../application/queue-service.js";
 import {
   ANOTHER_SIGNED_IN_FOR_TESTS,
   signedInAs,
@@ -754,6 +757,19 @@ describe("Start", () => {
   });
 });
 
+/** How many times a release reads a Task by its id, a Pipeline and a Project. */
+async function readsWhileReleasing(): Promise<number[]> {
+  const reads = [
+    vi.spyOn(work.app.get(TaskRepository), "find"),
+    vi.spyOn(work.app.get(KnownPipelines), "read"),
+    vi.spyOn(work.app.get(KnownProjects), "find"),
+  ];
+  await work.app.get(QueueService).release();
+  const counts = reads.map((read) => read.mock.calls.length);
+  for (const read of reads) read.mockRestore();
+  return counts;
+}
+
 describe("The queue", () => {
   const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
   /** Started and queued Tasks hold desks and places for every test file, so each is dropped. */
@@ -812,6 +828,27 @@ describe("The queue", () => {
       why: "started",
       refusals: [],
     });
+  });
+
+  /** `count` of the test's own Ready Tasks queued behind the taken desk. */
+  async function queueOf(count: number): Promise<void> {
+    for (let index = 0; index < count; index += 1) {
+      await requestStart((await ownReadyTask()).id);
+    }
+  }
+
+  it("weighs the queued Tasks reading their Pipeline and Project once, however many wait", async () => {
+    await deskTaken();
+    await queueOf(1);
+    const few = await readsWhileReleasing();
+
+    await queueOf(5);
+    const many = await readsWhileReleasing();
+
+    expect(await ownQueue()).toHaveLength(6);
+    // No Task read one by one; the Pipeline and the Project read once, however many share them.
+    expect(many).toEqual(few);
+    expect(many[0]).toBe(0);
   });
 
   describe("with blockers", () => {

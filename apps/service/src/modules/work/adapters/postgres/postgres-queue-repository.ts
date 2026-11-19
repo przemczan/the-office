@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { eq, inArray, isNotNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads } from "../../../../platform/database/read-scope.js";
 import type { QueuedTask, Release, Starting } from "../../domain/queue.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
@@ -44,88 +45,96 @@ export class PostgresQueueRepository extends QueueRepository {
     id: string,
     decide: (task: Task, held: HeldAtStart, queue: readonly QueuedTask[]) => Starting,
   ): Promise<Starting> {
-    return this.database.transaction(async (transaction) => {
-      await holdStarts(transaction);
-      const task = await heldTask(transaction, id);
-      const startedRows = await transaction
-        .select()
-        .from(tasks)
-        .where(inArray(tasks.state, [...STARTED_STATES]));
-      const blockerRows = task.blockedBy.length
-        ? await transaction
-            .select()
-            .from(tasks)
-            .where(inArray(tasks.id, [...task.blockedBy]))
-        : [];
-      const held = {
-        startedTasks: startedRows.map(toTask),
-        blockers: blockerRows.map(toTask),
-        fireAlarmOn: (await this.fireAlarm.read()).on,
-        initiativePaused: await isInitiativePaused(transaction, task.initiativeId),
-      };
-      const starting = decide(task, held, await heldQueue(transaction));
-      if (starting.kind === "started") {
-        await saveStarted(transaction, starting.change);
-      } else {
-        await saveQueued(transaction, starting.queued);
-      }
-      return starting;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdStarts(transaction);
+        const task = await heldTask(transaction, id);
+        const startedRows = await transaction
+          .select()
+          .from(tasks)
+          .where(inArray(tasks.state, [...STARTED_STATES]));
+        const blockerRows = task.blockedBy.length
+          ? await transaction
+              .select()
+              .from(tasks)
+              .where(inArray(tasks.id, [...task.blockedBy]))
+          : [];
+        const held = {
+          startedTasks: startedRows.map(toTask),
+          blockers: blockerRows.map(toTask),
+          fireAlarmOn: (await this.fireAlarm.read()).on,
+          initiativePaused: await isInitiativePaused(transaction, task.initiativeId),
+        };
+        const starting = decide(task, held, await heldQueue(transaction));
+        if (starting.kind === "started") {
+          await saveStarted(transaction, starting.change);
+        } else {
+          await saveQueued(transaction, starting.queued);
+        }
+        return starting;
+      }),
+    );
   }
 
   async release(
     decide: (queue: readonly QueuedTask[], held: HeldForRelease) => Release,
   ): Promise<Release> {
-    return this.database.transaction(async (transaction) => {
-      await holdStarts(transaction);
-      const inQueue = await heldQueue(transaction);
-      if (inQueue.length === 0) {
-        return {
-          started: [],
-          startedEstimates: new Map(),
-          refused: [],
-          waiting: [],
-          reasonsChanged: [],
-          capResets: [],
-        };
-      }
-      // The queued Tasks are held, so none changes state between the weighing and the save.
-      await transaction
-        .select({ id: tasks.id })
-        .from(tasks)
-        .where(
-          inArray(
-            tasks.id,
-            inQueue.map(({ taskId }) => taskId),
-          ),
-        )
-        .for("update");
-      const release = decide(inQueue, {
-        tasks: (await transaction.select().from(tasks)).map(toTask),
-        fireAlarmOn: (await this.fireAlarm.read()).on,
-        pausedInitiativeIds: await pausedInitiativeIds(transaction),
-      });
-      for (const started of release.started) await saveStarted(transaction, started);
-      for (const { taskId } of release.refused) await removeQueued(transaction, taskId);
-      for (const waiting of release.waiting) await saveQueued(transaction, waiting);
-      return release;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdStarts(transaction);
+        const inQueue = await heldQueue(transaction);
+        if (inQueue.length === 0) {
+          return {
+            started: [],
+            startedEstimates: new Map(),
+            refused: [],
+            waiting: [],
+            reasonsChanged: [],
+            capResets: [],
+          };
+        }
+        // The queued Tasks are held, so none changes state between the weighing and the save.
+        await transaction
+          .select({ id: tasks.id })
+          .from(tasks)
+          .where(
+            inArray(
+              tasks.id,
+              inQueue.map(({ taskId }) => taskId),
+            ),
+          )
+          .for("update");
+        const release = decide(inQueue, {
+          tasks: (await transaction.select().from(tasks)).map(toTask),
+          fireAlarmOn: (await this.fireAlarm.read()).on,
+          pausedInitiativeIds: await pausedInitiativeIds(transaction),
+        });
+        for (const started of release.started) await saveStarted(transaction, started);
+        for (const { taskId } of release.refused) await removeQueued(transaction, taskId);
+        for (const waiting of release.waiting) await saveQueued(transaction, waiting);
+        return release;
+      }),
+    );
   }
 
   async takeOut(taskId: string): Promise<boolean> {
-    return this.database.transaction(async (transaction) => {
-      await holdStarts(transaction);
-      return removeQueued(transaction, taskId);
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdStarts(transaction);
+        return removeQueued(transaction, taskId);
+      }),
+    );
   }
 
   async reorder(change: (queue: readonly QueuedTask[]) => readonly QueuedTask[]): Promise<void> {
-    await this.database.transaction(async (transaction) => {
-      await holdStarts(transaction);
-      for (const { taskId, place } of change(await heldQueue(transaction))) {
-        await transaction.update(queue).set({ place }).where(eq(queue.taskId, taskId));
-      }
-    });
+    await forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdStarts(transaction);
+        for (const { taskId, place } of change(await heldQueue(transaction))) {
+          await transaction.update(queue).set({ place }).where(eq(queue.taskId, taskId));
+        }
+      }),
+    );
   }
 }
 

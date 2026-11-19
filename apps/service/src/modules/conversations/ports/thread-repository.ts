@@ -111,6 +111,9 @@ export abstract class ThreadRepository {
 
   abstract decision(id: string): Promise<Decision | undefined>;
 
+  /** Those of the Decisions with the ids still there, in one read, in no set order. */
+  abstract decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]>;
+
   /** The Thread's Decisions, open and answered, the first asked first. */
   abstract decisionsIn(threadId: string): Promise<readonly Decision[]>;
 

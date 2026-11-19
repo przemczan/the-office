@@ -15,6 +15,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Initiative } from "../../domain/initiative.js";
 import {
@@ -71,14 +72,18 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     super();
   }
 
-  async find(id: string): Promise<Initiative | undefined> {
-    if (!canBeRowId(id)) return undefined;
-    const [row] = await this.database.select().from(initiatives).where(eq(initiatives.id, id));
-    return row && toInitiative(row);
+  find(id: string): Promise<Initiative | undefined> {
+    return readOnce(readKey("initiatives.find", id), async () => {
+      if (!canBeRowId(id)) return undefined;
+      const [row] = await this.database.select().from(initiatives).where(eq(initiatives.id, id));
+      return row && toInitiative(row);
+    });
   }
 
   async insert({ initiative }: InitiativeChange<InitiativeCreated>): Promise<void> {
-    await this.database.insert(initiatives).values(toInitiativeRow(initiative));
+    await forgettingReads(() =>
+      this.database.insert(initiatives).values(toInitiativeRow(initiative)),
+    );
   }
 
   async list(): Promise<readonly Initiative[]> {
@@ -145,13 +150,15 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     id: string,
     change: (initiative: Initiative, tasks: readonly Task[]) => InitiativeChange<Event> | undefined,
   ): Promise<InitiativeUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      const initiative = await heldInitiative(transaction, id);
-      const changed = change(initiative, await tasksOf(transaction, id));
-      if (!changed) return { initiative, event: undefined };
-      await saveInitiative(transaction, changed.initiative);
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const initiative = await heldInitiative(transaction, id);
+        const changed = change(initiative, await tasksOf(transaction, id));
+        if (!changed) return { initiative, event: undefined };
+        await saveInitiative(transaction, changed.initiative);
+        return changed;
+      }),
+    );
   }
 
   async updateWithTasks<Event extends DomainEvent>(
@@ -161,17 +168,19 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       tasks: readonly Task[],
     ) => InitiativeTasksChange<Event> | undefined,
   ): Promise<InitiativeTasksUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      // The Initiative first and its Tasks after, the one order any hold of both takes.
-      const initiative = await heldInitiative(transaction, id);
-      const changed = change(initiative, await heldTasksOf(transaction, id));
-      if (!changed) return { initiative, event: undefined, taskChanges: [] };
-      await saveInitiative(transaction, changed.initiative);
-      for (const taskChange of changed.taskChanges) {
-        await saveTask(transaction, taskChange.task, taskChange);
-      }
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        // The Initiative first and its Tasks after, the one order any hold of both takes.
+        const initiative = await heldInitiative(transaction, id);
+        const changed = change(initiative, await heldTasksOf(transaction, id));
+        if (!changed) return { initiative, event: undefined, taskChanges: [] };
+        await saveInitiative(transaction, changed.initiative);
+        for (const taskChange of changed.taskChanges) {
+          await saveTask(transaction, taskChange.task, taskChange);
+        }
+        return changed;
+      }),
+    );
   }
 
   async changeTasks(
@@ -181,14 +190,16 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       tasks: readonly Task[],
     ) => readonly TaskChange<TaskStateChanged>[],
   ): Promise<readonly TaskChange<TaskStateChanged>[]> {
-    return this.database.transaction(async (transaction) => {
-      const initiative = await heldInitiative(transaction, id);
-      const taskChanges = change(initiative, await heldTasksOf(transaction, id));
-      for (const taskChange of taskChanges) {
-        await saveTask(transaction, taskChange.task, taskChange);
-      }
-      return taskChanges;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const initiative = await heldInitiative(transaction, id);
+        const taskChanges = change(initiative, await heldTasksOf(transaction, id));
+        for (const taskChange of taskChanges) {
+          await saveTask(transaction, taskChange.task, taskChange);
+        }
+        return taskChanges;
+      }),
+    );
   }
 
   async updateNaming<Event extends DomainEvent>(
@@ -198,20 +209,22 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       takenShortNames: ReadonlySet<string>,
     ) => InitiativeChange<Event> | undefined,
   ): Promise<InitiativeUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      // The Short names first and the Initiative after, the one order any hold of both takes.
-      await holdShortNames(transaction);
-      const initiative = await heldInitiative(transaction, id);
-      const others = await transaction
-        .select({ shortName: initiatives.shortName })
-        .from(initiatives)
-        .where(and(isNotNull(initiatives.shortName), ne(initiatives.id, id)));
-      const taken = new Set(others.flatMap(({ shortName }) => shortName ?? []));
-      const changed = change(initiative, taken);
-      if (!changed) return { initiative, event: undefined };
-      await saveInitiative(transaction, changed.initiative);
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        // The Short names first and the Initiative after, the one order any hold of both takes.
+        await holdShortNames(transaction);
+        const initiative = await heldInitiative(transaction, id);
+        const others = await transaction
+          .select({ shortName: initiatives.shortName })
+          .from(initiatives)
+          .where(and(isNotNull(initiatives.shortName), ne(initiatives.id, id)));
+        const taken = new Set(others.flatMap(({ shortName }) => shortName ?? []));
+        const changed = change(initiative, taken);
+        if (!changed) return { initiative, event: undefined };
+        await saveInitiative(transaction, changed.initiative);
+        return changed;
+      }),
+    );
   }
 
   async addTask(
@@ -222,18 +235,20 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       tasks: readonly Task[],
     ) => InitiativeTaskAdded,
   ): Promise<InitiativeTaskAdded> {
-    return this.database.transaction(async (transaction) => {
-      // The manual order, the Initiative, the dependencies, then its Tasks: the order every other
-      // hold takes. Its Tasks are held as the Publishing Task the new one blocks is saved whole.
-      await holdManualOrder(transaction);
-      const initiative = await heldInitiative(transaction, id);
-      const everyTask = await everyTaskHoldingDependencies(transaction);
-      const held = await heldTasksOf(transaction, id);
-      const added = create(initiative, await takenOrders(transaction), withHeld(everyTask, held));
-      await insertTask(transaction, added.created);
-      if (added.blocking) await saveTask(transaction, added.blocking.task, added.blocking);
-      return added;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        // The manual order, the Initiative, the dependencies, then its Tasks: the order every other
+        // hold takes. Its Tasks are held as the Publishing Task the new one blocks is saved whole.
+        await holdManualOrder(transaction);
+        const initiative = await heldInitiative(transaction, id);
+        const everyTask = await everyTaskHoldingDependencies(transaction);
+        const held = await heldTasksOf(transaction, id);
+        const added = create(initiative, await takenOrders(transaction), withHeld(everyTask, held));
+        await insertTask(transaction, added.created);
+        if (added.blocking) await saveTask(transaction, added.blocking.task, added.blocking);
+        return added;
+      }),
+    );
   }
 
   async settle(
@@ -244,20 +259,22 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       takenOrders: readonly string[],
     ) => InitiativeSettling,
   ): Promise<InitiativeSettling> {
-    return this.database.transaction(async (transaction) => {
-      // The manual order, the Initiative, then the dependencies: the order every other hold takes.
-      await holdManualOrder(transaction);
-      const initiative = await heldInitiative(transaction, id);
-      const everyTask = await everyTaskHoldingDependencies(transaction);
-      const settled = settle(
-        initiative,
-        everyTask.filter(({ initiativeId }) => initiativeId === id),
-        await takenOrders(transaction),
-      );
-      for (const created of settled.created) await insertTask(transaction, created);
-      if (settled.event) await saveInitiative(transaction, settled.initiative);
-      return settled;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        // The manual order, the Initiative, then the dependencies: the order every other hold takes.
+        await holdManualOrder(transaction);
+        const initiative = await heldInitiative(transaction, id);
+        const everyTask = await everyTaskHoldingDependencies(transaction);
+        const settled = settle(
+          initiative,
+          everyTask.filter(({ initiativeId }) => initiativeId === id),
+          await takenOrders(transaction),
+        );
+        for (const created of settled.created) await insertTask(transaction, created);
+        if (settled.event) await saveInitiative(transaction, settled.initiative);
+        return settled;
+      }),
+    );
   }
 
   async changeDependencies<Event extends DomainEvent>(
@@ -269,13 +286,15 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       tasks: readonly Task[],
     ) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      // The Initiative first and the dependencies after, the one order every hold of both takes.
-      const initiative = await heldInitiative(transaction, id);
-      return changeDependenciesHeld(transaction, taskId, (task, everyTask) =>
-        change(initiative, task, everyTask),
-      );
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        // The Initiative first and the dependencies after, the one order every hold of both takes.
+        const initiative = await heldInitiative(transaction, id);
+        return changeDependenciesHeld(transaction, taskId, (task, everyTask) =>
+          change(initiative, task, everyTask),
+        );
+      }),
+    );
   }
 
   async changeEveryDependency(
@@ -283,13 +302,15 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
     taskId: string,
     change: (initiative: Initiative, task: Task, tasks: readonly Task[]) => DependencyChanges,
   ): Promise<DependencyChanges> {
-    return this.database.transaction(async (transaction) => {
-      // The Initiative first and the dependencies after, the one order every hold of both takes.
-      const initiative = await heldInitiative(transaction, id);
-      return changeEveryDependencyHeld(transaction, taskId, (task, everyTask) =>
-        change(initiative, task, everyTask),
-      );
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        // The Initiative first and the dependencies after, the one order every hold of both takes.
+        const initiative = await heldInitiative(transaction, id);
+        return changeEveryDependencyHeld(transaction, taskId, (task, everyTask) =>
+          change(initiative, task, everyTask),
+        );
+      }),
+    );
   }
 
   async changeMembership<Event extends TaskAddedToInitiative | TaskTakenOutOfInitiative>(
@@ -301,20 +322,23 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       tasks: readonly Task[],
     ) => Promise<InitiativeMembershipChange<Event> | undefined>,
   ): Promise<InitiativeMembershipChange<Event> | undefined> {
-    return this.database.transaction(async (transaction) => {
-      // The Initiative, the dependencies, its Tasks, then the Task: the order every other hold takes.
-      const initiative = await heldInitiative(transaction, id);
-      const everyTask = await everyTaskHoldingDependencies(transaction);
-      const held = await heldTasksOf(transaction, id);
-      const task = held.find((each) => each.id === taskId) ?? (await heldTask(transaction, taskId));
-      const changed = await change(initiative, task, withHeld(everyTask, [...held, task]));
-      if (!changed) return undefined;
-      await saveTask(transaction, task, changed.task);
-      if (changed.publishing) {
-        await saveTask(transaction, changed.publishing.task, changed.publishing);
-      }
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        // The Initiative, the dependencies, its Tasks, then the Task: the order every other hold takes.
+        const initiative = await heldInitiative(transaction, id);
+        const everyTask = await everyTaskHoldingDependencies(transaction);
+        const held = await heldTasksOf(transaction, id);
+        const task =
+          held.find((each) => each.id === taskId) ?? (await heldTask(transaction, taskId));
+        const changed = await change(initiative, task, withHeld(everyTask, [...held, task]));
+        if (!changed) return undefined;
+        await saveTask(transaction, task, changed.task);
+        if (changed.publishing) {
+          await saveTask(transaction, changed.publishing.task, changed.publishing);
+        }
+        return changed;
+      }),
+    );
   }
 
   async changeTask<Event extends DomainEvent>(
@@ -326,11 +350,17 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       tasks: readonly Task[],
     ) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      const initiative = await heldInitiative(transaction, id);
-      const task = await heldTask(transaction, taskId);
-      return saveTask(transaction, task, change(initiative, task, await tasksOf(transaction, id)));
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const initiative = await heldInitiative(transaction, id);
+        const task = await heldTask(transaction, taskId);
+        return saveTask(
+          transaction,
+          task,
+          change(initiative, task, await tasksOf(transaction, id)),
+        );
+      }),
+    );
   }
 }
 

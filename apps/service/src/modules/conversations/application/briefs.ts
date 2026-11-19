@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { onceByKey } from "../../../platform/database/fan-out.js";
 import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import {
   freshChatThreadBrief,
@@ -62,30 +63,44 @@ export class Briefs {
    * Thread has no record: its Brief is the Context policy's, from the Thread's own log.
    */
   async forTaskThread(thread: Thread, setup: TaskThreadSetup): Promise<Brief> {
-    if (thread.home.kind !== "task") throw new Error(`Thread ${thread.id} is not on a Task.`);
-    const prompts = await this.texts();
-    const memory = await this.memory.forBrief(thread.roleKey, {
-      kind: "project",
-      projectId: setup.projectId,
-    });
-    if (setup.brief === undefined) {
-      const log = await this.repository.messages(thread.id);
-      const removedImages = await this.images.removedIn(log);
-      return freshPersonsThreadBrief(prompts, {
-        title: thread.title,
-        log,
-        removedImages,
+    return this.taskThreadBriefing()(thread, setup);
+  }
+
+  /**
+   * `forTaskThread` for any number of Threads on Tasks, reading what their Briefs share once: the
+   * templates' texts, each Task's answered Decisions and each person's Memory in each Project.
+   * Only a later session of a person's Thread reads its own log.
+   */
+  taskThreadBriefing(): (thread: Thread, setup: TaskThreadSetup) => Promise<Brief> {
+    let prompts: Promise<PromptTexts> | undefined;
+    const answeredOn = onceByKey((taskId: string) => this.repository.answeredOn(taskId));
+    const memoryOf = onceByKey(({ roleKey, projectId }: { roleKey: string; projectId: string }) =>
+      this.memory.forBrief(roleKey, { kind: "project", projectId }),
+    );
+    return async (thread, setup) => {
+      const { home } = thread;
+      if (home.kind !== "task") throw new Error(`Thread ${thread.id} is not on a Task.`);
+      const texts = await (prompts ??= this.texts());
+      const memory = await memoryOf({ roleKey: thread.roleKey, projectId: setup.projectId });
+      if (setup.brief === undefined) {
+        const log = await this.repository.messages(thread.id);
+        const removedImages = await this.images.removedIn(log);
+        return freshPersonsThreadBrief(texts, {
+          title: thread.title,
+          log,
+          removedImages,
+          memory,
+        });
+      }
+      return taskThreadBrief(texts, {
+        record: setup.brief,
+        continuing: thread.session !== undefined,
+        answered: await answeredOn(home.taskId),
+        // A Thread on a Task waits on one Decision at most.
+        open: thread.openDecisions[0],
         memory,
       });
-    }
-    return taskThreadBrief(prompts, {
-      record: setup.brief,
-      continuing: thread.session !== undefined,
-      answered: await this.repository.answeredOn(thread.home.taskId),
-      // A Thread on a Task waits on one Decision at most.
-      open: thread.openDecisions[0],
-      memory,
-    });
+    };
   }
 
   /** What the first session of the person's Thread would start on, before the Thread is opened. */

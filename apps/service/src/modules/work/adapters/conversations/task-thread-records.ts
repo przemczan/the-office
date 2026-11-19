@@ -1,4 +1,5 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import {
   ANSWER_DECISION_TOOL,
   CLOSED_TASK_CONVERSATION_WORDS,
@@ -116,9 +117,14 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
     const prompts = await this.promptTemplates.textsOf(TASK_THREAD_PROMPT_TEMPLATES);
-    return request.personsThread && !plansIt(task, request.roleKey, await this.planner())
-      ? this.asking(prompts, request, task, project)
-      : this.planning(prompts, task, project);
+    if (request.personsThread && !plansIt(task, request.roleKey, await this.planner())) {
+      return this.asking(prompts, request, task, project);
+    }
+    // The same for every Thread on the Task that isn't someone's asking one, so a list of its
+    // Threads (one GET) sets it up once, whoever's they are; its callers never change it.
+    return readOnce(readKey("TaskThreadRecords.planning", task.id), () =>
+      this.planning(prompts, task, project),
+    );
   }
 
   planner(): Promise<string | undefined> {

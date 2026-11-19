@@ -96,10 +96,9 @@ export class PersonTasks {
     const named = new Set(
       pipelines.flatMap(({ stages }) => stages.flatMap(({ duty }) => (duty ? [duty] : []))),
     );
-    const holders = await Promise.all(
-      [...named].map(async (duty) => [duty, await this.people.holderOf(duty)] as const),
-    );
-    return new Set(holders.flatMap(([duty, holder]) => (holder === roleKey ? [duty] : [])));
+    if (named.size === 0) return new Set();
+    const holders = await this.people.dutyHolders();
+    return new Set([...named].filter((duty) => holders.get(duty) === roleKey));
   }
 }
 

@@ -18,9 +18,11 @@ import {
   type RoleCard,
 } from "@the-office/contracts";
 import { inArray } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Pool } from "pg";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { DATABASE_POOL } from "../../../../platform/database/database-pool.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
@@ -112,6 +114,12 @@ async function get(path: string): Promise<unknown> {
   const response = await fetch(`${url}/api${path}`);
   expect(response.status).toBe(200);
   return response.json();
+}
+
+/** The SQL of one `Pool.query` call, which Drizzle makes with a query config. */
+function statementText(statement: unknown): string {
+  if (typeof statement === "string") return statement;
+  return (statement as { readonly text: string }).text;
 }
 
 /** Adds the fake local MCP server to the library and turns it on, as its review listed it. */
@@ -373,6 +381,19 @@ describe("GET /api/roles", () => {
       ["planner", "reviewer"],
     );
     expect(reviewer).toEqual(listed.find((role) => role.key === "reviewer"));
+  });
+
+  it("reads the Roles and the duty assignments once for the whole list, however many it lists", async () => {
+    await hire("planner", "Jan");
+    await hire("reviewer", "Ola");
+    const query = vi.spyOn(app.get<Pool>(DATABASE_POOL), "query");
+
+    roleListSchema.parse(await get("/roles"));
+
+    const statements = query.mock.calls.map(([statement]) => statementText(statement));
+    query.mockRestore();
+    expect(statements.filter((text) => /from "roles" inner join/.test(text))).toHaveLength(1);
+    expect(statements.filter((text) => /from "duty_assignments"/.test(text))).toHaveLength(1);
   });
 
   // The review starts the fake server, a Node process loading the MCP SDK: 1.3 s alone, 3.2 to 4.6 s

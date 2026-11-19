@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { mapPage, pageOf, type Page, type PageRequest } from "../../../platform/paging/page.js";
 import { Duties, EngineCascade, RoleCards } from "../../people/index.js";
 import { summarizeContext, type ContextMoveSummary } from "../domain/context-policy.js";
@@ -106,14 +107,13 @@ export class ThreadSummaries {
     const projectIds = [...new Set(threads.map(projectOf))];
     // Nobody fills the Role any more, or no engine is listed: its Threads stay readable.
     const engines = new Map(
-      await Promise.all(
-        projectIds.map(
-          async (projectId) =>
-            [
-              projectId,
-              role && (await this.engineCascade.applying(roleKey, projectId))?.engineId,
-            ] as const,
-        ),
+      await readEach(
+        projectIds,
+        async (projectId) =>
+          [
+            projectId,
+            role && (await this.engineCascade.applying(roleKey, projectId))?.engineId,
+          ] as const,
       ),
     );
     const now = new Date();

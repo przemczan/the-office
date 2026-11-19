@@ -12,6 +12,7 @@ import {
   messageListSchema,
   proposalSchema,
   taskThreadPageSchema,
+  threadListSchema,
   threadRefusalSchema,
   threadSchema,
   threadWebEventSchema,
@@ -540,6 +541,62 @@ describe("a person's lists of Threads", () => {
   });
 });
 
+/** `count` Stage Threads on the Task, by turns of each of `roleKeys`, with sessions. */
+async function stageThreadsOn(
+  taskId: string,
+  roleKeys: readonly string[],
+  count: number,
+): Promise<void> {
+  for (let index = 0; index < count; index += 1) {
+    const roleKey = roleKeys[index % roleKeys.length]!;
+    await app.get(ThreadRepository).add(
+      aThread({
+        id: randomUUID(),
+        home: { kind: "task", taskId },
+        roleKey,
+        stageThread: true,
+        session: {
+          id: randomUUID(),
+          roleKey,
+          cardVersion: 1,
+          officeInstructionsVersion: 0,
+          engineId: "claude-code",
+          startedAt: new Date(),
+          lastCallAt: new Date(),
+          contextTokens: 34_000,
+          startContextTokens: 33_000,
+          full: false,
+          changesAllowed: false,
+        },
+      }),
+    );
+  }
+}
+
+describe("a Task's Threads", () => {
+  it("reads the Task's setup and what its Briefs share once, however many Threads are on it", async () => {
+    const taskId = randomUUID();
+    const roleKeys = [aPerson("Ann", false), aPerson("Ben", false)];
+    const setUps = vi.spyOn(app.get(TaskThreadSetups), "of");
+    const readList = async () =>
+      threadListSchema.parse(await (await get(`/tasks/${taskId}/threads`)).json());
+    await stageThreadsOn(taskId, roleKeys, 2);
+    const few = await queriesWhile(readList);
+    const setUpsForFew = setUps.mock.calls.length;
+    setUps.mockClear();
+
+    await stageThreadsOn(taskId, roleKeys, 10);
+    const many = await queriesWhile(readList);
+    const setUpsForMany = setUps.mock.calls.length;
+
+    expect(await readList()).toHaveLength(12);
+    expect(few).toBeGreaterThan(0);
+    expect(many).toBe(few);
+    // Once for each person, as a Thread asks Work for its setup as theirs.
+    expect([setUpsForFew, setUpsForMany]).toEqual([2, 2]);
+  });
+});
+
 const SCREENSHOT_ID = randomUUID();
 
 describe("a Thread", () => {
@@ -784,13 +841,15 @@ describe("a Decision", () => {
     questions: [question],
   };
 
-  /** A planning Thread on a Task of its own whose session opened a Decision. */
-  async function opened(): Promise<{ readonly thread: Thread; readonly decision: Decision }> {
+  /** A planning Thread on a Task, of its own unless `taskId` names one, whose session opened a Decision. */
+  async function opened(
+    taskId: string = randomUUID(),
+  ): Promise<{ readonly thread: Thread; readonly decision: Decision }> {
     const roleKey = aPerson("Jan", false);
     const sessionId = randomUUID();
     const thread = aThread({
       id: randomUUID(),
-      home: { kind: "task", taskId: randomUUID() },
+      home: { kind: "task", taskId },
       roleKey,
       title: "Planning",
       session: {
@@ -851,6 +910,41 @@ describe("a Decision", () => {
       home: thread.home,
       decisionId: decision.id,
     });
+  });
+
+  it("reads a Task's conversation with as many queries however many Consultations are on it", async () => {
+    const taskId = randomUUID();
+    const consultant = aPerson("Ben", false);
+    const consulted = async (count: number): Promise<void> => {
+      for (let index = 0; index < count; index += 1) {
+        const { thread, decision } = await opened(taskId);
+        await app.get(ThreadRepository).add(
+          aThread({
+            id: randomUUID(),
+            home: { kind: "task", taskId },
+            roleKey: consultant,
+            consultation: {
+              decisionId: decision.id,
+              askerThreadId: thread.id,
+              askerRoleKey: thread.roleKey,
+            },
+          }),
+        );
+      }
+    };
+    const readTabs = async () => {
+      const response = await get(`/tasks/${taskId}/conversation`);
+      expect(response.status).toBe(200);
+      return response.json();
+    };
+    await consulted(1);
+    const few = await queriesWhile(readTabs);
+
+    await consulted(6);
+    const many = await queriesWhile(readTabs);
+
+    expect(few).toBeGreaterThan(0);
+    expect(many).toBe(few);
   });
 
   it("refuses a second answer, and shows the first in the log", async () => {

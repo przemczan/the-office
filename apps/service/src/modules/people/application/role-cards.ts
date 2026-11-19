@@ -107,6 +107,11 @@ export class RoleCards {
     return this.duties.holderOf(duty);
   }
 
+  /** The key of each held duty's holder, by duty, in one read; a duty nobody holds is left out. */
+  dutyHolders(): Promise<ReadonlyMap<DutyKey, string>> {
+    return this.duties.holders();
+  }
+
   /** The key of the Role `duty` names, hired or not; undefined while it is set to none. */
   dutyRoleKey(duty: DutyKey): Promise<string | undefined> {
     return this.duties.roleKeyOf(duty);

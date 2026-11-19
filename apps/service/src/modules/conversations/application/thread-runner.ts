@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { EngineSessions, NoEngineListed } from "../../engine/index.js";
@@ -544,16 +545,14 @@ export class ThreadRunner implements OnModuleDestroy {
         answerer ?? (await this.answererOf(only.answer)),
       );
     }
-    const onTasks = await Promise.all(
-      given.map(async (answer) => ({
-        ...answer,
-        taskTitle:
-          answer.decision.taskId === undefined
-            ? undefined
-            : await this.work.taskTitle(answer.decision.taskId),
-        answerer: await this.answererOf(answer.answer),
-      })),
-    );
+    const onTasks = await readEach(given, async (answer) => ({
+      ...answer,
+      taskTitle:
+        answer.decision.taskId === undefined
+          ? undefined
+          : await this.work.taskTitle(answer.decision.taskId),
+      answerer: await this.answererOf(answer.answer),
+    }));
     return decisionAnswersOnTasksMessage(onTasks);
   }
 
@@ -781,13 +780,13 @@ export class ThreadRunner implements OnModuleDestroy {
    */
   async endWaiting(taskId: string): Promise<void> {
     const threads = await this.repository.listIn({ kind: "task", taskId });
-    await Promise.all(
-      threads
-        .filter(({ state }) => state === "waiting")
-        .map(async ({ id }) => {
-          await this.endLive(id);
-          await this.endings.get(id);
-        }),
+    // Each ending forgets its session's records, so they are bounded as reads are.
+    await readEach(
+      threads.filter(({ state }) => state === "waiting"),
+      async ({ id }) => {
+        await this.endLive(id);
+        await this.endings.get(id);
+      },
     );
   }
 

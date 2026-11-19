@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import type { DutyKey } from "../../people/index.js";
 import { problemOnStage, type StageProblem } from "../domain/pipeline.js";
 import { agentStageWorkers, stageWorker, type Stage } from "../domain/stage.js";
@@ -24,13 +25,14 @@ export class RoleFillings {
 
   async of(stages: readonly Stage[]): Promise<RoleFillingsByWorker> {
     const { roles, duties } = agentStageWorkers(stages);
-    const fillings = await Promise.all([
-      ...[...roles].map(async (roleKey) => [roleKey, await this.roleFilling(roleKey)] as const),
-      ...[...duties].map(
-        async (duty) => [fillingKey({ duty }), await this.dutyFilling(duty)] as const,
-      ),
-    ]);
-    return new Map(fillings);
+    const workers = [
+      ...[...roles].map((roleKey) => ({ key: roleKey, read: () => this.roleFilling(roleKey) })),
+      ...[...duties].map((duty) => ({
+        key: fillingKey({ duty }),
+        read: () => this.dutyFilling(duty),
+      })),
+    ];
+    return new Map(await readEach(workers, async ({ key, read }) => [key, await read()] as const));
   }
 
   /** `stages` with each Stage naming a duty given who works it, as it would start now. */
@@ -38,13 +40,16 @@ export class RoleFillings {
     return staffedStages(stages, runs, await this.holders(stages));
   }
 
-  /** The holders of the duties `stages` name, those nobody holds left out. */
+  /** The holders of the duties `stages` name, those nobody holds left out, in one read. */
   async holders(stages: readonly Stage[]): Promise<ReadonlyMap<DutyKey, string>> {
-    const held = await Promise.all(
-      dutiesToStaff(stages).map(async (duty) => [duty, await this.people.holderOf(duty)] as const),
-    );
+    const duties = dutiesToStaff(stages);
+    if (duties.length === 0) return new Map();
+    const holders = await this.people.dutyHolders();
     return new Map(
-      held.flatMap(([duty, holder]) => (holder === undefined ? [] : [[duty, holder] as const])),
+      duties.flatMap((duty) => {
+        const holder = holders.get(duty);
+        return holder === undefined ? [] : [[duty, holder] as const];
+      }),
     );
   }
 
@@ -57,14 +62,14 @@ export class RoleFillings {
     stages: readonly Stage[],
     skipped: ReadonlySet<string>,
   ): Promise<StageProblem[]> {
-    const problems = await Promise.all(
-      stages.map(async (stage, stageIndex) =>
+    const problems = await readEach(
+      stages.map((stage, stageIndex) => ({ stage, stageIndex })),
+      async ({ stage, stageIndex }) =>
         skipped.has(stage.key)
           ? []
           : (await this.stagePermissionProblems(stage)).map((problem) =>
               problemOnStage(stage, stageIndex, problem),
             ),
-      ),
     );
     return problems.flat();
   }

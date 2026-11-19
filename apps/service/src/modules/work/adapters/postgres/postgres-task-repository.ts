@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, gte, inArray, isNull, not, or, sql, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Neighbours } from "../../domain/manual-order.js";
@@ -48,18 +49,22 @@ export class PostgresTaskRepository extends TaskRepository {
   async create(
     create: (takenOrders: readonly string[]) => TaskChange<TaskCreated>,
   ): Promise<TaskChange<TaskCreated>> {
-    return this.database.transaction(async (transaction) => {
-      await holdManualOrder(transaction);
-      const created = create(await takenOrders(transaction));
-      await insertTask(transaction, created);
-      return created;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdManualOrder(transaction);
+        const created = create(await takenOrders(transaction));
+        await insertTask(transaction, created);
+        return created;
+      }),
+    );
   }
 
-  async find(id: string): Promise<Task | undefined> {
-    if (!canBeRowId(id)) return undefined;
-    const [row] = await this.database.select().from(tasks).where(eq(tasks.id, id));
-    return row && toTask(row);
+  find(id: string): Promise<Task | undefined> {
+    return readOnce(readKey("tasks.find", id), async () => {
+      if (!canBeRowId(id)) return undefined;
+      const [row] = await this.database.select().from(tasks).where(eq(tasks.id, id));
+      return row && toTask(row);
+    });
   }
 
   async list(): Promise<readonly Task[]> {
@@ -146,10 +151,12 @@ export class PostgresTaskRepository extends TaskRepository {
     id: string,
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      const task = await heldTask(transaction, id);
-      return saveTask(transaction, task, change(task));
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const task = await heldTask(transaction, id);
+        return saveTask(transaction, task, change(task));
+      }),
+    );
   }
 
   async updateWithStateChanges<Event extends DomainEvent>(
@@ -159,39 +166,43 @@ export class PostgresTaskRepository extends TaskRepository {
       stateChanges: readonly StateChange[],
     ) => Promise<TaskChange<Event> | undefined>,
   ): Promise<TaskUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      const task = await heldTask(transaction, id);
-      const changed = await change(task, await stateChangesOf(transaction, id));
-      return saveTask(transaction, task, changed);
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const task = await heldTask(transaction, id);
+        const changed = await change(task, await stateChangesOf(transaction, id));
+        return saveTask(transaction, task, changed);
+      }),
+    );
   }
 
   async updateEveryStarted<Event extends DomainEvent>(
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<readonly TaskChange<Event>[]> {
-    return this.database.transaction(async (transaction) => {
-      await holdStarts(transaction);
-      const started = await transaction
-        .select()
-        .from(tasks)
-        .where(inArray(tasks.state, [...STARTED_STATES]))
-        .for("update");
-      const changes: TaskChange<Event>[] = [];
-      for (const task of started.map(toTask)) {
-        const changed = change(task);
-        await saveTask(transaction, task, changed);
-        if (changed) changes.push(changed);
-      }
-      return changes;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdStarts(transaction);
+        const started = await transaction
+          .select()
+          .from(tasks)
+          .where(inArray(tasks.state, [...STARTED_STATES]))
+          .for("update");
+        const changes: TaskChange<Event>[] = [];
+        for (const task of started.map(toTask)) {
+          const changed = change(task);
+          await saveTask(transaction, task, changed);
+          if (changed) changes.push(changed);
+        }
+        return changes;
+      }),
+    );
   }
 
   async changeDependencies<Event extends DomainEvent>(
     id: string,
     change: (task: Task, tasks: readonly Task[]) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>> {
-    return this.database.transaction((transaction) =>
-      changeDependenciesHeld(transaction, id, change),
+    return forgettingReads(() =>
+      this.database.transaction((transaction) => changeDependenciesHeld(transaction, id, change)),
     );
   }
 
@@ -199,8 +210,10 @@ export class PostgresTaskRepository extends TaskRepository {
     id: string,
     change: (task: Task, tasks: readonly Task[]) => DependencyChanges,
   ): Promise<DependencyChanges> {
-    return this.database.transaction((transaction) =>
-      changeEveryDependencyHeld(transaction, id, change),
+    return forgettingReads(() =>
+      this.database.transaction((transaction) =>
+        changeEveryDependencyHeld(transaction, id, change),
+      ),
     );
   }
 
@@ -213,19 +226,21 @@ export class PostgresTaskRepository extends TaskRepository {
       takenOrders: readonly string[],
     ) => TaskChange<TaskReordered> | undefined,
   ): Promise<TaskUpdate<TaskReordered>> {
-    return this.database.transaction(async (transaction) => {
-      await holdManualOrder(transaction);
-      const task = await heldTask(transaction, id);
-      const neighbours = {
-        above: above === undefined ? undefined : await heldTask(transaction, above),
-        below: below === undefined ? undefined : await heldTask(transaction, below),
-      };
-      return saveTask(
-        transaction,
-        task,
-        change(task, neighbours, await takenOrders(transaction, id)),
-      );
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdManualOrder(transaction);
+        const task = await heldTask(transaction, id);
+        const neighbours = {
+          above: above === undefined ? undefined : await heldTask(transaction, above),
+          below: below === undefined ? undefined : await heldTask(transaction, below),
+        };
+        return saveTask(
+          transaction,
+          task,
+          change(task, neighbours, await takenOrders(transaction, id)),
+        );
+      }),
+    );
   }
 }
 

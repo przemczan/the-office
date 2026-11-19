@@ -40,7 +40,8 @@ type WebEventOf<Type extends ThreadWebEvent["type"]> = Omit<
 >;
 
 /**
- * Every Conversations event reaches the web, naming the Thread and its home, so open pages refetch;
+ * Every Conversations event reaches the web, naming the Thread and its home, so the open pages
+ * showing that Thread or its home's list refetch;
  * a count of tokens carries them, for the pages to show without refetching. A new size threshold
  * names no Thread: every label may change. Nor do new Office instructions, which only Settings and
  * a Proposal's card show.

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -311,7 +312,7 @@ export class InitiativeService implements OnModuleInit {
   /** The names of the Pipelines the Initiative has in its Projects, by id, those still known. */
   private async pipelineNamesOf(initiative: Initiative): Promise<ReadonlyMap<string, string>> {
     const ids = [...new Set(initiative.pipelines.flatMap(({ pipelineId }) => pipelineId ?? []))];
-    const pipelines = await Promise.all(ids.map((pipelineId) => this.pipelines.read(pipelineId)));
+    const pipelines = await readEach(ids, (pipelineId) => this.pipelines.read(pipelineId));
     return new Map(
       pipelines.flatMap((pipeline) => (pipeline ? [[pipeline.id, pipeline.name]] : [])),
     );
@@ -418,10 +419,8 @@ export class InitiativeService implements OnModuleInit {
   ): Promise<Initiative> {
     const tasks = (await this.tasksByInitiative()).get(id) ?? [];
     const problems = (
-      await Promise.all(
-        choices.map(({ projectId, pipelineId }) =>
-          this.pipelineProblems(tasks, projectId, pipelineId),
-        ),
+      await readEach(choices, ({ projectId, pipelineId }) =>
+        this.pipelineProblems(tasks, projectId, pipelineId),
       )
     ).flat();
     if (problems.length > 0) throw new InitiativeRefused(problems);
@@ -814,9 +813,7 @@ export class InitiativeService implements OnModuleInit {
   private async publishingProjects(
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, PublishingProject>> {
-    const projects = await Promise.all(
-      projectIds.map((projectId) => this.projects.find(projectId)),
-    );
+    const projects = await readEach(projectIds, (projectId) => this.projects.find(projectId));
     return new Map(projects.flatMap((project) => (project ? [[project.id, project]] : [])));
   }
 
@@ -831,10 +828,8 @@ export class InitiativeService implements OnModuleInit {
   ): Promise<ReadonlySet<string>> {
     if (projectIds.length === 0 || initiative.shortName === undefined) return new Set();
     const branch = initiativeBranchOf(initiative.shortName);
-    const holding = await Promise.all(
-      projectIds.map((projectId) =>
-        this.branches.holdsUnpublished(projectId, branch, lastPublishedBy(tasks, projectId)?.id),
-      ),
+    const holding = await readEach(projectIds, (projectId) =>
+      this.branches.holdsUnpublished(projectId, branch, lastPublishedBy(tasks, projectId)?.id),
     );
     return new Set(projectIds.filter((_, index) => holding[index]));
   }

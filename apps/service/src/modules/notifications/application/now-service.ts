@@ -1,5 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
+import { inReadScope } from "../../../platform/database/read-scope.js";
 import type { DomainEventClass } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
@@ -222,8 +224,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   ): Promise<ReadonlyMap<string, TaskResume | undefined>> {
     const paused = started.filter(({ task }) => task.pausedBy === "alarm");
     return new Map(
-      await Promise.all(
-        paused.map(async ({ task }) => [task.id, await this.resumePlans.of(task.id)] as const),
+      await readEach(
+        paused,
+        async ({ task }) => [task.id, await this.resumePlans.of(task.id)] as const,
       ),
     );
   }
@@ -309,12 +312,10 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
 
   private async startedTasks(): Promise<StartedTask[]> {
     const started = await this.tasks.listStarted();
-    return Promise.all(
-      started.map(async (task) => ({
-        task,
-        stages: (await this.stages.progress(task.id))?.stages,
-      })),
-    );
+    return readEach(started, async (task) => ({
+      task,
+      stages: (await this.stages.progress(task.id))?.stages,
+    }));
   }
 
   /**
@@ -348,7 +349,8 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       const now =
         read === "tokens today" && this.announced
           ? await this.withTokensToday(this.announced)
-          : await this.now();
+          : // A scope of its own: what each started Task's Stages read in common is read once.
+            await inReadScope(() => this.now());
       if (!anyway && isDeepStrictEqual(now, this.announced)) continue;
       this.announced = now;
       await this.events.publish(new NowChanged(now));

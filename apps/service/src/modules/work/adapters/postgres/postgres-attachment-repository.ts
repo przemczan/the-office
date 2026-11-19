@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import type { Attachment, AttachmentOwner, StoredFileAttachment } from "../../domain/attachment.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
 import { attachments, attachmentTexts } from "./work.schema.js";
@@ -13,30 +14,38 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
   }
 
   async add(attachment: Attachment, documentText?: string): Promise<void> {
-    await this.database.transaction(async (transaction) => {
-      await transaction.insert(attachments).values(toAttachmentRow(attachment));
-      if (documentText !== undefined) {
-        await transaction
-          .insert(attachmentTexts)
-          .values({ attachmentId: attachment.id, text: documentText });
-      }
-    });
+    await forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await transaction.insert(attachments).values(toAttachmentRow(attachment));
+        if (documentText !== undefined) {
+          await transaction
+            .insert(attachmentTexts)
+            .values({ attachmentId: attachment.id, text: documentText });
+        }
+      }),
+    );
   }
 
   async replace(file: StoredFileAttachment, documentText?: string): Promise<void> {
-    const { id, ...copy } = toAttachmentRow(file);
-    await this.database.transaction(async (transaction) => {
-      await transaction.update(attachments).set(copy).where(eq(attachments.id, id));
-      await transaction.delete(attachmentTexts).where(eq(attachmentTexts.attachmentId, id));
-      if (documentText !== undefined) {
-        await transaction.insert(attachmentTexts).values({ attachmentId: id, text: documentText });
-      }
+    return forgettingReads(async () => {
+      const { id, ...copy } = toAttachmentRow(file);
+      await this.database.transaction(async (transaction) => {
+        await transaction.update(attachments).set(copy).where(eq(attachments.id, id));
+        await transaction.delete(attachmentTexts).where(eq(attachmentTexts.attachmentId, id));
+        if (documentText !== undefined) {
+          await transaction
+            .insert(attachmentTexts)
+            .values({ attachmentId: id, text: documentText });
+        }
+      });
     });
   }
 
-  async find(id: string): Promise<Attachment | undefined> {
-    const [row] = await this.database.select().from(attachments).where(eq(attachments.id, id));
-    return row && toAttachment(row);
+  find(id: string): Promise<Attachment | undefined> {
+    return readOnce(readKey("attachments.find", id), async () => {
+      const [row] = await this.database.select().from(attachments).where(eq(attachments.id, id));
+      return row && toAttachment(row);
+    });
   }
 
   async findAll(ids: readonly string[]): Promise<readonly Attachment[]> {
@@ -48,13 +57,15 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
     return rows.map(toAttachment);
   }
 
-  async listOf(owner: AttachmentOwner): Promise<readonly Attachment[]> {
-    const rows = await this.database
-      .select()
-      .from(attachments)
-      .where(ownedBy(owner))
-      .orderBy(asc(attachments.addedAt), asc(attachments.id));
-    return rows.map(toAttachment);
+  listOf(owner: AttachmentOwner): Promise<readonly Attachment[]> {
+    return readOnce(readKey("attachments.listOf", owner), async () => {
+      const rows = await this.database
+        .select()
+        .from(attachments)
+        .where(ownedBy(owner))
+        .orderBy(asc(attachments.addedAt), asc(attachments.id));
+      return rows.map(toAttachment);
+    });
   }
 
   async documentsWithoutText(): Promise<readonly Attachment[]> {
@@ -67,10 +78,9 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
   }
 
   async keepDocumentText(attachmentId: string, text: string): Promise<void> {
-    await this.database
-      .insert(attachmentTexts)
-      .values({ attachmentId, text })
-      .onConflictDoNothing();
+    await forgettingReads(() =>
+      this.database.insert(attachmentTexts).values({ attachmentId, text }).onConflictDoNothing(),
+    );
   }
 
   async filesNotJudged(): Promise<readonly StoredFileAttachment[]> {
@@ -82,15 +92,17 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
   }
 
   async keepJudgement(attachmentId: string, text: boolean): Promise<void> {
-    await this.database
-      .update(attachments)
-      .set({ text })
-      .where(and(eq(attachments.id, attachmentId), isNull(attachments.text)));
+    await forgettingReads(() =>
+      this.database
+        .update(attachments)
+        .set({ text })
+        .where(and(eq(attachments.id, attachmentId), isNull(attachments.text))),
+    );
   }
 
   /** Its text goes with it. */
   async remove(id: string): Promise<void> {
-    await this.database.delete(attachments).where(eq(attachments.id, id));
+    await forgettingReads(() => this.database.delete(attachments).where(eq(attachments.id, id)));
   }
 }
 

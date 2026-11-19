@@ -386,6 +386,17 @@ export class KnownPeopleForTests extends KnownPeople {
     return Promise.resolve(roleKey !== undefined && this.people.has(roleKey) ? roleKey : undefined);
   }
 
+  dutyHolders(): Promise<ReadonlyMap<string, string>> {
+    return Promise.resolve(
+      new Map(
+        DUTIES.flatMap(({ key }) => {
+          const roleKey = this.namedFor(key);
+          return roleKey !== undefined && this.people.has(roleKey) ? [[key, roleKey] as const] : [];
+        }),
+      ),
+    );
+  }
+
   dutyRoleKey(duty: string): Promise<string | undefined> {
     return Promise.resolve(this.namedFor(duty));
   }

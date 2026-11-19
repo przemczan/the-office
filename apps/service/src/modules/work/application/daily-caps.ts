@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import type { EngineId } from "../../engine/index.js";
 import {
   leftOfEstimate,
@@ -42,24 +43,25 @@ export class DailyCaps {
     );
     if (capped.length === 0) return [];
     const inProgress = await this.leftInProgress(everyTask, estimateOf);
-    return Promise.all(
-      capped.map(async ({ engineId, dailyTokens, dailyDollars }) => ({
-        engineId,
-        caps: { tokens: dailyTokens, dollars: dailyDollars },
-        today: await this.today(engineId),
-        inProgress: inProgress.get(engineId) ?? NO_DAY_USE,
-      })),
-    );
+    return readEach(capped, async ({ engineId, dailyTokens, dailyDollars }) => ({
+      engineId,
+      caps: { tokens: dailyTokens, dollars: dailyDollars },
+      today: await this.today(engineId),
+      inProgress: inProgress.get(engineId) ?? NO_DAY_USE,
+    }));
   }
 
   /** Today's use on `engineId`; a model with no price adds no dollars, as "no cost" holds nothing. */
   private async today(engineId: EngineId): Promise<DayUse> {
     const models = await this.dayUsage.today(engineId);
-    const used = await Promise.all(
-      models.map(async ({ model, tokens }) => ({
+    // One model at a time: each engine's day is already read alongside the others'.
+    const used = await readEach(
+      models,
+      async ({ model, tokens }) => ({
         tokens: countedTokens(tokens),
         dollars: (await this.prices.costOf({ engineId, model }, tokens)) ?? 0,
-      })),
+      }),
+      1,
     );
     return used.reduce(plusDayUse, NO_DAY_USE);
   }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { straightLineFlow } from "../domain/flow.js";
 import type { Stage } from "../domain/stage.js";
@@ -10,6 +10,7 @@ import {
   startPipelinesApplication,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { TaskStagesService } from "./task-stages-service.js";
@@ -50,6 +51,20 @@ describe("TaskStagesService", () => {
       editedForTask: false,
     });
     expect(eventsOf(TaskStagesMade)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
+  });
+
+  it("reads who holds the duties the Stages name in one read, not one per duty", async () => {
+    const people = pipelines.app.get(KnownPeople);
+    const holderOf = vi.spyOn(people, "holderOf");
+    const dutyHolders = vi.spyOn(people, "dutyHolders");
+    const taskId = aTask("in-progress", "full");
+    await service.make(taskId, "full");
+
+    const progress = await service.progress(taskId);
+
+    expect(progress?.stages.some(({ stage }) => stage.kind === "agent" && stage.duty)).toBe(true);
+    expect(holderOf).not.toHaveBeenCalled();
+    expect(dutyHolders).toHaveBeenCalledTimes(1);
   });
 });
 

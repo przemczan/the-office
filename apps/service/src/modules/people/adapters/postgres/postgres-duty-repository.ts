@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import { isDutyKey, type DutyAssignments, type DutyKey } from "../../domain/duties.js";
 import { DutyRepository, type DutyAssignment } from "../../ports/duty-repository.js";
 import { dutyAssignments } from "./duties.schema.js";
@@ -11,12 +12,14 @@ export class PostgresDutyRepository extends DutyRepository {
     super();
   }
 
-  async assignments(): Promise<DutyAssignments> {
-    const rows = await this.database.select().from(dutyAssignments);
-    // A row of a duty The Office no longer has is left out.
-    return Object.fromEntries(
-      rows.filter((row) => isDutyKey(row.duty)).map((row) => [row.duty, row.roleKey]),
-    );
+  assignments(): Promise<DutyAssignments> {
+    return readOnce(readKey("dutyAssignments"), async () => {
+      const rows = await this.database.select().from(dutyAssignments);
+      // A row of a duty The Office no longer has is left out.
+      return Object.fromEntries(
+        rows.filter((row) => isDutyKey(row.duty)).map((row) => [row.duty, row.roleKey]),
+      );
+    });
   }
 
   async assign(duty: DutyKey, roleKey: string | null, at: Date): Promise<void> {
@@ -24,7 +27,7 @@ export class PostgresDutyRepository extends DutyRepository {
   }
 
   async assignAll(changes: readonly DutyAssignment[], at: Date): Promise<void> {
-    await assignDuties(this.database, changes, at);
+    await forgettingReads(() => assignDuties(this.database, changes, at));
   }
 }
 
