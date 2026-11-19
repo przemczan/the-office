@@ -1,6 +1,62 @@
 /* The flow editor around the canvas (docs/design/pipeline-flow.html): head, hint, panel, condition
    builder. Colours from the tokens only; everything wraps, so nothing scrolls sideways at 390px. */
 
+/* The editor's place on the page; in full screen its element moves to the body (flow-editor.tsx). */
+.flow-editor-slot {
+  min-width: 0;
+}
+
+/* Full screen (docs/design/pipeline-editor.html): the whole window, the canvas over the panel, the
+   host's Save under it. Over any window it was opened from, which stays under it. */
+.flow-editor-place--full-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  padding: 14px 20px;
+  background: var(--bg);
+}
+
+.flow-editor--full-screen {
+  flex: 1;
+  min-height: 0;
+}
+
+.flow-editor--full-screen .flow-editor-hint {
+  display: none;
+}
+
+.flow-editor--full-screen .flow-viewport {
+  display: flex;
+  flex: 1 1 58%;
+  min-height: 240px;
+}
+
+.flow-editor--full-screen .flow-viewport-frame {
+  flex: 1;
+  min-height: 0;
+}
+
+.flow-editor--full-screen .flow-list {
+  flex: 1 1 58%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.flow-editor--full-screen .flow-editor-panel {
+  flex: 0 1 auto;
+  max-height: 36vh;
+  overflow: auto;
+}
+
+.flow-editor-full-screen-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .flow-editor {
   display: flex;
   flex-direction: column;

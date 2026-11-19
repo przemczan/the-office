@@ -23,6 +23,7 @@ import { namedCommands, type StageCommandSource } from "../stage-commands.ts";
 import { STAGE_KIND_ICONS, STAGE_KIND_NAMES, type StageKind } from "../stage-edits.ts";
 import { FlowEditor, useFlowEditorControls } from "./flow-editor.tsx";
 import { projectHowToHint } from "./flow-editor-words.ts";
+import type { FlowStageMarkTone } from "./flow-marks.ts";
 import { stageNamed } from "./flow-model.ts";
 import { canvasEdited, type FlowEdited } from "./office-flow-edits.ts";
 import { ProjectFlowBroken } from "./project-flow-broken.tsx";
@@ -55,6 +56,10 @@ export interface ProjectFlowEditorProps {
   readonly options: RoleCardOptions;
   /** What a Script Stage and a route's command test may run: the Project's own commands. */
   readonly commands?: StageCommandSource;
+  /** In full screen, before the title, such as "Full for the-office ·". */
+  readonly fullScreenName?: string;
+  /** In full screen, under the panel: the host's Save. */
+  readonly fullScreenBar?: ReactNode;
 }
 
 /**
@@ -78,6 +83,7 @@ export function ProjectFlowEditor(props: ProjectFlowEditorProps): ReactNode {
   };
   const picked = controls.picked && stageNamed(live, controls.picked.key);
   const problems = projectFlowProblems(shown, props.problems);
+  const marks = projectFlowMarks(shown, baseName);
   const baseStages = built.rows.filter(({ origin }) => origin !== "inserted").length;
   const insert = (place: InsertPlace, stage: Stage): void => {
     onChange(withStageInserted(stageChanges, place, stage));
@@ -95,10 +101,13 @@ export function ProjectFlowEditor(props: ProjectFlowEditorProps): ReactNode {
         warnings={props.warnings}
         whoWorks={(stage) => whoWorks(stage, roles, named, duties)}
         draggable={false}
-        marks={projectFlowMarks(shown, baseName)}
+        whyItStays={(stage) => whyItStays(stage, marks.get(stage.key)?.tone, baseName, projectName)}
+        marks={marks}
         legend={<ProjectLegend baseName={baseName} />}
         howTo={projectHowToHint}
         controls={controls}
+        fullScreenName={props.fullScreenName}
+        fullScreenBar={props.fullScreenBar}
         onEdit={(edit) => {
           if (edit.kind === "draw-route" || edit.kind === "remove-route") {
             apply(canvasEdited(live, edit));
@@ -126,6 +135,23 @@ export function ProjectFlowEditor(props: ProjectFlowEditorProps): ReactNode {
       />
     </div>
   );
+}
+
+/**
+ * A Project Pipeline keeps its base Pipeline's places, as no Stage change gives a Stage a place
+ * (spec §2.3): dragging one says where its place comes from.
+ */
+function whyItStays(
+  stage: Stage,
+  tone: FlowStageMarkTone | undefined,
+  baseName: string,
+  projectName: string,
+): string {
+  if (tone === "removed")
+    return `${stage.name} is removed from ${projectName}'s Stages: Undo brings it back.`;
+  if (tone === "inserted")
+    return `${stage.name} goes where “Where it goes” puts it, in the panel below.`;
+  return `Its place comes from ${baseName}, the base Pipeline: move it there.`;
 }
 
 function insertedHint(place: InsertPlace, stage: Stage): string {

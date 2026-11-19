@@ -511,3 +511,90 @@ describe("the flow editor for a Task, its started Stages locked", () => {
     expect(routePanel().querySelector("fieldset")?.disabled).toBe(true);
   });
 });
+
+/** A control in the canvas's toolbar, by its label. */
+function tool(name: string): HTMLButtonElement {
+  const toolbar = document.body.querySelector('[role="toolbar"][aria-label="Canvas"]');
+  const button = [...(toolbar?.querySelectorAll("button") ?? [])].find(
+    (each) => each.getAttribute("aria-label") === name,
+  );
+  if (!button) throw new Error(`No ${name} on the canvas.`);
+  return button;
+}
+
+function pointer(target: Element, type: string, clientX: number): void {
+  act(() => {
+    target.dispatchEvent(
+      new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY: 10 }),
+    );
+  });
+}
+
+describe("the flow editor's canvas, which pans and zooms", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json([]))),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("opens at 100%, the largest, and steps out to 90% and back", async () => {
+    await rendered();
+    expect(tool("Zoom: 100%")).toBeTruthy();
+    expect(tool("Zoom in").getAttribute("aria-disabled")).toBe("true");
+    act(() => tool("Zoom out").click());
+    expect(tool("Zoom: 90%")).toBeTruthy();
+    act(() => tool("Zoom in").click());
+    expect(tool("Zoom: 100%")).toBeTruthy();
+  });
+
+  it("shows only each Stage's name under 60%", async () => {
+    const page = await rendered();
+    expect(page.querySelector(".flow-canvas--names-only")).toBeNull();
+    // 90, 75, 67, then 50%.
+    for (let step = 0; step < 4; step += 1) act(() => tool("Zoom out").click());
+    expect(tool("Zoom: 50%")).toBeTruthy();
+    expect(page.querySelector(".flow-canvas--names-only")).not.toBeNull();
+    expect(page.querySelector(".flow-canvas-route-row")).toBeNull();
+  });
+
+  it("gives the editor the whole window in full screen, and Escape brings it back", async () => {
+    const page = await rendered();
+    act(() => tool("Full screen").click());
+    const fullScreen = document.body.querySelector('[role="dialog"][aria-modal="true"]');
+    expect(fullScreen?.querySelector(".flow-editor--full-screen")).not.toBeNull();
+    expect(page.querySelector(".flow-editor")).toBeNull();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(page.querySelector(".flow-editor:not(.flow-editor--full-screen)")).not.toBeNull();
+  });
+
+  it("says why a started Stage stays where it is when someone drags it", async () => {
+    await renderedTask({ implement: "Done" });
+    const card = document.body.querySelector('[data-flow-stage="implement"]');
+    if (!card) throw new Error("No Implement on the canvas.");
+    pointer(card, "pointerdown", 10);
+    pointer(card, "pointermove", 40);
+    pointer(card, "pointerup", 40);
+    expect(document.body.querySelector(".flow-canvas-told")?.textContent).toBe(
+      "Implement has started, so it stays where it is.",
+    );
+    expect(seen.stages.find(({ key }) => key === "implement")?.place).toEqual(IMPLEMENT.place);
+  });
+});

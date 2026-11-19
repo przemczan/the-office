@@ -1,0 +1,3847 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light" data-density="comfortable" data-width="wide">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Pipeline editor: Pipelines and Stage templates as tabs, a canvas that pans and zooms · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/ with packages/ui/src/appearance/, as pipeline-flow.html copied them) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-inverse: var(--white);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --border-focus: var(--ember-500);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-hover: var(--gray-700);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --overlay: color-mix(in oklab, var(--gray-950) 45%, transparent);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.4 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+      }
+      [data-theme="dark"] {
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --overlay: color-mix(in oklab, #000 65%, transparent);
+        --surface-inverse: #e6e6e2;
+        --fg-inverse: #161615;
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --primary-hover: #e6e6e2;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --pad-row: 14px 18px;
+        --gap-card: 12px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+        --control-h: 28px;
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .i {
+        flex: none;
+        display: block;
+      }
+      .mono {
+        font-family: var(--font-mono);
+      }
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* ---------- Preview bar (not part of the design) ---------- */
+      .preview-bar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 22px;
+        padding: 8px 16px;
+        background: #181817;
+        color: #e9e9e6;
+        font: 500 12px/1 var(--font-sans);
+      }
+      .preview-bar .tag {
+        padding: 4px 7px;
+        border-radius: 4px;
+        background: #f23d0f;
+        color: #fff;
+        font: 500 11px/1 var(--font-mono);
+        letter-spacing: 0.06em;
+      }
+      .preview-bar .pv-title {
+        font-weight: 600;
+      }
+      .pv-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pv-group > span {
+        color: #8a8a84;
+      }
+      .pv-seg {
+        display: flex;
+        padding: 2px;
+        border-radius: 6px;
+        background: #262624;
+      }
+      .pv-seg button {
+        padding: 6px 10px;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: #b1b1ab;
+        font: 500 12px/1 var(--font-sans);
+      }
+      .pv-seg button[aria-pressed="true"] {
+        background: #3a3a37;
+        color: #fff;
+      }
+      .pv-link {
+        margin-left: auto;
+        color: #ff9370;
+        text-decoration: none;
+      }
+
+      /* ---------- Shell ---------- */
+      .frame-wrap {
+        display: flex;
+        justify-content: center;
+        padding: 20px 16px 8px;
+      }
+      .app-frame {
+        position: relative;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        width: 100%;
+        max-width: 1680px;
+        min-height: 900px;
+        overflow: clip;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+        container: app / inline-size;
+      }
+      [data-width="narrow"] .app-frame {
+        max-width: 820px;
+      }
+      .rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail .logo {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        margin-bottom: 12px;
+        border-radius: var(--radius-lg);
+        background: var(--accent);
+        color: #fff;
+        font: 700 14px/1 var(--font-sans);
+      }
+      .rail span.item {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail span.item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .rail span.item.on::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        top: 10px;
+        bottom: 10px;
+        width: 3px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .main {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 56px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .topbar .crumb {
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+      }
+      .topbar h1 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .page {
+        display: grid;
+        grid-template-columns: 200px minmax(0, 1fr);
+        gap: var(--gap-panel);
+        align-items: start;
+        padding: var(--pad-page);
+      }
+      .section-nav {
+        position: sticky;
+        top: 64px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .section-nav span {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: var(--radius-md);
+        color: var(--fg-2);
+        font: var(--type-label);
+        white-space: nowrap;
+      }
+      .section-nav span.on {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+      }
+      .section-nav span.on .i {
+        color: var(--accent);
+      }
+      /* As today: SectionLayout's body, capped at 1100px. */
+      .section-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+        max-width: 1100px;
+      }
+      @container app (max-width: 924px) {
+        .page {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .section-nav {
+          position: static;
+          flex-direction: row;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+      }
+
+      /* ---------- packages/ui look-alikes ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        background: transparent;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn.secondary {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .btn.secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .btn.primary:hover {
+        background: var(--primary-hover);
+      }
+      .btn.ghost:hover {
+        background: var(--control-hover);
+      }
+      .btn.danger-ghost {
+        color: var(--danger-fg);
+      }
+      .btn.danger-ghost:hover {
+        background: var(--danger-subtle);
+      }
+      .btn[aria-disabled="true"] {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .icon-btn {
+        display: inline-grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .icon-btn:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .icon-btn[aria-pressed="true"] {
+        background: var(--control-press);
+        color: var(--fg-1);
+      }
+      .icon-btn[aria-disabled="true"] {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .icon-btn[aria-disabled="true"]:hover {
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.sm {
+        height: 18px;
+        padding: 0 6px;
+        font-size: var(--text-2xs);
+      }
+      .badge.accent {
+        border-color: color-mix(in oklab, var(--accent) 25%, transparent);
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 18px 0;
+      }
+      .card-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .card-actions {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+      }
+      .card-body {
+        padding: 10px 18px 16px;
+      }
+      .note {
+        margin: 0;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .note + .note {
+        margin-top: 4px;
+      }
+      .muted {
+        color: var(--fg-3);
+      }
+      .link {
+        color: var(--fg-1);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 3px;
+      }
+      .tabs {
+        display: flex;
+        gap: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 38px;
+        margin-bottom: -1px;
+        padding: 0;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--fg-3);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+      }
+      .tab:hover {
+        color: var(--fg-1);
+      }
+      .tab[aria-selected="true"] {
+        border-bottom-color: var(--accent);
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .tab .count {
+        padding: 2px 6px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-sunken);
+        color: var(--fg-2);
+        font: 500 var(--text-2xs) / 1.2 var(--font-mono);
+      }
+      .seg {
+        display: inline-flex;
+        padding: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .seg button {
+        height: 22px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--fg-2);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      .field > label,
+      .field > .label {
+        font: var(--type-label);
+      }
+      .field .hint {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .input,
+      .select,
+      .textarea {
+        width: 100%;
+        min-height: 32px;
+        padding: 6px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        font: var(--type-body-sm);
+      }
+      .select {
+        position: relative;
+        display: block;
+        line-height: 18px;
+        padding-right: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .select::after {
+        content: "";
+        position: absolute;
+        right: 11px;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        margin-top: -5px;
+        border-right: 1.5px solid var(--fg-3);
+        border-bottom: 1.5px solid var(--fg-3);
+        transform: rotate(45deg);
+      }
+      .select.sm {
+        min-height: 28px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+      }
+      .textarea {
+        min-height: 64px;
+        line-height: 1.45;
+      }
+      .input-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .input-row .input {
+        min-width: 0;
+      }
+      .alert {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-lg);
+        background: var(--info-subtle);
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .alert .i {
+        margin-top: 2px;
+        color: var(--info-fg);
+      }
+      .alert b {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .alert.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .alert.warning .i {
+        color: var(--warning-fg);
+      }
+      .alert.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+      }
+      .alert.danger .i {
+        color: var(--danger-fg);
+      }
+      .overline {
+        margin: 0;
+        color: var(--fg-3);
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+      }
+      .kbd {
+        display: inline-block;
+        min-width: 18px;
+        padding: 1px 5px;
+        border: 1px solid var(--border-strong);
+        border-bottom-width: 2px;
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 500 var(--text-2xs) / 1.4 var(--font-mono);
+        text-align: center;
+      }
+      .menu {
+        position: absolute;
+        z-index: 20;
+        width: 220px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .menu[hidden] {
+        display: none;
+      }
+      .menu button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        height: 32px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        font: var(--type-body-sm);
+        text-align: left;
+      }
+      .menu button:hover {
+        background: var(--control-hover);
+      }
+      .menu .kbd {
+        margin-left: auto;
+      }
+      .menu .menu-heading {
+        margin: 0;
+        padding: 8px 10px 4px;
+        color: var(--fg-3);
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+      }
+      .menu.wide {
+        width: 260px;
+      }
+      .menu hr {
+        height: 1px;
+        margin: 4px 0;
+        border: 0;
+        background: var(--border);
+      }
+      .tip {
+        position: fixed;
+        z-index: 400;
+        max-width: 280px;
+        padding: 5px 8px;
+        border-radius: var(--radius-sm);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        box-shadow: var(--shadow-2);
+        font: 500 var(--text-xs) / 1.35 var(--font-sans);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity var(--duration-fast) var(--ease-out);
+      }
+      .tip.on {
+        opacity: 1;
+      }
+
+      /* ---------- packages/ui's PickList, unchanged ---------- */
+      .pick-list {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .pick-list-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 6px 8px 6px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .pick-list-head .title {
+        overflow: hidden;
+        font: var(--type-card-title);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .pick-list-head .count {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .pick-list-head .actions {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+      }
+      .pick-rows {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .pick-row + .pick-row {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .pick-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        min-width: 0;
+        padding: 10px 14px;
+        border: 0;
+        background: transparent;
+        color: var(--fg-1);
+        text-align: left;
+      }
+      .pick-item:hover {
+        background: var(--surface-hover);
+      }
+      .pick-item[aria-current="page"] {
+        background: var(--surface-selected);
+        box-shadow: inset 2px 0 0 var(--accent);
+      }
+      .pick-icon {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+        color: var(--fg-2);
+      }
+      .pick-item[aria-current="page"] .pick-icon {
+        border-color: transparent;
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .pick-words {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .pick-name,
+      .pick-line {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .pick-name {
+        font: var(--type-label);
+      }
+      .pick-line {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .pick-line.danger {
+        color: var(--danger-fg);
+      }
+      .pick-aside {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+      }
+      .pick-aside .warn {
+        display: inline-grid;
+        color: var(--warning-fg);
+      }
+      .pick-foot {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px;
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      /* ---------- As today: the lists beside the open item, or one of them under 1224px of page ---------- */
+      .split {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .split.project {
+        grid-template-columns: 340px minmax(0, 1fr);
+      }
+      .split-lists,
+      .split-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+      .back-link {
+        display: none;
+        align-items: center;
+        align-self: flex-start;
+        gap: 4px;
+        color: var(--fg-2);
+        font: var(--type-label);
+        text-decoration: none;
+      }
+      .back-link:hover {
+        color: var(--fg-1);
+      }
+      /* The app frame holds the 56px rail: 1224px of page is 1280px of frame. */
+      @container app (max-width: 1280px) {
+        .split,
+        .split.project {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .split > .split-lists {
+          display: none;
+        }
+        .back-link {
+          display: inline-flex;
+        }
+      }
+
+      /* ---------- The open item, as today ---------- */
+      .card-title .i {
+        color: var(--fg-2);
+      }
+      .card-body .note + .built-on-rows {
+        margin-top: 10px;
+      }
+      .built-on-rows {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+      }
+      .built-on-rows li + li {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .built-on-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 14px;
+        align-items: center;
+        gap: 2px 10px;
+        padding: 8px 12px;
+        border-radius: inherit;
+        color: var(--fg-1);
+        text-decoration: none;
+      }
+      .built-on-row:hover {
+        background: var(--surface-hover);
+      }
+      .built-on-row .name {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        font: var(--type-label);
+      }
+      .built-on-row .mark {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-sm);
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+      }
+      .built-on-row .line {
+        grid-column: 1;
+        padding-left: 32px;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .built-on-row .aside {
+        display: inline-flex;
+        grid-row: 1 / span 2;
+        grid-column: 2;
+      }
+      .built-on-row > .arrow {
+        display: inline-grid;
+        grid-row: 1 / span 2;
+        grid-column: 3;
+        color: var(--fg-3);
+      }
+      /* The form card: its fields, then the flow editor inside it, as today. */
+      .item-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px 18px 18px;
+      }
+      .item-form .fields-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 12px 16px;
+      }
+      .item-form .fields-grid .wide {
+        grid-column: 1 / -1;
+      }
+      @container app (max-width: 656px) {
+        .item-form .fields-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .item-form .editor-slot > .flow-editor {
+        margin-top: 4px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+      }
+      /* A Stage template's form: the panel's own columns, padded as in the editor. */
+      .item-form.template-form {
+        padding: 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .actions-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .actions-row .state {
+        flex: 1;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      /* In full screen alone: the editor's own Save row. */
+      .save-bar {
+        position: sticky;
+        bottom: 12px;
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px 10px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: color-mix(in oklab, var(--surface) 94%, transparent);
+        box-shadow: var(--shadow-2);
+        backdrop-filter: blur(6px);
+      }
+      .save-state {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-right: auto;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .save-state .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--warning);
+      }
+
+      /* ---------- The flow editor ---------- */
+      .flow-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px 16px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        container: flow-editor / inline-size;
+      }
+      .flow-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+      }
+      .flow-head .titles {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+        margin-right: auto;
+      }
+      .flow-head .flow-title {
+        margin: 0;
+        font: var(--type-card-title);
+        white-space: nowrap;
+      }
+      .flow-head .fs-name {
+        display: none;
+        color: var(--fg-3);
+        font: var(--type-card-title);
+        font-weight: 500;
+      }
+      .flow-summary {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .flow-head .add-wrap {
+        position: relative;
+      }
+      .flow-head .add-wrap .menu {
+        top: 34px;
+        right: 0;
+      }
+      .flow-head .exit-fs {
+        display: none;
+      }
+      .flow-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        color: var(--fg-2);
+        font: var(--type-caption);
+      }
+      .flow-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .flow-legend svg {
+        flex: none;
+      }
+      .legend-swatch {
+        width: 10px;
+        height: 14px;
+        border: 1px solid var(--border-strong);
+        border-left-width: 3px;
+        border-radius: 3px;
+        background: var(--surface);
+      }
+      .flow-hint {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        margin: 0;
+        color: var(--fg-2);
+        font: var(--type-caption);
+      }
+      .flow-hint .i {
+        margin-top: 1px;
+        color: var(--fg-3);
+      }
+
+      .flow-viewport {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        min-height: 300px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background-color: var(--surface-sunken);
+        background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1.3px);
+        background-size: 16px 16px;
+        touch-action: none;
+        user-select: none;
+        outline: none;
+      }
+      .flow-viewport:focus-visible {
+        border-color: var(--border-focus);
+        box-shadow: var(--focus-ring);
+      }
+      .flow-viewport.space-held {
+        cursor: grab;
+      }
+      .flow-viewport.panning,
+      .flow-viewport.panning * {
+        cursor: grabbing !important;
+      }
+      .flow-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
+        will-change: transform;
+        --ew: 1.5;
+        --name-size: 13px;
+      }
+      .flow-content.animating {
+        transition: transform var(--duration-base) var(--ease-out);
+      }
+      .flow-lines {
+        position: absolute;
+        left: 0;
+        top: 0;
+        overflow: visible;
+      }
+      .edge {
+        fill: none;
+        stroke: var(--fg-3);
+        stroke-width: calc(var(--ew) * 1px);
+        stroke-linejoin: round;
+      }
+      .edge.picked {
+        stroke: var(--accent);
+        stroke-width: calc(var(--ew) * 1.5px);
+      }
+      .edge.inserted {
+        stroke: var(--success);
+      }
+      .edge.changed {
+        stroke: var(--warning);
+      }
+      .edge.ghost {
+        stroke-dasharray: 2 3;
+        opacity: 0.6;
+      }
+      .edge.loop {
+        stroke: var(--danger);
+        stroke-dasharray: 4 3;
+      }
+      .edge.start {
+        stroke: var(--fg-2);
+      }
+      .edge-hit {
+        fill: none;
+        stroke: transparent;
+        stroke-width: 12;
+        pointer-events: stroke;
+        cursor: pointer;
+      }
+      .m-default {
+        fill: var(--fg-3);
+      }
+      .m-picked {
+        fill: var(--accent);
+      }
+      .m-inserted {
+        fill: var(--success);
+      }
+      .m-changed {
+        fill: var(--warning);
+      }
+      .m-loop {
+        fill: var(--danger);
+      }
+      .start-dot {
+        fill: var(--fg-2);
+      }
+
+      .stage-card {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        width: 232px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        font: var(--type-body-sm);
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out);
+      }
+      .stage-card:hover {
+        border-color: var(--fg-3);
+      }
+      .stage-card.picked {
+        border-color: var(--accent);
+        box-shadow:
+          0 0 0 3px var(--accent-subtle),
+          var(--shadow-1);
+      }
+      .stage-card.dragging {
+        z-index: 5;
+        opacity: 0.95;
+        box-shadow: var(--shadow-3);
+        transition: none;
+      }
+      .stage-card[data-mark]::before {
+        content: "";
+        position: absolute;
+        left: -1px;
+        top: -1px;
+        bottom: -1px;
+        width: 3px;
+        border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+        background: var(--mark);
+      }
+      .stage-card[data-mark="inserted"] {
+        --mark: var(--success);
+      }
+      .stage-card[data-mark="replaced"] {
+        --mark: var(--info);
+      }
+      .stage-card[data-mark="changed"] {
+        --mark: var(--warning);
+      }
+      .stage-card[data-mark="locked"] {
+        --mark: var(--fg-3);
+      }
+      .stage-card.removed {
+        border-style: dashed;
+        background: transparent;
+        box-shadow: none;
+      }
+      .stage-card.removed .stage-name {
+        color: var(--fg-3);
+        text-decoration: line-through;
+      }
+      .stage-head {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        height: 54px;
+        padding: 0 10px 0 11px;
+        border: 0;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        background: transparent;
+        text-align: left;
+      }
+      .stage-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .stage-name {
+        overflow: hidden;
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .stage-who {
+        overflow: hidden;
+        color: var(--fg-3);
+        font: var(--type-caption);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .stage-who.mono {
+        font: 400 var(--text-2xs) / 1.4 var(--font-mono);
+      }
+      .stage-aside {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--fg-3);
+      }
+      .kind-mark {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--fg-2);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--fg-2);
+      }
+      .kind-mark.gate {
+        width: 17px;
+        height: 17px;
+        margin: 2.5px;
+        border-radius: 3px;
+        transform: rotate(45deg);
+      }
+      .kind-mark.gate .i {
+        transform: rotate(-45deg);
+      }
+      .picked .kind-mark {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .stage-routes {
+        display: flex;
+        flex-direction: column;
+        padding: 4px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .route-row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        height: 24px;
+        padding: 0 14px 0 11px;
+        border: 0;
+        background: transparent;
+        color: var(--fg-2);
+        font: 400 var(--text-xs) / 1 var(--font-sans);
+        text-align: left;
+        white-space: nowrap;
+      }
+      .route-row:hover {
+        background: var(--surface-hover);
+      }
+      .route-row.picked {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .route-row .cond {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .route-row.otherwise .cond {
+        color: var(--fg-3);
+      }
+      .route-row .arrow {
+        flex: none;
+        color: var(--fg-3);
+      }
+      .route-row .to {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-1);
+        font-weight: 500;
+        text-overflow: ellipsis;
+      }
+      .route-row.picked .to,
+      .route-row.picked .cond {
+        color: var(--accent-subtle-fg);
+      }
+      .route-row .port {
+        position: absolute;
+        right: -5px;
+        top: 7.5px;
+        width: 9px;
+        height: 9px;
+        border: 1.5px solid var(--fg-3);
+        border-radius: 50%;
+        background: var(--surface);
+      }
+      .route-row.picked .port {
+        border-color: var(--accent);
+        background: var(--accent);
+      }
+      .plus-handle {
+        position: absolute;
+        right: -9px;
+        bottom: -9px;
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid var(--accent);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--accent);
+        opacity: 0;
+        transition: opacity var(--duration-fast) var(--ease-out);
+      }
+      .stage-card:hover .plus-handle,
+      .stage-card.picked .plus-handle {
+        opacity: 1;
+      }
+      .stage-card.removed .plus-handle,
+      .stage-card.locked .plus-handle {
+        display: none;
+      }
+      /* Under 60%, a card keeps its kind mark and its name, its name drawn at a size the eye can read. */
+      .flow-content.overview-cards .stage-routes,
+      .flow-content.overview-cards .stage-who,
+      .flow-content.overview-cards .stage-aside .badge,
+      .flow-content.overview-cards .plus-handle,
+      .flow-content.overview-cards .loop-mark {
+        display: none;
+      }
+      .flow-content.overview-cards .stage-head {
+        height: 58px;
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+      }
+      .flow-content.overview-cards .stage-name {
+        font-size: var(--name-size);
+        line-height: 1.15;
+      }
+      .flow-end {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border: 2px solid var(--fg-2);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+      }
+      .loop-mark {
+        position: absolute;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        border: 1px solid var(--danger-border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--danger-fg);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        transform: translate(-50%, -50%);
+        white-space: nowrap;
+      }
+      .drop-ghost {
+        position: absolute;
+        border: 1.5px dashed var(--accent);
+        border-radius: var(--radius-lg);
+        background: color-mix(in oklab, var(--accent-subtle) 70%, transparent);
+        pointer-events: none;
+      }
+      .drop-ghost[hidden] {
+        display: none;
+      }
+
+      /* The canvas's own controls, laid over its corners. */
+      .flow-tools {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        z-index: 8;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-2);
+      }
+      .flow-tools .sep {
+        width: 1px;
+        height: 18px;
+        margin: 0 3px;
+        background: var(--border);
+      }
+      .zoom-readout {
+        min-width: 54px;
+        height: 28px;
+        padding: 0 6px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--fg-1);
+        font: 500 var(--text-xs) / 1 var(--font-mono);
+        font-variant-numeric: tabular-nums;
+      }
+      .zoom-readout:hover {
+        background: var(--control-hover);
+      }
+      .flow-tools .menu {
+        left: 0;
+        bottom: 40px;
+      }
+      .flow-overview {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        z-index: 8;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-2);
+        cursor: pointer;
+      }
+      .flow-overview[hidden] {
+        display: none;
+      }
+      .flow-overview svg {
+        display: block;
+      }
+      .ov-stage {
+        fill: var(--fg-3);
+      }
+      .ov-stage.picked {
+        fill: var(--accent);
+      }
+      .ov-stage.inserted {
+        fill: var(--success);
+      }
+      .ov-stage.changed {
+        fill: var(--warning);
+      }
+      .ov-stage.removed {
+        fill: none;
+        stroke: var(--border-strong);
+        stroke-dasharray: 6 4;
+        stroke-width: 4;
+      }
+      .ov-end {
+        fill: none;
+        stroke: var(--fg-3);
+        stroke-width: 6;
+      }
+      .ov-view {
+        fill: color-mix(in oklab, var(--accent) 8%, transparent);
+        stroke: var(--accent);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+      .flow-toast {
+        position: fixed;
+        z-index: 400;
+        max-width: 300px;
+        padding: 8px 10px;
+        border-radius: var(--radius-md);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        box-shadow: var(--shadow-3);
+        font: 500 var(--text-xs) / 1.4 var(--font-sans);
+        pointer-events: none;
+      }
+      .flow-toast[hidden] {
+        display: none;
+      }
+
+      /* The List, the same flow a Stage a row. */
+      .flow-list {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        list-style: none;
+      }
+      .flow-list li {
+        display: grid;
+        grid-template-columns: 24px 22px minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border-subtle);
+        cursor: pointer;
+      }
+      .flow-list li:first-child {
+        border-top: 0;
+      }
+      .flow-list li:hover {
+        background: var(--surface-hover);
+      }
+      .flow-list li.picked {
+        background: var(--surface-selected);
+        box-shadow: inset 2px 0 0 var(--accent);
+      }
+      .flow-list .n {
+        color: var(--fg-3);
+        font: 500 var(--text-xs) / 1 var(--font-mono);
+      }
+      .flow-list .routes {
+        margin-top: 3px;
+        color: var(--fg-2);
+        font: var(--type-caption);
+      }
+
+      /* The panel under the canvas, using the editor's full width for two columns. */
+      .flow-panel {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .flow-panel.empty {
+        padding: 18px;
+        border-style: dashed;
+        background: var(--surface-sunken);
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+        text-align: center;
+      }
+      .panel-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px 10px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .panel-head .name {
+        font: var(--type-card-title);
+      }
+      .panel-head .who {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .panel-head .tools {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: auto;
+      }
+      .panel-head .tools .sep {
+        width: 1px;
+        height: 18px;
+        margin: 0 6px;
+        background: var(--border);
+      }
+      .panel-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+      }
+      .panel-col {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+        padding: 14px 16px 16px;
+      }
+      .panel-col + .panel-col {
+        border-left: 1px solid var(--border-subtle);
+      }
+      .panel-note {
+        display: flex;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+        color: var(--fg-2);
+        font: var(--type-caption);
+      }
+      .fields-2 {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 12px;
+      }
+      .route-item {
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        font: var(--type-body-sm);
+      }
+      .route-item .n {
+        color: var(--fg-3);
+        font: 500 var(--text-xs) / 1 var(--font-mono);
+      }
+      .route-item .cond {
+        color: var(--fg-2);
+      }
+      .route-item b {
+        font-weight: 600;
+      }
+      .compare {
+        width: 100%;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      .compare th {
+        padding: 0 10px 6px 0;
+        color: var(--fg-3);
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-align: left;
+        text-transform: uppercase;
+      }
+      .compare td {
+        padding: 8px 10px 8px 0;
+        border-top: 1px solid var(--border-subtle);
+        vertical-align: top;
+      }
+      .compare td.was {
+        color: var(--fg-3);
+        text-decoration: line-through;
+      }
+      .compare td.now {
+        color: var(--warning-fg);
+        font-weight: 500;
+      }
+      @container flow-editor (max-width: 880px) {
+        .panel-body {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .panel-col + .panel-col {
+          border-top: 1px solid var(--border-subtle);
+          border-left: 0;
+        }
+      }
+      .flow-problems {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .fs-bar {
+        display: none;
+      }
+
+      /* Full screen: the editor takes the whole window, the canvas over the panel, Save at hand. */
+      .flow-editor.fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        padding: 14px 20px 14px;
+        border: 0;
+        border-radius: 0;
+        background: var(--bg);
+      }
+      .flow-editor.fullscreen .flow-viewport {
+        flex: 1 1 58%;
+        min-height: 240px;
+        height: auto !important;
+      }
+      .flow-editor.fullscreen .flow-list {
+        flex: 1 1 58%;
+        min-height: 0;
+        overflow: auto;
+      }
+      .flow-editor.fullscreen .panel-slot {
+        flex: 0 1 auto;
+        max-height: 36vh;
+        overflow: auto;
+      }
+      .flow-editor.fullscreen .fs-name,
+      .flow-editor.fullscreen .exit-fs {
+        display: inline-flex;
+      }
+      .flow-editor.fullscreen .fs-bar {
+        display: flex;
+        position: static;
+        box-shadow: none;
+      }
+      .flow-editor.fullscreen .flow-hint {
+        display: none;
+      }
+
+      /* ---------- The Task's Stages window ---------- */
+      .task-backdrop {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: var(--pad-page);
+      }
+      .task-backdrop .card {
+        padding: 16px 18px;
+      }
+      .skeleton {
+        height: 10px;
+        margin: 8px 0;
+        border-radius: var(--radius-full);
+        background: var(--border);
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        background: var(--overlay);
+      }
+      .dialog {
+        position: absolute;
+        z-index: 11;
+        top: 24px;
+        bottom: 24px;
+        left: 50%;
+        display: flex;
+        flex-direction: column;
+        width: min(1180px, calc(100% - 48px));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+        transform: translateX(-50%);
+      }
+      .dialog-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .dialog-head h2 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .dialog-head .icon-btn {
+        margin-left: auto;
+      }
+      .dialog-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 0;
+        padding: 16px 20px;
+        overflow: auto;
+      }
+      .dialog-body .flow-editor {
+        padding: 0;
+        border: 0;
+      }
+      .dialog-foot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+      }
+      .dialog-foot .hint {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .dialog-foot .btn:last-child {
+        margin-left: auto;
+      }
+
+      .screen[hidden] {
+        display: none !important;
+      }
+
+      /* ---------- Notes (the spec this design proposes) ---------- */
+      .notes {
+        max-width: 1040px;
+        margin: 28px auto 80px;
+        padding: 0 24px;
+        color: var(--fg-1);
+      }
+      .notes h2 {
+        margin: 40px 0 10px;
+        font: 600 20px/1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .notes h3 {
+        margin: 24px 0 8px;
+        font: var(--type-section-title);
+      }
+      .notes p,
+      .notes li {
+        color: var(--fg-2);
+        font: var(--type-body);
+      }
+      .notes li {
+        margin: 4px 0;
+      }
+      .notes strong {
+        color: var(--fg-1);
+      }
+      .notes code {
+        padding: 1px 5px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        font: 400 12.5px/1.5 var(--font-mono);
+      }
+      .notes table {
+        width: 100%;
+        margin: 10px 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--surface);
+        font: var(--type-body-sm);
+      }
+      .notes th,
+      .notes td {
+        padding: 9px 12px;
+        border-top: 1px solid var(--border-subtle);
+        text-align: left;
+        vertical-align: top;
+      }
+      .notes th {
+        border-top: 0;
+        background: var(--surface-sunken);
+        color: var(--fg-2);
+        font: var(--type-label);
+      }
+      .notes td {
+        color: var(--fg-2);
+      }
+      .notes td:first-child {
+        color: var(--fg-1);
+        white-space: nowrap;
+      }
+      .notes pre {
+        margin: 10px 0;
+        padding: 14px 16px;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: 400 12.5px/1.6 var(--font-mono);
+      }
+      .notes .callout {
+        margin: 14px 0;
+        padding: 12px 14px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-lg);
+        background: var(--warning-subtle);
+      }
+      .notes .callout p {
+        margin: 4px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-bar" role="toolbar" aria-label="Preview">
+      <span class="tag">PROPOSAL</span>
+      <span class="pv-title">Pipeline editor</span>
+      <div class="pv-group">
+        <span>Screen</span>
+        <div class="pv-seg" data-pv="screen">
+          <button type="button" data-value="settings" aria-pressed="true">Settings › Pipelines</button>
+          <button type="button" data-value="templates" aria-pressed="false">Settings › Stage templates</button>
+          <button type="button" data-value="project" aria-pressed="false">Project › Pipelines</button>
+          <button type="button" data-value="task" aria-pressed="false">Task › Stages</button>
+        </div>
+      </div>
+      <div class="pv-group">
+        <span>Palette</span>
+        <div class="pv-seg" data-pv="palette">
+          <button type="button" data-value="light" aria-pressed="true">Light</button>
+          <button type="button" data-value="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+      <div class="pv-group">
+        <span>Width</span>
+        <div class="pv-seg" data-pv="width">
+          <button type="button" data-value="wide" aria-pressed="true">Wide</button>
+          <button type="button" data-value="narrow" aria-pressed="false">820px</button>
+        </div>
+      </div>
+      <a class="pv-link" href="#notes">What changes and why ↓</a>
+    </div>
+
+    <div class="frame-wrap">
+      <div class="app-frame" id="frame">
+        <nav class="rail" aria-label="The Office">
+          <span class="logo">O</span>
+          <span class="item" data-rail="now" data-icon="home" data-tip="Now"></span>
+          <span class="item" data-rail="work" data-icon="layout-grid" data-tip="Work"></span>
+          <span class="item" data-rail="people" data-icon="users" data-tip="People"></span>
+          <span class="item" data-rail="projects" data-icon="folder" data-tip="Projects"></span>
+          <span class="item" data-rail="stats" data-icon="bar-chart" data-tip="Stats"></span>
+          <span class="item" data-rail="live-view" data-icon="eye" data-tip="Live view"></span>
+          <span class="item" data-rail="settings" data-icon="sliders" data-tip="Settings"></span>
+        </nav>
+        <div class="main">
+          <header class="topbar">
+            <span class="crumb" id="crumb"></span>
+            <h1 id="page-title">Settings</h1>
+          </header>
+
+          <!-- ============ Settings › Pipelines and Settings › Stage templates ============ -->
+          <div class="page screen" data-screen="settings templates">
+            <nav class="section-nav" aria-label="Settings" id="settings-nav"></nav>
+            <div class="section-body">
+              <div class="tabs" role="tablist" aria-label="Pipelines">
+                <button class="tab" role="tab" type="button" data-tab="settings">Pipelines <span class="count">6</span></button>
+                <button class="tab" role="tab" type="button" data-tab="templates">Stage templates <span class="count">5</span></button>
+              </div>
+
+              <!-- Pipelines tab: the list beside the open Pipeline, as today -->
+              <div class="screen split" data-screen="settings">
+                <div class="split-lists">
+                  <section class="pick-list" aria-label="Office-wide Pipelines">
+                    <div class="pick-list-head">
+                      <span class="title">Office-wide Pipelines</span>
+                      <span class="count">6</span>
+                      <div class="actions">
+                        <button class="btn secondary" type="button" data-icon="plus" data-size="14">New Pipeline</button>
+                      </div>
+                    </div>
+                    <ul class="pick-rows" id="pipeline-list"></ul>
+                    <div class="pick-foot">
+                      <button class="btn secondary" type="button" data-icon="copy" data-size="14">Duplicate Full</button>
+                    </div>
+                  </section>
+                </div>
+
+                <div class="split-detail">
+                  <a class="back-link" href="#" data-icon="chevron-left" data-size="14">All Pipelines</a>
+
+                  <section class="card">
+                    <div class="card-head">
+                      <h2 class="card-title"><span data-icon="route" data-size="15"></span>Full <span class="badge sm">Office-wide</span></h2>
+                      <div class="card-actions">
+                        <button class="btn secondary" type="button">Ask Rosa</button>
+                      </div>
+                    </div>
+                    <div class="card-body">
+                      <p class="note">The whole way from a plan to a published commit: a design when the Task changes the UI, two reviews and the tests.</p>
+                      <p class="note muted">Default for the-office, not-astray · 2 not started Tasks use it · 2 running Tasks keep the copy they started with · 0 Initiatives name it</p>
+                    </div>
+                  </section>
+
+                  <section class="card">
+                    <div class="card-head">
+                      <h2 class="card-title"><span data-icon="route" data-size="15"></span>Built on by 2 Project Pipelines</h2>
+                    </div>
+                    <div class="card-body">
+                      <p class="note muted">Each Project edits its own on its page, with its Stage changes on top of Full&#39;s Stages and routes.</p>
+                      <ul class="built-on-rows" aria-label="Built on by 2 Project Pipelines">
+                        <li>
+                          <a class="built-on-row" href="#" data-tip="Open the-office&#39;s Pipelines">
+                            <span class="name"><span class="mark">TO</span>the-office</span>
+                            <span class="aside"></span>
+                            <span class="arrow" data-icon="arrow-right" data-size="14"></span>
+                            <span class="line">1 Project Pipeline</span>
+                          </a>
+                        </li>
+                        <li>
+                          <a class="built-on-row" href="#" data-tip="Open not-astray&#39;s Pipelines">
+                            <span class="name"><span class="mark">NA</span>not-astray</span>
+                            <span class="aside"><span class="badge sm danger">1 Broken</span></span>
+                            <span class="arrow" data-icon="arrow-right" data-size="14"></span>
+                            <span class="line">1 Project Pipeline</span>
+                          </a>
+                        </li>
+                      </ul>
+                    </div>
+                  </section>
+
+                  <section class="card" aria-label="Full">
+                    <div class="item-form">
+                      <div class="field">
+                        <label for="pl-name">Name</label>
+                        <input class="input" id="pl-name" value="Full" />
+                      </div>
+                      <div class="field">
+                        <label for="pl-desc">Description</label>
+                        <textarea class="textarea" id="pl-desc" rows="2">The whole way from a plan to a published commit: a design when the Task changes the UI, two reviews and the tests.</textarea>
+                      </div>
+                      <div class="editor-slot" data-slot="settings"></div>
+                    </div>
+                  </section>
+
+                  <div class="actions-row">
+                    <span class="state">Unsaved changes</span>
+                    <button class="btn danger-ghost" type="button">Remove</button>
+                    <button class="btn secondary" type="button">Discard</button>
+                    <button class="btn primary" type="button">Save the Pipeline</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stage templates tab -->
+              <div class="screen split" data-screen="templates">
+                <div class="split-lists">
+                  <section class="pick-list" aria-label="Stage templates">
+                    <div class="pick-list-head">
+                      <span class="title">Stage templates</span>
+                      <span class="count">5</span>
+                      <div class="actions">
+                        <button class="btn secondary" type="button" data-icon="plus" data-size="14" aria-haspopup="menu">New template</button>
+                      </div>
+                    </div>
+                    <ul class="pick-rows" id="template-list"></ul>
+                  </section>
+                </div>
+
+                <div class="split-detail">
+                  <a class="back-link" href="#" data-icon="chevron-left" data-size="14">All Stage templates</a>
+
+                  <section class="card" style="container: flow-editor / inline-size">
+                    <div class="card-head">
+                      <h2 class="card-title"><span data-icon="user" data-size="15"></span>Security review</h2>
+                      <div class="card-actions"><button class="btn secondary" type="button">Ask Rosa</button></div>
+                    </div>
+                    <div class="card-body">
+                      <p class="note muted">Agent template. Adding it to a Pipeline or a Task copies it in: editing or removing it later changes no Stage made from it.</p>
+                    </div>
+                    <div class="item-form template-form">
+                      <div class="panel-body">
+                        <div class="panel-col">
+                          <p class="overline">Stage</p>
+                          <div class="fields-2">
+                            <div class="field"><label>Name</label><input class="input" value="Security review" /></div>
+                            <div class="field"><span class="label">Who works it</span><span class="select">Oscar · CTO</span></div>
+                          </div>
+                          <div class="field">
+                            <label>Brief</label>
+                            <textarea class="textarea" rows="4">Review the change for security: signing in, secrets, what leaves the machine. Fix what you find, and say what you checked in your Handover note.</textarea>
+                          </div>
+                        </div>
+                        <div class="panel-col">
+                          <p class="overline">How it runs</p>
+                          <div class="field">
+                            <span class="label">Session</span>
+                            <span class="select">Fresh, with a brief</span>
+                          </div>
+                          <div class="fields-2">
+                            <div class="field"><label>Budget</label><div class="input-row"><input class="input" value="400" /><span class="muted">k tokens</span></div><span class="hint">Reaching it asks you</span></div>
+                            <div class="field"><span class="label">Effort</span><span class="select">Role default</span></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <div class="actions-row">
+                    <span class="state">Saved</span>
+                    <button class="btn danger-ghost" type="button">Remove</button>
+                    <button class="btn secondary" type="button" aria-disabled="true" data-tip="Nothing to discard">Discard</button>
+                    <button class="btn primary" type="button" aria-disabled="true" data-tip="Nothing to save">Save the template</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ A Project page's Pipelines section ============ -->
+          <div class="page screen" data-screen="project" hidden>
+            <nav class="section-nav" aria-label="the-office" id="project-nav"></nav>
+            <div class="section-body">
+              <!-- As today: the default and the-office's own Pipelines beside the open one -->
+              <div class="split project">
+                <div class="split-lists">
+                  <section class="card">
+                    <div class="card-head">
+                      <h2 class="card-title"><span data-icon="route" data-size="15"></span>Default Pipeline</h2>
+                    </div>
+                    <div class="card-body" style="display: flex; flex-direction: column; gap: 8px">
+                      <span class="select">Full for the-office</span>
+                      <p class="note">Plan → Create a design → Review the design → … · built from Full. A new Task has no Pipeline until Ada proposes one at planning, starting from this one, or you choose one.</p>
+                    </div>
+                  </section>
+
+                  <section class="pick-list" aria-label="the-office&#39;s Pipelines">
+                    <div class="pick-list-head">
+                      <span class="title">the-office&#39;s Pipelines</span>
+                      <span class="count">2</span>
+                    </div>
+                    <ul class="pick-rows" id="project-list"></ul>
+                    <div class="pick-foot">
+                      <button class="btn secondary" type="button" data-icon="plus" data-size="14" data-tip="A Pipeline of the-office&#39;s own, built from an office-wide one">Add a Pipeline built from…</button>
+                      <button class="btn secondary" type="button">Ask Rosa</button>
+                    </div>
+                  </section>
+                </div>
+
+                <div class="split-detail">
+                  <a class="back-link" href="#" data-icon="chevron-left" data-size="14">the-office&#39;s Pipelines</a>
+
+                  <section class="card">
+                    <div class="card-head">
+                      <h2 class="card-title"><span data-icon="route" data-size="15"></span>Full for the-office <span class="badge sm">Default</span></h2>
+                      <div class="card-actions">
+                        <button class="btn secondary" type="button">Ask Rosa</button>
+                      </div>
+                    </div>
+                    <div class="card-body">
+                      <p class="note">Full, with a live check before Publish and no security review.</p>
+                      <p class="note muted">Project Pipeline of the-office · Built from <a class="link" href="#" data-tip="Open Full in Settings › Pipelines">Full</a> · Default for the-office · 2 not started Tasks use it</p>
+                    </div>
+                  </section>
+
+                  <section class="card" aria-label="Full for the-office">
+                    <div class="item-form">
+                      <div class="fields-grid">
+                        <div class="field"><label for="pp-name">Name</label><input class="input" id="pp-name" value="Full for the-office" /></div>
+                        <div class="field">
+                          <span class="label">Base Pipeline</span><span class="select">Full</span>
+                          <span class="hint">An office-wide Pipeline: its edits reach this one, and the Stage changes apply on top.</span>
+                        </div>
+                        <div class="field wide">
+                          <label for="pp-desc">Description</label>
+                          <textarea class="textarea" id="pp-desc" rows="2">Full, with a live check before Publish and no security review.</textarea>
+                        </div>
+                      </div>
+                      <div class="editor-slot" data-slot="project"></div>
+                    </div>
+                  </section>
+
+                  <div class="actions-row">
+                    <span class="state">Unsaved changes</span>
+                    <button class="btn danger-ghost" type="button">Remove</button>
+                    <button class="btn secondary" type="button">Discard</button>
+                    <button class="btn primary" type="button">Save the Pipeline</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ The Task's Stages window ============ -->
+          <div class="screen" data-screen="task" hidden>
+            <div class="task-backdrop" aria-hidden="true">
+              <div class="card">
+                <div class="skeleton" style="width: 30%"></div>
+                <div class="skeleton" style="width: 70%"></div>
+                <div class="skeleton" style="width: 55%"></div>
+              </div>
+              <div class="card">
+                <div class="skeleton" style="width: 22%"></div>
+                <div class="skeleton" style="width: 90%"></div>
+                <div class="skeleton" style="width: 80%"></div>
+                <div class="skeleton" style="width: 60%"></div>
+              </div>
+            </div>
+            <div class="scrim"></div>
+            <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="task-dialog-title">
+              <div class="dialog-head">
+                <h2 id="task-dialog-title">Stages of Pipelines redesign</h2>
+                <button class="icon-btn" type="button" data-icon="x" data-tip="Close" aria-label="Close"></button>
+              </div>
+              <div class="dialog-body">
+                <div class="alert" role="note">
+                  <span data-icon="info"></span>
+                  <span>Changes apply to <b>Pipelines redesign</b> only. The Full Pipeline itself stays as it is. Started Stages, and the routes out of them, are locked.</span>
+                </div>
+                <div class="editor-slot" data-slot="task"></div>
+              </div>
+              <div class="dialog-foot">
+                <button class="btn primary" type="button">Save for this Task</button>
+                <span class="hint">Nothing changes on the Task until you save.</span>
+                <button class="btn secondary" type="button">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ The one flow editor, moved into the screen shown ============ -->
+    <template id="editor-template">
+      <section class="flow-editor" aria-label="Stages and routes">
+        <div class="flow-head">
+          <div class="titles">
+            <span class="fs-name" data-ref="fsName"></span>
+            <h3 class="flow-title" data-ref="title">Stages and routes</h3>
+            <span class="flow-summary" data-ref="summary"></span>
+          </div>
+          <div class="add-wrap">
+            <button class="btn secondary" type="button" data-ref="addButton" aria-haspopup="menu" aria-expanded="false"></button>
+            <div class="menu" role="menu" data-ref="addMenu" hidden></div>
+          </div>
+          <div class="seg" role="group" aria-label="View" data-ref="viewToggle">
+            <button type="button" data-view="flow" aria-pressed="true">Flow</button>
+            <button type="button" data-view="list" aria-pressed="false">List</button>
+          </div>
+          <button class="btn secondary exit-fs" type="button" data-ref="exitFs" data-icon="minimize">Exit full screen <span class="kbd">Esc</span></button>
+        </div>
+        <div class="flow-legend" data-ref="legend" role="group" aria-label="Legend"></div>
+        <p class="flow-hint" role="status"><span data-icon="info" data-size="14"></span><span data-ref="hint"></span></p>
+
+        <div class="flow-viewport" data-ref="viewport" role="region" aria-label="Flow" tabindex="0">
+          <div class="flow-content" data-ref="content"></div>
+          <div class="flow-tools" role="toolbar" aria-label="Canvas" data-ref="tools">
+            <button class="icon-btn" type="button" data-act="zoom-out" data-icon="minus" aria-label="Zoom out"></button>
+            <button class="zoom-readout" type="button" data-act="zoom-menu" data-ref="readout" aria-haspopup="menu" aria-expanded="false" data-tip="Zoom">100%</button>
+            <button class="icon-btn" type="button" data-act="zoom-in" data-icon="plus" aria-label="Zoom in"></button>
+            <span class="sep"></span>
+            <button class="icon-btn" type="button" data-act="fit" data-icon="fit" aria-label="Fit the Pipeline" data-tip="Fit the Pipeline  (F)"></button>
+            <button class="icon-btn" type="button" data-act="overview" data-icon="map" aria-label="Overview" aria-pressed="true"></button>
+            <span class="sep"></span>
+            <button class="icon-btn" type="button" data-act="fullscreen" data-icon="maximize" aria-label="Full screen" data-tip="Full screen"></button>
+            <div class="menu" role="menu" data-ref="zoomMenu" hidden>
+              <button type="button" role="menuitem" data-zoom="fit">Fit the Pipeline <span class="kbd">F</span></button>
+              <hr />
+              <button type="button" role="menuitem" data-zoom="1">100% <span class="kbd">0</span></button>
+              <button type="button" role="menuitem" data-zoom="0.75">75%</button>
+              <button type="button" role="menuitem" data-zoom="0.5">50%</button>
+              <button type="button" role="menuitem" data-zoom="0.25">25%</button>
+            </div>
+          </div>
+          <div class="flow-overview" data-ref="overview" role="group" aria-label="Overview: press or drag to move the view" data-tip="Overview: press or drag to move the view"></div>
+        </div>
+        <ol class="flow-list" data-ref="list" aria-label="Stages in the Pipeline's order" hidden></ol>
+
+        <div class="panel-slot" data-ref="panel"></div>
+        <div class="flow-problems" data-ref="problems"></div>
+        <div class="save-bar fs-bar" data-ref="fsBar"></div>
+      </section>
+    </template>
+
+    <div class="tip" id="tip" role="tooltip"></div>
+    <div class="flow-toast" id="toast" role="status" hidden></div>
+
+    <section class="notes" id="notes">
+      <h2>What changes</h2>
+      <ul>
+        <li><strong>Settings › Pipelines has two tabs</strong>, Pipelines and Stage templates, each with its count, kept in the address as today (<code>/settings/pipelines/…</code> and <code>/settings/pipelines/stage-templates/…</code>). Each tab holds one list beside its open item.</li>
+        <li><strong>Everything else around the editor stays as today</strong>: the list beside the open item (300px in Settings, 340px on a Project page), its head and foot (Duplicate, Add a Pipeline built from…, Ask Rosa), the head card, the Built on by card, the form card with the editor inside it, the Save row under it, the 1100px cap and the lists-or-the-open-item rule under 1224px.</li>
+        <li><strong>The canvas pans and zooms.</strong> A Stage card keeps its size at 100%, so a large Pipeline grows past the canvas instead of squeezing its cards. Drag with the right mouse button (or the middle one, Space + drag, or on the empty canvas) to move around. Zoom goes from 25% to 100%, and Fit shows the whole Pipeline. An Overview in the corner shows where the view is.</li>
+        <li><strong>Full screen</strong> gives the editor the whole window: the canvas above, the panel under it, Save at hand. Esc goes back.</li>
+        <li><strong>One editor in four places</strong>: Settings, a Project page, the Task's Stages window and a Proposal shown on the flow all use the same editor with the same canvas, controls and panel. They differ only in how an edit is kept: on the Pipeline itself, on the Task, or as a Project Pipeline's Stage changes on top of its base Pipeline.</li>
+      </ul>
+
+      <h2>The two tabs</h2>
+      <ul>
+        <li>The tabs sit at the top of the section, above the list and the open item. Pipelines opens by default. A Stage template's address opens the Stage templates tab, and New template opens it too.</li>
+        <li><strong>Pipelines tab:</strong> "Office-wide Pipelines" beside the open Pipeline, as today, without the Stage templates list under it.</li>
+        <li><strong>Stage templates tab:</strong> "Stage templates" beside the open template. With none in the address, the first one opens, as the first Pipeline does on the Pipelines tab. Under 1224px the back link reads "‹ All Stage templates".</li>
+        <li>The tabs use packages/ui's <code>Tabs</code>, each with its count. Switching tabs keeps each tab's open item, since each has its own address.</li>
+      </ul>
+
+      <h2>The canvas</h2>
+      <table>
+        <tr><th>To</th><th>Mouse and trackpad</th><th>Keyboard (canvas focused)</th></tr>
+        <tr><td>Move the view</td><td>Drag with the right or middle button, Space + drag, or drag the empty canvas. A horizontal scroll or Shift + scroll moves it sideways. In full screen, a plain scroll moves it too.</td><td>Arrow keys, while no Stage has focus</td></tr>
+        <tr><td>Zoom</td><td>Ctrl/⌘ + scroll, or pinch, around the pointer. −, the % menu and + in the canvas's controls.</td><td><span class="kbd">−</span> <span class="kbd">+</span>, and <span class="kbd">0</span> for 100%</td></tr>
+        <tr><td>Fit the Pipeline</td><td>The Fit button, or "Fit the Pipeline" in the % menu</td><td><span class="kbd">F</span></td></tr>
+        <tr><td>Jump somewhere</td><td>Press or drag in the Overview</td><td>Picking a Stage (Tab, a problem, the List) brings it into view</td></tr>
+        <tr><td>Move a Stage</td><td>Drag it with the left button. Near the canvas's edge the view follows.</td><td>Shift + arrows, as today</td></tr>
+      </table>
+      <ul>
+        <li><strong>Page scrolling isn't taken over.</strong> A plain vertical scroll over the canvas scrolls the page. Only Ctrl/⌘ + scroll, horizontal scroll and drags act on the canvas. In full screen there is no page to scroll, so a plain scroll moves the view.</li>
+        <li><strong>Where it opens:</strong> at 100%, with the Start in view. The canvas is as tall as the Pipeline at 100%, up to 62% of the window's height, at least 300px. A view moved by hand stays where it is while the user edits, and comes back to 100% at the Start when another Pipeline opens.</li>
+        <li><strong>Zoom steps:</strong> 25, 33, 50, 67, 75, 90 and 100%. Fit picks any value from 25% to 100%. A Pipeline that already fits is never enlarged past 100%.</li>
+        <li><strong>Cards under 60%:</strong> a card shows only its kind mark and its name, drawn large enough to read (13px on the screen, at most 32px on the canvas). Routes stay as lines, without their rows or condition words. From 60% up, the full card comes back.</li>
+        <li><strong>The Overview</strong> shows the Stages as blocks in their mark colours, with the view as an ember frame. It shows while the Pipeline doesn't fit in view, and its button hides it. That choice is kept for the signed-in user.</li>
+        <li><strong>The controls</strong> sit over the canvas's lower-left corner and use packages/ui's ghost <code>IconButton</code>, each with a Tooltip. The % button opens a <code>Menu</code>. The dot grid moves and scales with the view, so panning feels like moving the canvas.</li>
+        <li><strong>The right button</strong> moves the view, so the canvas has no browser context menu. A Stage's actions stay in its ⋯ menu in the panel.</li>
+        <li><strong>At 560px of canvas or less</strong> the flow runs top to bottom, as today, and pans and zooms the same way.</li>
+      </ul>
+
+      <h2>One editor, three ways to keep an edit</h2>
+      <p>Each place today has its own editor component (<code>office-flow-editor</code>, <code>task-flow-editor</code>, <code>project-flow-editor</code>), each wiring the shared <code>FlowEditor</code> slightly differently. The proposal makes the difference explicit: the editor is one, and an <em>editing mode</em> says how an edit is kept.</p>
+      <pre>FlowEditor                (shell/pipelines/flow/: one component, placed in each form card as today)
+ ├─ head                   title, summary, Add / Insert, Flow | List; legend, hint
+     ├─ FlowViewport       new: pan, zoom, Fit, Overview, full screen; wraps FlowCanvas or, read-only, a Proposal's flow
+     │   └─ FlowCanvas     fixed card size; places from flow-layout in px, not column shares
+     ├─ FlowList
+     └─ FlowPanel          Stage, route, or empty; plus what the editing mode adds
+
+FlowEditing (the editing mode, one per place)
+ ├─ pipelineEditing(pipeline)                Settings: edits change the Pipeline
+ ├─ taskEditing(stages, locks)               the Task: the same, with started Stages locked
+ └─ stageChangesEditing(project, base)       a Project: each edit becomes a Stage change on its base Pipeline,
+                                             with marks, legend, Undo and the compare tables
+   each says: what Add offers, which Stages move, marks and legend, the panel's extra sections, and onEdit</pre>
+      <ul>
+        <li>Settings and the Task keep an edit the same way, without a base Pipeline (the Task adds locks), and a Project adds a base Pipeline, as the Task's description puts it. Each new capability (pan, zoom, Fit, full screen, the Overview) lives once, in <code>FlowViewport</code>, so all four places get it.</li>
+        <li><code>FlowViewport</code> owns its view (zoom and offset) and nothing of the Pipeline. <code>FlowCanvas</code> keeps the layout, the lines and the drags. Drags convert pointer movement by the zoom.</li>
+        <li>The zoom controls and the Overview are drawn for the canvas alone, from tokens, as spec §4.1 allows for a part made for one feature.</li>
+        <li>The pages around the editor don't change: the list column, the head and Built on by cards and the Save row stay where they are. Pan, zoom, Fit and full screen are what give a large Pipeline its room.</li>
+      </ul>
+
+      <h2>Moving Stages on a Project Pipeline</h2>
+      <div class="callout">
+        <p><strong>Open question for the user, asked with this design.</strong> Today a Project Pipeline's Stages can't be dragged on purpose (<code>draggable={false}</code>): a Stage's place gives the Pipeline's order, and a Project Pipeline keeps its base Pipeline's places, because its Stage changes (Insert before, Insert after, Replace, Change, Remove, Change routes) don't include a place.</p>
+        <p><strong>This mock shows the recommendation:</strong> keep the base Pipeline's places, and say so where it happens. Dragging a Stage there shows "Its place comes from Full, the base Pipeline: move it there," with Full a link, and the hint says the same. The alternative is a new Stage change, Move, which gives a Stage its place on the Project Pipeline. It would have its own mark and Undo, and would make the Project Pipeline Broken when its Stage leaves the base Pipeline. That is a change to the contracts, the service and spec §2.3.</p>
+      </div>
+
+      <h2>The Task's Stages window</h2>
+      <ul>
+        <li>The window stays as today: L (1180px), with the Pipeline picker above the editor until the Task starts. The editor is the same as in Settings, with started Stages locked (a lock in the card and a grey edge) and their routes out read-only.</li>
+        <li>Full screen works in the window too and covers it: a Pipeline of 15 Stages can be edited at the size of the screen.</li>
+      </ul>
+
+      <h2>Docs this changes</h2>
+      <ul>
+        <li><strong>Spec §4, line 7</strong> (the flow editor): add that the canvas keeps a Stage's size and moves and zooms (right-button drag, 25%–100%, Fit, Overview, full screen), and that the same editor serves Settings, a Project page, the Task's Stages window and a Proposal shown on the flow.</li>
+        <li><strong>Spec §4.1, line 34</strong>: add that Settings › Pipelines shows Pipelines and Stage templates as two tabs, each a list beside its open item. The rule under 1224px and the back links stay, with "‹ All Stage templates" on the second tab.</li>
+        <li><strong>docs/design/README.md</strong>: this page as the UI spec for the two tabs and the canvas. Where it differs from pipeline-flow.html, this page wins; project-pipelines.html still holds for the Project page's layout.</li>
+        <li>The MAP.md files of <code>shell/pipelines/flow</code>, Settings and Projects, once built.</li>
+      </ul>
+    </section>
+
+    <script>
+      "use strict";
+
+      /* ---------- Icons: Lucide outlines at stroke 1.75 ---------- */
+      const ICONS = {
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+        minus: '<path d="M5 12h14"/>',
+        copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+        route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+        maximize: '<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/>',
+        minimize: '<path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/>',
+        fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="8" width="10" height="8" rx="1"/>',
+        map: '<path d="M14.1 5.55a2 2 0 0 0 1.79 0l3.66-1.83A1 1 0 0 1 21 4.62v12.76a1 1 0 0 1-.55.9l-4.55 2.27a2 2 0 0 1-1.79 0l-4.21-2.1a2 2 0 0 0-1.79 0l-3.66 1.83A1 1 0 0 1 3 19.38V6.62a1 1 0 0 1 .55-.9L8.1 3.45a2 2 0 0 1 1.79 0z"/><path d="M15 5.76v15"/><path d="M9 3.24v15"/>',
+        user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+        terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+        hand: '<path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+        lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+        more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        "chevron-left": '<path d="m15 18-6-6 6-6"/>',
+        "arrow-left": '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+        "arrow-right": '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+        "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+        "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+        info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+        alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        home: '<path d="M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+        "layout-grid": '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+        folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        "bar-chart": '<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+        sliders: '<path d="M21 4h-7"/><path d="M10 4H3"/><path d="M21 12h-9"/><path d="M8 12H3"/><path d="M21 20h-5"/><path d="M12 20H3"/><path d="M14 2v4"/><path d="M8 10v4"/><path d="M16 18v4"/>',
+        briefcase: '<rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+        sparkles: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 3v4"/><path d="M21 5h-4"/>',
+        plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+        cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/>',
+        "log-in": '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/>',
+        key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/>',
+        gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+        "file-text": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+        bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+        activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+        refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+        "hard-drive": '<path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+        box: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+        palette: '<circle cx="13.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/><circle cx="8.5" cy="7.5" r="1"/><circle cx="6.5" cy="12.5" r="1"/><path d="M12 2a10 10 0 0 0 0 20c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a6 6 0 0 0 6-6c0-4.9-4.5-8.6-10-8.6Z"/>',
+      };
+
+      function icon(name, size = 16) {
+        return (
+          '<svg class="i" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+          'stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || "") + "</svg>"
+        );
+      }
+
+      function hydrateIcons(root) {
+        root.querySelectorAll("[data-icon]").forEach((element) => {
+          if (element.dataset.iconDone) return;
+          element.dataset.iconDone = "1";
+          element.insertAdjacentHTML("afterbegin", icon(element.dataset.icon, Number(element.dataset.size) || 16));
+        });
+      }
+
+      function escapeHtml(text) {
+        return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+      /* ---------- Sample data ---------- */
+      const FULL = [
+        { key: "plan", name: "Plan", kind: "agent", who: "Plans · Ada", col: 0, row: 0, routes: [{ when: "A UI change", to: "design" }, { when: null, to: "implement" }] },
+        { key: "design", name: "Create a design", kind: "agent", who: "Stanley", col: 1, row: 0, routes: [{ when: null, to: "review-design" }] },
+        { key: "review-design", name: "Review the design", kind: "gate", who: "waits for you", col: 2, row: 0, routes: [{ when: "Sent back", to: "design" }, { when: null, to: "implement" }] },
+        { key: "implement", name: "Implement", kind: "agent", who: "Jim", col: 3, row: 0, routes: [{ when: "Touches signing in", to: "security" }, { when: null, to: "review-fix" }] },
+        { key: "review-fix", name: "Review & fix", kind: "agent", who: "Stanley", col: 4, row: 0, routes: [{ when: null, to: "final-review" }] },
+        { key: "security", name: "Security review", kind: "agent", who: "Oscar", col: 4, row: 1, routes: [{ when: null, to: "final-review" }] },
+        { key: "final-review", name: "Review final result", kind: "gate", who: "waits for you", col: 5, row: 0, routes: [{ when: "Sent back", to: "implement" }, { when: null, to: "tests" }] },
+        { key: "tests", name: "Tests", kind: "script", who: "Build, test and end-to-end", command: "npm run build && npm run test && npm run test:e2e", col: 6, row: 0, onFailure: { to: "implement", times: 3 }, routes: [{ when: null, to: "publish" }] },
+        { key: "publish", name: "Publish", kind: "script", who: "Publish", col: 7, row: 0, routes: [{ when: null, to: null }] },
+      ];
+
+      const TEMPLATES = ["Security review", "Live check", "Lint", "Sign-off", "Release notes"];
+      const ADD_MENU = [
+        ["heading", "Add a Stage"], ["user", "Agent Stage"], ["terminal", "Script Stage"], ["hand", "Gate"],
+        ["heading", "From a template"], ...TEMPLATES.map((name) => ["copy", name]),
+      ];
+      function insertMenu(picked) {
+        return [
+          ["heading", "Insert after " + picked], ["user", "Agent Stage"], ["terminal", "Script Stage"], ["hand", "Gate"],
+          ["heading", "From a template"], ...TEMPLATES.map((name) => ["copy", name]),
+          ["heading", "Insert before " + picked], ["user", "Agent Stage"], ["terminal", "Script Stage"], ["hand", "Gate"],
+        ];
+      }
+      const PAN_HINT = " Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline.";
+
+      function projectStages() {
+        const stages = structuredClone(FULL);
+        const byKey = Object.fromEntries(stages.map((stage) => [stage.key, stage]));
+        byKey["review-fix"].mark = "changed";
+        byKey["review-fix"].budget = { was: "400", now: "600" };
+        byKey.security.mark = "removed";
+        byKey.security.ghostFrom = { key: "implement", routeIndex: 0 };
+        byKey.implement.routes[0] = { when: "Touches signing in", to: "final-review", carried: true };
+        byKey.tests.routes = [{ when: null, to: "live-check", mark: "inserted" }];
+        byKey.publish.col = 8;
+        stages.push({ key: "live-check", name: "Live check", kind: "agent", who: "Kevin", col: 7, row: 0, mark: "inserted", routes: [{ when: null, to: "publish", mark: "inserted" }] });
+        return stages;
+      }
+
+      function taskStages() {
+        const stages = structuredClone(FULL);
+        for (const stage of stages) {
+          if (["plan", "design", "review-design"].includes(stage.key)) {
+            stage.locked = "Done: started, so it can't be changed";
+            stage.mark = "locked";
+          }
+        }
+        return stages;
+      }
+
+      const KIND = {
+        agent: { icon: "user", label: "Agent Stage" },
+        script: { icon: "terminal", label: "Script Stage" },
+        gate: { icon: "hand", label: "Gate" },
+      };
+
+      const MARK_LABEL = { inserted: "Inserted", replaced: "Replaced", changed: "Changed", removed: "Removed" };
+
+      const SCENARIOS = {
+        settings: {
+          stages: () => structuredClone(FULL),
+          title: "Stages and routes",
+          fsName: "Full ·",
+          addLabel: () => "Add a Stage",
+          addItems: () => ADD_MENU,
+          fsBar:
+            '<span class="save-state"><span class="dot"></span>Unsaved changes</span><button class="btn secondary" type="button">Discard</button><button class="btn primary" type="button">Save the Pipeline</button>',
+          canMove: () => true,
+          pick: { stage: "implement" },
+          hint: "Drag a Stage to move it. Drag from its + to another Stage, or to End, to draw a route; pick a route to set its condition." + PAN_HINT,
+          legend: "office",
+        },
+        project: {
+          stages: projectStages,
+          title: "What the-office gets",
+          fsName: "Full for the-office ·",
+          addLabel: (picked) => (picked ? "Insert after " + picked : "Insert a Stage"),
+          addItems: (picked) => (picked ? insertMenu(picked) : []),
+          addWhyNot: "Pick the Stage to insert after first",
+          fsBar:
+            '<span class="save-state"><span class="dot"></span>Unsaved changes</span><button class="btn secondary" type="button">Discard</button><button class="btn primary" type="button">Save the Pipeline</button>',
+          canMove: () => false,
+          pick: { stage: "review-fix" },
+          hint:
+            "Pick a Stage or a route to edit it below: a route's edit becomes a Change routes Stage change, with its Undo, and an edit of one of a Stage's own fields a Change Stage change of only that field. A Project Pipeline's Stages keep the places its base Pipeline gives them." +
+            PAN_HINT,
+          legend: "project",
+        },
+        task: {
+          stages: taskStages,
+          title: "Stages and routes",
+          fsName: "Pipelines redesign ·",
+          addLabel: () => "Add a Stage",
+          addItems: () => ADD_MENU,
+          fsBar:
+            '<button class="btn primary" type="button">Save for this Task</button><span class="save-state">Nothing changes on the Task until you save.</span><button class="btn secondary" type="button">Close</button>',
+          canMove: (stage) => !stage.locked,
+          pick: { stage: "implement" },
+          hint: "Started Stages are locked. Drag a Stage to move it. Drag from its + to another Stage, or to End, to draw a route." + PAN_HINT,
+          legend: "task",
+        },
+      };
+
+      /* ---------- Geometry: the canvas in its own pixels, as at 100% ---------- */
+      const G = { cardW: 232, colGap: 76, rowGap: 44, head: 54, routeH: 24, overviewH: 60, padLeft: 72, padRight: 56 };
+      const ZOOM_MIN = 0.25;
+      const ZOOM_MAX = 1;
+      const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1];
+      const NAME_ONLY_BELOW = 0.6;
+
+      function cardHeight(stage, nameOnly) {
+        if (nameOnly) return G.overviewH;
+        const routes = stage.routes.length;
+        return 2 + G.head + (routes ? 1 + 4 + routes * G.routeH + 4 : 0);
+      }
+      const headMiddle = (nameOnly) => (nameOnly ? 30 : 28);
+      const portY = (index, nameOnly) => (nameOnly ? 30 : G.head + 18 + index * G.routeH);
+
+      function computeLayout(stages, nameOnly) {
+        const byKey = Object.fromEntries(stages.map((stage) => [stage.key, stage]));
+        const columns = Math.max(...stages.map((stage) => stage.col)) + 1;
+        const rows = Math.max(...stages.map((stage) => stage.row)) + 1;
+        const rowHeights = Array.from({ length: rows }, (_, row) =>
+          Math.max(G.overviewH, ...stages.filter((stage) => stage.row === row).map((stage) => cardHeight(stage, nameOnly))),
+        );
+        const loops = stages.filter((stage) => stage.onFailure);
+
+        // Routes that don't go to the next column run in lanes under the Stages.
+        const edges = [];
+        let lanes = 0;
+        for (const stage of stages) {
+          stage.routes.forEach((route, index) => {
+            const target = route.to ? byKey[route.to] : null;
+            const toEnd = route.to === null;
+            const adjacent = toEnd ? stage.col === columns - 1 : target.col === stage.col + 1;
+            edges.push({ from: stage, index, route, target, toEnd, lane: adjacent ? -1 : lanes++ });
+          });
+        }
+        for (const stage of stages) {
+          if (stage.ghostFrom) {
+            const from = byKey[stage.ghostFrom.key];
+            edges.push({ from, index: stage.ghostFrom.routeIndex, route: { when: null, to: stage.key }, target: stage, toEnd: false, lane: -1, ghost: true });
+          }
+        }
+
+        const padTop = 28 + (loops.length ? 22 + loops.length * 12 : 0);
+        const padBottom = 28 + lanes * 12 + (lanes ? 12 : 0);
+        const colX = (col) => G.padLeft + col * (G.cardW + G.colGap);
+        const rowY = (row) => padTop + rowHeights.slice(0, row).reduce((sum, height) => sum + height, 0) + row * G.rowGap;
+        for (const stage of stages) {
+          stage._x = colX(stage.col);
+          stage._y = rowY(stage.row);
+          stage._h = cardHeight(stage, nameOnly);
+        }
+        const gridBottom = rowY(rows - 1) + rowHeights[rows - 1];
+        const first = stages.find((stage) => stage.col === 0 && stage.row === 0) || stages[0];
+        const end = { x: colX(columns - 1) + G.cardW + 56, y: rowY(0) + headMiddle(nameOnly) - 22 };
+        const width = end.x + 44 + G.padRight;
+        const height = gridBottom + padBottom;
+        return { nameOnly, columns, rows, rowHeights, colX, rowY, padTop, gridBottom, edges, loops, lanes, end, first, width, height, byKey };
+      }
+
+      function roundedPath(points, radius = 7) {
+        const clean = points.filter((point, i) => i === 0 || point.x !== points[i - 1].x || point.y !== points[i - 1].y);
+        let d = "M" + clean[0].x + "," + clean[0].y;
+        for (let i = 1; i < clean.length - 1; i++) {
+          const a = clean[i - 1];
+          const b = clean[i];
+          const c = clean[i + 1];
+          const lengthIn = Math.hypot(b.x - a.x, b.y - a.y);
+          const lengthOut = Math.hypot(c.x - b.x, c.y - b.y);
+          const r = Math.min(radius, lengthIn / 2, lengthOut / 2);
+          const p1 = { x: b.x + ((a.x - b.x) / lengthIn) * r, y: b.y + ((a.y - b.y) / lengthIn) * r };
+          const p2 = { x: b.x + ((c.x - b.x) / lengthOut) * r, y: b.y + ((c.y - b.y) / lengthOut) * r };
+          d += " L" + p1.x + "," + p1.y + " Q" + b.x + "," + b.y + " " + p2.x + "," + p2.y;
+        }
+        const last = clean[clean.length - 1];
+        return d + " L" + last.x + "," + last.y;
+      }
+
+      function edgePoints(edge, layout) {
+        const nameOnly = layout.nameOnly;
+        const start = { x: edge.from._x + G.cardW, y: edge.from._y + portY(edge.index, nameOnly) };
+        const end = edge.toEnd
+          ? { x: layout.end.x, y: layout.end.y + 22 }
+          : { x: edge.target._x, y: edge.target._y + headMiddle(nameOnly) };
+        if (edge.lane < 0) {
+          const middle = edge.from._x + G.cardW + G.colGap / 2;
+          return [start, { x: middle, y: start.y }, { x: middle, y: end.y }, end];
+        }
+        const out = start.x + 12 + edge.lane * 6;
+        const into = end.x - 12 - edge.lane * 6;
+        const laneY = layout.gridBottom + 22 + edge.lane * 12;
+        return [start, { x: out, y: start.y }, { x: out, y: laneY }, { x: into, y: laneY }, { x: into, y: end.y }, end];
+      }
+
+      /* ---------- The editor ---------- */
+      const editor = (() => {
+        const root = document.getElementById("editor-template").content.firstElementChild.cloneNode(true);
+        const ref = {};
+        root.querySelectorAll("[data-ref]").forEach((element) => (ref[element.dataset.ref] = element));
+        hydrateIcons(root);
+        return { root, ref };
+      })();
+      const { ref } = editor;
+
+      const view = {
+        scenarioName: "settings",
+        scenario: SCENARIOS.settings,
+        stages: [],
+        layout: null,
+        pick: null,
+        zoom: 1,
+        x: 0,
+        y: 0,
+        overviewOn: true,
+        fullscreen: false,
+        mode: "flow",
+        spaceHeld: false,
+        hint: "",
+        epoch: 0,
+      };
+
+      function setScenario(name) {
+        view.epoch++;
+        view.scenarioName = name;
+        view.scenario = SCENARIOS[name];
+        view.stages = view.scenario.stages();
+        view.pick = { ...view.scenario.pick };
+        view.zoom = 1;
+        view.hint = view.scenario.hint;
+        ref.title.textContent = view.scenario.title;
+        ref.fsName.textContent = view.scenario.fsName;
+        ref.fsBar.innerHTML = view.scenario.fsBar;
+        updateAddButton();
+        renderLegend();
+        renderAll();
+        sizeViewport();
+        view.x = 0;
+        view.y = 0;
+        clampView();
+        applyView(false);
+        renderPanel();
+      }
+
+      // A Project Pipeline inserts beside the picked Stage, so its button names it.
+      function updateAddButton() {
+        const picked = view.pick && view.stages.find((stage) => stage.key === view.pick.stage);
+        const pickedName = picked && picked.mark !== "removed" ? picked.name : null;
+        const items = view.scenario.addItems(pickedName);
+        const held = !items.length;
+        ref.addButton.innerHTML = icon(view.scenarioName === "project" ? "arrow-right" : "plus") + escapeHtml(view.scenario.addLabel(pickedName)) + icon("chevron-down", 14);
+        ref.addButton.setAttribute("aria-disabled", String(held));
+        if (held) ref.addButton.dataset.tip = view.scenario.addWhyNot;
+        else delete ref.addButton.dataset.tip;
+        ref.addMenu.classList.toggle("wide", view.scenarioName === "project");
+        ref.addMenu.innerHTML = items
+          .map((item) =>
+            item[0] === "heading"
+              ? '<p class="menu-heading">' + escapeHtml(item[1]) + "</p>"
+              : '<button type="button" role="menuitem">' + icon(item[0]) + escapeHtml(item[1]) + "</button>",
+          )
+          .join("");
+      }
+
+      function nameOnlyAt(zoom) {
+        return zoom < NAME_ONLY_BELOW;
+      }
+
+      function summaryText() {
+        const stages = view.stages.filter((stage) => stage.mark !== "removed");
+        const routes = stages.reduce((sum, stage) => sum + stage.routes.length, 0);
+        const loops = stages.filter((stage) => stage.onFailure).length;
+        if (view.scenarioName === "project") return stages.length + " Stages: Full's 9, with 3 Stage changes";
+        return stages.length + " Stages · " + routes + " routes · " + loops + " On failure loop" + (loops === 1 ? "" : "s");
+      }
+
+      function renderLegend() {
+        const line = (cls) =>
+          '<svg width="26" height="10" aria-hidden="true"><path d="M1 5h20" class="edge ' + cls + '" style="--ew:1.5"/><path d="M20 1.5 25 5l-5 3.5z" class="' + (cls === "loop" ? "m-loop" : cls === "inserted" ? "m-inserted" : "m-default") + '"/></svg>';
+        const swatch = (color) => '<i class="legend-swatch" style="border-left-color:' + color + '"></i>';
+        const lock = '<span style="color:var(--fg-3)">' + icon("lock", 13) + "</span>";
+        const parts = {
+          office: [line(""), "Route"].join("") + "|" + line("loop") + "On failure loop",
+          task: [line(""), "Route"].join("") + "|" + line("loop") + "On failure loop|" + lock + "Started, locked",
+          project:
+            swatch("var(--border-strong)") + "From Full|" + swatch("var(--success)") + "Inserted|" + swatch("var(--info)") + "Replaced|" +
+            swatch("var(--warning)") + "Changed or routes changed|" + '<i class="legend-swatch" style="border-style:dashed;border-left-width:1px"></i>Removed|' + line("loop") + "On failure loop",
+        }[view.scenario.legend];
+        ref.legend.innerHTML = parts.split("|").map((part) => "<span>" + part + "</span>").join("");
+      }
+
+      function renderAll() {
+        ref.summary.textContent = summaryText();
+        ref.hint.textContent = view.hint;
+        renderCanvas();
+        renderList();
+      }
+
+      function routeTargetName(route) {
+        if (route.to === null) return "End";
+        const target = view.stages.find((stage) => stage.key === route.to);
+        return target ? target.name : route.to;
+      }
+
+      function isPickedStage(key) {
+        return view.pick && view.pick.stage === key && view.pick.route === undefined;
+      }
+
+      function cardHtml(stage) {
+        const picked = isPickedStage(stage.key);
+        const classes = ["stage-card"];
+        if (picked) classes.push("picked");
+        if (stage.mark === "removed") classes.push("removed");
+        if (stage.locked) classes.push("locked");
+        const markAttr = stage.mark && stage.mark !== "removed" ? ' data-mark="' + stage.mark + '"' : "";
+        const badge = MARK_LABEL[stage.mark]
+          ? '<span class="badge sm ' + { inserted: "success", replaced: "info", changed: "warning", removed: "" }[stage.mark] + '">' + MARK_LABEL[stage.mark] + "</span>"
+          : "";
+        const lock = stage.locked ? '<span data-tip="' + escapeHtml(stage.locked) + '">' + icon("lock", 13) + "</span>" : "";
+        const routes = stage.routes
+          .map((route, index) => {
+            const pickedRoute = view.pick && view.pick.stage === stage.key && view.pick.route === index;
+            return (
+              '<button type="button" class="route-row' + (route.when ? "" : " otherwise") + (pickedRoute ? " picked" : "") + '" data-route="' + index + '">' +
+              '<span class="cond">' + escapeHtml(route.when || "otherwise") + '</span><span class="arrow">→</span>' +
+              '<span class="to">' + escapeHtml(routeTargetName(route)) + '</span><span class="port"></span></button>'
+            );
+          })
+          .join("");
+        return (
+          '<div class="' + classes.join(" ") + '" data-key="' + stage.key + '"' + markAttr +
+          ' style="left:' + stage._x + "px;top:" + stage._y + "px;height:" + stage._h + 'px">' +
+          '<button type="button" class="stage-head" aria-label="' + escapeHtml(stage.name) + '"' + (picked ? ' aria-current="true"' : "") + ">" +
+          '<span class="kind-mark ' + stage.kind + '">' + icon(KIND[stage.kind].icon, 11) + "</span>" +
+          '<span class="stage-text"><span class="stage-name">' + escapeHtml(stage.name) + "</span>" +
+          '<span class="stage-who">' + escapeHtml(stage.who) + "</span></span>" +
+          '<span class="stage-aside">' + badge + lock + "</span></button>" +
+          (stage.routes.length ? '<div class="stage-routes">' + routes + "</div>" : "") +
+          '<span class="plus-handle" data-tip="Draw a route from ' + escapeHtml(stage.name) + '">' + icon("plus", 11) + "</span>" +
+          "</div>"
+        );
+      }
+
+      function renderCanvas() {
+        const nameOnly = nameOnlyAt(view.zoom);
+        const layout = computeLayout(view.stages, nameOnly);
+        view.layout = layout;
+        const pickedEdge = (edge) => view.pick && view.pick.stage === edge.from.key && view.pick.route === edge.index && !edge.ghost;
+        const toneOf = (edge) => {
+          if (pickedEdge(edge)) return "picked";
+          if (edge.ghost || edge.from.mark === "removed") return "ghost";
+          if (edge.route.mark === "inserted") return "inserted";
+          return "";
+        };
+        const markerOf = (tone) => ({ picked: "url(#a-picked)", inserted: "url(#a-inserted)", changed: "url(#a-changed)" })[tone] || "url(#a-default)";
+
+        let svg =
+          '<svg class="flow-lines" width="' + layout.width + '" height="' + layout.height + '" aria-hidden="true"><defs>' +
+          ["default", "picked", "inserted", "changed", "loop"]
+            .map((name) => '<marker id="a-' + name + '" viewBox="0 0 8 8" refX="7.2" refY="4" markerWidth="5.4" markerHeight="5.4" orient="auto-start-reverse" markerUnits="strokeWidth"><path d="M0 0.6 8 4 0 7.4z" class="m-' + name + '"/></marker>')
+            .join("") +
+          "</defs>";
+
+        // Start: a dot and a line into the first Stage.
+        const startY = layout.first._y + headMiddle(nameOnly);
+        svg += '<circle class="start-dot" cx="' + (G.padLeft - 40) + '" cy="' + startY + '" r="5"/>';
+        svg += '<path class="edge start" d="M' + (G.padLeft - 35) + "," + startY + " L" + G.padLeft + "," + startY + '" marker-end="url(#a-default)"/>';
+
+        const drawn = [...layout.edges].sort((a, b) => (pickedEdge(a) ? 1 : 0) - (pickedEdge(b) ? 1 : 0));
+        for (const edge of drawn) {
+          const tone = toneOf(edge);
+          const d = roundedPath(edgePoints(edge, layout));
+          svg += '<path class="edge ' + tone + '" d="' + d + '" marker-end="' + (tone === "ghost" ? "" : markerOf(tone)) + '"/>';
+          if (!edge.ghost && edge.from.mark !== "removed") {
+            svg += '<path class="edge-hit" data-edge-stage="' + edge.from.key + '" data-edge-route="' + edge.index + '" d="' + d + '"/>';
+          }
+        }
+
+        // On failure loops, dashed red above the Stages.
+        let loopMarks = "";
+        layout.loops.forEach((stage, index) => {
+          const target = layout.byKey[stage.onFailure.to];
+          const from = { x: stage._x + G.cardW * 0.62, y: stage._y };
+          const to = { x: target._x + G.cardW * 0.38, y: target._y };
+          const y = layout.padTop - 18 - index * 12;
+          svg += '<path class="edge loop" d="' + roundedPath([from, { x: from.x, y }, { x: to.x, y }, to]) + '" marker-end="url(#a-loop)"/>';
+          loopMarks +=
+            '<span class="loop-mark" style="left:' + (from.x + to.x) / 2 + "px;top:" + y + 'px" data-tip="On failure, ' + escapeHtml(stage.name) +
+            " goes back to " + escapeHtml(target.name) + ", at most " + stage.onFailure.times + ' times">↺ ' + stage.onFailure.times + "×</span>";
+        });
+        svg += "</svg>";
+
+        const cards = view.stages.map(cardHtml).join("");
+        const end = '<div class="flow-end" role="img" aria-label="End" style="left:' + layout.end.x + "px;top:" + layout.end.y + 'px">End</div>';
+        ref.content.innerHTML = svg + cards + end + loopMarks + '<div class="drop-ghost" hidden></div>';
+        ref.content.style.width = layout.width + "px";
+        ref.content.style.height = layout.height + "px";
+        ref.content.classList.toggle("overview-cards", nameOnly);
+        ref.summary.textContent = summaryText();
+        renderOverviewShape();
+      }
+
+      function renderList() {
+        const ordered = [...view.stages].sort((a, b) => a.col - b.col || a.row - b.row);
+        ref.list.innerHTML = ordered
+          .map((stage, index) => {
+            const routes = stage.routes.map((route) => (route.when || "otherwise") + " → " + routeTargetName(route)).join(" · ");
+            const badge = MARK_LABEL[stage.mark] ? ' <span class="badge sm">' + MARK_LABEL[stage.mark] + "</span>" : "";
+            return (
+              '<li data-key="' + stage.key + '" class="' + (isPickedStage(stage.key) ? "picked" : "") + '"><span class="n">' + (index + 1) + "</span>" +
+              '<span class="kind-mark ' + stage.kind + '">' + icon(KIND[stage.kind].icon, 11) + "</span>" +
+              '<span><span class="stage-name">' + escapeHtml(stage.name) + "</span>" + badge + '<div class="routes">' + escapeHtml(routes) + "</div></span>" +
+              '<span class="stage-who">' + escapeHtml(stage.who) + "</span></li>"
+            );
+          })
+          .join("");
+      }
+
+      /* ---------- The view: zoom and offset ---------- */
+      function viewportSize() {
+        return { width: ref.viewport.clientWidth, height: ref.viewport.clientHeight };
+      }
+
+      function sizeViewport() {
+        if (view.fullscreen) {
+          ref.viewport.style.height = "";
+          return;
+        }
+        const natural = computeLayout(structuredClone(view.stages), false).height;
+        ref.viewport.style.height = Math.round(clamp(natural, 300, window.innerHeight * 0.62)) + "px";
+      }
+
+      function clampView() {
+        const { width, height } = viewportSize();
+        const contentWidth = view.layout.width * view.zoom;
+        const contentHeight = view.layout.height * view.zoom;
+        const margin = 56;
+        view.x = contentWidth <= width ? clamp(view.x, 0, width - contentWidth) : clamp(view.x, width - contentWidth - margin, margin);
+        view.y = contentHeight <= height ? clamp(view.y, 0, height - contentHeight) : clamp(view.y, height - contentHeight - margin, margin);
+      }
+
+      function applyView(animate) {
+        ref.content.classList.toggle("animating", Boolean(animate));
+        ref.content.style.transform = "translate(" + view.x + "px," + view.y + "px) scale(" + view.zoom + ")";
+        ref.content.style.setProperty("--ew", String(Math.min(1.5 / view.zoom, 4)));
+        ref.content.style.setProperty("--name-size", Math.min(13 / view.zoom, 32) + "px");
+        ref.viewport.style.backgroundSize = 16 * view.zoom + "px " + 16 * view.zoom + "px";
+        ref.viewport.style.backgroundPosition = view.x + "px " + view.y + "px";
+        ref.readout.textContent = Math.round(view.zoom * 100) + "%";
+        setDisabled(ref.tools.querySelector('[data-act="zoom-out"]'), view.zoom <= ZOOM_MIN + 0.001, "Zoom out", "Already at 25%, the smallest");
+        setDisabled(ref.tools.querySelector('[data-act="zoom-in"]'), view.zoom >= ZOOM_MAX - 0.001, "Zoom in", "Already at 100%, a Stage's own size");
+        updateOverview();
+      }
+
+      function setDisabled(button, disabled, tip, whyNot) {
+        button.setAttribute("aria-disabled", String(disabled));
+        button.dataset.tip = disabled ? whyNot : tip + ({ "Zoom in": "  (+)", "Zoom out": "  (−)" }[tip] || "");
+      }
+
+      function setZoom(zoom, at, animate) {
+        const next = clamp(zoom, ZOOM_MIN, ZOOM_MAX);
+        const { width, height } = viewportSize();
+        const point = at || { x: width / 2, y: height / 2 };
+        const contentX = (point.x - view.x) / view.zoom;
+        const contentY = (point.y - view.y) / view.zoom;
+        const wasNameOnly = nameOnlyAt(view.zoom);
+        const oldHeight = view.layout.height;
+        view.zoom = next;
+        if (wasNameOnly !== nameOnlyAt(next)) renderCanvas();
+        const scaleY = view.layout.height / oldHeight;
+        view.x = point.x - contentX * next;
+        view.y = point.y - contentY * scaleY * next;
+        clampView();
+        applyView(animate);
+      }
+
+      function stepZoom(direction) {
+        const steps = direction > 0 ? ZOOM_STEPS.filter((step) => step > view.zoom + 0.001) : ZOOM_STEPS.filter((step) => step < view.zoom - 0.001);
+        if (!steps.length) return;
+        setZoom(direction > 0 ? steps[0] : steps[steps.length - 1], null, true);
+      }
+
+      function fit(animate) {
+        const { width, height } = viewportSize();
+        const margin = 28;
+        const fitFor = (layout) => Math.min(ZOOM_MAX, (width - 2 * margin) / layout.width, (height - 2 * margin) / layout.height);
+        let zoom = fitFor(computeLayout(structuredClone(view.stages), false));
+        if (nameOnlyAt(zoom)) zoom = Math.min(NAME_ONLY_BELOW - 0.01, fitFor(computeLayout(structuredClone(view.stages), true)));
+        view.zoom = clamp(zoom, ZOOM_MIN, ZOOM_MAX);
+        renderCanvas();
+        view.x = (width - view.layout.width * view.zoom) / 2;
+        view.y = (height - view.layout.height * view.zoom) / 2;
+        clampView();
+        applyView(animate);
+      }
+
+      function panBy(dx, dy, animate) {
+        view.x += dx;
+        view.y += dy;
+        clampView();
+        applyView(animate);
+      }
+
+      function bringIntoView(stage) {
+        const { width, height } = viewportSize();
+        const left = view.x + stage._x * view.zoom;
+        const top = view.y + stage._y * view.zoom;
+        const right = left + G.cardW * view.zoom;
+        const bottom = top + stage._h * view.zoom;
+        const pad = 40;
+        let dx = 0;
+        let dy = 0;
+        if (left < pad) dx = pad - left;
+        else if (right > width - pad) dx = width - pad - right;
+        if (top < pad) dy = pad - top;
+        else if (bottom > height - pad) dy = height - pad - bottom;
+        if (dx || dy) panBy(dx, dy, true);
+      }
+
+      /* ---------- The Overview ---------- */
+      const OVERVIEW_MAX = { width: 200, height: 96 };
+      function renderOverviewShape() {
+        const layout = view.layout;
+        const scale = Math.min(OVERVIEW_MAX.width / layout.width, OVERVIEW_MAX.height / layout.height);
+        const width = Math.round(layout.width * scale);
+        const height = Math.round(layout.height * scale);
+        const blocks = view.stages
+          .map((stage) => {
+            const cls = ["ov-stage"];
+            if (isPickedStage(stage.key)) cls.push("picked");
+            else if (stage.mark && stage.mark !== "locked") cls.push(stage.mark);
+            return '<rect class="' + cls.join(" ") + '" x="' + stage._x + '" y="' + stage._y + '" width="' + G.cardW + '" height="' + stage._h + '" rx="10"/>';
+          })
+          .join("");
+        ref.overview.innerHTML =
+          '<svg width="' + width + '" height="' + height + '" viewBox="0 0 ' + layout.width + " " + layout.height + '" aria-hidden="true">' + blocks +
+          '<circle class="ov-end" cx="' + (layout.end.x + 22) + '" cy="' + (layout.end.y + 22) + '" r="20"/><rect class="ov-view" rx="8"/></svg>';
+        ref.overview.dataset.scale = String(scale);
+      }
+
+      function updateOverview() {
+        const { width, height } = viewportSize();
+        const overflows = view.layout.width * view.zoom > width + 1 || view.layout.height * view.zoom > height + 1;
+        const button = ref.tools.querySelector('[data-act="overview"]');
+        button.setAttribute("aria-pressed", String(view.overviewOn));
+        if (!overflows) {
+          button.setAttribute("aria-disabled", "true");
+          button.dataset.tip = "The whole Pipeline is in view";
+        } else {
+          button.setAttribute("aria-disabled", "false");
+          button.dataset.tip = view.overviewOn ? "Hide the Overview" : "Show the Overview";
+        }
+        ref.overview.hidden = !(overflows && view.overviewOn) || view.mode !== "flow";
+        const frame = ref.overview.querySelector(".ov-view");
+        if (!frame) return;
+        frame.setAttribute("x", String(-view.x / view.zoom));
+        frame.setAttribute("y", String(-view.y / view.zoom));
+        frame.setAttribute("width", String(width / view.zoom));
+        frame.setAttribute("height", String(height / view.zoom));
+      }
+
+      function centerOnOverviewPoint(event) {
+        const svg = ref.overview.querySelector("svg");
+        const box = svg.getBoundingClientRect();
+        const scale = Number(ref.overview.dataset.scale);
+        const contentX = (event.clientX - box.left) / scale;
+        const contentY = (event.clientY - box.top) / scale;
+        const { width, height } = viewportSize();
+        view.x = width / 2 - contentX * view.zoom;
+        view.y = height / 2 - contentY * view.zoom;
+        clampView();
+        applyView(false);
+      }
+
+      ref.overview.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        ref.overview.setPointerCapture(event.pointerId);
+        centerOnOverviewPoint(event);
+        const move = (moveEvent) => centerOnOverviewPoint(moveEvent);
+        const up = () => {
+          ref.overview.removeEventListener("pointermove", move);
+          ref.overview.removeEventListener("pointerup", up);
+        };
+        ref.overview.addEventListener("pointermove", move);
+        ref.overview.addEventListener("pointerup", up);
+      });
+
+      /* ---------- Picking ---------- */
+      function pick(next, scroll) {
+        view.pick = next;
+        view.hint = view.scenario.hint;
+        updateAddButton();
+        renderCanvas();
+        applyView(false);
+        renderList();
+        renderPanel();
+        if (scroll && next) bringIntoView(view.layout.byKey[next.stage]);
+      }
+
+      /* ---------- Pointer: pan with the right or middle button, Space + drag, or the empty canvas ---------- */
+      let press = null;
+
+      ref.viewport.addEventListener("contextmenu", (event) => event.preventDefault());
+      // The middle button pans here, not the browser's autoscroll.
+      ref.viewport.addEventListener("mousedown", (event) => {
+        if (event.button === 1) event.preventDefault();
+      });
+
+      ref.viewport.addEventListener("pointerdown", (event) => {
+        if (event.target.closest(".flow-tools, .flow-overview")) return;
+        closeMenus();
+        const card = event.target.closest(".stage-card");
+        const onLoop = event.target.closest(".loop-mark, .edge-hit, .plus-handle");
+        const panButton = event.button === 1 || event.button === 2 || (event.button === 0 && view.spaceHeld);
+        if (panButton || (event.button === 0 && !card && !onLoop)) {
+          startPan(event);
+          return;
+        }
+        if (event.button === 0 && card) startPress(event, card);
+        if (event.button === 0 && onLoop && onLoop.classList.contains("edge-hit")) {
+          pick({ stage: onLoop.dataset.edgeStage, route: Number(onLoop.dataset.edgeRoute) }, false);
+        }
+      });
+
+      function startPan(event) {
+        event.preventDefault();
+        ref.viewport.focus({ preventScroll: true });
+        ref.viewport.setPointerCapture(event.pointerId);
+        const start = { x: event.clientX, y: event.clientY, viewX: view.x, viewY: view.y, moved: false, button: event.button };
+        ref.viewport.classList.add("panning");
+        const move = (moveEvent) => {
+          const dx = moveEvent.clientX - start.x;
+          const dy = moveEvent.clientY - start.y;
+          if (Math.abs(dx) + Math.abs(dy) > 3) start.moved = true;
+          view.x = start.viewX + dx;
+          view.y = start.viewY + dy;
+          clampView();
+          applyView(false);
+        };
+        const up = () => {
+          ref.viewport.classList.remove("panning");
+          ref.viewport.removeEventListener("pointermove", move);
+          ref.viewport.removeEventListener("pointerup", up);
+          ref.viewport.removeEventListener("pointercancel", up);
+          if (!start.moved && start.button === 0 && !view.spaceHeld) pick(null, false);
+        };
+        ref.viewport.addEventListener("pointermove", move);
+        ref.viewport.addEventListener("pointerup", up);
+        ref.viewport.addEventListener("pointercancel", up);
+      }
+
+      function startPress(event, card) {
+        const stage = view.layout.byKey[card.dataset.key];
+        const routeRow = event.target.closest(".route-row");
+        press = { stage, card, routeRow, startX: event.clientX, startY: event.clientY, dragging: false, pointerId: event.pointerId, toldWhy: false };
+        const move = (moveEvent) => onPressMove(moveEvent);
+        const up = (upEvent) => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          onPressUp(upEvent);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      }
+
+      function onPressMove(event) {
+        if (!press) return;
+        const dx = event.clientX - press.startX;
+        const dy = event.clientY - press.startY;
+        if (!press.dragging && Math.hypot(dx, dy) < 5) return;
+        const stage = press.stage;
+        if (!view.scenario.canMove(stage) || stage.mark === "removed") {
+          if (!press.toldWhy) {
+            press.toldWhy = true;
+            showToast(whyItStays(stage), event);
+          }
+          return;
+        }
+        if (!press.dragging) {
+          press.dragging = true;
+          press.originX = stage._x;
+          press.originY = stage._y;
+          press.card.classList.add("dragging");
+        }
+        // Near the canvas's edge, the view follows the drag.
+        const box = ref.viewport.getBoundingClientRect();
+        const edge = 36;
+        let follow = { x: 0, y: 0 };
+        if (event.clientX < box.left + edge) follow.x = 14;
+        else if (event.clientX > box.right - edge) follow.x = -14;
+        if (event.clientY < box.top + edge) follow.y = 14;
+        else if (event.clientY > box.bottom - edge) follow.y = -14;
+        if (follow.x || follow.y) {
+          const beforeX = view.x;
+          const beforeY = view.y;
+          panBy(follow.x, follow.y, false);
+          press.startX += view.x - beforeX;
+          press.startY += view.y - beforeY;
+        }
+        const x = press.originX + (event.clientX - press.startX) / view.zoom;
+        const y = press.originY + (event.clientY - press.startY) / view.zoom;
+        press.card.style.left = x + "px";
+        press.card.style.top = y + "px";
+        press.drop = dropCell(stage, x, y);
+        const ghost = ref.content.querySelector(".drop-ghost");
+        if (press.drop) {
+          ghost.hidden = false;
+          ghost.style.left = press.drop.x + "px";
+          ghost.style.top = press.drop.y + "px";
+          ghost.style.width = G.cardW + "px";
+          ghost.style.height = stage._h + "px";
+        } else {
+          ghost.hidden = true;
+        }
+      }
+
+      function whyItStays(stage) {
+        if (stage.locked) return stage.name + " has started, so it stays where it is.";
+        if (stage.mark === "removed") return stage.name + " is removed from the-office's Stages: Undo brings it back.";
+        if (stage.mark === "inserted") return stage.name + " goes where “Where it goes” puts it, in the panel below.";
+        return "Its place comes from Full, the base Pipeline: move it there.";
+      }
+
+      function dropCell(stage, x, y) {
+        const layout = view.layout;
+        const col = Math.max(0, Math.round((x - G.padLeft) / (G.cardW + G.colGap)));
+        let row = 0;
+        let best = Infinity;
+        for (let r = 0; r <= layout.rows; r++) {
+          const top = r < layout.rows ? layout.rowY(r) : layout.gridBottom + G.rowGap;
+          const distance = Math.abs(top - y);
+          if (distance < best) {
+            best = distance;
+            row = r;
+          }
+        }
+        const taken = view.stages.some((other) => other !== stage && other.col === col && other.row === row);
+        if (taken) return null;
+        const top = row < layout.rows ? layout.rowY(row) : layout.gridBottom + G.rowGap;
+        return { col, row, x: layout.colX(col), y: top };
+      }
+
+      function onPressUp(event) {
+        const current = press;
+        press = null;
+        if (!current) return;
+        if (current.dragging) {
+          if (current.drop && (current.drop.col !== current.stage.col || current.drop.row !== current.stage.row)) {
+            current.stage.col = current.drop.col;
+            current.stage.row = current.drop.row;
+            packPlaces();
+            view.hint = current.stage.name + " was moved. Its routes stay as they were.";
+          }
+          renderAll();
+          sizeViewport();
+          clampView();
+          applyView(false);
+          renderPanel();
+          return;
+        }
+        // A removed Stage's route is drawn for reference only.
+        if (current.stage.mark === "removed") return pick({ stage: current.stage.key }, false);
+        if (current.routeRow) pick({ stage: current.stage.key, route: Number(current.routeRow.dataset.route) }, false);
+        else pick({ stage: current.stage.key }, false);
+      }
+
+      // Empty columns and rows close up after a move.
+      function packPlaces() {
+        const columns = [...new Set(view.stages.map((stage) => stage.col))].sort((a, b) => a - b);
+        const rows = [...new Set(view.stages.map((stage) => stage.row))].sort((a, b) => a - b);
+        for (const stage of view.stages) {
+          stage.col = columns.indexOf(stage.col);
+          stage.row = rows.indexOf(stage.row);
+        }
+      }
+
+      // Keyboard picking (Enter or Space on a card or a route row).
+      ref.content.addEventListener("click", (event) => {
+        if (event.detail !== 0) return;
+        const card = event.target.closest(".stage-card");
+        if (!card) return;
+        const routeRow = event.target.closest(".route-row");
+        const key = card.dataset.key;
+        const routeIndex = routeRow ? routeRow.dataset.route : null;
+        pick(routeRow ? { stage: key, route: Number(routeIndex) } : { stage: key }, true);
+        const again = ref.content.querySelector('[data-key="' + key + '"] ' + (routeRow ? '[data-route="' + routeIndex + '"]' : ".stage-head"));
+        if (again) again.focus({ preventScroll: true });
+      });
+      ref.content.addEventListener("focusin", (event) => {
+        const card = event.target.closest(".stage-card");
+        if (card && event.target.matches(":focus-visible") && view.layout.byKey[card.dataset.key]) bringIntoView(view.layout.byKey[card.dataset.key]);
+      });
+
+      /* ---------- Wheel: Ctrl/⌘ zooms; sideways scroll pans; a plain scroll is the page's, except in full screen ---------- */
+      ref.viewport.addEventListener(
+        "wheel",
+        (event) => {
+          const box = ref.viewport.getBoundingClientRect();
+          if (event.ctrlKey || event.metaKey) {
+            event.preventDefault();
+            setZoom(view.zoom * Math.exp(-event.deltaY * 0.0022), { x: event.clientX - box.left, y: event.clientY - box.top }, false);
+            return;
+          }
+          const sideways = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+          if (view.fullscreen || sideways) {
+            event.preventDefault();
+            const dx = event.shiftKey && !event.deltaX ? event.deltaY : event.deltaX;
+            const dy = view.fullscreen && !event.shiftKey ? event.deltaY : 0;
+            panBy(-dx, -dy, false);
+          }
+        },
+        { passive: false },
+      );
+
+      /* ---------- Keys ---------- */
+      ref.viewport.addEventListener("keydown", (event) => {
+        if (event.target !== ref.viewport) {
+          if (event.key === "Escape") ref.viewport.focus();
+          return;
+        }
+        const step = 80;
+        const keys = {
+          "+": () => stepZoom(1),
+          "=": () => stepZoom(1),
+          "-": () => stepZoom(-1),
+          "0": () => setZoom(1, null, true),
+          f: () => fit(true),
+          F: () => fit(true),
+          ArrowLeft: () => panBy(step, 0, true),
+          ArrowRight: () => panBy(-step, 0, true),
+          ArrowUp: () => panBy(0, step, true),
+          ArrowDown: () => panBy(0, -step, true),
+        };
+        if (keys[event.key]) {
+          event.preventDefault();
+          keys[event.key]();
+        }
+      });
+
+      let pointerOverCanvas = false;
+      ref.viewport.addEventListener("pointerenter", () => (pointerOverCanvas = true));
+      ref.viewport.addEventListener("pointerleave", () => (pointerOverCanvas = false));
+      window.addEventListener("keydown", (event) => {
+        const typing = event.target.closest && event.target.closest("input, textarea, button");
+        if (event.key === " " && pointerOverCanvas && !typing) {
+          event.preventDefault();
+          view.spaceHeld = true;
+          ref.viewport.classList.add("space-held");
+        }
+        if (event.key === "Escape") {
+          if (closeMenus()) return;
+          if (view.fullscreen) setFullscreen(false);
+        }
+      });
+      window.addEventListener("keyup", (event) => {
+        if (event.key === " ") {
+          view.spaceHeld = false;
+          ref.viewport.classList.remove("space-held");
+        }
+      });
+
+      /* ---------- Controls ---------- */
+      ref.tools.addEventListener("click", (event) => {
+        const zoomItem = event.target.closest("[data-zoom]");
+        if (zoomItem) {
+          closeMenus();
+          if (zoomItem.dataset.zoom === "fit") fit(true);
+          else setZoom(Number(zoomItem.dataset.zoom), null, true);
+          return;
+        }
+        const button = event.target.closest("[data-act]");
+        if (!button || button.getAttribute("aria-disabled") === "true") return;
+        const act = button.dataset.act;
+        if (act === "zoom-in") stepZoom(1);
+        if (act === "zoom-out") stepZoom(-1);
+        if (act === "fit") fit(true);
+        if (act === "zoom-menu") toggleMenu(ref.zoomMenu, ref.readout);
+        if (act === "overview") {
+          view.overviewOn = !view.overviewOn;
+          updateOverview();
+        }
+        if (act === "fullscreen") setFullscreen(!view.fullscreen);
+      });
+
+      ref.addButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (ref.addButton.getAttribute("aria-disabled") === "true") return;
+        toggleMenu(ref.addMenu, ref.addButton);
+      });
+      ref.addMenu.addEventListener("click", () => closeMenus());
+
+      function toggleMenu(menu, button) {
+        const opening = menu.hidden;
+        closeMenus();
+        if (opening) {
+          menu.hidden = false;
+          button.setAttribute("aria-expanded", "true");
+        }
+      }
+
+      function closeMenus() {
+        let closed = false;
+        for (const [menu, button] of [
+          [ref.zoomMenu, ref.readout],
+          [ref.addMenu, ref.addButton],
+        ]) {
+          if (!menu.hidden) {
+            menu.hidden = true;
+            button.setAttribute("aria-expanded", "false");
+            closed = true;
+          }
+        }
+        return closed;
+      }
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".menu, [aria-haspopup]")) closeMenus();
+      });
+
+      ref.viewToggle.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-view]");
+        if (!button) return;
+        view.mode = button.dataset.view;
+        ref.viewToggle.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+        ref.viewport.hidden = view.mode !== "flow";
+        ref.list.hidden = view.mode !== "list";
+        updateOverview();
+      });
+      ref.list.addEventListener("click", (event) => {
+        const row = event.target.closest("li[data-key]");
+        if (row) pick({ stage: row.dataset.key }, false);
+      });
+
+      ref.exitFs.addEventListener("click", () => setFullscreen(false));
+
+      function setFullscreen(on) {
+        const { width, height } = viewportSize();
+        const centerX = (width / 2 - view.x) / view.zoom;
+        const centerY = (height / 2 - view.y) / view.zoom;
+        // Another Pipeline opened before the frame: it opens at its own Start instead.
+        const epoch = view.epoch;
+        view.fullscreen = on;
+        // The app frame's container query and the window's transform would hold a fixed element inside them.
+        if (on) {
+          editor.slot = editor.root.parentElement;
+          document.body.appendChild(editor.root);
+        } else if (editor.slot) {
+          editor.slot.appendChild(editor.root);
+        }
+        editor.root.classList.toggle("fullscreen", on);
+        document.body.style.overflow = on ? "hidden" : "";
+        const button = ref.tools.querySelector('[data-act="fullscreen"]');
+        button.innerHTML = icon(on ? "minimize" : "maximize");
+        button.setAttribute("aria-label", on ? "Exit full screen" : "Full screen");
+        button.dataset.tip = on ? "Exit full screen  (Esc)" : "Full screen";
+        sizeViewport();
+        requestAnimationFrame(() => {
+          if (view.epoch !== epoch) return;
+          const size = viewportSize();
+          view.x = size.width / 2 - centerX * view.zoom;
+          view.y = size.height / 2 - centerY * view.zoom;
+          clampView();
+          applyView(false);
+          if (on) ref.viewport.focus({ preventScroll: true });
+        });
+      }
+
+      new ResizeObserver(() => {
+        if (!view.layout) return;
+        clampView();
+        applyView(false);
+      }).observe(ref.viewport);
+
+      /* ---------- The panel under the canvas ---------- */
+      function field(label, control) {
+        return '<div class="field"><span class="label">' + label + "</span>" + control + "</div>";
+      }
+      const select = (text) => '<span class="select">' + escapeHtml(text) + "</span>";
+      const input = (value, mono) => '<input class="input' + (mono ? " mono" : "") + '" value="' + escapeHtml(value) + '" />';
+
+      function stageFields(stage, disabled) {
+        const open = disabled ? '<fieldset disabled style="border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:12px;opacity:.7">' : "";
+        const close = disabled ? "</fieldset>" : "";
+        if (stage.kind === "gate") {
+          return open + field("Name", input(stage.name)) + '<p class="note">A Gate waits for the user: they let the work continue, or send it back.</p>' + close;
+        }
+        if (stage.kind === "script") {
+          return open + '<div class="fields-2">' + field("Name", input(stage.name)) + field("Project command", select(stage.key === "tests" ? "Build, test and end-to-end" : "Publish")) + "</div>" +
+            (stage.key === "tests" ? field("Runs", input(stage.who, true)) : "") + close;
+        }
+        const budget = stage.budget ? stage.budget.now : "400";
+        return (
+          open + '<div class="fields-2">' + field("Name", input(stage.name)) + field("Who works it", select(stage.who)) + "</div>" +
+          field("Brief", '<textarea class="textarea" rows="3">' + escapeHtml(BRIEFS[stage.key] || "Do the Stage's work as the Plan says, and check it in the narrowest way that covers it.") + "</textarea>") +
+          '<div class="fields-2">' + field("Session", select("Fresh, with a brief")) +
+          field("Budget", '<div class="input-row">' + input(budget) + '<span class="muted">k tokens</span></div>') + "</div>" + close
+        );
+      }
+
+      const BRIEFS = {
+        plan: "Write the Task's Plan and Definition of Done from its Description, and ask the user what only they can answer.",
+        design: "Create a design according to the Plan and the Definition of Done. Attach it to the Task.",
+        implement: "Implement the Task's Plan using the design the earlier Stage made. The design is mandatory: ask if it doesn't exist.",
+        "review-fix": "Review the work against the Plan and the Definition of Done as if someone else wrote it, then fix what you find.",
+        security: "Review the change for security: signing in, secrets, what leaves the machine.",
+        "live-check": "Open the change in a browser on the Test Project and check each changed screen against the design.",
+      };
+
+      function routesColumn(stage, readOnly) {
+        const rows = stage.routes
+          .map(
+            (route, index) =>
+              '<div class="route-item"><span class="n">' + (index + 1) + '</span><span><span class="cond">' + escapeHtml(route.when || "otherwise") +
+              "</span> → <b>" + escapeHtml(routeTargetName(route)) + "</b></span>" +
+              (readOnly ? "" : '<button class="icon-btn" type="button" data-icon="more" aria-label="Route ' + (index + 1) + ' actions" data-tip="Move up, Move down, Remove"></button>') + "</div>",
+          )
+          .join("");
+        const onFailure = stage.onFailure
+          ? select("Go back to " + routeTargetName({ to: stage.onFailure.to }) + ", at most " + stage.onFailure.times + " times")
+          : select("No On failure loop");
+        return (
+          '<p class="overline">Routes out, in the order they&#39;re weighed</p>' + rows +
+          (readOnly ? "" : '<div><button class="btn ghost" type="button" data-icon="plus">Add a route</button></div>') +
+          (stage.kind === "gate" ? "" : '<p class="overline" style="margin-top:6px">On failure</p>' + onFailure)
+        );
+      }
+
+      function panelHead(stage, extra, tools) {
+        return (
+          '<div class="panel-head"><span class="kind-mark ' + stage.kind + '">' + icon(KIND[stage.kind].icon, 11) + "</span>" +
+          '<span class="name">' + escapeHtml(stage.name) + '</span><span class="who">' + KIND[stage.kind].label + (stage.kind === "script" ? "" : " · " + escapeHtml(stage.who)) + "</span>" +
+          extra + '<span class="tools">' + tools + "</span></div>"
+        );
+      }
+
+      const MOVE_TOOLS =
+        '<button class="icon-btn" type="button" data-icon="arrow-left" aria-label="Move earlier" data-tip="Move earlier"></button>' +
+        '<button class="icon-btn" type="button" data-icon="arrow-right" aria-label="Move later" data-tip="Move later"></button>' +
+        '<button class="icon-btn" type="button" data-icon="arrow-up" aria-label="Move up" data-tip="Move up"></button>' +
+        '<button class="icon-btn" type="button" data-icon="arrow-down" aria-label="Move down" data-tip="Move down"></button>' +
+        '<span class="sep"></span><button class="icon-btn" type="button" data-icon="more" aria-label="More" data-tip="Save as template, Remove"></button>';
+
+      function renderPanel() {
+        const slot = ref.panel;
+        if (!view.pick) {
+          slot.innerHTML = '<div class="flow-panel empty">Pick a Stage or a route on the canvas to edit it here.</div>';
+          return;
+        }
+        const stage = view.layout.byKey[view.pick.stage];
+        if (view.pick.route !== undefined) {
+          const route = stage.routes[view.pick.route];
+          slot.innerHTML =
+            '<div class="flow-panel"><div class="panel-head"><span class="name">Route ' + (view.pick.route + 1) + " of " + escapeHtml(stage.name) + "</span>" +
+            '<span class="who">' + escapeHtml(route.when || "otherwise") + " → " + escapeHtml(routeTargetName(route)) + "</span>" +
+            '<span class="tools">' +
+            (view.scenarioName === "project" ? "" : '<button class="btn ghost" type="button" data-icon="plus">Insert a Stage on this route</button>') +
+            '<button class="btn danger-ghost" type="button">Remove route</button></span></div>' +
+            '<div class="panel-body"><div class="panel-col">' + field("Goes to", select(routeTargetName(route))) +
+            '<div class="field"><span class="label">Followed</span><div class="seg" role="group"><button type="button" aria-pressed="' + !route.when + '">Otherwise</button><button type="button" aria-pressed="' + Boolean(route.when) + '">When…</button></div></div>' +
+            "</div><div class=\"panel-col\">" +
+            (route.when
+              ? '<p class="overline">When</p><div class="route-item"><span class="n">1</span><span>' + escapeHtml(route.when) + '</span><button class="icon-btn" type="button" data-icon="x" aria-label="Remove the condition" data-tip="Remove the condition"></button></div><div><button class="btn ghost" type="button" data-icon="plus">Add a condition</button></div>'
+              : '<p class="note">Followed when no route before it is: the last route out is always "otherwise".</p>') +
+            "</div></div></div>";
+          hydrateIcons(slot);
+          return;
+        }
+
+        if (view.scenarioName === "project") {
+          slot.innerHTML = projectPanel(stage);
+        } else {
+          const locked = Boolean(stage.locked);
+          const tools = locked ? '<span class="badge">' + icon("lock", 12) + "Locked</span>" : MOVE_TOOLS;
+          const note = locked ? '<div class="panel-note">' + icon("lock", 14) + escapeHtml(stage.locked) + ".</div>" : "";
+          slot.innerHTML =
+            '<div class="flow-panel">' + panelHead(stage, "", tools) +
+            '<div class="panel-body"><div class="panel-col">' + note + stageFields(stage, locked) + '</div><div class="panel-col">' + routesColumn(stage, locked) + "</div></div></div>";
+        }
+        hydrateIcons(slot);
+      }
+
+      function projectPanel(stage) {
+        const undo = '<button class="btn ghost" type="button" data-icon="undo">Undo</button>';
+        const more = '<button class="icon-btn" type="button" data-icon="more" aria-label="More" data-tip="Replace with a new kind, Remove from the-office&#39;s Stages"></button>';
+        if (stage.mark === "removed") {
+          return (
+            '<div class="flow-panel">' + panelHead(stage, '<span class="badge sm">Removed</span>', undo) +
+            '<div class="panel-body"><div class="panel-col"><div class="panel-note">' + icon("info", 14) +
+            "Removed from the-office's Stages. The route into it from Implement now leads where its one route out led, to Review final result.</div></div><div class=\"panel-col\"></div></div></div>"
+          );
+        }
+        if (stage.mark === "changed") {
+          return (
+            '<div class="flow-panel">' + panelHead(stage, '<span class="badge sm warning">Changed</span>', undo + more) +
+            '<div class="panel-body"><div class="panel-col"><div class="panel-note">' + icon("info", 14) +
+            "From Full, with 1 field changed for the-office. Full's later edits to its other fields reach it.</div>" +
+            '<table class="compare"><thead><tr><th>Field</th><th>Full has</th><th>the-office gets</th><th></th></tr></thead><tbody>' +
+            '<tr><td>Budget</td><td class="was">400k tokens</td><td class="now">600k tokens</td><td><button class="btn ghost" type="button">Set back</button></td></tr>' +
+            "</tbody></table>" + stageFields(stage, false) + '</div><div class="panel-col">' + routesColumn(stage, false) + "</div></div></div>"
+          );
+        }
+        if (stage.mark === "inserted") {
+          return (
+            '<div class="flow-panel">' + panelHead(stage, '<span class="badge sm success">Inserted</span>', undo + more) +
+            '<div class="panel-body"><div class="panel-col">' + field("Where it goes", select("After Tests")) + stageFields(stage, false) +
+            '</div><div class="panel-col">' + routesColumn(stage, false) + "</div></div></div>"
+          );
+        }
+        return (
+          '<div class="flow-panel">' + panelHead(stage, "", more) +
+          '<div class="panel-body"><div class="panel-col"><div class="panel-note">' + icon("info", 14) +
+          "From Full, as it is there. An edit here becomes a Change for the-office alone.</div>" + stageFields(stage, false) +
+          '</div><div class="panel-col">' + routesColumn(stage, false) + "</div></div></div>"
+        );
+      }
+
+      /* ---------- Toast and tooltips ---------- */
+      const toast = document.getElementById("toast");
+      let toastTimer = 0;
+      function showToast(text, event) {
+        toast.textContent = text;
+        toast.hidden = false;
+        toast.style.left = Math.min(event.clientX + 14, window.innerWidth - 320) + "px";
+        toast.style.top = event.clientY + 18 + "px";
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => (toast.hidden = true), 2600);
+      }
+
+      const tip = document.getElementById("tip");
+      function showTip(target) {
+        const text = target.dataset.tip;
+        if (!text || press || document.querySelector(".panning")) return;
+        tip.textContent = text;
+        tip.classList.add("on");
+        const box = target.getBoundingClientRect();
+        const tipBox = tip.getBoundingClientRect();
+        let top = box.top - tipBox.height - 8;
+        if (top < 50) top = box.bottom + 8;
+        tip.style.top = top + "px";
+        tip.style.left = clamp(box.left + box.width / 2 - tipBox.width / 2, 8, window.innerWidth - tipBox.width - 8) + "px";
+      }
+      function hideTip() {
+        tip.classList.remove("on");
+      }
+      document.addEventListener("pointerover", (event) => {
+        const target = event.target.closest("[data-tip]");
+        if (target) showTip(target);
+        else hideTip();
+      });
+      document.addEventListener("focusin", (event) => {
+        const target = event.target.closest && event.target.closest("[data-tip]");
+        if (target) showTip(target);
+      });
+      document.addEventListener("focusout", hideTip);
+      document.addEventListener("pointerdown", hideTip);
+
+      /* ---------- The page around the editor ---------- */
+      const SETTINGS_NAV = [
+        ["route", "Pipelines"], ["briefcase", "Duties"], ["sparkles", "Skills"], ["plug", "MCP servers"], ["cpu", "Engines"], ["users", "Users"],
+        ["log-in", "Signing in"], ["key", "Office identity"], ["gauge", "Office limits"], ["file-text", "Office instructions"],
+        ["file-text", "Prompt templates"], ["bell", "Notifications"], ["activity", "Telemetry"], ["refresh", "Updates"],
+      ];
+      const PROJECT_NAV = [
+        ["layout-grid", "Overview"], ["terminal", "Commands"], ["hard-drive", "Environment"], ["route", "Pipelines"], ["box", "Run environment"],
+        ["cpu", "Engine"], ["sparkles", "Skills"], ["plug", "Server values"], ["palette", "Appearance"],
+      ];
+      function renderNav(element, items, current) {
+        element.innerHTML = items
+          .map((item) => '<span class="' + (item[1] === current ? "on" : "") + '">' + icon(item[0]) + escapeHtml(item[1]) + "</span>")
+          .join("");
+      }
+      renderNav(document.getElementById("settings-nav"), SETTINGS_NAV, "Pipelines");
+      renderNav(document.getElementById("project-nav"), PROJECT_NAV, "Pipelines");
+
+      // A PickListItem, as today: the icon only where the list gives one, the name, its lines, the aside.
+      function pickRow(item, picked) {
+        return (
+          '<li class="pick-row"><button type="button" class="pick-item"' + (picked ? ' aria-current="page"' : "") + ">" +
+          (item.icon ? '<span class="pick-icon">' + icon(item.icon, 15) + "</span>" : "") +
+          '<span class="pick-words"><span class="pick-name">' + escapeHtml(item.name) + '</span><span class="pick-line' + (item.lineTone ? " " + item.lineTone : "") + '">' + escapeHtml(item.line) + "</span>" +
+          (item.second ? '<span class="pick-line">' + escapeHtml(item.second) + "</span>" : "") + "</span>" +
+          '<span class="pick-aside">' + (item.aside || "") + (item.warning ? '<span class="warn" data-tip="Needs fixing">' + icon("alert", 15) + "</span>" : "") + "</span></button></li>"
+        );
+      }
+      function renderPickList(element, items, pickedIndex) {
+        element.innerHTML = items.map((item, index) => pickRow(item, index === pickedIndex)).join("");
+        element.addEventListener("click", (event) => {
+          const button = event.target.closest(".pick-item");
+          if (!button) return;
+          element.querySelectorAll(".pick-item").forEach((other) => other.removeAttribute("aria-current"));
+          button.setAttribute("aria-current", "page");
+        });
+      }
+      renderPickList(
+        document.getElementById("pipeline-list"),
+        [
+          { name: "Full", line: "9 Stages · 2 Gates", second: "Built on by 2 Project Pipelines", aside: '<span class="badge sm danger">1 Broken</span>' },
+          { name: "Quick fix", line: "4 Stages · 1 Gate", second: "Built on by 1 Project Pipeline", aside: '<span class="badge sm danger">1 Broken</span>' },
+          { name: "Design first", line: "6 Stages · 2 Gates" },
+          { name: "Docs only", line: "3 Stages · 1 Gate" },
+          { name: "Proof of concept", line: "5 Stages · no Gate", warning: true },
+          { name: "Onboard", line: "2 Stages · built in" },
+        ],
+        0,
+      );
+      renderPickList(
+        document.getElementById("template-list"),
+        [
+          { icon: "user", name: "Security review", line: "CTO" },
+          { icon: "user", name: "Live check", line: "QA" },
+          { icon: "terminal", name: "Lint", line: "lint" },
+          { icon: "hand", name: "Sign-off", line: "waits for you" },
+          { icon: "user", name: "Release notes", line: "nobody yet", warning: true },
+        ],
+        0,
+      );
+      renderPickList(
+        document.getElementById("project-list"),
+        [
+          { name: "Full for the-office", line: "Built from Full · 3 Stage changes", aside: '<span class="badge sm">Default</span>' },
+          { name: "Quick fix for the-office", line: "Built from Quick fix · 1 Stage change no longer applies", lineTone: "danger", aside: '<span class="badge sm danger">Broken</span>' },
+        ],
+        0,
+      );
+
+      const SCREENS = {
+        settings: { rail: "settings", crumb: "", title: "Settings", editor: "settings" },
+        templates: { rail: "settings", crumb: "", title: "Settings", editor: null },
+        project: { rail: "projects", crumb: "Projects ›", title: "the-office", editor: "project" },
+        task: { rail: "work", crumb: "Work ›", title: "Pipelines redesign", editor: "task" },
+      };
+
+      function showScreen(name) {
+        const screen = SCREENS[name];
+        if (view.fullscreen) setFullscreen(false);
+        document.querySelectorAll(".screen").forEach((element) => {
+          element.hidden = !element.dataset.screen.split(" ").includes(name);
+        });
+        document.querySelectorAll(".tab").forEach((tab) => tab.setAttribute("aria-selected", String(tab.dataset.tab === name)));
+        document.querySelectorAll("[data-rail]").forEach((item) => item.classList.toggle("on", item.dataset.rail === screen.rail));
+        document.getElementById("crumb").textContent = screen.crumb;
+        document.getElementById("page-title").textContent = screen.title;
+        if (screen.editor) {
+          document.querySelector('[data-slot="' + screen.editor + '"]').appendChild(editor.root);
+          setScenario(screen.editor);
+        }
+        setPressed("screen", name);
+      }
+
+      document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => showScreen(tab.dataset.tab)));
+
+      function setPressed(group, value) {
+        document.querySelectorAll('[data-pv="' + group + '"] button').forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.value === value)));
+      }
+      document.querySelectorAll("[data-pv]").forEach((group) => {
+        group.addEventListener("click", (event) => {
+          const button = event.target.closest("button");
+          if (!button) return;
+          const value = button.dataset.value;
+          const kind = group.dataset.pv;
+          if (kind === "screen") return showScreen(value);
+          setPressed(kind, value);
+          if (kind === "palette") {
+            document.documentElement.dataset.palette = value;
+            document.documentElement.dataset.theme = value;
+          }
+          if (kind === "width") {
+            document.documentElement.dataset.width = value;
+            requestAnimationFrame(() => {
+              clampView();
+              applyView(false);
+            });
+          }
+        });
+      });
+
+      hydrateIcons(document);
+      showScreen("settings");
+    </script>
+  </body>
+</html>

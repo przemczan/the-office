@@ -549,3 +549,10 @@
   color: var(--fg-1);
   user-select: all;
 }
+
+/* Settings › Pipelines: the Pipelines and Stage templates tabs above the list and the open item. */
+.pipelines-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

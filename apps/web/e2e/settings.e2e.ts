@@ -641,6 +641,9 @@ test(
   async ({ page }) => {
     const name = `Lint first ${Date.now()}`;
     await page.goto("/settings/pipelines");
+    // The Stage templates are their own tab.
+    await page.getByRole("tab", { name: /^Stage templates/ }).click();
+    await expect(page).toHaveURL(/\/settings\/pipelines\/stage-templates$/);
     const templates = page.getByRole("navigation", { name: "Stage templates" });
     // The built-in Stages are templates from the start.
     await expect(templates.getByRole("link", { name: /^Implement/ })).toBeVisible();
@@ -721,21 +724,24 @@ test(
       },
     ]);
     await page.goto(`/settings/pipelines/${pipeline.id}`);
+    // The Stage is picked first, as coming back from the Stage templates tab picks none.
     const saveAsTemplate = async (): Promise<void> => {
+      await page
+        .getByRole("region", { name: "Flow" })
+        .getByRole("button", { name: stageName, exact: true })
+        .click();
       await page.getByRole("button", { name: `More for ${stageName}` }).click();
       await page
         .getByRole("menu")
         .getByRole("button", { name: `Save ${stageName} as a template` })
         .click();
     };
-    await page
-      .getByRole("region", { name: "Flow" })
-      .getByRole("button", { name: stageName, exact: true })
-      .click();
     await saveAsTemplate();
     await expect(page.getByText(`${stageName} saved as a Stage template.`)).toBeVisible();
+    await page.getByRole("tab", { name: /^Stage templates/ }).click();
     const templates = page.getByRole("navigation", { name: "Stage templates" });
     await expect(templates.getByRole("link", { name: new RegExp(stageName) })).toBeVisible();
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
     const saved = (await stageTemplates(page)).find(({ stage }) => stage.name === stageName);
     // Kept without its failure rule, which names a Stage of the Pipeline.
     expect(saved?.stage).toEqual({
@@ -1543,4 +1549,95 @@ asOwnUser.describe("Account › Appearance", { tag: "@full" }, () => {
       await page.setViewportSize({ width: 1600, height: 900 });
     }
   });
+});
+
+test("the flow canvas moves with the right mouse button, zooms, fits the whole Pipeline and goes full screen; a Project Pipeline's Stage says why it stays", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository.path, `Canvas ${Date.now()}`, "full");
+    const base = await addedBasePipeline(page, "Canvas base");
+    const own = await addedProjectPipeline(page, project.id, base, "Canvas own");
+
+    // Full has more Stages than fit beside the list at 100%. By its address, so a narrow window
+    // shows it rather than the list.
+    await page.goto("/settings/pipelines");
+    const full = page.getByRole("navigation", { name: "Office-wide Pipelines" }).getByRole("link");
+    await page.goto((await full.first().getAttribute("href")) ?? "");
+    const flow = page.getByRole("region", { name: "Flow" });
+    const view = page.getByRole("group", { name: /^Flow view/ });
+    const tools = page.getByRole("toolbar", { name: "Canvas" });
+    await expect(flow.locator("[data-flow-stage]").first()).toBeVisible();
+    await expect(tools.getByRole("button", { name: "Zoom: 100%" })).toBeVisible();
+    await expect(page.getByRole("group", { name: /^Overview/ })).toBeVisible();
+    await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "settings-pipelines-tab.png") });
+    await screenshotScenario(page, "settings-pipelines-canvas", { inView: view });
+
+    // The right button moves the view, and opens no menu.
+    const transform = (): Promise<string> =>
+      page.locator(".flow-viewport-content").evaluate((content) => content.style.transform);
+    const before = await transform();
+    const frame = await boxOf(view);
+    await page.mouse.move(frame.x + frame.width / 2, frame.y + frame.height / 2);
+    await page.mouse.down({ button: "right" });
+    await page.mouse.move(frame.x + frame.width / 2 - 240, frame.y + frame.height / 2, {
+      steps: 6,
+    });
+    await page.mouse.up({ button: "right" });
+    expect(await transform()).not.toBe(before);
+    await expect(page.getByRole("menu")).toHaveCount(0);
+
+    // Ctrl + scroll zooms out, and under 60% a card shows only its name.
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, 400);
+    await page.keyboard.up("Control");
+    await expect(tools.getByRole("button", { name: "Zoom: 100%" })).toHaveCount(0);
+
+    // Fit shows every Stage inside the view.
+    await tools.getByRole("button", { name: "Fit the Pipeline" }).click();
+    await expect(page.getByRole("group", { name: /^Overview/ })).toHaveCount(0);
+    const fitted = await boxOf(view);
+    for (const card of await flow.locator("[data-flow-stage]").all()) {
+      const box = await card.boundingBox();
+      if (!box) throw new Error("A Stage isn't laid out");
+      expect(box.x).toBeGreaterThanOrEqual(fitted.x - 1);
+      expect(box.x + box.width).toBeLessThanOrEqual(fitted.x + fitted.width + 1);
+    }
+    await screenshotScenario(page, "settings-pipelines-canvas-fitted", { inView: view });
+
+    // Full screen covers the window, with Save at hand; Escape brings the editor back.
+    await tools.getByRole("button", { name: "Full screen" }).click();
+    const fullScreen = page.getByRole("dialog", { name: "Stages and routes, full screen" });
+    await expect(fullScreen).toBeVisible();
+    await expect(fullScreen.getByRole("button", { name: "Save the Pipeline" })).toBeVisible();
+    await page.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "settings-pipelines-full-screen.png"),
+    });
+    await page.keyboard.press("Escape");
+    await expect(fullScreen).toHaveCount(0);
+    await expect(flow).toBeVisible();
+
+    // The Stage templates are the second tab.
+    await page.getByRole("tab", { name: /^Stage templates/ }).click();
+    await expect(page.getByRole("navigation", { name: "Stage templates" })).toBeVisible();
+    await page.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "settings-stage-templates-tab.png"),
+    });
+
+    // A Project Pipeline keeps its base Pipeline's places, and says so when a Stage is dragged.
+    await page.goto(`/projects/${project.id}/pipelines/${own.id}`);
+    const build = await boxOf(flow.locator('[data-flow-stage="build"]'));
+    await page.mouse.move(build.x + build.width / 2, build.y + 12);
+    await page.mouse.down();
+    await page.mouse.move(build.x + build.width / 2 + 80, build.y + 40, { steps: 4 });
+    await expect(page.getByRole("status").filter({ hasText: "Its place comes from" })).toHaveText(
+      `Its place comes from ${base.name}, the base Pipeline: move it there.`,
+    );
+    await page.mouse.up();
+    await screenshotScenario(page, "project-pipelines-canvas", { inView: view });
+  } finally {
+    await repository.remove();
+  }
 });

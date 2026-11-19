@@ -160,6 +160,20 @@ function EditTaskStagesForm({
   const notStarted = NOT_STARTED.includes(task.state);
   const editWaits = edited && (problems.length > 0 || checkAwaited(check));
   const started = useMemo(() => startedStages(taskStages), [taskStages]);
+  // In the window's bar, and under the editor in full screen, so Save stays at hand.
+  const saveActions = (
+    <>
+      <Button
+        loading={saving.isPending}
+        disabled={(!edited && !swapped) || editWaits}
+        title={chosenPipelineId === "" ? "Choose a Pipeline first." : undefined}
+        onClick={() => saving.mutate()}
+      >
+        Save for this Task
+      </Button>
+      <span className="dialog-hint">Nothing changes on the Task until you save.</span>
+    </>
+  );
   return (
     <Dialog
       size="large"
@@ -167,19 +181,7 @@ function EditTaskStagesForm({
       title={notChosen ? `Choose a Pipeline for ${task.title}` : `Stages of ${task.title}`}
       unsavedChanges={edited || swapped}
       onClose={onClose}
-      actions={
-        <>
-          <Button
-            loading={saving.isPending}
-            disabled={(!edited && !swapped) || editWaits}
-            title={chosenPipelineId === "" ? "Choose a Pipeline first." : undefined}
-            onClick={() => saving.mutate()}
-          >
-            Save for this Task
-          </Button>
-          <span className="dialog-hint">Nothing changes on the Task until you save.</span>
-        </>
-      }
+      actions={saveActions}
     >
       <div className="work-form">
         {(pipeline || !notChosen) && (
@@ -223,6 +225,8 @@ function EditTaskStagesForm({
         )}
         {chosenPipelineId !== "" && (
           <TaskFlowEditor
+            // Another Pipeline opens at 100%, with its Start in view.
+            key={chosenPipelineId}
             stages={stages}
             onChange={(changed) => {
               setStages(changed);
@@ -235,6 +239,8 @@ function EditTaskStagesForm({
             duties={duties}
             options={options}
             commands={commandsOf(task, project, initiative)}
+            fullScreenName={`${task.title} ·`}
+            fullScreenBar={saveActions}
           />
         )}
       </div>

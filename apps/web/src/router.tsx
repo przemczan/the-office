@@ -607,7 +607,15 @@ const settingsPipelineRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
-// Its own static segment, so a Stage template's id never reads as a Pipeline's.
+// Its own static segment, so a Stage template's id never reads as a Pipeline's. Without an id the
+// Stage templates tab opens at its first template.
+const settingsStageTemplatesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "pipelines/stage-templates",
+  component: PipelinesSection,
+  staticData: { title: "Settings" },
+});
+
 const settingsStageTemplateRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/stage-templates/$stageTemplateId",
@@ -826,6 +834,7 @@ export const router = createRouter({
       settingsHomeRoute,
       settingsPipelinesRoute,
       settingsPipelineRoute,
+      settingsStageTemplatesRoute,
       settingsStageTemplateRoute,
       settingsDutiesRoute,
       settingsSkillsRoute,

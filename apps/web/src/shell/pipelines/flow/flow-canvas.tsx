@@ -3,10 +3,14 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
+  useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
+import { createPortal } from "react-dom";
 import "./flow-canvas.css";
 import {
   drawingStart,
@@ -21,12 +25,17 @@ import {
   listsRoutes,
   loopLanes,
   loopPaths,
-  orientationFor,
   placeOf,
   routePaths,
   startPath,
 } from "./flow-layout.ts";
-import { type FlowLocks, type FlowOverlay, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
+import {
+  type FlowLocks,
+  type FlowOverlay,
+  type FlowStageMarks,
+  type FlowStageMarkTone,
+  NO_LOCKS,
+} from "./flow-marks.ts";
 import { canDropAt, canMoveStage, inFlowOrder, stepInOrder } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import { FlowStageCard } from "./flow-stage-card.tsx";
@@ -40,6 +49,11 @@ import {
   routeName,
   stageProblemsOf,
 } from "./flow-view.ts";
+import {
+  type FlowOverviewBlock,
+  type FlowOverviewShape,
+  useFlowViewport,
+} from "./flow-viewport-context.ts";
 import { type FlowDrag, useFlowDrag } from "./use-flow-drag.ts";
 import { type FlowView, useFlowMeasure } from "./use-flow-measure.ts";
 
@@ -62,6 +76,11 @@ export interface FlowCanvasProps {
   readonly overlay?: FlowOverlay;
   /** A Task's started Stages: each with its lock, none dragged, moved or drawn from. */
   readonly locked?: FlowLocks;
+  /**
+   * Why a Stage that can't be dragged keeps its place, said when someone tries, such as a Project
+   * Pipeline's base Pipeline places; a Task's started Stage says it without.
+   */
+  readonly whyItStays?: (stage: Stage) => string | undefined;
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
 }
 
@@ -70,13 +89,16 @@ const NO_MARKS: FlowStageMarks = new Map();
 /**
  * The flow editor's canvas (docs/design/pipeline-flow.html): the Stages in a grid of places, End
  * after the last column, and the routes and On failure loops drawn over it in one SVG from the
- * boxes the grid laid out. It asks the host for every edit through `onEdit`.
+ * boxes the grid laid out. It asks the host for every edit through `onEdit`. A card keeps its size:
+ * the FlowViewport around it (docs/design/pipeline-editor.html) moves and zooms it.
  */
 export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const { stages, readOnly = false, draggable = true, marks = NO_MARKS, locked = NO_LOCKS } = props;
   const canvas = useRef<HTMLDivElement>(null);
-  const view = useFlowMeasure(canvas);
-  const orientation = orientationFor(view.width);
+  const viewport = useFlowViewport();
+  const orientation = viewport?.orientation ?? "across";
+  const namesOnly = viewport?.namesOnly ?? false;
+  const view = useFlowMeasure(canvas, orientation);
   const removed = useMemo(
     () => new Set([...marks].filter(([, mark]) => mark.tone === "removed").map(([key]) => key)),
     [marks],
@@ -93,13 +115,28 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const canDrag = (key: string): boolean =>
     !readOnly && draggable && orientation === "across" && !removed.has(key) && !locked.has(key);
   const canDraw = (key: string): boolean => !readOnly && !locked.has(key);
+  const whyStays = (key: string): string | undefined => {
+    const stage = stages.find((each) => each.key === key);
+    if (!stage || readOnly || orientation !== "across") return undefined;
+    if (locked.has(key)) return `${stage.name} has started, so it stays where it is.`;
+    return props.whyItStays?.(stage);
+  };
+  const [told, setTold] = useState<FlowToldWhy | undefined>();
+  const forget = useCallback(() => setTold(undefined), []);
   const dragging = useFlowDrag({
     canvas,
     canDrag,
     canDrop: (drop) => canDropAt(stages, drop, locked),
     canDraw,
     onEdit: props.onEdit,
+    onDragMove: viewport?.followDrag,
+    saysWhyItStays: (key) => whyStays(key) !== undefined,
+    onStays: (key, { clientX, clientY }) => {
+      const words = whyStays(key);
+      if (words) setTold({ words, x: clientX, y: clientY, at: Date.now() });
+    },
   });
+  useOverviewAndPick(view, props.picked, marks, viewport);
   const focusAfter = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
     const key = focusAfter.current;
@@ -132,6 +169,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
     props.onPick?.({ kind: "stage", key: next });
   };
   const style = {
+    ...(orientation === "down" && viewport ? { width: viewport.width } : {}),
     "--flow-columns": size.columns,
     "--flow-rows": size.rows,
     "--flow-loop-room": `${room.loops}px`,
@@ -142,7 +180,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
       ref={canvas}
       role="region"
       aria-label="Flow"
-      className={canvasClass(readOnly, dragging.drag)}
+      className={canvasClass(readOnly, namesOnly, dragging.drag)}
       data-orientation={orientation}
       style={style}
       onKeyDown={(event) => removeRouteByKey(event, props)}
@@ -164,7 +202,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
             warningWords={warningWords(props.warnings, stage.key)}
             mark={marks.get(stage.key)}
             lockedNote={locked.get(stage.key)}
-            listsRoutes={listsRoutes(stage)}
+            listsRoutes={!namesOnly && listsRoutes(stage)}
             showsHandle={canDraw(stage.key)}
             draggable={canDrag(stage.key)}
             dragging={stageOffset(dragging.drag, stage.key)}
@@ -198,6 +236,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
         onPick={pick}
       />
       <LoopMarks loops={loopLines} stages={stages} problems={props.problems} onPick={pick} />
+      {told && <FlowToldWhyToast key={told.at} told={told} onGone={forget} />}
       {dragging.drag?.kind === "stage" && dragging.drag.at && (
         <div
           className={`flow-canvas-drop${dragging.drag.at.drop.newColumn ? " flow-canvas-drop--column" : ""}`}
@@ -213,14 +252,99 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   );
 }
 
-function canvasClass(readOnly: boolean, drag: FlowDrag | undefined): string {
+function canvasClass(readOnly: boolean, namesOnly: boolean, drag: FlowDrag | undefined): string {
   return [
     "flow-canvas",
     readOnly && "flow-canvas--read-only",
+    namesOnly && "flow-canvas--names-only",
     drag?.kind === "route" && "flow-canvas--drawing",
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+/**
+ * Gives the viewport the Stages' blocks for its Overview, and brings a newly picked Stage (by Tab, a
+ * problem's link or the List) into view.
+ */
+function useOverviewAndPick(
+  view: FlowView,
+  picked: FlowPick | undefined,
+  marks: FlowStageMarks,
+  viewport: ReturnType<typeof useFlowViewport>,
+): void {
+  const pickedKey = picked?.key;
+  const shown = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!viewport) return;
+    viewport.showOverview(overviewShape(view, pickedKey, marks));
+    if (pickedKey === shown.current) return;
+    shown.current = pickedKey;
+    const box = pickedKey === undefined ? undefined : view.measure.stages.get(pickedKey)?.box;
+    if (box) viewport.bringIntoView(box);
+  }, [view, pickedKey, marks, viewport]);
+}
+
+function overviewShape(
+  view: FlowView,
+  pickedKey: string | undefined,
+  marks: FlowStageMarks,
+): FlowOverviewShape {
+  return {
+    blocks: [...view.measure.stages].map(([key, { box }]) => ({
+      key,
+      box,
+      tone: key === pickedKey ? "picked" : overviewTone(marks.get(key)?.tone),
+    })),
+    end: view.measure.end,
+  };
+}
+
+function overviewTone(tone: FlowStageMarkTone | undefined): FlowOverviewBlock["tone"] {
+  if (tone === undefined || tone === "locked") return "plain";
+  return tone === "routes-changed" ? "changed" : tone;
+}
+
+interface FlowToldWhy {
+  readonly words: string;
+  /** Where the pointer was, on the screen. */
+  readonly x: number;
+  readonly y: number;
+  /** Each try says it again, its timer started afresh (the toast's key). */
+  readonly at: number;
+}
+
+const TOLD_FOR_MS = 3200;
+
+/**
+ * Why a Stage stays, by the pointer. On the body, as the canvas is scaled by the viewport and the
+ * words must stay readable whatever its zoom.
+ */
+function FlowToldWhyToast({
+  told,
+  onGone,
+}: {
+  readonly told: FlowToldWhy;
+  readonly onGone: () => void;
+}): ReactNode {
+  useEffect(() => {
+    const timer = window.setTimeout(onGone, TOLD_FOR_MS);
+    return () => window.clearTimeout(timer);
+  }, [onGone]);
+  return createPortal(
+    <div
+      className="flow-canvas-told"
+      role="status"
+      // Kept inside the window when the pointer is near its right or bottom edge.
+      style={{
+        left: `min(${told.x + 14}px, calc(100vw - 308px))`,
+        top: `min(${told.y + 16}px, calc(100vh - 72px))`,
+      }}
+    >
+      {told.words}
+    </div>,
+    document.body,
+  );
 }
 
 function stagePick(canvas: HTMLElement | null, key: string): HTMLButtonElement | null {

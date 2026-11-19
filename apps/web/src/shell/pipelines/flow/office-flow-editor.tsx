@@ -19,6 +19,10 @@ export interface OfficeFlowEditorProps {
   readonly options: RoleCardOptions;
   /** Every Project's commands, which a Script Stage and a command test pick a key from. */
   readonly commands?: StageCommandSource;
+  /** In full screen, before the title, such as "Full ·". */
+  readonly fullScreenName?: string;
+  /** In full screen, under the panel: the host's Save. */
+  readonly fullScreenBar?: ReactNode;
 }
 
 /**
@@ -43,6 +47,8 @@ export function OfficeFlowEditor(props: OfficeFlowEditorProps): ReactNode {
       warnings={props.warnings}
       whoWorks={(stage) => whoWorks(stage, roles, named, duties)}
       controls={controls}
+      fullScreenName={props.fullScreenName}
+      fullScreenBar={props.fullScreenBar}
       onEdit={(edit) => apply(canvasEdited(stages, edit))}
       head={
         <FlowAddMenu

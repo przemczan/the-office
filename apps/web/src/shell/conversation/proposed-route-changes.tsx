@@ -3,6 +3,7 @@ import { Icon } from "@the-office/ui";
 import { useMemo, type ReactNode } from "react";
 import { routeTargetName } from "../pipelines/flow/condition-words.ts";
 import { FlowCanvas } from "../pipelines/flow/flow-canvas.tsx";
+import { FlowViewport } from "../pipelines/flow/flow-viewport.tsx";
 import {
   checkedSentence,
   proposalFlow,
@@ -121,15 +122,17 @@ export function ProposedFlow({
         <span className="proposal-section-title">{title}</span>
         {action}
       </div>
-      <FlowCanvas
-        stages={flow.stages}
-        overlay={flow.overlay}
-        picked={undefined}
-        problems={[]}
-        warnings={routes.check}
-        whoWorks={whoWorks}
-        readOnly
-      />
+      <FlowViewport>
+        <FlowCanvas
+          stages={flow.stages}
+          overlay={flow.overlay}
+          picked={undefined}
+          problems={[]}
+          warnings={routes.check}
+          whoWorks={whoWorks}
+          readOnly
+        />
+      </FlowViewport>
       <p className="proposal-checked">
         <Icon name="check" size={12} />
         <span>{checkedSentence(stages)}</span>

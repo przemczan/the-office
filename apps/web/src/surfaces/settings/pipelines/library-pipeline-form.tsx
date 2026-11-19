@@ -82,6 +82,35 @@ export function LibraryPipelineForm({
     },
   });
   const change = (changed: Partial<PipelineEdit>): void => setDraft({ ...draft, ...changed });
+  // Under the form, and under the editor in full screen, so Save stays at hand.
+  const saveRow = (withRemove: boolean): ReactNode => (
+    <>
+      <span className="settings-actions-state">
+        {saveState(pipeline !== undefined, dirty, problems.length)}
+      </span>
+      {withRemove && pipeline && (
+        <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
+          Remove
+        </Button>
+      )}
+      <Button
+        variant="secondary"
+        disabled={pipeline !== undefined && !dirty}
+        onClick={() => (pipeline ? setDraft(saved) : onDone())}
+      >
+        Discard
+      </Button>
+      <HeldSave count={problems.length}>
+        <Button
+          loading={saving.isPending}
+          disabled={!dirty || problems.length > 0 || checkAwaited(check)}
+          onClick={() => (breaks.length > 0 ? setWarning(true) : saving.mutate())}
+        >
+          {pipeline ? "Save the Pipeline" : "Add the Pipeline"}
+        </Button>
+      </HeldSave>
+    </>
+  );
   return (
     <>
       {pipeline && (
@@ -114,6 +143,8 @@ export function LibraryPipelineForm({
             duties={duties}
             options={options}
             commands={commands}
+            fullScreenName={`${draft.name || "New Pipeline"} ·`}
+            fullScreenBar={saveRow(false)}
           />
         </div>
       </Card>
@@ -124,32 +155,7 @@ export function LibraryPipelineForm({
         </Alert>
       )}
       {saving.error && <RefusalAlert title="The Pipeline wasn't saved" error={saving.error} />}
-      <div className="settings-actions">
-        <span className="settings-actions-state">
-          {saveState(pipeline !== undefined, dirty, problems.length)}
-        </span>
-        {pipeline && (
-          <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
-            Remove
-          </Button>
-        )}
-        <Button
-          variant="secondary"
-          disabled={pipeline !== undefined && !dirty}
-          onClick={() => (pipeline ? setDraft(saved) : onDone())}
-        >
-          Discard
-        </Button>
-        <HeldSave count={problems.length}>
-          <Button
-            loading={saving.isPending}
-            disabled={!dirty || problems.length > 0 || checkAwaited(check)}
-            onClick={() => (breaks.length > 0 ? setWarning(true) : saving.mutate())}
-          >
-            {pipeline ? "Save the Pipeline" : "Add the Pipeline"}
-          </Button>
-        </HeldSave>
-      </div>
+      <div className="settings-actions">{saveRow(true)}</div>
       {warning && pipeline && (
         <BreaksDialog
           pipelineName={pipeline.name}

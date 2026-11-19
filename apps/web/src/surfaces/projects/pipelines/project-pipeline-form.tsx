@@ -84,6 +84,32 @@ export function ProjectPipelineForm({
   });
   const change = (changed: Partial<ProjectPipelineEdit>): void =>
     setDraft({ ...draft, ...changed });
+  // Under the form, and under the editor in full screen, so Save stays at hand.
+  const saveRow = (withRemove: boolean): ReactNode => (
+    <>
+      <span className="project-pipeline-actions-state">{dirty ? "Unsaved changes" : "Saved"}</span>
+      {withRemove && (
+        <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
+          Remove
+        </Button>
+      )}
+      <Button variant="secondary" disabled={!dirty} onClick={() => setDraft(saved)}>
+        Discard
+      </Button>
+      <Button
+        loading={saving.isPending}
+        disabled={!dirty || broken || problems.length > 0 || checkAwaited(check)}
+        title={
+          broken
+            ? "Fix the Stage changes that don't apply first: a save never leaves it Broken"
+            : undefined
+        }
+        onClick={() => saving.mutate()}
+      >
+        Save the Pipeline
+      </Button>
+    </>
+  );
   return (
     <>
       <ProjectPipelineHead
@@ -147,32 +173,12 @@ export function ProjectPipelineForm({
           duties={duties}
           options={options}
           commands={projectCommandsOf(project)}
+          fullScreenName={`${draft.name || projectPipeline.name} ·`}
+          fullScreenBar={saveRow(false)}
         />
       </Card>
       {saving.error && <RefusalAlert title="The Pipeline wasn't saved" error={saving.error} />}
-      <div className="project-pipeline-actions">
-        <span className="project-pipeline-actions-state">
-          {dirty ? "Unsaved changes" : "Saved"}
-        </span>
-        <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
-          Remove
-        </Button>
-        <Button variant="secondary" disabled={!dirty} onClick={() => setDraft(saved)}>
-          Discard
-        </Button>
-        <Button
-          loading={saving.isPending}
-          disabled={!dirty || broken || problems.length > 0 || checkAwaited(check)}
-          title={
-            broken
-              ? "Fix the Stage changes that don't apply first: a save never leaves it Broken"
-              : undefined
-          }
-          onClick={() => saving.mutate()}
-        >
-          Save the Pipeline
-        </Button>
-      </div>
+      <div className="project-pipeline-actions">{saveRow(true)}</div>
       {removing && (
         <RemovePipelineDialog
           name={projectPipeline.name}

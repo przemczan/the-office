@@ -44,6 +44,8 @@ export function TaskFlowEditor(props: TaskFlowEditorProps): ReactNode {
       marks={marks}
       locked={locked}
       controls={controls}
+      fullScreenName={props.fullScreenName}
+      fullScreenBar={props.fullScreenBar}
       onEdit={(edit) => apply(canvasEdited(stages, edit, locked))}
       head={
         <FlowAddMenu

@@ -8,12 +8,14 @@ import {
 } from "./flow-layout.ts";
 import type { FlowDrop } from "./flow-model.ts";
 import type { FlowCanvasEdit } from "./flow-view.ts";
+import { scaleOf } from "./use-flow-measure.ts";
 
 /** A Stage being dragged to a place: how far it moved, and where it would drop. */
 export interface StageDrag {
   readonly kind: "stage";
   readonly key: string;
   readonly pointerId: number;
+  /** Where the press was, in the canvas's own pixels, so the view may move under the drag. */
   readonly x0: number;
   readonly y0: number;
   readonly moved: boolean;
@@ -32,7 +34,17 @@ export interface RouteDrag {
   readonly target: string | null | undefined;
 }
 
-export type FlowDrag = StageDrag | RouteDrag;
+/** A press on a Stage that keeps its place: once it moves, the canvas says why it stays. */
+export interface StaysDrag {
+  readonly kind: "stays";
+  readonly key: string;
+  readonly pointerId: number;
+  readonly x0: number;
+  readonly y0: number;
+  readonly told: boolean;
+}
+
+export type FlowDrag = StageDrag | RouteDrag | StaysDrag;
 
 /** How far a press moves before it is a drag rather than a pick, in px. */
 const DRAG_START = 5;
@@ -56,6 +68,12 @@ export interface FlowDragOptions {
   /** Whether a route may be drawn from the Stage: not from a Task's started one. */
   readonly canDraw: (key: string) => boolean;
   readonly onEdit: ((edit: FlowCanvasEdit) => void) | undefined;
+  /** Whether a Stage that can't be dragged says why when someone tries. */
+  readonly saysWhyItStays?: (key: string) => boolean;
+  /** Someone tried to drag a Stage that keeps its place, the pointer where it is now. */
+  readonly onStays?: (key: string, point: { clientX: number; clientY: number }) => void;
+  /** Each move of a drag, so the viewport can follow it near its edge. */
+  readonly onDragMove?: ((point: { clientX: number; clientY: number }) => void) | undefined;
 }
 
 /**
@@ -68,6 +86,14 @@ export function useFlowDrag(options: FlowDragOptions): FlowDragging {
   const dragged = useRef(false);
   const move = (event: PointerEvent<HTMLElement>): void => {
     if (!drag || event.pointerId !== drag.pointerId) return;
+    if (drag.kind === "stays") {
+      if (drag.told || Math.hypot(event.clientX - drag.x0, event.clientY - drag.y0) < DRAG_START)
+        return;
+      setDrag({ ...drag, told: true });
+      options.onStays?.(drag.key, event);
+      return;
+    }
+    if (drag.kind === "route" || drag.moved) options.onDragMove?.(event);
     setDrag(
       drag.kind === "stage" ? movedStage(drag, event, options) : movedRoute(drag, event, options),
     );
@@ -75,6 +101,7 @@ export function useFlowDrag(options: FlowDragOptions): FlowDragging {
   const up = (event: PointerEvent<HTMLElement>): void => {
     if (!drag || event.pointerId !== drag.pointerId) return;
     setDrag(undefined);
+    if (drag.kind === "stays") return;
     if (drag.kind === "route") {
       if (drag.target === undefined) return;
       // The click that follows on the + would pick its Stage over the route just drawn.
@@ -89,16 +116,30 @@ export function useFlowDrag(options: FlowDragOptions): FlowDragging {
   return {
     drag,
     onStagePointer: (event, key) => {
-      if (event.button > 0 || !options.canDrag(key)) return;
+      if (event.button > 0) return;
       if ((event.target as Element).closest("[data-flow-route], .flow-canvas-handle")) return;
+      if (!options.canDrag(key)) {
+        if (!options.saysWhyItStays?.(key)) return;
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        setDrag({
+          kind: "stays",
+          key,
+          pointerId: event.pointerId,
+          x0: event.clientX,
+          y0: event.clientY,
+          told: false,
+        });
+        return;
+      }
       event.currentTarget.setPointerCapture?.(event.pointerId);
       dragged.current = false;
+      const at = canvasPoint(options.canvas.current, event);
       setDrag({
         kind: "stage",
         key,
         pointerId: event.pointerId,
-        x0: event.clientX,
-        y0: event.clientY,
+        x0: at.x,
+        y0: at.y,
         moved: false,
         dx: 0,
         dy: 0,
@@ -134,26 +175,19 @@ function movedStage(
   event: PointerEvent<HTMLElement>,
   { canvas, canDrop }: FlowDragOptions,
 ): StageDrag {
-  const dx = event.clientX - drag.x0;
-  const dy = event.clientY - drag.y0;
+  const point = canvasPoint(canvas.current, event);
+  const dx = point.x - drag.x0;
+  const dy = point.y - drag.y0;
   if (!drag.moved && Math.hypot(dx, dy) < DRAG_START) return drag;
   const grid = canvas.current?.querySelector<HTMLElement>(".flow-canvas-grid");
-  const at = grid ? dropOn(canvas.current, grid, event) : undefined;
+  const at = grid ? dropOn(grid, point) : undefined;
   return { ...drag, moved: true, dx, dy, at: at && canDrop(at.drop) ? at : undefined };
 }
 
-function dropOn(
-  canvas: HTMLElement | null,
-  grid: HTMLElement,
-  event: PointerEvent<HTMLElement>,
-): FlowDropAt {
-  const rect = grid.getBoundingClientRect();
-  const at = dropAt(
-    tracksOf(grid),
-    { x: event.clientX - rect.left, y: event.clientY - rect.top },
-    "across",
-  );
-  const offset = canvasPoint(canvas, { clientX: rect.left, clientY: rect.top });
+/** The drop place under `point`, in the canvas's pixels; the grid sits at its offset inside it. */
+function dropOn(grid: HTMLElement, point: FlowPoint): FlowDropAt {
+  const offset = { x: grid.offsetLeft, y: grid.offsetTop };
+  const at = dropAt(tracksOf(grid), { x: point.x - offset.x, y: point.y - offset.y }, "across");
   const ghost: FlowBox = { ...at.ghost, x: at.ghost.x + offset.x, y: at.ghost.y + offset.y };
   return { ...at, ghost };
 }
@@ -205,13 +239,16 @@ function targetUnder(
   return key === undefined || key === from ? undefined : key;
 }
 
+/** A point on the screen in the canvas's own pixels, whatever the viewport's zoom. */
 function canvasPoint(
   canvas: HTMLElement | null,
   { clientX, clientY }: { clientX: number; clientY: number },
 ): FlowPoint {
-  const rect = canvas?.getBoundingClientRect();
+  if (!canvas) return { x: clientX, y: clientY };
+  const rect = canvas.getBoundingClientRect();
+  const scale = scaleOf(canvas, rect);
   return {
-    x: clientX - (rect?.left ?? 0) - (canvas?.clientLeft ?? 0),
-    y: clientY - (rect?.top ?? 0) - (canvas?.clientTop ?? 0),
+    x: (clientX - rect.left) / scale - canvas.clientLeft,
+    y: (clientY - rect.top) / scale - canvas.clientTop,
   };
 }

@@ -1,21 +1,16 @@
-/* The flow canvas and its List: see flow-canvas.tsx, flow-list.tsx and docs/design/pipeline-flow.html.
-   The Stages sit in a grid of places; the routes and loops are drawn in one SVG under the grid, whose
-   empty places let a press through to the lines. Across, the columns share the canvas's width; under
-   560px (flow-layout.ts's NARROW_FLOW_WIDTH, set from the canvas's own width) it runs down. */
+/* The flow canvas and its List: see flow-canvas.tsx, flow-list.tsx, docs/design/pipeline-flow.html and
+   docs/design/pipeline-editor.html. The Stages sit in a grid of places; the routes and loops are drawn
+   in one SVG under the grid, whose empty places let a press through to the lines. A card keeps its
+   size, so a large Pipeline grows past the viewport (flow-viewport.css), which moves and zooms it.
+   Under 560px of viewport (flow-layout.ts's NARROW_FLOW_WIDTH) it runs down and fills its width. */
 .flow-canvas {
   --flow-loop-room: 0px;
   --flow-detour-room: 0px;
+  --flow-card-width: 232px;
   position: relative;
   isolation: isolate;
-  container: flow-canvas / inline-size;
-  min-width: 0;
+  width: max-content;
   padding: calc(18px + var(--flow-loop-room)) 14px calc(18px + var(--flow-detour-room)) 34px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background-color: var(--surface-sunken);
-  background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1.3px);
-  background-size: 16px 16px;
 }
 
 .flow-canvas[data-orientation="down"] {
@@ -26,9 +21,9 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(var(--flow-columns), minmax(0, 1fr)) 44px;
+  grid-template-columns: repeat(var(--flow-columns), var(--flow-card-width)) 44px;
   grid-template-rows: repeat(var(--flow-rows), minmax(72px, auto));
-  gap: 22px 40px;
+  gap: 22px 76px;
   align-items: center;
   pointer-events: none;
 }
@@ -37,32 +32,25 @@
   pointer-events: auto;
 }
 
-/* At 900px, or beside a list, six columns still fit: the gaps and the cards' padding shrink */
-@container flow-canvas (max-width: 860px) {
-  .flow-canvas-grid {
-    column-gap: 28px;
-  }
-}
-
-@container flow-canvas (min-width: 520px) and (max-width: 720px) {
-  .flow-canvas-grid {
-    column-gap: 22px;
-  }
-
-  .flow-canvas-stage {
-    --flow-card-pad: calc(var(--gap-card) * 0.5);
-  }
-
-  .flow-canvas-kind {
-    display: none;
-  }
-}
-
 .flow-canvas[data-orientation="down"] .flow-canvas-grid {
   grid-template-columns: repeat(var(--flow-rows), minmax(0, 1fr));
   grid-template-rows: none;
   grid-auto-rows: auto;
   gap: 34px 14px;
+}
+
+/* Under 60%, a card shows only its kind mark and its name, drawn large enough to read. */
+.flow-canvas--names-only .flow-canvas-stage-who,
+.flow-canvas--names-only .flow-canvas-stage-tag,
+.flow-canvas--names-only .flow-canvas-stage-flag,
+.flow-canvas--names-only .flow-canvas-handle,
+.flow-canvas--names-only .flow-canvas-loop-mark {
+  display: none;
+}
+
+.flow-canvas--names-only .flow-canvas-stage-name {
+  font-size: var(--flow-name-size, 13px);
+  line-height: 1.2;
 }
 
 /* The Stage card */
@@ -404,6 +392,8 @@
   stroke: var(--fg-3);
   stroke-width: 1.5;
   stroke-linejoin: round;
+  /* Zoomed out, a line keeps its width on the screen. */
+  vector-effect: non-scaling-stroke;
 }
 
 .flow-canvas-arrow {
@@ -685,4 +675,18 @@
 
 .flow-list-line--picked b {
   color: inherit;
+}
+
+/* Why a Stage stays, by the pointer (flow-canvas.tsx, FlowToldWhyToast): on the body, unscaled. */
+.flow-canvas-told {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  max-width: 300px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-inverse);
+  color: var(--fg-inverse);
+  box-shadow: var(--shadow-3);
+  font: 500 var(--text-xs) / 1.4 var(--font-sans);
+  pointer-events: none;
 }

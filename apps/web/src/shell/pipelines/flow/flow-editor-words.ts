@@ -24,20 +24,24 @@ export function flowSummary(stages: readonly Stage[]): string {
 
 export type FlowEditorView = "flow" | "list";
 
+/** How to move around the canvas (docs/design/pipeline-editor.html), after how to edit on it. */
+const MOVE_AROUND =
+  " Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline.";
+
 /** How to use the editor, when no edit has just said something else. */
 export function howToHint(
   view: FlowEditorView,
   orientation: FlowOrientation,
   readOnly: boolean,
 ): string {
-  if (readOnly) return "Pick a Stage or a route to read it below.";
+  if (readOnly) return `Pick a Stage or a route to read it below.${MOVE_AROUND}`;
   if (view === "list") {
     return "The same flow as a list, in the Pipeline's order: move a Stage with its arrows, and add or edit its routes under Routes out.";
   }
   if (orientation === "down") {
     return "Press a Stage or a route to edit it below. Move and Routes out do everything without dragging; drag from a Stage's + to draw a route.";
   }
-  return "Drag a Stage to move it. Drag from its + to another Stage, or to End, to draw a route; pick a route to set its condition. Without a mouse: Tab to a Stage, Shift + arrows move it, Enter opens it below.";
+  return `Drag a Stage to move it. Drag from its + to another Stage, or to End, to draw a route; pick a route to set its condition. Without a mouse: Tab to a Stage, Shift + arrows move it, Enter opens it below.${MOVE_AROUND}`;
 }
 
 export function addedHint(added: Stage, beside: Stage | undefined): string {
@@ -80,5 +84,5 @@ export function projectHowToHint(view: FlowEditorView, orientation: FlowOrientat
   if (orientation === "down") {
     return "Press a Stage or a route to edit it below: a route's edit becomes a Change routes Stage change, with its Undo. Drag from a Stage's + to draw a route.";
   }
-  return "Pick a Stage or a route to edit it below: a route's edit becomes a Change routes Stage change, with its Undo, and an edit of one of a Stage's own fields a Change Stage change of only that field. A Project Pipeline's Stages keep the places its base Pipeline gives them.";
+  return `Pick a Stage or a route to edit it below: a route's edit becomes a Change routes Stage change, with its Undo, and an edit of one of a Stage's own fields a Change Stage change of only that field. A Project Pipeline's Stages keep the places its base Pipeline gives them.${MOVE_AROUND}`;
 }
