@@ -87,7 +87,7 @@ describe("the sign-in page's ways", () => {
       publicAddress: PUBLIC_ADDRESS,
     });
 
-    expect(ways.ways).toContain("github");
+    expect(ways.ways).toContainEqual(expect.objectContaining({ kind: "github" }));
     expect(ways.unavailable).toEqual(
       expect.not.arrayContaining([expect.objectContaining({ kind: "github" })]),
     );

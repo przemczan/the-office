@@ -139,7 +139,7 @@ export class IdentitySignIns implements OnModuleInit {
     const linked = await this.linkedIdentities.findBySubject(provider, subject);
     const user = linked && (await this.users.find(linked.userId));
     if (linked === undefined || user === undefined || user.removedAt !== undefined) {
-      throw IdentityRefused.notLinked(provider);
+      throw IdentityRefused.notLinked(await this.providers.nameOf(provider));
     }
     await this.linkedIdentities.save(signedInWith(linked, name, this.schedule.now()));
     return this.signIns.finish(user, wayOf(this.providers.of(provider)), request);
@@ -153,6 +153,7 @@ function wayOf(bound: IdentityProvider): SignInWay {
     enoughAlone: false,
     unavailableAt: (page) => bound.unavailableAt(page),
     isAvailable: () => bound.isAvailable(),
+    name: () => bound.displayName(),
   };
 }
 

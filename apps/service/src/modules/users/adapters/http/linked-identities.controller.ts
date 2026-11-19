@@ -34,8 +34,9 @@ export class LinkedIdentitiesController {
   ): Promise<LinkedIdentityList> {
     const page = pageAddressOf(request, this.officeAddresses);
     const links = await this.linkedIdentities.listOf(userId, page);
-    return links.map(({ provider, available, unavailableHere, linked }) => ({
+    return links.map(({ provider, providerName, available, unavailableHere, linked }) => ({
       provider,
+      providerName,
       available,
       unavailableHere: unavailableHere ?? null,
       linked:
@@ -91,6 +92,28 @@ export class LinkedIdentitiesController {
   @Get("identity-callback-urls/google")
   googleCallbackUrls(@Req() request: Request): IdentityCallbackUrls {
     return this.callbackUrls("google", request);
+  }
+
+  /** The OpenID Connect provider's authorize page, for linking the user's identity there. */
+  @Post("linked-identities/openid-connect")
+  @HttpCode(200)
+  linkOpenIdConnect(
+    @SignedIn() signedIn: SignedIn,
+    @Req() request: Request,
+  ): Promise<IdentityAuthorization> {
+    return this.startLinking("openid-connect", signedIn, request);
+  }
+
+  @Delete("linked-identities/openid-connect")
+  @HttpCode(204)
+  async unlinkOpenIdConnect(@SignedIn() { userId }: SignedIn): Promise<void> {
+    await this.linkedIdentities.unlink(userId, "openid-connect");
+  }
+
+  /** The redirect URIs the OpenID Connect provider's app must list, for Settings › Signing in. */
+  @Get("identity-callback-urls/openid-connect")
+  openIdConnectCallbackUrls(@Req() request: Request): IdentityCallbackUrls {
+    return this.callbackUrls("openid-connect", request);
   }
 
   private async startLinking(

@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import {
   FakeGoogleIdentityProvider,
   FakeIdentityProvider,
+  FakeOpenIdConnectIdentityProvider,
 } from "./adapters/fake/fake-identity-provider.fixtures.js";
 import { IDENTITY_TRIP_COOKIE } from "./adapters/http/identity-trip-cookie.js";
 import type { IdentityProviderId } from "./domain/linked-identity.js";
@@ -17,6 +18,10 @@ import {
 
 export interface OfficeWithProvider extends UsersApplication {
   readonly provider: FakeIdentityProvider;
+}
+
+export interface OfficeWithOpenIdConnect extends UsersApplication {
+  readonly provider: FakeOpenIdConnectIdentityProvider;
 }
 
 /** The users module with `FakeIdentityProvider` bound as GitHub. */
@@ -39,6 +44,17 @@ export async function startWithFakeGoogle(
     identityProviders: { imports: [], identityProviders: [FakeGoogleIdentityProvider] },
   });
   return { ...office, provider: office.app.get(FakeGoogleIdentityProvider) };
+}
+
+/** The users module with `FakeOpenIdConnectIdentityProvider` bound as the OpenID Connect provider. */
+export async function startWithFakeOpenIdConnect(
+  options: Omit<UsersApplicationOptions, "identityProviders"> = {},
+): Promise<OfficeWithOpenIdConnect> {
+  const office = await startUsersApplication({
+    ...options,
+    identityProviders: { imports: [], identityProviders: [FakeOpenIdConnectIdentityProvider] },
+  });
+  return { ...office, provider: office.app.get(FakeOpenIdConnectIdentityProvider) };
 }
 
 /** The value of the cookie named `name` an answer set, or undefined when it set none. */

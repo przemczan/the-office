@@ -10,9 +10,11 @@ export const addressKindSchema = z.enum(["localhost", "loopback-ip", "local-netw
 export type AddressKind = z.infer<typeof addressKindSchema>;
 
 /**
- * The providers a user links an identity of from their account and signs in with (spec §2.10).
+ * The providers a user links an identity of from their account and signs in with (spec §2.10):
+ * GitHub, Google, and the Office's one OpenID Connect provider, shown under the name it was set up
+ * with.
  */
-export const identityProviderSchema = z.enum(["github", "google"]);
+export const identityProviderSchema = z.enum(["github", "google", "openid-connect"]);
 export type IdentityProvider = z.infer<typeof identityProviderSchema>;
 
 /**
@@ -24,12 +26,16 @@ export function identityCallbackPath(provider: IdentityProvider): string {
   return `${API_PATH}/sign-in/${provider}/callback`;
 }
 
-/** A way to sign in the sign-in page offers. A union by `kind`. */
+/**
+ * A way to sign in the sign-in page offers. A union by `kind`; the OpenID Connect provider's
+ * carries the name its button shows, "Continue with <name>".
+ */
 export const signInWaySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("password") }),
   z.object({ kind: z.literal("passkey") }),
   z.object({ kind: z.literal("github") }),
   z.object({ kind: z.literal("google") }),
+  z.object({ kind: z.literal("openid-connect"), name: z.string() }),
 ]);
 export type SignInWay = z.infer<typeof signInWaySchema>;
 export type SignInWayKind = SignInWay["kind"];
@@ -50,7 +56,13 @@ export type WayUnavailable = z.infer<typeof wayUnavailableSchema>;
 
 /** A way set up that doesn't work here, why, and the address it works at instead, when one does. */
 export const unavailableWaySchema = wayUnavailableSchema.extend({
-  kind: z.enum(["password", "passkey", "github", "google"]) satisfies z.ZodType<SignInWayKind>,
+  kind: z.enum([
+    "password",
+    "passkey",
+    "github",
+    "google",
+    "openid-connect",
+  ]) satisfies z.ZodType<SignInWayKind>,
 });
 export type UnavailableWay = z.infer<typeof unavailableWaySchema>;
 
@@ -327,11 +339,13 @@ export type LinkedIdentity = z.infer<typeof linkedIdentitySchema>;
 /**
  * `GET /account/linked-identities`: each provider, whether it is set up (GitHub once the GitHub App
  * is registered, Google once its OAuth client is saved), why it doesn't work at the page's address
- * (Google at an IP address), and the user's identity there, when linked.
+ * (Google at an IP address), the provider's name as the pages show it (the OpenID Connect
+ * provider's as it was set up), and the user's identity there, when linked.
  */
 export const linkedIdentityListSchema = z.array(
   z.object({
     provider: identityProviderSchema,
+    providerName: z.string(),
     available: z.boolean(),
     unavailableHere: wayUnavailableSchema.nullable(),
     linked: linkedIdentitySchema.nullable(),
@@ -370,6 +384,41 @@ export const saveGoogleClientSchema = z.object({
   clientSecret: z.string(),
 });
 export type SaveGoogleClient = z.infer<typeof saveGoogleClientSchema>;
+
+/** The longest name an OpenID Connect provider is shown under, in "Continue with <name>". */
+export const OPENID_CONNECT_PROVIDER_NAME_MAX_LENGTH = 40;
+
+/**
+ * The OpenID Connect provider Continue with <name> signs in through (Zitadel, Authentik, Keycloak
+ * and others), as Settings › Signing in shows it: the name it is shown under, its issuer URL, the
+ * client ID, and whether a secret is saved; the secret itself is never sent.
+ */
+export const openIdConnectProviderSchema = z.object({
+  name: z.string(),
+  issuer: z.string(),
+  clientId: z.string(),
+  secretSet: z.boolean(),
+});
+export type OpenIdConnectProvider = z.infer<typeof openIdConnectProviderSchema>;
+
+/** `GET /settings/openid-connect-provider`: the saved provider, or null before one is. */
+export const openIdConnectProviderSettingSchema = z.object({
+  provider: openIdConnectProviderSchema.nullable(),
+});
+export type OpenIdConnectProviderSetting = z.infer<typeof openIdConnectProviderSettingSchema>;
+
+/**
+ * `PUT /settings/openid-connect-provider`: the name, issuer URL, client ID and secret; an empty
+ * secret keeps the saved one. The Office reads the issuer's discovery document as it saves, and a
+ * changed issuer unlinks every identity of the one before.
+ */
+export const saveOpenIdConnectProviderSchema = z.object({
+  name: z.string(),
+  issuer: z.string(),
+  clientId: z.string(),
+  clientSecret: z.string(),
+});
+export type SaveOpenIdConnectProvider = z.infer<typeof saveOpenIdConnectProviderSchema>;
 
 /**
  * The user who did something, as a record keeps them: their id and their name as it was then, so a

@@ -31,6 +31,8 @@ export interface SignInWay {
   unavailableAt(page: PageAddress): WayUnavailable | undefined;
   /** Whether it is set up, such as an OAuth client entered; a password always is. */
   isAvailable(): Promise<boolean>;
+  /** A provider's name as its button shows it, "Continue with <name>"; none for a password or passkey. */
+  name?(): Promise<string>;
 }
 
 /** A password works at every address, and asks for the authenticator code after it. */

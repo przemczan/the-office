@@ -180,7 +180,7 @@ describe("Continue with Google on the sign-in page", () => {
       elsewhere: `http://localhost:${office.port}`,
     });
     expect(plainPublic.ways).not.toContainEqual({ kind: "google" });
-    expect(network.ways).not.toContain("google");
+    expect(network.ways).not.toContainEqual(expect.objectContaining({ kind: "google" }));
     expect(network.unavailable).toContainEqual({
       kind: "google",
       reason: "needs-https-domain",

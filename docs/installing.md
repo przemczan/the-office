@@ -213,6 +213,17 @@ Telemetry is set in Settings › Telemetry (or First-run setup): Off, Bundled Gr
 
 **Choosing Bundled Grafana is enough,** on every install: The Office starts it at once, in Docker, as its own Compose project `the-office-grafana`, at `http://localhost:3300` on this machine alone. Settings › Telemetry shows whether it is running, or why it couldn't start, with **Try again**. It needs the Docker The Office already uses for run environments, and ports `3300`, `4317` and `4318` free on `127.0.0.1`. Its data is kept in the volume `the-office-grafana_data`. Choosing Off or Your own endpoint stops it at the next start, keeping its data.
 
+### Signing in with Zitadel or another OpenID Connect provider
+
+Besides a password, a passkey, GitHub and Google, users can continue with one OpenID Connect provider, set up in Settings › Signing in. With Zitadel:
+
+1. In Zitadel, create an application of type **Web** with the authentication method **Code** (PKCE), and a client secret: choose the authentication method **Basic**, as The Office sends the secret by HTTP Basic.
+2. Add the redirect URIs Settings › Signing in shows, `<address>/api/sign-in/openid-connect/callback` for this address and for the public address, each with Copy. Zitadel accepts a plain-HTTP redirect URI only with the application's Development mode on.
+3. In Settings › Signing in, enter the name users see ("Continue with Zitadel"), the issuer URL (the instance's domain, such as `https://auth.example.com`), the client ID and the client secret, and save. The Office reads the provider's discovery document at the issuer URL and refuses a save that can't.
+4. Each user links their identity from Account › Linked identities, then continues with it from the sign-in page. Only a linked identity signs in, and an authenticator code is still asked for afterwards.
+
+Authentik and Keycloak work the same way: an OpenID Connect client with the authorization code flow, a client secret sent by HTTP Basic, and the same redirect URIs; the issuer URL is the one the provider's `.well-known/openid-configuration` lists as `issuer`. The issuer URL must be HTTPS, or `http://localhost` for a provider on the same machine. Saving a provider with another issuer removes the linked identities of the old one.
+
 ### Setting a user's password on the host
 
 A user who lost their password gets back in through a command on the machine. It asks for the new password twice, lifts the user's lockout and signs out all their signed-in devices; `--clear-authenticator` after the email also removes their authenticator and recovery codes. The Office may keep running.

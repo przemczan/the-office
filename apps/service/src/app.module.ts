@@ -66,6 +66,7 @@ import {
   CookieSignedInRequests,
   GitHubIdentityProvider,
   GoogleIdentityProvider,
+  OpenIdConnectIdentityProvider,
   UsersModule,
 } from "./modules/users/index.js";
 import {
@@ -108,7 +109,11 @@ export class AppModule {
     // One instance, so the guard and the sign-in pages share the same signed-in devices and trips.
     const users = UsersModule.register({
       imports: [github],
-      identityProviders: [GitHubIdentityProvider, GoogleIdentityProvider],
+      identityProviders: [
+        GitHubIdentityProvider,
+        GoogleIdentityProvider,
+        OpenIdConnectIdentityProvider,
+      ],
       skipSetupBasics: config.skipSetupBasics ?? false,
     });
     // One instance, so every git change on a repository goes through the same locks.

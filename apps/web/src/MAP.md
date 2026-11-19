@@ -64,6 +64,7 @@
 - `notifications.ts`: nowQueries, notificationQueries, setTiming, setRoutingChannel, resetRouting, reportActivity, notificationEventCacheUpdates
 - `office-identity.ts`: officeIdentityQueries, regenerateSshKey, scanHost, confirmFingerprint
 - `office-updates.ts`: officeUpdateQueries, checkForUpdates, scheduleOfficeUpdate, cancelOfficeUpdate, scheduleOfficeRestart, cancelOfficeRestart, OFFICE_UPDATE_LOG_URL, officeUpdateEventInvalidations
+- `openid-connect-provider.ts`: OPENID_CONNECT_PROVIDER, openIdConnectProviderQueries, saveOpenIdConnectProvider, removeOpenIdConnectProvider
 - `pages.ts`: pagedQueryOptions, rowsOf, totalOf, changeRows
 - `passkeys.ts`: PASSKEYS, passkeyQueries, startAddingPasskey, addPasskey, renamePasskey, removePasskey, startPasskeySignIn, signInWithPasskey
 - `people.ts`: ENGINE_CASCADE, DUTIES, roleQueries, roleCardQueries, dutyQueries, changeDuty, hire, changeRoleCard, filledRoleKeys, letGoOfPerson, hirePersonBack, uploadAvatar, removeAvatar, avatarAddress, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
