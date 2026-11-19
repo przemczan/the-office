@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
 import type { StageDecision, StageOutcome } from "./stage-run.js";
 
 /**
@@ -218,6 +219,26 @@ export function screenshotsRefused(problems: readonly string[]): string {
  * What The Office sends, once, when a session's result doesn't match the schema (research §6): the
  * same session corrects it, without redoing the work.
  */
-export function correctionMessage(problems: string): string {
-  return `Your result didn't match the Stage's result schema:\n\n${problems}\n\nDon't redo the work: answer again with the corrected result only.`;
+export function correctionMessage(prompts: PromptTexts, problems: string): string {
+  return prompts.render(RESULT_CORRECTION, { problems });
 }
+
+/** The request to correct a result that didn't match the schema, with what is wrong with it. */
+export const RESULT_CORRECTION = promptTemplate({
+  key: "pipelines.result-correction",
+  domain: "pipelines",
+  name: "Correction of a Stage's result",
+  description:
+    "What an Agent is told, once, when its Stage's result doesn't match the result schema.",
+  variables: {
+    problems: {
+      kind: "text",
+      description: "What is wrong with the result, as the schema check words it.",
+    },
+  },
+  text: `Your result didn't match the Stage's result schema:
+
+{{problems}}
+
+Don't redo the work: answer again with the corrected result only.`,
+});

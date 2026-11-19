@@ -160,6 +160,28 @@ Edit each so it keeps what both sides meant, and remove every conflict marker (t
 If you can't resolve a conflict, end the Stage failed and say why: the user is asked.`,
 });
 
+/** What Resolve's Agent is told when the Project's Test failed after the merge was committed. */
+export const RESOLVE_AFTER_TEST = promptTemplate({
+  key: "pipelines.resolve-after-test",
+  domain: "pipelines",
+  name: "Resolve's Brief after a failed Test",
+  description:
+    "What the Agent of a Resolve Stage is told when the Project's Test failed after The Office merged the base branch into the Task's branch.",
+  variables: {},
+  text: "The Project's Test failed after The Office merged the base branch into the Task's branch. Fix what the merge left broken, as the failure below shows, keeping what both sides meant. Don't run git: The Office commits your changes.",
+});
+
+/** What Resolve's Agent is told when the user sent the resolved conflict back from the Gate. */
+export const RESOLVE_AFTER_GATE = promptTemplate({
+  key: "pipelines.resolve-after-gate",
+  domain: "pipelines",
+  name: "Resolve's Brief after the user sent it back",
+  description:
+    "What the Agent of a Resolve Stage is told when the user reviewed how the conflict was resolved and sent it back with feedback.",
+  variables: {},
+  text: "The user reviewed how the conflict with the base branch was resolved and sent it back. The merge is committed already: change what their feedback below asks, keeping what both sides meant. Don't run git: The Office commits your changes.",
+});
+
 /** Resolve's Brief, as the user's text of `RESOLVE_BRIEF` words it. */
 export function resolveBrief(
   prompts: PromptTexts,

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { EngineModule } from "../engine/index.js";
+import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { PostgresStageRunRepository } from "./adapters/postgres/postgres-stage-run-repository.js";
 import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-stages-repository.js";
 import { RunningStageRuns } from "./application/running-stage-runs.js";
@@ -16,7 +17,7 @@ import { TaskStagesRepository } from "./ports/task-stages-repository.js";
  * writes its runs and each Task's Stages through the repositories exported here.
  */
 @Module({
-  imports: [EngineModule],
+  imports: [EngineModule, PromptTemplatesModule],
   providers: [
     { provide: StageRunRepository, useClass: PostgresStageRunRepository },
     { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },

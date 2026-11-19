@@ -9,6 +9,10 @@ import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
+import type { PromptTemplates } from "../../../prompt-templates/index.js";
+import { promptTemplatesFor } from "../../../prompt-templates/index.fixtures.js";
+import { ENGINE_PROMPT_TEMPLATES } from "../../domain/engine-prompt-templates.js";
+import { defaultEnginePromptTemplates } from "../prompt-templates/engine-prompt-templates.fixtures.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
 import type { CodexEngine, Engine } from "../../domain/engines.js";
 import {
@@ -120,11 +124,19 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
     await rm(folder, { recursive: true, force: true });
   });
 
-  function engineOn(setup: CodexEngineSetup = {}): CodexAppServerEngine {
-    return new CodexAppServerEngine(new OfficeDataDirectory(officeData), new SdkMcpClient(), {
-      ...fakeAppServer(report),
-      ...setup,
-    });
+  function engineOn(
+    setup: CodexEngineSetup = {},
+    promptTemplates: PromptTemplates = defaultEnginePromptTemplates(),
+  ): CodexAppServerEngine {
+    return new CodexAppServerEngine(
+      new OfficeDataDirectory(officeData),
+      new SdkMcpClient(),
+      promptTemplates,
+      {
+        ...fakeAppServer(report),
+        ...setup,
+      },
+    );
   }
 
   function options(overrides: Partial<SessionOptions> = {}): SessionOptions {
@@ -223,6 +235,20 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
       },
     });
     expect(isRunning(run.processId)).toBe(false);
+  });
+
+  it("gives the thread the Codex instructions text saved in Settings › Prompts after the Agent's instructions", async () => {
+    const templates = await promptTemplatesFor(ENGINE_PROMPT_TEMPLATES, [
+      { key: "engine.codex-instructions", text: "Mind the {{officeToolServer}} server." },
+    ]);
+
+    const { log } = await started(message("answer hi"), {}, engineOn({}, templates));
+    await log.turn(0);
+
+    const [run] = await fakeAppServerRuns(report);
+    expect(run?.received.find(({ method }) => method === "thread/start")?.params).toMatchObject({
+      developerInstructions: "Be brief.\n\nMind the office server.",
+    });
   });
 
   it("reports the Agent's text and a turn's tokens, cached input as cache reads, and the context it read", async () => {
@@ -639,10 +665,12 @@ describe.runIf((MODE === "live" || MODE === "record") && CODEX_FOLDER !== undefi
       engineFor: () => {
         recorder = new CodexWireRecorder();
         recorders.push(recorder);
-        const engine = new CodexAppServerEngine(officeData, new SdkMcpClient(), {
-          codexHome,
-          wire: recorder.tap,
-        });
+        const engine = new CodexAppServerEngine(
+          officeData,
+          new SdkMcpClient(),
+          defaultEnginePromptTemplates(),
+          { codexHome, wire: recorder.tap },
+        );
         return Promise.resolve(MODE === "record" ? new RecordingEngine(engine) : engine);
       },
       afterScenario: async (scenario, engine) => {
@@ -693,6 +721,7 @@ describe("CodexAppServerEngine on a stand-in replaying the recordings", () => {
       const engine = new CodexAppServerEngine(
         officeData,
         new SdkMcpClient(),
+        defaultEnginePromptTemplates(),
         replayingAppServer(recording(scenario), stateFolder),
       );
       stateFolders.set(engine, stateFolder);
@@ -717,6 +746,7 @@ describe("CodexAppServerEngine on a stand-in replaying the recordings", () => {
     const engine = new CodexAppServerEngine(
       officeData,
       new SdkMcpClient(),
+      defaultEnginePromptTemplates(),
       replayingAppServer(recording("reply"), stateFolder),
     );
     stateFolders.set(engine, stateFolder);

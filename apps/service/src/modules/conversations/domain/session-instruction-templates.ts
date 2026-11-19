@@ -1,6 +1,5 @@
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
-import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
-import { renderedPart } from "./rendered-part.js";
+import { promptTemplate, renderedPart, type PromptTexts } from "../../prompt-templates/index.js";
 import {
   ALLOW_CHANGES_ADVICE,
   CALLING_RULE,

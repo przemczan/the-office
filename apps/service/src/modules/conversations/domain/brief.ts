@@ -1,4 +1,4 @@
-import type { PromptTexts } from "../../prompt-templates/index.js";
+import { flagField, renderedPart, type PromptTexts } from "../../prompt-templates/index.js";
 import {
   BRIEF_ANSWERED_DECISIONS,
   BRIEF_LATEST_EXCHANGES,
@@ -21,7 +21,6 @@ import {
   type DecisionQuestion,
 } from "./decision.js";
 import type { Message } from "./message.js";
-import { flagField, renderedPart } from "./rendered-part.js";
 import { userWordsOpening } from "./user.js";
 
 /**

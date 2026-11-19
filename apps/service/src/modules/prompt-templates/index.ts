@@ -14,4 +14,5 @@ export { PromptTemplateRefused, refusalOf } from "./domain/prompt-template-refus
 export type { PromptTemplateState } from "./domain/prompt-template-state.js";
 export { promptTextProblems, type PromptTextProblem } from "./domain/prompt-text-problems.js";
 export { defaultPromptTexts, PromptTexts } from "./domain/prompt-texts.js";
+export { flagField, renderedPart } from "./domain/rendered-part.js";
 export { PromptTemplatesModule } from "./prompt-templates.module.js";

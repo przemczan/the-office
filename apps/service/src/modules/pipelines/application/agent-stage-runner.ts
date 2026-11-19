@@ -11,8 +11,9 @@ import {
 import { READ_STAGE_HISTORY_TOOL, READING_OFFICE_TOOLS } from "../../conversations/index.js";
 import { narrowedPermissionProfile } from "../../people/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import {
-  AGENT_STAGE_INSTRUCTIONS,
+  AGENT_STAGE_THREAD_INSTRUCTIONS,
   agentStageRecord,
   agentStageWork,
   type AnsweredQuestion,
@@ -21,10 +22,16 @@ import {
   type HeldRun,
   workSentAgain,
 } from "../domain/agent-stage-brief.js";
-import { allowedCommands, type AllowedCommands } from "../domain/allowed-commands.js";
-import type {
-  FollowedHardSwitches,
-  FollowedHardSwitchValue,
+import { AGENT_STAGE_BRIEF_TEMPLATES } from "../domain/agent-stage-brief-templates.js";
+import {
+  BRIEF_COMMANDS,
+  allowedCommands,
+  type AllowedCommands,
+} from "../domain/allowed-commands.js";
+import {
+  HARD_SWITCHES,
+  type FollowedHardSwitches,
+  type FollowedHardSwitchValue,
 } from "../domain/followed-hard-switches.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
 import {
@@ -50,6 +57,7 @@ import {
 import { engineSwitched, type NamedEngine } from "../domain/stage-run-changes.js";
 import {
   correctionMessage,
+  RESULT_CORRECTION,
   readStageResult,
   screenshotsRefused,
   STAGE_RESULT_SCHEMA,
@@ -190,6 +198,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly startedTasks: StartedTasks,
     private readonly library: PipelineLibrary,
     private readonly engineSessions: EngineSessions,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   onModuleInit(): void {
@@ -369,7 +378,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       stage.permissions,
       mcpToolDefault,
     );
+    const prompts = await this.promptTexts();
     const commands = allowedCommands(
+      prompts,
       profile.run,
       task.project.commands,
       stage.permissions?.commands,
@@ -390,8 +401,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       ...stageSessionOf(stage, stages, earlierRuns),
       // What the user wrote that the held run's session ended before taking goes with this run.
       carryMessagesSince: held?.startedAt,
-      record: await this.recordOf(run.taskId, card, commands, task, stages, earlierRuns),
-      work: agentStageWork(stage, {
+      record: await this.recordOf(prompts, run.taskId, card, commands, task, stages, earlierRuns),
+      work: agentStageWork(prompts, stage, {
         carried: await this.carriedRound(stages, run.carriedFailure),
         sentBack: run.sentBack && {
           ...run.sentBack,
@@ -416,13 +427,27 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       useProjectSkills: task.project.useProjectSkills,
       projectSkillsOff: task.project.projectSkillsOff,
       session: {
-        instructions: AGENT_STAGE_INSTRUCTIONS,
+        instructions: prompts.render(AGENT_STAGE_THREAD_INSTRUCTIONS, {}),
         profile: { ...profile, run: commands.permission },
         officeTools: AGENT_STAGE_OFFICE_TOOLS,
         outputSchema: STAGE_RESULT_SCHEMA,
       },
       engineStandIns: task.engineStandIns,
     });
+  }
+
+  /**
+   * The texts of the Prompt templates the Brief, the Stage's message, the Stage Thread and the
+   * correction render.
+   */
+  private promptTexts(): Promise<PromptTexts> {
+    return this.promptTemplates.textsOf([
+      AGENT_STAGE_THREAD_INSTRUCTIONS,
+      BRIEF_COMMANDS,
+      HARD_SWITCHES,
+      RESULT_CORRECTION,
+      ...AGENT_STAGE_BRIEF_TEMPLATES,
+    ]);
   }
 
   /** The name of the Pipeline the Task follows, for its telemetry; its id once it is gone. */
@@ -450,7 +475,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       stage.permissions,
       person.mcpToolDefault,
     );
+    const prompts = await this.promptTexts();
     const commands = allowedCommands(
+      prompts,
       run,
       task.project.commands,
       stage.permissions?.commands,
@@ -461,7 +488,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       projectId: task.project.id,
       roleKey,
       ...stageSessionOf(stage, stages, earlierRuns),
-      record: await this.recordOf(taskId, person.card, commands, task, stages, earlierRuns),
+      record: await this.recordOf(
+        prompts,
+        taskId,
+        person.card,
+        commands,
+        task,
+        stages,
+        earlierRuns,
+      ),
       engineStandIns: task.engineStandIns,
     });
   }
@@ -473,6 +508,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
 
   /** The Task's record a new session of the Stage's is briefed with, naming the `commands` it may run. */
   private async recordOf(
+    prompts: PromptTexts,
     taskId: string,
     card: KnownPerson["card"],
     commands: AllowedCommands,
@@ -480,7 +516,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     stages: readonly Stage[],
     earlierRuns: readonly StageRun[],
   ): Promise<string> {
-    return agentStageRecord({
+    return agentStageRecord(prompts, {
       task: {
         title: task.title,
         descriptionSection: task.descriptionSection,
@@ -581,6 +617,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     running: RunningEngine,
     statementCount: number,
   ): Promise<ResultReading> {
+    const prompts = await this.promptTexts();
     let tokens = NO_STAGE_TOKENS;
     const counted = async (turn: StageTurn): Promise<StageTurn> => {
       tokens = addTokens(tokens, turn.tokens);
@@ -596,7 +633,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       { work, thread, running },
       await counted(await thread.nextTurn()),
       workMessage,
-      async () => counted(await thread.send(workSentAgain(workMessage), SENT_AGAIN)),
+      async () => counted(await thread.send(workSentAgain(prompts, workMessage), SENT_AGAIN)),
     );
     if ("reading" in firstTurn) return firstTurn.reading;
     if (work.interruption.requested) return { kind: "held" };
@@ -609,7 +646,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const reached = await this.budgetCheck(work);
     if (reached) return { kind: "result", outcome: reached };
     const sendCorrection = async (why: string) =>
-      counted(await thread.send(correctionMessage(first.problems), why));
+      counted(await thread.send(correctionMessage(prompts, first.problems), why));
     const correctedTurn = await this.throughRefusals(
       { work, thread, running },
       await sendCorrection(

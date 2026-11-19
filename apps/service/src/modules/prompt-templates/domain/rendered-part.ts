@@ -1,9 +1,5 @@
-import type {
-  PromptTemplate,
-  PromptTexts,
-  PromptValues,
-  PromptVariables,
-} from "../../prompt-templates/index.js";
+import type { PromptTemplate, PromptValues, PromptVariables } from "./prompt-template.js";
+import type { PromptTexts } from "./prompt-texts.js";
 
 /**
  * A template rendered as a whole text or a part of one. A section on its own last line leaves the

@@ -4,6 +4,10 @@ import type { StageRun } from "../domain/stage-run.js";
 import type { StageRunRepository } from "../ports/stage-run-repository.js";
 import type { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { StageResultWords } from "./stage-result-words.js";
+import { promptTemplatesFor } from "../../prompt-templates/index.fixtures.js";
+import { PIPELINES_PROMPT_TEMPLATES } from "../domain/pipelines-prompt-templates.js";
+
+const promptTemplates = await promptTemplatesFor(PIPELINES_PROMPT_TEMPLATES);
 
 const stages = [
   { key: "implement", kind: "agent", name: "Implement", role: "oscar" },
@@ -20,6 +24,7 @@ function wordsOf(runs: readonly StageRun[]): StageResultWords {
   return new StageResultWords(
     { list: () => Promise.resolve(runs) } as unknown as StageRunRepository,
     { find: () => Promise.resolve({ stages }) } as unknown as TaskStagesRepository,
+    promptTemplates,
   );
 }
 

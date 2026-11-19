@@ -6,6 +6,8 @@ import { baseWords } from "../domain/base-words.js";
 import {
   afterResolveTestFailed,
   conflictCameBackTooOften,
+  RESOLVE_AFTER_GATE,
+  RESOLVE_AFTER_TEST,
   RESOLVE_BRIEF,
   RESOLVE_KEY,
   resolveBrief,
@@ -29,12 +31,6 @@ export type ResolveBegun =
       /** Whether a merge is in progress, which The Office commits after the Agent. */
       readonly merging: boolean;
     };
-
-const AFTER_TEST_BRIEF =
-  "The Project's Test failed after The Office merged the base branch into the Task's branch. Fix what the merge left broken, as the failure below shows, keeping what both sides meant. Don't run git: The Office commits your changes.";
-
-const AFTER_GATE_BRIEF =
-  "The user reviewed how the conflict with the base branch was resolved and sent it back. The merge is committed already: change what their feedback below asks, keeping what both sides meant. Don't run git: The Office commits your changes.";
 
 /**
  * The git of a Resolve Stage around its Agent (spec §2.3, "Conflicts at Publish"; §5.5): The
@@ -92,11 +88,18 @@ export class ResolveStageGit implements OnModuleInit {
       });
       return { kind: "ended", outcome };
     }
+    const prompts = await this.promptTemplates.textsOf([
+      RESOLVE_AFTER_TEST,
+      RESOLVE_AFTER_GATE,
+      RESOLVE_BRIEF,
+    ]);
     if (afterResolveTestFailed(run.carriedFailure)) {
-      return { kind: "agent", brief: AFTER_TEST_BRIEF, merging: false };
+      return { kind: "agent", brief: prompts.render(RESOLVE_AFTER_TEST, {}), merging: false };
     }
     // The merge is committed already: the Gate's feedback is an ordinary round on the merged branch.
-    if (run.sentBack) return { kind: "agent", brief: AFTER_GATE_BRIEF, merging: false };
+    if (run.sentBack) {
+      return { kind: "agent", brief: prompts.render(RESOLVE_AFTER_GATE, {}), merging: false };
+    }
     const start = await this.publishing.startResolve(task.project.id, run.taskId);
     switch (start.kind) {
       case "failed":
@@ -125,7 +128,6 @@ export class ResolveStageGit implements OnModuleInit {
             },
           };
         }
-        const prompts = await this.promptTemplates.textsOf([RESOLVE_BRIEF]);
         return {
           kind: "agent",
           brief: resolveBrief(prompts, start.base.branch, start.conflictedFiles),

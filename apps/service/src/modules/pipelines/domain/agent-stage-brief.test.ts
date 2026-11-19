@@ -10,6 +10,10 @@ import {
 import { allowedCommands } from "./allowed-commands.js";
 import { RESOLVE_KEY } from "./resolve-stages.js";
 import type { AgentStage, Stage } from "./stage.js";
+import { defaultPromptTexts } from "../../prompt-templates/index.js";
+import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
+
+const prompts = defaultPromptTexts(PIPELINES_PROMPT_TEMPLATES);
 
 const WHO_ASKED =
   "## Who asked\n\nThe Task was created by the user Ann Lee and started by the queue, as its turn came (queued by the user Ben Ito).";
@@ -30,11 +34,11 @@ const task: BriefTask = {
 
 describe("an Agent Stage's Brief says which user asked", () => {
   it("names who created the Task and who started or queued it, right after the Task", () => {
-    const record = agentStageRecord({
+    const record = agentStageRecord(prompts, {
       task,
       earlier: [],
       diffSummary: undefined,
-      commands: allowedCommands("read-only-git", [], undefined, ["status"]),
+      commands: allowedCommands(prompts, "read-only-git", [], undefined, ["status"]),
       hardSwitches: {
         runInstalls: { kind: "consult", person: "Devops" },
         publishOutsideThePipeline: { kind: "never" },
@@ -47,7 +51,7 @@ describe("an Agent Stage's Brief says which user asked", () => {
   });
 
   it("marks the Definition of Done statements earlier Stages reported met, counting every report", () => {
-    const record = agentStageRecord({
+    const record = agentStageRecord(prompts, {
       task: { ...task, definitionOfDone: ["The name shows", "The name persists", "It runs live"] },
       earlier: [
         {
@@ -62,7 +66,7 @@ describe("an Agent Stage's Brief says which user asked", () => {
         },
       ],
       diffSummary: undefined,
-      commands: allowedCommands("read-only-git", [], undefined, ["status"]),
+      commands: allowedCommands(prompts, "read-only-git", [], undefined, ["status"]),
       hardSwitches: {
         runInstalls: { kind: "consult", person: "Devops" },
         publishOutsideThePipeline: { kind: "never" },
@@ -84,10 +88,10 @@ describe("an Agent Stage's Brief says which user asked", () => {
     const stage = { key: "implement", name: "Implement", brief: "Build it." };
     const ben = { userId: "u-2", name: "Ben Ito" };
 
-    expect(agentStageWork(stage, { held: { by: "pause", byUser: ben } })).toContain(
+    expect(agentStageWork(prompts, stage, { held: { by: "pause", byUser: ben } })).toContain(
       "## Paused by the user Ben Ito\n\nThe user Ben Ito paused this Stage",
     );
-    expect(agentStageWork(stage, { held: { by: "stop", byUser: ben } })).toContain(
+    expect(agentStageWork(prompts, stage, { held: { by: "stop", byUser: ben } })).toContain(
       "## Stopped by the user Ben Ito\n\nThe user Ben Ito stopped this Stage",
     );
   });
@@ -132,11 +136,11 @@ const COMMIT_MESSAGE = {
 
 /** The Task's record in an Agent Stage's Brief, with the given commit message. */
 function recordWithCommitMessage(commitMessage: BriefTask["commitMessage"]): string {
-  return agentStageRecord({
+  return agentStageRecord(prompts, {
     task: { ...task, commitMessage },
     earlier: [],
     diffSummary: undefined,
-    commands: allowedCommands("read-only-git", [], undefined, ["status"]),
+    commands: allowedCommands(prompts, "read-only-git", [], undefined, ["status"]),
     hardSwitches: {
       runInstalls: { kind: "consult", person: "Devops" },
       publishOutsideThePipeline: { kind: "never" },
@@ -159,8 +163,11 @@ describe("an Agent Stage's Brief and the Task's commit message", () => {
   it("tells only the last Agent Stage before a Publish to recheck it against the whole diff", () => {
     const pipeline = pipelineOf([implement, review, lint, publish]);
 
-    const reviewWork = agentStageWork(review, { pipeline, commitMessage: COMMIT_MESSAGE });
-    const implementWork = agentStageWork(implement, { pipeline, commitMessage: COMMIT_MESSAGE });
+    const reviewWork = agentStageWork(prompts, review, { pipeline, commitMessage: COMMIT_MESSAGE });
+    const implementWork = agentStageWork(prompts, implement, {
+      pipeline,
+      commitMessage: COMMIT_MESSAGE,
+    });
 
     expect(reviewWork).toContain("## Recheck the commit message");
     expect(reviewWork).toContain("lands the Task on main as one commit");
@@ -170,7 +177,7 @@ describe("an Agent Stage's Brief and the Task's commit message", () => {
   });
 
   it("reads a Task of an Initiative's own commits, without what its two bases brought in", () => {
-    const work = agentStageWork(review, {
+    const work = agentStageWork(prompts, review, {
       pipeline: pipelineOf([implement, review, publish]),
       commitMessage: {
         ...COMMIT_MESSAGE,
