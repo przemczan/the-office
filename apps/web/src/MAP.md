@@ -278,6 +278,7 @@
 - `desktop-channel.ts`: DesktopPermission, desktopPermission, askForDesktopPermission, DesktopChannel
 - `in-app-channel.tsx`: useInAppChannel
 - `needs-you-feed.tsx`: NeedsYouFeed
+- `needs-you-panel-width.ts`: NEEDS_YOU_PANEL_WIDTH_STORAGE_KEY, NEEDS_YOU_PANEL_WIDTHS, NeedsYouPanelLayout, showNeedsYouPanelWidth, rememberNeedsYouPanelWidth, needsYouPanelLayout, useNeedsYouPanelLayout
 - `needs-you-panel.tsx`: NeedsYouPanel
 - `needs-you-tab.ts`: useNeedsYouTab
 - `notification-channel.ts`: NotificationPerson, ShownNotification, NotificationChannel
@@ -291,7 +292,7 @@
 - `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel
 - `use-needs-you.ts`: useNeedsYou
 - `use-usage-windows.ts`: useUsageWindows
-- Tests: needs-you-feed.full.test.tsx, needs-you-tab.full.test.tsx, notification-channels.full.test.tsx, notification-words.full.test.ts, now-words.full.test.ts, office-messages.test.ts, stand-in-choice-card.full.test.tsx, stand-in-choice-words.full.test.ts
+- Tests: needs-you-feed.full.test.tsx, needs-you-panel-width.test.ts, needs-you-tab.full.test.tsx, notification-channels.full.test.tsx, notification-words.full.test.ts, now-words.full.test.ts, office-messages.test.ts, stand-in-choice-card.full.test.tsx, stand-in-choice-words.full.test.ts
 
 ### shell/pipelines/
 

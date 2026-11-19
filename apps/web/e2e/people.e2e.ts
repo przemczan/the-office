@@ -3347,6 +3347,20 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     const panel = page.getByRole("dialog").filter({ hasText: "Needs you" });
     const waiting = panel.getByRole("article", { name: "Gate: Settings keep their changes" });
     await expect(waiting.getByRole("button", { name: "Continue to Build" })).toBeVisible();
+    // Its left edge resizes it, as the chat drawer's does.
+    const panelEdge = panel.getByRole("separator", { name: "Resize the Needs you panel" });
+    await expect(panelEdge).toHaveAttribute("aria-valuenow", "640");
+    await panelEdge.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(panelEdge).toHaveAttribute("aria-valuenow", "656");
+    expect((await panel.boundingBox())?.width).toBe(656);
+    await panelEdge.dblclick();
+    await expect(panelEdge).toHaveAttribute("aria-valuenow", "640");
+    await page.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "needs-you-panel-edge-light-1600.png"),
+      animations: "disabled",
+    });
+    await panelEdge.blur();
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-needs-you-panel.png"),
       animations: "disabled",
