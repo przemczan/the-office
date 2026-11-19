@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import type { EngineModel } from "../../engine/index.js";
 import { ProjectServerValues, type ProjectMcpServerValues } from "../../mcp-servers/index.js";
 import type { EnvironmentCheck } from "../domain/environment-check.js";
@@ -40,10 +41,8 @@ export class ProjectRecords {
     const projects = await this.projects.list();
     if (projects.length === 0) return "The Office works on no Project yet.";
     const checkouts = await this.checkoutFolders();
-    const records = await Promise.all(
-      projects.map(async (project) =>
-        projectRecord(project, await this.surroundingsOf(project, checkouts)),
-      ),
+    const records = await readEach(projects, async (project) =>
+      projectRecord(project, await this.surroundingsOf(project, checkouts)),
     );
     return records.join("\n\n");
   }

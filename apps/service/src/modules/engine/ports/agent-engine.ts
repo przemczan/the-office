@@ -74,17 +74,6 @@ export class ModelNotOffered extends Error {
 }
 
 /**
- * A session on an engine whose adapter runs none yet, such as a Copilot CLI engine before its
- * adapter lands: refused before it starts, in words saying so; the engine is not down.
- */
-export class SessionsNotRunYet extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SessionsNotRunYet";
-  }
-}
-
-/**
  * A session on an engine Settings › Engines no longer lists: refused before it starts, in words
  * saying why.
  */

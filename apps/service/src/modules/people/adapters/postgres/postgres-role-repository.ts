@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import type { Role, RoleCardVersion } from "../../domain/role.js";
 import type { RoleChange } from "../../domain/role-changes.js";
 import type {
@@ -30,88 +31,104 @@ export class PostgresRoleRepository extends RoleRepository {
   }
 
   async add(role: Role): Promise<boolean> {
-    return this.database.transaction((transaction) => addRole(transaction, role));
+    return forgettingReads(() =>
+      this.database.transaction((transaction) => addRole(transaction, role)),
+    );
   }
 
-  async find(key: string): Promise<Role | undefined> {
-    const [row] = await this.database
-      .select()
-      .from(roles)
-      .innerJoin(roleCardVersions, currentCard)
-      .where(eq(roles.key, key));
-    return row && toRole(row.roles, row.role_card_versions);
+  find(key: string): Promise<Role | undefined> {
+    return readOnce(readKey("roles.find", key), async () => {
+      const [row] = await this.database
+        .select()
+        .from(roles)
+        .innerJoin(roleCardVersions, currentCard)
+        .where(eq(roles.key, key));
+      return row && toRole(row.roles, row.role_card_versions);
+    });
   }
 
-  async list(): Promise<readonly Role[]> {
-    const rows = await this.database
-      .select()
-      .from(roles)
-      .innerJoin(roleCardVersions, currentCard)
-      .orderBy(asc(roles.hiredAt), asc(roles.key));
-    return rows.map((row) => toRole(row.roles, row.role_card_versions));
+  list(): Promise<readonly Role[]> {
+    return readOnce(readKey("roles.list"), async () => {
+      const rows = await this.database
+        .select()
+        .from(roles)
+        .innerJoin(roleCardVersions, currentCard)
+        .orderBy(asc(roles.hiredAt), asc(roles.key));
+      return rows.map((row) => toRole(row.roles, row.role_card_versions));
+    });
   }
 
   async update(
     key: string,
     change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
   ): Promise<RoleUpdate> {
-    return this.database.transaction(async (transaction) => {
-      const role = await heldRole(transaction, key);
-      const changed = change(role);
-      if (!changed) return { role, event: undefined };
-      await transaction.update(roles).set(toRow(changed.role)).where(eq(roles.key, key));
-      await transaction
-        .insert(roleCardVersions)
-        .values({ ...currentVersionRow(changed.role), changes: [...changed.event.changes] });
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const role = await heldRole(transaction, key);
+        const changed = change(role);
+        if (!changed) return { role, event: undefined };
+        await transaction.update(roles).set(toRow(changed.role)).where(eq(roles.key, key));
+        await transaction
+          .insert(roleCardVersions)
+          .values({ ...currentVersionRow(changed.role), changes: [...changed.event.changes] });
+        return changed;
+      }),
+    );
   }
 
   async changeStanding<Event extends RoleLetGo | RoleHiredBack>(
     key: string,
     change: (role: Role) => RoleChange<Event>,
   ): Promise<RoleChange<Event>> {
-    return this.database.transaction(async (transaction) => {
-      const changed = change(await heldRole(transaction, key));
-      await transaction
-        .update(roles)
-        .set({ letGoAt: changed.role.letGoAt ?? null })
-        .where(eq(roles.key, key));
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const changed = change(await heldRole(transaction, key));
+        await transaction
+          .update(roles)
+          .set({ letGoAt: changed.role.letGoAt ?? null })
+          .where(eq(roles.key, key));
+        return changed;
+      }),
+    );
   }
 
   async changeAvatar(
     key: string,
     change: (role: Role) => RoleChange<RoleAvatarChanged> | undefined,
   ): Promise<RoleUpdate<RoleAvatarChanged>> {
-    return this.database.transaction(async (transaction) => {
-      const role = await heldRole(transaction, key);
-      const changed = change(role);
-      if (!changed) return { role, event: undefined };
-      await transaction
-        .update(roles)
-        .set({ avatar: changed.role.avatar })
-        .where(eq(roles.key, key));
-      return changed;
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const role = await heldRole(transaction, key);
+        const changed = change(role);
+        if (!changed) return { role, event: undefined };
+        await transaction
+          .update(roles)
+          .set({ avatar: changed.role.avatar })
+          .where(eq(roles.key, key));
+        return changed;
+      }),
+    );
+  }
+
+  version(key: string, version: number): Promise<RoleCardVersion | undefined> {
+    return readOnce(readKey("roles.version", key, version), async () => {
+      const [row] = await this.database
+        .select()
+        .from(roleCardVersions)
+        .where(and(eq(roleCardVersions.roleKey, key), eq(roleCardVersions.version, version)));
+      return row && toVersion(row);
     });
   }
 
-  async version(key: string, version: number): Promise<RoleCardVersion | undefined> {
-    const [row] = await this.database
-      .select()
-      .from(roleCardVersions)
-      .where(and(eq(roleCardVersions.roleKey, key), eq(roleCardVersions.version, version)));
-    return row && toVersion(row);
-  }
-
-  async versions(key: string): Promise<readonly RoleCardVersion[]> {
-    const rows = await this.database
-      .select()
-      .from(roleCardVersions)
-      .where(eq(roleCardVersions.roleKey, key))
-      .orderBy(desc(roleCardVersions.version));
-    return rows.map(toVersion);
+  versions(key: string): Promise<readonly RoleCardVersion[]> {
+    return readOnce(readKey("roles.versions", key), async () => {
+      const rows = await this.database
+        .select()
+        .from(roleCardVersions)
+        .where(eq(roleCardVersions.roleKey, key))
+        .orderBy(desc(roleCardVersions.version));
+      return rows.map(toVersion);
+    });
   }
 }
 

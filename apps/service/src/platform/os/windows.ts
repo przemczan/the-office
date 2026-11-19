@@ -289,13 +289,16 @@ function taskkill(variables: UserEnvironment["variables"]): ProcessTrees {
         (error) => (error && typeof error.code !== "number" ? reject(error) : resolve()),
       );
     });
+  const endChildren = async (processId: number): Promise<void> => {
+    for (const child of await childrenOf(powerShell, processId)) await end(child);
+  };
   return {
     // A detached process would get a console window of its own; taskkill finds the tree without.
     detached: false,
     end,
-    endLeftovers: async (processId) => {
-      for (const child of await childrenOf(powerShell, processId)) await end(child);
-    },
+    endLeftovers: endChildren,
+    // Each child's tree, as taskkill's /t finds it by the parents Windows keeps.
+    endDescendants: endChildren,
   };
 }
 

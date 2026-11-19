@@ -111,7 +111,7 @@ await launch(
       StandInClaudeCodeAccounts,
       StandInCodexAccounts,
       StandInCopilotCliAccounts,
-      UnavailableCopilotCliEngine,
+      COPILOT_CLI_CAPABILITIES,
     } = await import("./modules/engine/index.js");
     const { UpdateSystem } = await import("./modules/office-updates/index.js");
     const { ScriptedStatsSource, StatsSource } = await import("./modules/telemetry/index.js");
@@ -130,10 +130,11 @@ await launch(
       scan: () => Promise.resolve([scannedKey]),
     };
     const engine = new ScriptedEngine(await readRecording(scripts));
-    // No end-to-end session runs on the OpenAI-compatible API or Codex; their stand-ins only declare
-    // what the engine can't do, for the Role card to name.
+    // No end-to-end session runs on the OpenAI-compatible API, Codex or the Copilot CLI; their
+    // stand-ins only declare what the engine can't do, for the Role card to name.
     const apiEngine = new ScriptedEngine([], OPENAI_COMPATIBLE_API_CAPABILITIES);
     const codexEngine = new ScriptedEngine([], CODEX_CAPABILITIES);
+    const copilotCliEngine = new ScriptedEngine([], COPILOT_CLI_CAPABILITIES);
     const codexAccounts = new StandInCodexAccounts();
     const copilotCliAccounts = new StandInCopilotCliAccounts();
     const statsSource = new ScriptedStatsSource();
@@ -145,7 +146,7 @@ await launch(
           "claude-code-p": engine,
           "openai-compatible-api": apiEngine,
           codex: codexEngine,
-          "copilot-cli": new UnavailableCopilotCliEngine(),
+          "copilot-cli": copilotCliEngine,
         }),
       )
       .overrideProvider(ClaudeCodeAccounts)

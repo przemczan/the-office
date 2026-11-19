@@ -2,7 +2,7 @@ import { chmod } from "node:fs/promises";
 import { posix } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { codexBuild } from "./codex-build.js";
-import { runningInGroup } from "./linux-processes.js";
+import { hasProcessEnded, runningDescendants, runningInGroup } from "./linux-processes.js";
 import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
 import { printFileCommand, shQuoted } from "./print-file-command.js";
@@ -133,7 +133,53 @@ const processGroups: ProcessTrees = {
   detached: true,
   end: (processId) => endGroup(processId),
   endLeftovers: (processId) => endGroup(processId),
+  endDescendants: (processId) => endDescendants(processId),
 };
+
+/**
+ * Kills each process the process started, and the group of each that leads one, as a command
+ * started in a group or session of its own does; a group none of them leads, such as the
+ * service's own when the process isn't detached, is never signalled.
+ */
+async function endDescendants(processId: number): Promise<void> {
+  const found = await runningDescendants(processId);
+  const ids = new Set(found.map((one) => one.processId));
+  const groups = new Set(found.map((one) => one.groupId).filter((group) => ids.has(group)));
+  for (const group of groups) killGone(-group);
+  for (const one of found) if (!groups.has(one.groupId)) killGone(one.processId);
+  await Promise.all([...groups].map((group) => groupEnded(group)));
+  await processesEnded(found.filter((one) => !groups.has(one.groupId)).map((one) => one.processId));
+}
+
+/** SIGKILL, a process or group already gone being no error. */
+function killGone(target: number): void {
+  try {
+    process.kill(target, "SIGKILL");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+  }
+}
+
+/** Waits until each process has ended, as `groupEnded` waits for a group. */
+async function processesEnded(processIds: readonly number[]): Promise<void> {
+  const deadline = Date.now() + GROUP_END_TIMEOUT_MS;
+  for (;;) {
+    const running = (
+      await Promise.all(
+        processIds.map(async (processId) =>
+          (await hasProcessEnded(processId)) ? [] : [processId],
+        ),
+      )
+    ).flat();
+    if (running.length === 0) return;
+    if (Date.now() > deadline) {
+      throw new Error(
+        `Processes ${running.join(", ")} still run ${GROUP_END_TIMEOUT_MS} ms after they were killed.`,
+      );
+    }
+    await setTimeout(GROUP_END_POLL_MS);
+  }
+}
 
 async function endGroup(groupId: number): Promise<void> {
   try {

@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import {
   EngineModels,
   EngineSessions,
@@ -275,11 +276,10 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     roleKeys: ReadonlySet<string>,
   ): Promise<ReadonlyMap<string, EngineModel | null>> {
     return new Map(
-      await Promise.all(
-        [...roleKeys].map(
-          async (roleKey) =>
-            [roleKey, (await this.roleCards.find(roleKey))?.card.roleOverride ?? null] as const,
-        ),
+      await readEach(
+        [...roleKeys],
+        async (roleKey) =>
+          [roleKey, (await this.roleCards.find(roleKey))?.card.roleOverride ?? null] as const,
       ),
     );
   }

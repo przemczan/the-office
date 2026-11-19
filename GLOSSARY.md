@@ -698,7 +698,7 @@ Ends a signed-in device: this one from the top bar's user menu, any of a user's 
 _Avoid_: Log out, log off
 
 **Authenticator**:
-An app on a user's phone or computer that shows a new 6-digit **authenticator code** every 30 seconds, set up from the user's account; once set up, The Office asks for a code after a password, Continue with GitHub or Continue with Google.
+An app on a user's phone or computer that shows a new 6-digit **authenticator code** every 30 seconds, set up from the user's account; once set up, The Office asks for a code after a password, Continue with GitHub, Continue with Google or Continue with <name>.
 _Avoid_: 2FA, MFA, TOTP, OTP, verification code (in the UI)
 
 **Recovery code**:
@@ -710,7 +710,7 @@ A key a user's device or password manager keeps for The Office at one address, a
 _Avoid_: WebAuthn, security key, FIDO (in the UI)
 
 **Linked identity**:
-A user's GitHub or Google identity, linked from their account; Continue with GitHub and Continue with Google sign in only an identity linked this way, found by the provider's own id, never by matching an email.
+A user's GitHub, Google or OpenID Connect identity, linked from their account; Continue with GitHub, Continue with Google and Continue with <name> sign in only an identity linked this way, found by the provider's own id, never by matching an email.
 _Avoid_: Social login, connected account, external account
 
 **Continue with GitHub**:
@@ -720,6 +720,14 @@ _Avoid_: Sign in with GitHub, GitHub login, GitHub OAuth
 **Continue with Google**:
 Signing in to The Office with a user's linked Google identity, through a Google OAuth client a user sets up in Settings › Signing in; offered at `localhost` and the public address only.
 _Avoid_: Sign in with Google, Google login, Google OAuth
+
+**Continue with <name>**:
+Signing in to The Office with a user's linked identity at the Office's OpenID Connect provider, named by the user who set it up and shown as "Continue with Zitadel", say; offered at every address once the provider is saved.
+_Avoid_: SSO, Sign in with <name>, OIDC login
+
+**OpenID Connect provider**:
+The one outside identity provider (Zitadel, Authentik, Keycloak and others) a user sets up in Settings › Signing in with a name, an issuer URL, a client ID and a client secret, shared by every user; Continue with <name> signs in through it, and the user is found only by the provider's `sub`.
+_Avoid_: OIDC, SSO provider, identity provider (in the UI)
 
 **Public address**:
 The HTTPS address with a domain at which The Office is reached through the reverse proxy the user sets up, given to The Office as `OFFICE_PUBLIC_ADDRESS` when it starts.

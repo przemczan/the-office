@@ -181,9 +181,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   /** Read before the hold, as Start reads them: they live in other modules. */
   private async conditionsOfQueued(): Promise<Map<string, StartConditions>> {
-    const queued = await Promise.all(
-      (await this.queue.list()).map(({ taskId }) => this.tasks.find(taskId)),
-    );
-    return this.conditions.ofEach(queued.filter((task) => task !== undefined));
+    const taskIds = (await this.queue.list()).map(({ taskId }) => taskId);
+    if (taskIds.length === 0) return new Map();
+    const byId = new Map((await this.tasks.findAll(taskIds)).map((task) => [task.id, task]));
+    return this.conditions.ofEach(taskIds.flatMap((taskId) => byId.get(taskId) ?? []));
   }
 }

@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { hasEnded, processFromStat } from "./linux-processes.js";
 
 describe("processFromStat", () => {
-  it("reads the state and the group after the name, which may hold spaces and parentheses", () => {
+  it("reads the state, the parent and the group after the name, which may hold spaces and parentheses", () => {
     expect(processFromStat(42, "42 (node (dev) server) S 1 40 40 0 -1 4194560 120")).toEqual({
       processId: 42,
       state: "S",
+      parentId: 1,
       groupId: 40,
     });
   });

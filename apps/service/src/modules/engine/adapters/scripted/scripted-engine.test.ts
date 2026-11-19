@@ -8,7 +8,11 @@ import { z } from "zod";
 import { fakeStdioMcpServer } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../domain/engines.js";
+import {
+  COPILOT_CLI_AUTO_MODEL,
+  FIRST_CLAUDE_CODE_ENGINE,
+  type Engine,
+} from "../../domain/engines.js";
 import {
   describeAgentEngineContract,
   SESSIONLESS_SCENARIOS,
@@ -18,6 +22,7 @@ import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { CODEX_CAPABILITIES } from "../codex/codex-engine.js";
+import { COPILOT_CLI_CAPABILITIES } from "../copilot-cli/copilot-cli-engine.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { RecordingEngine } from "./recording-engine.js";
 import { ScriptedEngine, ScriptMismatch } from "./scripted-engine.js";
@@ -37,6 +42,16 @@ const CODEX_ENGINE: Engine = {
   kind: "codex",
   defaultModel: "gpt-6-luna",
   apiKey: null,
+};
+
+const COPILOT_CLI_RECORDINGS = join(RECORDINGS, "copilot-cli");
+
+const COPILOT_CLI_ENGINE: Engine = {
+  id: "copilot-cli",
+  name: "Copilot",
+  kind: "copilot-cli",
+  defaultModel: COPILOT_CLI_AUTO_MODEL,
+  token: null,
 };
 
 const NO_CAPABILITY: EngineCapabilities = {
@@ -85,6 +100,16 @@ describeAgentEngineContract("ScriptedEngine replaying the Codex recordings", {
   mcpServer: CONTRACT_MCP_SERVER,
   backgroundCommands: false,
   engineFor: (scenario) => replaying(CODEX_RECORDINGS, scenario, CODEX_CAPABILITIES),
+});
+
+describeAgentEngineContract("ScriptedEngine replaying the Copilot CLI recordings", {
+  capabilities: COPILOT_CLI_CAPABILITIES,
+  engine: COPILOT_CLI_ENGINE,
+  model: COPILOT_CLI_AUTO_MODEL,
+  timeoutMs: 5000,
+  mcpServer: CONTRACT_MCP_SERVER,
+  backgroundCommands: false,
+  engineFor: (scenario) => replaying(COPILOT_CLI_RECORDINGS, scenario, COPILOT_CLI_CAPABILITIES),
 });
 
 /**

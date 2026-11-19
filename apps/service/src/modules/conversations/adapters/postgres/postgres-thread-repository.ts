@@ -263,6 +263,15 @@ export class PostgresThreadRepository extends ThreadRepository {
     return row && toDecision(row);
   }
 
+  async decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.database
+      .select()
+      .from(decisions)
+      .where(inArray(decisions.id, [...ids]));
+    return rows.map(toDecision);
+  }
+
   async decisionsIn(threadId: string): Promise<readonly Decision[]> {
     const rows = await this.database
       .select()

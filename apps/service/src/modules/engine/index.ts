@@ -96,8 +96,7 @@ export { StandInCopilotCliAccounts } from "./adapters/scripted/stand-in-copilot-
 // So a stand-in for these engines declares what it can't do, as the Role card names it.
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export { CODEX_CAPABILITIES } from "./adapters/codex/codex-engine.js";
-// Until the Copilot CLI adapter lands, the end-to-end service refuses its sessions as the service does.
-export { UnavailableCopilotCliEngine } from "./adapters/copilot-cli/unavailable-copilot-cli-engine.js";
+export { COPILOT_CLI_CAPABILITIES } from "./adapters/copilot-cli/copilot-cli-engine.js";
 export type { NewSession } from "./ports/agent-engine.js";
 export { NoEngineListed, SessionNotCarried } from "./ports/agent-engine.js";
 export type { EngineSession } from "./ports/engine-session.js";

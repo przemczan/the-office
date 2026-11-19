@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
 import { CopilotCliToken } from "../../domain/copilot-cli-token.js";
 import {
@@ -21,7 +22,11 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
     super();
   }
 
-  async read(): Promise<EngineSettings> {
+  read(): Promise<EngineSettings> {
+    return readOnce(readKey("engineSettings"), () => this.readStored());
+  }
+
+  private async readStored(): Promise<EngineSettings> {
     const rows = await this.database.select().from(engines).orderBy(asc(engines.position));
     const [row] = await this.database.select().from(engineSettings).limit(1);
     const prices = await this.database
@@ -59,27 +64,31 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       officeDefaultEngineId: officeDefault?.engineId ?? null,
       officeDefaultModel: officeDefault?.model ?? null,
     };
-    await this.database.transaction(async (transaction) => {
-      await transaction.delete(engines);
-      if (listed.length > 0) await transaction.insert(engines).values(listed.map(engineRowOf));
-      await transaction
-        .insert(engineSettings)
-        .values(settingsRow)
-        .onConflictDoUpdate({ target: engineSettings.id, set: settingsRow });
-      await transaction.delete(modelPrices);
-      if (priced.length > 0) {
+    await forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await transaction.delete(engines);
+        if (listed.length > 0) await transaction.insert(engines).values(listed.map(engineRowOf));
         await transaction
-          .insert(modelPrices)
-          .values(priced.map(({ engineId, model, price }) => ({ engineId, model, ...price })));
-      }
-    });
+          .insert(engineSettings)
+          .values(settingsRow)
+          .onConflictDoUpdate({ target: engineSettings.id, set: settingsRow });
+        await transaction.delete(modelPrices);
+        if (priced.length > 0) {
+          await transaction
+            .insert(modelPrices)
+            .values(priced.map(({ engineId, model, price }) => ({ engineId, model, ...price })));
+        }
+      }),
+    );
   }
 
   async setCodexApiKey(engineId: EngineId, key: CodexApiKey | null): Promise<void> {
-    await this.database
-      .update(engines)
-      .set({ key: key?.reveal() ?? null })
-      .where(and(eq(engines.id, engineId), eq(engines.kind, "codex")));
+    await forgettingReads(() =>
+      this.database
+        .update(engines)
+        .set({ key: key?.reveal() ?? null })
+        .where(and(eq(engines.id, engineId), eq(engines.kind, "codex"))),
+    );
   }
 
   async setCopilotCliToken(engineId: EngineId, token: CopilotCliToken | null): Promise<void> {

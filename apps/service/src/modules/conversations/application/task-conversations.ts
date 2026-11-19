@@ -88,7 +88,9 @@ export class TaskConversations {
 
   private async consultedDecisions(threads: readonly Thread[]): Promise<readonly Decision[]> {
     const ids = threads.flatMap(({ consultation }) => consultation?.decisionId ?? []);
-    const decisions = await Promise.all(ids.map((id) => this.repository.decision(id)));
-    return decisions.filter((decision) => decision !== undefined);
+    const byId = new Map(
+      (await this.repository.decisionsWithIds(ids)).map((decision) => [decision.id, decision]),
+    );
+    return ids.flatMap((id) => byId.get(id) ?? []);
   }
 }

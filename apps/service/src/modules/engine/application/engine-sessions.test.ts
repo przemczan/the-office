@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import { EngineDown } from "../domain/engine-events.js";
-import { UnavailableCopilotCliEngine } from "../adapters/copilot-cli/unavailable-copilot-cli-engine.js";
+import { COPILOT_CLI_CAPABILITIES } from "../adapters/copilot-cli/copilot-cli-engine.js";
 import {
   FIRST_CLAUDE_CODE_ENGINE,
   type ApiEngine,
@@ -11,7 +11,6 @@ import {
 import {
   EngineNotListed,
   SessionSkillsDiffer,
-  SessionsNotRunYet,
   type AgentEngine,
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
@@ -328,52 +327,25 @@ const COPILOT: CopilotCliEngine = {
   token: null,
 };
 
+function onCopilot() {
+  return setUpOn(
+    {
+      "agent-sdk": new ScriptedEngine([]),
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([], COPILOT_CLI_CAPABILITIES),
+    },
+    new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, COPILOT] }),
+  );
+}
+
 describe("EngineSessions on a Copilot CLI engine", () => {
-  function onCopilot() {
-    return setUpOn(
-      {
-        "agent-sdk": new ScriptedEngine([]),
-        "claude-code-p": new ScriptedEngine([]),
-        "openai-compatible-api": new ScriptedEngine([]),
-        codex: new ScriptedEngine([]),
-        "copilot-cli": new UnavailableCopilotCliEngine(),
-      },
-      new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, COPILOT] }),
-    );
-  }
-
-  const ON_COPILOT: SessionSettings = {
-    ...SETTINGS,
-    engineId: COPILOT.id,
-    model: "auto",
-    officeTools: [],
-  };
-
-  it("refuses a session, started or resumed, in words saying it can't run yet, the engine not down", async () => {
-    const { sessions, published, running } = onCopilot();
-
-    for (const opened of [
-      sessions.start({ id: "s-1", settings: ON_COPILOT, brief: message("Begin.") }),
-      sessions.resume("s-2", ON_COPILOT),
-    ]) {
-      await expect(opened).rejects.toThrow(SessionsNotRunYet);
-      await expect(opened).rejects.toThrow("Sessions on a Copilot CLI engine can't run yet.");
-    }
-    expect(published).toEqual([]);
-    await running.allEnded(COPILOT.id);
-  });
-
-  it("names every capability missing, so the Role card names what it can't do", () => {
+  it("names the capabilities it lacks, so the Role card names what it can't do", () => {
     const { sessions } = onCopilot();
 
     expect(sessions.missingCapabilitiesOf(COPILOT)).toEqual([
-      "bargeIn",
-      "interrupt",
-      "resume",
       "usageWindows",
-      "contextUsage",
-      "officeTools",
-      "outputSchema",
       "languageServers",
       "carrySession",
     ]);

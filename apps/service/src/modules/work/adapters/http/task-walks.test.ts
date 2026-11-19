@@ -375,6 +375,7 @@ function roleCardsOf(developerKey: string, taskLimit: number): Partial<RoleCards
     forResumedSession: (key) => Promise.resolve(roleOf(key)),
     hiredKeys: () => Promise.resolve(hired),
     holderOf: (duty) => Promise.resolve(duty === "plans" ? PLANNER : undefined),
+    dutyHolders: () => Promise.resolve(new Map([["plans", PLANNER]])),
     consultants: () => Promise.resolve([]),
     findLetGo: () => Promise.resolve(undefined),
     roleTitle: (key) => roleOf(key).card.title,

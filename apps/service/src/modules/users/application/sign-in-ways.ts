@@ -8,6 +8,12 @@ import {
   type WayUnavailable,
 } from "../domain/sign-in-way.js";
 
+/** A way the page offers, with the name its button shows when it has one of its own. */
+export interface OfferedWay {
+  readonly kind: SignInWayKind;
+  readonly name: string | undefined;
+}
+
 /** A way set up that doesn't work at the page's address, with why. */
 export interface UnavailableWay extends WayUnavailable {
   readonly kind: SignInWayKind;
@@ -15,7 +21,7 @@ export interface UnavailableWay extends WayUnavailable {
 
 /** The ways a page at an address offers, and those set up that it can't, each with why. */
 export interface WaysAt {
-  readonly ways: readonly SignInWayKind[];
+  readonly ways: readonly OfferedWay[];
   readonly unavailable: readonly UnavailableWay[];
 }
 
@@ -35,11 +41,11 @@ export class SignInWays {
   async at(page: PageAddress): Promise<WaysAt> {
     const available = await Promise.all(this.ways.map((way) => way.isAvailable()));
     const setUp = this.ways.filter((_, index) => available[index]);
-    const offered: SignInWayKind[] = [];
+    const offered: OfferedWay[] = [];
     const unavailable: UnavailableWay[] = [];
     for (const way of setUp) {
       const why = way.unavailableAt(page);
-      if (why === undefined) offered.push(way.kind);
+      if (why === undefined) offered.push({ kind: way.kind, name: await way.name?.() });
       else unavailable.push({ kind: way.kind, ...why });
     }
     return { ways: offered, unavailable };

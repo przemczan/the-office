@@ -1,5 +1,6 @@
 import type { Author } from "../domain/author.js";
 import { Injectable, Logger } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { initiativeProjectIds, pipelineIn, type Initiative } from "../domain/initiative.js";
@@ -194,7 +195,7 @@ export class InitiativeBranching {
   ): Promise<readonly MadeBranch[]> {
     const { shortName } = initiative;
     if (projectIds.length === 0 || shortName === undefined) return [];
-    const projects = await Promise.all(projectIds.map((projectId) => this.project(projectId)));
+    const projects = await readEach(projectIds, (projectId) => this.project(projectId));
     await this.refusePipelineProblems(initiative, projects);
     const branch = initiativeBranchOf(shortName);
     const made: MadeBranch[] = [];
@@ -236,8 +237,8 @@ export class InitiativeBranching {
     initiative: Initiative,
     projects: readonly KnownProject[],
   ): Promise<void> {
-    const problems = await Promise.all(
-      projects.map((project) => this.pipelineProblems(initiative, project)),
+    const problems = await readEach(projects, (project) =>
+      this.pipelineProblems(initiative, project),
     );
     if (problems.flat().length > 0) throw new InitiativeRefused(problems.flat());
   }

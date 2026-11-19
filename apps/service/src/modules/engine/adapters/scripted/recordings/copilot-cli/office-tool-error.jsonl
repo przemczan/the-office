@@ -1,0 +1,10 @@
+{"step":"start","brief":{"id":"7f0d0ad3-6c02-4915-9d98-e235075249d7","text":"Call the ledger tool once with the word \"tangerine\". Whatever it answers, do not call it again; reply with the single word: done"}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6328,"output":20,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":6328}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_uckfc3pfVhGCuvhO8PjebZBN","tool":"ledger","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"call_uckfc3pfVhGCuvhO8PjebZBN","text":"The ledger is closed for the day.","isError":true,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12695,"output":25,"cacheRead":5632,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":11999}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["7f0d0ad3-6c02-4915-9d98-e235075249d7"],"usage":{"input":12695,"output":25,"cacheRead":5632,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

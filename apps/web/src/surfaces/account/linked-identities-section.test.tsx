@@ -14,6 +14,7 @@ import { LinkedIdentitiesSection } from "./linked-identities-section.tsx";
 const LINKED: LinkedIdentityList = [
   {
     provider: "github",
+    providerName: "GitHub",
     available: true,
     unavailableHere: null,
     linked: {
@@ -24,7 +25,13 @@ const LINKED: LinkedIdentityList = [
   },
 ];
 const NOT_LINKED: LinkedIdentityList = [
-  { provider: "github", available: true, unavailableHere: null, linked: null },
+  {
+    provider: "github",
+    providerName: "GitHub",
+    available: true,
+    unavailableHere: null,
+    linked: null,
+  },
 ];
 
 const pages = {
@@ -65,7 +72,15 @@ describe("Account › Linked identities", () => {
     stubService({
       "GET /api/account/linked-identities": () => ({
         status: 200,
-        body: [{ provider: "github", available: false, unavailableHere: null, linked: null }],
+        body: [
+          {
+            provider: "github",
+            providerName: "GitHub",
+            available: false,
+            unavailableHere: null,
+            linked: null,
+          },
+        ],
       }),
     });
 
@@ -117,6 +132,7 @@ describe("Account › Linked identities", () => {
         body: [
           {
             provider: "google",
+            providerName: "Google",
             available: true,
             unavailableHere: null,
             linked: {
@@ -136,7 +152,15 @@ describe("Account › Linked identities", () => {
     stubService({
       "GET /api/account/linked-identities": () => ({
         status: 200,
-        body: [{ provider: "google", available: false, unavailableHere: null, linked: null }],
+        body: [
+          {
+            provider: "google",
+            providerName: "Google",
+            available: false,
+            unavailableHere: null,
+            linked: null,
+          },
+        ],
       }),
     });
     const withoutClient = await openPage("/account/linked-identities", pages);
@@ -152,6 +176,7 @@ describe("Account › Linked identities", () => {
         body: [
           {
             provider: "google",
+            providerName: "Google",
             available: true,
             unavailableHere: { reason: "ip-address", elsewhere: "http://localhost:4310" },
             linked: null,
@@ -163,6 +188,34 @@ describe("Account › Linked identities", () => {
     await until(() => expect(buttonNamed(atIp.page, "Link Google")?.disabled).toBe(true));
     expect(atIp.page.textContent).toContain(
       "Continue with Google doesn't work at an IP address. Open The Office at localhost:4310 to link it.",
+    );
+  });
+
+  it("names the OpenID Connect row by the provider's name, with Link and Unlink", async () => {
+    let current: LinkedIdentityList = [
+      {
+        provider: "openid-connect",
+        providerName: "Zitadel",
+        available: true,
+        unavailableHere: null,
+        linked: { name: "ada", linkedAt: "2026-11-10T09:00:00.000Z", lastSignedInAt: null },
+      },
+    ];
+    const sent = stubService({
+      "GET /api/account/linked-identities": () => ({ status: 200, body: current }),
+      "DELETE /api/account/linked-identities/openid-connect": () => {
+        current = [{ ...current[0]!, linked: null }];
+        return { status: 204 };
+      },
+    });
+    const again = await openPage("/account/linked-identities", pages);
+    await until(() => expect(buttonNamed(again.page, "Unlink Zitadel")).toBeDefined());
+    act(() => buttonNamed(again.page, "Unlink Zitadel")?.click());
+    expect(document.body.textContent).toContain("Continue with Zitadel no longer signs you in");
+    act(() => buttonNamed(document.body, "Unlink the account")?.click());
+    await until(() => expect(buttonNamed(again.page, "Link Zitadel")).toBeDefined());
+    expect(sent.map(({ request }) => request)).toContain(
+      "DELETE /api/account/linked-identities/openid-connect",
     );
   });
 });

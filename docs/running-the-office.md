@@ -107,6 +107,10 @@ Removing the client in Settings › Signing in takes Continue with Google off th
 
 Checked only with Google's endpoints stubbed and its authorize page caught in the e2e test, not on real Google.
 
+### Continue with an OpenID Connect provider
+
+Users sign in through one OpenID Connect provider (Zitadel, Authentik, Keycloak and others) set up in Settings › Signing in; the steps, for Zitadel, are in [Installing](installing.md#signing-in-with-zitadel-or-another-openid-connect-provider). It works at every address, like Continue with GitHub, as the provider is given a redirect URI for each (`/api/sign-in/openid-connect/callback`). Removing the provider keeps the linked identities.
+
 ## First run: the setup token
 
 The installer creates no user. The first person to open The Office creates their own account, and only with the **setup token**, so whoever reaches it first over the network can't claim it. The direct installer prints one itself; otherwise the service's first start prints one to its standard output, with the address to open, so `docker compose logs office` or the checkout's terminal shows it:

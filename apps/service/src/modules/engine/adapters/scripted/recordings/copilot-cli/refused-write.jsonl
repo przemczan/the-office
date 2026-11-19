@@ -1,0 +1,16 @@
+{"step":"start","brief":{"id":"49e86067-0b85-4952-bd82-0f73ee393141","text":"Create the file notes.txt containing the word hi, with your tool for writing files. If that is refused, do not try again or another way; reply with the single word: refused"}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6316,"output":29,"cacheRead":5632,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":11948}}
+{"step":"event","event":{"kind":"tool-call","callId":"custom_call_vwmT9bgtJhiGi5bP5cis5x7T","tool":"Write","input":{"file_path":"notes.txt"},"officeTool":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-refused","callId":"custom_call_vwmT9bgtJhiGi5bP5cis5x7T","tool":"Write","reason":"Not allowed in this session: editing files.","refusedBy":"office-rules"}}
+{"step":"event","event":{"kind":"tool-result","callId":"custom_call_vwmT9bgtJhiGi5bP5cis5x7T","text":"Denied by preToolUse hook: Not allowed in this session: editing files.","isError":true,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12688,"output":35,"cacheRead":11264,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":12004}}
+{"step":"event","event":{"kind":"text","text":"refused","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["49e86067-0b85-4952-bd82-0f73ee393141"],"usage":{"input":12688,"output":35,"cacheRead":11264,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"send","message":{"id":"282c0182-6d14-4a7c-8255-0e0449df1d76","text":"Reply with the single word: next"},"priority":"later"}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6417,"output":16,"cacheRead":5632,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":12049}}
+{"step":"event","event":{"kind":"text","text":"next","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["282c0182-6d14-4a7c-8255-0e0449df1d76"],"usage":{"input":6417,"output":16,"cacheRead":5632,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

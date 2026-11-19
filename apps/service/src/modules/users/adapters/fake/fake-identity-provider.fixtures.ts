@@ -76,3 +76,19 @@ export class FakeGoogleIdentityProvider extends FakeIdentityProvider {
     return secureNameMissingAt(page);
   }
 }
+
+/**
+ * The fake bound as `openid-connect`, which works at every address, even an IP address, as the
+ * provider decides which redirect URIs it accepts; its name is whatever a test sets.
+ */
+@Injectable()
+export class FakeOpenIdConnectIdentityProvider extends FakeIdentityProvider {
+  override readonly provider: IdentityProviderId = "openid-connect";
+  override signedInAs: ProviderAnswer = { subject: "fixed-sub-of-ada", name: "ada@example.com" };
+  /** The name the pages show, as saved in Settings › Signing in. */
+  name = "Zitadel";
+
+  override displayName(): Promise<string> {
+    return Promise.resolve(this.name);
+  }
+}

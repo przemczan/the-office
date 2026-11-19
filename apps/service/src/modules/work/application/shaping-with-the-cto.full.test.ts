@@ -116,6 +116,10 @@ class CtoOnly {
     return duty === "shapes-initiatives" ? CTO : undefined;
   }
 
+  async dutyHolders(): Promise<ReadonlyMap<string, string>> {
+    return new Map([["shapes-initiatives", CTO]]);
+  }
+
   async consultants(): Promise<readonly never[]> {
     return [];
   }

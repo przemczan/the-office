@@ -19,7 +19,6 @@ import {
   EngineNotListed,
   missingCapabilities,
   ModelNotOffered,
-  SessionsNotRunYet,
   SessionSkillsDiffer,
   type EngineCapabilities,
   type EngineCapability,
@@ -485,16 +484,14 @@ class WatchedSession implements EngineSession {
 }
 
 /**
- * Refusing what the engine can't do, a session without exactly its skills, a model the engine
- * doesn't offer now, or a session on an engine that runs none yet, is the caller's to handle; the
- * engine is not down.
+ * Refusing what the engine can't do, a session without exactly its skills, or a model the engine
+ * doesn't offer now, is the caller's to handle; the engine is not down.
  */
 function isRefusal(error: unknown): boolean {
   return (
     error instanceof CapabilityMissing ||
     error instanceof SessionSkillsDiffer ||
-    error instanceof ModelNotOffered ||
-    error instanceof SessionsNotRunYet
+    error instanceof ModelNotOffered
   );
 }
 

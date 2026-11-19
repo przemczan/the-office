@@ -1,5 +1,5 @@
 {
-  "id": "5e0170b7-e14f-47a3-8048-4ff6ce928c1a",
+  "id": "d2503f63-014f-492e-88ba-8b9db02bfc5a",
   "prevId": "d9b6c181-be28-4ba1-8058-65d76f694bcf",
   "version": "7",
   "dialect": "postgresql",
@@ -1299,7 +1299,7 @@
         },
         "engines_kind": {
           "name": "engines_kind",
-          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> '')) OR (\"engines\".\"kind\" = 'copilot-cli' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
+          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
         }
       },
       "isRLSEnabled": false
@@ -4008,6 +4008,79 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.openid_connect_provider": {
+      "name": "openid_connect_provider",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "smallint",
+          "primaryKey": true,
+          "notNull": true,
+          "default": 1
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issuer": {
+          "name": "issuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_secret": {
+          "name": "client_secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authorization_endpoint": {
+          "name": "authorization_endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_endpoint": {
+          "name": "token_endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "openid_connect_provider_one_row": {
+          "name": "openid_connect_provider_one_row",
+          "value": "\"openid_connect_provider\".\"id\" = 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.passkeys": {

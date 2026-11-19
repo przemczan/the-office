@@ -1,0 +1,19 @@
+{"step":"start","brief":{"id":"0cdc0429-9e47-450b-92b5-2cb6ed22ad9b","text":"Use the tools of the fake MCP server, each once, in this order: environment-variable with the name FAKE_SERVER_VALUE, started-process, and echo with the text hi. If a call is refused, do not try it again; then reply with the single word: done"}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6202,"output":23,"cacheRead":0,"cacheCreation":6199}}}
+{"step":"event","event":{"kind":"context-read","tokens":12401}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_6GczzJG9AdCLIbZfi8bKlilM","tool":"mcp__fake__environment-variable","input":{"name":"FAKE_SERVER_VALUE"},"officeTool":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"call_6GczzJG9AdCLIbZfi8bKlilM","text":"kumquat","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12442,"output":39,"cacheRead":6199,"cacheCreation":6237}}}
+{"step":"event","event":{"kind":"context-read","tokens":12477}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_YzkMH5sSQtRGAMLAtuRgdDiR","tool":"mcp__fake__started-process","input":{},"officeTool":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"call_YzkMH5sSQtRGAMLAtuRgdDiR","text":"1265994","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":18714,"output":58,"cacheRead":12436,"cacheCreation":6269}}}
+{"step":"event","event":{"kind":"context-read","tokens":12541}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_Gs5MFIoyI3JZpRbL99MVsvsc","tool":"mcp__fake__echo","input":{"text":"hi"},"officeTool":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-refused","callId":"call_Gs5MFIoyI3JZpRbL99MVsvsc","tool":"mcp__fake__echo","reason":"Not allowed in this session: the fake/echo MCP tool.","refusedBy":"office-rules"}}
+{"step":"event","event":{"kind":"tool-result","callId":"call_Gs5MFIoyI3JZpRbL99MVsvsc","text":"Denied by preToolUse hook: Not allowed in this session: the fake/echo MCP tool.","isError":true,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":25037,"output":77,"cacheRead":18705,"cacheCreation":6320}}}
+{"step":"event","event":{"kind":"context-read","tokens":12643}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["0cdc0429-9e47-450b-92b5-2cb6ed22ad9b"],"usage":{"input":25037,"output":77,"cacheRead":18705,"cacheCreation":6320},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

@@ -10,6 +10,7 @@ import {
   type PasswordSignIn as PasswordSignInMessage,
   type SignInOutcome as SignInOutcomeMessage,
   type SignInPage,
+  type SignInWay as SignInWayMessage,
 } from "@the-office/contracts";
 import type { Request, Response } from "express";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -18,7 +19,8 @@ import { CodeSignIn } from "../../application/code-sign-in.js";
 import { FirstPassword } from "../../application/first-password.js";
 import { FirstUser } from "../../application/first-user.js";
 import { PasswordSignIn } from "../../application/password-sign-in.js";
-import { SignInWays } from "../../application/sign-in-ways.js";
+import { SignInWays, type OfferedWay } from "../../application/sign-in-ways.js";
+import { providerNameOf } from "../../domain/linked-identity.js";
 import { answerSignIn } from "./sign-in-answers.js";
 import { pendingSignInTokenOf } from "./sign-in-cookie.js";
 import { pageAddressOf, signInRequestOf } from "./sign-in-request.js";
@@ -48,7 +50,7 @@ export class SignInController {
     );
     return {
       firstRun: await this.firstUser.isAwaited(),
-      ways: ways.map((kind) => ({ kind })),
+      ways: ways.map(signInWayOf),
       unavailable: [...unavailable],
     };
   }
@@ -113,4 +115,10 @@ export class SignInController {
     const outcome = await this.firstPassword.set(firstPassword, signInRequestOf(request, address));
     return answerSignIn(outcome, address.secure, response);
   }
+}
+
+/** The way as the sign-in page gets it: the OpenID Connect provider's with the name its button shows. */
+function signInWayOf({ kind, name }: OfferedWay): SignInWayMessage {
+  if (kind === "openid-connect") return { kind, name: name ?? providerNameOf(kind) };
+  return { kind };
 }

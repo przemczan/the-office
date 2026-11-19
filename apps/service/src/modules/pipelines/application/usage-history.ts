@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { ModelPrices } from "../../engine/index.js";
 import {
   dollarsPerToken,
@@ -34,7 +35,7 @@ export class UsageHistory {
    */
   async dollarsPerToken(doneTaskIds: readonly string[]): Promise<number | undefined> {
     const runs = await this.latestRuns(doneTaskIds);
-    return dollarsPerToken(await Promise.all(tokensByModel(runs).map((each) => this.priced(each))));
+    return dollarsPerToken(await readEach(tokensByModel(runs), (each) => this.priced(each)));
   }
 
   private latestRuns(doneTaskIds: readonly string[]): Promise<readonly StageRunUsage[]> {

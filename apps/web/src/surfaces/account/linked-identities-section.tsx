@@ -33,7 +33,6 @@ const PROVIDERS: Readonly<
   Record<
     IdentityProvider,
     {
-      readonly name: string;
       readonly icon: ReactNode;
       readonly notSetUp: string;
       readonly notHere: (why: WayUnavailable) => string;
@@ -41,14 +40,12 @@ const PROVIDERS: Readonly<
   >
 > = {
   github: {
-    name: "GitHub",
     icon: <Icon name="github" size={18} />,
     notSetUp: "Register the GitHub App in Settings › Office identity first.",
     // GitHub sends the browser back to any callback URL the App lists, so it works at every address.
     notHere: () => "Linking GitHub doesn't work at this address.",
   },
   google: {
-    name: "Google",
     icon: <GoogleMark size={18} />,
     notSetUp: "Save a Google OAuth client in Settings › Signing in first.",
     notHere: ({ reason, elsewhere }) =>
@@ -56,7 +53,17 @@ const PROVIDERS: Readonly<
         elsewhere === undefined ? "localhost or its public address" : new URL(elsewhere).host
       } to link it.`,
   },
+  "openid-connect": {
+    icon: <Icon name="key" size={18} />,
+    notSetUp: "Save an OpenID Connect provider in Settings › Signing in first.",
+    notHere: () => "Linking doesn't work at this address.",
+  },
 };
+
+/** The name a row and its words use: the provider's own, as the service names it. */
+function nameOf(link: ProviderLink): string {
+  return link.providerName;
+}
 
 /**
  * Account › Linked identities (spec §2.10): each provider with the identity linked there, when it
@@ -72,7 +79,7 @@ export function LinkedIdentitiesSection(): ReactNode {
       <Card
         padding="none"
         title={<AccountCardTitle icon="link">Linked identities</AccountCardTitle>}
-        subtitle="Continue with GitHub or Google on the sign-in page signs you in with the account linked here, never by your email."
+        subtitle="Continue with GitHub, Google or your OpenID Connect provider on the sign-in page signs you in with the account linked here, never by your email."
       >
         <LinkFailure />
         {list.error && (
@@ -126,7 +133,7 @@ function ProviderRow({
       {provider.icon}
       <span className="account-identity-main">
         <span className="account-device">
-          {provider.name}
+          {nameOf(link)}
           {linked && (
             <Badge tone="success" dot size="sm">
               {linked.name}
@@ -148,13 +155,17 @@ function ProviderRow({
           <Button
             variant="secondary"
             size="sm"
-            aria-label={`Unlink ${provider.name}`}
+            aria-label={`Unlink ${nameOf(link)}`}
             onClick={onUnlink}
           >
             Unlink
           </Button>
         ) : (
-          <LinkButton provider={link.provider} notLinkable={whyNotLinkable(link)} />
+          <LinkButton
+            provider={link.provider}
+            name={nameOf(link)}
+            notLinkable={whyNotLinkable(link)}
+          />
         )}
       </span>
     </li>
@@ -175,16 +186,17 @@ function whyNotLinkable({
 /** Goes to the provider, which sends the browser back to the account linked or with why not. */
 function LinkButton({
   provider,
+  name,
   notLinkable,
 }: {
   readonly provider: IdentityProvider;
+  readonly name: string;
   readonly notLinkable: string | undefined;
 }): ReactNode {
   const linking = useMutation({
     mutationFn: () => startLinking(provider),
     onSuccess: ({ authorizeUrl }) => window.location.assign(authorizeUrl),
   });
-  const { name } = PROVIDERS[provider];
   return (
     <>
       {linking.error && <RefusalAlert title="Linking can't start" error={linking.error} />}
@@ -213,7 +225,7 @@ function UnlinkDialog({
 }): ReactNode {
   const queryClient = useQueryClient();
   const showToast = useToast();
-  const { name } = PROVIDERS[link.provider];
+  const name = nameOf(link);
   const unlinking = useMutation({
     mutationFn: () => unlinkIdentity(link.provider),
     onSuccess: async () => {

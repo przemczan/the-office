@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../../platform/database/fan-out.js";
 import {
   ANSWER_DECISION_TOOL,
   CONSULT_TOOL,
@@ -157,7 +158,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
   ): Promise<string> {
     const [officeWide, projects] = await Promise.all([
       this.pipelines.list(),
-      Promise.all(initiativeProjectIds(tasks).map((id) => this.shapingProject(id))),
+      readEach(initiativeProjectIds(tasks), (id) => this.shapingProject(id)),
     ]);
     return shapingBrief(prompts, initiative, ideaProjectId, record, projects, officeWide);
   }
@@ -185,9 +186,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       this.pipelines.list(),
       this.decisions.openInThread(threadId),
     ]);
-    const projects = await Promise.all(
-      initiativeProjectIds(tasks).map((id) => this.planningProject(id)),
-    );
+    const projects = await readEach(initiativeProjectIds(tasks), (id) => this.planningProject(id));
     return initiativePlanningBrief(prompts, {
       initiative,
       waiting,

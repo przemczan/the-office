@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import type { EngineModel } from "../../../engine/index.js";
 import type { Project } from "../../domain/project.js";
 import type { ProjectChanges } from "../../domain/project-changes.js";
@@ -18,35 +19,41 @@ export class PostgresProjectRepository extends ProjectRepository {
   }
 
   async add(project: Project): Promise<void> {
-    await this.database.insert(projects).values(toRow(project));
+    await forgettingReads(() => this.database.insert(projects).values(toRow(project)));
   }
 
-  async find(id: string): Promise<Project | undefined> {
-    const [row] = await this.database.select().from(projects).where(eq(projects.id, id));
-    return row && toProject(row);
+  find(id: string): Promise<Project | undefined> {
+    return readOnce(readKey("projects.find", id), async () => {
+      const [row] = await this.database.select().from(projects).where(eq(projects.id, id));
+      return row && toProject(row);
+    });
   }
 
-  async list(): Promise<readonly Project[]> {
-    const rows = await this.database
-      .select()
-      .from(projects)
-      .orderBy(asc(projects.addedAt), asc(projects.id));
-    return rows.map(toProject);
+  list(): Promise<readonly Project[]> {
+    return readOnce(readKey("projects.list"), async () => {
+      const rows = await this.database
+        .select()
+        .from(projects)
+        .orderBy(asc(projects.addedAt), asc(projects.id));
+      return rows.map(toProject);
+    });
   }
 
   async update(id: string, change: (project: Project) => ProjectChanges): Promise<ProjectChanges> {
-    return this.database.transaction(async (transaction) => {
-      const [row] = await transaction
-        .select()
-        .from(projects)
-        .where(eq(projects.id, id))
-        .for("update");
-      if (!row) throw new ProjectNotFound(id);
-      const changed = change(toProject(row));
-      if (changed.events.length === 0) return changed;
-      await transaction.update(projects).set(toRow(changed.project)).where(eq(projects.id, id));
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const [row] = await transaction
+          .select()
+          .from(projects)
+          .where(eq(projects.id, id))
+          .for("update");
+        if (!row) throw new ProjectNotFound(id);
+        const changed = change(toProject(row));
+        if (changed.events.length === 0) return changed;
+        await transaction.update(projects).set(toRow(changed.project)).where(eq(projects.id, id));
+        return changed;
+      }),
+    );
   }
 }
 

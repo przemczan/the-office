@@ -167,6 +167,30 @@ export class GoogleClientRemoved extends DomainEvent {
   }
 }
 
+/**
+ * A user saved the OpenID Connect provider, new or changed; never its secret. A provider at another
+ * issuer than the one before unlinked that one's identities, counted here.
+ */
+export class OpenIdConnectProviderSaved extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly name: string,
+    readonly issuer: string,
+    readonly clientId: string,
+    readonly identitiesUnlinked: number,
+    savedAt: Date,
+  ) {
+    super(savedAt);
+  }
+}
+
+/** A user removed the OpenID Connect provider: Continue with <name> is no longer offered. */
+export class OpenIdConnectProviderRemoved extends DomainEvent {
+  constructor(readonly userId: string) {
+    super();
+  }
+}
+
 /** A setup token was made, ending any earlier one; the event never carries the token or its hash. */
 export class SetupTokenMade extends DomainEvent {}
 

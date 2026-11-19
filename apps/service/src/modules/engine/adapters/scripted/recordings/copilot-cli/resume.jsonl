@@ -1,0 +1,17 @@
+{"step":"start","brief":{"id":"90d74727-e034-4400-a108-1c24a56f1696","text":"Remember the word \"tangerine\" for later. Do not call any tool now; reply with the single word: ok"}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6122,"output":53,"cacheRead":3193,"cacheCreation":2926}}}
+{"step":"event","event":{"kind":"context-read","tokens":12241}}
+{"step":"event","event":{"kind":"text","text":"ok","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["90d74727-e034-4400-a108-1c24a56f1696"],"usage":{"input":6122,"output":53,"cacheRead":3193,"cacheCreation":2926},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}
+{"step":"resume"}
+{"step":"send","message":{"id":"48c08911-9f18-4a5d-b9e7-ce56321bef85","text":"Call the note tool once with the word you were asked to remember, then reply with the single word: done"},"priority":"next"}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6181,"output":19,"cacheRead":6119,"cacheCreation":59}}}
+{"step":"event","event":{"kind":"context-read","tokens":12359}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_RKnZAzhgO1ba83gYYScmYBXw","tool":"note","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"call_RKnZAzhgO1ba83gYYScmYBXw","text":"Noted.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12394,"output":24,"cacheRead":12297,"cacheCreation":91}}}
+{"step":"event","event":{"kind":"context-read","tokens":12423}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["48c08911-9f18-4a5d-b9e7-ce56321bef85"],"usage":{"input":12394,"output":24,"cacheRead":12297,"cacheCreation":91},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

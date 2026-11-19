@@ -1,0 +1,14 @@
+{"step":"start","brief":{"id":"59d65c93-98a0-4ace-bebe-058117129cff","text":"Reply with the single word: ready"}}
+{"step":"send","message":{"id":"011499d7-5c77-45d7-bd73-f90fff33b746","text":"/office:note-word tangerine","skillCommand":{"skill":"office:note-word","input":"tangerine"}},"priority":"later"}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6303,"output":5,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":6303}}
+{"step":"event","event":{"kind":"text","text":"Ready","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["59d65c93-98a0-4ace-bebe-058117129cff"],"usage":{"input":6303,"output":5,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6345,"output":19,"cacheRead":5632,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":11977}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_5GSDG6SNKt33qH379VLdLmok","tool":"note","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"call_5GSDG6SNKt33qH379VLdLmok","text":"Noted.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12722,"output":23,"cacheRead":11264,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":12009}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["011499d7-5c77-45d7-bd73-f90fff33b746"],"usage":{"input":12722,"output":23,"cacheRead":11264,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

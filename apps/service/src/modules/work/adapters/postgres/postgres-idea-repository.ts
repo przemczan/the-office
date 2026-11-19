@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, desc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
@@ -33,13 +34,15 @@ export class PostgresIdeaRepository extends IdeaRepository {
   }
 
   async add(idea: Idea): Promise<void> {
-    await this.database.insert(ideas).values(toIdeaRow(idea));
+    await forgettingReads(() => this.database.insert(ideas).values(toIdeaRow(idea)));
   }
 
-  async find(id: string): Promise<Idea | undefined> {
-    if (!canBeRowId(id)) return undefined;
-    const [row] = await this.database.select().from(ideas).where(eq(ideas.id, id));
-    return row && toIdea(row);
+  find(id: string): Promise<Idea | undefined> {
+    return readOnce(readKey("ideas.find", id), async () => {
+      if (!canBeRowId(id)) return undefined;
+      const [row] = await this.database.select().from(ideas).where(eq(ideas.id, id));
+      return row && toIdea(row);
+    });
   }
 
   async list(): Promise<readonly Idea[]> {
@@ -54,13 +57,15 @@ export class PostgresIdeaRepository extends IdeaRepository {
     id: string,
     change: (idea: Idea) => IdeaChange<Event> | undefined,
   ): Promise<IdeaUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      const idea = await heldIdea(transaction, id);
-      const changed = change(idea);
-      if (!changed) return { idea, event: undefined };
-      await transaction.update(ideas).set(toIdeaRow(changed.idea)).where(eq(ideas.id, id));
-      return changed;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const idea = await heldIdea(transaction, id);
+        const changed = change(idea);
+        if (!changed) return { idea, event: undefined };
+        await transaction.update(ideas).set(toIdeaRow(changed.idea)).where(eq(ideas.id, id));
+        return changed;
+      }),
+    );
   }
 
   async shape(
@@ -71,33 +76,37 @@ export class PostgresIdeaRepository extends IdeaRepository {
       takenOrders: readonly string[],
     ) => ShapedIdea,
   ): Promise<ShapedIdea> {
-    return this.database.transaction(async (transaction) => {
-      await holdManualOrder(transaction);
-      const idea = await heldIdea(transaction, id);
-      const shaped = shape(
-        idea,
-        await attachmentsOf(transaction, id),
-        await takenOrders(transaction),
-      );
-      await insertTask(transaction, shaped.taskCreated);
-      await saveShapedIdea(transaction, shaped);
-      return shaped;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        await holdManualOrder(transaction);
+        const idea = await heldIdea(transaction, id);
+        const shaped = shape(
+          idea,
+          await attachmentsOf(transaction, id),
+          await takenOrders(transaction),
+        );
+        await insertTask(transaction, shaped.taskCreated);
+        await saveShapedIdea(transaction, shaped);
+        return shaped;
+      }),
+    );
   }
 
   async shapeIntoInitiative(
     id: string,
     shape: (idea: Idea, attachments: readonly Attachment[]) => IdeaShapedIntoInitiative,
   ): Promise<IdeaShapedIntoInitiative> {
-    return this.database.transaction(async (transaction) => {
-      const idea = await heldIdea(transaction, id);
-      const shaped = shape(idea, await attachmentsOf(transaction, id));
-      await transaction
-        .insert(initiatives)
-        .values(toInitiativeRow(shaped.initiativeCreated.initiative));
-      await saveShapedIdea(transaction, shaped);
-      return shaped;
-    });
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const idea = await heldIdea(transaction, id);
+        const shaped = shape(idea, await attachmentsOf(transaction, id));
+        await transaction
+          .insert(initiatives)
+          .values(toInitiativeRow(shaped.initiativeCreated.initiative));
+        await saveShapedIdea(transaction, shaped);
+        return shaped;
+      }),
+    );
   }
 }
 

@@ -1,4 +1,4 @@
-import { QueryClient, type InfiniteData } from "@tanstack/react-query";
+import { QueryClient, type InfiniteData, type QueryKey } from "@tanstack/react-query";
 import type {
   Message,
   TaskThreadPage,
@@ -7,7 +7,13 @@ import type {
   TokenTotals,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { threadEventCacheUpdates, threadQueries } from "./conversations.ts";
+import {
+  threadEventCacheUpdates,
+  threadEventInvalidations,
+  threadQueries,
+} from "./conversations.ts";
+import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { PERSON_TASKS, TASKS } from "./work.ts";
 
 const TASK_ID = "f3c1b2a4-5d6e-4f70-8a9b-0c1d2e3f4a5b";
 const NO_TOKENS: TokenTotals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
@@ -148,5 +154,130 @@ describe("a running turn's context reading", () => {
       .findAll()
       .filter((query) => query.state.isInvalidated);
     expect(stale).toEqual([]);
+  });
+});
+
+const OTHER_TASK_ID = "1d2e3f4a-5b6c-4d7e-8f90-a1b2c3d4e5f6";
+const INITIATIVE_ID = "7e6d5c4b-3a29-4180-9f7e-6d5c4b3a2918";
+const CHAT_THREAD_ID = "5c4b3a29-1807-4f6e-9d5c-4b3a29180706";
+const INITIATIVE_THREAD_ID = "3a291807-0605-4e4d-8c3b-2a1908070605";
+
+/** Each kind of Threads query an open tab may hold, by what it shows. */
+const cached = {
+  thread: threadQueries.one(running.id).queryKey,
+  messages: threadQueries.messages(running.id).queryKey,
+  subAgentsAndProcesses: threadQueries.subAgentsAndProcesses(running.id).queryKey,
+  otherThread: threadQueries.one(ended.id).queryKey,
+  chatThread: threadQueries.one(CHAT_THREAD_ID).queryKey,
+  initiativeThread: threadQueries.one(INITIATIVE_THREAD_ID).queryKey,
+  taskThreads: threadQueries.onTask(TASK_ID).queryKey,
+  taskConversation: threadQueries.conversationOnTask(TASK_ID).queryKey,
+  otherTaskThreads: threadQueries.onTask(OTHER_TASK_ID).queryKey,
+  otherTaskConversation: threadQueries.conversationOnTask(OTHER_TASK_ID).queryKey,
+  developersTaskThreads: threadQueries.onTasksWith("developer").queryKey,
+  testersTaskThreads: threadQueries.onTasksWith("tester").queryKey,
+  developersChat: threadQueries.inChat("developer").queryKey,
+  testersChat: threadQueries.inChat("tester").queryKey,
+  chatActivity: threadQueries.chatActivity().queryKey,
+  peopleWorking: threadQueries.peopleWorking().queryKey,
+  initiativeThreads: threadQueries.onInitiative(INITIATIVE_ID).queryKey,
+  personTasks: PERSON_TASKS,
+  tasks: TASKS,
+} as const satisfies Record<string, QueryKey>;
+type Cached = keyof typeof cached;
+
+/** Which of `cached` the event makes stale, as the event stream invalidates each key it names. */
+async function staleAfter(event: ThreadWebEvent): Promise<Cached[]> {
+  const queryClient = new QueryClient();
+  for (const queryKey of Object.values(cached)) {
+    queryClient.setQueryData<unknown>(queryKey as QueryKey, {});
+  }
+  const invalidations = threadEventInvalidations as EventInvalidations;
+  const keys = invalidations[event.type]?.(event) ?? [];
+  await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  return (Object.keys(cached) as Cached[]).filter(
+    (name) => queryClient.getQueryState(cached[name] as QueryKey)?.isInvalidated,
+  );
+}
+
+const AT = "2026-10-26T09:05:00.000Z";
+
+describe("a Thread's event", () => {
+  it("on a Task refreshes that Thread, its Task's lists and who works, never another Task or a chat", async () => {
+    const stale = await staleAfter({
+      type: "thread.messages-logged",
+      occurredAt: AT,
+      threadId: running.id,
+      home: running.home,
+    });
+
+    expect(stale.toSorted()).toEqual(
+      (
+        [
+          "thread",
+          "messages",
+          "subAgentsAndProcesses",
+          "taskThreads",
+          "taskConversation",
+          "developersTaskThreads",
+          "testersTaskThreads",
+          "peopleWorking",
+        ] satisfies Cached[]
+      ).toSorted(),
+    );
+  });
+
+  it("seen in a chat refreshes that Thread, its person's chat and the chats' activity", async () => {
+    const stale = await staleAfter({
+      type: "thread.seen",
+      occurredAt: AT,
+      threadId: CHAT_THREAD_ID,
+      home: { kind: "chat", roleKey: "developer" },
+    });
+
+    expect(stale.toSorted()).toEqual(
+      (["chatThread", "developersChat", "chatActivity"] satisfies Cached[]).toSorted(),
+    );
+  });
+
+  it("renaming a Task's Thread leaves who works as it was, and renames the person's Task", async () => {
+    const stale = await staleAfter({
+      type: "thread.renamed",
+      occurredAt: AT,
+      threadId: running.id,
+      home: running.home,
+    });
+
+    expect(stale).toContain("personTasks");
+    expect(stale).toContain("taskThreads");
+    expect(stale).not.toContain("peopleWorking");
+  });
+
+  it("a Decision on an Initiative refreshes its Thread, its list, the Decisions and the Tasks only", async () => {
+    const stale = await staleAfter({
+      type: "thread.decision-opened",
+      occurredAt: AT,
+      threadId: INITIATIVE_THREAD_ID,
+      home: { kind: "initiative", initiativeId: INITIATIVE_ID },
+      decisionId: "0a1b2c3d-4e5f-4a6b-8c7d-8e9f0a1b2c3d",
+    });
+
+    expect(stale.toSorted()).toEqual(
+      (
+        ["initiativeThread", "initiativeThreads", "personTasks", "tasks"] satisfies Cached[]
+      ).toSorted(),
+    );
+  });
+
+  it("a Thread starting refreshes every Threads list, as it can change another home's tabs", async () => {
+    const stale = await staleAfter({
+      type: "thread.started",
+      occurredAt: AT,
+      threadId: INITIATIVE_THREAD_ID,
+      home: { kind: "initiative", initiativeId: INITIATIVE_ID },
+    });
+
+    expect(stale).toContain("otherTaskConversation");
+    expect(stale).toContain("chatActivity");
   });
 });

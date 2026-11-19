@@ -5,15 +5,13 @@ import {
 } from "../../../../platform/mcp/mcp-client.js";
 import type { McpServerNotStartedEvent } from "../../ports/session-events.js";
 import type { SessionMcpServer } from "../../ports/session-options.js";
+import { withoutServerValues } from "./server-values.js";
 
 /** How long a server has to start and answer MCP's initialization. */
 const CONNECT_TIMEOUT_MS = 30_000;
 
 /** How long one tool call may run. */
 const CALL_TIMEOUT_MS = 10 * 60_000;
-
-/** What stands for a Server value in a failure's words. */
-const SERVER_VALUE_MARK = "[a Server value]";
 
 /** What a call of an MCP tool answered, as the Agent reads it. */
 export interface McpToolAnswer {
@@ -47,7 +45,7 @@ export class McpServerConnections {
           await this.connectionTo(name);
           return [];
         } catch (error) {
-          const reason = this.withoutServerValues(messageOf(error));
+          const reason = withoutServerValues(this.servers, messageOf(error));
           return [{ kind: "mcp-server-not-started", server: name, reason }];
         }
       }),
@@ -80,7 +78,7 @@ export class McpServerConnections {
       };
     } catch (error) {
       if (error instanceof McpServerFailure) {
-        return { text: this.withoutServerValues(error.message), isError: true };
+        return { text: withoutServerValues(this.servers, error.message), isError: true };
       }
       throw error;
     }
@@ -97,19 +95,6 @@ export class McpServerConnections {
         await connection?.close();
       }),
     );
-  }
-
-  /**
-   * A failure's words hold a local server's standard error, which may print a Server value, a
-   * secret among them; the Agent and the kept conversation never read one there.
-   */
-  private withoutServerValues(text: string): string {
-    return this.servers
-      .flatMap(({ launch }) =>
-        Object.values(launch.transport === "stdio" ? launch.environmentVariables : launch.headers),
-      )
-      .filter((value) => value !== "")
-      .reduce((redacted, value) => redacted.replaceAll(value, SERVER_VALUE_MARK), text);
   }
 
   private connectionTo(name: string): Promise<McpConnection> {

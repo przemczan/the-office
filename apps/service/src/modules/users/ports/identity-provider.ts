@@ -1,4 +1,4 @@
-import type { IdentityProviderId } from "../domain/linked-identity.js";
+import { providerNameOf, type IdentityProviderId } from "../domain/linked-identity.js";
 import type { PageAddress } from "../domain/page-address.js";
 import type { WayUnavailable } from "../domain/sign-in-way.js";
 
@@ -34,6 +34,11 @@ export interface ProviderAnswer {
  */
 export abstract class IdentityProvider {
   abstract readonly provider: IdentityProviderId;
+
+  /** Its name as the pages show it, in "Continue with <name>". */
+  displayName(): Promise<string> {
+    return Promise.resolve(providerNameOf(this.provider));
+  }
 
   /** Whether it is set up, such as the GitHub App registered. */
   abstract isAvailable(): Promise<boolean>;

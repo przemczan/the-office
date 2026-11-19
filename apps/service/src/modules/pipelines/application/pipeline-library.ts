@@ -78,10 +78,8 @@ export class PipelineLibrary {
 
   /** The office-wide Pipelines, then every Project's Project Pipelines, each built. */
   async every(): Promise<readonly ReadPipeline[]> {
-    const [officeWide, projectPipelines] = await Promise.all([
-      this.list(),
-      this.projectPipelines(),
-    ]);
+    const projectPipelines = await this.projectPipelines();
+    const officeWide = await this.list();
     return [
       ...officeWide.map((pipeline) => ({ ...pipeline, broken: [] })),
       ...projectPipelines.map(readOf),
@@ -111,7 +109,8 @@ export class PipelineLibrary {
 
   /** The Project's own Pipelines, each built, then the office-wide ones. */
   async listFor(projectId: string): Promise<readonly ReadPipeline[]> {
-    const [own, officeWide] = await Promise.all([this.projectPipelines(projectId), this.list()]);
+    const own = await this.projectPipelines(projectId);
+    const officeWide = await this.list();
     return [...own.map(readOf), ...officeWide.map((pipeline) => ({ ...pipeline, broken: [] }))];
   }
 
@@ -137,14 +136,16 @@ export class PipelineLibrary {
     return agentStageWorkers((await this.list()).flatMap((pipeline) => pipeline.stages));
   }
 
-  /** The Project's Project Pipelines, or every Project's, each built. */
+  /**
+   * The Project's Project Pipelines, or every Project's, each built. The library is read after
+   * them: a base Pipeline added together with a Project Pipeline between the two reads would
+   * otherwise be missing from it (callers read the library after this, for the same reason).
+   */
   async projectPipelines(projectId?: string): Promise<readonly BuiltProjectPipeline[]> {
-    const [library, projectPipelines] = await Promise.all([
-      this.list(),
-      projectId === undefined
-        ? this.projectPipelineRepository.list()
-        : this.projectPipelineRepository.listOf(projectId),
-    ]);
+    const projectPipelines = await (projectId === undefined
+      ? this.projectPipelineRepository.list()
+      : this.projectPipelineRepository.listOf(projectId));
+    const library = await this.list();
     return projectPipelines.map((projectPipeline) => built(projectPipeline, library));
   }
 

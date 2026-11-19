@@ -12,11 +12,7 @@ export async function withDutiesHeld<Stage extends PipelineStage>(
   const duties = new Set(
     stages.flatMap(({ role, duty }) => (role === undefined && duty !== undefined ? [duty] : [])),
   );
-  const holders = new Map(
-    await Promise.all(
-      [...duties].map(async (duty) => [duty, await people.holderOf(duty)] as const),
-    ),
-  );
+  const holders = duties.size === 0 ? new Map<string, string>() : await people.dutyHolders();
   return stages.map((stage) => {
     const holder = stage.role === undefined && stage.duty ? holders.get(stage.duty) : undefined;
     return holder === undefined ? stage : { ...stage, role: holder };

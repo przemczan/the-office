@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { PersonRecords } from "../../people/index.js";
 import { decisionRecordText, type Mention, type MentionedRecord } from "../domain/mention.js";
 import type { OpenPage, OpenPageRecord } from "../domain/open-page.js";
@@ -22,9 +23,7 @@ export class MentionedRecords {
 
   /** Each mentioned record as it stands now, in the order mentioned. */
   async read(mentions: readonly Mention[]): Promise<MentionedRecord[]> {
-    return Promise.all(
-      mentions.map(async (mention) => ({ mention, text: await this.textOf(mention) })),
-    );
+    return readEach(mentions, async (mention) => ({ mention, text: await this.textOf(mention) }));
   }
 
   /** The Open page's record as it stands now. */

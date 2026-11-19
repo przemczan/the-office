@@ -291,6 +291,14 @@ export class KnownPeopleForTests extends KnownPeople {
     const holder = this.holders.get(duty);
     return holder === undefined || this.vacant.has(holder) ? undefined : holder;
   }
+
+  async dutyHolders(): Promise<ReadonlyMap<string, string>> {
+    return new Map(
+      [...this.holders].flatMap(([duty, holder]) =>
+        holder === undefined || this.vacant.has(holder) ? [] : [[duty, holder] as const],
+      ),
+    );
+  }
 }
 
 /**

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
 import {
@@ -214,8 +215,8 @@ export class Consultations implements OnModuleInit {
    * Consultation the alarm stopped, or in one it kept from opening.
    */
   async goOnAfterAllClear(taskIds: readonly string[]): Promise<void> {
-    const onTasks = await Promise.all(
-      taskIds.map((taskId) => this.repository.listIn({ kind: "task", taskId })),
+    const onTasks = await readEach(taskIds, (taskId) =>
+      this.repository.listIn({ kind: "task", taskId }),
     );
     for (const asker of [...onTasks.flat(), ...(await this.callersOutsideTasks())]) {
       await this.askAgainFor(asker).catch((error: unknown) => {
