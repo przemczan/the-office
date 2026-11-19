@@ -38,6 +38,7 @@ function aTask(id: string, archivedAt: string | null): Task {
     createdAt: "2026-10-28T10:00:00.000Z",
     archivedAt,
     endedAt: null,
+    pullRequestEnd: null,
   };
 }
 

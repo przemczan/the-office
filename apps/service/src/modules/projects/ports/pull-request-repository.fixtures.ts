@@ -28,7 +28,40 @@ export class PullRequestRepositoryForTests extends PullRequestRepository {
 
   async save(pullRequest: PullRequest): Promise<void> {
     this.failIfAsked();
-    this.kept.set(pullRequest.id, pullRequest);
+    const known = this.kept.get(pullRequest.id);
+    if (!known) return;
+    const { checks, mergeable, headCommit, baseCommit, checkedAt, stale } = pullRequest;
+    this.kept.set(known.id, {
+      ...known,
+      checks,
+      mergeable,
+      headCommit,
+      baseCommit,
+      checkedAt,
+      stale,
+    });
+  }
+
+  async end(id: string, state: "merged" | "closed", at: Date): Promise<PullRequest | undefined> {
+    this.failIfAsked();
+    const known = this.kept.get(id);
+    if (!known || known.endedAt !== null) return undefined;
+    const ended: PullRequest = { ...known, state, endedAt: at };
+    this.kept.set(id, ended);
+    return ended;
+  }
+
+  async reopen(id: string): Promise<boolean> {
+    this.failIfAsked();
+    const known = this.kept.get(id);
+    if (!known || known.endedAt === null) return false;
+    this.kept.set(id, { ...known, state: "open", endedAt: null });
+    return true;
+  }
+
+  async findById(id: string): Promise<PullRequest | undefined> {
+    this.failIfAsked();
+    return this.kept.get(id);
   }
 
   async listOpen(projectId?: string): Promise<readonly PullRequest[]> {

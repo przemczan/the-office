@@ -1,9 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeGitHub, signedInWithGitHubForTests } from "../../github/index.fixtures.js";
+import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { REAL_GIT_TEST } from "../adapters/git/temporary-repository.fixtures.js";
 import { openedPullRequest } from "../domain/pull-request.js";
-import { PullRequestsChecked } from "../domain/pull-request-events.js";
+import {
+  onTheCodeHost,
+  PullRequestClosed,
+  PullRequestMerged,
+  PullRequestReopened,
+  PullRequestsChecked,
+} from "../domain/pull-request-events.js";
+import { PostgresPullRequestRepository } from "../adapters/postgres/postgres-pull-request-repository.js";
 import { REPOSITORY, PullRequestWatchTestbed } from "../pull-request-watch.fixtures.js";
 
 let github: FakeGitHub;
@@ -24,11 +32,11 @@ afterEach(async () => {
 });
 
 /** Opens a pull request of a Task's branch on GitHub and records it, as Publish does. */
-async function aPublishedPullRequest(): Promise<{ number: number; taskId: string }> {
+async function aPublishedPullRequest(): Promise<{ id: string; number: number; taskId: string }> {
   const taskId = randomUUID();
   const branch = `office/${taskId}`;
   const { number, url } = await testbed.open(branch);
-  await testbed.records.record(
+  const { id } = await testbed.records.record(
     openedPullRequest({
       id: randomUUID(),
       projectId: testbed.project.id,
@@ -42,13 +50,19 @@ async function aPublishedPullRequest(): Promise<{ number: number; taskId: string
       openedAt: new Date(),
     }),
   );
-  return { number, taskId };
+  return { id, number, taskId };
 }
 
 /** How many times pull request `number`'s status was read from GitHub. */
 function statusReadsOf(number: number): number {
   const path = `/api/v3/repos/${REPOSITORY}/pulls/${number}`;
   return github.requests.filter((request) => request.path === path).length;
+}
+
+function endedEvents(): DomainEvent[] {
+  return testbed.published.filter(
+    (event) => event instanceof PullRequestMerged || event instanceof PullRequestClosed,
+  );
 }
 
 function checkedEvents(): number {
@@ -104,6 +118,74 @@ describe("the pull request watch", REAL_GIT_TEST, () => {
       endedAt: expect.any(Date),
     });
     expect(checkedEvents()).toBe(2);
+  });
+
+  it("announces a pull request merged or closed on GitHub once, by the code host", async () => {
+    const merged = await aPublishedPullRequest();
+    const closed = await aPublishedPullRequest();
+    await testbed.runRound();
+
+    github.pullRequests.merge(REPOSITORY, merged.number);
+    github.pullRequests.close(REPOSITORY, closed.number);
+    await testbed.runRound();
+    await testbed.runRound();
+
+    expect(endedEvents()).toHaveLength(2);
+    expect(endedEvents().find((event) => event instanceof PullRequestMerged)).toMatchObject({
+      pullRequestId: merged.id,
+      taskId: merged.taskId,
+      number: merged.number,
+      method: undefined,
+      by: onTheCodeHost("GitHub"),
+    });
+    expect(endedEvents().find((event) => event instanceof PullRequestClosed)).toMatchObject({
+      pullRequestId: closed.id,
+      by: onTheCodeHost("GitHub"),
+    });
+    await expect(testbed.records.findById(closed.id)).resolves.toMatchObject({
+      state: "closed",
+      endedAt: expect.any(Date),
+    });
+  });
+
+  it("announces nothing when the page's Merge ended the row while the round read it", async () => {
+    const merged = await aPublishedPullRequest();
+    await testbed.runRound();
+    github.pullRequests.merge(REPOSITORY, merged.number);
+    const endedByThePage = new Date("2026-11-19T10:00:00Z");
+    // The round lists the row open; the page's Merge ends it before the round reads GitHub.
+    vi.spyOn(testbed.records, "listOpen").mockImplementationOnce(async (projectId) => {
+      const listed = await PostgresPullRequestRepository.prototype.listOpen.call(
+        testbed.records,
+        projectId,
+      );
+      await testbed.records.end(merged.id, "merged", endedByThePage);
+      return listed;
+    });
+
+    await testbed.runRound();
+
+    expect(endedEvents()).toEqual([]);
+    await expect(testbed.records.findById(merged.id)).resolves.toMatchObject({
+      state: "merged",
+      endedAt: endedByThePage,
+    });
+  });
+
+  it("doesn't open again a row the page's Merge ended after GitHub listed it open", async () => {
+    const merged = await aPublishedPullRequest();
+    // The round lists the pull request open; the page's Merge ends it before the round finds it.
+    vi.spyOn(testbed.records, "listOpen").mockResolvedValueOnce([]);
+    vi.spyOn(testbed.records, "find").mockImplementationOnce(async (remoteUrl, number) => {
+      github.pullRequests.merge(REPOSITORY, merged.number);
+      await testbed.records.end(merged.id, "merged", new Date());
+      return PostgresPullRequestRepository.prototype.find.call(testbed.records, remoteUrl, number);
+    });
+
+    await testbed.runRound();
+
+    expect(testbed.published.filter((event) => event instanceof PullRequestReopened)).toEqual([]);
+    await expect(testbed.records.findById(merged.id)).resolves.toMatchObject({ state: "merged" });
   });
 
   it("marks the rows stale with no one signed in, holding why as the Project's problem", async () => {

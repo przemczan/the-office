@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { PullRequest } from "../../domain/pull-request.js";
 import { PullRequestRepository } from "../../ports/pull-request-repository.js";
@@ -37,8 +37,34 @@ export class PostgresPullRequestRepository extends PullRequestRepository {
   }
 
   async save(pullRequest: PullRequest): Promise<void> {
-    const { id, ...fields } = pullRequest;
-    await this.database.update(pullRequests).set(fields).where(eq(pullRequests.id, id));
+    const { id, checks, mergeable, headCommit, baseCommit, checkedAt, stale } = pullRequest;
+    await this.database
+      .update(pullRequests)
+      .set({ checks, mergeable, headCommit, baseCommit, checkedAt, stale })
+      .where(eq(pullRequests.id, id));
+  }
+
+  async end(id: string, state: "merged" | "closed", at: Date): Promise<PullRequest | undefined> {
+    const [row] = await this.database
+      .update(pullRequests)
+      .set({ state, endedAt: at })
+      .where(and(eq(pullRequests.id, id), isNull(pullRequests.endedAt)))
+      .returning();
+    return row && toPullRequest(row);
+  }
+
+  async reopen(id: string): Promise<boolean> {
+    const rows = await this.database
+      .update(pullRequests)
+      .set({ state: "open", endedAt: null })
+      .where(and(eq(pullRequests.id, id), isNotNull(pullRequests.endedAt)))
+      .returning({ id: pullRequests.id });
+    return rows.length > 0;
+  }
+
+  async findById(id: string): Promise<PullRequest | undefined> {
+    const [row] = await this.database.select().from(pullRequests).where(eq(pullRequests.id, id));
+    return row && toPullRequest(row);
   }
 
   async listOpen(projectId?: string): Promise<readonly PullRequest[]> {

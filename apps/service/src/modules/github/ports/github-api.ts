@@ -1,5 +1,10 @@
 import type { GitHubApp } from "../domain/github-app.js";
 import type { GitHubRepository } from "../domain/github-repository.js";
+import type {
+  GitHubMergeMethod,
+  MergeSettingsOnGitHub,
+  RefusalOnGitHub,
+} from "../domain/merge-refusal.js";
 import type { PullRequestToOpen, RepositoryOnGitHub } from "../domain/pull-request.js";
 import type { ChecksOnGitHub } from "../domain/pull-request-status.js";
 import type { UserTokens } from "../domain/sign-in.js";
@@ -108,7 +113,50 @@ export abstract class GitHubApi {
     repository: RepositoryOnGitHub,
     sha: string,
   ): Promise<ChecksOnGitHub>;
+
+  /**
+   * The repository's merge settings. Also throws `GitHubApiFailure` when GitHub refuses.
+   */
+  abstract repositoryOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+  ): Promise<MergeSettingsOnGitHub>;
+
+  /**
+   * Merges pull request `number` as the token's user, or gives GitHub's refusal; never deletes its
+   * branch. Throws `GitHubUnreachable` when GitHub can't be reached.
+   */
+  abstract mergePullRequest(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+    merge: PullRequestMerge,
+  ): Promise<MergeAnswer>;
+
+  /**
+   * Closes pull request `number` without merging it, or gives GitHub's refusal. Throws
+   * `GitHubUnreachable` when GitHub can't be reached.
+   */
+  abstract closePullRequest(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<RefusalOnGitHub | undefined>;
 }
+
+/** A merge as GitHub is asked for it: the method, and the head commit it must still be at. */
+export interface PullRequestMerge {
+  readonly method: GitHubMergeMethod;
+  readonly sha: string;
+  /** The squashed commit's title and message; GitHub's own when left out. */
+  readonly commitTitle?: string;
+  readonly commitMessage?: string;
+}
+
+/** GitHub's answer to a merge: the commit it made on the base, or its refusal. */
+export type MergeAnswer =
+  | { readonly kind: "merged"; readonly sha: string }
+  | ({ readonly kind: "refused" } & RefusalOnGitHub);
 
 /** A pull request on GitHub, by its number in the repository and its web address. */
 export interface PullRequestOnGitHub {
@@ -127,6 +175,9 @@ export interface ListedPullRequest extends PullRequestOnGitHub {
 
 /** One pull request as GitHub gives it on its own. */
 export interface PullRequestDetail {
+  readonly title: string;
+  /** Markdown; empty when it has none. */
+  readonly body: string;
   readonly state: "open" | "closed";
   /** When it was merged; null when it wasn't. */
   readonly mergedAt: string | null;

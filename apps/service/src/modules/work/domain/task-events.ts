@@ -68,6 +68,29 @@ export class TaskCommitMessageChanged extends DomainEvent {
   }
 }
 
+/** The Task's pull request was merged or closed, and the Task records how (task-pull-request.ts). */
+export class TaskPullRequestEnded extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly outcome: "merged" | "closed",
+    readonly number: number,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
+/** The Task's pull request shows up open again, so the end it recorded is cleared. */
+export class TaskPullRequestReopened extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly number: number,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
 /** The Task's Tags as they now are. */
 export class TaskTagsChanged extends DomainEvent {
   constructor(

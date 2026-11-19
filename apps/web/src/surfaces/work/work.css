@@ -3313,6 +3313,27 @@
   color: var(--fg-3);
 }
 
+/* A Task's head: how its pull request ended, beside Open pull request. */
+.pull-request-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A row's Merge… and Close…. */
+.pull-request-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+/* The Merge window's Checks and Mergeable, as the row shows them. */
+.pull-request-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .pull-request-checked {
   display: inline-flex;
   flex-wrap: wrap;

@@ -83,7 +83,11 @@ const FAKE_PULL_REQUESTS_CONTROL_PATH = "/_fake/pull-requests";
 /** The fake's own route granting an installation permissions; `FAKE_PERMISSIONS_CONTROL_PATH`. */
 const FAKE_PERMISSIONS_CONTROL_PATH = "/_fake/permissions";
 
-/** A change to an open pull request, as pushing, CI or a reviewer would make it on GitHub. */
+/**
+ * A change to an open pull request, as pushing, CI or a reviewer would make it on GitHub, or to
+ * how GitHub answers a merge of it. The fake also merges (`PUT …/pulls/{n}/merge`: 405 for a
+ * method not allowed, 409 when `sha` isn't the head) and closes (`PATCH …/pulls/{n}`) as GitHub.
+ */
 export type PullRequestControl =
   | {
       readonly action: "setChecks";
@@ -98,9 +102,29 @@ export type PullRequestControl =
       readonly mergeable: boolean | null;
     }
   | {
-      readonly action: "merge" | "close" | "pushHead";
+      readonly action: "merge" | "close" | "pushHead" | "allowMerge";
       readonly repository: string;
       readonly number: number;
+    }
+  | {
+      /** GitHub refusing every merge of the pull request with `status` and `message`, until `allowMerge`. */
+      readonly action: "refuseMerge";
+      readonly repository: string;
+      readonly number: number;
+      readonly status: number;
+      readonly message?: string;
+    }
+  | {
+      /**
+       * The repository's merge settings, replacing those set before; each left out of GitHub's
+       * answer unless given, which offers its method. A merge by a method set false is refused 405.
+       */
+      readonly action: "setRepository";
+      readonly repository: string;
+      readonly allowMergeCommit?: boolean;
+      readonly allowSquashMerge?: boolean;
+      readonly allowRebaseMerge?: boolean;
+      readonly deleteBranchOnMerge?: boolean;
     };
 
 /** Changes a pull request on the fake GitHub, as `PullRequestControl` says. */

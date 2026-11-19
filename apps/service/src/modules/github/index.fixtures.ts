@@ -17,7 +17,9 @@ export {
   type FakeCheckRun,
   type FakeChecks,
   type FakeCommitStatus,
+  type FakeMerge,
   type FakePullRequest,
+  type FakeRepositorySettings,
   type PullRequestControl,
 } from "./adapters/github/fake-github-pulls.fixtures.js";
 export { registeredGitHubAppForTests } from "./ports/github-app-repository.fixtures.js";

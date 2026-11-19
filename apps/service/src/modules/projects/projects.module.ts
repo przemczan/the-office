@@ -57,6 +57,7 @@ import { ProjectService } from "./application/project-service.js";
 import { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
 import { RepositoryClones } from "./application/repository-clones.js";
 import { Publishing } from "./application/publishing.js";
+import { PullRequestActions } from "./application/pull-request-actions.js";
 import { PullRequestWatch } from "./application/pull-request-watch.js";
 import { BranchUpdates } from "./application/branch-updates.js";
 import { Resolving } from "./application/resolving.js";
@@ -136,6 +137,7 @@ export class ProjectsModule implements NestModule {
           useFactory: (gitHub: GitHubCodeHost) => new CodeHosts([gitHub]),
         },
         PullRequestWatch,
+        PullRequestActions,
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
         TaskRunEnvironments,

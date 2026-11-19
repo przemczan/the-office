@@ -20,6 +20,28 @@ export interface FakePullRequest {
   readonly baseSha: string;
 }
 
+/**
+ * A repository's merge settings, as GitHub gives them to those who may change them; each left out
+ * of the answer until a test sets it.
+ */
+export interface FakeRepositorySettings {
+  readonly allowMergeCommit?: boolean | undefined;
+  readonly allowSquashMerge?: boolean | undefined;
+  readonly allowRebaseMerge?: boolean | undefined;
+  readonly deleteBranchOnMerge?: boolean | undefined;
+}
+
+/** A merge asked through `PUT …/pulls/{number}/merge`, as GitHub was asked it, and the commit it made. */
+export interface FakeMerge {
+  readonly repository: string;
+  readonly number: number;
+  readonly method: string | undefined;
+  readonly sha: string | undefined;
+  readonly commitTitle: string | undefined;
+  readonly commitMessage: string | undefined;
+  readonly commit: string;
+}
+
 /** A check run on a commit, as GitHub gives it. */
 export interface FakeCheckRun {
   readonly name?: string;
@@ -85,6 +107,21 @@ export const pullRequestControlSchema = z.discriminatedUnion("action", [
     repository: z.string().min(1),
     refused: z.boolean().default(true),
   }),
+  z.object({
+    action: z.literal("refuseMerge"),
+    ...pullRequestOf,
+    status: z.number().int().min(400).max(599),
+    message: z.string().optional(),
+  }),
+  z.object({ action: z.literal("allowMerge"), ...pullRequestOf }),
+  z.object({
+    action: z.literal("setRepository"),
+    repository: z.string().min(1),
+    allowMergeCommit: z.boolean().optional(),
+    allowSquashMerge: z.boolean().optional(),
+    allowRebaseMerge: z.boolean().optional(),
+    deleteBranchOnMerge: z.boolean().optional(),
+  }),
 ]);
 export type PullRequestControl = z.infer<typeof pullRequestControlSchema>;
 
@@ -102,7 +139,11 @@ export class FakePullRequests {
   readonly withoutCommits = new Set<string>();
   /** Repositories whose checks and statuses GitHub refuses (403), as without the permissions. */
   readonly checksRefused = new Set<string>();
+  /** Every merge GitHub made through `PUT …/merge`, in order. */
+  readonly merges: FakeMerge[] = [];
   private readonly checksBySha = new Map<string, FakeChecks>();
+  private readonly settings = new Map<string, FakeRepositorySettings>();
+  private readonly mergeRefusals = new Map<string, { status: number; message?: string }>();
   private pushes = 0;
 
   constructor(
@@ -218,6 +259,108 @@ export class FakePullRequests {
     };
   }
 
+  /**
+   * `GET /repos/{owner}/{repo}`: the repository's merge settings, each left out until a test sets
+   * it, as GitHub leaves them out for those who may not change them.
+   */
+  repository(repository: string): ApiAnswer {
+    if (!this.installations.reaches(repository)) return notFound();
+    const settings = this.settings.get(repository.toLowerCase()) ?? {};
+    return {
+      status: 200,
+      body: {
+        full_name: repository,
+        allow_merge_commit: settings.allowMergeCommit,
+        allow_squash_merge: settings.allowSquashMerge,
+        allow_rebase_merge: settings.allowRebaseMerge,
+        delete_branch_on_merge: settings.deleteBranchOnMerge,
+      },
+    };
+  }
+
+  /**
+   * `PUT /repos/{owner}/{repo}/pulls/{number}/merge`: 405 for a pull request not open or not
+   * mergeable, a method the repository doesn't allow or a refusal `refuseMerge` set, 409 when `sha`
+   * isn't its head, else merged by a commit of its own on the base. The docs give the statuses;
+   * the messages are GitHub's as it is known to word them.
+   */
+  mergeApi(repository: string, number: number, body: string): ApiAnswer {
+    if (!this.installations.reaches(repository)) return notFound();
+    const pullRequest = this.find(repository, number);
+    if (pullRequest === undefined) return notFound();
+    const asked = z
+      .object({
+        merge_method: z.string().optional(),
+        sha: z.string().optional(),
+        commit_title: z.string().optional(),
+        commit_message: z.string().optional(),
+      })
+      .catch({})
+      .parse(JSON.parse(body || "null"));
+    const refusal = this.mergeRefusals.get(keyOf(repository, number));
+    if (refusal !== undefined) {
+      return { status: refusal.status, body: { message: refusal.message ?? "Refused" } };
+    }
+    if (pullRequest.state !== "open" || pullRequest.mergeable === false) {
+      return { status: 405, body: { message: "Pull Request is not mergeable" } };
+    }
+    const method = asked.merge_method ?? "merge";
+    const notAllowed = this.notAllowed(repository, method);
+    if (notAllowed !== undefined) return { status: 405, body: { message: notAllowed } };
+    if (asked.sha !== undefined && asked.sha !== pullRequest.headSha) {
+      return {
+        status: 409,
+        body: { message: "Head branch was modified. Review and try the merge again." },
+      };
+    }
+    const commit = this.nextSha(`${repository}:${pullRequest.base}`);
+    this.merges.push({
+      repository,
+      number,
+      method: asked.merge_method,
+      sha: asked.sha,
+      commitTitle: asked.commit_title,
+      commitMessage: asked.commit_message,
+      commit,
+    });
+    this.merge(repository, number);
+    return {
+      status: 200,
+      body: { sha: commit, merged: true, message: "Pull Request successfully merged" },
+    };
+  }
+
+  /** `PATCH /repos/{owner}/{repo}/pulls/{number}`, as far as closing: `{ state: "closed" }`. */
+  update(repository: string, number: number, body: string): ApiAnswer {
+    if (!this.installations.reaches(repository)) return notFound();
+    const pullRequest = this.find(repository, number);
+    if (pullRequest === undefined) return notFound();
+    const { state } = z
+      .object({ state: z.enum(["open", "closed"]).optional() })
+      .catch({})
+      .parse(JSON.parse(body || "null"));
+    if (state === "closed") pullRequest.state = "closed";
+    return { status: 200, body: this.toJson(pullRequest) };
+  }
+
+  /** The repository's merge settings from now on, replacing those set before. */
+  setRepository(repository: string, settings: FakeRepositorySettings): void {
+    this.settings.set(repository.toLowerCase(), settings);
+  }
+
+  /** GitHub refusing every merge of pull request `number` with `status` and `message`, until `allowMerge`. */
+  refuseMerge(repository: string, number: number, status: number, message?: string): void {
+    this.existing(repository, number);
+    this.mergeRefusals.set(keyOf(repository, number), {
+      status,
+      ...(message !== undefined && { message }),
+    });
+  }
+
+  allowMerge(repository: string, number: number): void {
+    this.mergeRefusals.delete(keyOf(repository, number));
+  }
+
   /** The checks of pull request `number`'s head commit now. Throws for a pull request not opened. */
   setChecks(repository: string, number: number, checks: FakeChecks): void {
     this.checksBySha.set(this.existing(repository, number).headSha, checks);
@@ -267,6 +410,41 @@ export class FakePullRequests {
         if (control.refused) this.checksRefused.add(control.repository);
         else this.checksRefused.delete(control.repository);
         return;
+      case "refuseMerge":
+        this.refuseMerge(control.repository, control.number, control.status, control.message);
+        return;
+      case "allowMerge":
+        this.allowMerge(control.repository, control.number);
+        return;
+      case "setRepository":
+        this.setRepository(control.repository, {
+          allowMergeCommit: control.allowMergeCommit,
+          allowSquashMerge: control.allowSquashMerge,
+          allowRebaseMerge: control.allowRebaseMerge,
+          deleteBranchOnMerge: control.deleteBranchOnMerge,
+        });
+        return;
+    }
+  }
+
+  /** GitHub's words refusing a method the repository doesn't allow; undefined when it allows it. */
+  private notAllowed(repository: string, method: string): string | undefined {
+    const settings = this.settings.get(repository.toLowerCase()) ?? {};
+    switch (method) {
+      case "merge":
+        return settings.allowMergeCommit === false
+          ? "Merge commits are not allowed on this repository."
+          : undefined;
+      case "squash":
+        return settings.allowSquashMerge === false
+          ? "Squash merges are not allowed on this repository."
+          : undefined;
+      case "rebase":
+        return settings.allowRebaseMerge === false
+          ? "Rebase merges are not allowed on this repository."
+          : undefined;
+      default:
+        return `${method} is not a valid merge method.`;
     }
   }
 
@@ -352,6 +530,10 @@ function statusesOf(checks: FakeChecks): readonly FakeCommitStatus[] {
 /** A commit's id, as GitHub's 40 hex digits. */
 function shaOf(seed: string): string {
   return createHash("sha1").update(seed).digest("hex");
+}
+
+function keyOf(repository: string, number: number): string {
+  return `${repository.toLowerCase()}#${number}`;
 }
 
 function notFound(): ApiAnswer {

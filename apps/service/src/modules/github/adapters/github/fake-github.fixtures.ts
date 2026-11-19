@@ -267,6 +267,10 @@ export class FakeGitHub {
     );
     const pulls = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/pulls$`).exec(url.pathname);
     const pull = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/pulls/([0-9]+)$`).exec(url.pathname);
+    const pullMerge = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/pulls/([0-9]+)/merge$`).exec(
+      url.pathname,
+    );
+    const repo = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)$`).exec(url.pathname);
     const commitChecks = new RegExp(
       `^${API_PATH}/repos/([^/]+/[^/]+)/commits/([^/]+)/(check-runs|status)$`,
     ).exec(url.pathname);
@@ -303,6 +307,22 @@ export class FakeGitHub {
     } else if (request.method === "GET" && pull) {
       this.readApi(request, recorded, response, () =>
         this.pullRequests.get(decodeURIComponent(pull[1] ?? ""), Number(pull[2])),
+      );
+    } else if (request.method === "PATCH" && pull) {
+      this.writeApi(request, response, () =>
+        this.pullRequests.update(decodeURIComponent(pull[1] ?? ""), Number(pull[2]), body),
+      );
+    } else if (request.method === "PUT" && pullMerge) {
+      this.writeApi(request, response, () =>
+        this.pullRequests.mergeApi(
+          decodeURIComponent(pullMerge[1] ?? ""),
+          Number(pullMerge[2]),
+          body,
+        ),
+      );
+    } else if (request.method === "GET" && repo) {
+      this.readApi(request, recorded, response, () =>
+        this.pullRequests.repository(decodeURIComponent(repo[1] ?? "")),
       );
     } else if (request.method === "GET" && commitChecks) {
       const repository = decodeURIComponent(commitChecks[1] ?? "");
@@ -610,6 +630,20 @@ export class FakeGitHub {
       return;
     }
     sendJson(response, answer.status, answer.body, { ...answer.headers, etag });
+  }
+
+  /** A change through the REST API as the token's user. */
+  private writeApi(
+    request: IncomingMessage,
+    response: ServerResponse,
+    write: () => ApiAnswer,
+  ): void {
+    if (this.loginOf(request.headers.authorization) === undefined) {
+      sendBadCredentials(response);
+      return;
+    }
+    const answer = write();
+    sendJson(response, answer.status, answer.body, answer.headers);
   }
 
   /** Runs a control of the fake: 204, or 404 when it names what the fake doesn't have. */

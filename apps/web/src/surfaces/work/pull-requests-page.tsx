@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Project, PullRequest, Task } from "@the-office/contracts";
 import { Alert, Badge, Button, DataTable, Icon, type DataTableColumn } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { pullRequestQueries, refreshPullRequests } from "../../api/pull-requests.ts";
 import { taskQueries } from "../../api/work.ts";
@@ -13,11 +13,16 @@ import { InOtherProjectsNote } from "../../shell/project-filter/in-other-project
 import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { ClosePullRequestDialog } from "./close-pull-request-dialog.tsx";
+import { MergePullRequestDialog } from "./merge-pull-request-dialog.tsx";
+import { ToneBadge } from "./pull-request-parts.tsx";
 import {
   branchWords,
   CHECKS_WORDS,
+  CLOSE_ACTION,
   checkedWords,
   IN_OTHER_PROJECTS,
+  MERGE_ACTION,
   MERGEABLE_WORDS,
   NO_PULL_REQUESTS,
   OUT_OF_DATE,
@@ -27,13 +32,13 @@ import {
   pullRequestName,
   REFRESH_HINT,
   TASK_NOT_FOUND,
-  type ToneWords,
 } from "./pull-request-words.ts";
 
 /**
  * Work › Pull requests: the open pull requests The Office opened, in the Projects the Project
  * filter shows, each with its Task, its checks and whether it merges, as the service last read them
  * from the code host; Refresh asks for a read now, and `pull-requests.changed` brings what it found.
+ * Each row's Merge… and Close… open their windows; one merged or closed leaves the list.
  */
 export function PullRequestsPage(): ReactNode {
   const list = useQuery(pullRequestQueries.list());
@@ -41,6 +46,7 @@ export function PullRequestsPage(): ReactNode {
   const projects = useQuery(projectQueries.list());
   const projectFilter = useProjectFilter();
   const refreshing = useMutation({ mutationFn: refreshPullRequests });
+  const [acting, setActing] = useState<Acting | undefined>();
   const { shown, elsewhere } = narrowed(list.data?.pullRequests ?? [], (pullRequest) =>
     projectFilter.shows([pullRequest.projectId]),
   );
@@ -80,13 +86,40 @@ export function PullRequestsPage(): ReactNode {
         <>
           <InOtherProjectsNote count={elsewhere} {...IN_OTHER_PROJECTS} />
           <DataTable
-            columns={columnsFor(projects.data, tasks.data)}
+            columns={columnsFor(projects.data, tasks.data, setActing)}
             rows={[...shown]}
             empty={NO_PULL_REQUESTS}
           />
         </>
       )}
+      {acting && (
+        <ActingDialog acting={acting} shown={shown} onClose={() => setActing(undefined)} />
+      )}
     </div>
+  );
+}
+
+/** The window a row's action opened, on the pull request it was opened on. */
+interface Acting {
+  readonly action: "merge" | "close";
+  readonly pullRequest: PullRequest;
+}
+
+/** The window, showing the pull request as last read, or as it was opened on once it left the list. */
+function ActingDialog({
+  acting,
+  shown,
+  onClose,
+}: {
+  readonly acting: Acting;
+  readonly shown: readonly PullRequest[];
+  readonly onClose: () => void;
+}): ReactNode {
+  const pullRequest = shown.find(({ id }) => id === acting.pullRequest.id) ?? acting.pullRequest;
+  return acting.action === "merge" ? (
+    <MergePullRequestDialog pullRequest={pullRequest} onClose={onClose} />
+  ) : (
+    <ClosePullRequestDialog pullRequest={pullRequest} onClose={onClose} />
   );
 }
 
@@ -97,6 +130,7 @@ function projectNameOf(projectId: string, projects: readonly Project[] | undefin
 function columnsFor(
   projects: readonly Project[] | undefined,
   tasks: readonly Task[] | undefined,
+  act: (acting: Acting) => void,
 ): DataTableColumn<PullRequest>[] {
   return [
     {
@@ -162,6 +196,25 @@ function columnsFor(
         </span>
       ),
     },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (pullRequest) => (
+        <span className="pull-request-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => act({ action: "merge", pullRequest })}
+          >
+            {MERGE_ACTION}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => act({ action: "close", pullRequest })}>
+            {CLOSE_ACTION}
+          </Button>
+        </span>
+      ),
+    },
   ];
 }
 
@@ -179,15 +232,5 @@ function TaskCell({
     <Link to="/tasks/$taskId" params={{ taskId }} className="pull-request-task">
       {task.title}
     </Link>
-  );
-}
-
-function ToneBadge({ words }: { readonly words: ToneWords }): ReactNode {
-  return (
-    <span title={words.title}>
-      <Badge tone={words.tone} dot size="sm">
-        {words.label}
-      </Badge>
-    </span>
   );
 }

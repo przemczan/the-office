@@ -15,7 +15,15 @@ import {
   type GitHubMergeable,
   type GitHubPullRequestState,
 } from "../domain/pull-request-status.js";
-import { GitHubApi, type PullRequestOnGitHub } from "../ports/github-api.js";
+import {
+  allowedMergeMethodsOf,
+  closeRefusal,
+  GITHUB_UNREACHABLE,
+  mergeRefusal,
+  PullRequestNotChanged,
+  type GitHubMergeMethod,
+} from "../domain/merge-refusal.js";
+import { GitHubApi, GitHubUnreachable, type PullRequestOnGitHub } from "../ports/github-api.js";
 import { failedAccess, GitHubAccess } from "./github-access.js";
 import { GitHubUrls } from "./github-urls.js";
 
@@ -51,6 +59,25 @@ export interface PullRequestStatusOnGitHub {
   readonly mergeable: GitHubMergeable;
   readonly headCommit: string;
   readonly baseCommit: string;
+}
+
+/** The merge methods a repository allows, and whether GitHub deletes a branch once merged. */
+export interface MergeMethodsOnGitHub {
+  /** In GITHUB_MERGE_METHODS' order. */
+  readonly allowed: readonly GitHubMergeMethod[];
+  /** Undefined when GitHub doesn't say. */
+  readonly deletesBranchOnMerge: boolean | undefined;
+}
+
+/** How to merge a pull request, and the head commit The Office last read of it. */
+export interface MergeOnGitHub {
+  readonly method: GitHubMergeMethod;
+  readonly expectedHeadCommit: string;
+}
+
+/** A merged pull request, by the commit GitHub made on its base. */
+export interface MergedOnGitHub {
+  readonly commit: string;
 }
 
 /**
@@ -163,6 +190,63 @@ export class GitHubPullRequests {
     };
   }
 
+  /**
+   * The merge methods the remote's repository allows (all three where GitHub doesn't say) and
+   * whether GitHub deletes a branch once merged. Throws as `openPullRequests` does.
+   */
+  async mergeMethods(remoteUrl: string): Promise<MergeMethodsOnGitHub> {
+    const { repository, token } = await this.reading(remoteUrl);
+    const settings = await this.api.repositoryOf(token, repository).catch(failedAccess);
+    return {
+      allowed: allowedMergeMethodsOf(settings),
+      deletesBranchOnMerge: settings.deleteBranchOnMerge,
+    };
+  }
+
+  /**
+   * Merges pull request `number` by `method`, as long as its head is still `expectedHeadCommit`;
+   * a squash's commit is titled "<title> (#n)" with the pull request's body as its message. Its
+   * branch stays. Throws `PullRequestChangedOnGitHub` when the head moved, `PullRequestNotChanged`
+   * when GitHub refuses or can't be reached, and as `openPullRequests` does otherwise.
+   */
+  async merge(
+    remoteUrl: string,
+    number: number,
+    { method, expectedHeadCommit }: MergeOnGitHub,
+  ): Promise<MergedOnGitHub> {
+    const { repository, token } = await this.reading(remoteUrl);
+    let squashed: { commitTitle: string; commitMessage: string } | undefined;
+    if (method === "squash") {
+      const pullRequest = await this.api
+        .pullRequestOf(token, repository, number)
+        .catch(failedAccess);
+      squashed = {
+        commitTitle: `${pullRequest.title} (#${number})`,
+        commitMessage: pullRequest.body,
+      };
+    }
+    const answer = await this.api
+      .mergePullRequest(token, repository, number, {
+        method,
+        sha: expectedHeadCommit,
+        ...squashed,
+      })
+      .catch(unreachable);
+    if (answer.kind === "refused") throw mergeRefusal(answer, repository, number);
+    return { commit: answer.sha };
+  }
+
+  /**
+   * Closes pull request `number` without merging it; its branch stays. Throws
+   * `PullRequestNotChanged` when GitHub refuses or can't be reached, and as `openPullRequests` does
+   * otherwise.
+   */
+  async close(remoteUrl: string, number: number): Promise<void> {
+    const { repository, token } = await this.reading(remoteUrl);
+    const refusal = await this.api.closePullRequest(token, repository, number).catch(unreachable);
+    if (refusal !== undefined) throw closeRefusal(refusal, repository, number);
+  }
+
   /** The remote's repository on GitHub and the token to read it with. */
   private async reading(
     remoteUrl: string,
@@ -186,4 +270,10 @@ export class GitHubPullRequests {
   private notOnGitHub(): string {
     return `The remote isn't a repository on ${new URL(this.urls.web).host}, and The Office opens pull requests on GitHub only.`;
   }
+}
+
+/** A merge or close GitHub got no answer to, in the user's words; other failures as `failedAccess`. */
+function unreachable(error: unknown): never {
+  if (error instanceof GitHubUnreachable) throw new PullRequestNotChanged(GITHUB_UNREACHABLE);
+  return failedAccess(error);
 }

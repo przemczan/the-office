@@ -9,6 +9,7 @@ import {
   type PullRequestToOpen,
   type RepositoryOnGitHub,
 } from "../../domain/pull-request.js";
+import type { MergeSettingsOnGitHub, RefusalOnGitHub } from "../../domain/merge-refusal.js";
 import type { ChecksOnGitHub } from "../../domain/pull-request-status.js";
 import {
   GitHubApi,
@@ -17,6 +18,8 @@ import {
   type GitHubInstallation,
   type GitHubUser,
   type ListedPullRequest,
+  type MergeAnswer,
+  type PullRequestMerge,
   type PullRequestAnswer,
   type PullRequestDetail,
   type PullRequestOnGitHub,
@@ -105,6 +108,8 @@ const listedPullRequestSchema = pullRequestSchema.extend({
 });
 
 const pullRequestDetailSchema = z.object({
+  title: z.string(),
+  body: z.string().nullish(),
   state: z.enum(["open", "closed"]),
   merged_at: z.string().nullish(),
   mergeable: z.boolean().nullish(),
@@ -117,6 +122,19 @@ const checkRunsPageSchema = z.object({
 });
 
 const combinedStatusSchema = z.object({ statuses: z.array(z.object({ state: z.string() })) });
+
+/** A repository's merge settings; GitHub gives them only to those who may change them. */
+const repositorySchema = z.object({
+  allow_merge_commit: z.boolean().optional(),
+  allow_squash_merge: z.boolean().optional(),
+  allow_rebase_merge: z.boolean().optional(),
+  delete_branch_on_merge: z.boolean().optional(),
+});
+
+const mergedSchema = z.object({ sha: z.string().min(1) });
+
+/** A refusal's `message`, which GitHub writes for the user, such as "Pull Request is not mergeable". */
+const refusalMessageSchema = z.object({ message: z.string() });
 
 /** How many answers the conditional requests keep, the oldest read dropped first. */
 const CACHED_ANSWERS = 500;
@@ -391,8 +409,10 @@ export class GitHubRestApi extends GitHubApi {
         `GitHub didn't give pull request #${number} of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
       );
     }
-    const { state, merged_at: mergedAt, mergeable, head, base } = answer.parsed;
+    const { title, body, state, merged_at: mergedAt, mergeable, head, base } = answer.parsed;
     return {
+      title,
+      body: body ?? "",
       state,
       mergedAt: mergedAt ?? null,
       mergeable: mergeable ?? null,
@@ -444,6 +464,86 @@ export class GitHubRestApi extends GitHubApi {
       }
       throw error;
     }
+  }
+
+  async repositoryOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+  ): Promise<MergeSettingsOnGitHub> {
+    // docs.github.com/rest/repos/repos#get-a-repository
+    const url = gitHubUrl(this.urls.api, repositoryPathOf(repository));
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => repositorySchema.safeParse(body).data,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        `GitHub didn't give ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    const settings = answer.parsed;
+    return {
+      allowMergeCommit: settings.allow_merge_commit,
+      allowSquashMerge: settings.allow_squash_merge,
+      allowRebaseMerge: settings.allow_rebase_merge,
+      deleteBranchOnMerge: settings.delete_branch_on_merge,
+    };
+  }
+
+  async mergePullRequest(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+    { method, sha, commitTitle, commitMessage }: PullRequestMerge,
+  ): Promise<MergeAnswer> {
+    // docs.github.com/rest/pulls/pulls#merge-a-pull-request: `sha` makes GitHub refuse (409) a head
+    // that moved since. The branch is never deleted.
+    const url = gitHubUrl(this.urls.api, `${pullsPathOf(repository)}/${number}/merge`);
+    const response = await this.call(url, {
+      method: "PUT",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({
+        merge_method: method,
+        sha,
+        ...(commitTitle !== undefined && { commit_title: commitTitle }),
+        ...(commitMessage !== undefined && { commit_message: commitMessage }),
+      }),
+    });
+    const answer: unknown = await response.json().catch(() => undefined);
+    if (response.status !== 200) {
+      return { kind: "refused", status: response.status, message: refusalMessageOf(answer) };
+    }
+    const merged = mergedSchema.safeParse(answer);
+    if (!merged.success) {
+      throw new GitHubApiFailure("GitHub's answer to the merge held no commit (HTTP 200).");
+    }
+    return { kind: "merged", sha: merged.data.sha };
+  }
+
+  async closePullRequest(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<RefusalOnGitHub | undefined> {
+    // docs.github.com/rest/pulls/pulls#update-a-pull-request
+    const url = gitHubUrl(this.urls.api, `${pullsPathOf(repository)}/${number}`);
+    const response = await this.call(url, {
+      method: "PATCH",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({ state: "closed" }),
+    });
+    const answer: unknown = await response.json().catch(() => undefined);
+    if (response.status === 200) return undefined;
+    return { status: response.status, message: refusalMessageOf(answer) };
+  }
+
+  private writeHeaders(accessToken: string): Record<string, string> {
+    return {
+      ...REST_HEADERS,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    };
   }
 
   /**
@@ -565,8 +665,17 @@ async function tokenAnswerOf(response: Response, askedFor: string): Promise<Toke
   };
 }
 
-function pullsPathOf({ owner, name }: RepositoryOnGitHub): string {
-  return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls`;
+function repositoryPathOf({ owner, name }: RepositoryOnGitHub): string {
+  return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+}
+
+function pullsPathOf(repository: RepositoryOnGitHub): string {
+  return `${repositoryPathOf(repository)}/pulls`;
+}
+
+/** A refusal's `message`, which GitHub writes for the user; nothing else of its body. */
+function refusalMessageOf(answer: unknown): string | undefined {
+  return refusalMessageSchema.safeParse(answer).data?.message;
 }
 
 /** The messages of a refusal's validation errors, which GitHub writes for the user; nothing else of its body. */

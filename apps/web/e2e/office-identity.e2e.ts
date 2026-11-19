@@ -10,6 +10,8 @@ import {
   projectSchema,
   taskSchema,
   type NewProject,
+  type Project,
+  type Task,
 } from "@the-office/contracts";
 import { E2E_STORAGE_STATE, NOT_SIGNED_IN } from "./e2e-user.ts";
 import {
@@ -26,6 +28,7 @@ import { screenshotScenario } from "./task-screenshots.ts";
 import {
   createTemporaryRepository,
   createTemporaryRepositoryWithRemote,
+  type TemporaryRepositoryWithRemote,
 } from "./temporary-repository.ts";
 
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -400,53 +403,9 @@ test.describe.serial("Sign in with GitHub", () => {
     try {
       // Installed with the permissions of an App registered before checks were read.
       await installApp("office-user", [{ fullName }]);
-      const newProject: NewProject = {
-        name: `Pull request notes ${Date.now()}`,
-        path: repository.path,
-        baseBranch: "main",
-        mark: { label: "PR", colour: "teal" },
-        installCommand: "",
-        commands: [
-          { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
-          { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
-        ],
-        installInputs: [],
-        publishingMode: "push-and-pull-request",
-        defaultPipeline: "full",
-      };
-      const added = await page.request.post("/api/projects", { data: newProject });
-      expect(added.status(), await added.text()).toBe(201);
-      const project = projectSchema.parse(await added.json());
-      // Its base branch then tracks the repository on GitHub, which the watch reads without
-      // fetching; nothing in this test fetches or pushes, as the fake serves no git.
-      execFileSync("git", ["remote", "set-url", "origin", `${FAKE_GITHUB_URL}/${fullName}.git`], {
-        cwd: repository.path,
-        stdio: "ignore",
-      });
-      const created = await page.request.post("/api/tasks", {
-        data: {
-          title: "Show the pull request's checks",
-          projectId: project.id,
-          priority: "normal",
-        },
-      });
-      expect(created.status()).toBe(201);
-      const task = taskSchema.parse(await created.json());
-
-      // Opened on GitHub from the Task's branch, as Publish opens it (pushing needs a remote the
-      // fake can't serve); the watch adopts a pull request on an `office/<task id>` branch.
-      const [signIn] = await queryOfficeDatabase("select access_token from github_sign_in", []);
-      const opened = await fetch(`${FAKE_GITHUB_API_URL}/repos/${fullName}/pulls`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${String(signIn?.["access_token"])}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ head: `office/${task.id}`, base: "main", title: task.title }),
-      });
-      expect(opened.status).toBe(201);
-      const { number } = (await opened.json()) as { number: number };
+      const project = await addProjectOnGitHub(page, repository, fullName, "Pull request notes");
+      const task = await createTask(page, project, "Show the pull request's checks");
+      const number = await openPullRequestOnGitHub(fullName, task);
       await controlPullRequest({
         action: "setChecks",
         repository: fullName,
@@ -502,6 +461,87 @@ test.describe.serial("Sign in with GitHub", () => {
       await page.goto("/work/pull-requests");
       await row.getByRole("link", { name: task.title, exact: true }).click();
       await expect(page).toHaveURL(`/tasks/${task.id}`);
+    } finally {
+      await repository.remove();
+    }
+  });
+
+  test("Work › Pull requests merges a pull request after GitHub's refusal, closes another, and their Tasks show it", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepositoryWithRemote();
+    const fullName = `office-user/pull-request-merges-${Date.now()}`;
+    try {
+      await installApp("office-user", [{ fullName }]);
+      const project = await addProjectOnGitHub(page, repository, fullName, "Pull request merges");
+      const merged = await createTask(page, project, "Merge the pull request from The Office");
+      const closed = await createTask(page, project, "Close the pull request from The Office");
+      const mergedNumber = await openPullRequestOnGitHub(fullName, merged);
+      const closedNumber = await openPullRequestOnGitHub(fullName, closed);
+      for (const number of [mergedNumber, closedNumber]) {
+        await controlPullRequest({
+          action: "setChecks",
+          repository: fullName,
+          number,
+          checks: "passing",
+        });
+      }
+      await controlPullRequest({
+        action: "refuseMerge",
+        repository: fullName,
+        number: mergedNumber,
+        status: 405,
+        message: 'Required status check "build" is expected.',
+      });
+
+      await page.goto("/work/pull-requests");
+      const mergedRow = page
+        .getByRole("row")
+        .filter({ hasText: `#${mergedNumber} ${merged.title}` });
+      const closedRow = page
+        .getByRole("row")
+        .filter({ hasText: `#${closedNumber} ${closed.title}` });
+      // Merge sends the head commit a round read, so wait for the round that reads both.
+      await expect(async () => {
+        await page.getByRole("button", { name: "Refresh" }).click();
+        await expect(mergedRow).toContainText("Passing", { timeout: 3_000 });
+        await expect(closedRow).toContainText("Passing", { timeout: 3_000 });
+      }).toPass({ timeout: 45_000 });
+
+      await mergedRow.getByRole("button", { name: "Merge…" }).click();
+      const mergeDialog = page.getByRole("dialog");
+      // The design system's radios take no accessible name; each sits in its option's label.
+      await expect(
+        mergeDialog.locator("label").filter({ hasText: "Squash and merge" }).getByRole("radio"),
+      ).toBeChecked();
+      await mergeDialog.getByRole("button", { name: "Merge pull request" }).click();
+      await expect(mergeDialog).toContainText(
+        `GitHub won't merge #${mergedNumber}: Required status check "build" is expected.`,
+      );
+      await expect(mergedRow).toBeVisible();
+      await screenshotScenario(page, "merge-pull-request-refused", { inView: mergeDialog });
+
+      await controlPullRequest({
+        action: "allowMerge",
+        repository: fullName,
+        number: mergedNumber,
+      });
+      await mergeDialog.getByRole("button", { name: "Merge pull request" }).click();
+      await expect(mergeDialog).toBeHidden();
+      await expect(mergedRow).toBeHidden();
+
+      await closedRow.getByRole("button", { name: "Close…" }).click();
+      const closeDialog = page.getByRole("dialog");
+      await expect(closeDialog).toContainText(`Close #${closedNumber} without merging?`);
+      await closeDialog.getByRole("button", { name: "Close pull request" }).click();
+      await expect(closeDialog).toBeHidden();
+      await expect(closedRow).toBeHidden();
+
+      await page.goto(`/tasks/${merged.id}`);
+      await expect(page.getByText("Pull request merged")).toBeVisible();
+      await screenshotScenario(page, "task-pull-request-merged");
+      await page.goto(`/tasks/${closed.id}`);
+      await expect(page.getByText("Pull request closed")).toBeVisible();
     } finally {
       await repository.remove();
     }
@@ -656,3 +696,65 @@ test(
     );
   },
 );
+
+/**
+ * A Project whose base branch tracks `fullName` on the fake GitHub, which the pull request watch
+ * reads without fetching; nothing fetches or pushes, as the fake serves no git.
+ */
+async function addProjectOnGitHub(
+  page: Page,
+  repository: TemporaryRepositoryWithRemote,
+  fullName: string,
+  name: string,
+): Promise<Project> {
+  const newProject: NewProject = {
+    name: `${name} ${Date.now()}`,
+    path: repository.path,
+    baseBranch: "main",
+    mark: { label: "PR", colour: "teal" },
+    installCommand: "",
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+    ],
+    installInputs: [],
+    publishingMode: "push-and-pull-request",
+    defaultPipeline: "full",
+  };
+  const added = await page.request.post("/api/projects", { data: newProject });
+  expect(added.status(), await added.text()).toBe(201);
+  const project = projectSchema.parse(await added.json());
+  execFileSync("git", ["remote", "set-url", "origin", `${FAKE_GITHUB_URL}/${fullName}.git`], {
+    cwd: repository.path,
+    stdio: "ignore",
+  });
+  return project;
+}
+
+async function createTask(page: Page, project: Project, title: string): Promise<Task> {
+  const created = await page.request.post("/api/tasks", {
+    data: { title, projectId: project.id, priority: "normal" },
+  });
+  expect(created.status()).toBe(201);
+  return taskSchema.parse(await created.json());
+}
+
+/**
+ * Opens the Task's pull request on the fake GitHub from its `office/<task id>` branch, as Publish
+ * opens it (pushing needs a remote the fake can't serve), as the signed-in user; the watch adopts
+ * it by its branch. Gives its number.
+ */
+async function openPullRequestOnGitHub(fullName: string, task: Task): Promise<number> {
+  const [signIn] = await queryOfficeDatabase("select access_token from github_sign_in", []);
+  const opened = await fetch(`${FAKE_GITHUB_API_URL}/repos/${fullName}/pulls`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${String(signIn?.["access_token"])}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ head: `office/${task.id}`, base: "main", title: task.title }),
+  });
+  expect(opened.status).toBe(201);
+  return ((await opened.json()) as { number: number }).number;
+}

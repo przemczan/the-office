@@ -7,6 +7,11 @@ import { confirmPipeline } from "../../domain/planning-changes.js";
 import { changeCommitMessage, publishCommitMessage } from "../../domain/task-commit-message.js";
 import { changeTitle } from "../../domain/task-description.js";
 import { TaskCommitMessageChanged } from "../../domain/task-events.js";
+import {
+  clearPullRequestEnd,
+  recordPullRequestEnd,
+  type PullRequestEnd,
+} from "../../domain/task-pull-request.js";
 import { ANN_LEE, aLink, anIdea } from "../../domain/work.fixtures.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
@@ -96,6 +101,32 @@ describe("PostgresTaskRepository", () => {
     }));
 
     await expect(tasks.find(created.id)).resolves.toMatchObject({ engineStandIns });
+  });
+
+  it("keeps how a Task's pull request ended, by a user or on the code host, until it is cleared", async () => {
+    const created = await createdTask(aProjectId());
+    expect(created.pullRequestEnd).toBeUndefined();
+    const merged: PullRequestEnd = {
+      outcome: "merged",
+      number: 12,
+      url: "https://github.com/acme/admin-panel/pull/12",
+      at: new Date("2026-11-19T10:00:00.000Z"),
+      method: "squash",
+      by: ANN_LEE,
+    };
+    const closed: PullRequestEnd = {
+      ...merged,
+      outcome: "closed",
+      method: undefined,
+      by: { kind: "code-host", name: "GitHub" },
+    };
+
+    await tasks.update(created.id, (task) => recordPullRequestEnd(task, merged));
+    await expect(tasks.find(created.id)).resolves.toMatchObject({ pullRequestEnd: merged });
+    await tasks.update(created.id, (task) => recordPullRequestEnd(task, closed));
+    await expect(tasks.find(created.id)).resolves.toMatchObject({ pullRequestEnd: closed });
+    await tasks.update(created.id, (task) => clearPullRequestEnd(task, 12, new Date()));
+    await expect(tasks.find(created.id)).resolves.toMatchObject({ pullRequestEnd: undefined });
   });
 });
 

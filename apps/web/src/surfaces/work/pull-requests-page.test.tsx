@@ -53,6 +53,7 @@ const TASK: Task = {
   createdAt: "2026-11-10T10:00:00.000Z",
   archivedAt: null,
   endedAt: null,
+  pullRequestEnd: null,
 };
 
 function aProject(id: string, name: string): Project {
@@ -137,6 +138,16 @@ function openPullRequests(
     "GET /api/tasks": () => ({ status: 200, body: [TASK] }),
     "GET /api/projects": () => ({ status: 200, body: PROJECTS }),
     "GET /api/github": () => ({ status: 200, body: gitHub }),
+    [`GET /api/pull-requests/${FAILING.id}/merge-methods`]: () => ({
+      status: 200,
+      body: {
+        allowed: ["squash"],
+        recommended: "squash",
+        warning: null,
+        deletesBranchOnMerge: true,
+      },
+    }),
+    [`POST /api/pull-requests/${FAILING.id}/merge`]: () => ({ status: 204 }),
   });
   return openPage("/work/pull-requests", { "/work/pull-requests": PullRequestsPage });
 }
@@ -240,6 +251,35 @@ describe("Work › Pull requests", () => {
 
     await until(() =>
       expect(sent.map(({ request }) => request)).toContain("POST /api/pull-requests/refresh"),
+    );
+  });
+
+  it("offers Merge… and Close… on each row, and a merge reads the list again", async () => {
+    const { page } = await openPullRequests({ pullRequests: [FAILING], problems: [] });
+
+    // Every Project, whatever an earlier test's filter left in the store.
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
+    });
+    await until(() => expect(buttonNamed(rowOf(page, "#42"), "Close…")).toBeDefined());
+    act(() => buttonNamed(rowOf(page, "#42"), "Close…")?.click());
+    await until(() =>
+      expect(document.body.textContent).toContain(
+        "Close #42 without merging? The branch stays, and it can be reopened on GitHub.",
+      ),
+    );
+    act(() => buttonNamed(document.body, "Close")?.click());
+
+    act(() => buttonNamed(rowOf(page, "#42"), "Merge…")?.click());
+    await until(() => expect(document.body.textContent).toContain("Squash and merge"));
+    // Failing checks and conflicts caution, but don't block.
+    expect(document.body.textContent).toContain("Checks are failing and it has conflicts");
+    const listReads = sent.filter(({ request }) => request === "GET /api/pull-requests").length;
+    act(() => buttonNamed(document.body, "Merge pull request")?.click());
+
+    await until(() => expect(document.body.textContent).toContain("#42 merged."));
+    expect(sent.filter(({ request }) => request === "GET /api/pull-requests").length).toBe(
+      listReads + 1,
     );
   });
 

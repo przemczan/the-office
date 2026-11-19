@@ -6,6 +6,9 @@ export {
 } from "./application/github-identities.js";
 export {
   GitHubPullRequests,
+  type MergedOnGitHub,
+  type MergeMethodsOnGitHub,
+  type MergeOnGitHub,
   type OpenedPullRequestOnGitHub,
   type OpenPullRequestOnGitHub,
   type PullRequestOnRemote,
@@ -26,3 +29,8 @@ export {
 } from "./domain/github-repository.js";
 export { GitHubModule } from "./github.module.js";
 export { PullRequestNotOpened } from "./domain/pull-request.js";
+export {
+  PullRequestChangedOnGitHub,
+  PullRequestNotChanged,
+  type GitHubMergeMethod,
+} from "./domain/merge-refusal.js";

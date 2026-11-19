@@ -121,6 +121,10 @@ _Avoid_: Squash message, PR description, Stage commit (a Stage's own commit on t
 What Publish by Push + PR opens on the Project's code host for a Task's branch. The Office records each one, linked to its Task, refreshes it every minute while it is open, and drops it from its list once merged or closed.
 _Avoid_: PR (in the UI), Merge request
 
+**Merge method**:
+How a pull request's commits reach its base when merged from Work › Pull requests: a merge commit ("Create a merge commit"), "Squash and merge" or "Rebase and merge", only those the repository allows.
+_Avoid_: Merge strategy, merge type
+
 **Checks** (of a pull request):
 The host's automated results on a pull request's head commit: Passing, Failing, Running, No checks or Can't read.
 _Avoid_: CI, Build status, Pipeline (a Pipeline is The Office's own)

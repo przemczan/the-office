@@ -20,6 +20,8 @@ import type { PullRequestStatus } from "../../domain/pull-request.js";
 import {
   CodeHost,
   CodeHostRefused,
+  type MergedOnHost,
+  type MergeMethodsOnHost,
   type OpenedPullRequest,
   type PullRequestOnHost,
   type PullRequestRequest,
@@ -82,6 +84,18 @@ export class CodeHostForTests extends CodeHost {
 
   pullRequestStatus(): Promise<PullRequestStatus> {
     return Promise.reject(new CodeHostRefused("Publishing reads no pull request."));
+  }
+
+  mergeMethods(): Promise<MergeMethodsOnHost> {
+    return Promise.reject(new CodeHostRefused("Publishing merges no pull request."));
+  }
+
+  merge(): Promise<MergedOnHost> {
+    return Promise.reject(new CodeHostRefused("Publishing merges no pull request."));
+  }
+
+  close(): Promise<void> {
+    return Promise.reject(new CodeHostRefused("Publishing closes no pull request."));
   }
 
   /** Forgets every request and opens each pull request again. */

@@ -51,18 +51,56 @@ describe("PostgresPullRequestRepository", () => {
 
     const read: PullRequest = {
       ...older,
-      state: "merged",
       checks: "passing",
       mergeable: "yes",
       headCommit: "a".repeat(40),
       baseCommit: "b".repeat(40),
       checkedAt: new Date("2026-11-03T10:00:00Z"),
-      endedAt: new Date("2026-11-03T10:00:00Z"),
     };
     await repository.save(read);
 
-    await expect(repository.listOpen(projectId)).resolves.toEqual([newer]);
+    await expect(repository.findById(older.id)).resolves.toEqual(read);
     await expect(repository.find(remoteUrl, 1)).resolves.toEqual(read);
+  });
+
+  it("ends a pull request only while it is open, and never by a save", async () => {
+    const kept = await repository.record(aPullRequest(4, new Date("2026-11-06T10:00:00Z")));
+    const at = new Date("2026-11-07T10:00:00Z");
+
+    await repository.save({ ...kept, state: "closed", endedAt: at });
+    await expect(repository.findById(kept.id)).resolves.toMatchObject({
+      state: "open",
+      endedAt: null,
+    });
+
+    const ended = await repository.end(kept.id, "merged", at);
+    expect(ended).toEqual({ ...kept, state: "merged", endedAt: at });
+    await expect(repository.end(kept.id, "closed", new Date())).resolves.toBeUndefined();
+    await expect(repository.findById(kept.id)).resolves.toEqual(ended);
+    expect((await repository.listOpen(projectId)).map((one) => one.number)).not.toContain(4);
+
+    await repository.save({ ...kept, checks: "failing", stale: true });
+    await expect(repository.findById(kept.id)).resolves.toMatchObject({
+      state: "merged",
+      endedAt: at,
+      checks: "failing",
+    });
+  });
+
+  it("opens an ended pull request again, only once", async () => {
+    const kept = await repository.record(aPullRequest(5, new Date("2026-11-08T10:00:00Z")));
+
+    await expect(repository.reopen(kept.id)).resolves.toBe(false);
+    await repository.end(kept.id, "closed", new Date("2026-11-09T10:00:00Z"));
+
+    await expect(repository.reopen(kept.id)).resolves.toBe(true);
+    await expect(repository.reopen(kept.id)).resolves.toBe(false);
+    await expect(repository.findById(kept.id)).resolves.toEqual(kept);
+  });
+
+  it("finds no pull request by an id not kept", async () => {
+    await expect(repository.findById(randomUUID())).resolves.toBeUndefined();
+    await expect(repository.end(randomUUID(), "merged", new Date())).resolves.toBeUndefined();
   });
 
   it("updates the one kept for the same remote and number instead of keeping it twice", async () => {

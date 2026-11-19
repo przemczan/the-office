@@ -135,6 +135,7 @@ export function createTask(
     restoredAt: undefined,
     restoredBy: undefined,
     endedAt: undefined,
+    pullRequestEnd: undefined,
   };
   return {
     task,

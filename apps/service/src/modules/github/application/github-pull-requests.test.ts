@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { GitHubRestApi } from "../adapters/github/github-rest-api.js";
 import { NotSignedInWithGitHub } from "../domain/github-repository.js";
+import { PullRequestChangedOnGitHub, PullRequestNotChanged } from "../domain/merge-refusal.js";
 import { FakeGitHub } from "../index.fixtures.js";
 import { GitHubAppForTests } from "../ports/github-app-repository.fixtures.js";
 import { GitHubSignInForTests } from "../ports/github-sign-in-repository.fixtures.js";
@@ -180,6 +181,26 @@ describe("reading the pull requests on GitHub", () => {
     });
   });
 
+  it("offers every merge method when GitHub leaves out the repository's settings", async () => {
+    signIn();
+
+    await expect(pullRequests.mergeMethods(remoteUrl())).resolves.toEqual({
+      allowed: ["merge", "squash", "rebase"],
+      deletesBranchOnMerge: undefined,
+    });
+
+    github.pullRequests.setRepository("office/tools", {
+      allowMergeCommit: false,
+      allowSquashMerge: true,
+      allowRebaseMerge: true,
+      deleteBranchOnMerge: true,
+    });
+    await expect(pullRequests.mergeMethods(remoteUrl())).resolves.toEqual({
+      allowed: ["squash", "rebase"],
+      deletesBranchOnMerge: true,
+    });
+  });
+
   it("can't be read while signed out, saying so without throwing", async () => {
     await expect(pullRequests.whyCannotRead(remoteUrl())).resolves.toMatch(
       /no one is signed in\. Sign in with GitHub in Settings › Office identity\.$/,
@@ -189,5 +210,104 @@ describe("reading the pull requests on GitHub", () => {
     await expect(pullRequests.whyCannotRead(remoteUrl())).resolves.toBeUndefined();
     expect(pullRequests.reaches(remoteUrl())).toBe(true);
     expect(pullRequests.reaches("https://gitlab.com/office/tools.git")).toBe(false);
+  });
+});
+
+/** Pull request #1 opened while signed in; its head commit. */
+async function openedHead(): Promise<string> {
+  signIn();
+  await pullRequests.open(aPullRequest());
+  return github.pullRequests.opened[0]?.headSha ?? "";
+}
+
+describe("merging and closing a pull request on GitHub", () => {
+  it("merges by the method asked, sending the head commit it last read", async () => {
+    const head = await openedHead();
+
+    const merged = await pullRequests.merge(remoteUrl(), 1, {
+      method: "rebase",
+      expectedHeadCommit: head,
+    });
+
+    expect(github.pullRequests.merges).toEqual([
+      expect.objectContaining({
+        number: 1,
+        method: "rebase",
+        sha: head,
+        commitTitle: undefined,
+        commitMessage: undefined,
+      }),
+    ]);
+    expect(merged).toEqual({ commit: github.pullRequests.merges[0]?.commit });
+    expect(github.pullRequests.opened[0]?.mergedAt).not.toBeNull();
+  });
+
+  it("squashes into a commit titled by the pull request's number, its body the message", async () => {
+    const head = await openedHead();
+
+    await pullRequests.merge(remoteUrl(), 1, { method: "squash", expectedHeadCommit: head });
+
+    expect(github.pullRequests.merges).toEqual([
+      expect.objectContaining({
+        method: "squash",
+        sha: head,
+        commitTitle: "Rename a device (#1)",
+        commitMessage: "## Definition of Done\n\n- [x] The rename persists",
+      }),
+    ]);
+  });
+
+  it("says GitHub won't merge, in its words, a method the repository doesn't allow", async () => {
+    const head = await openedHead();
+    github.pullRequests.setRepository("office/tools", { allowRebaseMerge: false });
+
+    await expect(
+      pullRequests.merge(remoteUrl(), 1, { method: "rebase", expectedHeadCommit: head }),
+    ).rejects.toThrow(
+      new PullRequestNotChanged(
+        "GitHub won't merge #1: Rebase merges are not allowed on this repository.",
+      ),
+    );
+  });
+
+  it("says to refresh when the head moved since The Office read it", async () => {
+    const head = await openedHead();
+    github.pullRequests.pushHead("office/tools", 1);
+
+    const merging = pullRequests.merge(remoteUrl(), 1, {
+      method: "merge",
+      expectedHeadCommit: head,
+    });
+
+    await expect(merging).rejects.toThrow(PullRequestChangedOnGitHub);
+    await expect(merging).rejects.toThrow(
+      "#1 changed on GitHub since The Office last read it. Refresh, then try again.",
+    );
+    expect(github.pullRequests.merges).toEqual([]);
+  });
+
+  it("says the account can't merge when GitHub forbids it", async () => {
+    const head = await openedHead();
+    github.pullRequests.refuseMerge(
+      "office/tools",
+      1,
+      403,
+      "Resource not accessible by integration",
+    );
+
+    await expect(
+      pullRequests.merge(remoteUrl(), 1, { method: "merge", expectedHeadCommit: head }),
+    ).rejects.toThrow(
+      new PullRequestNotChanged("Your GitHub account can't merge in office/tools."),
+    );
+  });
+
+  it("closes it without merging", async () => {
+    await openedHead();
+
+    await pullRequests.close(remoteUrl(), 1);
+
+    expect(github.pullRequests.opened[0]).toMatchObject({ state: "closed", mergedAt: null });
+    expect(github.requestsTo("/api/v3/repos/office/tools/pulls/1").at(-1)?.method).toBe("PATCH");
   });
 });

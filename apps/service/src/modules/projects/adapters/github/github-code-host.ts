@@ -3,12 +3,18 @@ import {
   GitHubAccessFailed,
   GitHubPullRequests,
   NotSignedInWithGitHub,
+  PullRequestChangedOnGitHub,
+  PullRequestNotChanged,
   PullRequestNotOpened,
 } from "../../../github/index.js";
 import type { PullRequestStatus } from "../../domain/pull-request.js";
 import {
   CodeHost,
+  CodeHostChangedSince,
   CodeHostRefused,
+  type MergedOnHost,
+  type MergeMethodsOnHost,
+  type MergeRequest,
   type OpenedPullRequest,
   type PullRequestOnHost,
   type PullRequestRequest,
@@ -55,6 +61,19 @@ export class GitHubCodeHost extends CodeHost {
   pullRequestStatus(remoteUrl: string, number: number): Promise<PullRequestStatus> {
     return refusing(this.gitHub.status(remoteUrl, number));
   }
+
+  mergeMethods(remoteUrl: string, _number: number): Promise<MergeMethodsOnHost> {
+    // GitHub's merge methods are the repository's, the same for each of its pull requests.
+    return refusing(this.gitHub.mergeMethods(remoteUrl));
+  }
+
+  merge(remoteUrl: string, number: number, request: MergeRequest): Promise<MergedOnHost> {
+    return refusing(this.gitHub.merge(remoteUrl, number, request));
+  }
+
+  close(remoteUrl: string, number: number): Promise<void> {
+    return refusing(this.gitHub.close(remoteUrl, number));
+  }
 }
 
 /** The github module's refusals as the code host's; anything else is a fault and stays as it is. */
@@ -62,7 +81,9 @@ async function refusing<Answer>(asked: Promise<Answer>): Promise<Answer> {
   try {
     return await asked;
   } catch (error) {
+    if (error instanceof PullRequestChangedOnGitHub) throw new CodeHostChangedSince(error.message);
     if (
+      error instanceof PullRequestNotChanged ||
       error instanceof PullRequestNotOpened ||
       error instanceof NotSignedInWithGitHub ||
       error instanceof GitHubAccessFailed

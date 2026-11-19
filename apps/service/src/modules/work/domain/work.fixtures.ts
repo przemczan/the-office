@@ -93,6 +93,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     restoredAt: undefined,
     restoredBy: undefined,
     endedAt: undefined,
+    pullRequestEnd: undefined,
     ...fields,
   };
 }

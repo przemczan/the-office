@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "pull_request_end" jsonb;

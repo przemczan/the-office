@@ -774,6 +774,7 @@ export const workEventInvalidations: Readonly<
   "task.title-changed": () => [TASKS],
   "task.description-changed": () => [TASKS],
   "task.commit-message-changed": () => [TASKS],
+  "task.pull-request-end-changed": () => [TASKS],
   "task.tags-changed": () => [TASKS],
   "task.marked-planned": () => [TASKS],
   "task.reordered": () => [TASKS],

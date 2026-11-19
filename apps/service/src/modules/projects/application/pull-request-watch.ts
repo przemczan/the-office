@@ -10,7 +10,13 @@ import {
   withStatus,
   type PullRequest,
 } from "../domain/pull-request.js";
-import { PullRequestsChecked } from "../domain/pull-request-events.js";
+import {
+  onTheCodeHost,
+  PullRequestClosed,
+  PullRequestMerged,
+  PullRequestReopened,
+  PullRequestsChecked,
+} from "../domain/pull-request-events.js";
 import { CodeHost, CodeHostRefused, type PullRequestOnHost } from "../ports/code-host.js";
 import { Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
@@ -49,8 +55,12 @@ export interface PullRequestList {
  * Keeps the pull requests The Office opened up to date with their code hosts, every minute and on
  * a refresh: per Project, the base branch's remote as git resolves it, one list of its open pull
  * requests, and a status read only for the ones whose commits moved or whose checks or merge state
- * the host hadn't worked out, plus one last read for each that left the list. A pull request on an
- * `office/<task id>` branch that isn't recorded, as when Publish couldn't record it, is adopted.
+ * the host hadn't worked out, plus one last read for each that left the list. One found merged or
+ * closed is ended by the repository's conditional `end` and announced (`PullRequestMerged`,
+ * `PullRequestClosed`, by `onTheCodeHost`) only when that ended it, so a Merge from the page
+ * at the same time is announced once; one kept as ended that is listed open again is reopened
+ * (`PullRequestReopened`). A pull request on an `office/<task id>` branch that isn't recorded, as
+ * when Publish couldn't record it, is adopted.
  * Nothing it can't read fails it: the rows go stale and the Project holds a problem in plain words
  * (kept in memory) until a round reads it again. `PullRequestsChecked` is published only when
  * something the list shows changed.
@@ -179,7 +189,7 @@ export class PullRequestWatch implements OnApplicationBootstrap {
     let changed = false;
     for (const onHost of listed) {
       const known = keptByNumber.get(onHost.number);
-      const pullRequest = known ?? (await this.adopt(project, remoteUrl, onHost, at));
+      const pullRequest = known ?? (await this.keptOrAdopted(project, host, remoteUrl, onHost, at));
       if (pullRequest === undefined) continue;
       if (!known) changed = true;
       if (needsStatus(pullRequest, onHost)) {
@@ -197,6 +207,32 @@ export class PullRequestWatch implements OnApplicationBootstrap {
       }
     }
     return changed;
+  }
+
+  /**
+   * The pull request kept for a listed one that isn't among the open rows, or the one adopted when
+   * none is kept. One kept as ended is opened again, announced when this reopened it, only once its
+   * own status says it is open: the list can still show one just merged or closed from the page.
+   * Undefined when there is nothing to read.
+   */
+  private async keptOrAdopted(
+    project: Project,
+    host: CodeHost,
+    remoteUrl: string,
+    onHost: PullRequestOnHost,
+    at: Date,
+  ): Promise<PullRequest | undefined> {
+    const kept = await this.pullRequests.find(remoteUrl, onHost.number);
+    if (kept === undefined) return this.adopt(project, remoteUrl, onHost, at);
+    if (kept.endedAt === null) return kept;
+    const status = await host.pullRequestStatus(remoteUrl, kept.number);
+    if (status.state !== "open") return undefined;
+    if (await this.pullRequests.reopen(kept.id)) {
+      await this.events.publish(
+        new PullRequestReopened(kept.id, kept.projectId, kept.taskId, kept.number, kept.url, at),
+      );
+    }
+    return { ...kept, state: "open", endedAt: null };
   }
 
   /** Records a pull request on a Task's branch that Publish didn't record; undefined for others. */
@@ -233,7 +269,26 @@ export class PullRequestWatch implements OnApplicationBootstrap {
     const status = await host.pullRequestStatus(remoteUrl, pullRequest.number);
     const read = withStatus(pullRequest, status, at);
     await this.pullRequests.save(read.pullRequest);
+    if (status.state !== "open") await this.end(pullRequest.id, status.state, host, at);
     return read.changed;
+  }
+
+  /** Ends the pull request found merged or closed, announcing it only when this ended it. */
+  private async end(
+    id: string,
+    state: "merged" | "closed",
+    host: CodeHost,
+    at: Date,
+  ): Promise<void> {
+    const ended = await this.pullRequests.end(id, state, at);
+    if (ended === undefined) return;
+    const { projectId, taskId, number, url } = ended;
+    const by = onTheCodeHost(host.name);
+    await this.events.publish(
+      state === "merged"
+        ? new PullRequestMerged(id, projectId, taskId, number, url, undefined, by, at)
+        : new PullRequestClosed(id, projectId, taskId, number, url, by, at),
+    );
   }
 
   /** Marks the pull requests stale; true when any wasn't already. */

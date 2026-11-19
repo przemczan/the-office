@@ -75,6 +75,39 @@ export const pullRequestListSchema = z.object({
 });
 export type PullRequestList = z.infer<typeof pullRequestListSchema>;
 
+/** How a pull request's commits land on its base: a merge commit, squashed into one, or rebased. */
+export const MERGE_METHODS = ["merge", "squash", "rebase"] as const;
+export const mergeMethodSchema = z.enum(MERGE_METHODS);
+export type MergeMethod = z.infer<typeof mergeMethodSchema>;
+
+/** `GET /pull-requests/:id/merge-methods`: what the Merge dialog offers and picks. */
+export const pullRequestMergeMethodsSchema = z.object({
+  /** In MERGE_METHODS' order; all three when the code host doesn't say. */
+  allowed: z.array(mergeMethodSchema).min(1),
+  /** Squash for a Task's pull request, merge for an `initiative/` one, else the first allowed. */
+  recommended: mergeMethodSchema,
+  /** Why the recommended method isn't the usual one, such as squash rewriting an Initiative's commits. */
+  warning: z.string().nullable(),
+  /** Whether the code host deletes the branch once merged; null when it doesn't say. */
+  deletesBranchOnMerge: z.boolean().nullable(),
+});
+export type PullRequestMergeMethods = z.infer<typeof pullRequestMergeMethodsSchema>;
+
+/** `POST /pull-requests/:id/merge`. */
+export const pullRequestMergeSchema = z.object({ method: mergeMethodSchema });
+export type PullRequestMerge = z.infer<typeof pullRequestMergeSchema>;
+
+/**
+ * A 409 from `POST /pull-requests/:id/merge` or `/close`: why the code host or The Office refused,
+ * in plain words quoting the code host's own message. `refresh` is true when the pull request
+ * changed since The Office last read it, so the dialog offers Refresh.
+ */
+export const pullRequestRefusalSchema = z.object({
+  reason: z.string().min(1),
+  refresh: z.boolean(),
+});
+export type PullRequestRefusal = z.infer<typeof pullRequestRefusalSchema>;
+
 /** The pull requests or their status changed, so an open Pull requests page refetches them. */
 export const pullRequestWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("pull-requests.changed") }),

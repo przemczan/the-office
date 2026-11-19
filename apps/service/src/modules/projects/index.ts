@@ -66,6 +66,13 @@ export type {
   RunEnvironmentAnswer,
   RunEnvironmentSetting,
 } from "./domain/project.js";
+export {
+  PullRequestClosed,
+  PullRequestMerged,
+  PullRequestReopened,
+  type PullRequestEndedBy,
+} from "./domain/pull-request-events.js";
+export type { MergeMethod } from "./domain/merge-method.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";
 export { ProjectRefused } from "./domain/project-refused.js";
 export {

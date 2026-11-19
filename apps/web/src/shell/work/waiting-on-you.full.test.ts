@@ -40,6 +40,7 @@ function aTask(fields: Partial<Task>): Task {
     createdAt: "2026-10-25T10:00:00.000Z",
     archivedAt: null,
     endedAt: null,
+    pullRequestEnd: null,
     ...fields,
   };
 }

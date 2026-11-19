@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   GitHubAccessFailed,
   NotSignedInWithGitHub,
+  PullRequestChangedOnGitHub,
+  PullRequestNotChanged,
   PullRequestNotOpened,
   type GitHubPullRequests,
+  type MergeOnGitHub,
   type PullRequestOnRemote,
 } from "../../../github/index.js";
-import { CodeHostRefused } from "../../ports/code-host.js";
+import { CodeHostChangedSince, CodeHostRefused } from "../../ports/code-host.js";
 import { GitHubCodeHost } from "./github-code-host.js";
 
 const REQUEST = {
@@ -29,8 +32,10 @@ const STATUS = {
 function gitHubAnswering(failure?: Error): {
   gitHub: GitHubPullRequests;
   asked: PullRequestOnRemote[];
+  merged: { remoteUrl: string; number: number; merge: MergeOnGitHub }[];
 } {
   const asked: PullRequestOnRemote[] = [];
+  const merged: { remoteUrl: string; number: number; merge: MergeOnGitHub }[] = [];
   const answer = <Answer>(value: Answer): Promise<Answer> =>
     failure ? Promise.reject(failure) : Promise.resolve(value);
   const gitHub = {
@@ -43,8 +48,14 @@ function gitHubAnswering(failure?: Error): {
     },
     status: () => answer(STATUS),
     openPullRequests: () => answer([]),
+    mergeMethods: () => answer({ allowed: ["squash"], deletesBranchOnMerge: false }),
+    merge: (remoteUrl: string, number: number, merge: MergeOnGitHub) => {
+      merged.push({ remoteUrl, number, merge });
+      return answer({ commit: "c".repeat(40) });
+    },
+    close: () => answer(undefined),
   } as unknown as GitHubPullRequests;
-  return { gitHub, asked };
+  return { gitHub, asked, merged };
 }
 
 describe("GitHub as a code host", () => {
@@ -89,6 +100,50 @@ describe("GitHub as a code host", () => {
     await expect(host.pullRequestStatus(REQUEST.remoteUrl, 1)).rejects.toThrow(
       new CodeHostRefused(failure.message),
     );
+  });
+
+  it("merges, closes and gives the merge methods as the github module does", async () => {
+    const { gitHub, merged } = gitHubAnswering();
+    const host = new GitHubCodeHost(gitHub);
+    const merge = { method: "squash", expectedHeadCommit: "a".repeat(40) } as const;
+
+    await expect(host.mergeMethods(REQUEST.remoteUrl, 1)).resolves.toEqual({
+      allowed: ["squash"],
+      deletesBranchOnMerge: false,
+    });
+    await expect(host.merge(REQUEST.remoteUrl, 1, merge)).resolves.toEqual({
+      commit: "c".repeat(40),
+    });
+    expect(merged).toEqual([{ remoteUrl: REQUEST.remoteUrl, number: 1, merge }]);
+    await expect(host.close(REQUEST.remoteUrl, 1)).resolves.toBeUndefined();
+  });
+
+  it("refuses a merge or close in the github module's words", async () => {
+    const failure = new PullRequestNotChanged(
+      "GitHub won't merge #1: Pull Request is not mergeable",
+    );
+    const host = new GitHubCodeHost(gitHubAnswering(failure).gitHub);
+    const merge = { method: "merge", expectedHeadCommit: "a".repeat(40) } as const;
+
+    const merging = host.merge(REQUEST.remoteUrl, 1, merge);
+    await expect(merging).rejects.toThrow(new CodeHostRefused(failure.message));
+    await expect(merging).rejects.not.toBeInstanceOf(CodeHostChangedSince);
+    await expect(host.close(REQUEST.remoteUrl, 1)).rejects.toThrow(
+      new CodeHostRefused(failure.message),
+    );
+    await expect(host.mergeMethods(REQUEST.remoteUrl, 1)).rejects.toThrow(CodeHostRefused);
+  });
+
+  it("refuses a merge of a pull request changed since as changed, to offer Refresh", async () => {
+    const failure = new PullRequestChangedOnGitHub(1);
+    const host = new GitHubCodeHost(gitHubAnswering(failure).gitHub);
+
+    const merging = host.merge(REQUEST.remoteUrl, 1, {
+      method: "merge",
+      expectedHeadCommit: "a".repeat(40),
+    });
+    await expect(merging).rejects.toBeInstanceOf(CodeHostChangedSince);
+    await expect(merging).rejects.toThrow(failure.message);
   });
 
   it("reaches only GitHub's repositories and says why none can be opened elsewhere", async () => {

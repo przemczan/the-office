@@ -1,3 +1,4 @@
+import type { MergeMethod } from "../domain/merge-method.js";
 import type { PullRequestStatus } from "../domain/pull-request.js";
 
 /** What a pull request asks: to merge `branch` into `baseBranch`, in the record's words. */
@@ -26,11 +27,41 @@ export interface PullRequestOnHost extends OpenedPullRequest {
   readonly baseCommit: string;
 }
 
+/** The merge methods a repository allows, and whether its host deletes a branch once merged. */
+export interface MergeMethodsOnHost {
+  /** In MERGE_METHODS' order; all three when the host doesn't say, leaving the choice to it. */
+  readonly allowed: readonly MergeMethod[];
+  /** Undefined when the host doesn't say. */
+  readonly deletesBranchOnMerge: boolean | undefined;
+}
+
+export interface MergeRequest {
+  readonly method: MergeMethod;
+  /** The head commit The Office last read; the host refuses the merge when the branch moved since. */
+  readonly expectedHeadCommit: string;
+}
+
+/** A pull request the host merged, by the commit the merge made on its base. */
+export interface MergedOnHost {
+  readonly commit: string;
+}
+
 /** The code host refused, or couldn't be asked; `message` says why for the user. */
 export class CodeHostRefused extends Error {
   constructor(message: string) {
     super(message);
     this.name = "CodeHostRefused";
+  }
+}
+
+/**
+ * The host refused as the pull request changed since The Office last read it, such as its branch
+ * moving past the expected head commit; reading it again and retrying may succeed.
+ */
+export class CodeHostChangedSince extends CodeHostRefused {
+  constructor(message: string) {
+    super(message);
+    this.name = "CodeHostChangedSince";
   }
 }
 
@@ -66,4 +97,13 @@ export abstract class CodeHost {
 
   /** Where pull request `number` of the repository stands now. */
   abstract pullRequestStatus(remoteUrl: string, number: number): Promise<PullRequestStatus>;
+
+  /** The merge methods the repository allows for pull request `number`. */
+  abstract mergeMethods(remoteUrl: string, number: number): Promise<MergeMethodsOnHost>;
+
+  /** Merges pull request `number`; never deletes its branch. */
+  abstract merge(remoteUrl: string, number: number, request: MergeRequest): Promise<MergedOnHost>;
+
+  /** Closes pull request `number` without merging it; its branch stays. */
+  abstract close(remoteUrl: string, number: number): Promise<void>;
 }
