@@ -45,12 +45,14 @@ class FakeGit extends Git {
   trackRemoteBranch = notUsed;
   setFetchUrl = notUsed;
   localBranches = notUsed;
+  branchTips = notUsed;
   upstreamOf = notUsed;
   commitOf = notUsed;
   worktreeRecordPath = notUsed;
   repositoryGitFolderOf = notUsed;
   fetchUrlOf = notUsed;
   fetch = notUsed;
+  fetchRemote = notUsed;
   push = notUsed;
   pushCommit = notUsed;
   writeCommit = notUsed;

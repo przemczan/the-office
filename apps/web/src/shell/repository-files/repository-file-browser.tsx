@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import type { BaseBranchFolder, BaseBranchFolderEntry } from "@the-office/contracts";
+import type { RepositoryFolder } from "@the-office/contracts";
 import { Alert, Breadcrumbs, EmptyState, Icon, type BreadcrumbItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { emptyFolderWords, leftOutWords, pathIn } from "./repository-files-words.ts";
 import "./repository-files.css";
 
 /** A file picked in the browser: its path in the repository, and the commit it was seen at. */
@@ -66,7 +67,7 @@ function CommitFolders({
   onSelect,
 }: RepositoryFileBrowserProps & { readonly commit: string }): ReactNode {
   const [path, setPath] = useState("");
-  const folder = useQuery(projectQueries.baseBranchFolder(projectId, commit, path, extensions));
+  const folder = useQuery(projectQueries.repositoryFolder(projectId, commit, path, extensions));
   const open = (next: string): void => {
     setPath(next);
     // What is selected stays in sight, so it goes with the folder it is in.
@@ -110,7 +111,7 @@ function FolderEntries({
   onOpen,
   onSelect,
 }: {
-  readonly folder: BaseBranchFolder;
+  readonly folder: RepositoryFolder;
   readonly extensions: readonly string[];
   readonly selectedPath: string | undefined;
   readonly onOpen: (path: string) => void;
@@ -126,20 +127,13 @@ function FolderEntries({
       />
     );
   }
-  const leftOut = folder.total - folder.entries.length;
-  const pathOf = (entry: BaseBranchFolderEntry): string =>
-    folder.path === "" ? entry.name : `${folder.path}/${entry.name}`;
+  const leftOut = leftOutWords(folder);
   return (
     <>
-      {leftOut > 0 && (
-        <p className="dialog-text">
-          Showing the first {folder.entries.length.toLocaleString("en")} of{" "}
-          {folder.total.toLocaleString("en")} entries: {leftOut.toLocaleString("en")} left out.
-        </p>
-      )}
+      {leftOut !== null && <p className="dialog-text">{leftOut}</p>}
       <ul className="repository-file-list">
         {folder.entries.map((entry) => {
-          const path = pathOf(entry);
+          const path = pathIn(folder.path, entry.name);
           return (
             <li key={entry.name}>
               {entry.kind === "folder" ? (
@@ -168,11 +162,4 @@ function FolderEntries({
       </ul>
     </>
   );
-}
-
-function emptyFolderWords(extensions: readonly string[]): string {
-  if (extensions.length === 0) return "No files in this folder";
-  const named = extensions.map((extension) => `.${extension.replace(/^\./, "")}`);
-  const words = new Intl.ListFormat("en", { type: "disjunction" }).format(named);
-  return `No ${words} files in this folder`;
 }

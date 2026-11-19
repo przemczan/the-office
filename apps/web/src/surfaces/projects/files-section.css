@@ -1,0 +1,100 @@
+/* The Files section: the branch above, the tree beside the file selected, stacked when narrow. */
+.files-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  min-width: 0;
+}
+
+.files-branch {
+  max-width: 420px;
+}
+
+.files-quiet {
+  margin: 0;
+  color: var(--fg-3);
+  font: var(--type-body-sm);
+}
+
+.files-browser {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: var(--gap-card);
+  align-items: start;
+}
+
+.files-tree,
+.files-preview {
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+/* The tree keeps in view beside a long file, scrolling on its own. */
+.files-tree {
+  position: sticky;
+  top: var(--space-4);
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.files-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--pad-card);
+}
+
+.files-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.files-preview-name {
+  min-width: 0;
+  margin: 0;
+  font: var(--type-body-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.files-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.files-preview-markdown {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.files-preview-markdown > :last-child {
+  align-self: stretch;
+}
+
+.files-preview-image {
+  max-width: 100%;
+  height: auto;
+  align-self: flex-start;
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+}
+
+@container page (max-width: 900px) {
+  .files-browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .files-tree {
+    position: static;
+    max-height: 50vh;
+  }
+}

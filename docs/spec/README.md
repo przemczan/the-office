@@ -85,6 +85,7 @@ Where each default lives:
 - Waiting on you while planning: [2.1 Work](2.1-work.md#defaults)
 - Plan as a Task with the Planner: [2.1 Work](2.1-work.md#defaults)
 - Open in editor: [4. UX direction](4-ux-direction.md#defaults)
+- The Files tab: [4. UX direction](4-ux-direction.md#defaults)
 - Merge mode when the base moved: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The Changes tab after Publish shows what Publish shipped: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - A Decision in a chat isn't in Needs you: [2.7 Notifications](2.7-notifications.md#defaults)

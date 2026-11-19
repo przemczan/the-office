@@ -18,7 +18,8 @@ import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import { aProject } from "../domain/project.fixtures.js";
 import type { Project } from "../domain/project.js";
 import { ProjectRefused } from "../domain/project-refused.js";
-import { BaseBranchFiles, FOLDER_ENTRIES_LIMIT } from "./base-branch-files.js";
+import { GIT_OUTPUT_LIMIT_BYTES } from "../ports/git.js";
+import { RepositoryFiles, FOLDER_ENTRIES_LIMIT } from "./repository-files.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import type { ProjectService } from "./project-service.js";
@@ -35,7 +36,7 @@ const LATER_BINARY = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a
 const LIMIT = { bytes: BINARY.byteLength, problem: "That is too much." };
 
 let repository: TemporaryRepository;
-let files: BaseBranchFiles;
+let files: RepositoryFiles;
 let project: Project;
 let commit: string;
 let imageCommit: string;
@@ -76,12 +77,12 @@ async function commitFile(file: string, content: Buffer): Promise<string> {
   return gitIn(repository.path, "rev-parse", "HEAD");
 }
 
-function filesFor(read: Project): BaseBranchFiles {
+function filesFor(read: Project): RepositoryFiles {
   const officeData = join(repository.folder, "office-data");
   const identity = officeIdentityForTests(officeData);
   const git = new CommandLineGit(new RepositoryLocks(), identity);
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
-  return new BaseBranchFiles(
+  return new RepositoryFiles(
     { read: () => Promise.resolve(read) } as unknown as ProjectService,
     git,
     new Worktrees(
@@ -158,7 +159,7 @@ async function fileRefusalOf(commitId: string, path: string): Promise<string[]> 
   return [...(error as ProjectRefused).reasons];
 }
 
-describe("BaseBranchFiles.fresh", REAL_GIT_TEST, () => {
+describe("RepositoryFiles.fresh", REAL_GIT_TEST, () => {
   it("answers the upstream's commit with no problem", async () => {
     await expect(files.fresh(project.id)).resolves.toEqual({
       commit: gitIn(repository.originPath, "rev-parse", "main"),
@@ -207,7 +208,7 @@ describe("BaseBranchFiles.fresh", REAL_GIT_TEST, () => {
   });
 });
 
-describe("BaseBranchFiles.folder", REAL_GIT_TEST, () => {
+describe("RepositoryFiles.folder", REAL_GIT_TEST, () => {
   it("lists only what is committed on the base branch, folders first", async () => {
     const folder = await files.folder(project.id, commit, "", []);
 
@@ -300,7 +301,7 @@ describe("BaseBranchFiles.folder", REAL_GIT_TEST, () => {
   });
 });
 
-describe("BaseBranchFiles.file", REAL_GIT_TEST, () => {
+describe("RepositoryFiles.file", REAL_GIT_TEST, () => {
   it("answers a file's bytes as committed, for one that is no text too", async () => {
     const bytes = await files.file(project.id, imageCommit, "picture.png", LIMIT);
 
@@ -372,5 +373,63 @@ describe("BaseBranchFiles.file", REAL_GIT_TEST, () => {
 
   it("refuses a file the commit picked doesn't hold, though a later one does", async () => {
     await expect(fileRefusalOf(imageCommit, "over-the-limit.png")).resolves.toHaveLength(1);
+  });
+});
+
+describe("RepositoryFiles.branches", REAL_GIT_TEST, () => {
+  it("answers no remote's branches and fetches nothing when the base branch tracks none", async () => {
+    const local = aProject({ path: repository.path, baseBranch: "other" });
+    const fetching = vi.spyOn(CommandLineGit.prototype, "fetchRemote");
+    try {
+      const branches = await filesFor(local).branches(local.id, { fetch: true });
+
+      expect(branches).toEqual({
+        baseBranch: {
+          name: "other",
+          kind: "local",
+          commit: gitIn(repository.path, "rev-parse", "other"),
+        },
+        branches: [
+          { name: "main", kind: "local", commit: gitIn(repository.path, "rev-parse", "main") },
+        ],
+        fetchProblem: undefined,
+      });
+      expect(fetching).not.toHaveBeenCalled();
+    } finally {
+      fetching.mockRestore();
+    }
+  });
+
+  it("refuses when the workstation knows no commit of the base branch", async () => {
+    const gone = aProject({ path: join(repository.folder, "not-here"), baseBranch: "main" });
+
+    await expect(filesFor(gone).branches(gone.id, { fetch: true })).rejects.toBeInstanceOf(
+      ProjectRefused,
+    );
+  });
+});
+
+describe("RepositoryFiles.download", REAL_GIT_TEST, () => {
+  it("refuses a file over what git prints for one command, without reading it", async () => {
+    const commitTree = CommandLineGit.prototype.commitTree;
+    const huge = vi.spyOn(CommandLineGit.prototype, "commitTree").mockImplementation(function (
+      this: CommandLineGit,
+      path: string,
+      commitId: string,
+    ) {
+      const tree = commitTree.call(this, path, commitId);
+      return { ...tree, sizeOf: () => Promise.resolve(GIT_OUTPUT_LIMIT_BYTES + 1) };
+    });
+    const reading = vi.spyOn(GitProcess.prototype, "bytes");
+    try {
+      await expect(files.download(project.id, commit, "assets/notes.md")).rejects.toThrow(
+        /over 64 MB/,
+      );
+      const commands = reading.mock.calls.map(([{ gitArguments }]) => gitArguments.join(" "));
+      expect(commands.filter((command) => command.startsWith("cat-file blob"))).toEqual([]);
+    } finally {
+      huge.mockRestore();
+      reading.mockRestore();
+    }
   });
 });

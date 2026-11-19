@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { Git } from "../ports/git.js";
-import { BaseBranchFiles } from "./base-branch-files.js";
+import { RepositoryFiles } from "./repository-files.js";
 import { ProjectService } from "./project-service.js";
 import { Worktrees } from "./worktrees.js";
 
@@ -18,17 +18,17 @@ export class CommittedFiles {
     private readonly projects: ProjectService,
     private readonly git: Git,
     private readonly worktrees: Worktrees,
-    private readonly baseBranchFiles: BaseBranchFiles,
+    private readonly repositoryFiles: RepositoryFiles,
   ) {}
 
   /** The base branch's last commit known here, with no fetch; undefined when there is none. */
   lastFetchedBase(projectId: string): Promise<string | undefined> {
-    return this.baseBranchFiles.lastFetched(projectId);
+    return this.repositoryFiles.lastFetched(projectId);
   }
 
   /** The base branch's commit fetched now, or the last one known here when the fetch fails. */
   async freshBase(projectId: string): Promise<string> {
-    return (await this.baseBranchFiles.fresh(projectId)).commit;
+    return (await this.repositoryFiles.fresh(projectId)).commit;
   }
 
   /** The commit the Task's branch points at; undefined when it has no branch. */

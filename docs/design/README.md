@@ -14,6 +14,8 @@ Each page here is an interactive mock-up, one self-contained file you open in a 
 - [task-card-icons.html](task-card-icons.html): the UI spec for the Work board's Task card (Foot row). Built differently: the queue's place count is in the popover, not on the card, and there is no Failed mark.
 - [initiatives-tab.html](initiatives-tab.html): the UI spec for the Initiatives tab and the Archived tab's Initiatives (the Board).
 - [initiative-page.html](initiative-page.html): the UI spec for the Initiative page. Built differently: each Project's Pipeline choice also offers that Project's own Project Pipelines, grouped as a Task's picker groups them.
+- [task-page-2.html](task-page-2.html) and [initiative-page.html](initiative-page.html) addendum, not drawn in the files: the head's actions hold **Browse files**, which opens the Project's Files tab on the Task's or the Initiative's branch while that branch exists on this workstation ("Browse files in <Project>" for each Project of an Initiative spanning several).
+- A Project page's Files section has no design of its own: it is built from [§4](../spec/4-ux-direction.md#defaults) ("The Files tab") and the [UI rules](../spec/4.1-ui-rules.md).
 - [status-strip.html](status-strip.html): the UI spec for the status strip under the top bar. Built differently: a slot's list opens under the slot from its left edge, kept inside the window, and the slot shows no tooltip on hover.
 - [sub-agents-and-processes.html](sub-agents-and-processes.html): the UI spec for a session's Sub-agents and Processes line and view. Built differently: a Process's shell isn't shown, and its window keeps one height.
 - [session-context.html](session-context.html): the UI spec for the context reading above the message input.

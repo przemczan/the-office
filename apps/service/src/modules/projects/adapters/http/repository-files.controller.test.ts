@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
-import { baseBranchFetchSchema, type Project } from "@the-office/contracts";
+import { baseBranchFetchSchema, projectRefusalSchema, type Project } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createTemporaryRepository,
@@ -58,5 +58,31 @@ describe("POST /projects/:id/base-branch/fetch", REAL_GIT_TEST, () => {
     });
 
     expect(response.status).toBe(404);
+  });
+});
+
+function readFile(path: string): Promise<Response> {
+  const query = `?path=${encodeURIComponent(path)}`;
+  return fetch(`${url}/api/projects/${project.id}/commits/${commit}/file${query}`);
+}
+
+describe("GET /projects/:id/commits/:commit/file", REAL_GIT_TEST, () => {
+  it("answers the file as plain text that can run nothing", async () => {
+    const response = await readFile("src/index.ts");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("content-security-policy")).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    );
+    expect(await response.text()).toBe("export {};\n");
+  });
+
+  it("refuses a path outside the repository", async () => {
+    const response = await readFile("../outside.txt");
+
+    expect(response.status).toBe(422);
+    expect(projectRefusalSchema.parse(await response.json()).reasons).toHaveLength(1);
   });
 });

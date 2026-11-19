@@ -23,6 +23,7 @@ import {
   type NewLink,
 } from "@the-office/contracts";
 import type { Response } from "express";
+import { dispositionOf } from "../../../../platform/http/content-disposition.js";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { uploadedBytes } from "../../../../platform/http/upload-body.js";
@@ -202,14 +203,4 @@ function servingOf(attachment: Attachment): { type: string; disposition: string 
         disposition: dispositionOf("attachment", attachment.name),
       };
   }
-}
-
-/** The file's name in ASCII for old clients, and in full as RFC 6266 and RFC 8187 write it. */
-function dispositionOf(kind: "inline" | "attachment", name: string): string {
-  const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, "_");
-  const encoded = encodeURIComponent(name).replace(
-    /['()*]/g,
-    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-  return `${kind}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }

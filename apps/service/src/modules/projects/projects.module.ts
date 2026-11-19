@@ -22,7 +22,7 @@ import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubCodeHost } from "./adapters/github/github-code-host.js";
-import { BaseBranchFilesController } from "./adapters/http/base-branch-files.controller.js";
+import { RepositoryFilesController } from "./adapters/http/repository-files.controller.js";
 import { CiRunsController } from "./adapters/http/ci-runs.controller.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectImagesController } from "./adapters/http/project-images.controller.js";
@@ -39,7 +39,7 @@ import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { CiRunWebEvents } from "./adapters/websocket/ci-run-web-events.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { PullRequestWebEvents } from "./adapters/websocket/pull-request-web-events.js";
-import { BaseBranchFiles } from "./application/base-branch-files.js";
+import { RepositoryFiles } from "./application/repository-files.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
 import { CiRunWatch } from "./application/ci-run-watch.js";
 import { CodeHosts } from "./application/code-hosts.js";
@@ -119,7 +119,7 @@ export class ProjectsModule implements NestModule {
         ProjectServerValuesController,
         EnvironmentChecksController,
         TaskChangesController,
-        BaseBranchFilesController,
+        RepositoryFilesController,
         RepositoryClonesController,
         PullRequestsController,
         CiRunsController,
@@ -175,7 +175,7 @@ export class ProjectsModule implements NestModule {
         BranchUpdates,
         TaskWorktrees,
         BaseCheckouts,
-        BaseBranchFiles,
+        RepositoryFiles,
         CommittedFiles,
         InitiativeBranches,
         ProjectWebEvents,

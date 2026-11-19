@@ -20,6 +20,7 @@ const SECTIONS: readonly MenuSection[] = [
     label: "Overview",
     onlyAtItsAddress: true,
   },
+  { to: "/projects/$projectId/files", icon: "folder-tree", label: "Files" },
   { to: "/projects/$projectId/commands", icon: "terminal", label: "Commands" },
   { to: "/projects/$projectId/environment", icon: "hard-drive", label: "Environment" },
   { to: "/projects/$projectId/pipelines", icon: "route", label: "Pipelines" },

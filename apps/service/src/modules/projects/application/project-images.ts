@@ -19,7 +19,7 @@ import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectImageFiles } from "../ports/project-image-files.js";
 import { ProjectRepository } from "../ports/project-repository.js";
-import { BaseBranchFiles } from "./base-branch-files.js";
+import { RepositoryFiles } from "./repository-files.js";
 
 /** A file in the Project's repository, at the commit the user saw it. */
 export interface RepositoryImageFile {
@@ -44,7 +44,7 @@ export class ProjectImages {
     private readonly repository: ProjectRepository,
     private readonly files: ProjectImageFiles,
     private readonly events: EventBus,
-    private readonly repositoryFiles: BaseBranchFiles,
+    private readonly repositoryFiles: RepositoryFiles,
   ) {}
 
   /** Refuses, keeping the version the Project has, bytes that can't be an image. */

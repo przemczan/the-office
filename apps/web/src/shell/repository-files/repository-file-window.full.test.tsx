@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { BaseBranchFetch, BaseBranchFolder } from "@the-office/contracts";
+import type { BaseBranchFetch, RepositoryFolder } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -14,7 +14,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const COMMIT = "a".repeat(40);
 const FETCHED: BaseBranchFetch = { commit: COMMIT, fetchProblem: null };
 
-function folder(path: string, fields: Partial<BaseBranchFolder> = {}): BaseBranchFolder {
+function folder(path: string, fields: Partial<RepositoryFolder> = {}): RepositoryFolder {
   const entries = fields.entries ?? [];
   return { commit: COMMIT, path, entries, total: entries.length, ...fields };
 }
@@ -144,7 +144,8 @@ describe("RepositoryFileWindow", () => {
       "assets",
       "assets/icons",
     ]);
-    for (const { pathname } of folderRequests()) expect(pathname).toContain(`/${COMMIT}/folder`);
+    for (const { pathname } of folderRequests())
+      expect(pathname).toContain(`/commits/${COMMIT}/folder`);
   });
 
   it("asks for the caller's extensions", async () => {

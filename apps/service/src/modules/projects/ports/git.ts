@@ -111,6 +111,17 @@ export interface TreeEntry {
 /** What a path names in a commit's tree. */
 export type TreePathKind = "file" | "folder" | "submodule" | "missing";
 
+/** A branch's tip, as `Git.branchTips` reads it. */
+export interface BranchTip {
+  /** A local branch's own name, or a remote-tracking one's with its remote first (`origin/main`). */
+  readonly name: string;
+  readonly kind: "local" | "remote";
+  readonly commit: string;
+}
+
+/** The most git may print for one command, so a file over it can't be read through git at all. */
+export const GIT_OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
+
 /** What a commit holds, read from git's objects, so no checkout runs a filter or writes a file. */
 export interface CommitTree {
   readonly commit: string;
@@ -201,6 +212,15 @@ export abstract class Git {
   /** The repository's local branches by name, none for a repository without commits. */
   abstract localBranches(repositoryPath: string): Promise<readonly LocalBranch[]>;
 
+  /**
+   * The tips of the local branches and, given a `remote`, of its remote-tracking branches, leaving
+   * out a symbolic ref such as `<remote>/HEAD`; none for a repository without commits.
+   */
+  abstract branchTips(
+    repositoryPath: string,
+    remote: string | undefined,
+  ): Promise<readonly BranchTip[]>;
+
   /** The remote branch `branch` tracks, or undefined when it tracks none on a remote. */
   abstract upstreamOf(repositoryPath: string, branch: string): Promise<Upstream | undefined>;
 
@@ -219,6 +239,16 @@ export abstract class Git {
     upstream: Upstream,
     variables: GitVariables,
   ): Promise<string>;
+
+  /**
+   * Updates every remote-tracking branch of `remote` from it, pruning none, so a branch deleted
+   * there stays browsable at its last commit known here.
+   */
+  abstract fetchRemote(
+    repositoryPath: string,
+    remote: string,
+    variables: GitVariables,
+  ): Promise<void>;
 
   /**
    * Pushes the local `branch` to `target.branch` on `target.remote`, never forcing, so the remote

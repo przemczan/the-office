@@ -38,6 +38,8 @@ import { PersonPage } from "./surfaces/people/person-page.tsx";
 import { HireFromScratchPage, RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
 import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
 import { WorkTab } from "./surfaces/people/work-tab.tsx";
+import { ProjectFilesSection } from "./surfaces/projects/files-section.tsx";
+import { projectFilesSearchOf } from "./surfaces/projects/files-search.ts";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import {
   ProjectAppearanceSection,
@@ -499,6 +501,15 @@ const projectOverviewRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+// The Project's files; the address names the branch and the file or folder, so a link reopens them.
+const projectFilesRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "files",
+  component: ProjectFilesSection,
+  validateSearch: projectFilesSearchOf,
+  staticData: { title: "Projects" },
+});
+
 const projectCommandsRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "commands",
@@ -797,6 +808,7 @@ export const router = createRouter({
     projectsRoute,
     projectRoute.addChildren([
       projectOverviewRoute,
+      projectFilesRoute,
       projectCommandsRoute,
       projectEnvironmentRoute,
       projectPipelinesRoute,

@@ -5,14 +5,17 @@ import {
   OFFICE_IDENTITY_SETTINGS_PATH,
   IMAGE_UPLOAD_BYTES,
   environmentCheckSchema,
+  ideaSchema,
   latestEnvironmentCheckSchema,
   projectSchema,
   repositoryCloneSchema,
+  taskSchema,
   type NewProject,
   type Project,
 } from "@the-office/contracts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { branchOnHost, serveRepository } from "./git-host.ts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import { asOwnUser } from "./own-user.ts";
 import { openPipelinePicker, optionNames } from "./pipeline-picker.ts";
 import { addedBasePipeline, addedProjectPipeline } from "./project-pipelines.ts";
@@ -77,6 +80,7 @@ const APPEARANCE_BLOCKS = ["How it looks", "Mark", "Images"];
 /** A Project's sections in the menu's order: each one's address and the blocks only it shows. */
 const SECTIONS = [
   { name: "Overview", address: "", blocks: ["Onboarding", "Work"] },
+  { name: "Files", address: "/files", blocks: [] },
   { name: "Commands", address: "/commands", blocks: ["Commands"] },
   {
     name: "Environment",
@@ -2144,3 +2148,135 @@ test(
     }
   },
 );
+
+test("the Files tab shows a branch's files, a folder read as it unfolds, and opens from a Task's and an Initiative's Browse files", async ({
+  page,
+}) => {
+  // Five screenshot scenarios, six screenshots each.
+  test.setTimeout(120_000);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const files = await createTemporaryRepository();
+  try {
+    await commitFiles(files, {
+      "src/app.ts": 'export const greeting = "hello";\nexport const answer = 42;\n',
+      "docs/guide.md": "# Browsing guide\n\nRead **this** first.\n",
+    });
+    const gitIn = (...gitArguments: string[]): void =>
+      void execFileSync("git", gitArguments, { cwd: files.path, stdio: "ignore" });
+    gitIn("checkout", "--quiet", "-b", "feature/export");
+    await commitFiles(files, { "export.txt": "exported rows\n" });
+    gitIn("checkout", "--quiet", "main");
+    const project = await addedProject(page, "Files to browse", undefined, files.path);
+
+    await page.goto(`/projects/${project.id}/files`);
+
+    const branch = page.getByRole("combobox", { name: "Branch" });
+    await expect(branch).toContainText("main");
+    const tree = page.getByRole("tree", { name: "Files on main" });
+    const item = (filePath: string): Locator =>
+      tree.locator(`[role="treeitem"][data-path="${filePath}"]`);
+    await expect(item("docs")).toHaveAttribute("aria-expanded", "false");
+    // A folder's entries are read only once it unfolds.
+    await expect(item("docs/guide.md")).toHaveCount(0);
+    await item("docs").locator(".repository-tree-row").click();
+    await expect(item("docs")).toHaveAttribute("aria-expanded", "true");
+    await expect(item("docs/guide.md")).toBeVisible();
+
+    await item("src").locator(".repository-tree-row").click();
+    await item("src/app.ts").locator(".repository-tree-row").click();
+    await expect(item("src/app.ts")).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/path=src%2Fapp\.ts/);
+    const preview = page.getByRole("region", { name: "Preview" });
+    await expect(preview.getByRole("heading", { name: "app.ts" })).toBeVisible();
+    await expect(preview.locator(".plain-text-file-numbers")).toContainText("1");
+    await expect(preview.locator(".plain-text-file-numbers")).toContainText("2");
+    await expect(preview.locator(".plain-text-file-lines")).toContainText(
+      'export const greeting = "hello";',
+    );
+    await expect(preview.getByRole("link", { name: "Download" })).toHaveAttribute("download");
+    await preview.getByRole("button", { name: "Copy path" }).click();
+    await expect(page.getByText("Path copied.")).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("src/app.ts");
+    await screenshotScenario(page, "files-text");
+
+    // The address reopens the same file, its folders unfolded down to it and no other.
+    await page.reload();
+    await expect(item("src/app.ts")).toHaveAttribute("aria-selected", "true");
+    await expect(preview.locator(".plain-text-file-lines")).toContainText("answer = 42");
+    await expect(item("docs")).toHaveAttribute("aria-expanded", "false");
+    await item("docs").locator(".repository-tree-row").click();
+
+    await item("docs/guide.md").locator(".repository-tree-row").click();
+    await expect(
+      preview.locator(".markdown-document").getByRole("heading", { name: "Browsing guide" }),
+    ).toBeVisible();
+    await screenshotScenario(page, "files-markdown");
+    await preview.getByRole("tab", { name: "Source" }).click();
+    await expect(preview.locator(".plain-text-file-lines")).toContainText("# Browsing guide");
+
+    await branch.click();
+    const branches = page.getByRole("listbox", { name: "Branch" });
+    await expect(branches.getByRole("group", { name: "Base branch" })).toContainText("base branch");
+    await expect(
+      branches
+        .getByRole("group", { name: "Local branches" })
+        .getByRole("option", { name: "feature/export" }),
+    ).toBeVisible();
+    await screenshotScenario(page, "files-branches");
+    await branches.getByRole("option", { name: "feature/export" }).click();
+    await expect(page).toHaveURL(/branch=feature%2Fexport/);
+    const featureTree = page.getByRole("tree", { name: "Files on feature/export" });
+    await featureTree.locator('[data-path="export.txt"] .repository-tree-row').click();
+    await expect(preview.locator(".plain-text-file-lines")).toContainText("exported rows");
+
+    // A Task's branch, as Start would make it, opens from the Task's Browse files.
+    const taskResponse = await page.request.post("/api/tasks", {
+      data: { title: "Export the rows to browse", projectId: project.id, priority: "normal" },
+    });
+    expect(taskResponse.status()).toBe(201);
+    const task = taskSchema.parse(await taskResponse.json());
+    gitIn("branch", `office/${task.id}`, "feature/export");
+    await page.goto(`/tasks/${task.id}`);
+    const browseFiles = page.getByRole("link", { name: "Browse files" });
+    await expect(browseFiles).toBeVisible();
+    await screenshotScenario(page, "task-browse-files");
+    await browseFiles.click();
+    await expect(page).toHaveURL(
+      `/projects/${project.id}/files?branch=${encodeURIComponent(`office/${task.id}`)}`,
+    );
+    await expect(page.getByRole("tree", { name: `Files on office/${task.id}` })).toBeVisible();
+
+    // An Initiative's branch opens from its Browse files; confirming one needs the CTO's session.
+    const idea = await page.request.post("/api/ideas", {
+      data: { title: "Browse the export Initiative", notes: "", projectId: null },
+    });
+    expect(idea.status()).toBe(201);
+    const initiativeId = crypto.randomUUID();
+    await queryOfficeDatabase(
+      `insert into initiatives (id, name, outcome, state, origin_idea_id, created_by, created_at, short_name)
+       values ($1, $2, '', 'active', $3, $4, now(), $5)`,
+      [
+        initiativeId,
+        "Browse the export Initiative",
+        ideaSchema.parse(await idea.json()).id,
+        { kind: "user" },
+        "browse-export",
+      ],
+    );
+    await queryOfficeDatabase(`update tasks set initiative_id = $2 where id = $1`, [
+      task.id,
+      initiativeId,
+    ]);
+    gitIn("branch", "initiative/browse-export", "feature/export");
+    await page.goto(`/work/initiatives/${initiativeId}`);
+    const browseInitiative = page.getByRole("link", { name: "Browse files" });
+    await expect(browseInitiative).toBeVisible();
+    await screenshotScenario(page, "initiative-browse-files");
+    await browseInitiative.click();
+    await expect(
+      page.getByRole("tree", { name: "Files on initiative/browse-export" }),
+    ).toBeVisible();
+  } finally {
+    await files.remove();
+  }
+});

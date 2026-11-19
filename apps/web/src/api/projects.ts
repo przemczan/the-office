@@ -2,11 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   API_PATH,
   baseBranchFetchSchema,
-  baseBranchFolderSchema,
   environmentCheckSchema,
   latestEnvironmentCheckSchema,
   projectMcpServerValuesListSchema,
   projectMcpServerValuesSchema,
+  projectBranchesSchema,
   projectListSchema,
   projectRemoteNeedsSchema,
   projectRunEnvironmentSchema,
@@ -14,6 +14,8 @@ import {
   projectSkillListSchema,
   repositoryCloneSchema,
   repositoryCloneWebEventSchema,
+  repositoryFilePreviewSchema,
+  repositoryFolderSchema,
   taskChangesSchema,
   type AddProject,
   type EngineModel,
@@ -51,8 +53,11 @@ export const REMOTE_NEEDS = ["remote-needs"] as const;
  * that turns it On.
  */
 export const RUN_ENVIRONMENTS = ["run-environments"] as const;
-/** Apart from the Projects' key, so no event moves an open file browser to another commit. */
-const BASE_BRANCH = ["base-branch"] as const;
+/**
+ * Apart from the Projects' key, so no event moves an open file browser to another commit; what a
+ * commit holds never changes.
+ */
+const REPOSITORY = ["repository"] as const;
 
 export const projectQueries = {
   list: () =>
@@ -125,24 +130,52 @@ export const projectQueries = {
    */
   baseBranchFetch: (id: string) =>
     queryOptions({
-      queryKey: [...BASE_BRANCH, id, "fetch"],
+      queryKey: [...REPOSITORY, id, "fetch"],
       queryFn: () =>
         sendToApi("POST", `${projectPath(id)}/base-branch/fetch`, {}, baseBranchFetchSchema),
       staleTime: Infinity,
       gcTime: 0,
     }),
-  /** One folder of a commit, which never changes, so read once. */
-  baseBranchFolder: (id: string, commit: string, path: string, extensions: readonly string[]) =>
+  /**
+   * The branches whose files can be browsed. Fetched, the base branch's remote is fetched first,
+   * once per sitting as `baseBranchFetch` is; unfetched, only what is known here, as a page asking
+   * whether a branch exists does, under the Project's key so its events read it again.
+   */
+  branches: (id: string, { fetch }: { readonly fetch: boolean }) =>
     queryOptions({
-      queryKey: [...BASE_BRANCH, id, commit, path, extensions],
+      queryKey: fetch ? [...REPOSITORY, id, "branches"] : [...PROJECTS, id, "branches"],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `${projectPath(id)}/branches${fetch ? "?fetch=1" : ""}`,
+          projectBranchesSchema,
+          signal,
+        ),
+      ...(fetch && { staleTime: Infinity, gcTime: 0 }),
+    }),
+  /** One folder of a commit, which never changes, so read once. */
+  repositoryFolder: (id: string, commit: string, path: string, extensions: readonly string[]) =>
+    queryOptions({
+      queryKey: [...REPOSITORY, id, commit, "folder", path, extensions],
       queryFn: ({ signal }) => {
         const query = new URLSearchParams({ path, extensions: extensions.join(",") });
         return getFromApi(
-          `${projectPath(id)}/base-branch/${encodeURIComponent(commit)}/folder?${query.toString()}`,
-          baseBranchFolderSchema,
+          `${commitPath(id, commit)}/folder?${query.toString()}`,
+          repositoryFolderSchema,
           signal,
         );
       },
+      staleTime: Infinity,
+    }),
+  /** How one file of a commit shows, read once like its folder. */
+  filePreview: (id: string, commit: string, path: string) =>
+    queryOptions({
+      queryKey: [...REPOSITORY, id, commit, "file-preview", path],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `${commitPath(id, commit)}/file-preview?${new URLSearchParams({ path }).toString()}`,
+          repositoryFilePreviewSchema,
+          signal,
+        ),
       staleTime: Infinity,
     }),
   /** What the Task's commits changed in its Project, for the Changes tab. */
@@ -420,6 +453,24 @@ export const repositoryCloneEventInvalidations: Readonly<
   ],
 };
 
+/**
+ * Where a file of a commit is read from: shown in the browser as it is, or downloaded under its
+ * own name.
+ */
+export function repositoryFileAddress(
+  id: string,
+  commit: string,
+  path: string,
+  { download }: { readonly download: boolean },
+): string {
+  const query = new URLSearchParams({ path, ...(download && { download: "1" }) });
+  return `${API_PATH}${commitPath(id, commit)}/file?${query.toString()}`;
+}
+
 function projectPath(id: string): `/${string}` {
   return `/projects/${encodeURIComponent(id)}`;
+}
+
+function commitPath(id: string, commit: string): `/${string}` {
+  return `${projectPath(id)}/commits/${encodeURIComponent(commit)}`;
 }
