@@ -998,6 +998,11 @@
   flex: 1;
 }
 
+.decision-consultation > span {
+  flex: 1;
+  align-self: center;
+}
+
 .decision-consultation svg,
 .decision-passed-on svg {
   flex: none;

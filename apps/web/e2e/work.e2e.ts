@@ -1809,6 +1809,7 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   // Ready waits for a Pipeline, chosen on the rail, the Project's default listed first.
   await expect(markReady).toHaveCount(0);
   await expect(readinessLine("Pipeline chosen")).toContainText("Choose a Pipeline on the rail");
+  await screenshotScenario(page, "pipeline-not-chosen", { inView: rail });
   await rail.getByRole("button", { name: "Choose a Pipeline" }).click();
   const choosing = page.getByRole("dialog");
   const choosingBody = choosing.locator(".dialog-body");
@@ -2928,6 +2929,10 @@ test(
       if (index < questions.length - 1) await window.getByRole("button", { name: "Next" }).click();
     }
     await expect(window.getByRole("button", { name: "Next" })).toHaveCount(0);
+    await expect(
+      window.locator(".decision-window-nav").getByRole("button", { name: "Submit", exact: true }),
+    ).toBeVisible();
+    await screenshotScenario(page, "decision-form-window-last-question");
     await window.getByRole("button", { name: "Previous" }).click();
     await expect(overline).toHaveText("Question 7 of 8");
     await window

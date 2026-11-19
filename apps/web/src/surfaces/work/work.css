@@ -1103,13 +1103,14 @@
   background: transparent;
 }
 
+/* The way on, Choose a Pipeline, stands centred under what the placeholder says. */
 .pipeline-rail-not-chosen-body {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
+  flex-direction: column;
+  gap: 12px;
   align-items: center;
-  justify-content: space-between;
   padding: 8px 16px 16px;
+  text-align: center;
 }
 
 .pipeline-rail-not-chosen-body p {

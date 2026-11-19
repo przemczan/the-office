@@ -1,7 +1,7 @@
 import { Badge, Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { MarkdownText } from "../markdown-text.tsx";
-import { useDecisionDraft } from "./decision-drafts.tsx";
+import { useDecisionDraft, useTakeOver } from "./decision-drafts.tsx";
 import { ProgressLine } from "./decision-form.tsx";
 import {
   acceptAnswer,
@@ -18,6 +18,7 @@ import {
   ContextFirstLine,
   FollowUpsHint,
   stillAnsweringHint,
+  TAKE_IT_OVER_FIRST,
   useAnswering,
   useNamedAttachments,
   type DecisionAnsweringProps,
@@ -40,9 +41,11 @@ export function CompactDecision({
   const attachments = useNamedAttachments(decision);
   const { draft, clear } = useDecisionDraft(decision);
   const accepting = useAnswering(decision, clear);
+  const { locked } = useTakeOver(decision);
   const [windowAt, setWindowAt] = useState<number | undefined>(undefined);
   const asker = askerName(decision, personName);
-  const waitHint = stillAnsweringHint(answering, asker);
+  const waitHint =
+    stillAnsweringHint(answering, asker) ?? (locked ? TAKE_IT_OVER_FIRST : undefined);
   const changes = draftChanges(decision, draft);
   const canAccept = allChoices(decision) && changes === 0;
   const first = decision.questions[0];
@@ -91,7 +94,7 @@ export function CompactDecision({
         {canAccept && (
           <Button
             iconLeft={<Icon name="check" size={13} />}
-            disabled={answering || accepting.isPending}
+            disabled={answering || locked || accepting.isPending}
             title={waitHint}
             onClick={() => accepting.mutate(acceptAnswer(decision))}
           >

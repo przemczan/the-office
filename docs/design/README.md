@@ -5,7 +5,7 @@ Each page here is an interactive mock-up, one self-contained file you open in a 
 - [task-page-2.html](task-page-2.html): the UI spec for the Task page (Pipeline rail, Needs you and Before Ready, tabbed record, conversation).
 - [thread-dialog.html](thread-dialog.html): the UI spec for how a Thread reads (the Rows design, as in a team channel).
 - [chat-drawer.html](chat-drawer.html): the UI spec for the chat drawer.
-- [decision-form.html](decision-form.html): the UI spec for the Decision card.
+- [decision-form.html](decision-form.html): the UI spec for the Decision card. Built differently: a Decision put to a Consultant has its form locked until the user presses Take it over, which only unlocks it; and in the window the last question has Submit in Next's place.
 - [add-project.html](add-project.html): the UI spec for Add a Project, with Recent first as the GitHub list.
 - [project-appearance.html](project-appearance.html): the UI spec for a Project page's Appearance block (Icon and Logo, with How it looks).
 - [board-by-initiative.html](board-by-initiative.html): the UI spec for Group by Initiative on the Work board. Built differently: the board keeps its six columns in one row, scrolling sideways, the groups together under one row of column heads.

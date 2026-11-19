@@ -14,7 +14,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AttachmentGallery } from "../attachments/attachment-gallery.tsx";
 import { oneRound } from "../attachments/attachment-rounds.ts";
 import { MarkdownText } from "../markdown-text.tsx";
-import { useDecisionDraft, type DecisionDraftHandle } from "./decision-drafts.tsx";
+import { useDecisionDraft, useTakeOver, type DecisionDraftHandle } from "./decision-drafts.tsx";
 import {
   answeredCount,
   askedAgainAnswer,
@@ -35,6 +35,7 @@ import {
   DecisionDetail,
   DecisionHeading,
   FollowUpsHint,
+  TAKE_IT_OVER_FIRST,
   useAnswering,
   type DecisionAnsweringProps,
 } from "./decision-parts.tsx";
@@ -98,21 +99,21 @@ function useDecisionForm({
   const formId = useId();
   const handle = useDecisionDraft(decision);
   const sending = useAnswering(decision, handle.clear);
+  const { locked } = useTakeOver(decision);
   const [askingAgain, setAskingAgain] = useState(false);
   const asker = askerName(decision, personName);
   const pending = sending.isPending ? "Sending your answer…" : undefined;
+  const waits = locked ? TAKE_IT_OVER_FIRST : pending;
   return {
     formId,
     asker,
     handle,
     sending,
-    disabled: sending.isPending,
+    disabled: sending.isPending || locked,
     submitBlocked: answering
       ? `${asker} is still answering. Answer once they finish.`
-      : (pending ?? submitBlockedWords(decision, handle.draft)),
-    askAgainBlocked: answering
-      ? `${asker} is still answering. Ask again once they finish.`
-      : pending,
+      : (waits ?? submitBlockedWords(decision, handle.draft)),
+    askAgainBlocked: answering ? `${asker} is still answering. Ask again once they finish.` : waits,
     canAskAgain: decision.roleKey !== null && decision.kind !== "approval",
     askingAgain,
     setAskingAgain,
@@ -319,7 +320,7 @@ function FormWindow({
                     Previous
                   </Button>
                 )}
-                {current < count - 1 && (
+                {current < count - 1 ? (
                   <Button
                     variant="secondary"
                     iconRight={<Icon name="chevron-right" size={14} />}
@@ -327,6 +328,9 @@ function FormWindow({
                   >
                     Next
                   </Button>
+                ) : (
+                  // The last question sends from where the user is, as the bar's Submit does.
+                  !form.askingAgain && <SubmitButton form={form} onSent={onClose} />
                 )}
               </div>
             </div>

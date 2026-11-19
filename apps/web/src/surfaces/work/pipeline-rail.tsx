@@ -187,9 +187,7 @@ function NotChosenRail({ task }: { readonly task: Task }): ReactNode {
         <div className="pipeline-rail-not-chosen-body">
           <p>{PIPELINE_NOT_CHOSEN_WORDS}</p>
           {task.state === "backlog" && (
-            <Button size="sm" variant="secondary" onClick={() => setChoosing(true)}>
-              Choose a Pipeline
-            </Button>
+            <Button onClick={() => setChoosing(true)}>Choose a Pipeline</Button>
           )}
         </div>
         <PipelineProposal task={task} pipeline={undefined} />

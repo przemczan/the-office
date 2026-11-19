@@ -14,7 +14,7 @@ import type {
   Thread,
   ThreadSummary,
 } from "@the-office/contracts";
-import { Badge, Icon, IconButton } from "@the-office/ui";
+import { Badge, Button, Icon, IconButton } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { rowsOf } from "../../api/pages.ts";
@@ -24,6 +24,7 @@ import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { NamedTag, PersonTag } from "../person-tag.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { useTakeOver } from "./decision-drafts.tsx";
 import { closedWords, namedAttachments } from "./decision-words.ts";
 import { ThreadLink } from "./thread-link.tsx";
 import "./conversation.css";
@@ -247,18 +248,33 @@ export function ContextFirstLine({ decision }: { readonly decision: Decision }):
   );
 }
 
-/** In a Consultation, whom the Decision waits on, and that answering takes it over. */
+/**
+ * In a Consultation, whom the Decision waits on, and Take it over, which unlocks the form; answering
+ * then takes it over.
+ */
 export function ConsultationNote({ decision }: { readonly decision: Decision }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
+  const { locked, takeOver } = useTakeOver(decision);
   if (decision.putTo === null) return null;
+  const consultant = consultantName(decision.putTo, roles);
   return (
-    <p className="decision-consultation" role="note">
+    <div className="decision-consultation" role="note">
       <Icon name="users" size={12} />
-      Waiting on {consultantName(decision.putTo, roles)} in a Consultation. Answer here to take it
-      over.
-    </p>
+      <span>
+        Waiting on {consultant} in a Consultation.{" "}
+        {locked ? "Take it over to answer here." : "Your answer here takes it over."}
+      </span>
+      {locked && (
+        <Button variant="secondary" size="sm" onClick={takeOver}>
+          Take it over
+        </Button>
+      )}
+    </div>
   );
 }
+
+/** Why a Decision put to a Consultant can't be answered yet. */
+export const TAKE_IT_OVER_FIRST = "Take it over first.";
 
 /** Follow-ups are messages in the person's Thread, which the user writes only outside a Stage. */
 export function FollowUpsHint({

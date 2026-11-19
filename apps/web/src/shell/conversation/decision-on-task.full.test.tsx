@@ -185,6 +185,40 @@ describe("Open details", () => {
     expect(document.querySelector("[role='dialog']")).toBeNull();
   });
 
+  it("offers Submit in Next's place on the last question, sending from there", async () => {
+    await rendered(onTask(LONG));
+
+    await click(buttonNamed("Open details"));
+    const shown = windowElement();
+    await click(
+      shown.querySelectorAll<HTMLButtonElement>("nav[aria-label='Questions'] button")[3]!,
+    );
+    const nav = shown.querySelector<HTMLElement>(".decision-window-nav")!;
+    expect(buttonsNamed("Next").filter((button) => nav.contains(button))).toHaveLength(0);
+    await click(buttonNamed("Submit", nav));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledOnce();
+    expect(document.querySelector("[role='dialog']")).toBeNull();
+  });
+
+  it("locks a Decision put to a Consultant in the window too, until taken over", async () => {
+    await rendered(onTask(aDecision({ ...LONG, putTo: "reviewer" })));
+
+    expect(buttonNamed("Accept").disabled).toBe(true);
+    expect(buttonNamed("Accept").title).toBe("Take it over first.");
+    await click(buttonNamed("Open details"));
+    const shown = windowElement();
+    expect(buttonNamed("Submit", shown).disabled).toBe(true);
+    expect(radio("Which format?", "JSON", shown).disabled).toBe(true);
+
+    await click(buttonNamed("Take it over", shown));
+    expect(buttonsNamed("Take it over")).toHaveLength(0);
+    expect(buttonNamed("Submit", shown).disabled).toBe(false);
+    await click(buttonNamed("Close"));
+    expect(buttonNamed("Accept").disabled).toBe(false);
+  });
+
   it("shows a one-question window as the form alone, with its Attachments", async () => {
     await rendered(onTask(ATTACHED), { attachments: [SHOT] });
 

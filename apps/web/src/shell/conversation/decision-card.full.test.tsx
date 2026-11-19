@@ -297,6 +297,58 @@ describe("an approval", () => {
   });
 });
 
+describe("a Decision put to a Consultant", () => {
+  it("keeps the form locked until the user takes it over, which sends nothing", async () => {
+    const page = await rendered(card(aDecision({ questions: [FORMAT], putTo: "reviewer" })));
+
+    expect(page.querySelector(".decision-consultation")?.textContent).toContain(
+      "Waiting on Michael in a Consultation. Take it over to answer here.",
+    );
+    expect(buttonNamed("Submit").disabled).toBe(true);
+    expect(buttonNamed("Submit").title).toBe("Take it over first.");
+    expect(buttonNamed("Ask me again").disabled).toBe(true);
+    expect(radio("Which format?", "JSON").disabled).toBe(true);
+    expect(fieldLabelled("General comment").disabled).toBe(true);
+
+    await click(buttonNamed("Take it over"));
+    expect(answerDecision).not.toHaveBeenCalled();
+    expect(buttonsNamed("Take it over")).toHaveLength(0);
+    expect(page.querySelector(".decision-consultation")?.textContent).toContain(
+      "Your answer here takes it over.",
+    );
+    expect(buttonNamed("Submit").disabled).toBe(false);
+    await click(radio("Which format?", "JSON"));
+    await click(buttonNamed("Submit"));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 1 }],
+    });
+  });
+
+  it("keeps an approval's options locked until taken over", async () => {
+    const approval = aDecision({
+      kind: "approval",
+      putTo: "reviewer",
+      questions: [
+        {
+          kind: "choice",
+          question: "Install ffmpeg on the machine",
+          options: ["Allow once", "Deny"],
+          recommendation: { option: 0, reason: "The thumbnails need it." },
+        },
+      ],
+    });
+    await rendered(card(approval));
+
+    expect(buttonNamed("Allow once").disabled).toBe(true);
+    expect(buttonNamed("Deny").title).toBe("Take it over first.");
+    await click(buttonNamed("Take it over"));
+    expect(buttonNamed("Deny").disabled).toBe(false);
+  });
+});
+
 describe("a card inline in a chat", () => {
   it("is the whole form in place, however long", async () => {
     await rendered(

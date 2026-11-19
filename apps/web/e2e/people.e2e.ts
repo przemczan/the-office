@@ -4080,7 +4080,11 @@ test(
       await expect(conversation).toBeHidden();
       await page.setViewportSize({ width: 1600, height: 900 });
 
-      // Taking it over: the user answers in the card, and Jan takes the answer in the asking Thread.
+      // Taking it over: the form stays locked until Take it over, then the user answers in the card,
+      // and Jan takes the answer in the asking Thread.
+      await expect(decision.getByRole("button", { name: "Submit", exact: true })).toBeDisabled();
+      await screenshotScenario(page, "decision-take-it-over", { inView: decision });
+      await decision.getByRole("button", { name: "Take it over", exact: true }).click();
       await pickAndSubmit(decision, CONSULTATION_OPTION);
       await expect(decision).toHaveCount(0);
       await expect(needsYou).toContainText("Ready: start it when you want");

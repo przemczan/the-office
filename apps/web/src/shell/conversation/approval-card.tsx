@@ -1,6 +1,7 @@
 import { Button } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { MarkdownText } from "../markdown-text.tsx";
+import { useTakeOver } from "./decision-drafts.tsx";
 import {
   AnswerRefused,
   AnsweringHints,
@@ -9,6 +10,7 @@ import {
   DecisionDetail,
   FollowUpsHint,
   stillAnsweringHint,
+  TAKE_IT_OVER_FIRST,
   useAnswering,
   type DecisionAnsweringProps,
 } from "./decision-parts.tsx";
@@ -25,8 +27,10 @@ export function ApprovalCard({
   followUps,
 }: DecisionAnsweringProps): ReactNode {
   const sending = useAnswering(decision);
+  const { locked } = useTakeOver(decision);
   const asker = askerName(decision, personName);
-  const waitHint = stillAnsweringHint(answering, asker);
+  const waitHint =
+    stillAnsweringHint(answering, asker) ?? (locked ? TAKE_IT_OVER_FIRST : undefined);
   const question = decision.questions[0];
   if (question?.kind !== "choice") return null;
   const recommended = question.recommendation.option;
@@ -46,7 +50,7 @@ export function ApprovalCard({
           <Button
             key={option}
             variant={index === recommended ? "primary" : "secondary"}
-            disabled={answering || sending.isPending}
+            disabled={answering || locked || sending.isPending}
             title={waitHint}
             onClick={() =>
               sending.mutate({ kind: "submitted", answers: [{ kind: "option", option: index }] })

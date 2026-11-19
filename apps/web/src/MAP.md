@@ -227,11 +227,11 @@
 - `decision-card.fixtures.tsx`: INITIATIVE_ID, PLANNING_THREAD, TASK_THREAD, CHAT_THREAD, CONSULTATION_ON_TASK, DECISION_ID, TASK, PLANNER, REVIEWER, FORMAT, FILE_NAME, COLUMNS, aDecision, rendered, buttonsNamed, buttonName, buttonNamed, fieldsLabelled, fieldLabelled, type, click, radio, settle
 - `decision-card.tsx`: DecisionCardPlace, DecisionCardProps, DecisionCard, DecisionInThread, DecisionCardLinkContext
 - `decision-compact.tsx`: CompactDecision
-- `decision-drafts.tsx`: DecisionDraftsProvider, DecisionDraftHandle, useDecisionDraft
+- `decision-drafts.tsx`: DecisionDraftsProvider, DecisionDraftHandle, useDecisionDraft, useTakeOver
 - `decision-form-words.ts`: QuestionDraft, DecisionDraft, COMPACT_QUESTIONS, decisionSummary, initialDraft, isAnswered, missingAnswer, submitBlockedWords, answeredCount, progressWords, allChoices, isCompact, draftChanges, draftKeptWords, moreQuestionsWords, draftAnswerWords, submittedAnswer, acceptAnswer, askedAgainAnswer, AnsweredLine, answeredLines, formAnswerWords
 - `decision-form.tsx`: DecisionFormProps, DecisionForm, ProgressLine
 - `decision-on-task.tsx`: DecisionOnTask
-- `decision-parts.tsx`: DecisionAnsweringProps, useDecisionThread, useNamedAttachments, bringDecisionCardIntoView, decisionCardElementId, DecisionFrame, DecisionHeading, DecisionDetail, ContextFirstLine, ConsultationNote, FollowUpsHint, AnswerRefused, AnsweringHints, stillAnsweringHint, ClosedLine, LinkToConsultation, useConsultationId, consultantName, askerName, useAnswering
+- `decision-parts.tsx`: DecisionAnsweringProps, useDecisionThread, useNamedAttachments, bringDecisionCardIntoView, decisionCardElementId, DecisionFrame, DecisionHeading, DecisionDetail, ContextFirstLine, ConsultationNote, TAKE_IT_OVER_FIRST, FollowUpsHint, AnswerRefused, AnsweringHints, stillAnsweringHint, ClosedLine, LinkToConsultation, useConsultationId, consultantName, askerName, useAnswering
 - `decision-window.tsx`: DecisionWindow, MentionedDecisionWindow
 - `decision-words.ts`: atUsersRequestWords, CLOSED_WORDS, closedWords, namedAttachments, decisionDetailsWords
 - `details-store.ts`: DETAILS_STORAGE_KEY, DetailsStore, createDetailsStore, Details, useDetails
