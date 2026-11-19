@@ -21,6 +21,7 @@ const SECTIONS: readonly MenuSection[] = [
     onlyAtItsAddress: true,
   },
   { to: "/projects/$projectId/commands", icon: "terminal", label: "Commands" },
+  { to: "/projects/$projectId/environment", icon: "hard-drive", label: "Environment" },
   { to: "/projects/$projectId/pipelines", icon: "route", label: "Pipelines" },
   { to: "/projects/$projectId/run-environment", icon: "container", label: "Run environment" },
   { to: "/projects/$projectId/engine", icon: "cpu", label: "Engine" },

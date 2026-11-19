@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { draftOf, environmentOf, secretValueKept, withNewSecret } from "./environment-labels.ts";
+import {
+  draftChanged,
+  draftOf,
+  environmentOf,
+  secretValueKept,
+  withNewSecret,
+} from "./environment-labels.ts";
 
 const ENVIRONMENT = {
   set: [
@@ -44,5 +50,21 @@ describe("draftOf and environmentOf", () => {
     const [secret] = draftOf(ENVIRONMENT).secrets;
 
     expect(secretValueKept({ ...secret!, name: "OTHER_TOKEN" })).toBe(false);
+  });
+});
+
+describe("draftChanged", () => {
+  it("is false for the saved environment's own draft, and true once anything is edited", () => {
+    const draft = draftOf(ENVIRONMENT);
+    const [secret] = draft.secrets;
+
+    expect(draftChanged(draft, ENVIRONMENT)).toBe(false);
+    expect(draftChanged({ ...draft, set: "CI=2" }, ENVIRONMENT)).toBe(true);
+    expect(draftChanged({ ...draft, unset: "" }, ENVIRONMENT)).toBe(true);
+    expect(draftChanged(withNewSecret(draft), ENVIRONMENT)).toBe(true);
+    expect(draftChanged({ ...draft, secrets: [] }, ENVIRONMENT)).toBe(true);
+    expect(
+      draftChanged({ ...draft, secrets: [{ ...secret!, typed: "new-token" }] }, ENVIRONMENT),
+    ).toBe(true);
   });
 });

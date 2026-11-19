@@ -38,6 +38,7 @@ import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import {
   ProjectAppearanceSection,
   ProjectCommandsSection,
+  ProjectEnvironmentSection,
   ProjectRunEnvironmentSection,
   ProjectEngineSection,
   ProjectOverviewSection,
@@ -468,6 +469,13 @@ const projectCommandsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const projectEnvironmentRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "environment",
+  component: ProjectEnvironmentSection,
+  staticData: { title: "Projects" },
+});
+
 // The Project's default and its own Pipelines; an open Project Pipeline has its address.
 const projectPipelinesRoute = createRoute({
   getParentRoute: () => projectRoute,
@@ -726,6 +734,7 @@ export const router = createRouter({
     projectRoute.addChildren([
       projectOverviewRoute,
       projectCommandsRoute,
+      projectEnvironmentRoute,
       projectPipelinesRoute,
       projectPipelineRoute,
       projectRunEnvironmentRoute,

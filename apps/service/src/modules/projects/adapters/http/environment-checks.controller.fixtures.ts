@@ -43,7 +43,7 @@ export function environmentChecksHttp(
     readonly officeData: string;
   },
 ) {
-  function send(method: "GET" | "POST", path: string, body?: unknown): Promise<Response> {
+  function send(method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<Response> {
     return fetch(`${current().url}/api${path}`, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -74,11 +74,17 @@ export function environmentChecksHttp(
     return projectSchema.parse(await response.json());
   }
 
-  /** Starts a check and waits for it to finish. */
+  /** Saves the Project's environment as the Project page's Save does. */
+  async function save(project: Project, environment: ProjectEnvironmentEdit): Promise<Response> {
+    return send("PUT", `/projects/${project.id}/environment`, { environment });
+  }
+
+  /** Saves the environment, then starts a check of it and waits for it to finish. */
   async function checked(
     project: Project,
     environment: ProjectEnvironmentEdit = GREETING,
   ): Promise<EnvironmentCheck> {
+    expect((await save(project, environment)).status).toBe(200);
     const finished = new Promise<void>((resolve) => {
       const unsubscribe = current()
         .app.get(EventBus)
@@ -88,9 +94,7 @@ export function environmentChecksHttp(
           resolve();
         });
     });
-    const response = await send("POST", `/projects/${project.id}/environment-check`, {
-      environment,
-    });
+    const response = await send("POST", `/projects/${project.id}/environment-check`);
     expect(response.status).toBe(202);
     await finished;
     return latest(project);
@@ -115,5 +119,5 @@ export function environmentChecksHttp(
     return names.filter((name) => name.startsWith("_"));
   }
 
-  return { send, addProject, checked, latest, environmentOf, throwawayWorktrees };
+  return { send, addProject, save, checked, latest, environmentOf, throwawayWorktrees };
 }

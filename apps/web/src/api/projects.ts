@@ -217,17 +217,14 @@ export function changeInstallInputs(
   return sendToApi("PUT", `${projectPath(id)}/install-inputs`, { installInputs }, projectSchema);
 }
 
-/** Starts a check of `environment`; the Project keeps it only when every check passes. */
-export function startEnvironmentCheck(
-  id: string,
-  environment: ProjectEnvironmentEdit,
-): Promise<EnvironmentCheck> {
-  return sendToApi(
-    "POST",
-    `${projectPath(id)}/environment-check`,
-    { environment },
-    environmentCheckSchema,
-  );
+/** Saves the Project's environment as a whole; a Secret variable left without a value keeps its own. */
+export function saveEnvironment(id: string, environment: ProjectEnvironmentEdit): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/environment`, { environment }, projectSchema);
+}
+
+/** Starts a check of the Project's saved environment, which changes nothing. */
+export function startEnvironmentCheck(id: string): Promise<EnvironmentCheck> {
+  return sendToApi("POST", `${projectPath(id)}/environment-check`, {}, environmentCheckSchema);
 }
 
 export function changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

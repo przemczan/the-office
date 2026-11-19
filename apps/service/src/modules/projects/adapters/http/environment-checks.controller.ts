@@ -1,21 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  UseFilters,
-} from "@nestjs/common";
-import {
-  environmentCheckStartSchema,
-  type CommandRun as CommandRunResponse,
-  type EnvironmentCheck as EnvironmentCheckResponse,
-  type EnvironmentCheckStart,
-  type LatestEnvironmentCheck,
+import { Controller, Get, HttpCode, HttpStatus, Param, Post, UseFilters } from "@nestjs/common";
+import type {
+  CommandRun as CommandRunResponse,
+  EnvironmentCheck as EnvironmentCheckResponse,
+  LatestEnvironmentCheck,
 } from "@the-office/contracts";
-import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { EnvironmentChecks } from "../../application/environment-checks.js";
 import type { Check, CheckedCommandRun, EnvironmentCheck } from "../../domain/environment-check.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
@@ -35,11 +23,8 @@ export class EnvironmentChecksController {
   /** Answers as soon as the check starts; its progress reaches the web as events. */
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
-  async start(
-    @Param("id") id: string,
-    @Body(new ContractPipe(environmentCheckStartSchema)) { environment }: EnvironmentCheckStart,
-  ): Promise<EnvironmentCheckResponse> {
-    return toEnvironmentCheckResponse(await this.environmentChecks.start(id, environment));
+  async start(@Param("id") id: string): Promise<EnvironmentCheckResponse> {
+    return toEnvironmentCheckResponse(await this.environmentChecks.start(id));
   }
 }
 

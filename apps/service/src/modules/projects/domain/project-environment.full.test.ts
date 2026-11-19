@@ -113,7 +113,7 @@ describe("editedEnvironment", () => {
           unset: [],
           prependPath: [],
         },
-        [UNCHANGED_ENVIRONMENT, kept],
+        kept,
       ).set,
     ).toEqual([
       { name: "NPM_TOKEN", value: "kept-token", secret: true },
@@ -133,7 +133,7 @@ describe("editedEnvironment", () => {
           unset: [],
           prependPath: [],
         },
-        [kept],
+        kept,
       ).set,
     ).toEqual([
       { name: "NPM_TOKEN", value: "new-token", secret: true },
