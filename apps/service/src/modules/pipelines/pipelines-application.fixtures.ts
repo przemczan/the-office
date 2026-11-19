@@ -111,6 +111,14 @@ export async function startPipelinesApplicationOn(
   return pipelines;
 }
 
+/** As `startPipelinesApplication`, with `overrides` replacing providers, such as a repository. */
+export function startPipelinesApplicationWith(
+  overrides: readonly ProviderOverride[],
+  scripts: readonly SessionScript[],
+): Promise<PipelinesApplication> {
+  return startOn(new ScriptedEngine(scripts), overrides);
+}
+
 /** The engine a test's Agent Stages run on, and what lists it. */
 export interface PipelinesEngine {
   readonly engineId: EngineId;

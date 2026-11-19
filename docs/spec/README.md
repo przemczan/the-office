@@ -55,6 +55,7 @@ Where each default lives:
 - Thread titles: [2.4 Conversations](2.4-conversations.md#defaults)
 - Skills is its own module: [5.3 Modules](5.3-modules.md#defaults)
 - MCP servers is its own module: [5.3 Modules](5.3-modules.md#defaults)
+- Prompt templates is its own module: [5.3 Modules](5.3-modules.md#defaults)
 - GitHub is its own module: [5.3 Modules](5.3-modules.md#defaults)
 - The Office's own credentials for publishing: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - Publish is a publishing mode, not a Project command: [2.3 Pipelines](2.3-pipelines.md#defaults)

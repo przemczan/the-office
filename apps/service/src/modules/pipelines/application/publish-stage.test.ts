@@ -8,11 +8,22 @@ import {
   answerLastDecision,
   runsOf,
   startPipelinesApplication,
+  startPipelinesApplicationWith,
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aTaskRecord, PLANNED_COMMIT, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
-import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/resolve-stages.js";
+import {
+  RESOLVE_BRIEF,
+  RESOLVE_GATE_KEY,
+  RESOLVE_KEY,
+  RESOLVE_TEST_KEY,
+} from "../domain/resolve-stages.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
 import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
 import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { GateService } from "./gate-service.js";
@@ -184,6 +195,34 @@ describe("A Publish Stage", () => {
     });
     expect(pipelines.publishing.published).toHaveLength(2);
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+  });
+
+  it("tells Resolve's Agent the Brief as the user saved its Prompt template", async () => {
+    // Texts of the test's own: every test file shares the database, where Resolve reads them.
+    pipelines = await startPipelinesApplicationWith(
+      [{ provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() }],
+      [anAgentSession(aDoneResult()), anAgentSession(aDoneResult("Kept both renames."))],
+    );
+    await pipelines.app
+      .get(PromptTemplates)
+      .save(
+        RESOLVE_BRIEF.key,
+        "Merge {{baseBranch}} by hand in:{{#conflictedFiles}} {{.}}{{/conflictedFiles}}",
+        ANN,
+      );
+    pipelines.publishing.publications.push({
+      kind: "base-moved",
+      error: "office/task no longer applies cleanly on main on origin",
+      conflictedFiles: ["src/index.ts"],
+    });
+    const taskId = randomUUID();
+    pipelines.git.uncommitted.set(taskId, ["src/index.ts"]);
+
+    await walkStages(pipelines, [implement, publish], taskId);
+
+    expect(pipelines.stageThreads.requests.at(-1)?.work).toContain(
+      "Merge main by hand in: src/index.ts\n",
+    );
   });
 
   it("publishes an Initiative's Task into its branch, resolving a conflict with the base after a clean merge of the Initiative's branch", async () => {

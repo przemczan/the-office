@@ -3,6 +3,7 @@ import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
+import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.js";
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
 import { ProjectPipelineLibraryController } from "./adapters/http/project-pipeline-library.controller.js";
@@ -11,6 +12,7 @@ import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
+import { PipelinesPromptTemplates } from "./adapters/prompt-templates/pipelines-prompt-templates.js";
 import { StageBranchUpdate } from "./application/stage-branch-update.js";
 import { StageCommandRuns } from "./application/stage-command-runs.js";
 import { StandInChoices } from "./application/stand-in-choices.js";
@@ -124,6 +126,7 @@ export class PipelinesModule {
         ScheduleModule,
         TaskLocksModule,
         BusyWorkModule,
+        PromptTemplatesModule,
         ...imports,
       ],
       controllers: [
@@ -183,6 +186,7 @@ export class PipelinesModule {
         StandInChoices,
         StandInSwitches,
         PipelineOfficeTools,
+        PipelinesPromptTemplates,
         PipelinesWebEvents,
       ],
       exports: [PipelineLibraryModule, TaskStagesService, AlarmResumes, StandInChoices],

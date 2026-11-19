@@ -1,10 +1,12 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import { TaskStateChanged } from "../../work/index.js";
 import { baseWords } from "../domain/base-words.js";
 import {
   afterResolveTestFailed,
   conflictCameBackTooOften,
+  RESOLVE_BRIEF,
   RESOLVE_KEY,
   resolveBrief,
   resolvedByTheUser,
@@ -51,6 +53,7 @@ export class ResolveStageGit implements OnModuleInit {
     private readonly runs: StageRunRepository,
     private readonly records: TaskRecords,
     private readonly events: EventBus,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   onModuleInit(): void {
@@ -122,9 +125,10 @@ export class ResolveStageGit implements OnModuleInit {
             },
           };
         }
+        const prompts = await this.promptTemplates.textsOf([RESOLVE_BRIEF]);
         return {
           kind: "agent",
-          brief: resolveBrief(start.base.branch, start.conflictedFiles),
+          brief: resolveBrief(prompts, start.base.branch, start.conflictedFiles),
           merging: true,
         };
       }

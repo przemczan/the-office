@@ -412,6 +412,9 @@ test(
 test("the user makes a Pipeline, edits it, duplicates it and removes the copy; Onboard stays", async ({
   page,
 }) => {
+  // It draws a whole Pipeline, screenshots it in each look and reloads three times: under the full
+  // run's load that alone reaches the default 30s.
+  test.setTimeout(60_000);
   const name = `Nightly ${Date.now()}`;
   await page.goto("/settings");
   await expect(page).toHaveURL(/\/settings\/pipelines$/);

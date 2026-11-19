@@ -59,6 +59,7 @@ import {
   RunEnvironmentsModule,
 } from "./modules/run-environments/index.js";
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
+import { PromptTemplatesModule } from "./modules/prompt-templates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import { GrafanaStatsSource, StatsModule } from "./modules/telemetry/index.js";
 import {
@@ -229,6 +230,7 @@ export class AppModule {
         PeopleModule,
         pipelines,
         projects,
+        PromptTemplatesModule,
         RequestAccessModule.register({
           publicAddress: config.publicAddress,
           imports: [users],
