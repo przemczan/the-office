@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
 import { SignInFailed } from "../../ports/claude-code-accounts.js";
-import { engineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { engineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import {
   accounts,
   approve,

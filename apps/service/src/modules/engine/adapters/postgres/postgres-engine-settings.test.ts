@@ -3,8 +3,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
+import { CopilotCliToken } from "../../domain/copilot-cli-token.js";
 import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from "../../domain/engine-settings.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type CodexEngine, type Engine } from "../../domain/engines.js";
+import {
+  FIRST_CLAUDE_CODE_ENGINE,
+  type CodexEngine,
+  type CopilotCliEngine,
+  type Engine,
+} from "../../domain/engines.js";
 import { engines, engineSettings } from "./engine-settings.schema.js";
 import { PostgresEngineSettings } from "./postgres-engine-settings.js";
 
@@ -179,7 +185,83 @@ describe("PostgresEngineSettings", () => {
       });
     }
   });
+
+  it("keeps a Copilot CLI engine with its token or none, priced on its own, and sets or clears the token alone", async () => {
+    const before = await settings.read();
+    const TOKEN = "github_pat_11AAAA_kept";
+    const signedIn: CopilotCliEngine = {
+      id: "copilot",
+      name: "Copilot",
+      kind: "copilot-cli",
+      defaultModel: "auto",
+      token: CopilotCliToken.of(TOKEN),
+    };
+    const unsigned: CopilotCliEngine = {
+      ...signedIn,
+      id: "copilot-2",
+      name: "Copilot 2",
+      token: null,
+    };
+    const changed: EngineSettings = {
+      engines: [FIRST_CLAUDE_CODE_ENGINE, signedIn, unsigned],
+      officeDefault: { engineId: "copilot", model: "auto" },
+      searchEndpoint: null,
+      modelPrices: [
+        {
+          engineId: "copilot",
+          model: "auto",
+          price: { input: 1, output: 4, cacheWrites: 0, cacheReads: 0.1 },
+        },
+      ],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
+    };
+    try {
+      await settings.replace(changed);
+      const kept = await settings.read();
+      await settings.setCopilotCliToken("copilot-2", CopilotCliToken.of("github_pat_11BBBB_new"));
+      await settings.setCopilotCliToken("copilot", null);
+      // Not a Copilot CLI engine: nothing changes.
+      await settings.setCopilotCliToken("claude-code", CopilotCliToken.of(TOKEN));
+      const swapped = await settings.read();
+
+      expect(kept).toEqual(changed);
+      expect(tokensOf(kept)).toEqual(["-", TOKEN, null]);
+      expect(tokensOf(swapped)).toEqual(["-", null, "github_pat_11BBBB_new"]);
+    } finally {
+      await settings.replace(before);
+    }
+  });
+
+  it("refuses a Copilot CLI row with a base URL, models, the -p switch or an empty token", async () => {
+    const database = app.get<Database>(DATABASE);
+    const row = {
+      id: "copilot-refused",
+      position: 1_000_000,
+      name: "Refused",
+      kind: "copilot-cli" as const,
+      defaultModel: "auto",
+    };
+
+    for (const wrong of [
+      { baseUrl: "http://lab/v1" },
+      { models: [] },
+      { claudeCodeP: true },
+      { key: "" },
+    ]) {
+      await expect(database.insert(engines).values({ ...row, ...wrong })).rejects.toMatchObject({
+        cause: { constraint: "engines_kind" },
+      });
+    }
+  });
 });
+
+/** Each engine's Copilot CLI token as it reads, "-" for an engine of another kind. */
+function tokensOf({ engines: listed }: EngineSettings): (string | null)[] {
+  return listed.map((engine) =>
+    engine.kind === "copilot-cli" ? (engine.token?.reveal() ?? null) : "-",
+  );
+}
 
 /** Each engine's Codex API key as it reads, "-" for an engine of another kind. */
 function keysOf({ engines: listed }: EngineSettings): (string | null)[] {

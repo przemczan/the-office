@@ -35,7 +35,7 @@ import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { carrySessionOver } from "../claude-code/session-carry-over.js";
-import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import {
   initProblems,
   startCheckProblems,

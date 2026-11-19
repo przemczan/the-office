@@ -33,6 +33,7 @@ export type EngineTab = "settings" | "account" | "prices";
 export const ENGINE_KIND_LABELS: Readonly<Record<EngineEdit["kind"], string>> = {
   "claude-code": "Claude Code",
   codex: "Codex",
+  "copilot-cli": "Copilot CLI",
   "openai-compatible-api": "API endpoint",
 };
 
@@ -40,17 +41,22 @@ export const ENGINE_KIND_LABELS: Readonly<Record<EngineEdit["kind"], string>> = 
 export const ENGINE_KIND_ICONS: Readonly<Record<EngineEdit["kind"], string>> = {
   "claude-code": "terminal",
   codex: "bot",
+  "copilot-cli": "github",
   "openai-compatible-api": "server",
 };
 
 /**
- * Every engine of the draft, the Claude Code engines first, then the Codex engines, as Save sends
- * them.
+ * Every engine of the draft, the Claude Code engines first, then the Codex engines, then the
+ * Copilot CLI engines, as Save sends them.
  */
 export function engineSelectionsOf(draft: EngineSettingsDraft): readonly EngineSelection[] {
   return [
     ...draft.claudeCodeEngines.map((_engine, index) => ({ kind: "claude-code" as const, index })),
     ...draft.codexEngines.map((_engine, index) => ({ kind: "codex" as const, index })),
+    ...draft.copilotCliEngines.map((_engine, index) => ({
+      kind: "copilot-cli" as const,
+      index,
+    })),
     ...draft.apiEndpoints.map((_endpoint, index) => ({
       kind: "openai-compatible-api" as const,
       index,
@@ -68,6 +74,8 @@ export function engineAt(
       return draft.claudeCodeEngines[index];
     case "codex":
       return draft.codexEngines[index];
+    case "copilot-cli":
+      return draft.copilotCliEngines[index];
     case "openai-compatible-api":
       return draft.apiEndpoints[index];
   }
@@ -80,6 +88,8 @@ export function draftedIdAt(drafted: DraftedEngines, { kind, index }: EngineSele
       return drafted.claudeCodeEngines[index]?.id ?? "";
     case "codex":
       return drafted.codexEngines[index]?.id ?? "";
+    case "copilot-cli":
+      return drafted.copilotCliEngines[index]?.id ?? "";
     case "openai-compatible-api":
       return drafted.apiEndpoints[index]?.id ?? "";
   }
@@ -102,6 +112,8 @@ export function withEngineChanged(
       return { ...draft, claudeCodeEngines: replaced(draft.claudeCodeEngines, edit) };
     case "codex":
       return { ...draft, codexEngines: replaced(draft.codexEngines, edit) };
+    case "copilot-cli":
+      return { ...draft, copilotCliEngines: replaced(draft.copilotCliEngines, edit) };
     case "openai-compatible-api":
       return { ...draft, apiEndpoints: replaced(draft.apiEndpoints, edit) };
   }
@@ -119,6 +131,8 @@ export function withoutEngine(
       return { ...draft, claudeCodeEngines: kept(draft.claudeCodeEngines) };
     case "codex":
       return { ...draft, codexEngines: kept(draft.codexEngines) };
+    case "copilot-cli":
+      return { ...draft, copilotCliEngines: kept(draft.copilotCliEngines) };
     case "openai-compatible-api":
       return { ...draft, apiEndpoints: kept(draft.apiEndpoints) };
   }
@@ -166,6 +180,8 @@ export function engineCalled({ name, kind }: EngineEdit): string {
       return "the new Claude Code engine";
     case "codex":
       return "the new Codex engine";
+    case "copilot-cli":
+      return "the new Copilot CLI engine";
     case "openai-compatible-api":
       return "the new API endpoint";
   }
@@ -203,6 +219,17 @@ function signedInEngineSummary(
   return `${account.signedIn ? "Signed in" : "Signed out"} · ${model}`;
 }
 
+/**
+ * A Copilot CLI engine's line in the list, as a Codex engine's: signed in or out, then its default
+ * model (Auto).
+ */
+export function copilotCliEngineSummary(
+  defaultModel: string,
+  account: EngineAccount | "not-saved" | undefined,
+): string {
+  return signedInEngineSummary(defaultModel, account);
+}
+
 /** An API endpoint's line in the list: how many models it offers. */
 export function apiEndpointSummary(endpoint: Pick<ApiEngineEdit, "models">): string {
   const count = modelsOf(endpoint).length;
@@ -213,7 +240,7 @@ export function apiEndpointSummary(endpoint: Pick<ApiEngineEdit, "models">): str
 /**
  * The models priced in an engine's Models and prices: a Claude Code engine's are the Claude models,
  * shared by every Claude Code engine; a Codex engine's the Codex models, shared by every Codex
- * engine; an API endpoint's are its own, by the id Save gives it, none
+ * engine; a Copilot CLI engine's or an API endpoint's are its own, by the id Save gives it, none
  * while it has no name to give one.
  */
 export function pricedModelsAt(
@@ -228,7 +255,9 @@ export function pricedModelsAt(
   if (kind === "codex") {
     return offered.filter(({ engineId, model }) => engineId === null && isCodexModel(model));
   }
-  const id = draftedEngines(draft, saved).apiEndpoints[index]?.id ?? "";
+  const drafted = draftedEngines(draft, saved);
+  const id =
+    (kind === "copilot-cli" ? drafted.copilotCliEngines : drafted.apiEndpoints)[index]?.id ?? "";
   return id === "" ? [] : offered.filter(({ engineId }) => engineId === id);
 }
 
@@ -255,6 +284,8 @@ export function engineProblem(
         return "A Claude model's price needs fixing";
       case "codex":
         return "A Codex model's price needs fixing";
+      case "copilot-cli":
+        return "A model's price needs fixing";
       case "openai-compatible-api":
         return "A model's price needs fixing";
     }

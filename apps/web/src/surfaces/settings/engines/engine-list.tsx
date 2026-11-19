@@ -7,6 +7,7 @@ import {
   apiEndpointSummary,
   claudeCodeEngineSummary,
   codexEngineSummary,
+  copilotCliEngineSummary,
   engineCalled,
   ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
@@ -25,7 +26,7 @@ export interface EngineRow {
 
 /**
  * Settings › Engines' list: "Add an engine" in its head, a menu of the kinds, each selecting the
- * engine it adds, then a row per engine, the Claude Code engines first, then the Codex engines, as
+ * engine it adds, then a row per engine, the Claude Code engines first, then the Codex engines, then the Copilot CLI engines, as
  * Save sends them.
  */
 export function EngineList({
@@ -45,8 +46,8 @@ export function EngineList({
       name="Engines"
       count={rows.length}
       action={<AddEngineMenu add={add} />}
-      empty="No engine yet. Add a Claude Code engine, a Codex engine or an API endpoint with Add an engine."
-      note="Each Claude Code engine is one Claude account, each Codex engine one OpenAI account, each API endpoint a server on the OpenAI-compatible API, such as a local LLM."
+      empty="No engine yet. Add a Claude Code, Codex or Copilot CLI engine or an API endpoint with Add an engine."
+      note="Each Claude Code engine is one Claude account, each Codex engine one OpenAI account, each Copilot CLI engine one GitHub account, each API endpoint a server on the OpenAI-compatible API, such as a local LLM."
     >
       {rows.map((row) => (
         <EngineListItem
@@ -127,14 +128,19 @@ function EngineListItem({
 
 function EngineSummary({ engine }: { readonly engine: EngineEdit }): ReactNode {
   if (engine.kind === "openai-compatible-api") return apiEndpointSummary(engine);
-  const summary = engine.kind === "codex" ? codexEngineSummary : claudeCodeEngineSummary;
+  const summary =
+    engine.kind === "codex"
+      ? codexEngineSummary
+      : engine.kind === "copilot-cli"
+        ? copilotCliEngineSummary
+        : claudeCodeEngineSummary;
   if (engine.id === undefined) return summary(engine.defaultModel, "not-saved");
   return (
     <SavedEngineSummary engineId={engine.id} defaultModel={engine.defaultModel} summary={summary} />
   );
 }
 
-/** A saved Claude Code or Codex engine's line, its account read as its Account tab reads it. */
+/** A saved Claude Code, Codex or Copilot CLI engine's line, its account read as its Account tab reads it. */
 function SavedEngineSummary({
   engineId,
   defaultModel,

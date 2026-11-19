@@ -1,4 +1,4 @@
-import type { Engine, EngineModel, EngineId } from "./engines.js";
+import { pricedPerEngine, type Engine, type EngineModel, type EngineId } from "./engines.js";
 
 /** What a model costs, in dollars per million tokens of each kind (spec §5.4). */
 export interface ModelPrice {
@@ -90,8 +90,8 @@ function isPrice({ input, output, cacheWrites, cacheReads }: ModelPrice): boolea
 }
 
 /**
- * The Model price of `model` on `engineId`: the API engine's own, or else the shared one of the
- * Claude or Codex model (`engineId` null) when the engine is no API engine. `engines` are those
+ * The Model price of `model` on `engineId`: the API or Copilot CLI engine's own, or else the shared
+ * one of the Claude or Codex model (`engineId` null) when the engine is neither. `engines` are those
  * listed now; a removed one is priced by what is kept of it, an API engine when prices of its own
  * are kept.
  */
@@ -103,8 +103,9 @@ export function priceOf(
   const own = prices.find((each) => each.engineId === engineId && each.model === model);
   if (own) return own.price;
   const engine = engines.find(({ id }) => id === engineId);
-  // The Claude and Codex models share a price across engines; an API engine's are its own.
-  if (engine?.kind === "openai-compatible-api") return undefined;
+  // The Claude and Codex models share a price across engines; an API or Copilot CLI engine's are
+  // its own.
+  if (engine !== undefined && pricedPerEngine(engine)) return undefined;
   if (engine === undefined && prices.some((each) => each.engineId === engineId)) return undefined;
   return prices.find((each) => each.engineId === null && each.model === model)?.price;
 }

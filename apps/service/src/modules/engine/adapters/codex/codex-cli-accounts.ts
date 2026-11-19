@@ -16,7 +16,7 @@ import {
   engineIdsWithConfigFolders,
   preparedEngineConfigFolder,
   removeEngineConfigFolder,
-} from "../claude-code/engine-config-folder.js";
+} from "../engine-folders/engine-config-folder.js";
 import { codexAppServerArguments, codexEnvironment } from "./codex-arguments.js";
 import { CodexAppServer, CodexRpcError, METHOD_NOT_FOUND } from "./codex-rpc.js";
 

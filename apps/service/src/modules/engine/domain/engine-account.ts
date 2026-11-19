@@ -4,13 +4,14 @@ import { z } from "zod";
  * A Claude Code engine's account, as `claude auth status` gives it, signed in by Sign in or by a
  * pasted token, which tells no email or plan, or by an Anthropic API key, which tells none either;
  * or a Codex engine's, as the app-server's `account/read` gives it, signed in by Sign in with
- * ChatGPT or by an OpenAI API key (spec §5.4).
+ * ChatGPT or by an OpenAI API key; or a Copilot CLI engine's, as the runtime's sign-in status gives
+ * it, its GitHub login as its email, or signed in by a pasted token (spec §5.4).
  */
 export type EngineAccount =
   | { readonly signedIn: false }
   | {
       readonly signedIn: true;
-      /** A token pasted with "Paste a token instead" signs a Claude Code engine in. */
+      /** A token pasted with "Paste a token instead" signs a Claude Code or Copilot CLI engine in. */
       readonly pastedToken: boolean;
       /**
        * An API key signs the engine in: an Anthropic one given a Claude Code engine with "Use an
@@ -27,6 +28,15 @@ export const API_KEY_ACCOUNT: EngineAccount = {
   signedIn: true,
   pastedToken: false,
   apiKey: true,
+  email: undefined,
+  plan: undefined,
+};
+
+/** An engine signed in by a pasted token The Office keeps: no email or plan is told. */
+export const PASTED_TOKEN_ACCOUNT: EngineAccount = {
+  signedIn: true,
+  pastedToken: true,
+  apiKey: false,
   email: undefined,
   plan: undefined,
 };

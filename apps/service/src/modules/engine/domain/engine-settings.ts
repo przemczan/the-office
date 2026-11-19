@@ -6,9 +6,11 @@ import {
   engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
   offeredModels,
+  pricedPerEngine,
   type ApiEngine,
   type ClaudeCodeEngine,
   type CodexEngine,
+  type CopilotCliEngine,
   type Engine,
   type EngineId,
   type EngineModel,
@@ -86,7 +88,16 @@ export type ApiEngineEdit = Omit<ApiEngine, "id" | "key"> & {
  */
 export type CodexEngineEdit = Omit<CodexEngine, "id" | "apiKey"> & { readonly id?: EngineId };
 
-export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit | CodexEngineEdit;
+/**
+ * A Copilot CLI engine as Settings › Engines saves it: without an `id` when it is new, and never
+ * with its token, which only "Paste a token instead" sets (a Save keeps the one kept).
+ */
+export type CopilotCliEngineEdit = Omit<CopilotCliEngine, "id" | "token"> & {
+  readonly id?: EngineId;
+};
+
+export type EngineEdit =
+  ClaudeCodeEngineEdit | ApiEngineEdit | CodexEngineEdit | CopilotCliEngineEdit;
 
 export interface EngineSettingsEdit {
   /** Every engine, in order; a saved one left out is refused, as removing one moves what names it. */
@@ -103,20 +114,16 @@ export interface EngineSettingsEdit {
 
 export const ENGINE_NAME_LENGTH = 40;
 
-/** The API engines among `engines`, in their order. */
-export function apiEngines(engines: readonly Engine[]): readonly ApiEngine[] {
-  return engines.filter((engine): engine is ApiEngine => engine.kind === "openai-compatible-api");
-}
-
 /**
  * Every model that may be priced, in order, with its Model price or none: the Claude models while
- * there is a Claude Code engine, the Codex models while there is a Codex engine, then each API
- * engine's.
+ * there is a Claude Code engine, the Codex models while there is a Codex engine, then each API and
+ * Copilot CLI engine's, in their order.
  */
 export function offeredModelPrices({ engines, modelPrices }: EngineSettings): OfferedModel[] {
   const priceOf = (engineId: EngineId | null, model: string) =>
     modelPrices.find((each) => each.engineId === engineId && each.model === model)?.price ?? null;
-  return [null, ...apiEngines(engines).map(({ id }) => id)].flatMap((engineId) =>
+  const pricedOnTheirOwn = engines.filter(pricedPerEngine).map(({ id }) => id);
+  return [null, ...pricedOnTheirOwn].flatMap((engineId) =>
     modelsPricedUnder(engines, engineId).map((model) => ({
       engineId,
       model,
@@ -127,7 +134,8 @@ export function offeredModelPrices({ engines, modelPrices }: EngineSettings): Of
 
 /**
  * The models priced under a price's `engineId`: null for the Claude models while a Claude Code
- * engine is listed, then the Codex models while a Codex engine is, each priced once for them all.
+ * engine is listed, then the Codex models while a Codex engine is, each priced once for them all;
+ * an API or Copilot CLI engine's id for its own models.
  */
 function modelsPricedUnder(
   engines: readonly Engine[],
@@ -140,15 +148,15 @@ function modelsPricedUnder(
     ];
   }
   const engine = engines.find(({ id }) => id === engineId);
-  return engine?.kind === "openai-compatible-api" ? offeredModels(engine) : [];
+  return engine !== undefined && pricedPerEngine(engine) ? offeredModels(engine) : [];
 }
 
 /**
  * The settings `edit` makes of `stored`: the engines in its order, a new one given its id from its
- * name, an API engine keeping its key unless the edit gives one and a Codex engine always keeping
- * its API key; the Office default; and the Model prices of the models offered, a removed engine's
- * kept (`keptModelPrices`); the Stand-in Engines and the ask-above size, the stored ones when left
- * out. Refuses with every reason when they break a rule.
+ * name, an API engine keeping its key unless the edit gives one, a Codex engine always keeping its
+ * API key and a Copilot CLI engine its token; the Office default; and the Model prices of the
+ * models offered, a removed engine's kept (`keptModelPrices`); the Stand-in Engines and the
+ * ask-above size, the stored ones when left out. Refuses with every reason when they break a rule.
  */
 export function changedEngineSettings(
   stored: EngineSettings,
@@ -267,6 +275,13 @@ function changedEnginesOf(
     }
     if (edit.kind === "codex") {
       return { ...common, kind: edit.kind, apiKey: kept?.kind === "codex" ? kept.apiKey : null };
+    }
+    if (edit.kind === "copilot-cli") {
+      return {
+        ...common,
+        kind: edit.kind,
+        token: kept?.kind === "copilot-cli" ? kept.token : null,
+      };
     }
     const keptKey = kept?.kind === "openai-compatible-api" ? kept.key : "";
     return {

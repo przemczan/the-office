@@ -1,4 +1,5 @@
 import type { CodexApiKey } from "../domain/codex-api-key.js";
+import type { CopilotCliToken } from "../domain/copilot-cli-token.js";
 import type { EngineSettings } from "../domain/engine-settings.js";
 import type { EngineId } from "../domain/engines.js";
 
@@ -15,4 +16,10 @@ export abstract class EngineSettingsRepository {
    * Settings › Engines never sets it.
    */
   abstract setCodexApiKey(engineId: EngineId, key: CodexApiKey | null): Promise<void>;
+
+  /**
+   * Keeps `token` as the Copilot CLI engine's pasted token, or none, changing nothing else: a Save
+   * of Settings › Engines never sets it.
+   */
+  abstract setCopilotCliToken(engineId: EngineId, token: CopilotCliToken | null): Promise<void>;
 }

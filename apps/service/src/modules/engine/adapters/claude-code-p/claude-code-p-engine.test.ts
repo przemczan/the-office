@@ -17,7 +17,7 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
-import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { sessionEnvironment } from "../claude-code/session-settings.js";
 import { serveSessionEndpoints, type ServedEndpoints } from "../http/session-endpoints.fixtures.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";

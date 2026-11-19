@@ -20,9 +20,11 @@ import { EventStreamModule } from "../../../../platform/websocket/event-stream.m
 import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
 import { CodexAccounts } from "../../ports/codex-accounts.js";
+import { CopilotCliAccounts } from "../../ports/copilot-cli-accounts.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { StandInCodexAccounts } from "../scripted/stand-in-codex-accounts.js";
+import { StandInCopilotCliAccounts } from "../scripted/stand-in-copilot-cli-accounts.js";
 
 // What engine-accounts.controller.test.ts and engine-accounts.controller.full.test.ts share.
 
@@ -58,6 +60,23 @@ class HomeRecordingCodexAccounts extends StandInCodexAccounts {
   }
 }
 
+/** The Copilot CLI stand-in, telling what happened to each engine's folder in the same list. */
+class HomeRecordingCopilotCliAccounts extends StandInCopilotCliAccounts {
+  constructor(private readonly folders: string[]) {
+    super();
+  }
+
+  override prepareHome(engineId: string): Promise<void> {
+    this.folders.push(`made ${engineId}`);
+    return super.prepareHome(engineId);
+  }
+
+  override removeHome(engineId: string): Promise<void> {
+    this.folders.push(`removed ${engineId}`);
+    return super.removeHome(engineId);
+  }
+}
+
 let app: INestApplication;
 
 let url: string;
@@ -67,6 +86,8 @@ let published: DomainEvent[];
 let accounts: FolderRecordingAccounts;
 
 let codexAccounts: HomeRecordingCodexAccounts;
+
+let copilotCliAccounts: HomeRecordingCopilotCliAccounts;
 
 let repository: EngineSettingsForTests;
 
@@ -108,16 +129,19 @@ function setUpEachTest(): void {
           models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
         },
         { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna", apiKey: null },
+        { id: "copilot", name: "Copilot", kind: "copilot-cli", defaultModel: "auto", token: null },
       ],
     });
     accounts = new FolderRecordingAccounts();
     codexAccounts = new HomeRecordingCodexAccounts(accounts.folders);
+    copilotCliAccounts = new HomeRecordingCopilotCliAccounts(accounts.folders);
     ({ app, url } = await startTestApplication({
       imports: [EventsModule, EventStreamModule, EngineAccountsModule],
       overrides: [
         { provide: EngineSettingsRepository, useValue: repository },
         { provide: ClaudeCodeAccounts, useValue: accounts },
         { provide: CodexAccounts, useValue: codexAccounts },
+        { provide: CopilotCliAccounts, useValue: copilotCliAccounts },
       ],
     }));
     published = [];
@@ -161,6 +185,18 @@ async function addSecondOpenAi(service: EngineSettingsService): Promise<void> {
 }
 
 const API_KEY = CodexApiKey.of("sk-proj-an-openai-key_456");
+
+/** Adds the Copilot CLI engine "Second GitHub", whose id is `second-github`. */
+async function addSecondGitHub(service: EngineSettingsService): Promise<void> {
+  const stored = await service.current();
+  await service.change({
+    ...stored,
+    engines: [
+      ...stored.engines,
+      { name: "Second GitHub", kind: "copilot-cli", defaultModel: "auto" },
+    ],
+  });
+}
 
 describe("/api/settings/engines/:engineId account and Sign in", () => {
   it("reads a Claude Code engine signed out until a Sign in takes its code", async () => {
@@ -295,5 +331,37 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
 
     expect(accounts.folders).toEqual(["removed left-behind-openai"]);
     expect(await codexAccounts.engineIdsWithHomes()).toEqual(["codex"]);
+  });
+
+  it("makes a Copilot CLI engine's folder when it is added, and removes it once its sessions have ended", async () => {
+    const service = app.get(EngineSettingsService);
+    await addSecondGitHub(service);
+    await post("second-github/sign-in");
+    copilotCliAccounts.approve("second-github");
+    const ended = app.get(RunningEngineSessions).started("second-github");
+
+    await service.remove("second-github", FIRST_CLAUDE_CODE_ENGINE.id);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(accounts.folders).toEqual(["made second-github"]);
+
+    ended();
+    await expect
+      .poll(() => accounts.folders)
+      .toEqual(["made second-github", "removed second-github"]);
+    await expect(copilotCliAccounts.account("second-github")).resolves.toEqual({
+      signedIn: false,
+    });
+  });
+
+  it("keeps a listed Copilot CLI engine's folder as the service starts, and removes an unlisted one's", async () => {
+    for (const engineId of ["copilot", "left-behind-github"]) {
+      await copilotCliAccounts.signIn(engineId);
+      copilotCliAccounts.approve(engineId);
+    }
+
+    await app.get(EngineAccounts).onApplicationBootstrap();
+
+    expect(accounts.folders).toEqual(["removed left-behind-github"]);
+    expect(await copilotCliAccounts.engineIdsWithHomes()).toEqual(["copilot"]);
   });
 });

@@ -155,6 +155,7 @@ function setUp(
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -300,6 +301,7 @@ function twoEngines(scripts: {
       "claude-code-p": claudeCodeP,
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     }),
   };
 }
@@ -649,6 +651,7 @@ describe("EngineSessions", () => {
           "claude-code-p": engine,
           "openai-compatible-api": engine,
           codex: engine,
+          "copilot-cli": engine,
         },
         undefined,
         new WorkstationWithoutKotlin(),
@@ -674,6 +677,7 @@ describe("EngineSessions", () => {
           "claude-code-p": engine,
           "openai-compatible-api": engine,
           codex: engine,
+          "copilot-cli": engine,
         },
         undefined,
         new WorkstationWithoutKotlin(),
@@ -692,6 +696,7 @@ describe("EngineSessions", () => {
           "claude-code-p": engine,
           "openai-compatible-api": engine,
           codex: engine,
+          "copilot-cli": engine,
         },
         undefined,
         new WorkstationWithoutKotlin(),
@@ -738,6 +743,7 @@ describe("EngineSessions", () => {
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new WithoutTheModel([]),
       codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     });
 
     await expect(
@@ -856,6 +862,7 @@ describe("EngineSessions on each engine's adapter", () => {
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new HandedOptions([ONE_TURN]),
       codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     });
 
     const started = await sessions.start({
@@ -904,6 +911,7 @@ describe("EngineSessions on each engine's adapter", () => {
             new SdkMcpClient(),
             defaultEnginePromptTemplates(),
           ),
+          "copilot-cli": new ScriptedEngine([]),
         },
         new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, codex] }),
       );
@@ -945,6 +953,7 @@ describe("EngineSessions on each engine's adapter", () => {
       ]),
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     });
 
     const session = await sessions.start({
@@ -978,6 +987,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         usageWindows: false,
       }),
       codex: new ScriptedEngine([], { usageWindows: false }),
+      "copilot-cli": new ScriptedEngine([], { usageWindows: false }),
     });
     const onTheApi = await sessions.start({
       id: "s-api",
@@ -1019,6 +1029,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         usageWindows: false,
       }),
       codex: new ScriptedEngine([], { usageWindows: false }),
+      "copilot-cli": new ScriptedEngine([], { usageWindows: false }),
     });
     const session = await sessions.start({
       id: "s-1",
@@ -1114,6 +1125,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
         "openai-compatible-api": new ScriptedEngine([]),
         codex: new ScriptedEngine([]),
+        "copilot-cli": new ScriptedEngine([]),
       },
       new EngineSettingsForTests({
         ...DEFAULT_ENGINE_SETTINGS,

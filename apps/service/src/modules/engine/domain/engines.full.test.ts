@@ -3,13 +3,17 @@ import { CodexApiKey } from "./codex-api-key.js";
 import {
   CLAUDE_CODE_MODELS,
   CODEX_MODELS,
+  COPILOT_CLI_MODELS,
   engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
   offeredModels,
+  pricedPerEngine,
   type ApiEngine,
   type CodexEngine,
+  type CopilotCliEngine,
 } from "./engines.js";
+import { CopilotCliToken } from "./copilot-cli-token.js";
 
 const strata: ApiEngine = {
   id: "strata",
@@ -32,11 +36,37 @@ const codex: CodexEngine = {
   apiKey: null,
 };
 
+const copilot: CopilotCliEngine = {
+  id: "copilot",
+  name: "Copilot",
+  kind: "copilot-cli",
+  defaultModel: "auto",
+  token: null,
+};
+
 describe("an engine", () => {
   it("offers the Claude models on Claude Code, the Codex models on Codex, and an API engine's own by their ids", () => {
     expect(offeredModels(FIRST_CLAUDE_CODE_ENGINE)).toEqual(CLAUDE_CODE_MODELS);
     expect(offeredModels(codex)).toEqual(CODEX_MODELS);
     expect(offeredModels(strata)).toEqual(["qwen3", "org/coder:q4"]);
+  });
+
+  it("offers Auto on a Copilot CLI engine, priced on that engine as an API engine's models are", () => {
+    expect(offeredModels(copilot)).toEqual(COPILOT_CLI_MODELS);
+    expect(COPILOT_CLI_MODELS).toEqual(["auto"]);
+    expect([copilot, strata, codex, FIRST_CLAUDE_CODE_ENGINE].map(pricedPerEngine)).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it("has no usage windows on a Copilot CLI engine, however it is signed in", () => {
+    expect(hasUsageWindows(copilot)).toBe(false);
+    expect(hasUsageWindows({ ...copilot, token: CopilotCliToken.of("github_pat_11A_b") })).toBe(
+      false,
+    );
   });
 
   it("has usage windows on Claude Code and on Codex signed in with ChatGPT, not on an API key", () => {

@@ -101,7 +101,10 @@ export function enterEngineSignInCode(engineId: string, code: string): Promise<v
   return sendToApiWithNoAnswer("POST", `${enginePath(engineId)}/sign-in/code`, { code });
 }
 
-/** "Paste a token instead": a `claude setup-token` token signs the engine in, never sent back. */
+/**
+ * "Paste a token instead": a `claude setup-token` token (Claude Code) or a fine-grained personal
+ * access token (Copilot CLI) signs the engine in, never sent back.
+ */
 export function pasteEngineToken(engineId: string, token: string): Promise<void> {
   return sendToApiWithNoAnswer("PUT", `${enginePath(engineId)}/token`, { token });
 }

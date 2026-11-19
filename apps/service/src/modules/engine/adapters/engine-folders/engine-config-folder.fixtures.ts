@@ -8,7 +8,7 @@ import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import { engineConfigFolder } from "./engine-config-folder.js";
-import { claudeCodeOfficeRules } from "./session-office-rules.js";
+import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 
 // What engine-config-folder.test.ts and engine-config-folder.full.test.ts share.
 

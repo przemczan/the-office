@@ -12,6 +12,7 @@ import { hasUsageWindows } from "../../domain/engines.js";
 import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
 import { CodexAccounts } from "../../ports/codex-accounts.js";
+import { CopilotCliAccounts } from "../../ports/copilot-cli-accounts.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import {
@@ -20,6 +21,11 @@ import {
   StandInCodexAccounts,
 } from "../scripted/stand-in-codex-accounts.js";
 import { StandInClaudeCodeAccounts } from "../scripted/stand-in-claude-code-accounts.js";
+import {
+  STAND_IN_COPILOT_CLI_SIGN_IN_PAGE,
+  STAND_IN_COPILOT_CLI_USER_CODE,
+  StandInCopilotCliAccounts,
+} from "../scripted/stand-in-copilot-cli-accounts.js";
 
 // What engine-accounts.controller.test.ts and engine-accounts.controller.full.test.ts share.
 
@@ -55,6 +61,23 @@ class HomeRecordingCodexAccounts extends StandInCodexAccounts {
   }
 }
 
+/** The Copilot CLI stand-in, telling what happened to each engine's folder in the same list. */
+class HomeRecordingCopilotCliAccounts extends StandInCopilotCliAccounts {
+  constructor(private readonly folders: string[]) {
+    super();
+  }
+
+  override prepareHome(engineId: string): Promise<void> {
+    this.folders.push(`made ${engineId}`);
+    return super.prepareHome(engineId);
+  }
+
+  override removeHome(engineId: string): Promise<void> {
+    this.folders.push(`removed ${engineId}`);
+    return super.removeHome(engineId);
+  }
+}
+
 let app: INestApplication;
 
 let url: string;
@@ -65,6 +88,8 @@ let accounts: FolderRecordingAccounts;
 
 let codexAccounts: HomeRecordingCodexAccounts;
 
+let copilotCliAccounts: HomeRecordingCopilotCliAccounts;
+
 let repository: EngineSettingsForTests;
 
 const TOKEN = "sk-ant-oat01-a-pasted-token_123";
@@ -72,6 +97,14 @@ const TOKEN = "sk-ant-oat01-a-pasted-token_123";
 const API_KEY = "sk-proj-an-openai-key_456";
 
 const ANTHROPIC_API_KEY = "sk-ant-api03-an-anthropic-key_789";
+
+const COPILOT_CLI_TOKEN = "github_pat_11ABCDEFG0123456789_aFineGrainedToken";
+
+/** The token the repository keeps for the Copilot CLI engine, as only it reveals it. */
+async function keptToken(engineId: string): Promise<string | null> {
+  const engine = (await repository.read()).engines.find(({ id }) => id === engineId);
+  return engine?.kind === "copilot-cli" ? (engine.token?.reveal() ?? null) : null;
+}
 
 /** The API key the repository keeps for the engine, as only it reveals it. */
 async function keptApiKey(engineId: string): Promise<string | null> {
@@ -120,16 +153,19 @@ function setUpEachTest(): void {
           models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
         },
         { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna", apiKey: null },
+        { id: "copilot", name: "Copilot", kind: "copilot-cli", defaultModel: "auto", token: null },
       ],
     });
     accounts = new FolderRecordingAccounts();
     codexAccounts = new HomeRecordingCodexAccounts(accounts.folders);
+    copilotCliAccounts = new HomeRecordingCopilotCliAccounts(accounts.folders);
     ({ app, url } = await startTestApplication({
       imports: [EventsModule, EventStreamModule, EngineAccountsModule],
       overrides: [
         { provide: EngineSettingsRepository, useValue: repository },
         { provide: ClaudeCodeAccounts, useValue: accounts },
         { provide: CodexAccounts, useValue: codexAccounts },
+        { provide: CopilotCliAccounts, useValue: copilotCliAccounts },
       ],
     }));
     published = [];
@@ -298,6 +334,89 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
     }
     expect(await keptApiKey("codex")).toBeNull();
     expect(published).toEqual([]);
+  });
+
+  it("signs a Copilot CLI engine in by GitHub's device page and its one-time code", async () => {
+    expect(await account("copilot")).toMatchObject({ signedIn: false });
+
+    const signIn = await post("copilot/sign-in");
+    expect(signIn.status).toBe(200);
+    expect(engineSignInSchema.parse(await signIn.json())).toEqual({
+      url: STAND_IN_COPILOT_CLI_SIGN_IN_PAGE,
+      userCode: STAND_IN_COPILOT_CLI_USER_CODE,
+    });
+    expect(copilotCliAccounts.approve("copilot")).toBe(true);
+
+    await expect.poll(() => published).toEqual([expect.any(EngineAccountChanged)]);
+    expect(published).toMatchObject([{ engineId: "copilot" }]);
+    expect(await account("copilot")).toEqual({
+      signedIn: true,
+      pastedToken: false,
+      apiKey: false,
+      email: "stand-in-octocat",
+      plan: null,
+    });
+
+    expect((await send("DELETE", "copilot/sign-in")).status).toBe(204);
+    expect(await account("copilot")).toMatchObject({ signedIn: false });
+  });
+
+  it("signs a Copilot CLI engine in by a pasted token, kept but never answered back, until a Sign in or Sign out", async () => {
+    const pasted = await send("PUT", "copilot/token", { token: ` ${COPILOT_CLI_TOKEN}\n` });
+
+    expect(pasted.status).toBe(204);
+    expect(await pasted.text()).toBe("");
+    expect(await keptToken("copilot")).toBe(COPILOT_CLI_TOKEN);
+    const signedIn = await fetch(`${url}/api/settings/engines/copilot/account`);
+    expect(await signedIn.text()).not.toContain("github_pat");
+    expect(await account("copilot")).toEqual({
+      signedIn: true,
+      pastedToken: true,
+      apiKey: false,
+      email: null,
+      plan: null,
+    });
+    expect(JSON.stringify(published)).not.toContain(COPILOT_CLI_TOKEN);
+    const settings = await fetch(`${url}/api/settings/engines`);
+    expect(await settings.text()).not.toContain("github_pat");
+
+    // A Sign in takes the token's place.
+    expect((await post("copilot/sign-in")).status).toBe(200);
+    expect(await keptToken("copilot")).toBeNull();
+    copilotCliAccounts.approve("copilot");
+    await expect.poll(() => published).toHaveLength(2);
+    expect(await account("copilot")).toMatchObject({ pastedToken: false, signedIn: true });
+
+    // And a token takes the Sign in's place, the folder signed out.
+    await send("PUT", "copilot/token", { token: COPILOT_CLI_TOKEN });
+    await expect(copilotCliAccounts.account("copilot")).resolves.toEqual({ signedIn: false });
+    expect((await send("DELETE", "copilot/sign-in")).status).toBe(204);
+
+    expect(await keptToken("copilot")).toBeNull();
+    expect(await account("copilot")).toMatchObject({ signedIn: false });
+    expect(published).toHaveLength(4);
+  });
+
+  it("refuses a Copilot CLI engine what is no fine-grained token, in words without naming it", async () => {
+    for (const token of [TOKEN, "ghp_aClassicToken123", "github_pat_cut short"]) {
+      const refused = await send("PUT", "copilot/token", { token });
+
+      expect(refused.status).toBe(400);
+      const text = await refused.text();
+      expect(text).not.toContain(token);
+      expect(JSON.parse(text)).toMatchObject({
+        message: expect.stringMatching(/fine-grained personal access token.*Copilot Requests/),
+      });
+    }
+    expect(await keptToken("copilot")).toBeNull();
+    expect(published).toEqual([]);
+  });
+
+  it("refuses a Copilot CLI engine an API key and a Sign in code", async () => {
+    const refused = await send("PUT", "copilot/api-key", { key: COPILOT_CLI_TOKEN });
+    expect(refused.status).toBe(404);
+    expect(await refused.text()).not.toContain(COPILOT_CLI_TOKEN);
+    expect((await post("copilot/sign-in/code", { code: "a-code" })).status).toBe(404);
   });
 
   it("refuses a Codex engine what only a Claude Code engine takes", async () => {

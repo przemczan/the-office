@@ -5,7 +5,7 @@ import type { OfficeDataDirectory } from "../../../../platform/office-data/offic
 import { moveWhenFree } from "../../../../platform/os/move-when-free.js";
 import type { Engine } from "../../domain/engines.js";
 import { SessionNotCarried } from "../../ports/agent-engine.js";
-import { ownEngineConfigFolder } from "./engine-config-folder.js";
+import { ownEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 
 /** Where the binary keeps a session's transcript, by the session's working folder, in its config folder. */
 const PROJECTS = "projects";

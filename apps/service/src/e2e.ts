@@ -26,6 +26,11 @@ const E2E_MARK_PATH = "/api/e2e/marks/:mark";
  */
 const E2E_CODEX_APPROVAL_PATH = "/api/e2e/codex-sign-ins/:engineId/approval";
 /**
+ * `POST` it to enter the code of the Sign in under way on a Copilot CLI engine, as the user would on
+ * GitHub's page (`StandInCopilotCliAccounts.approve`): 204, or 404 with none under way.
+ */
+const E2E_COPILOT_CLI_APPROVAL_PATH = "/api/e2e/copilot-cli-sign-ins/:engineId/approval";
+/**
  * `POST` it to set what the scripted Grafana holds for the full stats, replacing all it held: each
  * part absent answers empty (the data sources both there), and a `failure` answers every read
  * (`ScriptedStatsSource`). 204.
@@ -97,6 +102,7 @@ await launch(
       ClaudeCodeAccounts,
       CODEX_CAPABILITIES,
       CodexAccounts,
+      CopilotCliAccounts,
       EngineModule,
       OPENAI_COMPATIBLE_API_CAPABILITIES,
       readRecording,
@@ -104,6 +110,8 @@ await launch(
       ScriptedEngineModule,
       StandInClaudeCodeAccounts,
       StandInCodexAccounts,
+      StandInCopilotCliAccounts,
+      UnavailableCopilotCliEngine,
     } = await import("./modules/engine/index.js");
     const { UpdateSystem } = await import("./modules/office-updates/index.js");
     const { ScriptedStatsSource, StatsSource } = await import("./modules/telemetry/index.js");
@@ -127,6 +135,7 @@ await launch(
     const apiEngine = new ScriptedEngine([], OPENAI_COMPATIBLE_API_CAPABILITIES);
     const codexEngine = new ScriptedEngine([], CODEX_CAPABILITIES);
     const codexAccounts = new StandInCodexAccounts();
+    const copilotCliAccounts = new StandInCopilotCliAccounts();
     const statsSource = new ScriptedStatsSource();
     const moduleRef = await Test.createTestingModule({ imports: [appModule] })
       .overrideModule(EngineModule)
@@ -136,12 +145,15 @@ await launch(
           "claude-code-p": engine,
           "openai-compatible-api": apiEngine,
           codex: codexEngine,
+          "copilot-cli": new UnavailableCopilotCliEngine(),
         }),
       )
       .overrideProvider(ClaudeCodeAccounts)
       .useValue(new StandInClaudeCodeAccounts())
       .overrideProvider(CodexAccounts)
       .useValue(codexAccounts)
+      .overrideProvider(CopilotCliAccounts)
+      .useValue(copilotCliAccounts)
       .overrideProvider(Schedule)
       .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
       .overrideProvider(HostKeyScanner)
@@ -178,6 +190,14 @@ await launch(
         E2E_CODEX_APPROVAL_PATH,
         (request: Request<{ engineId: string }>, response: Response) => {
           response.status(codexAccounts.approve(request.params.engineId) ? 204 : 404).end();
+        },
+      );
+    app
+      .getHttpAdapter()
+      .post(
+        E2E_COPILOT_CLI_APPROVAL_PATH,
+        (request: Request<{ engineId: string }>, response: Response) => {
+          response.status(copilotCliAccounts.approve(request.params.engineId) ? 204 : 404).end();
         },
       );
     app.getHttpAdapter().post(E2E_STATS_SOURCE_PATH, (request: Request, response: Response) => {

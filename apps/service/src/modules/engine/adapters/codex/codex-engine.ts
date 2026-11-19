@@ -25,7 +25,7 @@ import {
 } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import type { EngineCommand } from "../claude-code/engine-process.js";
 import { engineRead, serviceVariables } from "../claude-code/engine-read.js";
 import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";

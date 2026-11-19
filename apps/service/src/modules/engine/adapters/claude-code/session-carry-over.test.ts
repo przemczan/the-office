@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { ClaudeCodeEngine } from "../../domain/engines.js";
 import { SessionNotCarried } from "../../ports/agent-engine.js";
-import { engineConfigFolder } from "./engine-config-folder.js";
+import { engineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { carrySessionOver, folderRewrite } from "./session-carry-over.js";
 
 const SESSION_ID = "5d1c7a3e-0f2b-4c8e-9a61-7b2e3f4a5c6d";

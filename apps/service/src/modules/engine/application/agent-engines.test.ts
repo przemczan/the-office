@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../domain/engines.js";
+import {
+  COPILOT_CLI_AUTO_MODEL,
+  FIRST_CLAUDE_CODE_ENGINE,
+  type Engine,
+} from "../domain/engines.js";
 import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
 
 const ADAPTERS: Readonly<Record<EngineAdapter, ScriptedEngine>> = {
@@ -8,6 +12,7 @@ const ADAPTERS: Readonly<Record<EngineAdapter, ScriptedEngine>> = {
   "claude-code-p": new ScriptedEngine([]),
   "openai-compatible-api": new ScriptedEngine([]),
   codex: new ScriptedEngine([]),
+  "copilot-cli": new ScriptedEngine([]),
 };
 
 const ENGINES: Readonly<Record<EngineAdapter, Engine>> = {
@@ -23,6 +28,13 @@ const ENGINES: Readonly<Record<EngineAdapter, Engine>> = {
     models: [{ id: "coder", contextWindow: 32_000 }],
   },
   codex: { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna", apiKey: null },
+  "copilot-cli": {
+    id: "copilot",
+    name: "Copilot",
+    kind: "copilot-cli",
+    defaultModel: COPILOT_CLI_AUTO_MODEL,
+    token: null,
+  },
 };
 
 describe("AgentEngines", () => {

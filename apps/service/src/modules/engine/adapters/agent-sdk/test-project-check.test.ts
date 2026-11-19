@@ -99,6 +99,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
             "claude-code-p": engine,
             "openai-compatible-api": engine,
             codex: engine,
+            "copilot-cli": engine,
           }),
           new Telemetry(tracing.getTracer("the-office"), metering.getMeter("the-office")),
           events,

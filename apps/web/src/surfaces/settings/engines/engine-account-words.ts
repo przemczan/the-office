@@ -27,6 +27,16 @@ export function codexAccountLine(account: EngineAccount): string {
 }
 
 /**
+ * A Copilot CLI engine's account in a line: signed in as its GitHub login (the account's email
+ * holds it) by GitHub's device sign-in or by a pasted token, or "Signed out".
+ */
+export function copilotCliAccountLine(account: EngineAccount): string {
+  if (!account.signedIn) return "Signed out";
+  const who = account.email === null ? "Signed in" : `Signed in as ${account.email}`;
+  return account.pastedToken ? `${who} by a pasted token` : who;
+}
+
+/**
  * The plan comes as `max` or `pro` (Claude) or `plus` (ChatGPT); their own pages call it "Claude
  * Max" or "ChatGPT Plus".
  */

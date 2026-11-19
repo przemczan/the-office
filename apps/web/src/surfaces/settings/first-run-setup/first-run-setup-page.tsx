@@ -9,6 +9,7 @@ import { OfficeMark } from "../../../shell/office-mark.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { ClaudeCodeEngineAccount } from "../engines/claude-code-engine-account.tsx";
 import { CodexEngineAccount } from "../engines/codex-engine-account.tsx";
+import { CopilotCliEngineAccount } from "../engines/copilot-cli-engine-account.tsx";
 import { GitHubCard } from "../office-identity/github-card.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import { TelemetryCard } from "../telemetry/telemetry-card.tsx";
@@ -122,8 +123,8 @@ export function FirstRunSetupPage(): ReactNode {
 }
 
 /**
- * The Office default engine's sign-in when it is a Claude Code or Codex engine; an API engine is set up in
- * Settings › Engines, which the step links to.
+ * The Office default engine's sign-in when it is a Claude Code, Codex or Copilot CLI engine; an API
+ * engine is set up in Settings › Engines, which the step links to.
  */
 function EngineStep(): ReactNode {
   const settings = useQuery(engineSettingsQuery());
@@ -156,6 +157,15 @@ function EngineStep(): ReactNode {
               {engine.name}, a Codex engine. Sign it in with ChatGPT, or with an OpenAI API key.
             </p>
             <CodexEngineAccount engineId={engine.id} />
+          </>
+        )}
+        {engine?.kind === "copilot-cli" && (
+          <>
+            <p className="settings-note">
+              {engine.name}, a Copilot CLI engine. Sign it in with GitHub, or paste a fine-grained
+              personal access token with the Copilot Requests permission.
+            </p>
+            <CopilotCliEngineAccount engineId={engine.id} />
           </>
         )}
         {engine?.kind === "openai-compatible-api" && (

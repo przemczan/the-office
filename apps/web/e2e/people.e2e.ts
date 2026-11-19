@@ -169,7 +169,7 @@ async function openEngine(
 /** Adds an engine of the kind through "Add an engine", which selects it. */
 async function addEngine(
   page: Page,
-  kind: "Claude Code" | "Codex" | "API endpoint",
+  kind: "Claude Code" | "Codex" | "Copilot CLI" | "API endpoint",
 ): Promise<void> {
   await page.getByRole("button", { name: "Add an engine" }).click();
   await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
@@ -1214,6 +1214,97 @@ test(
     } finally {
       for (const each of await savedEngines()) {
         if (each.name === name || each.name === renamed) await removeEngine(page, each.name);
+      }
+    }
+  },
+);
+
+// Here for the same reason as the Codex engine's: a Save sends every engine, so the engine it adds
+// is gone again at its end.
+test(
+  "the user adds a Copilot CLI engine, signs it in with GitHub's code, refuses a wrong token and removes it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const name = "Copilot check";
+    const savedEngines = async () =>
+      engineSettingsSchema.parse(await (await page.request.get("/api/settings/engines")).json())
+        .engines;
+    try {
+      await page.goto("/settings/engines");
+      await addEngine(page, "Copilot CLI");
+      const added = page.getByRole("group", { name: "the new Copilot CLI engine" });
+      await added.getByLabel("Name", { exact: true }).fill(name);
+      const engine = page.getByRole("group", { name, exact: true });
+      // Auto, the one model, is the default and names no model.
+      await expect(engine.getByLabel("Default model")).toHaveValue("auto");
+      await expect(engine.getByLabel("Default model")).toContainText("Auto");
+      await page.getByRole("tab", { name: "Account" }).click();
+      await expect(engine.getByText("It has no account to sign in yet")).toBeVisible();
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(
+        page.getByText("Engines saved. Sessions started from now on use them."),
+      ).toBeVisible();
+      const engineId = (await savedEngines()).find((saved) => saved.name === name)?.id ?? "";
+      expect(engineId).not.toBe("");
+
+      await page.reload();
+      await expect(
+        page.getByRole("navigation", { name: "Engines" }).getByRole("button", {
+          name: new RegExp(`^${name}`),
+        }),
+      ).toContainText("Copilot CLI");
+      await openEngine(page, name, "Account");
+      const account = engine.getByRole("group", { name: "Account" });
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+      await expect(account.getByRole("button", { name: /API key/ })).toHaveCount(0);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "copilot-cli-engine-signed-out.png") });
+
+      // Sign in: GitHub's device page and its code, then the user enters it there.
+      await account.getByRole("button", { name: "Sign in", exact: true }).click();
+      const signingIn = account.getByRole("group", { name: "Sign in with GitHub" });
+      await expect(signingIn.getByRole("link", { name: "GitHub's sign-in page" })).toHaveAttribute(
+        "href",
+        "https://github.com/login/device",
+      );
+      await expect(signingIn.getByLabel("The code to enter")).toHaveText("C0PL-1NCD");
+      await expect(signingIn.getByText("Waiting for the sign-in to finish…")).toBeVisible();
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "copilot-cli-engine-sign-in-code.png"),
+      });
+      const approved = await page.request.post(
+        `/api/e2e/copilot-cli-sign-ins/${encodeURIComponent(engineId)}/approval`,
+      );
+      expect(approved.status()).toBe(204);
+      // Its end reaches the open page by `engine.account-changed`, without a reload.
+      await expect(account.getByText("Signed in as stand-in-octocat")).toBeVisible();
+      await expect(signingIn).toHaveCount(0);
+
+      // A token that isn't a fine-grained personal access token is refused in words.
+      await account.getByRole("button", { name: "Paste a token instead" }).click();
+      const tokenBox = account.getByLabel("Token");
+      await expect(tokenBox).toHaveAttribute("type", "password");
+      await tokenBox.fill("ghp_not-fine-grained");
+      await account.getByRole("button", { name: "Save the token" }).click();
+      await expect(
+        account.getByText("That is no fine-grained personal access token"),
+      ).toBeVisible();
+      await account.getByRole("button", { name: "Cancel" }).click();
+
+      await account.getByRole("button", { name: "Sign out" }).click();
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+
+      // Removed through its dialog, onto the Office default's engine.
+      await page.getByRole("button", { name: `Remove ${name}` }).click();
+      const dialog = page.getByRole("dialog", { name: `Remove ${name}?` });
+      await dialog.getByLabel("Replacement").selectOption({ label: "Claude Code" });
+      await dialog.getByRole("button", { name: `Remove ${name}` }).click();
+      await expect(
+        page.getByText("Engine removed. What named it moved to the replacement."),
+      ).toBeVisible();
+      expect((await savedEngines()).some((saved) => saved.id === engineId)).toBe(false);
+    } finally {
+      for (const each of await savedEngines()) {
+        if (each.name === name) await removeEngine(page, each.name);
       }
     }
   },

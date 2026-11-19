@@ -23,7 +23,7 @@ import {
   preparedEngineConfigFolder,
   engineIdsWithConfigFolders,
   removeEngineConfigFolder,
-} from "./engine-config-folder.js";
+} from "../engine-folders/engine-config-folder.js";
 import {
   apiKeyFileOf,
   holdsLogin,

@@ -1,10 +1,13 @@
 import {
   CODEX_MODELS,
+  COPILOT_CLI_AUTO_MODEL,
+  COPILOT_CLI_MODELS,
   engineIdFor,
   type ApiEngine,
   type ApiEngineEdit,
   type ClaudeCodeEngineEdit,
   type CodexEngineEdit,
+  type CopilotCliEngineEdit,
   type EngineEdit,
   type EngineId,
   type EngineModel,
@@ -21,11 +24,12 @@ import { NO_PRICE_TEXT, priceOf, priceTextOf, type ModelPriceText } from "./mode
  */
 export interface EngineSettingsDraft {
   /**
-   * The Claude Code engines, then the Codex engines, then the API endpoints, as Save sends them; a
-   * saved one is never left out.
+   * The Claude Code engines, then the Codex engines, then the Copilot CLI engines, then the API
+   * endpoints, as Save sends them; a saved one is never left out.
    */
   readonly claudeCodeEngines: readonly ClaudeCodeEngineEdit[];
   readonly codexEngines: readonly CodexEngineEdit[];
+  readonly copilotCliEngines: readonly CopilotCliEngineEdit[];
   readonly apiEndpoints: readonly ApiEngineEdit[];
   /** None only while no engine is listed; Save asks for one once an engine is. */
   readonly officeDefault: EngineModel | null;
@@ -44,7 +48,10 @@ export interface EngineSettingsDraft {
   readonly askBeforeSwitchAbove: string;
 }
 
-/** A model an engine's Models and prices lists; a Claude or Codex model's engine is null. */
+/**
+ * A model an engine's Models and prices lists; a Claude or Codex model's engine is null, a Copilot
+ * CLI or API model's its own.
+ */
 export type PricedModel = Pick<OfferedModel, "engineId" | "model">;
 
 /** A drafted engine with the id Save gives it. */
@@ -56,6 +63,7 @@ export type DraftedEndpoint = Drafted<ApiEngineEdit>;
 export interface DraftedEngines {
   readonly claudeCodeEngines: readonly Drafted<ClaudeCodeEngineEdit>[];
   readonly codexEngines: readonly Drafted<CodexEngineEdit>[];
+  readonly copilotCliEngines: readonly Drafted<CopilotCliEngineEdit>[];
   readonly apiEndpoints: readonly DraftedEndpoint[];
 }
 
@@ -72,6 +80,9 @@ export function draftOf({
       engine.kind === "claude-code" ? [{ ...engine }] : [],
     ),
     codexEngines: engines.flatMap((engine) => (engine.kind === "codex" ? [{ ...engine }] : [])),
+    copilotCliEngines: engines.flatMap((engine) =>
+      engine.kind === "copilot-cli" ? [{ ...engine }] : [],
+    ),
     apiEndpoints: savedApiEngines(engines).map(({ keySet: _keySet, models, ...engine }) => ({
       ...engine,
       models: models.map((model) => ({ ...model })),
@@ -100,15 +111,18 @@ export function offeredModelKey({ engineId, model }: PricedModel): string {
 /**
  * The drafted engines with the ids Save gives them: a new one's made from its name, apart from
  * every saved engine's and every drafted one's, in the order Save sends them (the Claude Code
- * engines, then the Codex engines), so an API endpoint's models read by name and a price typed before Save lands on
- * them.
+ * engines, then the Codex engines, then the Copilot CLI engines), so an API endpoint's models read
+ * by name and a price typed before Save lands on them.
  */
 export function draftedEngines(draft: EngineSettingsDraft, saved: EngineSettings): DraftedEngines {
   const taken = new Set([
     ...saved.engines.map(({ id }) => id),
-    ...[...draft.claudeCodeEngines, ...draft.codexEngines, ...draft.apiEndpoints].flatMap(
-      ({ id }) => (id === undefined ? [] : [id]),
-    ),
+    ...[
+      ...draft.claudeCodeEngines,
+      ...draft.codexEngines,
+      ...draft.copilotCliEngines,
+      ...draft.apiEndpoints,
+    ].flatMap(({ id }) => (id === undefined ? [] : [id])),
   ]);
   const idOf = ({ id, name }: EngineEdit): EngineId => {
     const given = id ?? engineIdFor(name, taken);
@@ -125,12 +139,17 @@ export function draftedEngines(draft: EngineSettingsDraft, saved: EngineSettings
     id: idOf(engine),
     name: engine.name.trim(),
   }));
+  const copilotCliEngines = draft.copilotCliEngines.map((engine) => ({
+    ...engine,
+    id: idOf(engine),
+    name: engine.name.trim(),
+  }));
   const apiEndpoints = draft.apiEndpoints.map((endpoint) => ({
     ...endpoint,
     id: idOf(endpoint),
     name: endpoint.name.trim(),
   }));
-  return { claudeCodeEngines, codexEngines, apiEndpoints };
+  return { claudeCodeEngines, codexEngines, copilotCliEngines, apiEndpoints };
 }
 
 /** Whether a model is one of the Codex models, whose price, as a Claude model's, has no engine. */
@@ -155,8 +174,8 @@ export function codexModelsOf(draft: EngineSettingsDraft): readonly string[] {
 
 /**
  * Every model the draft offers, as Save prices them: the Claude models as `saved` lists them, then
- * the Codex models while a Codex engine is drafted, then each drafted API endpoint's, each once;
- * one without an id yet is left out.
+ * the Codex models while a Codex engine is drafted, then each drafted API endpoint's and each
+ * drafted Copilot CLI engine's, priced on the engine; one without an id yet is left out.
  */
 export function offeredModelsOf(
   draft: EngineSettingsDraft,
@@ -164,10 +183,14 @@ export function offeredModelsOf(
 ): readonly PricedModel[] {
   const claudeModels = claudeModelsOf(saved).map((model) => ({ engineId: null, model }));
   const codexModels = codexModelsOf(draft).map((model) => ({ engineId: null, model }));
-  const apiModels = draftedEngines(draft, saved).apiEndpoints.flatMap(({ id: engineId, models }) =>
+  const drafted = draftedEngines(draft, saved);
+  const apiModels = drafted.apiEndpoints.flatMap(({ id: engineId, models }) =>
     (engineId === "" ? [] : modelsOf({ models })).map((model) => ({ engineId, model })),
   );
-  return [...claudeModels, ...codexModels, ...apiModels];
+  const copilotCliModels = drafted.copilotCliEngines.flatMap(({ id: engineId }) =>
+    engineId === "" ? [] : COPILOT_CLI_MODELS.map((model) => ({ engineId, model })),
+  );
+  return [...claudeModels, ...codexModels, ...apiModels, ...copilotCliModels];
 }
 
 /** The models an API endpoint offers, by their trimmed ids, each once. */
@@ -200,6 +223,7 @@ export function engineSettingsEditOf(
     engines: [
       ...draft.claudeCodeEngines,
       ...draft.codexEngines,
+      ...draft.copilotCliEngines,
       ...draft.apiEndpoints.map(withOfferedDefaultModel),
     ],
     officeDefault: draft.officeDefault,
@@ -294,6 +318,11 @@ export function newCodexEngine(saved: EngineSettings): CodexEngineEdit {
   return { name: "", kind: "codex", defaultModel: firstCodex?.defaultModel ?? CODEX_MODELS[0] };
 }
 
+/** A new Copilot CLI engine, on Auto. */
+export function newCopilotCliEngine(): CopilotCliEngineEdit {
+  return { name: "", kind: "copilot-cli", defaultModel: COPILOT_CLI_AUTO_MODEL };
+}
+
 /** An engine the Office default may name, with the models it offers. */
 export interface OfficeDefaultChoice {
   readonly id: EngineId;
@@ -317,6 +346,9 @@ export function officeDefaultChoicesOf(
     ),
     ...draft.codexEngines.flatMap(({ id, name, defaultModel }) =>
       id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: CODEX_MODELS }],
+    ),
+    ...draft.copilotCliEngines.flatMap(({ id, name, defaultModel }) =>
+      id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: COPILOT_CLI_MODELS }],
     ),
     ...draft.apiEndpoints.flatMap((endpoint) =>
       endpoint.id === undefined
@@ -345,6 +377,7 @@ function whatSaveSees(draft: EngineSettingsDraft, saved: EngineSettings): unknow
   return {
     claudeCodeEngines: draft.claudeCodeEngines,
     codexEngines: draft.codexEngines,
+    copilotCliEngines: draft.copilotCliEngines,
     apiEndpoints: draft.apiEndpoints,
     officeDefault: draft.officeDefault,
     searchEndpoint: draft.searchEndpoint,

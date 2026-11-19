@@ -1,8 +1,10 @@
 import {
   CODEX_MODELS,
+  COPILOT_CLI_MODELS,
   type ApiEngine,
   type ClaudeCodeEngine,
   type CodexEngine,
+  type CopilotCliEngine,
   type EngineSettings,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -15,6 +17,7 @@ import {
   NEW_API_ENDPOINT,
   newClaudeCodeEngine,
   newCodexEngine,
+  newCopilotCliEngine,
   officeDefaultChoicesOf,
   offeredDefaultModel,
   offeredModelKey,
@@ -72,6 +75,20 @@ const CODEX: CodexEngine = {
   defaultModel: "gpt-5.6-terra",
 };
 
+const COPILOT_CLI: CopilotCliEngine = {
+  id: "copilot",
+  name: "Copilot",
+  kind: "copilot-cli",
+  defaultModel: "auto",
+};
+
+/** Saved with a Copilot CLI engine: its models are priced on the engine, after the endpoints'. */
+const SAVED_WITH_COPILOT_CLI: EngineSettings = {
+  ...SAVED,
+  engines: [CLAUDE_CODE, COPILOT_CLI, STRATA],
+  modelPrices: [...MODEL_PRICES, { engineId: "copilot", model: "auto", price: null }],
+};
+
 /** Saved with a Codex engine: the service lists the Codex models under no engine after Claude's. */
 const SAVED_WITH_CODEX: EngineSettings = {
   ...SAVED,
@@ -102,6 +119,7 @@ describe("Settings › Engines' draft", () => {
     expect(draftOf(SAVED)).toEqual({
       claudeCodeEngines: [CLAUDE_CODE],
       codexEngines: [],
+      copilotCliEngines: [],
       apiEndpoints: [
         {
           id: "strata",
@@ -474,6 +492,87 @@ describe("Settings › Engines' draft", () => {
         { id: "codex", name: "Codex", defaultModel: "gpt-5.6-terra", models: CODEX_MODELS },
         { id: "strata", name: "Strata", defaultModel: "qwen3", models: ["qwen3"] },
       ]);
+    });
+  });
+
+  describe("with Copilot CLI engines", () => {
+    it("keeps the Copilot CLI engines apart and adds a new one on Auto", () => {
+      expect(draftOf(SAVED_WITH_COPILOT_CLI).copilotCliEngines).toEqual([COPILOT_CLI]);
+      expect(newCopilotCliEngine()).toEqual({
+        name: "",
+        kind: "copilot-cli",
+        defaultModel: "auto",
+      });
+    });
+
+    it("prices Auto on the engine, after the endpoints' models, once the engine has a name", () => {
+      const draft = {
+        ...draftOf(SAVED_WITH_COPILOT_CLI),
+        copilotCliEngines: [
+          ...draftOf(SAVED_WITH_COPILOT_CLI).copilotCliEngines,
+          newCopilotCliEngine(),
+        ],
+      };
+      expect(offeredModelsOf(draft, SAVED_WITH_COPILOT_CLI).slice(-1)).toEqual([
+        { engineId: "copilot", model: "auto" },
+      ]);
+
+      const named = {
+        ...draft,
+        copilotCliEngines: [COPILOT_CLI, { ...newCopilotCliEngine(), name: "Work" }],
+      };
+      expect(offeredModelsOf(named, SAVED_WITH_COPILOT_CLI).slice(-2)).toEqual([
+        { engineId: "copilot", model: "auto" },
+        { engineId: "work", model: "auto" },
+      ]);
+    });
+
+    it("sends the Copilot CLI engines after the Codex engines, with Auto's price under its engine", () => {
+      const draft = setPrice(
+        {
+          ...draftOf(SAVED_WITH_COPILOT_CLI),
+          copilotCliEngines: [{ ...newCopilotCliEngine(), name: "Work" }],
+        },
+        offeredModelKey({ engineId: "work", model: "auto" }),
+        { input: "1", output: "2", cacheWrites: "0", cacheReads: "0" },
+      );
+      const edit = engineSettingsEditOf(draft, SAVED_WITH_COPILOT_CLI);
+
+      expect(edit?.engines.map(({ kind }) => kind)).toEqual([
+        "claude-code",
+        "copilot-cli",
+        "openai-compatible-api",
+      ]);
+      expect(edit?.modelPrices).toContainEqual({
+        engineId: "work",
+        model: "auto",
+        price: { input: 1, output: 2, cacheWrites: 0, cacheReads: 0 },
+      });
+    });
+
+    it("gives a new Copilot CLI engine its id after the Codex engines' and before the endpoints'", () => {
+      const draft = {
+        ...draftOf(SAVED),
+        codexEngines: [{ ...newCodexEngine(SAVED), name: "Work" }],
+        copilotCliEngines: [{ ...newCopilotCliEngine(), name: "Work" }],
+        apiEndpoints: [{ ...NEW_API_ENDPOINT, name: "Work" }],
+      };
+
+      const drafted = draftedEngines(draft, SAVED);
+      expect(drafted.codexEngines.map(({ id }) => id)).toEqual(["work"]);
+      expect(drafted.copilotCliEngines.map(({ id }) => id)).toEqual(["work-2"]);
+      expect(drafted.apiEndpoints.map(({ id }) => id)).toEqual(["work-3"]);
+    });
+
+    it("offers a saved Copilot CLI engine for the Office default with Auto", () => {
+      expect(
+        officeDefaultChoicesOf(draftOf(SAVED_WITH_COPILOT_CLI), SAVED_WITH_COPILOT_CLI),
+      ).toContainEqual({
+        id: "copilot",
+        name: "Copilot",
+        defaultModel: "auto",
+        models: COPILOT_CLI_MODELS,
+      });
     });
   });
 });

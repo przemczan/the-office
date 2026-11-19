@@ -34,7 +34,7 @@ import { officeRulesHook, type HookRewrites } from "../claude-code/office-rules-
 import { toolDecision, type SessionHolds } from "../office-rules/tool-decision.js";
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
-import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { apiKeyHelperOf } from "../claude-code/engine-credentials.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { carrySessionOver } from "../claude-code/session-carry-over.js";

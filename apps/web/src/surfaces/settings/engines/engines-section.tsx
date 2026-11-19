@@ -41,6 +41,7 @@ import {
   NEW_API_ENDPOINT,
   newClaudeCodeEngine,
   newCodexEngine,
+  newCopilotCliEngine,
   officeDefaultChoicesOf,
   offeredModelKey,
   priceTextIn,
@@ -173,6 +174,13 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
             codex: () => {
               setDraft({ ...draft, codexEngines: [...draft.codexEngines, newCodexEngine(saved)] });
               select({ kind: "codex", index: draft.codexEngines.length }, "settings");
+            },
+            "copilot-cli": () => {
+              setDraft({
+                ...draft,
+                copilotCliEngines: [...draft.copilotCliEngines, newCopilotCliEngine()],
+              });
+              select({ kind: "copilot-cli", index: draft.copilotCliEngines.length }, "settings");
             },
             "openai-compatible-api": () => {
               setDraft({ ...draft, apiEndpoints: [...draft.apiEndpoints, NEW_API_ENDPOINT] });

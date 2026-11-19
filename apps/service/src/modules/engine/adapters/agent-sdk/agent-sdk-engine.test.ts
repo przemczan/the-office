@@ -17,7 +17,7 @@ import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
 import { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { AgentEngines } from "../../application/agent-engines.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
-import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { EngineModels } from "../../application/engine-models.js";
 import { ModelPrices } from "../../application/model-prices.js";
 import { RunningEngineSessions } from "../../application/running-engine-sessions.js";
@@ -197,6 +197,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
           "claude-code-p": engine,
           "openai-compatible-api": engine,
           codex: engine,
+          "copilot-cli": engine,
         }),
         new Telemetry(trace.getTracer("test"), metrics.getMeter("test")),
         events,

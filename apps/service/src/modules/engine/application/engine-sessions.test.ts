@@ -1,14 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import { EngineDown } from "../domain/engine-events.js";
+import { UnavailableCopilotCliEngine } from "../adapters/copilot-cli/unavailable-copilot-cli-engine.js";
 import {
   FIRST_CLAUDE_CODE_ENGINE,
   type ApiEngine,
   type ClaudeCodeEngine,
+  type CopilotCliEngine,
 } from "../domain/engines.js";
 import {
   EngineNotListed,
   SessionSkillsDiffer,
+  SessionsNotRunYet,
+  type AgentEngine,
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
 import { MeterProvider, MetricReader } from "@opentelemetry/sdk-metrics";
@@ -137,6 +141,7 @@ function setUp(
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -144,7 +149,7 @@ function setUp(
 }
 
 function setUpOn(
-  engines: Readonly<Record<EngineAdapter, ScriptedEngine>>,
+  engines: Readonly<Record<EngineAdapter, AgentEngine>>,
   settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
   languageServers: SessionLanguageServers = new NoLanguageServers(),
 ) {
@@ -235,6 +240,7 @@ function twoEngines(scripts: {
       "claude-code-p": claudeCodeP,
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     }),
   };
 }
@@ -314,6 +320,66 @@ describe("EngineSessions", () => {
   });
 });
 
+const COPILOT: CopilotCliEngine = {
+  id: "copilot",
+  name: "Copilot",
+  kind: "copilot-cli",
+  defaultModel: "auto",
+  token: null,
+};
+
+describe("EngineSessions on a Copilot CLI engine", () => {
+  function onCopilot() {
+    return setUpOn(
+      {
+        "agent-sdk": new ScriptedEngine([]),
+        "claude-code-p": new ScriptedEngine([]),
+        "openai-compatible-api": new ScriptedEngine([]),
+        codex: new ScriptedEngine([]),
+        "copilot-cli": new UnavailableCopilotCliEngine(),
+      },
+      new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, COPILOT] }),
+    );
+  }
+
+  const ON_COPILOT: SessionSettings = {
+    ...SETTINGS,
+    engineId: COPILOT.id,
+    model: "auto",
+    officeTools: [],
+  };
+
+  it("refuses a session, started or resumed, in words saying it can't run yet, the engine not down", async () => {
+    const { sessions, published, running } = onCopilot();
+
+    for (const opened of [
+      sessions.start({ id: "s-1", settings: ON_COPILOT, brief: message("Begin.") }),
+      sessions.resume("s-2", ON_COPILOT),
+    ]) {
+      await expect(opened).rejects.toThrow(SessionsNotRunYet);
+      await expect(opened).rejects.toThrow("Sessions on a Copilot CLI engine can't run yet.");
+    }
+    expect(published).toEqual([]);
+    await running.allEnded(COPILOT.id);
+  });
+
+  it("names every capability missing, so the Role card names what it can't do", () => {
+    const { sessions } = onCopilot();
+
+    expect(sessions.missingCapabilitiesOf(COPILOT)).toEqual([
+      "bargeIn",
+      "interrupt",
+      "resume",
+      "usageWindows",
+      "contextUsage",
+      "officeTools",
+      "outputSchema",
+      "languageServers",
+      "carrySession",
+    ]);
+  });
+});
+
 describe("EngineSessions on each engine's adapter", () => {
   it("starts and resumes each session on the engine it names", async () => {
     const { sessions, agentSdk, claudeCodeP } = twoEngines({
@@ -346,6 +412,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
         "openai-compatible-api": new ScriptedEngine([ONE_TURN], { usageWindows: false }),
         codex: new ScriptedEngine([]),
+        "copilot-cli": new ScriptedEngine([]),
       });
 
       await oneTurn(sessions, SETTINGS);

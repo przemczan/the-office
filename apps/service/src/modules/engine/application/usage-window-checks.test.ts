@@ -59,6 +59,7 @@ function setUp() {
       "claude-code-p": engine,
       "openai-compatible-api": engine,
       codex: engine,
+      "copilot-cli": engine,
     }),
     new EngineModels(
       new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, LAB, FALLBACK] }),

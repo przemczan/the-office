@@ -9,7 +9,8 @@ import {
   type EngineSettings,
 } from "./engine-settings.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
-import { FIRST_CLAUDE_CODE_ENGINE } from "./engines.js";
+import { CopilotCliToken } from "./copilot-cli-token.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type CopilotCliEngine } from "./engines.js";
 import type { ModelPrice, OfferedModel } from "./model-prices.js";
 import {
   codex,
@@ -412,6 +413,43 @@ describe("Model prices", () => {
       { engineId: null, model: "gpt-5.6-luna", price: null },
       { engineId: "strata", model: strataFlash, price: null },
     ]);
+  });
+
+  it("keeps a Copilot CLI engine's token on a Save, refuses a model it doesn't offer, and prices Auto on that engine", () => {
+    const copilot: CopilotCliEngine = {
+      id: "copilot",
+      name: "Copilot",
+      kind: "copilot-cli",
+      defaultModel: "auto",
+      token: CopilotCliToken.of("github_pat_11A_kept"),
+    };
+    const withCopilot: EngineSettings = { ...stored, engines: [...stored.engines, copilot] };
+    const auto: ModelPrice = { input: 1, output: 4, cacheWrites: 0, cacheReads: 0.1 };
+    const copilotEdit = {
+      id: "copilot",
+      name: "Renamed",
+      kind: "copilot-cli",
+      defaultModel: "auto",
+    } as const;
+
+    const changed = changedEngineSettings(
+      withCopilot,
+      editOf([strataEdit(), copilotEdit], {
+        modelPrices: [{ engineId: "copilot", model: "auto", price: auto }],
+      }),
+    );
+
+    const [, , saved] = changed.engines;
+    expect(saved).toMatchObject({ id: "copilot", name: "Renamed", kind: "copilot-cli" });
+    expect(saved?.kind === "copilot-cli" && saved.token?.reveal()).toBe("github_pat_11A_kept");
+    expect(offeredModelPrices(changed)).toContainEqual({
+      engineId: "copilot",
+      model: "auto",
+      price: auto,
+    });
+    expect(
+      refusal(withCopilot, editOf([strataEdit(), { ...copilotEdit, defaultModel: "gpt-6-luna" }])),
+    ).toContain('Pick the default model of "Renamed" among its models.');
   });
 
   it("keeps the Codex models' prices once the last Codex engine is removed, beside a Claude Code engine", () => {

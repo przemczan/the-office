@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { codexAccountLine, engineAccountLine } from "./engine-account-words.ts";
+import {
+  codexAccountLine,
+  copilotCliAccountLine,
+  engineAccountLine,
+} from "./engine-account-words.ts";
 
 const SIGNED_OUT = { signedIn: false, pastedToken: false, apiKey: false, email: null, plan: null };
 
@@ -56,5 +60,27 @@ describe("a Codex engine's account line", () => {
     expect(codexAccountLine({ ...SIGNED_OUT, signedIn: true, apiKey: true })).toBe(
       "Signed in with an API key",
     );
+  });
+});
+
+describe("a Copilot CLI engine's account line", () => {
+  it("says it is signed out", () => {
+    expect(copilotCliAccountLine(SIGNED_OUT)).toBe("Signed out");
+  });
+
+  it("gives the GitHub login of a Sign in, when told", () => {
+    expect(copilotCliAccountLine({ ...SIGNED_OUT, signedIn: true, email: "octocat" })).toBe(
+      "Signed in as octocat",
+    );
+    expect(copilotCliAccountLine({ ...SIGNED_OUT, signedIn: true })).toBe("Signed in");
+  });
+
+  it("says a pasted token signed it in, with the login when told", () => {
+    expect(copilotCliAccountLine({ ...SIGNED_OUT, signedIn: true, pastedToken: true })).toBe(
+      "Signed in by a pasted token",
+    );
+    expect(
+      copilotCliAccountLine({ ...SIGNED_OUT, signedIn: true, pastedToken: true, email: "octocat" }),
+    ).toBe("Signed in as octocat by a pasted token");
   });
 });

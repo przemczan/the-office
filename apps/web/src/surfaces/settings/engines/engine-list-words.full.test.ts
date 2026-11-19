@@ -2,6 +2,7 @@ import type {
   ApiEngine,
   ClaudeCodeEngine,
   CodexEngine,
+  CopilotCliEngine,
   EngineSettings,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -9,6 +10,7 @@ import {
   apiEndpointSummary,
   claudeCodeEngineSummary,
   codexEngineSummary,
+  copilotCliEngineSummary,
   draftedIdAt,
   engineAt,
   engineCalled,
@@ -28,6 +30,7 @@ import {
   NEW_API_ENDPOINT,
   newClaudeCodeEngine,
   newCodexEngine,
+  newCopilotCliEngine,
   offeredModelKey,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
@@ -194,7 +197,12 @@ describe("Codex engines in Settings › Engines' list", () => {
 
   it("calls the kind Codex, with an Account tab, and a new one by its kind", () => {
     expect(ENGINE_KIND_LABELS.codex).toBe("Codex");
-    expect(Object.values(ENGINE_KIND_LABELS)).toEqual(["Claude Code", "Codex", "API endpoint"]);
+    expect(Object.values(ENGINE_KIND_LABELS)).toEqual([
+      "Claude Code",
+      "Codex",
+      "Copilot CLI",
+      "API endpoint",
+    ]);
     expect(engineTabsOf("codex")).toEqual(["settings", "account", "prices"]);
     expect(engineCalled(newCodexEngine(SAVED))).toBe("the new Codex engine");
   });
@@ -319,5 +327,89 @@ describe("what holds Save in Settings › Engines", () => {
 
     expect(engineProblem(draft, SAVED, STRATA_FIRST)).toBe("It offers no model yet");
     expect(saveHeldBy(draft, SAVED)).toBeUndefined();
+  });
+});
+
+describe("Copilot CLI engines in Settings › Engines' list", () => {
+  const COPILOT_CLI: CopilotCliEngine = {
+    id: "copilot",
+    name: "Copilot",
+    kind: "copilot-cli",
+    defaultModel: "auto",
+  };
+  const COPILOT_CLI_FIRST = { kind: "copilot-cli", index: 0 } as const;
+  const SAVED_WITH_COPILOT_CLI: EngineSettings = {
+    ...SAVED,
+    engines: [CLAUDE_CODE, COPILOT_CLI, STRATA],
+    modelPrices: [...SAVED.modelPrices, { engineId: "copilot", model: "auto", price: null }],
+  };
+
+  it("lists them after the Codex engines and before the endpoints", () => {
+    expect(engineSelectionsOf(draftOf(SAVED_WITH_COPILOT_CLI))).toEqual([
+      CLAUDE_CODE_FIRST,
+      COPILOT_CLI_FIRST,
+      STRATA_FIRST,
+    ]);
+    expect(engineAt(draftOf(SAVED_WITH_COPILOT_CLI), COPILOT_CLI_FIRST)).toEqual(COPILOT_CLI);
+  });
+
+  it("calls the kind Copilot CLI, with an Account tab, and a new one by its kind", () => {
+    expect(ENGINE_KIND_LABELS["copilot-cli"]).toBe("Copilot CLI");
+    expect(engineTabsOf("copilot-cli")).toEqual(["settings", "account", "prices"]);
+    expect(engineCalled(newCopilotCliEngine())).toBe("the new Copilot CLI engine");
+  });
+
+  it("says whether it is signed in, with its default model as Auto", () => {
+    const signedIn = { signedIn: true, pastedToken: true, apiKey: false, email: null, plan: null };
+
+    expect(copilotCliEngineSummary("auto", signedIn)).toBe("Signed in · Auto");
+    expect(copilotCliEngineSummary("auto", { ...signedIn, signedIn: false })).toBe(
+      "Signed out · Auto",
+    );
+    expect(copilotCliEngineSummary("auto", "not-saved")).toBe("Signed in once saved · Auto");
+  });
+
+  it("prices Auto on the engine itself, none while a new one has no name", () => {
+    const draft = draftOf(SAVED_WITH_COPILOT_CLI);
+
+    expect(pricedModelsAt(draft, SAVED_WITH_COPILOT_CLI, COPILOT_CLI_FIRST)).toEqual([
+      { engineId: "copilot", model: "auto" },
+    ]);
+    expect(
+      pricedModelsAt(
+        { ...draft, copilotCliEngines: [newCopilotCliEngine()] },
+        SAVED_WITH_COPILOT_CLI,
+        COPILOT_CLI_FIRST,
+      ),
+    ).toEqual([]);
+  });
+
+  it("marks the engine for a half-typed price and names it on the Save bar", () => {
+    const draft = withHalfAPrice(
+      draftOf(SAVED_WITH_COPILOT_CLI),
+      offeredModelKey({ engineId: "copilot", model: "auto" }),
+    );
+
+    expect(engineProblem(draft, SAVED_WITH_COPILOT_CLI, COPILOT_CLI_FIRST)).toBe(
+      "A model's price needs fixing",
+    );
+    expect(saveHeldBy(draft, SAVED_WITH_COPILOT_CLI)).toEqual({
+      selection: COPILOT_CLI_FIRST,
+      line: "A price under Models and prices of Copilot needs fixing before Save.",
+    });
+  });
+
+  it("changes, removes and gives the id of the Copilot CLI engine selected, and no other", () => {
+    const draft = draftOf(SAVED_WITH_COPILOT_CLI);
+    const renamed = { ...COPILOT_CLI, name: "Work" };
+
+    expect(withEngineChanged(draft, COPILOT_CLI_FIRST, renamed).copilotCliEngines).toEqual([
+      renamed,
+    ]);
+    expect(withEngineChanged(draft, STRATA_FIRST, renamed)).toBe(draft);
+    expect(withoutEngine(draft, COPILOT_CLI_FIRST).copilotCliEngines).toEqual([]);
+    expect(draftedIdAt(draftedEngines(draft, SAVED_WITH_COPILOT_CLI), COPILOT_CLI_FIRST)).toBe(
+      "copilot",
+    );
   });
 });

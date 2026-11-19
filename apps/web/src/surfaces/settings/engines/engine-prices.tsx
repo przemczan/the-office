@@ -65,6 +65,39 @@ export function CodexModelPrices({
   );
 }
 
+/**
+ * A Copilot CLI engine's Models and prices: its models priced on the engine itself, as an API
+ * endpoint's are, so a new engine's wait for its name.
+ */
+export function CopilotCliModelPrices({
+  models,
+  called,
+  prices,
+}: {
+  readonly models: readonly PricedModel[];
+  readonly called: string;
+  readonly prices: PriceFields;
+}): ReactNode {
+  return (
+    <div className="engine-tab">
+      <PricesNote />
+      {models.length === 0 && (
+        <p className="settings-note">Give the engine a name under Settings to price its models.</p>
+      )}
+      <div className="engine-prices" role="group" aria-label={`Models of ${called}`}>
+        {models.map((model) => (
+          <ModelPriceFields
+            key={model.model}
+            label={modelLabel(model.model)}
+            text={prices.priceTextOf(model)}
+            change={(text) => prices.change(model, text)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SharedModelPrices({
   models,
   prices,

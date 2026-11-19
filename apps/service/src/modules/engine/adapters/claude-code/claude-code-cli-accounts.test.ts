@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isOwnerOnly } from "../../../../platform/os/owner-only.fixtures.js";
 import { API_KEY_ACCOUNT } from "../../domain/engine-account.js";
-import { engineConfigFolder, NotAnEngineConfigFolder } from "./engine-config-folder.js";
+import {
+  engineConfigFolder,
+  NotAnEngineConfigFolder,
+} from "../engine-folders/engine-config-folder.js";
 import { apiKeyHelperOf } from "./engine-credentials.js";
 import {
   API_KEY,

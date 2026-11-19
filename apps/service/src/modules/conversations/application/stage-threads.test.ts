@@ -188,6 +188,7 @@ async function startOn(
               "claude-code-p": fallback,
               "openai-compatible-api": engine,
               codex: engine,
+              "copilot-cli": engine,
             }
           : engine,
       ),

@@ -117,6 +117,7 @@ beforeEach(async () => {
         "claude-code-p": claudeCode,
         "openai-compatible-api": api.engine,
         codex: new ScriptedEngine([]),
+        "copilot-cli": new ScriptedEngine([]),
       }),
     ],
     overrides: [

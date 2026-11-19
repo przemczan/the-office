@@ -78,5 +78,6 @@ function perEngine(
     "claude-code-p": engines,
     "openai-compatible-api": engines,
     codex: engines,
+    "copilot-cli": engines,
   };
 }

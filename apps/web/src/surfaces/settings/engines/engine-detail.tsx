@@ -7,6 +7,8 @@ import { ClaudeCodeEngineAccount } from "./claude-code-engine-account.tsx";
 import { ClaudeCodeEngineFields } from "./claude-code-engine-fields.tsx";
 import { CodexEngineAccount } from "./codex-engine-account.tsx";
 import { CodexEngineFields } from "./codex-engine-fields.tsx";
+import { CopilotCliEngineAccount } from "./copilot-cli-engine-account.tsx";
+import { CopilotCliEngineFields } from "./copilot-cli-engine-fields.tsx";
 import {
   ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
@@ -20,12 +22,13 @@ import {
   ApiEndpointModels,
   ClaudeModelPrices,
   CodexModelPrices,
+  CopilotCliModelPrices,
   type PriceFields,
 } from "./engine-prices.tsx";
 
 /**
- * The selected engine: its name with Remove, and its tabs: Settings, a Claude Code or Codex
- * engine's Account, and Models and prices.
+ * The selected engine: its name with Remove, and its tabs: Settings, a Claude Code, Codex or
+ * Copilot CLI engine's Account, and Models and prices.
  */
 export function EngineDetail({
   engine,
@@ -104,6 +107,21 @@ export function EngineDetail({
             )
           ) : (
             <CodexModelPrices models={pricedModels} prices={prices} />
+          )
+        ) : engine.kind === "copilot-cli" ? (
+          tab === "settings" ? (
+            <CopilotCliEngineFields edit={engine} change={change} />
+          ) : tab === "account" ? (
+            engine.id === undefined ? (
+              <p className="settings-note">
+                It has no account to sign in yet: Save, then sign it in here, with GitHub or a
+                token.
+              </p>
+            ) : (
+              <CopilotCliEngineAccount key={engine.id} engineId={engine.id} />
+            )
+          ) : (
+            <CopilotCliModelPrices models={pricedModels} called={called} prices={prices} />
           )
         ) : tab === "prices" ? (
           <ApiEndpointModels

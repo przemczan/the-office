@@ -72,6 +72,7 @@ function setUp(
       "claude-code-p": claudeCodeP,
       "openai-compatible-api": new ScriptedEngine([], { carrySession: false }),
       codex: new ScriptedEngine([], { carrySession: false }),
+      "copilot-cli": new ScriptedEngine([], { carrySession: false }),
     }),
     setUpTelemetry().telemetry,
     events,

@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
+import { CopilotCliToken } from "../../domain/copilot-cli-token.js";
 import {
   DEFAULT_ENGINE_SETTINGS,
   FIRST_OFFICE_DEFAULT,
@@ -80,6 +81,13 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       .set({ key: key?.reveal() ?? null })
       .where(and(eq(engines.id, engineId), eq(engines.kind, "codex")));
   }
+
+  async setCopilotCliToken(engineId: EngineId, token: CopilotCliToken | null): Promise<void> {
+    await this.database
+      .update(engines)
+      .set({ key: token?.reveal() ?? null })
+      .where(and(eq(engines.id, engineId), eq(engines.kind, "copilot-cli")));
+  }
 }
 
 function officeDefaultOf({
@@ -102,6 +110,9 @@ function engineOf({
   if (kind === "claude-code") return { id, name, kind, defaultModel, claudeCodeP };
   if (kind === "codex") {
     return { id, name, kind, defaultModel, apiKey: key === null ? null : CodexApiKey.of(key) };
+  }
+  if (kind === "copilot-cli") {
+    return { id, name, kind, defaultModel, token: key === null ? null : CopilotCliToken.of(key) };
   }
   return {
     id,
@@ -126,6 +137,14 @@ function engineRowOf(engine: Engine, position: number): EngineRow {
         claudeCodeP: false,
         baseUrl: null,
         key: engine.apiKey?.reveal() ?? null,
+        models: null,
+      };
+    case "copilot-cli":
+      return {
+        ...common,
+        claudeCodeP: false,
+        baseUrl: null,
+        key: engine.token?.reveal() ?? null,
         models: null,
       };
     case "openai-compatible-api":

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { SignInFailed, SignInNotRunning } from "../../ports/claude-code-accounts.js";
-import { engineConfigFolder } from "./engine-config-folder.js";
+import { engineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { TOKEN, officeData, accounts, setUpEachTest } from "./claude-code-cli-accounts.fixtures.js";
 
 setUpEachTest();

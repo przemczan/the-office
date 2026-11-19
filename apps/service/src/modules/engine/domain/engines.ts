@@ -1,14 +1,15 @@
 import type { ApiEndpointModel } from "./api-endpoints.js";
 import type { CodexApiKey } from "./codex-api-key.js";
+import type { CopilotCliToken } from "./copilot-cli-token.js";
 
 /** Made from the engine's name when it is added and kept on a rename (spec §5.4). */
 export type EngineId = string;
 
 /**
- * What an engine is: a Claude Code account, an API endpoint of the OpenAI-compatible API, or an
- * OpenAI account on Codex.
+ * What an engine is: a Claude Code account, an API endpoint of the OpenAI-compatible API, an
+ * OpenAI account on Codex, or a GitHub account with Copilot on the Copilot CLI.
  */
-export type EngineKind = "claude-code" | "openai-compatible-api" | "codex";
+export type EngineKind = "claude-code" | "openai-compatible-api" | "codex" | "copilot-cli";
 
 interface EngineBase {
   readonly id: EngineId;
@@ -48,8 +49,21 @@ export interface CodexEngine extends EngineBase {
   readonly apiKey: CodexApiKey | null;
 }
 
+/**
+ * A GitHub account with Copilot, whose sessions run on the Copilot CLI runtime the pinned
+ * `@microsoft/copilot-sdk` bundles (spec §5.4, "The Copilot CLI engine").
+ */
+export interface CopilotCliEngine extends EngineBase {
+  readonly kind: "copilot-cli";
+  /**
+   * The token "Paste a token instead" signed it in with, kept so; null when a Sign in or nothing
+   * signs it in. Never sent back, and a Save of Settings › Engines keeps it.
+   */
+  readonly token: CopilotCliToken | null;
+}
+
 /** An engine the user lists in Settings › Engines (spec §5.4), which caps and usage are kept by. */
-export type Engine = ClaudeCodeEngine | ApiEngine | CodexEngine;
+export type Engine = ClaudeCodeEngine | ApiEngine | CodexEngine | CopilotCliEngine;
 
 /** The models the pinned binary offers, on every Claude Code engine, by their ids. */
 export const CLAUDE_CODE_MODELS = [
@@ -63,6 +77,18 @@ export const CLAUDE_CODE_MODELS = [
  * `model/list` showed them (docs/engine-check.md, `codex.start`), its hidden ones left out.
  */
 export const CODEX_MODELS = ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"] as const;
+
+/**
+ * Auto, the Copilot CLI engine's model that names none and lets the runtime choose: its default,
+ * as a token-signed account may list no models and the runtime refuses any model it doesn't list.
+ */
+export const COPILOT_CLI_AUTO_MODEL = "auto";
+
+/**
+ * The models a Copilot CLI engine offers. Spec §5.4 adds those the runtime lists for the account;
+ * until its adapter reads them, Auto alone.
+ */
+export const COPILOT_CLI_MODELS = [COPILOT_CLI_AUTO_MODEL] as const;
 
 /** The Claude Code setup before engines were a list, as the upgrade turns it into a row. */
 export const FIRST_CLAUDE_CODE_ENGINE: ClaudeCodeEngine = {
@@ -97,6 +123,8 @@ export function offeredModels(engine: Engine): readonly string[] {
       return CLAUDE_CODE_MODELS;
     case "codex":
       return CODEX_MODELS;
+    case "copilot-cli":
+      return COPILOT_CLI_MODELS;
     case "openai-compatible-api":
       return engine.models.map(({ id }) => id);
   }
@@ -104,8 +132,8 @@ export function offeredModels(engine: Engine): readonly string[] {
 
 /**
  * Whether `engine`'s account has usage windows (spec §5.4): a Claude Code account's and a Codex
- * account's, each unless an API key signs it in. Whether an engine reads them is its adapter's
- * capability (`usageWindows`).
+ * account's, each unless an API key signs it in; never a Copilot CLI account's, by decision.
+ * Whether an engine reads them is its adapter's capability (`usageWindows`).
  */
 export function hasUsageWindows(engine: Engine): boolean {
   switch (engine.kind) {
@@ -113,9 +141,18 @@ export function hasUsageWindows(engine: Engine): boolean {
       return engine.signedInByApiKey !== true;
     case "codex":
       return engine.apiKey === null;
+    case "copilot-cli":
     case "openai-compatible-api":
       return false;
   }
+}
+
+/**
+ * Whether `engine`'s models are priced on it alone (spec §5.4): an API engine's and a Copilot CLI
+ * engine's are; the Claude and Codex models share one price across their engines.
+ */
+export function pricedPerEngine(engine: Engine): boolean {
+  return engine.kind === "openai-compatible-api" || engine.kind === "copilot-cli";
 }
 
 /** An engine and one of its models, by its id there. */
