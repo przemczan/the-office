@@ -10,6 +10,7 @@ import {
 import { IMAGE_UPLOAD_BYTES } from "@the-office/contracts";
 import { GitIdentityModule } from "../../platform/git-identity/git-identity.module.js";
 import { uploadBody } from "../../platform/http/upload-body.js";
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { ImageFolder } from "../../platform/images/image-folder.js";
 import { OfficeDataDirectory } from "../../platform/office-data/office-data-directory.js";
 import { EngineModule } from "../engine/index.js";
@@ -19,20 +20,24 @@ import { SkillsModule } from "../skills/index.js";
 import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
-import { GitHubApiPullRequests } from "./adapters/github/github-api-pull-requests.js";
+import { GitHubCodeHost } from "./adapters/github/github-code-host.js";
 import { BaseBranchFilesController } from "./adapters/http/base-branch-files.controller.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectImagesController } from "./adapters/http/project-images.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
+import { PullRequestsController } from "./adapters/http/pull-requests.controller.js";
 import { RepositoryClonesController } from "./adapters/http/repository-clones.controller.js";
 import { TaskChangesController } from "./adapters/http/task-changes.controller.js";
 import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres-environment-check-repository.js";
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
+import { PostgresPullRequestRepository } from "./adapters/postgres/postgres-pull-request-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
+import { PullRequestWebEvents } from "./adapters/websocket/pull-request-web-events.js";
 import { BaseBranchFiles } from "./application/base-branch-files.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
+import { CodeHosts } from "./application/code-hosts.js";
 import { ProjectRecords } from "./application/project-records.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
@@ -52,6 +57,8 @@ import { ProjectService } from "./application/project-service.js";
 import { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
 import { RepositoryClones } from "./application/repository-clones.js";
 import { Publishing } from "./application/publishing.js";
+import { PullRequestActions } from "./application/pull-request-actions.js";
+import { PullRequestWatch } from "./application/pull-request-watch.js";
 import { BranchUpdates } from "./application/branch-updates.js";
 import { Resolving } from "./application/resolving.js";
 import { ScriptCommands } from "./application/script-commands.js";
@@ -65,12 +72,12 @@ import { Git } from "./ports/git.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ProjectImageFiles } from "./ports/project-image-files.js";
 import { ProjectRepository } from "./ports/project-repository.js";
-import { PullRequests } from "./ports/pull-requests.js";
+import { PullRequestRepository } from "./ports/pull-request-repository.js";
 
 export interface ProjectsModuleOptions {
   /**
    * The modules that provide `knownPipelines`, and the github module, whose one instance opens
-   * pull requests (`GitHubPullRequests`).
+   * and reads pull requests (`GitHubPullRequests`).
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownPipelines: Type<KnownPipelines>;
@@ -97,6 +104,7 @@ export class ProjectsModule implements NestModule {
         McpServersModule,
         EngineModule,
         BusyWorkModule,
+        ScheduleModule,
       ],
       controllers: [
         ProjectsController,
@@ -106,6 +114,7 @@ export class ProjectsModule implements NestModule {
         TaskChangesController,
         BaseBranchFilesController,
         RepositoryClonesController,
+        PullRequestsController,
       ],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
@@ -118,7 +127,17 @@ export class ProjectsModule implements NestModule {
         },
         { provide: Git, useClass: CommandLineGit },
         RepositoryLocks,
-        { provide: PullRequests, useClass: GitHubApiPullRequests },
+        { provide: PullRequestRepository, useClass: PostgresPullRequestRepository },
+        GitHubCodeHost,
+        // Each remote's pull requests go to the first host that reaches its URL; another host,
+        // such as GitLab, is one more adapter of `CodeHost` in this list.
+        {
+          provide: CodeHosts,
+          inject: [GitHubCodeHost],
+          useFactory: (gitHub: GitHubCodeHost) => new CodeHosts([gitHub]),
+        },
+        PullRequestWatch,
+        PullRequestActions,
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
         TaskRunEnvironments,
@@ -149,6 +168,7 @@ export class ProjectsModule implements NestModule {
         CommittedFiles,
         InitiativeBranches,
         ProjectWebEvents,
+        PullRequestWebEvents,
         ProjectOfficeTools,
         ProjectRecords,
       ],

@@ -6,6 +6,7 @@ import type {
   EngineUsageEstimate as EngineUsageEstimateResponse,
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
+  PullRequestEnd as PullRequestEndResponse,
   QueuedTask as QueuedTaskResponse,
   SavedView as SavedViewResponse,
   SearchResults as SearchResultsResponse,
@@ -29,6 +30,7 @@ import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { commitMessageOf } from "../../domain/task-commit-message.js";
+import type { PullRequestEnd } from "../../domain/task-pull-request.js";
 import type { EngineUsage, UsageEstimate, UsageMeasure } from "../../domain/usage-estimate.js";
 import type { UsageSettings } from "../../domain/usage-settings.js";
 
@@ -148,6 +150,21 @@ export function toTaskResponse(task: Task): TaskResponse {
     createdAt: task.createdAt.toISOString(),
     archivedAt: task.archivedAt?.toISOString() ?? null,
     endedAt: task.endedAt?.toISOString() ?? null,
+    pullRequestEnd: task.pullRequestEnd ? toPullRequestEndResponse(task.pullRequestEnd) : null,
+  };
+}
+
+function toPullRequestEndResponse(end: PullRequestEnd): PullRequestEndResponse {
+  return {
+    outcome: end.outcome,
+    number: end.number,
+    url: end.url,
+    at: end.at.toISOString(),
+    method: end.method ?? null,
+    by:
+      end.by.kind === "code-host"
+        ? { kind: "code-host", name: end.by.name }
+        : toAuthorResponse(end.by),
   };
 }
 

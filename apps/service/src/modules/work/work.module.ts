@@ -98,6 +98,7 @@ import { InitiativeArchiving } from "./application/initiative-archiving.js";
 import { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.js";
 import { DroppedTaskDecisions } from "./application/dropped-task-decisions.js";
 import { PlanningAfterRestart } from "./application/planning-after-restart.js";
+import { PullRequestOutcomes } from "./application/pull-request-outcomes.js";
 import { TaskService } from "./application/task-service.js";
 import { PersonTasks } from "./application/person-tasks.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
@@ -277,6 +278,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeArchiving,
         DroppedInitiativeTasks,
         DroppedTaskDecisions,
+        PullRequestOutcomes,
         PlanningAfterRestart,
         OfficeLimits,
         RemovedEngineCaps,

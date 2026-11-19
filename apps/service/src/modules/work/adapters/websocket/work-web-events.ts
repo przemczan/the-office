@@ -65,6 +65,8 @@ import {
   TaskRestored,
   TaskDescriptionChanged,
   TaskCommitMessageChanged,
+  TaskPullRequestEnded,
+  TaskPullRequestReopened,
   TaskTitleChanged,
   TaskTagsChanged,
   TaskReordered,
@@ -290,6 +292,20 @@ export class WorkWebEvents implements OnModuleInit {
       TaskCommitMessageChanged,
       (event): WebEventOf<"task.commit-message-changed"> => ({
         type: "task.commit-message-changed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskPullRequestEnded,
+      (event): WebEventOf<"task.pull-request-end-changed"> => ({
+        type: "task.pull-request-end-changed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskPullRequestReopened,
+      (event): WebEventOf<"task.pull-request-end-changed"> => ({
+        type: "task.pull-request-end-changed",
         taskId: event.taskId,
       }),
     );

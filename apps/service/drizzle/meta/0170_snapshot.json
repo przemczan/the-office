@@ -1,5 +1,5 @@
 {
-  "id": "97c837fb-289b-40dc-8275-0b398b066331",
+  "id": "870635be-95f5-486a-888b-f3aac4f875bd",
   "prevId": "d2503f63-014f-492e-88ba-8b9db02bfc5a",
   "version": "7",
   "dialect": "postgresql",
@@ -1299,7 +1299,7 @@
         },
         "engines_kind": {
           "name": "engines_kind",
-          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> '')) OR (\"engines\".\"kind\" = 'copilot-cli' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
+          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
         }
       },
       "isRLSEnabled": false
@@ -3179,6 +3179,167 @@
           "value": "\"projects\".\"project_limit\" > 0"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.pull_requests": {
+      "name": "pull_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "remote_url": {
+          "name": "remote_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "branch": {
+          "name": "branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_branch": {
+          "name": "base_branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checks": {
+          "name": "checks",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mergeable": {
+          "name": "mergeable",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "head_commit": {
+          "name": "head_commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "base_commit": {
+          "name": "base_commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stale": {
+          "name": "stale",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "pull_requests_project_id_idx": {
+          "name": "pull_requests_project_id_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pull_requests_project_id_projects_id_fk": {
+          "name": "pull_requests_project_id_projects_id_fk",
+          "tableFrom": "pull_requests",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "pull_requests_remote_url_number_unique": {
+          "name": "pull_requests_remote_url_number_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "remote_url",
+            "number"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.prompt_template_versions": {

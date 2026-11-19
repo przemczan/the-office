@@ -11,7 +11,7 @@ import {
   PUBLISHING_TEST,
   PublishingTestbed,
   commitMessage,
-  type PullRequestsForTests,
+  type CodeHostForTests,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import type { Publishing } from "./publishing.js";
 import type { Worktrees } from "./worktrees.js";
@@ -19,7 +19,7 @@ import type { Worktrees } from "./worktrees.js";
 let testbed: PublishingTestbed;
 let repository: TemporaryRepository;
 let worktrees: Worktrees;
-let pullRequests: PullRequestsForTests;
+let pullRequests: CodeHostForTests;
 let publishing: Publishing;
 let git: CommandLineGit;
 
@@ -128,5 +128,28 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
         "publishing-mode",
       ),
     ).resolves.toMatchObject({ kind: "failed" });
+  });
+
+  it("still answers the pull request opened when it can't be recorded", async () => {
+    const task = await testbed.aTaskWithACommit(testbed.pullRequestProject());
+    testbed.records.failure = new Error("The database is gone.");
+    testbed.published.length = 0;
+    try {
+      await expect(
+        publishing.publish(
+          testbed.pullRequestProject(),
+          task.taskId,
+          commitMessage,
+          "publishing-mode",
+        ),
+      ).resolves.toEqual({
+        kind: "pull-request-opened",
+        branch: task.branch,
+        url: "https://github.com/notnullsoft/admin/pull/1",
+      });
+    } finally {
+      testbed.records.failure = undefined;
+    }
+    expect(testbed.published).toEqual([]);
   });
 });

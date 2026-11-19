@@ -27,6 +27,7 @@ import type {
   TaskMadeFor,
   TaskState,
 } from "../../domain/task.js";
+import type { PullRequestEnd, PullRequestMergeMethod } from "../../domain/task-pull-request.js";
 import { searchVectorOf } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
@@ -52,6 +53,16 @@ export interface ProjectMoveRow {
   readonly to: string;
   readonly at: string;
   readonly by: AuthorRow;
+}
+
+/** How a Task's pull request ended as jsonb keeps it: its time as an ISO string. */
+export interface PullRequestEndRow {
+  readonly outcome: PullRequestEnd["outcome"];
+  readonly number: number;
+  readonly url: string;
+  readonly at: string;
+  readonly method: PullRequestMergeMethod | null;
+  readonly by: AuthorRow | { readonly kind: "code-host"; readonly name: string };
 }
 
 export const ideas = pgTable("ideas", {
@@ -224,6 +235,8 @@ export const tasks = pgTable(
     restoredBy: jsonb("restored_by").$type<AuthorRow>(),
     /** Null while it hasn't ended, and for one whose end was never recorded. */
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** Null while its pull request hasn't ended, or is open again. */
+    pullRequestEnd: jsonb("pull_request_end").$type<PullRequestEndRow>(),
   },
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),

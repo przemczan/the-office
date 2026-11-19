@@ -15,6 +15,7 @@ import {
   taskStagesSchema,
   threadListSchema,
   threadSchema,
+  type AddProject,
   type Decision,
   type DecisionFormAnswer,
   type DecisionQuestion,
@@ -195,23 +196,22 @@ export async function addTestProject(
   path: string,
   { baseBranch = "main", publishingMode = "push-and-pull-request" }: TestProjectPublishing = {},
 ): Promise<Project> {
-  return projectSchema.parse(
-    await api("POST", "/projects", {
-      name: "notnullsoft-admin",
-      path,
-      baseBranch,
-      mark: { label: "NA", colour: "teal" },
-      commands: {
-        install: "npm install",
-        build: "npm run build",
-        lint: "npm run lint",
-        test: "npm test",
-      },
-      installInputs: ["package-lock.json"],
-      publishingMode,
-      defaultPipeline: "quick-fix",
-    }),
-  );
+  const project: AddProject = {
+    name: "notnullsoft-admin",
+    path,
+    baseBranch,
+    mark: { label: "NA", colour: "teal" },
+    installCommand: "npm install",
+    commands: [
+      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+    ],
+    installInputs: ["package-lock.json"],
+    publishingMode,
+    defaultPipeline: "quick-fix",
+  };
+  return projectSchema.parse(await api("POST", "/projects", project));
 }
 
 export async function untilThreadWaits(

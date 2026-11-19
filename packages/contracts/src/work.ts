@@ -4,6 +4,7 @@ import { engineIdSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
 import { pageQuerySchema, pageSchemaOf } from "./paging.js";
 import { projectFilterParamSchema } from "./project-filter.js";
+import { mergeMethodSchema } from "./pull-requests.js";
 import { userRefSchema } from "./users.js";
 
 /**
@@ -298,6 +299,26 @@ export const engineStandInSchema = z.object({
 });
 export type EngineStandIn = z.infer<typeof engineStandInSchema>;
 
+/** Who ended a Task's pull request: a user, from Work › Pull requests, or someone on its code host. */
+export const pullRequestEndedBySchema = z.discriminatedUnion("kind", [
+  ...authorSchema.options,
+  /** Someone on the code host, by its name, such as GitHub. */
+  z.object({ kind: z.literal("code-host"), name: z.string().min(1) }),
+]);
+export type PullRequestEndedBy = z.infer<typeof pullRequestEndedBySchema>;
+
+/** How a Task's pull request ended, as its page and record show it. */
+export const pullRequestEndSchema = z.object({
+  outcome: z.enum(["merged", "closed"]),
+  number: z.number().int().positive(),
+  url: z.url(),
+  at: z.iso.datetime(),
+  /** How it was merged; null when it was closed, or merged on the code host. */
+  method: mergeMethodSchema.nullable(),
+  by: pullRequestEndedBySchema,
+});
+export type PullRequestEnd = z.infer<typeof pullRequestEndSchema>;
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
@@ -384,6 +405,11 @@ export const taskSchema = newTaskSchema.extend({
    * never recorded.
    */
   endedAt: z.iso.datetime().nullable(),
+  /**
+   * How its pull request ended, merged or closed, from Work › Pull requests or on the code host; a
+   * mark beside its state, never one. Null while it has none, or its pull request is open again.
+   */
+  pullRequestEnd: pullRequestEndSchema.nullable(),
 });
 export type Task = z.infer<typeof taskSchema>;
 
@@ -1076,6 +1102,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.title-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.description-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.commit-message-changed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.pull-request-end-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.tags-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.marked-planned"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),

@@ -19,7 +19,7 @@ export function useTaskActions(
   const start = useStartActions(task);
   const runControls = useRunControlActions(task);
   const restore = useRestoreAction(task);
-  const pullRequest = pullRequestAction(taskStages);
+  const pullRequest = pullRequestAction(taskStages, task.pullRequestEnd);
   return [
     ...planning,
     ...start,

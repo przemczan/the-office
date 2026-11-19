@@ -15,6 +15,7 @@ import { stateChangeLines, type StateChange } from "./state-change.js";
 import { isPublishingTask, type Task } from "./task.js";
 import { commitMessageOf } from "./task-commit-message.js";
 import { NO_DESCRIPTION } from "./task-description.js";
+import { pullRequestEndWords } from "./task-pull-request.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 import { confirmationWords } from "./written-parts.js";
 
@@ -79,6 +80,7 @@ export function taskRecordText(
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
     ...archiveLines(task),
+    ...(task.pullRequestEnd ? [`- ${pullRequestEndWords(task.pullRequestEnd)}`] : []),
     ...task.projectMoves.map(
       ({ from, to, at, by }) =>
         `- Moved from Project ${from} to Project ${to} by ${authorWords(by)} on ${at.toISOString()}`,

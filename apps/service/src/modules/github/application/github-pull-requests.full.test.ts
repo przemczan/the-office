@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { GitHubRestApi } from "../adapters/github/github-rest-api.js";
 import { GitHubAccessFailed, NotSignedInWithGitHub } from "../domain/github-repository.js";
+import { PullRequestNotChanged } from "../domain/merge-refusal.js";
 import { PullRequestNotOpened } from "../domain/pull-request.js";
 import { FakeGitHub } from "../index.fixtures.js";
 import { GitHubAppForTests } from "../ports/github-app-repository.fixtures.js";
@@ -64,9 +65,10 @@ describe("opening a pull request on GitHub", () => {
     signIn();
     await pullRequests.open(aPullRequest());
 
-    await expect(pullRequests.open(aPullRequest({ base: "release" }))).resolves.toBe(
-      `${github.urls.web}/office/tools/pull/2`,
-    );
+    await expect(pullRequests.open(aPullRequest({ base: "release" }))).resolves.toEqual({
+      number: 2,
+      url: `${github.urls.web}/office/tools/pull/2`,
+    });
   });
 
   it("refuses in GitHub's words when it has nothing to open", async () => {
@@ -136,6 +138,49 @@ describe("why no pull request can be opened", () => {
 
     await expect(pullRequests.whyCannotOpen("git@gitlab.com:office/tools.git")).resolves.toBe(
       `The remote isn't a repository on ${new URL(github.urls.web).host}, and The Office opens pull requests on GitHub only.`,
+    );
+  });
+});
+
+function remoteUrl(): string {
+  return aPullRequest().remoteUrl;
+}
+
+describe("merging and closing a pull request on GitHub", () => {
+  it("quotes GitHub's refusal of a merge it can't make", async () => {
+    signIn();
+    await pullRequests.open(aPullRequest());
+    github.pullRequests.refuseMerge("office/tools", 1, 422, "Base branch was modified.");
+
+    await expect(
+      pullRequests.merge(remoteUrl(), 1, {
+        method: "merge",
+        expectedHeadCommit: github.pullRequests.opened[0]?.headSha ?? "",
+      }),
+    ).rejects.toThrow(new PullRequestNotChanged("GitHub refused: Base branch was modified."));
+  });
+
+  it("says GitHub couldn't be reached when the merge or close gets no answer", async () => {
+    signIn();
+    await pullRequests.open(aPullRequest());
+    const head = github.pullRequests.opened[0]?.headSha ?? "";
+    // Stopped, so nothing answers on its port.
+    await github.close();
+
+    await expect(
+      pullRequests.merge(remoteUrl(), 1, { method: "merge", expectedHeadCommit: head }),
+    ).rejects.toThrow(new PullRequestNotChanged("GitHub couldn't be reached."));
+    await expect(pullRequests.close(remoteUrl(), 1)).rejects.toThrow(
+      new PullRequestNotChanged("GitHub couldn't be reached."),
+    );
+    github = await FakeGitHub.start();
+  });
+
+  it("says the account can't close pull requests where GitHub doesn't show the repository", async () => {
+    signIn();
+
+    await expect(pullRequests.close(`${github.urls.web}/office/other.git`, 1)).rejects.toThrow(
+      new PullRequestNotChanged("Your GitHub account can't close pull requests in office/other."),
     );
   });
 });

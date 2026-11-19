@@ -14,7 +14,9 @@ import {
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
-import { PullRequests, type PullRequest } from "../ports/pull-requests.js";
+import { EventBus } from "../../../platform/events/event-bus.js";
+import { PullRequestRepositoryForTests } from "../ports/pull-request-repository.fixtures.js";
+import { CodeHosts } from "./code-hosts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Publishing } from "./publishing.js";
 import { Resolving } from "./resolving.js";
@@ -22,16 +24,6 @@ import { Worktrees } from "./worktrees.js";
 import { TaskBasesForTests } from "./task-bases.fixtures.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 import { taskCommandsOver } from "./task-command-runner.fixtures.js";
-
-class NoPullRequests extends PullRequests {
-  whyCannotOpen(): Promise<string | undefined> {
-    return Promise.reject(new Error("A merging Project opens no pull request."));
-  }
-
-  open(): Promise<PullRequest> {
-    return Promise.reject(new Error("A merging Project opens no pull request."));
-  }
-}
 
 // Real git on a temporary repository whose main tracks its origin's, which is a bare repository.
 let repository: TemporaryRepository;
@@ -61,7 +53,16 @@ beforeAll(async () => {
     taskBases,
   );
   resolving = new Resolving(git, commands, worktrees, taskBases);
-  publishing = new Publishing(git, new NoPullRequests(), commands, worktrees, taskBases);
+  // A merging Project opens no pull request, so no code host is needed.
+  publishing = new Publishing(
+    git,
+    new CodeHosts([]),
+    commands,
+    worktrees,
+    taskBases,
+    new PullRequestRepositoryForTests(),
+    new EventBus(),
+  );
 });
 
 afterAll(async () => {
