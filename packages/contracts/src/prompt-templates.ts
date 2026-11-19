@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { webEventSchema } from "./events.js";
 import { userRefSchema } from "./users.js";
 
 /** The longest text a Prompt template may hold; the service refuses a longer one on save. */
@@ -42,13 +43,17 @@ export const promptTextProblemSchema = z.object({
 });
 export type PromptTextProblem = z.infer<typeof promptTextProblemSchema>;
 
-/** A template as Settings lists it: `customised` while a text other than the default is saved. */
+/**
+ * A template as Settings lists it: `customised` while a text other than the default is saved,
+ * `hasProblems` while the saved text no longer passes the check, so the default renders.
+ */
 export const promptTemplateSummarySchema = z.object({
   key: z.string(),
   domain: promptTemplateDomainSchema,
   name: z.string(),
   description: z.string(),
   customised: z.boolean(),
+  hasProblems: z.boolean(),
   /** The newest saved version, 0 while nothing was ever saved. */
   version: z.number().int().nonnegative(),
   /** When and by whom the newest version was saved; null while nothing was ever saved. */
@@ -95,3 +100,10 @@ export const promptTemplateRefusalSchema = z.object({
   problems: z.array(promptTextProblemSchema),
 });
 export type PromptTemplateRefusal = z.infer<typeof promptTemplateRefusalSchema>;
+
+/** A template's text was saved or reset to its default, so an open Settings page reads it again. */
+export const promptTemplateWebEventSchema = webEventSchema.extend({
+  type: z.literal("prompt-template.changed"),
+  key: z.string(),
+});
+export type PromptTemplateWebEvent = z.infer<typeof promptTemplateWebEventSchema>;

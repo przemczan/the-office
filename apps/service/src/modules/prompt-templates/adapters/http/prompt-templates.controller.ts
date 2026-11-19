@@ -26,7 +26,7 @@ import { PromptTemplates } from "../../application/prompt-templates.js";
 import type { PromptTemplateState } from "../../domain/prompt-template-state.js";
 import { PromptTemplateRefusalsFilter } from "./prompt-template-refusals.filter.js";
 
-/** Settings › Prompts: each Prompt template's text, saved, checked or reset to its default. */
+/** Settings › Prompt templates: each template's text, saved, checked or reset to its default. */
 @Controller("settings/prompt-templates")
 @UseFilters(PromptTemplateRefusalsFilter)
 export class PromptTemplatesController {
@@ -71,13 +71,19 @@ export class PromptTemplatesController {
   }
 }
 
-function summaryOf({ template, saved, customised }: PromptTemplateState): PromptTemplateSummary {
+function summaryOf({
+  template,
+  saved,
+  customised,
+  problems,
+}: PromptTemplateState): PromptTemplateSummary {
   return {
     key: template.key,
     domain: template.domain,
     name: template.name,
     description: template.description,
     customised,
+    hasProblems: problems.length > 0,
     version: saved?.version ?? 0,
     savedAt: saved?.savedAt.toISOString() ?? null,
     savedBy: saved?.savedBy ?? null,

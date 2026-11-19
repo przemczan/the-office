@@ -10,6 +10,7 @@ import {
 import { engineEventInvalidations } from "./api/engine.ts";
 import { gitHubEventInvalidations } from "./api/github.ts";
 import { liveViewEventCacheUpdates } from "./api/live-view.ts";
+import { promptTemplateEventInvalidations } from "./api/prompt-templates.ts";
 import { mcpServerEventInvalidations } from "./api/mcp-servers.ts";
 import { notificationEventCacheUpdates } from "./api/notifications.ts";
 import { roleEventInvalidations } from "./api/people.ts";
@@ -38,6 +39,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...threadEventInvalidations,
   ...workEventInvalidations,
   ...userEventInvalidations,
+  ...promptTemplateEventInvalidations,
 };
 
 // The event types that carry what changed or name exactly what it changes, and how they change the

@@ -11,8 +11,10 @@ import {
   GITHUB_SIGN_IN_FAILED_PARAMETER,
   LINK_FAILED_PARAMETER,
   SIGN_IN_FAILED_PARAMETER,
+  promptTemplateDomainSchema,
   type BoardFilters,
   type FullStatsRange,
+  type PromptTemplateDomain,
 } from "@the-office/contracts";
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
@@ -60,6 +62,7 @@ import { SigningInSection } from "./surfaces/settings/signing-in/signing-in-sect
 import { TelemetrySection } from "./surfaces/settings/telemetry/telemetry-section.tsx";
 import { UsersSection } from "./surfaces/settings/users/users-section.tsx";
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
+import { PromptTemplatesSection } from "./surfaces/settings/prompt-templates/prompt-templates-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { CodePage } from "./surfaces/sign-in/code-page.tsx";
@@ -628,6 +631,26 @@ const settingsOfficeInstructionsRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+/** The Prompt templates tab and template shown, so a link or a reload opens the same one. */
+export interface PromptTemplatesSearch {
+  readonly domain?: PromptTemplateDomain;
+  readonly template?: string;
+}
+
+const settingsPromptTemplatesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "prompt-templates",
+  component: PromptTemplatesSection,
+  validateSearch: (search: Record<string, unknown>): PromptTemplatesSearch => {
+    const domain = promptTemplateDomainSchema.safeParse(search.domain);
+    return {
+      ...(domain.success && { domain: domain.data }),
+      ...(typeof search.template === "string" && { template: search.template }),
+    };
+  },
+  staticData: { title: "Settings" },
+});
+
 const settingsNotificationsRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "notifications",
@@ -748,6 +771,7 @@ export const router = createRouter({
       settingsOfficeIdentityRoute,
       settingsOfficeLimitsRoute,
       settingsOfficeInstructionsRoute,
+      settingsPromptTemplatesRoute,
       settingsNotificationsRoute,
       settingsUsersRoute,
       settingsSigningInRoute,

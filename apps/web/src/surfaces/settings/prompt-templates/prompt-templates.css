@@ -1,0 +1,61 @@
+/* Settings › Prompt templates: the domain's tabs over the list beside the open template. */
+.prompt-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prompt-template {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+/* Three buttons beside the state: on a narrow page they wrap rather than run past the card. */
+.prompt-template .settings-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.prompt-template-variables h4 {
+  margin: 0 0 8px;
+  font: var(--type-label);
+  color: var(--fg-1);
+}
+
+.prompt-template-variables ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prompt-template-variables code {
+  font: var(--type-mono);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.prompt-template-variable-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prompt-template-variable-head + .settings-note {
+  margin-top: 2px;
+}
+
+.prompt-templates .prompt-template-fields {
+  gap: 4px;
+  margin-top: 6px;
+  padding-left: 16px;
+}
+
+.prompt-template-fields li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}

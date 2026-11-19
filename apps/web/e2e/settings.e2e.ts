@@ -206,6 +206,80 @@ test(
   },
 );
 
+// The e2e files share one database and every Resolve Stage would get the saved text, so the
+// template is reset to its default at the end, through the API too when the test fails.
+test(
+  "a Prompt template refuses an unknown variable, keeps a fixed text across reloads and resets to default",
+  { tag: "@full" },
+  async ({ page }) => {
+    try {
+      await page.goto("/settings/office-limits");
+      await page.getByRole("link", { name: "Prompt templates" }).click();
+      await expect(page).toHaveURL(/\/settings\/prompt-templates/);
+      await page.getByRole("tab", { name: /^Pipelines/ }).click();
+      const templates = page.getByRole("navigation", { name: "Pipelines Prompt templates" });
+      await templates.getByRole("link", { name: /^Resolve's Brief/ }).click();
+      await expect(page).toHaveURL(
+        /\/settings\/prompt-templates\?(?=.*domain=pipelines)(?=.*template=pipelines\.resolve-brief)/,
+      );
+      const card = page.locator(".library-detail");
+      const text = card.getByRole("textbox", { name: "Resolve's Brief text" });
+      const save = card.getByRole("button", { name: "Save" });
+      await expect(card.getByText("Default", { exact: true })).toBeVisible();
+      await expect(text).toHaveValue(/^The Task's branch conflicts with \{\{baseBranch\}\}/);
+      const defaultText = await text.inputValue();
+
+      await text.fill(`${defaultText}\n{{unknown}}`);
+      await save.click();
+      // The refusal's Alert is a status, as the danger tone's is.
+      const refusal = card
+        .getByRole("status")
+        .filter({ hasText: "The Prompt template wasn't saved" });
+      await expect(refusal).toBeVisible();
+      await expect(
+        refusal.getByRole("listitem").filter({
+          hasText: /^Line \d+, column \d+: \{\{unknown\}\} isn't a variable of this template\./,
+        }),
+      ).toBeVisible();
+      await expect(text).toHaveValue(`${defaultText}\n{{unknown}}`);
+
+      const fixedText = `${defaultText}\nKeep the Task's own changes where both sides touched a line.`;
+      await text.fill(fixedText);
+      await save.click();
+      await expect(card.getByText("Customised", { exact: true })).toBeVisible();
+      await expect(refusal).toHaveCount(0);
+      await expect(text).toHaveValue(fixedText);
+      await page.reload();
+      await expect(card.getByText("Customised", { exact: true })).toBeVisible();
+      await expect(text).toHaveValue(fixedText);
+
+      for (const colorScheme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme });
+        for (const width of [1600, 380]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.screenshot({
+            path: path.join(SCREENSHOTS, `${colorScheme}-${width}-settings-prompt-templates.png`),
+          });
+        }
+      }
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.setViewportSize({ width: 1600, height: 900 });
+
+      await card.getByRole("button", { name: "Reset to default" }).click();
+      const dialog = page.getByRole("dialog", { name: "Reset Resolve's Brief to default?" });
+      await dialog.getByRole("button", { name: "Reset to default" }).click();
+      await expect(dialog).toBeHidden();
+      await expect(card.getByText("Default", { exact: true })).toBeVisible();
+      await expect(text).toHaveValue(defaultText);
+    } finally {
+      const reset = await page.request.delete(
+        "/api/settings/prompt-templates/pipelines.resolve-brief",
+      );
+      expect(reset.ok()).toBe(true);
+    }
+  },
+);
+
 // The e2e files share one database: the caps are only raised, so no other file's Start waits, and
 // every setting is given back.
 test(

@@ -59,6 +59,7 @@ export function startPasskeySignIn(): Promise<PasskeyRequestOptions> {
 /** Signs in with the passkey's answer; refused as `RefusedAs<SignInRefusal>`, one answer for all. */
 export function signInWithPasskey(authentication: PasskeyAuthentication): Promise<SignInOutcome> {
   return sendToApiRefusedAs(
+    "POST",
     "/sign-in/passkey",
     authentication,
     signInOutcomeSchema,

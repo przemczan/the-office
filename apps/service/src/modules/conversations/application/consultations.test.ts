@@ -659,12 +659,17 @@ describe("a Consultation that couldn't answer", () => {
     expect(await threads.messages(consultation.id)).toContainEqual(
       expect.objectContaining({ kind: "failure", reason: "spawn git ENOENT" }),
     );
-    expect(await threads.messages(asker.id)).toContainEqual(
-      expect.objectContaining({
-        kind: "consultation-line",
-        decisionId: decision?.id,
-        text: "Casey couldn't answer: spawn git ENOENT. The Decision waits on the user now.",
-      }),
+    // The asker's Thread logs the line after the Decision is passed on.
+    await vi.waitFor(
+      async () =>
+        expect(await threads.messages(asker.id)).toContainEqual(
+          expect.objectContaining({
+            kind: "consultation-line",
+            decisionId: decision?.id,
+            text: "Casey couldn't answer: spawn git ENOENT. The Decision waits on the user now.",
+          }),
+        ),
+      { timeout: 5_000, interval: 20 },
     );
   });
 });

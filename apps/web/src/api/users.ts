@@ -125,6 +125,7 @@ export function removeUser(userId: string): Promise<void> {
  */
 export function setFirstPassword(firstPassword: FirstPassword): Promise<SignInOutcome> {
   return sendToApiRefusedAs(
+    "POST",
     "/sign-in/set-password",
     firstPassword,
     signInOutcomeSchema,
@@ -154,6 +155,7 @@ export function saveAppearance(appearance: Appearance): Promise<Account> {
  */
 export function createFirstUser(firstUser: FirstUser): Promise<SignInOutcome> {
   return sendToApiRefusedAs(
+    "POST",
     "/sign-in/first-user",
     firstUser,
     signInOutcomeSchema,
@@ -171,7 +173,13 @@ export function closeFirstRunSetup(): Promise<void> {
  * again once tries cost a wait.
  */
 export function signInWithPassword(signIn: PasswordSignIn): Promise<SignInOutcome> {
-  return sendToApiRefusedAs("/sign-in/password", signIn, signInOutcomeSchema, signInRefusalSchema);
+  return sendToApiRefusedAs(
+    "POST",
+    "/sign-in/password",
+    signIn,
+    signInOutcomeSchema,
+    signInRefusalSchema,
+  );
 }
 
 /**
@@ -179,7 +187,13 @@ export function signInWithPassword(signIn: PasswordSignIn): Promise<SignInOutcom
  * refused as `RefusedAs<SignInRefusal>`, and as `SignedOut` once the pending sign-in has ended.
  */
 export function signInWithCode(answer: CodeAnswer): Promise<SignInOutcome> {
-  return sendToApiRefusedAs("/sign-in/code", answer, signInOutcomeSchema, signInRefusalSchema);
+  return sendToApiRefusedAs(
+    "POST",
+    "/sign-in/code",
+    answer,
+    signInOutcomeSchema,
+    signInRefusalSchema,
+  );
 }
 
 /** Starts setting up the authenticator: the QR code's address and the key, shown this once. */
@@ -190,6 +204,7 @@ export function setUpAuthenticator(): Promise<AuthenticatorSetup> {
 /** Turns the authenticator on with its first code; answers the recovery codes, shown this once. */
 export function confirmAuthenticator(code: string): Promise<RecoveryCodes> {
   return sendToApiRefusedAs(
+    "POST",
     "/account/authenticator/confirm",
     { code },
     recoveryCodesSchema,
@@ -210,6 +225,7 @@ export function turnOffAuthenticator(answer: CodeAnswer): Promise<void> {
 /** New recovery codes in place of all the old ones, with the authenticator's code. */
 export function makeNewRecoveryCodes(code: string): Promise<RecoveryCodes> {
   return sendToApiRefusedAs(
+    "POST",
     "/account/recovery-codes",
     { code },
     recoveryCodesSchema,

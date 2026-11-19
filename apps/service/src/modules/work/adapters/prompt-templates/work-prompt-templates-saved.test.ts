@@ -42,6 +42,11 @@ function templates(): PromptTemplates {
   return work.app.get(PromptTemplates);
 }
 
+/** The Brief without its Pipelines section, which lists the office-wide Pipelines that test files running alongside add to the shared database. */
+function withoutPipelines(brief: string | undefined): string | undefined {
+  return brief?.replace(/^## The Pipelines\n[\s\S]*?(?=^## )/m, "");
+}
+
 describe("a saved text of a Work prompt template", () => {
   it("changes the planning session's instructions and Brief, and Reset to default brings them back", async () => {
     const task = await aTaskIn("planning");
@@ -65,7 +70,7 @@ describe("a saved text of a Work prompt template", () => {
     const reset = await setups().of(planning);
 
     expect(reset.instructions).toBe(before.instructions);
-    expect(reset.brief).toBe(before.brief);
+    expect(withoutPipelines(reset.brief)).toBe(withoutPipelines(before.brief));
   });
 
   it("changes the Who asked an Agent Stage reads, and Reset to default brings it back", async () => {

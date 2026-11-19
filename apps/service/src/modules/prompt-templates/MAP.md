@@ -1,8 +1,8 @@
 # Prompt templates: module map
 
-**Owns:** the Prompt templates (spec §2.2): the catalog (`PromptTemplateCatalog`) each module registers its templates in from an `onModuleInit` provider, refusing at start a duplicate key, a key not `<domain>.<kebab-name>` of its own domain, or a default text that fails the check; each template's versions (`prompt_template_versions`, a `null` text meaning the default, each with `saved_by` and `saved_at`), saved, replaced for a Proposal drafted from a text (`PromptTemplates.replace`, refused once the text changed since) or reset to the default; the one check of a text (`promptTextProblems`: Mustache syntax, variables the template lists, `.` and a list's fields only inside its section, no partials, no delimiter changes, `PROMPT_TEXT_MAX_CHARACTERS`), each problem with its line and column; rendering (`renderPrompt`, Mustache with no HTML escaping, the escape given per call). Settings › Prompts' routes under `/settings/prompt-templates`.
+**Owns:** the Prompt templates (spec §2.2): the catalog (`PromptTemplateCatalog`) each module registers its templates in from an `onModuleInit` provider, refusing at start a duplicate key, a key not `<domain>.<kebab-name>` of its own domain, or a default text that fails the check; each template's versions (`prompt_template_versions`, a `null` text meaning the default, each with `saved_by` and `saved_at`), saved, replaced for a Proposal drafted from a text (`PromptTemplates.replace`, refused once the text changed since) or reset to the default; the one check of a text (`promptTextProblems`: Mustache syntax, variables the template lists, `.` and a list's fields only inside its section, no partials, no delimiter changes, `PROMPT_TEXT_MAX_CHARACTERS`), each problem with its line and column; rendering (`renderPrompt`, Mustache with no HTML escaping, the escape given per call). Settings › Prompt templates' routes under `/settings/prompt-templates`.
 
-**Talks to:** nothing: it imports no other module, so every module that owns a prompt imports its `index.ts`. Pipelines registers `PIPELINES_PROMPT_TEMPLATES` (Stage Briefs, Stage messages and Resolve's briefs) and Engine `ENGINE_PROMPT_TEMPLATES` (the API engine's and Codex's own instructions). Conversations reads the templates and applies their Proposals (`list`, `read`, `check`, `replace`, and `refusalOf` for the Settings save's words). It publishes `PromptTemplateChanged`, which no one forwards to the web yet.
+**Talks to:** nothing: it imports no other module, so every module that owns a prompt imports its `index.ts`. Pipelines registers `PIPELINES_PROMPT_TEMPLATES` (Stage Briefs, Stage messages and Resolve's briefs) and Engine `ENGINE_PROMPT_TEMPLATES` (the API engine's and Codex's own instructions). Conversations reads the templates and applies their Proposals (`list`, `read`, `check`, `replace`, and `refusalOf` for the Settings save's words). It publishes `PromptTemplateChanged`, which its WebSocket adapter forwards to the web as `prompt-template.changed` with the key.
 
 **How a module renders a template:** it declares the template as data in its own `domain/` with `promptTemplate` (its values' type follows from its variables), its pure functions take a `PromptTexts`, and its application layer loads the texts first with `PromptTemplates.textsOf([A, B])` (one read) and passes them in. Domain tests use `defaultPromptTexts`. A template rendered as one part of a longer text goes through `renderedPart` (drops the one line break a closing section leaves), and a list record's flag field is `flagField`, as records hold only texts.
 
@@ -48,6 +48,10 @@ PromptTemplateCatalog, PromptTemplates, promptTemplate, PromptTemplate, PromptTe
 - `postgres-prompt-template-repository.ts`: PostgresPromptTemplateRepository
 - `prompt-templates.schema.ts`: promptTemplateVersions
 - Tests: postgres-prompt-template-repository.test.ts
+
+### adapters/websocket/
+
+- `prompt-template-web-events.ts`: PromptTemplateWebEvents
 
 ### application/
 
