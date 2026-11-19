@@ -1,6 +1,8 @@
 import type { CostliestSpend, UsageSeries, WindowSeries } from "../../domain/full-stats.js";
+import type { HealthBlock, HealthSeries } from "../../domain/system-health.js";
 import {
   StatsSource,
+  type HealthSeriesRead,
   type CostliestQuery,
   type DataSourcesFound,
   type GrafanaAccess,
@@ -22,18 +24,49 @@ export interface ScriptedStats {
   readonly usage?: UsageSeries;
   readonly costliest?: CostliestSpend;
   readonly windows?: readonly WindowSeries[];
+  /** System health's measurements on the longer ranges, each block absent answering empty. */
+  readonly systemHealth?: Partial<HealthSeries>;
+  /** System health's blocks whose query fails, the others answered. */
+  readonly systemHealthFailures?: Partial<Record<HealthBlock, ScriptedStatsFailure>>;
   readonly failure?: ScriptedStatsFailure;
 }
 
 /** The data sources a scripted Grafana has unless told otherwise: otel-lgtm's. */
 const SCRIPTED_DATA_SOURCES: DataSourcesFound = { prometheus: "Prometheus", loki: "Loki" };
 
+/** What a scripted Grafana holds of System health unless told otherwise: nothing. */
+const NO_HEALTH: HealthSeries = {
+  responsiveness: { lagP99Ms: [], lagMaxMs: [] },
+  "cpu-and-memory": {
+    officeCpuPercent: [],
+    officeCpuOfWorkstationPercent: [],
+    memoryInUseBytes: [],
+    heapUsedBytes: [],
+    workstationCpuPercent: [],
+    workstationMemoryPercent: [],
+  },
+  requests: { perMinute: [], p95Ms: [], total: 0, totalP95Ms: null, slowest: [] },
+  database: {
+    perMinute: [],
+    p95Ms: [],
+    connectionsWaiting: [],
+    total: 0,
+    totalP95Ms: null,
+    slowest: [],
+  },
+};
+
 /** A read the scripted Grafana took. */
 export type ScriptedStatsCall =
   | { readonly kind: "data-sources"; readonly access: GrafanaAccess }
   | { readonly kind: "usage"; readonly access: GrafanaAccess; readonly query: UsageQuery }
   | { readonly kind: "costliest"; readonly access: GrafanaAccess; readonly query: CostliestQuery }
-  | { readonly kind: "windows"; readonly access: GrafanaAccess; readonly query: SteppedRange };
+  | { readonly kind: "windows"; readonly access: GrafanaAccess; readonly query: SteppedRange }
+  | {
+      readonly kind: "system-health";
+      readonly access: GrafanaAccess;
+      readonly query: SteppedRange;
+    };
 
 /**
  * Grafana's data for tests and the end-to-end service: no Grafana, only what a test sets with
@@ -72,6 +105,20 @@ export class ScriptedStatsSource extends StatsSource {
   ): Promise<StatsSourceAnswer<readonly WindowSeries[]>> {
     this.calls.push({ kind: "windows", access, query: range });
     return this.answer(this.stats.windows ?? []);
+  }
+
+  systemHealth(access: GrafanaAccess, range: SteppedRange): Promise<HealthSeriesRead> {
+    this.calls.push({ kind: "system-health", access, query: range });
+    const held = { ...NO_HEALTH, ...this.stats.systemHealth };
+    const answerOf = <Block extends HealthBlock>(block: Block) =>
+      this.stats.failure ??
+      this.stats.systemHealthFailures?.[block] ?? { kind: "read" as const, value: held[block] };
+    return Promise.resolve({
+      responsiveness: answerOf("responsiveness"),
+      "cpu-and-memory": answerOf("cpu-and-memory"),
+      requests: answerOf("requests"),
+      database: answerOf("database"),
+    });
   }
 
   private answer<T>(value: T): Promise<StatsSourceAnswer<T>> {

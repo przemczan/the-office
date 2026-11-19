@@ -7,6 +7,6 @@ import { WebEventForwarding } from "./web-event-forwarding.js";
 @Module({
   imports: [ScheduleModule],
   providers: [WebEventForwarding, EventStream],
-  exports: [WebEventForwarding],
+  exports: [WebEventForwarding, EventStream],
 })
 export class EventStreamModule {}

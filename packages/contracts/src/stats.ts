@@ -202,12 +202,12 @@ export const fullStatsReadSchema = z.object({
 export type FullStatsRead = z.infer<typeof fullStatsReadSchema>;
 
 /**
- * GET /stats/full (spec 2.11, States): `not-on` unless Bundled Grafana, or the user's own endpoint
- * with a Grafana read address, is chosen and telemetry isn't set by the environment; then whether
- * the bundled Grafana starts, couldn't start, can't be reached,
- * refused the read token, holds nothing The Office sent, or answered the full stats.
+ * The Grafana states (spec 2.11, States) in which nothing was read: `not-on` unless Bundled
+ * Grafana, or the user's own endpoint with a Grafana read address, is chosen and telemetry isn't
+ * set by the environment; then whether the bundled Grafana starts, couldn't start, can't be
+ * reached, refused the read token or holds nothing The Office sent.
  */
-export const fullStatsSchema = z.discriminatedUnion("state", [
+const grafanaUnreadSchemas = [
   z.object({ state: z.literal("not-on") }),
   z.object({ state: z.literal("starting"), address: z.string() }),
   z.object({ state: z.literal("failed"), address: z.string(), problem: z.string() }),
@@ -218,9 +218,148 @@ export const fullStatsSchema = z.discriminatedUnion("state", [
   }),
   z.object({ state: z.literal("rejected"), address: z.string() }),
   z.object({ state: z.literal("no-data"), address: z.string() }),
+] as const;
+
+/** GET /stats/full: a Grafana state, or the full stats Grafana answered. */
+export const fullStatsSchema = z.discriminatedUnion("state", [
+  ...grafanaUnreadSchemas,
   fullStatsReadSchema,
 ]);
 export type FullStats = z.infer<typeof fullStatsSchema>;
+
+/**
+ * System health's ranges (spec 2.11, System health): 1 h from The Office's own Health readings,
+ * one every 5 s; 24 h by 5 min, 7 d by the hour and 30 d by 6 h from Grafana.
+ */
+export const SYSTEM_HEALTH_RANGES = ["1h", "24h", "7d", "30d"] as const;
+export const systemHealthRangeSchema = z.enum(SYSTEM_HEALTH_RANGES);
+export type SystemHealthRange = z.infer<typeof systemHealthRangeSchema>;
+
+/** The query of GET /stats/system-health: the range, 1 h by default. Office-wide: no Project filter. */
+export const systemHealthQuerySchema = z.object({
+  range: systemHealthRangeSchema.default("1h"),
+});
+export type SystemHealthQuery = z.infer<typeof systemHealthQuerySchema>;
+
+/** How many statement shapes, and how many routes, the last hour's tables keep at most. */
+export const SYSTEM_HEALTH_KEPT_ROWS = 500;
+
+/** What is running now, read on every range. */
+export const systemHealthLoadNowSchema = z.object({
+  /** Engine sessions working now: in Stages, chats and Threads. */
+  sessionsRunning: z.number().int().nonnegative(),
+  /** Agent and Script Stages running now, on any Task. */
+  stageRunsRunning: z.number().int().nonnegative(),
+  /** Browser tabs following The Office's events now, from every signed-in device. */
+  browserConnectionsOpen: z.number().int().nonnegative(),
+});
+export type SystemHealthLoadNow = z.infer<typeof systemHealthLoadNowSchema>;
+
+/**
+ * One Health reading (1 h) or one Grafana step (the longer ranges), ending `at`. A step gives the
+ * highest event loop lag and connections waiting in it, the p95 times of all its requests and
+ * queries, and the mean of the rest. A figure nothing measured is null: no request or query in the
+ * step has no p95 time, and a block Grafana didn't answer has nulls throughout.
+ */
+export const systemHealthPointSchema = z.object({
+  at: z.iso.datetime(),
+  eventLoopLagP99Ms: z.number().nonnegative().nullable(),
+  eventLoopLagMaxMs: z.number().nonnegative().nullable(),
+  /** The Office's CPU against one core: near 100%, its work queues up. */
+  officeCpuPercent: z.number().nonnegative().nullable(),
+  /** The Office's CPU as a share of all the workstation's cores. */
+  officeCpuOfWorkstationPercent: z.number().nonnegative().nullable(),
+  /** The process's resident memory. */
+  memoryInUseBytes: z.number().nonnegative().nullable(),
+  heapUsedBytes: z.number().nonnegative().nullable(),
+  workstationCpuPercent: z.number().nonnegative().nullable(),
+  workstationMemoryPercent: z.number().nonnegative().nullable(),
+  requestsPerMinute: z.number().nonnegative().nullable(),
+  requestP95Ms: z.number().nonnegative().nullable(),
+  queriesPerMinute: z.number().nonnegative().nullable(),
+  queryP95Ms: z.number().nonnegative().nullable(),
+  /** The most queries waiting for one of the pool's connections at once. */
+  connectionsWaiting: z.number().int().nonnegative().nullable(),
+});
+export type SystemHealthPoint = z.infer<typeof systemHealthPointSchema>;
+
+/** A row's figures in a slowest table, over the range. */
+const slowestFiguresSchema = z.object({
+  count: z.number().int().nonnegative(),
+  p95Ms: z.number().nonnegative(),
+  maxMs: z.number().nonnegative(),
+  totalMs: z.number().nonnegative(),
+});
+
+/**
+ * A route among the slowest: its method and template (`GET`, `/api/tasks/:id`), never the address
+ * asked for; `route` null is every request no route answered, "Unmatched".
+ */
+export const systemHealthSlowestRouteSchema = slowestFiguresSchema.extend({
+  route: z.object({ method: z.string(), template: z.string() }).nullable(),
+});
+export type SystemHealthSlowestRoute = z.infer<typeof systemHealthSlowestRouteSchema>;
+
+/**
+ * A query among the slowest, by its operation and table (`SELECT`, `stage_runs`; "" when the
+ * statement names none), and on 1 h by its statement shape too.
+ */
+export const systemHealthSlowestQuerySchema = slowestFiguresSchema.extend({
+  operation: z.string(),
+  table: z.string(),
+  /** On 1 h only: Grafana's metrics carry no shape. */
+  shape: z.string().optional(),
+});
+export type SystemHealthSlowestQuery = z.infer<typeof systemHealthSlowestQuerySchema>;
+
+/** A System health block that can fail on its own on the longer ranges. */
+export const SYSTEM_HEALTH_BLOCKS = [
+  "responsiveness",
+  "cpu-and-memory",
+  "requests",
+  "database",
+] as const;
+export const systemHealthBlockSchema = z.enum(SYSTEM_HEALTH_BLOCKS);
+export type SystemHealthBlock = z.infer<typeof systemHealthBlockSchema>;
+
+/** System health's readings for the range, from the Health readings (1 h) or Grafana. */
+export const systemHealthReadSchema = z.object({
+  state: z.literal("read"),
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  /** 5 on 1 h; Grafana's step on the longer ranges. */
+  stepSeconds: z.number().int().positive(),
+  /** On 1 h, when The Office started taking Health readings; the time before it is hatched. */
+  readingsSince: z.iso.datetime().optional(),
+  /** Oldest first, only the readings or steps that hold something: a gap is a time nothing was read. */
+  points: z.array(systemHealthPointSchema),
+  /** The range's totals for the blocks' heads. */
+  requests: z.number().int().nonnegative(),
+  requestP95Ms: z.number().nonnegative().nullable(),
+  queries: z.number().int().nonnegative(),
+  queryP95Ms: z.number().nonnegative().nullable(),
+  /** Every route seen in the range, most total time first. */
+  slowestRoutes: z.array(systemHealthSlowestRouteSchema),
+  /** Every statement shape (1 h) or operation and table (longer ranges), most total time first. */
+  slowestQueries: z.array(systemHealthSlowestQuerySchema),
+  /** The blocks whose query failed partway, shown with Unreachable's words; empty on 1 h. */
+  unansweredBlocks: z.array(systemHealthBlockSchema),
+  /** The Grafana read, on the longer ranges, for Unreachable's words on the unanswered blocks. */
+  address: z.string().optional(),
+});
+export type SystemHealthRead = z.infer<typeof systemHealthReadSchema>;
+
+/**
+ * GET /stats/system-health (spec 2.11, System health's states): Load now on every range, and the
+ * readings: always `read` on 1 h, and on the longer ranges a Grafana state as the full stats', or
+ * what Grafana answered.
+ */
+export const systemHealthSchema = z.object({
+  range: systemHealthRangeSchema,
+  loadNow: systemHealthLoadNowSchema,
+  readings: z.discriminatedUnion("state", [...grafanaUnreadSchemas, systemHealthReadSchema]),
+});
+export type SystemHealth = z.infer<typeof systemHealthSchema>;
 
 /**
  * POST /stats/grafana-check (Settings › Telemetry, Test): the user's own Grafana to check, its read

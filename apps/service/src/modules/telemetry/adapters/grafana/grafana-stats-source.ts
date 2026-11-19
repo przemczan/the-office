@@ -11,8 +11,18 @@ import type {
   UsageWindowName,
   WindowSeries,
 } from "../../domain/full-stats.js";
+import type {
+  CpuAndMemorySeries,
+  DatabaseSeries,
+  RequestsSeries,
+  ResponsivenessSeries,
+  SlowestFigures,
+  SlowestQuery,
+  SlowestRoute,
+} from "../../domain/system-health.js";
 import {
   StatsSource,
+  type HealthSeriesRead,
   type CostliestQuery,
   type DataSourcesFound,
   type GrafanaAccess,
@@ -39,6 +49,7 @@ import {
   LABELS,
   REF,
   SPLIT_LABELS,
+  systemHealthQueryBodies,
   usageQueryBody,
   windowsQueryBody,
   type DsQueryBody,
@@ -138,6 +149,33 @@ export class GrafanaStatsSource extends StatsSource {
     );
   }
 
+  /**
+   * The data sources are found once, then each block is read by a request of its own, all at once:
+   * a block whose request fails is that block's answer alone.
+   */
+  override async systemHealth(
+    access: GrafanaAccess,
+    range: SteppedRange,
+  ): Promise<HealthSeriesRead> {
+    const sources = await this.dataSourceCache.of(access, this.timeoutMs);
+    if (sources.kind !== "read") {
+      return {
+        responsiveness: sources,
+        "cpu-and-memory": sources,
+        requests: sources,
+        database: sources,
+      };
+    }
+    const bodies = systemHealthQueryBodies(sources.value.prometheus, range);
+    const [responsiveness, cpuAndMemory, requests, database] = await Promise.all([
+      this.send(access, bodies.responsiveness, (results) => responsivenessOf(results, range)),
+      this.send(access, bodies["cpu-and-memory"], (results) => cpuAndMemoryOf(results, range)),
+      this.send(access, bodies.requests, (results) => requestsOf(results, range)),
+      this.send(access, bodies.database, (results) => databaseOf(results, range)),
+    ]);
+    return { responsiveness, "cpu-and-memory": cpuAndMemory, requests, database };
+  }
+
   /** Finds the data sources, sends the body built on them and reads the answer. */
   private async read<T>(
     access: GrafanaAccess,
@@ -148,6 +186,15 @@ export class GrafanaStatsSource extends StatsSource {
     if (sources.kind !== "read") return sources;
     const body = bodyOf(sources.value);
     if (body === undefined) return { kind: "read", value: valueOf(new Map()) };
+    return this.send(access, body, valueOf);
+  }
+
+  /** Sends a body and reads the answer; a failure forgets the data sources, which may have changed. */
+  private async send<T>(
+    access: GrafanaAccess,
+    body: DsQueryBody,
+    valueOf: (results: QueryResults) => T,
+  ): Promise<StatsSourceAnswer<T>> {
     const answer = resultsOf(await callGrafana(access, "/api/ds/query", this.timeoutMs, body));
     if (answer.kind !== "read") {
       this.dataSourceCache.forget(access);
@@ -155,6 +202,127 @@ export class GrafanaStatsSource extends StatsSource {
     }
     return { kind: "read", value: valueOf(answer.value) };
   }
+}
+
+/** A range query's one series (summed or averaged to one), each point at its step's start. */
+function stepsOfRef(results: QueryResults, ref: string, range: SteppedRange): SeriesPoint[] {
+  const byStep = new Map<number, number>();
+  for (const series of results.get(ref) ?? []) {
+    for (const { at, value } of pointsOf(series, range, (one) => one)) {
+      byStep.set(at.getTime(), Math.max(byStep.get(at.getTime()) ?? 0, value));
+    }
+  }
+  return [...byStep]
+    .toSorted(([a], [b]) => a - b)
+    .map(([at, value]) => ({ at: new Date(at), value }));
+}
+
+/** An instant query's one value; undefined when it answered none (NaN, such as no request). */
+function instantOf(results: QueryResults, ref: string): number | undefined {
+  const [series] = results.get(ref) ?? [];
+  return series?.points.at(-1)?.value;
+}
+
+function responsivenessOf(results: QueryResults, range: SteppedRange): ResponsivenessSeries {
+  return {
+    lagP99Ms: stepsOfRef(results, REF.lagP99, range),
+    lagMaxMs: stepsOfRef(results, REF.lagMax, range),
+  };
+}
+
+function cpuAndMemoryOf(results: QueryResults, range: SteppedRange): CpuAndMemorySeries {
+  return {
+    officeCpuPercent: stepsOfRef(results, REF.officeCpu, range),
+    officeCpuOfWorkstationPercent: stepsOfRef(results, REF.officeCpuOfWorkstation, range),
+    memoryInUseBytes: stepsOfRef(results, REF.memory, range),
+    heapUsedBytes: stepsOfRef(results, REF.heap, range),
+    workstationCpuPercent: stepsOfRef(results, REF.systemCpu, range),
+    workstationMemoryPercent: stepsOfRef(results, REF.systemMemory, range),
+  };
+}
+
+function requestsOf(results: QueryResults, range: SteppedRange): RequestsSeries {
+  const rows = slowestRowsOf(results, [LABELS.route, LABELS.method], {
+    count: REF.routeCount,
+    p95: REF.routeP95,
+    max: REF.routeMax,
+    total: REF.routeTotal,
+  });
+  return {
+    perMinute: stepsOfRef(results, REF.requestsPerMinute, range),
+    p95Ms: stepsOfRef(results, REF.requestP95, range),
+    total: instantOf(results, REF.requestsTotal) ?? 0,
+    totalP95Ms: instantOf(results, REF.requestsTotalP95) ?? null,
+    slowest: rows.map(({ labels: [template = "", method = ""], figures }): SlowestRoute => ({
+      // A request no route answered carries no route template.
+      route: template === "" ? null : { method, template },
+      ...figures,
+    })),
+  };
+}
+
+function databaseOf(results: QueryResults, range: SteppedRange): DatabaseSeries {
+  const rows = slowestRowsOf(results, [LABELS.operation, LABELS.table], {
+    count: REF.tableCount,
+    p95: REF.tableP95,
+    max: REF.tableMax,
+    total: REF.tableTotal,
+  });
+  return {
+    perMinute: stepsOfRef(results, REF.queriesPerMinute, range),
+    p95Ms: stepsOfRef(results, REF.queryP95, range),
+    connectionsWaiting: stepsOfRef(results, REF.waiting, range),
+    total: instantOf(results, REF.queriesTotal) ?? 0,
+    totalP95Ms: instantOf(results, REF.queriesTotalP95) ?? null,
+    slowest: rows.map(({ labels: [operation = "", table = ""], figures }): SlowestQuery => ({
+      operation,
+      table,
+      ...figures,
+    })),
+  };
+}
+
+/**
+ * A slowest table's rows: each label set counted in the range, with its p95, Max and total time
+ * from the queries of the same labels; one with nothing counted in the range is left out.
+ */
+function slowestRowsOf(
+  results: QueryResults,
+  labels: readonly string[],
+  refs: {
+    readonly count: string;
+    readonly p95: string;
+    readonly max: string;
+    readonly total: string;
+  },
+): { readonly labels: readonly string[]; readonly figures: SlowestFigures }[] {
+  const keyOf = (series: FrameSeries) => labels.map((label) => labelOf(series, label));
+  const valuesOf = (ref: string) =>
+    new Map(
+      (results.get(ref) ?? []).map((series) => [
+        JSON.stringify(keyOf(series)),
+        lastValueOf(series),
+      ]),
+    );
+  const p95 = valuesOf(refs.p95);
+  const max = valuesOf(refs.max);
+  const total = valuesOf(refs.total);
+  return (results.get(refs.count) ?? []).flatMap((series) => {
+    const count = lastValueOf(series);
+    if (count <= 0) return [];
+    const key = JSON.stringify(keyOf(series));
+    return [
+      {
+        labels: keyOf(series),
+        figures: {
+          count,
+          p95Ms: p95.get(key) ?? 0,
+          maxMs: max.get(key) ?? 0,
+          totalMs: total.get(key) ?? 0,
+        },
+      },
+    ];
+  });
 }
 
 /** A range's series by the split label, those of one value (Grafana may split one) added up. */

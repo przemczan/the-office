@@ -1,0 +1,732 @@
+{
+  "range": {
+    "from": "2026-11-17T10:00:00.000Z",
+    "to": "2026-11-17T11:00:00.000Z",
+    "stepSeconds": 300
+  },
+  "status": 200,
+  "body": {
+    "results": {
+      "requestsPerMinute": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "requestsPerMinute",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: requestsPerMinute\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [301.6, 312.2, 298.4, 344.0, 306.8, 0.0, 290.2, 302.4]
+              ]
+            }
+          }
+        ]
+      },
+      "requestP95": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "requestP95",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: requestP95\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [44.1, 46.3, 47.9, 212.5, 45.0, null, 43.8, 44.6]
+              ]
+            }
+          }
+        ]
+      },
+      "requestsTotal": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "requestsTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: requestsTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [12301.4]]
+            }
+          }
+        ]
+      },
+      "requestsTotalP95": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "requestsTotalP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: requestsTotalP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [46.8]]
+            }
+          }
+        ]
+      },
+      "routeCount": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeCount",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeCount",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [4021.6]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeCount",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeCount",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [8102.3]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeCount",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeCount",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "POST",
+                    "http_route": "/api/threads/:id/messages"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.0]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeCount",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeCount",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [177.5]]
+            }
+          }
+        ]
+      },
+      "routeP95": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [237.5]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [23.75]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [4.75]]
+            }
+          }
+        ]
+      },
+      "routeMax": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeMax",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeMax",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1000.0]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeMax",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeMax",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [250.0]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeMax",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeMax",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [10.0]]
+            }
+          }
+        ]
+      },
+      "routeTotal": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks/:id/stage-runs"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [251032.4]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET",
+                    "http_route": "/api/tasks"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [98120.7]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "routeTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: routeTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "http_request_method": "GET"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [412.9]]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

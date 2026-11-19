@@ -18,7 +18,7 @@ Each page here is an interactive mock-up, one self-contained file you open in a 
 - [sub-agents-and-processes.html](sub-agents-and-processes.html): the UI spec for a session's Sub-agents and Processes line and view. Built differently: a Process's shell isn't shown, and its window keeps one height.
 - [session-context.html](session-context.html): the UI spec for the context reading above the message input.
 - [loaders.html](loaders.html): the UI spec for the shared loader of a block whose data hasn't arrived yet.
-- [stats.html](stats.html): the UI spec for the Stats page.
+- [stats.html](stats.html): the UI spec for the Stats page: its two tabs, Tokens and cost (the basic and full stats, and Settings › Telemetry's Stats group) and System health (its ranges, blocks and states).
 - [live-view.html](live-view.html): the UI spec for the Live view.
 - [pipeline-flow.html](pipeline-flow.html): the UI spec for the Pipeline flow editor in Settings › Pipelines and a Project page's Pipelines section. Built differently: a picked Stage's Save as template and Remove are in its ⋯ menu, and a removed Stage isn't drawn on a Proposal's flow.
 - [project-pipelines.html](project-pipelines.html): the UI spec for a Project page's Pipelines section and Settings › Pipelines (Built on by, Make it the default, the picker).

@@ -7,7 +7,7 @@ import { EventBus } from "../events/event-bus.js";
 import { EventsModule } from "../events/events.module.js";
 import { Schedule } from "../schedule/schedule.js";
 import type { ManualSchedule } from "../schedule/schedule.fixtures.js";
-import { SIGNED_IN_CHECK_EVERY_MS, SIGNED_OUT } from "./event-stream.js";
+import { EventStream, SIGNED_IN_CHECK_EVERY_MS, SIGNED_OUT } from "./event-stream.js";
 import { EventStreamModule } from "./event-stream.module.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 import {
@@ -125,6 +125,19 @@ describe("the event stream", () => {
       type: "refused",
       reason: "Not a subscribe or unsubscribe message.",
     });
+  });
+
+  it("counts the connections open, each until it closes", async () => {
+    const stream = app.get(EventStream);
+    const first = await connect();
+    await connect();
+
+    expect(stream.openConnections()).toBe(2);
+    await new Promise<void>((resolve) => {
+      first.client.addEventListener("close", () => resolve(), { once: true });
+      first.client.close();
+    });
+    await expect.poll(() => stream.openConnections()).toBe(1);
   });
 
   it("refuses a WebSocket on another path", async () => {

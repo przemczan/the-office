@@ -3,10 +3,11 @@
 **Owns:** Stats (spec [2.11](../../../../../docs/spec/2.11-stats.md), [5.3](../../../../../docs/spec/5.3-modules.md#defaults)), whose Nest module is `StatsModule`, with no table of its own:
 - the basic stats (`BasicStats`, `GET /stats/basic`), read afresh on each request from what other modules already keep: the last 30 office days' tokens, the Usage windows now, and this week's top Tasks, Tasks done and Stage retries (pure `domain/basic-stats.ts`: `weekStartOf`, `weekStatsOf`, `countedTokens`);
 - the full stats (`FullStats`, `GET /stats/full?range&split&project`), read afresh on each request from the Grafana in use: its state (`GrafanaInUse`: not-on, starting, failed, then unreachable, rejected, no-data or full), tokens and estimated cost over time by the split, the 10 most expensive Tasks (per Stage and per try) and Initiatives (per Task and its own Threads), each engine's Usage windows over time and the lane of the Agent Stage runs that ran (pure `domain/full-stats.ts`: `fullStatsSpanOf`, `stepsOf`, `usageBucketsOf`, `costliestOf`, `windowsOverTimeOf`, `runningOf`, `holdsNoData`);
+- System health (`SystemHealth`, `GET /stats/system-health?range`), Office-wide: 1 h from the platform's Health readings whatever the telemetry setting (each reading a point, requests and queries a minute its count × 12), 24 h by 5 min, 7 d by the hour and 30 d by 6 h (UTC, each point's `at` its step's end) from the Grafana in use through `StatsSource.systemHealth`, one Grafana request per block (responsiveness, CPU and memory, requests, database), with the full stats' states (`application/grafana-reads.ts`, shared with `FullStats`); Load now on every range (pure `domain/system-health.ts`);
 - Settings › Telemetry's Test of the user's own Grafana (`GrafanaCheck`, `POST /stats/grafana-check`): reachable naming the Prometheus and Loki data sources found, rejected, unreachable with why, or no-data-sources naming Prometheus or Loki, asked afresh through `StatsSource.dataSources`. Its route is here, not with the platform's settings routes, as the platform can't import a module.
 The telemetry plumbing every module uses (the exporters, `Telemetry`, the logger, Settings › Telemetry, the bundled Grafana) is not here but in `src/platform/telemetry/`.
 
-**Talks to:** nothing calls it. It reads through its ports, bound in [app.module.ts](../../app.module.ts): `DayTokens` to Notifications' `DayTokenHistory` (`day_tokens`), `EngineWindows` to the Engine's `UsageWindowsNow` (`EngineModels.engines()` with `UsageWindowState`), `StageRunTotals` and `RunningStageRuns` to Pipelines' (from `UsageHistoryModule`: the Stage runs started since a time with their tokens and whether each is a Stage retry; the Agent Stage runs overlapping a range with their engine and Stage name), `OfficeTasks` to Work's `TaskService` (`doneSince`, from `task_state_changes`, and `findAll` for titles and Projects), `OfficeInitiatives` to Work's `InitiativeService` (`titlesOf`: name and the Projects its Tasks are in), `ProjectNames` to Projects' `ProjectService` (`namesOf`), and `StatsSource` to the Grafana adapter `GrafanaStatsSource` (`adapters/grafana/`; tests and the e2e service bind `ScriptedStatsSource`, set through `POST /api/e2e/stats-source`). `GrafanaInUse` is bound inside the module to `SettingsGrafanaInUse` (`adapters/platform/`), over the platform's `SavedTelemetrySetting`, `RunningTelemetrySettings` and `BundledGrafanaKeeper.status` from `TelemetryHttpModule`: none while OTEL_* set telemetry; the bundled Grafana at `BUNDLED_GRAFANA_READ_ADDRESS` with no token; or the user's own endpoint's saved Grafana read address with its read token, sent as Bearer, and none when it has no read address. Each port answers the module's own small types; the bound services satisfy them structurally.
+**Talks to:** nothing calls it. It reads through its ports, bound in [app.module.ts](../../app.module.ts): `DayTokens` to Notifications' `DayTokenHistory` (`day_tokens`), `EngineWindows` to the Engine's `UsageWindowsNow` (`EngineModels.engines()` with `UsageWindowState`), `StageRunTotals` and `RunningStageRuns` to Pipelines' (from `UsageHistoryModule`: the Stage runs started since a time with their tokens and whether each is a Stage retry; the Agent Stage runs overlapping a range with their engine and Stage name), `OfficeTasks` to Work's `TaskService` (`doneSince`, from `task_state_changes`, and `findAll` for titles and Projects), `OfficeInitiatives` to Work's `InitiativeService` (`titlesOf`: name and the Projects its Tasks are in), `ProjectNames` to Projects' `ProjectService` (`namesOf`), and `StatsSource` to the Grafana adapter `GrafanaStatsSource` (`adapters/grafana/`; tests and the e2e service bind `ScriptedStatsSource`, set through `POST /api/e2e/stats-source`). `GrafanaInUse` is bound inside the module to `SettingsGrafanaInUse` (`adapters/platform/`), over the platform's `SavedTelemetrySetting`, `RunningTelemetrySettings` and `BundledGrafanaKeeper.status` from `TelemetryHttpModule`: none while OTEL_* set telemetry; the bundled Grafana at `BUNDLED_GRAFANA_READ_ADDRESS` with no token; or the user's own endpoint's saved Grafana read address with its read token, sent as Bearer, and none when it has no read address. For System health, also bound there: `HealthReadings` to the platform's `SystemHealthRecorder` (`lastHour`), `SessionsRunning` to Conversations' `ThreadService.sessionsWorking` (Threads answering whose person is working, the Live view's rule), `StageRunsRunning` to Pipelines' `StageRunsRunningNow` (Agent and Script Stage runs while their runner runs, counted in memory by the Stage interpreter; a Gate isn't) and `BrowserConnections` to the WebSocket platform's `EventStream.openConnections`. Each port answers the module's own small types; the bound services satisfy them structurally.
 
 **Traps:**
 - The saved choice is read on each request, so a saved Grafana read address and token apply at once, without a restart; only the export settings wait for the next start.
@@ -23,17 +24,20 @@ The telemetry plumbing every module uses (the exporters, `Telemetry`, the logger
 - The first failing read, in the order usage, most expensive, Usage windows, gives the state: unreachable or rejected wins over the reads that answered. No data means no usage point above zero, no Task or Initiative and no Usage window point.
 - A Task or Initiative The Office no longer knows is left out of the most expensive lists and the lane, so a list can hold fewer than 10.
 - The Prometheus and Loki metric, label and data source names the Grafana adapter reads live only in `adapters/grafana/grafana-queries.ts`, as grafana/otel-lgtm at the pinned image stores what Telemetry sends; on every bump of the pin the Grafana live check (`grafana-stats-source.live.test.ts`, [testing](../../../docs/testing.md#the-grafana-live-check)) confirms them and re-records `recorded/*.json`.
+- System health's partial failure: a block whose Grafana request failed goes into `unansweredBlocks` with null figures; all four failing gives the first failure's state, and no block holding data `no-data`. Its 24 h, 7 d and 30 d PromQL reads the names otel-lgtm stores the platform's System health metrics under (`_seconds`, `_bytes`, `_ratio` suffixes); `recorded/system-health-*.json` are written by hand, not yet re-recorded by the live check. PgInstrumentation sends its own `db_client_connection_pending_requests`, labelled `db_client_connection_pool_name`: the waiting query keeps to the series without that label, The Office's. The slowest rows' Max on those ranges is `histogram_quantile(1, …)`, the highest bucket's bound: an "at most" figure.
+- 1 h never asks Grafana, so it answers `read` with telemetry Off; nothing of it is stored.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
 ## Public entry (`index.ts`)
 
-GrafanaStatsSource, ScriptedStatsSource, StatsSource, StatsModule
+GrafanaStatsSource, ScriptedStatsSource, BrowserConnections, HealthReadings, SessionsRunning, StageRunsRunning, StatsSource, StatsModule
 
 ## HTTP routes (under `/api`)
 
 - `GET /stats/basic`: StatsController.readBasic
 - `GET /stats/full`: StatsController.readFull
+- `GET /stats/system-health`: StatsController.readSystemHealth
 - `POST /stats/grafana-check`: StatsController.checkGrafana
 
 ## Files
@@ -48,14 +52,14 @@ GrafanaStatsSource, ScriptedStatsSource, StatsSource, StatsModule
 - `grafana-data-sources.ts`: GrafanaDataSources, NamedDataSource, GrafanaDataSourceCache, checkDataSources
 - `grafana-frames.ts`: dsQueryAnswerSchema, FramePoint, FrameSeries, QueryResults, NOT_GRAFANA, resultsOf, refusalWords, labelOf, lastValueOf
 - `grafana-http.ts`: GRAFANA_TIMEOUT_MS, GrafanaHttpAnswer, callGrafana, unansweredWords
-- `grafana-queries.ts`: PROMETHEUS_TYPE, LOKI_TYPE, DEFAULT_PROMETHEUS_UID, DEFAULT_LOKI_UID, LABELS, SPLIT_LABELS, REF, DataSourceRef, DsQuery, DsQueryBody, usageQueryBody, windowsQueryBody, costliestTopQueryBody, costliestBreakdownQueryBody, alternatives
+- `grafana-queries.ts`: PROMETHEUS_TYPE, LOKI_TYPE, DEFAULT_PROMETHEUS_UID, DEFAULT_LOKI_UID, LABELS, SPLIT_LABELS, REF, DataSourceRef, DsQuery, DsQueryBody, usageQueryBody, windowsQueryBody, costliestTopQueryBody, costliestBreakdownQueryBody, systemHealthQueryBodies, alternatives
 - `grafana-scenario.fixtures.ts`: SCENARIO, ScenarioCall, SCENARIO_CALLS, countedTokensOf, RecordedAnswer, RecordingName, recorded, rerecord, recordedRange
 - `grafana-stats-source.ts`: GrafanaStatsSource
-- Tests: grafana-stats-source.full.test.ts, grafana-stats-source.live.test.ts, grafana-stats-source.test.ts
+- Tests: grafana-stats-source.full.test.ts, grafana-stats-source.live.test.ts, grafana-stats-source.system-health.test.ts, grafana-stats-source.test.ts
 
 ### adapters/http/
 
-- `stats-responses.ts`: toBasicStatsResponse, toFullStatsResponse
+- `stats-responses.ts`: toBasicStatsResponse, toFullStatsResponse, toSystemHealthResponse
 - `stats.controller.ts`: StatsController
 - Tests: stats.controller.test.ts
 
@@ -73,22 +77,29 @@ GrafanaStatsSource, ScriptedStatsSource, StatsSource, StatsModule
 - `basic-stats.ts`: BasicStatsRead, BasicStats
 - `full-stats.ts`: FullStatsQuery, FullStatsFigures, FullStatsRead, FullStats
 - `grafana-check.ts`: GrafanaDataSourceKind, GrafanaCheckAnswer, GrafanaCheck
-- Tests: full-stats.test.ts, grafana-check.test.ts
+- `grafana-reads.ts`: GrafanaUnread, readFromGrafana, answered, isRead, failedRead
+- `system-health.ts`: LoadNow, HealthReadingsRead, SystemHealthRead, SystemHealth
+- Tests: full-stats.test.ts, grafana-check.test.ts, system-health.test.ts
 
 ### domain/
 
 - `basic-stats.ts`: STATS_DAYS, TOP_TASKS, StatsTokens, StatsProjectFilter, StatsStageRun, StatsTask, TopTask, WeekStats, countedTokens, weekStartOf, weekStatsOf
 - `full-stats.ts`: FullStatsRange, FullStatsSplit, Spend, SeriesPoint, NamedSeries, UsageSeries, StageRunSpend, TaskSpend, InitiativeSpend, CostliestSpend, UsageWindowName, WindowSeries, StatsStageRunSpan, StatsInitiative, StatsProjectName, COSTLIEST, FullStatsSpan, fullStatsSpanOf, stepStartOf, stepEndOf, stepsOf, UsageBucket, usageBucketsOf, StageTry, StageSpend, CostliestTask, CostliestInitiative, Costliest, costliestOf, WindowPoint, WindowsOverTime, StatsEngineWithWindows, windowsOverTimeOf, RunningStageRun, runningOf, holdsNoData
-- Tests: basic-stats.full.test.ts, basic-stats.test.ts, full-stats.test.ts
+- `system-health.ts`: SystemHealthRange, GrafanaHealthRange, HEALTH_BLOCKS, HealthBlock, HEALTH_READING_STEP_SECONDS, HealthSpan, healthSpanOf, HealthHourReading, SlowestFigures, SlowestRoute, SlowestQuery, HealthHour, ResponsivenessSeries, CpuAndMemorySeries, RequestsSeries, DatabaseSeries, HealthSeries, HealthPoint, HealthFigures, lastHourFiguresOf, grafanaFiguresOf, holdsNoHealthData
+- Tests: basic-stats.full.test.ts, basic-stats.test.ts, full-stats.test.ts, system-health.test.ts
 
 ### ports/
 
+- `browser-connections.ts`: BrowserConnections
 - `day-tokens.ts`: StatsDay, DayTokens
 - `engine-windows.ts`: StatsUsageWindow, StatsEngineWindows, StatsEngine, EngineWindows
 - `grafana-in-use.ts`: GrafanaNow, GrafanaInUse
+- `health-readings.ts`: HealthReadings
 - `office-initiatives.ts`: OfficeInitiatives
 - `office-tasks.ts`: OfficeTasks
 - `project-names.ts`: ProjectNames
 - `running-stage-runs.ts`: RunningStageRuns
+- `sessions-running.ts`: SessionsRunning
 - `stage-run-totals.ts`: StageRunTotals
-- `stats-source.ts`: GrafanaAccess, SteppedRange, ProjectNamesFilter, UsageQuery, CostliestQuery, StatsSourceAnswer, DataSourcesFound, StatsSource
+- `stage-runs-running.ts`: StageRunsRunning
+- `stats-source.ts`: GrafanaAccess, SteppedRange, ProjectNamesFilter, UsageQuery, CostliestQuery, StatsSourceAnswer, HealthSeriesRead, DataSourcesFound, StatsSource

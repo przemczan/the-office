@@ -1,0 +1,742 @@
+{
+  "range": {
+    "from": "2026-11-17T10:00:00.000Z",
+    "to": "2026-11-17T11:00:00.000Z",
+    "stepSeconds": 300
+  },
+  "status": 200,
+  "body": {
+    "results": {
+      "queriesPerMinute": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "queriesPerMinute",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: queriesPerMinute\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [652.1, 701.4, 688.0, 912.6, 671.2, 640.8, 633.3, 649.9]
+              ]
+            }
+          }
+        ]
+      },
+      "queryP95": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "queryP95",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: queryP95\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [9.4, 9.8, 10.1, 48.2, 9.9, 9.5, 9.2, 9.3]
+              ]
+            }
+          }
+        ]
+      },
+      "waiting": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "waiting",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: waiting\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [0, 0, 1, 7, 0, 0, 0, 0]
+              ]
+            }
+          }
+        ]
+      },
+      "queriesTotal": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "queriesTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: queriesTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [27601.2]]
+            }
+          }
+        ]
+      },
+      "queriesTotalP95": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "queriesTotalP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: queriesTotalP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [9.9]]
+            }
+          }
+        ]
+      },
+      "tableCount": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableCount",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableCount",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [9204.1]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableCount",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableCount",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [2101.0]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableCount",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableCount",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [3000.2]]
+            }
+          }
+        ]
+      },
+      "tableP95": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [23.75]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [4.75]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableP95",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableP95",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.475]]
+            }
+          }
+        ]
+      },
+      "tableMax": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableMax",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableMax",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [250.0]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableMax",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableMax",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [25.0]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableMax",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableMax",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [1.0]]
+            }
+          }
+        ]
+      },
+      "tableTotal": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "stage_runs",
+                    "db_operation_name": "SELECT"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [120411.3]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_collection_name": "threads",
+                    "db_operation_name": "UPDATE"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [5210.8]]
+            }
+          },
+          {
+            "schema": {
+              "name": "",
+              "refId": "tableTotal",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: tableTotal",
+                "custom": {
+                  "resultType": "vector"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {
+                    "db_operation_name": "BEGIN"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [600.4]]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

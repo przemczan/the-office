@@ -6,7 +6,8 @@ import type {
   StatsRunningStageRun,
 } from "@the-office/contracts";
 import { DataTable, Tooltip } from "@the-office/ui";
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { LineChart } from "./line-chart.tsx";
 import {
   OfficeWideBadge,
   Picker,
@@ -202,33 +203,13 @@ function WindowLines({
   );
 }
 
-/** The plot's height in the SVG's units, with room above 100% for its guide. */
+/** The axis's top, with room above 100% for its guide. */
 const PLOT_TOP = 104;
 
-function pathOf(
-  points: readonly WindowPoint[],
-  key: "fiveHour" | "sevenDay",
-  x: (at: string) => number,
-): string {
-  let path = "";
-  let drawing = false;
-  for (const point of points) {
-    const value = point[key];
-    if (value === undefined) {
-      drawing = false;
-      continue;
-    }
-    const y = PLOT_TOP - Math.max(0, Math.min(PLOT_TOP, value));
-    path += `${drawing ? "L" : "M"}${(x(point.at) * 10).toFixed(1)} ${y.toFixed(1)} `;
-    drawing = true;
-  }
-  return path.trim();
-}
-
 /**
- * The two windows as lines on the range's time axis. One tab stop: the arrow keys step from
- * reading to reading (Shift for ten), Home and End go to the first and the last, each reading's
- * Tooltip giving both windows.
+ * The two windows as lines on the range's time axis, 90% and 100% marked. One tab stop: the arrow
+ * keys step from reading to reading (Shift for ten), Home and End go to the first and the last,
+ * each reading's Tooltip giving both windows.
  */
 function LinesChart({
   stats,
@@ -239,9 +220,6 @@ function LinesChart({
   readonly engine: StatsEngineWindowsOverTime;
   readonly points: readonly WindowPoint[];
 }): ReactNode {
-  const [picked, setPicked] = useState<number | null>(null);
-  const x = axisOf(stats);
-  const last = points.length - 1;
   const peak = points.reduce<WindowPoint | undefined>(
     (best, point) =>
       point.fiveHour !== undefined &&
@@ -253,93 +231,37 @@ function LinesChart({
   const summary = `How full ${engine.name}'s Usage windows were over the last ${RANGE_WORDS[stats.range]}${
     peak ? `: the 5-hour window at most ${percentWords(peak.fiveHour)} on ${whenLong(peak.at)}` : ""
   }, the 7-day window last ${percentWords(points.at(-1)?.sevenDay)}. Lines mark 90% and 100%. Use the arrow keys to read each point.`;
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const at = picked ?? last;
-    const by = event.shiftKey ? 10 : 1;
-    const next =
-      event.key === "ArrowLeft"
-        ? at - by
-        : event.key === "ArrowRight"
-          ? at + by
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? last
-              : null;
-    if (next === null) return;
-    event.preventDefault();
-    setPicked(Math.max(0, Math.min(last, next)));
-  };
-  const pickedPoint = picked === null ? undefined : points[picked];
   return (
-    <div
-      className="stats-lines"
-      role="img"
-      aria-label={summary}
-      tabIndex={0}
-      onKeyDown={onKeyDown}
-      onFocus={() => setPicked((at) => at ?? last)}
-      onBlur={() => setPicked(null)}
-      onMouseLeave={() => setPicked(null)}
-    >
-      <div className="stats-lines-axis" aria-hidden="true">
-        {[0, 25, 50, 75, 100].map((tick) => (
-          <span key={tick} style={{ bottom: `${(tick / PLOT_TOP) * 100}%` }}>
-            {tick}%
-          </span>
-        ))}
-      </div>
-      <div className="stats-lines-plot">
-        <svg viewBox={`0 0 1000 ${PLOT_TOP}`} preserveAspectRatio="none" aria-hidden="true">
-          {[0, 25, 50, 75].map((tick) => (
-            <line
-              key={tick}
-              className="stats-lines-grid"
-              x1="0"
-              x2="1000"
-              y1={PLOT_TOP - tick}
-              y2={PLOT_TOP - tick}
-            />
-          ))}
-          <line className="stats-guide-90" x1="0" x2="1000" y1={PLOT_TOP - 90} y2={PLOT_TOP - 90} />
-          <line
-            className="stats-guide-100"
-            x1="0"
-            x2="1000"
-            y1={PLOT_TOP - 100}
-            y2={PLOT_TOP - 100}
-          />
-          <path className="stats-line-seven" d={pathOf(points, "sevenDay", x)} />
-          <path className="stats-line-five" d={pathOf(points, "fiveHour", x)} />
-          {pickedPoint && (
-            <line
-              className="stats-lines-cross"
-              x1={x(pickedPoint.at) * 10}
-              x2={x(pickedPoint.at) * 10}
-              y1="0"
-              y2={PLOT_TOP}
-            />
-          )}
-        </svg>
-        {points.map((point, index) => {
-          const left = index === 0 ? 0 : (x(points[index - 1]?.at ?? point.at) + x(point.at)) / 2;
-          const right =
-            index === last ? 100 : (x(point.at) + x(points[index + 1]?.at ?? point.at)) / 2;
-          return (
-            <span
-              key={point.at}
-              className="stats-lines-slot"
-              style={{ left: `${left}%`, width: `${Math.max(0, right - left)}%` }}
-              onMouseEnter={() => setPicked(index)}
-            >
-              <Tooltip open={picked === index} content={<WindowTip point={point} />}>
-                <span className="stats-lines-hit" />
-              </Tooltip>
-            </span>
-          );
-        })}
-      </div>
-    </div>
+    <LineChart
+      from={Date.parse(stats.from)}
+      to={Date.parse(stats.to)}
+      times={points.map(({ at }) => Date.parse(at))}
+      series={[
+        {
+          key: "sevenDay",
+          className: "stats-line-seven",
+          values: points.map(({ sevenDay }) => sevenDay ?? null),
+        },
+        {
+          key: "fiveHour",
+          className: "stats-line-five",
+          values: points.map(({ fiveHour }) => fiveHour ?? null),
+        },
+      ]}
+      top={PLOT_TOP}
+      axis={[0, 25, 50, 75, 100]}
+      grid={[0, 25, 50, 75]}
+      axisWords={(tick) => `${tick}%`}
+      guides={[
+        { value: 90, className: "stats-guide-90" },
+        { value: 100, className: "stats-guide-100" },
+      ]}
+      summary={summary}
+      renderTip={(index) => {
+        const point = points[index];
+        return point && <WindowTip point={point} />;
+      }}
+    />
   );
 }
 

@@ -648,15 +648,31 @@ The main menu item showing The Office as an isometric pixel-art office, each per
 _Avoid_: Office map, visualisation, live office, dashboard
 
 **Stats**:
-The main menu item, between Projects and the Live view, showing how The Office performs, above all what it spends in tokens and Usage windows: always the Basic stats, and the Full stats once Grafana answers ([2.11](docs/spec/2.11-stats.md)).
+The main menu item, between Projects and the Live view, showing how The Office performs, in two tabs: Tokens and cost, and System health ([2.11](docs/spec/2.11-stats.md)).
 _Avoid_: Dashboard, analytics, statistics page, insights, reports
 
+**Tokens and cost**:
+Stats' first tab, at `/stats`: what The Office spends in tokens and Usage windows, always the Basic stats, and the Full stats once Grafana answers.
+_Avoid_: Usage tab, spend, costs tab, token stats
+
+**System health**:
+Stats' second tab, at `/stats/system-health`: how well The Office itself runs, Office-wide. It shows how long its work waits (the event loop lag), its CPU and memory and the workstation's, its requests with the slowest routes, its database queries with the slowest queries and the queries waiting for a connection, and what is running now. The last hour comes from the Health readings, always; 24 h, 7 d and 30 d come from Grafana once it answers.
+_Avoid_: Performance, monitoring, health dashboard, metrics tab, observability
+
+**Health reading**:
+What The Office measures of itself every 5 seconds, whether telemetry is On or Off: the event loop lag, its CPU and memory, the workstation's, and the requests and queries of those 5 seconds. It keeps an hour of them, in memory only, and sends them to Grafana as metrics while telemetry is On.
+_Avoid_: Sample, snapshot, metric (a metric is what is sent to Grafana), health check, probe
+
+**Statement shape**:
+A database statement with its values and parameters made `?`, its IN lists and VALUES rows made one `?`, and cut at 200 characters, by which System health's slowest queries of the last hour are named. It is kept in memory only, never sent as telemetry.
+_Avoid_: Query text, SQL, fingerprint, normalised query
+
 **Basic stats**:
-What Stats shows from data The Office already keeps, with no cost: tokens per day by kind for the last 30 days and the Usage windows now, both Office-wide; the Tasks with the most tokens this week; and Tasks done and Stage retries this week.
+What Stats' Tokens and cost tab shows from data The Office already keeps, with no cost: tokens per day by kind for the last 30 days and the Usage windows now, both Office-wide; the Tasks with the most tokens this week; and Tasks done and Stage retries this week.
 _Avoid_: Simple stats, local stats, summary
 
 **Full stats**:
-What Stats adds once Grafana answers, drawn by The Office itself from Grafana's data: tokens and estimated cost over time by model, Role, Stage, Pipeline or Project; the most expensive Tasks and Initiatives, with their cost per Stage and per retry; and how full the Usage windows were over time, beside what was running. They cover only what The Office has sent since its telemetry was added.
+What Stats' Tokens and cost tab adds once Grafana answers, drawn by The Office itself from Grafana's data: tokens and estimated cost over time by model, Role, Stage, Pipeline or Project; the most expensive Tasks and Initiatives, with their cost per Stage and per retry; and how full the Usage windows were over time, beside what was running. They cover only what The Office has sent since its telemetry was added.
 _Avoid_: Grafana dashboards, panels, advanced stats, analytics
 
 **Grafana read address**:

@@ -73,6 +73,58 @@ test.describe("the Stats", () => {
     await expect(page).toHaveURL(/\/settings\/telemetry$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
   });
+
+  test("goes between Tokens and cost and System health, whose last hour needs no Grafana", async ({
+    page,
+  }) => {
+    await page.goto("/stats");
+    // Stats' own tabs, not a range's segmented control on their row.
+    const tabs = page.locator(".stats-tabs > [role='tablist']");
+    await expect(tabs.getByRole("tab", { name: "Tokens and cost" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.locator(".shell-top-crumb")).toHaveText("Tokens and cost");
+
+    await tabs.getByRole("tab", { name: "System health" }).click();
+    await expect(page).toHaveURL(/\/stats\/system-health$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Stats");
+    await expect(page.locator(".shell-top-crumb")).toHaveText("System health");
+    // The rail keeps one Stats item, current on either tab.
+    await expect(
+      page
+        .getByRole("navigation", { name: "Surfaces" })
+        .getByRole("link", { name: "Stats", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+
+    // Telemetry is Off in the e2e Office, yet the last hour comes from The Office's own readings.
+    for (const name of ["Load now", "Responsiveness", "CPU and memory", "Requests", "Database"]) {
+      const block = page.getByRole("region", { name, exact: true });
+      await expect(block).toBeVisible();
+      await expect(block.getByText("Office-wide", { exact: true })).toBeVisible();
+    }
+    await expect(page.getByText(/^From The Office's own Health readings/)).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Load now", exact: true }).getByText("Sessions running"),
+    ).toBeVisible();
+    // The Office answered this page's own requests, so its routes are listed.
+    const requests = page.getByRole("region", { name: "Requests", exact: true });
+    await expect(requests.getByText("Slowest routes")).toBeVisible();
+    await expect(requests.getByRole("table")).toBeVisible();
+
+    // The longer ranges read Grafana, which is off: they say so and lead back to the last hour.
+    await page.getByRole("group", { name: "Range" }).getByRole("tab", { name: "24 h" }).click();
+    await expect(page).toHaveURL(/\/stats\/system-health\?range=24h$/);
+    const longer = page.getByRole("region", { name: "The longer ranges", exact: true });
+    await expect(longer).toContainText("Turn on Grafana in Settings › Telemetry to see more.");
+    await longer.getByRole("button", { name: "Show the last hour" }).click();
+    await expect(page).toHaveURL(/\/stats\/system-health$/);
+    await expect(page.getByRole("region", { name: "Responsiveness", exact: true })).toBeVisible();
+
+    await tabs.getByRole("tab", { name: "Tokens and cost" }).click();
+    await expect(page).toHaveURL(/\/stats$/);
+    await expect(page.getByRole("region", { name: "Tokens per day", exact: true })).toBeVisible();
+  });
 });
 
 // The e2e Office's own engine's id, which has Usage windows.

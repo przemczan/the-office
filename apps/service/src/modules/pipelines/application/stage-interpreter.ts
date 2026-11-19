@@ -63,6 +63,7 @@ import { StageGit } from "./stage-git.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import type { StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
+import { StageRunsRunningNow } from "./stage-runs-running-now.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 type RunMove = Extract<NextMove, { move: "run" }>;
@@ -146,6 +147,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly roleFillings: RoleFillings,
     private readonly people: KnownPeople,
     private readonly conditionCommands: ConditionCommands,
+    private readonly runningNow: StageRunsRunningNow,
   ) {}
 
   onModuleInit(): void {
@@ -561,6 +563,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
         heldByUser: interruption.heldByUser,
       });
     }
+    const ended = this.runningNow.began(stage.kind);
     try {
       const runner = this.runners.runnerOf(stage.kind);
       // Each kind's runner registers as the module starts, so a missing one is a fault.
@@ -569,6 +572,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     } catch (error) {
       this.logger.error(`Stage run ${run.id} of Task ${run.taskId} failed`, stackOf(error));
       return { status: "failed", error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      ended();
     }
   }
 

@@ -1,0 +1,112 @@
+{
+  "range": {
+    "from": "2026-11-17T10:00:00.000Z",
+    "to": "2026-11-17T11:00:00.000Z",
+    "stepSeconds": 300
+  },
+  "status": 200,
+  "body": {
+    "results": {
+      "lagP99": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "lagP99",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: lagP99\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [8.5, 9.1, 10.2, 120.4, 9.8, 9.3, 9.0, 8.9]
+              ]
+            }
+          }
+        ]
+      },
+      "lagMax": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "lagMax",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: lagMax\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [21.0, 25.3, 30.1, 842.0, 28.7, 24.0, 22.6, 21.9]
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

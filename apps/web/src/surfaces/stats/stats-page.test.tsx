@@ -3,6 +3,7 @@ import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
 import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
+import { PageHeadingProvider } from "../../shell/page-heading.tsx";
 import { StatsPage } from "./stats-page.tsx";
 
 // jsdom has no layout, so a day's Tooltip never resizes.
@@ -69,7 +70,13 @@ const OFF: TelemetrySettings = {
   bundledGrafana: { state: "not-wanted", address: "http://localhost:3300", earlierStopped: [] },
 };
 
-const pages = { stats: StatsPage };
+const pages = {
+  stats: () => (
+    <PageHeadingProvider setPageHeading={() => undefined}>
+      <StatsPage />
+    </PageHeadingProvider>
+  ),
+};
 
 function openStats(
   stats: BasicStats = STATS,

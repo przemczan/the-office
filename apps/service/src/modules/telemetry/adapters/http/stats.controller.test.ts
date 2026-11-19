@@ -5,8 +5,10 @@ import {
   fullStatsReadSchema,
   fullStatsSchema,
   grafanaCheckAnswerSchema,
+  systemHealthReadSchema,
+  systemHealthSchema,
 } from "@the-office/contracts";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
@@ -17,6 +19,7 @@ import type {
   StatsProjectName,
   StatsStageRunSpan,
 } from "../../domain/full-stats.js";
+import type { HealthHour } from "../../domain/system-health.js";
 import type { StatsDay } from "../../ports/day-tokens.js";
 import type { StatsEngine } from "../../ports/engine-windows.js";
 import { GrafanaInUse, type GrafanaNow } from "../../ports/grafana-in-use.js";
@@ -126,7 +129,85 @@ class ProjectNamesForTests {
   }
 }
 
+const HOUR: HealthHour = {
+  readingsSince: new Date("2026-11-17T09:12:00.000Z"),
+  readings: [
+    {
+      at: new Date("2026-11-17T10:24:55.000Z"),
+      eventLoopLagP99Ms: 9.1,
+      eventLoopLagMaxMs: 842,
+      officeCpuPercent: 23,
+      officeCpuOfWorkstationPercent: 2.875,
+      memoryInUseBytes: 300_000_000,
+      heapUsedBytes: 120_000_000,
+      workstationCpuPercent: null,
+      workstationMemoryPercent: 61,
+      requests: 2,
+      requestP95Ms: 46,
+      queries: 1,
+      queryP95Ms: 9.8,
+      connectionsWaiting: 1,
+    },
+  ],
+  requests: 2,
+  requestP95Ms: 46,
+  queries: 1,
+  queryP95Ms: 9.8,
+  slowestRoutes: [
+    {
+      route: { method: "GET", template: "/api/tasks/:id" },
+      count: 2,
+      p95Ms: 46,
+      maxMs: 50,
+      totalMs: 90,
+    },
+  ],
+  slowestQueries: [
+    {
+      operation: "SELECT",
+      table: "tasks",
+      shape: "SELECT * FROM tasks WHERE id = ?",
+      count: 1,
+      p95Ms: 9.8,
+      maxMs: 9.8,
+      totalMs: 9.8,
+    },
+  ],
+};
+
+@Injectable()
+class HealthReadingsForTests {
+  lastHour(): HealthHour {
+    return HOUR;
+  }
+}
+
+@Injectable()
+class SessionsForTests {
+  async sessionsWorking(): Promise<number> {
+    return 3;
+  }
+}
+
+@Injectable()
+class StageRunsRunningForTests {
+  count(): number {
+    return 2;
+  }
+}
+
+@Injectable()
+class ConnectionsForTests {
+  openConnections(): number {
+    return 4;
+  }
+}
+
 const SOURCES = [
+  HealthReadingsForTests,
+  SessionsForTests,
+  StageRunsRunningForTests,
+  ConnectionsForTests,
   DaysForTests,
   EnginesForTests,
   RunsForTests,
@@ -143,11 +224,13 @@ class StatsSourcesForTests {}
 @Module({})
 class NoTelemetrySettings {}
 
+const READY: GrafanaNow = { kind: "ready", access: { address: "http://127.0.0.1:3300" } };
+let grafanaInUse: GrafanaNow = READY;
 const grafanaNow: {
   now: () => Promise<GrafanaNow>;
   savedReadToken: () => Promise<string | undefined>;
 } = {
-  now: () => Promise.resolve({ kind: "ready", access: { address: "http://127.0.0.1:3300" } }),
+  now: () => Promise.resolve(grafanaInUse),
   savedReadToken: () => Promise.resolve("saved-token"),
 };
 const statsSource = new ScriptedStatsSource();
@@ -167,6 +250,10 @@ beforeAll(async () => {
         officeTasks: TasksForTests,
         officeInitiatives: InitiativesForTests,
         projectNames: ProjectNamesForTests,
+        healthReadings: HealthReadingsForTests,
+        sessionsRunning: SessionsForTests,
+        stageRunsRunning: StageRunsRunningForTests,
+        browserConnections: ConnectionsForTests,
         statsSource: ScriptedStatsSource,
       }),
     ],
@@ -288,6 +375,195 @@ describe("GET /stats/full", () => {
 
   it("refuses a range it doesn't know", async () => {
     const response = await fetch(`${url}/api/stats/full?range=1y`);
+
+    expect(response.status).toBe(400);
+  });
+});
+
+async function readHealth(query: string) {
+  const response = await fetch(`${url}/api/stats/system-health${query}`);
+  return { status: response.status, health: systemHealthSchema.parse(await response.json()) };
+}
+
+describe("GET /stats/system-health", () => {
+  const LOAD_NOW = { sessionsRunning: 3, stageRunsRunning: 2, browserConnectionsOpen: 4 };
+  const ADDRESS = "http://127.0.0.1:3300";
+
+  afterEach(() => {
+    grafanaInUse = READY;
+  });
+
+  it("reads 1 h, the default, from the Health readings with telemetry not on", async () => {
+    const now = new Date("2026-11-17T10:25:00.000Z");
+    (app.get(Schedule) as ManualSchedule).setTime(now);
+    grafanaInUse = { kind: "none" };
+    const callsBefore = statsSource.calls.length;
+
+    const { status, health } = await readHealth("");
+
+    expect(status).toBe(200);
+    expect(statsSource.calls).toHaveLength(callsBefore);
+    expect(health).toMatchObject({ range: "1h", loadNow: LOAD_NOW });
+    expect(systemHealthReadSchema.parse(health.readings)).toEqual({
+      state: "read",
+      from: "2026-11-17T09:25:00.000Z",
+      to: now.toISOString(),
+      stepSeconds: 5,
+      readingsSince: "2026-11-17T09:12:00.000Z",
+      points: [
+        {
+          at: "2026-11-17T10:24:55.000Z",
+          eventLoopLagP99Ms: 9.1,
+          eventLoopLagMaxMs: 842,
+          officeCpuPercent: 23,
+          officeCpuOfWorkstationPercent: 2.875,
+          memoryInUseBytes: 300_000_000,
+          heapUsedBytes: 120_000_000,
+          workstationCpuPercent: null,
+          workstationMemoryPercent: 61,
+          requestsPerMinute: 24,
+          requestP95Ms: 46,
+          queriesPerMinute: 12,
+          queryP95Ms: 9.8,
+          connectionsWaiting: 1,
+        },
+      ],
+      requests: 2,
+      requestP95Ms: 46,
+      queries: 1,
+      queryP95Ms: 9.8,
+      slowestRoutes: [
+        {
+          route: { method: "GET", template: "/api/tasks/:id" },
+          count: 2,
+          p95Ms: 46,
+          maxMs: 50,
+          totalMs: 90,
+        },
+      ],
+      slowestQueries: [
+        {
+          operation: "SELECT",
+          table: "tasks",
+          shape: "SELECT * FROM tasks WHERE id = ?",
+          count: 1,
+          p95Ms: 9.8,
+          maxMs: 9.8,
+          totalMs: 9.8,
+        },
+      ],
+      unansweredBlocks: [],
+    });
+  });
+
+  it.each([
+    ["24h", 300],
+    ["7d", 3600],
+    ["30d", 21600],
+  ] as const)("reads %s from Grafana by its step of %i s", async (range, stepSeconds) => {
+    (app.get(Schedule) as ManualSchedule).setTime(new Date("2026-11-17T10:25:00.000Z"));
+    statsSource.set({
+      systemHealth: {
+        requests: {
+          perMinute: [{ at: new Date("2026-11-17T00:00:00.000Z"), value: 30.2 }],
+          p95Ms: [{ at: new Date("2026-11-17T00:00:00.000Z"), value: 46 }],
+          total: 18_400.4,
+          totalP95Ms: 46,
+          slowest: [
+            { route: null, count: 3, p95Ms: 5, maxMs: 10, totalMs: 9 },
+            {
+              route: { method: "GET", template: "/api/tasks/:id/stage-runs" },
+              count: 18_397,
+              p95Ms: 46,
+              maxMs: 250,
+              totalMs: 251_000,
+            },
+          ],
+        },
+        database: {
+          perMinute: [],
+          p95Ms: [],
+          connectionsWaiting: [],
+          total: 0,
+          totalP95Ms: null,
+          slowest: [
+            { operation: "SELECT", table: "stage_runs", count: 4, p95Ms: 2, maxMs: 5, totalMs: 8 },
+          ],
+        },
+      },
+    });
+
+    const { health } = await readHealth(`?range=${range}`);
+
+    const call = statsSource.calls.findLast((one) => one.kind === "system-health");
+    expect(call?.query.stepSeconds).toBe(stepSeconds);
+    expect(health).toMatchObject({ range, loadNow: LOAD_NOW });
+    const read = systemHealthReadSchema.parse(health.readings);
+    expect(read).toMatchObject({
+      stepSeconds,
+      requests: 18_400,
+      requestP95Ms: 46,
+      queries: 0,
+      queryP95Ms: null,
+      unansweredBlocks: [],
+      address: ADDRESS,
+    });
+    expect(read).not.toHaveProperty("readingsSince");
+    expect(read.points).toHaveLength(1);
+    expect(read.points[0]).toMatchObject({ requestsPerMinute: 30.2, eventLoopLagP99Ms: null });
+    expect(read.slowestRoutes.map(({ route }) => route?.template ?? null)).toEqual([
+      "/api/tasks/:id/stage-runs",
+      null,
+    ]);
+    expect(read.slowestQueries).toEqual([
+      { operation: "SELECT", table: "stage_runs", count: 4, p95Ms: 2, maxMs: 5, totalMs: 8 },
+    ]);
+  });
+
+  it.each([
+    [{ kind: "none" }, {}, { state: "not-on" }],
+    [{ kind: "starting", address: ADDRESS }, {}, { state: "starting", address: ADDRESS }],
+    [
+      READY,
+      { failure: { kind: "unreachable", problem: "No answer within 10 seconds." } },
+      { state: "unreachable", address: ADDRESS, problem: "No answer within 10 seconds." },
+    ],
+    [READY, { failure: { kind: "rejected" } }, { state: "rejected", address: ADDRESS }],
+    [READY, {}, { state: "no-data", address: ADDRESS }],
+  ] as const)(
+    "gives a longer range the Grafana's state, with Load now: %j %j",
+    async (now, stats, readings) => {
+      grafanaInUse = now;
+      statsSource.set(stats);
+
+      const { health } = await readHealth("?range=7d");
+
+      expect(health).toEqual({ range: "7d", loadNow: LOAD_NOW, readings });
+    },
+  );
+
+  it("shows the blocks that answered, naming those whose query failed", async () => {
+    statsSource.set({
+      systemHealth: {
+        responsiveness: {
+          lagP99Ms: [{ at: new Date("2026-11-17T09:00:00.000Z"), value: 9 }],
+          lagMaxMs: [],
+        },
+      },
+      systemHealthFailures: { database: { kind: "unreachable", problem: "Query data error" } },
+    });
+
+    const { health } = await readHealth("?range=24h");
+
+    expect(health.readings).toMatchObject({
+      state: "read",
+      unansweredBlocks: ["database"],
+      address: ADDRESS,
+    });
+  });
+
+  it("refuses a range it doesn't know", async () => {
+    const response = await fetch(`${url}/api/stats/system-health?range=1y`);
 
     expect(response.status).toBe(400);
   });

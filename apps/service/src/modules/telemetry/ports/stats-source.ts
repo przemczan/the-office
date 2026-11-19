@@ -4,6 +4,7 @@ import type {
   UsageSeries,
   WindowSeries,
 } from "../domain/full-stats.js";
+import type { HealthBlock, HealthSeries } from "../domain/system-health.js";
 
 /** Where a Grafana is read: its address and, for one that asks, a read token sent as Bearer. */
 export interface GrafanaAccess {
@@ -47,6 +48,11 @@ export type StatsSourceAnswer<T> =
   | { readonly kind: "unreachable"; readonly problem: string }
   | { readonly kind: "rejected" };
 
+/** System health over a range as Grafana answered it: each block's own answer, as each can fail. */
+export type HealthSeriesRead = {
+  readonly [Block in HealthBlock]: StatsSourceAnswer<HealthSeries[Block]>;
+};
+
 /** The names of the data sources the full stats would read in a Grafana; undefined for one it lacks. */
 export interface DataSourcesFound {
   readonly prometheus?: string | undefined;
@@ -75,4 +81,11 @@ export abstract class StatsSource {
     access: GrafanaAccess,
     range: SteppedRange,
   ): Promise<StatsSourceAnswer<readonly WindowSeries[]>>;
+
+  /**
+   * System health's measurements over a stepped range, Office-wide: each step's highest event loop
+   * lag and connections waiting, its p95 times and the mean of the rest, with the range's totals
+   * and slowest routes and queries, each block read on its own.
+   */
+  abstract systemHealth(access: GrafanaAccess, range: SteppedRange): Promise<HealthSeriesRead>;
 }

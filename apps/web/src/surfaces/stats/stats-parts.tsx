@@ -162,6 +162,58 @@ export function TipRow({
   );
 }
 
+/** What a chart with a Tooltip per step needs: the step picked and its handlers. */
+export interface ChartPick {
+  readonly picked: number | null;
+  readonly setPicked: (picked: number | null) => void;
+  /** The chart's one tab stop's handlers. */
+  readonly stepping: {
+    readonly onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
+    readonly onFocus: () => void;
+    readonly onBlur: () => void;
+    readonly onMouseLeave: () => void;
+  };
+}
+
+/**
+ * A chart's one tab stop over `count` steps: focus picks the last, the arrow keys step (Shift for
+ * ten), Home and End go to the first and the last; leaving it, or the mouse leaving, picks none.
+ */
+export function useChartPick(count: number): ChartPick {
+  const [chosen, setPicked] = useState<number | null>(null);
+  const last = count - 1;
+  // Fewer steps after a new answer keep the pick on the chart.
+  const picked = chosen === null || count === 0 ? null : Math.min(chosen, last);
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
+    if (count === 0) return;
+    const at = picked ?? last;
+    const by = event.shiftKey ? 10 : 1;
+    const next =
+      event.key === "ArrowLeft"
+        ? at - by
+        : event.key === "ArrowRight"
+          ? at + by
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? last
+              : null;
+    if (next === null) return;
+    event.preventDefault();
+    setPicked(Math.max(0, Math.min(last, next)));
+  };
+  return {
+    picked,
+    setPicked,
+    stepping: {
+      onKeyDown,
+      onFocus: () => setPicked((at) => at ?? (count > 0 ? last : null)),
+      onBlur: () => setPicked(null),
+      onMouseLeave: () => setPicked(null),
+    },
+  };
+}
+
 /** A round step for an axis: 1, 2, 2.5 or 5 times a power of ten. */
 export function niceStep(value: number): number {
   if (value <= 0) return 1;
@@ -226,42 +278,15 @@ export function BarsChart({
   readonly summary: string;
   readonly under?: ChartUnder;
 }): ReactNode {
-  const [picked, setPicked] = useState<number | null>(null);
+  const { picked, setPicked, stepping } = useChartPick(steps.length);
   const sums = stacks.map((stack) => stack.reduce((sum, { value }) => sum + value, 0));
   const most = Math.max(0, ...sums);
   const step = niceStep((most || emptyTop) / 4);
   const top = Math.max(step, Math.ceil(most / step) * step);
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, index) => index * step);
-  const last = steps.length - 1;
   const mostUnder = Math.max(1, ...(under?.values ?? []));
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const at = picked ?? last;
-    const by = event.shiftKey ? 10 : 1;
-    const next =
-      event.key === "ArrowLeft"
-        ? at - by
-        : event.key === "ArrowRight"
-          ? at + by
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? last
-              : null;
-    if (next === null) return;
-    event.preventDefault();
-    setPicked(Math.max(0, Math.min(last, next)));
-  };
   return (
-    <div
-      className="stats-chart"
-      role="img"
-      aria-label={summary}
-      tabIndex={0}
-      onKeyDown={onKeyDown}
-      onFocus={() => setPicked((at) => at ?? last)}
-      onBlur={() => setPicked(null)}
-      onMouseLeave={() => setPicked(null)}
-    >
+    <div className="stats-chart" role="img" aria-label={summary} tabIndex={0} {...stepping}>
       <div className="stats-chart-main">
         <div className="stats-chart-axis" aria-hidden="true">
           {ticks.map((tick) => (

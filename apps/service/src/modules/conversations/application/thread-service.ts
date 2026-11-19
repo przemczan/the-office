@@ -16,6 +16,7 @@ import {
   type TaskThreadStart,
 } from "../domain/thread-changes.js";
 import type { ThreadStarted } from "../domain/conversation-events.js";
+import { worksIn } from "../domain/people-working.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository, type TaskThreadTitle } from "../ports/thread-repository.js";
@@ -156,6 +157,15 @@ export class ThreadService {
   /** The Threads on an Initiative, the newest first; none for one The Office doesn't know. */
   listOnInitiative(initiativeId: string): Promise<readonly Thread[]> {
     return this.repository.listIn({ kind: "initiative", initiativeId });
+  }
+
+  /**
+   * How many engine sessions are working now, in Stages, chats and Threads: each Thread answering
+   * whose person works in it, as the Live view counts them (`worksIn`), so a Stage Thread waiting
+   * on its Decision doesn't count.
+   */
+  async sessionsWorking(): Promise<number> {
+    return (await this.repository.answering()).filter(worksIn).length;
   }
 
   /**

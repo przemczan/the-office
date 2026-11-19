@@ -15,6 +15,7 @@ import {
   type BoardFilters,
   type FullStatsRange,
   type PromptTemplateDomain,
+  type SystemHealthRange,
 } from "@the-office/contracts";
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
@@ -27,6 +28,7 @@ import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-sec
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
 import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
 import { StatsPage } from "./surfaces/stats/stats-page.tsx";
+import { healthRangeOf, SystemHealthPage } from "./surfaces/stats/system-health.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
@@ -441,7 +443,7 @@ const projectsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
-/** Stats, its full stats over the range named, 7 d when none is (spec 2.11). */
+/** Stats' Tokens and cost, its full stats over the range named, 7 d when none is (spec 2.11). */
 export interface StatsSearch {
   readonly range?: FullStatsRange;
 }
@@ -453,6 +455,22 @@ const statsRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): StatsSearch => {
     const range = statsRangeOf(search["range"]);
     return range === "7d" ? {} : { range };
+  },
+  staticData: { title: "Stats" },
+});
+
+/** Stats' System health, over the range named, 1 h when none is (spec 2.11, System health). */
+export interface SystemHealthSearch {
+  readonly range?: SystemHealthRange;
+}
+
+const systemHealthRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "stats/system-health",
+  component: SystemHealthPage,
+  validateSearch: (search: Record<string, unknown>): SystemHealthSearch => {
+    const range = healthRangeOf(search["range"]);
+    return range === "1h" ? {} : { range };
   },
   staticData: { title: "Stats" },
 });
@@ -790,6 +808,7 @@ export const router = createRouter({
       projectAppearanceRoute,
     ]),
     statsRoute,
+    systemHealthRoute,
     liveViewRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,

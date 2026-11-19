@@ -2,10 +2,13 @@ import type {
   BasicStats as BasicStatsResponse,
   FullStats as FullStatsResponse,
   StatsEngineWindows as StatsEngineWindowsResponse,
+  SystemHealth as SystemHealthResponse,
+  SystemHealthRead as SystemHealthReadResponse,
   TokenTotals,
 } from "@the-office/contracts";
 import type { BasicStatsRead } from "../../application/basic-stats.js";
 import type { FullStatsRead } from "../../application/full-stats.js";
+import type { HealthReadingsRead, SystemHealthRead } from "../../application/system-health.js";
 import type { StatsTokens } from "../../domain/basic-stats.js";
 import type { Spend, WindowPoint } from "../../domain/full-stats.js";
 import type { StatsEngineWindows, StatsUsageWindow } from "../../ports/engine-windows.js";
@@ -119,4 +122,48 @@ function toSpend({ tokens, estimatedCostUsd }: Spend) {
 
 function toWindowPoint({ at, percentUsed }: WindowPoint) {
   return { at: at.toISOString(), percentUsed };
+}
+
+export function toSystemHealthResponse(health: SystemHealthRead): SystemHealthResponse {
+  const { readings } = health;
+  return {
+    range: health.range,
+    loadNow: { ...health.loadNow },
+    readings: readings.state === "read" ? toHealthReadings(readings) : readings,
+  };
+}
+
+function toHealthReadings(read: HealthReadingsRead): SystemHealthReadResponse {
+  return {
+    state: "read",
+    from: read.from.toISOString(),
+    to: read.to.toISOString(),
+    stepSeconds: read.stepSeconds,
+    ...(read.readingsSince ? { readingsSince: read.readingsSince.toISOString() } : {}),
+    points: read.points.map(({ at, ...figures }) => ({ at: at.toISOString(), ...figures })),
+    requests: read.requests,
+    requestP95Ms: read.requestP95Ms,
+    queries: read.queries,
+    queryP95Ms: read.queryP95Ms,
+    slowestRoutes: read.slowestRoutes.map(({ route, count, p95Ms, maxMs, totalMs }) => ({
+      route: route ? { method: route.method, template: route.template } : null,
+      count,
+      p95Ms,
+      maxMs,
+      totalMs,
+    })),
+    slowestQueries: read.slowestQueries.map(
+      ({ operation, table, shape, count, p95Ms, maxMs, totalMs }) => ({
+        operation,
+        table,
+        ...(shape === undefined ? {} : { shape }),
+        count,
+        p95Ms,
+        maxMs,
+        totalMs,
+      }),
+    ),
+    unansweredBlocks: [...read.unansweredBlocks],
+    ...(read.address === undefined ? {} : { address: read.address }),
+  };
 }

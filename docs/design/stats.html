@@ -2301,6 +2301,302 @@
         display: inline-flex;
         border-radius: var(--radius-control);
       }
+      /* ---------- Stats' tabs (packages/ui's Tabs, as Work's tabs are) ---------- */
+      .stats-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 10px 12px;
+        margin-top: 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tabs {
+        display: flex;
+        gap: 20px;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 38px;
+        margin-bottom: -1px;
+        padding: 0;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--fg-3);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+        transition:
+          color var(--duration-fast),
+          border-color var(--duration-fast);
+      }
+      .tab:hover {
+        color: var(--fg-2);
+      }
+      .tab[aria-selected="true"] {
+        border-bottom-color: var(--accent);
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .tab:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--radius-sm);
+      }
+      .stats-tabs .range {
+        padding-bottom: 6px;
+      }
+      .w-phone .stats-tabs {
+        border-bottom: 0;
+      }
+      .w-phone .stats-tabs .tabs {
+        flex-basis: 100%;
+        border-bottom: 1px solid var(--border);
+      }
+      .w-phone .stats-tabs .range {
+        padding-bottom: 0;
+      }
+
+      /* ---------- System health ---------- */
+      .source-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        margin-top: 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .source-line svg {
+        flex: none;
+      }
+      .source-line .updated {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .source-line .updated .live-dot {
+        color: var(--success);
+      }
+      .w-phone .source-line .updated {
+        margin-left: 0;
+      }
+      .minis {
+        display: grid;
+        grid-template-columns: repeat(var(--minis, 2), minmax(0, 1fr));
+        gap: 18px 24px;
+      }
+      .w-tablet .minis,
+      .w-phone .minis {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .mini {
+        min-width: 0;
+      }
+      .mini-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 2px 12px;
+        margin-bottom: 8px;
+      }
+      .mini-title {
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+      .mini-now {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .mini-now b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .mini .legend {
+        margin-bottom: 6px;
+      }
+      .figure-tone-warning {
+        color: var(--warning-fg);
+      }
+      .load-figs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .w-phone .load-figs {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+      }
+      .load-fig {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+      }
+      .load-icon {
+        display: grid;
+        grid-row: span 2;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        box-shadow: 0 0 0 1px var(--border);
+        color: var(--fg-2);
+      }
+      .load-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+      }
+      .load-num {
+        font: 600 26px/1.15 var(--font-sans);
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .load-label {
+        font: 500 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .load-text {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .sub-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px 12px;
+        margin: 20px 0 8px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .sub-head .sub-title {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .sub-head .block-when {
+        font-weight: 400;
+      }
+      .slow-table .what {
+        text-align: left;
+        white-space: normal;
+      }
+      .slow-table tbody .what {
+        min-width: 240px;
+        font: 400 var(--text-xs) / 1.45 var(--font-mono);
+        color: var(--fg-1);
+        overflow-wrap: anywhere;
+      }
+      .slow-table .what .method {
+        display: inline-block;
+        min-width: 44px;
+        margin-right: 6px;
+        color: var(--fg-2);
+        font-weight: 600;
+      }
+      .slow-table .what .table-name {
+        color: var(--fg-1);
+      }
+      .slow-table tbody .what.plain {
+        font: italic 400 var(--text-sm) / 1.45 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .slow-table td.total {
+        width: 190px;
+      }
+      .message-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 16px;
+        margin-top: 8px;
+      }
+      .message-actions .message-step {
+        margin-top: 0;
+      }
+      .share {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        width: 100%;
+      }
+      .share-track {
+        flex: none;
+        width: 52px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--chart-track);
+        overflow: hidden;
+      }
+      .share-track i {
+        display: block;
+        height: 100%;
+        background: var(--fg-3);
+      }
+      .slow-table tr.top .share-track i {
+        background: var(--accent);
+      }
+      .sort {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .sort:hover {
+        color: var(--fg-1);
+      }
+      .sort:focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--radius-sm);
+      }
+      .sort svg {
+        opacity: 0;
+      }
+      th[aria-sort] .sort {
+        color: var(--fg-1);
+      }
+      th[aria-sort] .sort svg {
+        opacity: 1;
+      }
+      .table-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px 12px;
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
       /* Last, so a selected or current control's own shadow never hides the focus ring. */
       .segmented button[aria-selected="true"]:focus-visible,
       .switch button[aria-pressed="true"]:focus-visible,
@@ -2317,18 +2613,26 @@
     <div class="doc" id="doc">
 <h2>What it proposes</h2>
       <ol>
-        <li><strong>Two levels.</strong> The basic stats are always there, from what The Office already keeps (<code>day_tokens</code>, <code>stage_runs.tokens</code>, <code>task_state_changes</code>, <code>UsageWindowState</code>), with no cost anywhere; the full stats show once Grafana answers, and the range picker and the coverage line come with them.</li>
+        <li><strong>Tokens and cost has two levels.</strong> The basic stats are always there, from what The Office already keeps (<code>day_tokens</code>, <code>stage_runs.tokens</code>, <code>task_state_changes</code>, <code>UsageWindowState</code>), with no cost anywhere; the full stats show once Grafana answers, and the range picker and the coverage line come with them.</li>
         <li><strong>Drawn by The Office, never embedded panels.</strong> Every chart is the design system's bar or line chart over Grafana's data, so it follows the palette, the Project filter and the UI rules. Each has a Tooltip per bar or point on hover and on keyboard focus (one tab stop; the arrow keys step, Shift for ten, Home and End), <code>role="img"</code> with a summary, and Show as a table.</li>
         <li><strong>Office-wide says so.</strong> Tokens per day, the Usage windows now and the Usage windows over time with their lane carry an "Office-wide" badge; while a Project filter is set, its Tooltip says the filter doesn't narrow them. The filter narrows the top Tasks, Tasks done and Stage retries, tokens and cost over time, and the most expensive.</li>
         <li><strong>Cache reads are shown, never counted:</strong> a strip of their own under tokens per day, a line in every token Tooltip, a column in the tables.</li>
         <li><strong>Estimated cost only in the full stats,</strong> always called estimated, priced from Settings › Engines › Model prices.</li>
         <li><strong>The states keep the basic stats.</strong> The three Basic states say their words in the message at the foot, with the link; Grafana's problems say theirs in an Alert at the top with their next step; a query that fails partway puts Unreachable's words only in the blocks it fed.</li>
         <li><strong>Settings › Telemetry gains a Stats group</strong> under the export fields, with Your own endpoint picked: Grafana read address, Read token and Test. They apply as soon as they're saved, with no restart; the export fields still apply at the next start, and the actions line says both.</li>
+        <li><strong>Two tabs, one rail item.</strong> Stats' head keeps its title, and packages/ui's Tabs sit under it, as Work's do: <strong>Tokens and cost</strong> (<code>/stats</code>, everything above, unchanged) and <strong>System health</strong> (<code>/stats/system-health</code>). Each tab's range picker sits at the right of the tabs' row, as a control that serves one tab does (4.1). The top bar's crumb names the tab.</li>
+        <li><strong>System health: what The Office's own performance looks like, and what slows it down.</strong> Load now (sessions running, Stage runs running, browser connections open), then Responsiveness (event loop lag, p99 and max, with a 100 ms guide), CPU and memory (The Office's CPU against one core, its memory in use and heap used, the workstation's CPU and memory), Requests (requests a minute, p95 time, the slowest routes) and Database (queries a minute, p95 time, connections waiting, the slowest queries). Every block is Office-wide and says so.</li>
+        <li><strong>Find the cause, not just the symptom.</strong> The slowest routes and queries are sorted by total time, what kept The Office busiest, with each one's share; every figure column is a sort, so the one slow outlier (Max) or the slowest on average (p95) is a press away. Routes are named by their template, never the address; a query by its statement shape, values and parameters made ?. Hover the spike at 13:42 in the mock, then read the tables.</li>
+        <li><strong>1 h is always there.</strong> It comes from The Office's own Health readings, one every 5 seconds, kept in memory for an hour, telemetry On or Off, and refreshes every 5 seconds. 24 h, 7 d and 30 d come from Grafana and show its states in the same words and links as Tokens and cost; with no Grafana to read, they say why and offer Show the last hour. Load now shows on every range.</li>
+        <li><strong>Every chart has its Tooltip and Show as a table,</strong> one table per block with every figure of its charts; a range's steps are 5 seconds (1 h), 5 minutes (24 h), an hour (7 d) and 6 hours (30 d).</li>
       </ol>
       <h2>Open for the Gate</h2>
       <ul>
+        <li><strong>Load now comes first</strong> on System health rather than last: it is the one block that is the same on every range, and it says what is running while the charts below say how it went.</li>
+        <li><strong>The Office's CPU is measured against one core</strong> rather than the whole workstation: The Office's own work runs on one thread, so near 100% means it queues up, which a share of 16 cores would hide. Its Tooltip gives the share of the workstation too.</li>
+        <li><strong>The slowest tables show 10 rows</strong> and Show all for the rest, rather than every row.</li>
         <li><strong>The lane of what was running is Office-wide</strong>, as the windows above it are, so the Project filter doesn't narrow it. It could instead fade the other Projects' rows.</li>
-        <li><strong>7 d is the default range:</strong> long enough to show the week's rhythm and the 7-day window's reset, short enough that the lane stays readable.</li>
+        <li><strong>7 d is Tokens and cost's default range</strong> (System health's is 1 h): long enough to show the week's rhythm and the 7-day window's reset, short enough that the lane stays readable.</li>
         <li><strong>Engines without Usage windows are left out</strong> of both windows blocks rather than listed with "No Usage windows".</li>
       </ul>
       <p style="margin-top:18px;font:var(--type-caption);color:var(--fg-3)">The mock's data is made up and drawn from a seeded generator, the same on every load; today is Tue 17 Nov 2026, 14:05. Like the other pages, it uses the Geist fonts only where they are installed, and makes no network requests. The address keeps every switch and the page's own choices.</p>
@@ -2378,6 +2682,10 @@
         refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
         play: '<polygon points="6 3 20 12 6 21 6 3"/>',
         calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+        bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+        monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+        arrowDown: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
       };
       const icon = (name, size = 14) =>
         `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name]}</svg>`;
@@ -2778,14 +3086,42 @@
           { key: "tasks", label: "Tasks" },
           { key: "initiatives", label: "Initiatives" },
         ],
+        tab: [
+          { key: "cost", label: "Tokens and cost" },
+          { key: "health", label: "System health" },
+        ],
+        hrange: [
+          { key: "1h", label: "1 h" },
+          { key: "24h", label: "24 h" },
+          { key: "7d", label: "7 d" },
+          { key: "30d", label: "30 d" },
+        ],
+        readings: [
+          { key: "busy", label: "A busy hour, with a slow spell",
+            note: "At 13:41 the event loop waited up to 842 ms, and requests, queries and connections waiting rose with it. Sorted by total time, the slowest routes and queries put GET /api/tasks/:id/stage-runs and its stage_runs query first. Hover or focus a chart and use the arrow keys; sort the tables; Show as a table." },
+          { key: "fresh", label: "Just started",
+            note: "The Office started at 14:02:20: the hour fills as the readings come, one every 5 seconds, and the time before them is hatched. The tables hold the few routes and statements seen since." },
+          { key: "loading", label: "Loading",
+            note: "The first answer hasn't come yet: each block shows its BlockLoader shape, and Load now its figures' places." },
+          { key: "failed", label: "Couldn't read",
+            note: "The last read got no answer: the Alert says so, with Try again, and the blocks keep the last answer, from 14:04:55." },
+        ],
+        routesBy: [
+          { key: "count", label: "Count" },
+          { key: "p95", label: "p95" },
+          { key: "max", label: "Max" },
+          { key: "total", label: "Total time" },
+        ],
       };
+      OPTIONS.queriesBy = OPTIONS.routesBy;
       const DEFAULTS = {
         screen: "stats", scenario: "basic", engines: "two", filter: "all", width: "wide", palette: "light",
         tel: "own-empty", test: "reachable", range: "7d", split: "model", measure: "tokens", list: "tasks", engine: "",
+        tab: "cost", hrange: "1h", readings: "busy", routesBy: "total", queriesBy: "total",
       };
       const state = { ...DEFAULTS };
       /* What happens in the page and isn't kept in the address. */
-      const live = { answered: false, loading: false, playing: false, retrying: false, timers: [] };
+      const live = { answered: false, loading: false, playing: false, retrying: false, healthRetrying: false, timers: [] };
       const tables = new Set();
       const folds = new Set();
       let form = null;
@@ -3065,17 +3401,18 @@
           if (!spec || host.clientWidth === 0) continue;
           if (spec.kind === "bars") drawBars(host, spec);
           else if (spec.kind === "lines") drawLines(host, spec);
+          else if (spec.kind === "trend") drawTrend(host, spec);
           else drawLane(host, spec);
         }
       }
       const hatchDefs = (id) =>
         `<defs><pattern id="${id}-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="hatch-line" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>`;
-      function hatchRect(id, x, y, width, height) {
+      function hatchRect(id, x, y, width, height, words = "Nothing sent yet") {
         if (width <= 0) return "";
-        const words = width > 110
-          ? `<rect class="hatch-words-bg" x="${x + width / 2 - 52}" y="${y + height / 2 - 10}" width="104" height="20" rx="4"/><text class="hatch-words" x="${x + width / 2}" y="${y + height / 2}" dy="0.32em" text-anchor="middle">Nothing sent yet</text>`
+        const label = width > 110
+          ? `<rect class="hatch-words-bg" x="${x + width / 2 - 52}" y="${y + height / 2 - 10}" width="104" height="20" rx="4"/><text class="hatch-words" x="${x + width / 2}" y="${y + height / 2}" dy="0.32em" text-anchor="middle">${words}</text>`
           : "";
-        return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-hatch)"/>${words}`;
+        return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#${id}-hatch)"/>${label}`;
       }
       /* Ticks under a time axis: hours for 24 h, days for 7 d and 30 d. */
       function timeTicks(r, X, pw) {
@@ -3312,6 +3649,112 @@
             calls.querySelectorAll(".call.on").forEach((el) => el.classList.remove("on"));
             calls.classList.toggle("dim", k !== null);
             if (k !== null) calls.querySelector(`[data-k="${k}"]`).classList.add("on");
+          },
+        });
+      }
+
+      /* Ticks under System health's time axis: every 10 minutes for 1 h, 3 hours for 24 h, a day for 7 d, 5 days for 30 d. */
+      function healthTicks(r, X) {
+        const every = { "1h": 600, "24h": 3 * 3600, "7d": 86400, "30d": 5 * 86400 }[r.key];
+        const lines = [];
+        const labels = [];
+        let lastX = -Infinity;
+        for (let t = Math.ceil(r.from / every) * every; t <= r.to; t += every) {
+          const x = X(t);
+          lines.push(x);
+          if (x - lastX < 46) continue;
+          const minutes = t / 60;
+          labels.push({ x, text: r.step < 3600 ? hhmm(minutes) : dayLabel(Math.floor(minutes / DAY)) });
+          lastX = x;
+        }
+        return { lines, labels };
+      }
+      /* System health's line chart: its scale from its figures (at least spec.min), a gap where nothing was read. */
+      function drawTrend(host, spec) {
+        const id = host.dataset.chart;
+        const w = host.clientWidth;
+        const H = spec.height;
+        const pl = 52;
+        const pt = 10;
+        const pb = 22;
+        const pw = Math.max(0, w - pl - PR);
+        const ph = H - pt - pb;
+        const r = spec.range;
+        const X = (t) => pl + ((t - r.from) / (r.to - r.from)) * pw;
+        const points = spec.points;
+        const highest = Math.max(spec.min, ...points.flatMap((p) => (p ? spec.series.map((s) => p[s.key]) : [])));
+        const step = niceStep(highest / 4);
+        const top = Math.max(step, Math.ceil(highest / step) * step);
+        const Y = (v) => pt + ph - (v / top) * ph;
+        let g = hatchDefs(id);
+        if (spec.hatch) g += hatchRect(id, X(r.from), pt, X(Math.min(spec.hatch.to, r.to)) - X(r.from), ph, spec.hatch.words);
+        for (let k = 0; k <= Math.round(top / step); k++) {
+          const y = Y(k * step);
+          g += `<line class="grid${k ? " dash" : ""}" x1="${pl}" x2="${w - PR}" y1="${y}" y2="${y}"/><text class="axis" x="${pl - 8}" y="${y}" dy="0.32em" text-anchor="end">${spec.fmtAxis(k * step)}</text>`;
+        }
+        const ticks = healthTicks(r, X);
+        for (const x of ticks.lines) g += `<line class="vgrid" x1="${x}" x2="${x}" y1="${pt}" y2="${pt + ph}" opacity="0.6"/>`;
+        for (const label of ticks.labels) g += `<text class="axis" x="${label.x}" y="${H - 6}" text-anchor="middle">${label.text}</text>`;
+        if (spec.guide && spec.guide.value <= top) {
+          const y = Y(spec.guide.value);
+          g += `<line class="guide warning" x1="${pl}" x2="${w - PR}" y1="${y}" y2="${y}"/><text class="guide-words warning" x="${w - PR - 2}" y="${y - 4}" text-anchor="end">${esc(spec.guide.words)}</text>`;
+        }
+        for (const s of spec.series) {
+          const segments = [];
+          let current = [];
+          for (const p of points) {
+            if (p) current.push(p);
+            else if (current.length) {
+              segments.push(current);
+              current = [];
+            }
+          }
+          if (current.length) segments.push(current);
+          for (const seg of segments) {
+            const d = seg.map((p, i) => `${i ? "L" : "M"}${X(p.t).toFixed(1)} ${Y(p[s.key]).toFixed(1)}`).join(" ");
+            if (s.area) g += `<path d="${d} L${X(seg[seg.length - 1].t).toFixed(1)} ${Y(0)} L${X(seg[0].t).toFixed(1)} ${Y(0)} Z" style="fill:${s.color}" fill-opacity="0.1"/>`;
+            g += `<path d="${d}" fill="none" style="stroke:${s.color}" stroke-width="${s.width || 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
+          }
+        }
+        g += `<g class="hover" style="display:none"><line class="cross" y1="${pt}" y2="${pt + ph}"/>${spec.series
+          .map((s) => `<circle data-s="${s.key}" r="3.5" style="fill:var(--surface);stroke:${s.color}" stroke-width="2"/>`)
+          .join("")}</g>`;
+        host.innerHTML = `<svg width="${w}" height="${H}" aria-hidden="true">${g}</svg>`;
+        const svg = host.querySelector("svg");
+        const valid = points.map((p, i) => (p ? i : -1)).filter((i) => i >= 0);
+        wire(host, {
+          count: valid.length,
+          start: valid.length - 1,
+          at(x) {
+            if (x < pl || x > w - PR || valid.length === 0) return null;
+            const i = ((x - pl) / pw) * r.n - 1;
+            let lo = 0;
+            let hi = valid.length - 1;
+            while (lo < hi) {
+              const mid = (lo + hi) >> 1;
+              if (valid[mid] < i) lo = mid + 1;
+              else hi = mid;
+            }
+            return lo > 0 && Math.abs(valid[lo - 1] - i) < Math.abs(valid[lo] - i) ? lo - 1 : lo;
+          },
+          xOf: (k) => X(points[valid[k]].t),
+          yOf: () => pt,
+          tip: (k) => spec.tip(points[valid[k]]),
+          mark(k) {
+            const hover = svg.querySelector(".hover");
+            if (k === null) {
+              hover.style.display = "none";
+              return;
+            }
+            const p = points[valid[k]];
+            hover.style.display = "";
+            hover.querySelector(".cross").setAttribute("x1", X(p.t));
+            hover.querySelector(".cross").setAttribute("x2", X(p.t));
+            for (const s of spec.series) {
+              const dot = hover.querySelector(`[data-s="${s.key}"]`);
+              dot.setAttribute("cx", X(p.t));
+              dot.setAttribute("cy", Y(p[s.key]));
+            }
           },
         });
       }
@@ -3562,7 +4005,8 @@
         const m = MESSAGES[key];
         return `<section class="card message span-12" aria-label="The full stats"><span class="message-icon">${icon("chartColumn", 18)}</span><div class="message-words"><p class="message-title">${m.words}</p><p class="message-text">${FULL_ADDS}</p>${m.step}</div></section>`;
       }
-      function bannerHtml(key) {
+      /* Grafana's states, in the same words on both tabs; only No data yet says what starts each tab's figures. */
+      function bannerHtml(key, tab) {
         if (key === "starting") {
           return alertBox("info", "Grafana is starting…", "The first start pulls its image, which can take a few minutes.", "", true);
         }
@@ -3573,7 +4017,11 @@
         if (key === "rejected") {
           return alertBox("danger", "Grafana refused the read token", "Grafana at https://grafana.example.com answered 401. Give a Viewer service account token in Settings › Telemetry.", settingsLink());
         }
-        return alertBox("info", "Grafana has no data from The Office yet.", "The full stats start with the next engine call.");
+        return alertBox(
+          "info",
+          "Grafana has no data from The Office yet.",
+          tab === "health" ? "24 h, 7 d and 30 d start with The Office's next export, within a minute." : "The full stats start with the next engine call.",
+        );
       }
 
       /* ---------- Full stats ---------- */
@@ -3772,25 +4220,485 @@
         });
       }
 
-      /* ---------- The Stats page ---------- */
-      function statsPage() {
+      /* ---------- System health: The Office's own Health readings (1 h) and what it sent Grafana (24 h, 7 d, 30 d) ---------- */
+      const SEC_NOW = NOW * 60; // Tue 17 Nov 2026, 14:05:00, in seconds on the service's clock
+      const STARTED_AT = SEC_NOW - (4 * 3600 + 53 * 60); // 09:12, after this morning's update
+      const STOPPED_AT = STARTED_AT - 270; // the update stopped The Office at 09:07:30
+      const FRESH_STARTED_AT = SEC_NOW - 160; // "Just started": 14:02:20
+      const HEALTH_SENT_FROM = (24 * DAY + 10 * 60 + 30) * 60; // Thu 12 Nov, 10:30: this release started sending the measurements
+      /* Each range's step: a Health reading every 5 seconds for 1 h; Grafana's steps for the others. */
+      const HEALTH_RANGES = {
+        "1h": { key: "1h", step: 5, n: 720, words: "the last hour" },
+        "24h": { key: "24h", step: 300, n: 288, words: "the last 24 hours" },
+        "7d": { key: "7d", step: 3600, n: 168, words: "the last 7 days" },
+        "30d": { key: "30d", step: 21600, n: 120, words: "the last 30 days" },
+      };
+      function healthRangeOf() {
+        const r = HEALTH_RANGES[state.hrange];
+        return { ...r, to: SEC_NOW, from: SEC_NOW - r.n * r.step };
+      }
+      const hhmmss = (sec) => `${hhmm(Math.floor(sec / 60))}:${String(((sec % 60) + 60) % 60).padStart(2, "0")}`;
+      /* A step in words: the reading's time for 1 h, the step's span for the others. */
+      function healthStepWords(r, t) {
+        if (r.step === 5) return hhmmss(t);
+        const from = (t - r.step) / 60;
+        const span = `${hhmm(from)} to ${hhmm(t / 60)}`;
+        return r.key === "24h" ? span : `${dayLong(Math.floor(from / DAY))}, ${span}`;
+      }
+      const atWords = (r, t) => (r.step === 5 ? ` at ${hhmmss(t)}` : `, ${healthStepWords(r, t)}`);
+
+      /* Made-up readings: a working day's rhythm, noise that is the same for the same time, and three slow spells. */
+      function jitter(t, k) {
+        let x = Math.imul((t / 5) ^ Math.imul(k + 1, 0x9e3779b1), 0x85ebca6b);
+        x ^= x >>> 13;
+        x = Math.imul(x, 0xc2b2ae35);
+        x ^= x >>> 16;
+        return (x >>> 0) / 4294967296;
+      }
+      function activity(sec) {
+        const minutes = sec / 60;
+        const hour = (minutes % DAY) / 60;
+        const work = hour >= 8.5 && hour < 19 ? 1 : hour >= 7 && hour < 22 ? 0.45 : 0.12;
+        return weekdayOf(Math.floor(minutes / DAY)) >= 5 ? work * 0.35 : work;
+      }
+      const INCIDENTS = [
+        // Three people on a Task page while two Stages wrote their Stage runs: the slow spell the design is about.
+        { from: SEC_NOW - 1410, to: SEC_NOW - 1250, lagP99: 486, lagMax: 842, cpu: 97, ws: 71, heap: 140, req: 910, reqP95: 1840, q: 2630, qP95: 912, wait: 7 },
+        // A garbage collection: a short wait, nothing else.
+        { from: SEC_NOW - 400, to: SEC_NOW - 385, lagP99: 88, lagMax: 164 },
+        // Saturday night: every Project's base branch fetched at once.
+        { from: (26 * DAY + 3 * 60 + 2) * 60, to: (26 * DAY + 3 * 60 + 9) * 60, lagP99: 210, lagMax: 388, cpu: 74, ws: 92, q: 900, qP95: 140 },
+      ];
+      const PEAK_KEYS = ["lagP99", "lagMax", "reqP95", "qP95", "wait"];
+      function envelope(spell, t) {
+        const p = (t - spell.from) / (spell.to - spell.from);
+        const shape = p < 0.2 ? p / 0.2 : p > 0.75 ? (1 - p) / 0.25 : 1;
+        return Math.max(0, Math.min(1, shape * (p >= 0.45 && p <= 0.5 ? 1 : 0.72 + jitter(t, 12) * 0.28)));
+      }
+      function readingAt(t, { since, fresh }) {
+        if (t <= since || (t > STOPPED_AT && t <= STARTED_AT)) return null;
+        const a = activity(t);
+        const j = (k) => jitter(t, k);
+        const start = fresh ? FRESH_STARTED_AT : t > STARTED_AT ? STARTED_AT : HEALTH_SENT_FROM;
+        const up = t - start;
+        const rss = fresh ? 236 + Math.min(1, up / 120) * 118 + j(1) * 10 : 372 + 70 * a + Math.min(40, (up / 3600) * 8) + j(1) * 14;
+        const p = {
+          t,
+          lagP99: 3.5 + 5 * a + j(2) * 3,
+          lagMax: 0,
+          cpu: 4 + 21 * a + j(3) * 9,
+          ws: 9 + 26 * a + j(4) * 11,
+          rss,
+          heap: rss * 0.47 + j(5) * 18,
+          mem: 51 + 11 * a + j(6) * 2.5,
+          req: 30 + 190 * a + j(7) * 45,
+          reqP95: 26 + 24 * a + j(8) * 16,
+          q: 90 + 520 * a + j(9) * 110,
+          qP95: 3 + 5 * a + j(10) * 3.5,
+          wait: a > 0.8 && j(11) > 0.985 ? 1 : 0,
+        };
+        p.lagMax = p.lagP99 * (1.5 + j(13) * 1.4);
+        if (fresh && up <= 15) Object.assign(p, { lagP99: 64, lagMax: 118, cpu: 88 });
+        for (const spell of INCIDENTS) {
+          if (t <= spell.from || t > spell.to) continue;
+          const e = envelope(spell, t);
+          for (const [key, value] of Object.entries(spell)) {
+            if (key === "from" || key === "to") continue;
+            p[key] = key === "heap" ? p.heap + value * e : Math.max(p[key], p[key] + (value - p[key]) * e);
+          }
+        }
+        p.wait = Math.round(p.wait);
+        return p;
+      }
+      /* A Grafana step: the highest of the peaks (lag, p95, waiting) and the mean of the rest. */
+      function stepAt(t, step, opts) {
+        const stride = Math.max(5, step / 60);
+        const samples = [];
+        for (let s = t - step + stride; s <= t; s += stride) {
+          const p = readingAt(s, opts);
+          if (p) samples.push(p);
+        }
+        if (samples.length === 0) return null;
+        const out = { t };
+        for (const key of Object.keys(samples[0])) {
+          if (key === "t") continue;
+          const list = samples.map((p) => p[key]);
+          out[key] = PEAK_KEYS.includes(key) ? Math.max(...list) : sum(list) / list.length;
+        }
+        for (const spell of INCIDENTS) {
+          if (spell.to <= t - step || spell.from >= t) continue;
+          for (const key of PEAK_KEYS) if (spell[key] !== undefined) out[key] = Math.max(out[key], Math.round(spell[key] * 0.97));
+        }
+        return out;
+      }
+      const healthCache = new Map();
+      function healthPoints(r) {
+        const fresh = r.step === 5 && state.readings === "fresh";
+        const key = `${r.key}|${fresh}`;
+        if (!healthCache.has(key)) {
+          const opts = { since: r.step === 5 ? (fresh ? FRESH_STARTED_AT : r.from) : HEALTH_SENT_FROM, fresh };
+          healthCache.set(key, Array.from({ length: r.n }, (_, i) => {
+            const t = r.from + (i + 1) * r.step;
+            return r.step === 5 ? readingAt(t, opts) : stepAt(t, r.step, opts);
+          }));
+        }
+        return healthCache.get(key);
+      }
+
+      /* The slowest routes and statement shapes of the last hour: count, p95, max and mean time in ms; `fresh` is the count since 14:02:20. */
+      const ROUTES = [
+        { method: "GET", route: "/api/tasks/:id/stage-runs", count: 412, p95: 1620, max: 2480, mean: 610, hot: true, fresh: 2 },
+        { method: "GET", route: "/api/stats/full", count: 60, p95: 2310, max: 3040, mean: 1640, fresh: 0 },
+        { method: "GET", route: "/api/tasks", count: 1184, p95: 64, max: 310, mean: 41, fresh: 9 },
+        { method: "GET", route: "/api/pull-requests", count: 120, p95: 380, max: 720, mean: 260, fresh: 1 },
+        { method: "GET", route: "/api/tasks/:id", count: 620, p95: 42, max: 210, mean: 30, fresh: 3 },
+        { method: "POST", route: "/api/threads/:id/messages", count: 34, p95: 420, max: 980, mean: 290, fresh: 0 },
+        { method: "GET", route: "/api/projects/:id/tasks/:taskId/changes", count: 48, p95: 310, max: 520, mean: 180, fresh: 0 },
+        { method: "GET", route: "/api/stats/system-health", count: 720, p95: 18, max: 64, mean: 12, fresh: 30 },
+        { method: "GET", route: "/api/ci-runs", count: 60, p95: 140, max: 260, mean: 96, fresh: 1 },
+        { method: "GET", route: "/api/tasks/:id/attachments", count: 210, p95: 31, max: 90, mean: 19, fresh: 2 },
+        { method: "GET", route: "/api/projects", count: 240, p95: 22, max: 90, mean: 14, fresh: 4 },
+        { method: "GET", route: "/api/health", count: 120, p95: 3, max: 9, mean: 2, fresh: 6 },
+        { method: "POST", route: "/api/tasks/:id/attachments/links", count: 3, p95: 88, max: 92, mean: 70, fresh: 0 },
+        { method: "", route: "Unmatched", count: 14, p95: 2, max: 8, mean: 1.5, fresh: 1 },
+      ];
+      const QUERIES = [
+        { op: "SELECT", table: "stage_runs", shape: "SELECT sr.*, count(tm.id) FROM stage_runs sr LEFT JOIN thread_messages tm ON tm.thread_id = sr.thread_id WHERE sr.task_id = ? GROUP BY sr.id ORDER BY sr.started_at DESC", count: 412, p95: 1480, max: 2210, mean: 560, hot: true, fresh: 2 },
+        { op: "INSERT", table: "process_output", shape: "INSERT INTO process_output (id, process_id, chunk, at) VALUES (?)", count: 18400, p95: 4.2, max: 160, mean: 1.4, fresh: 0 },
+        { op: "SELECT", table: "tasks", shape: "SELECT * FROM tasks WHERE state IN (?) ORDER BY position", count: 1184, p95: 18, max: 140, mean: 9, fresh: 9 },
+        { op: "UPDATE", table: "stage_runs", shape: "UPDATE stage_runs SET tokens = ?, updated_at = ? WHERE id = ?", count: 2900, p95: 6, max: 210, mean: 2.2, fresh: 0 },
+        { op: "INSERT", table: "sub_agent_messages", shape: "INSERT INTO sub_agent_messages (id, sub_agent_id, body, at) VALUES (?)", count: 3800, p95: 3.1, max: 44, mean: 1.1, fresh: 0 },
+        { op: "SELECT", table: "pull_requests", shape: "SELECT * FROM pull_requests WHERE project_id = ? AND state = ?", count: 360, p95: 12, max: 30, mean: 7, fresh: 3 },
+        { op: "SELECT", table: "signed_in_devices", shape: "SELECT * FROM signed_in_devices WHERE token_hash = ?", count: 1900, p95: 1.2, max: 9, mean: 0.6, fresh: 41 },
+        { op: "SELECT", table: "day_tokens", shape: "SELECT day, input, output, cache_writes, cache_reads FROM day_tokens WHERE day >= ?", count: 120, p95: 9, max: 22, mean: 5.5, fresh: 1 },
+        { op: "SELECT", table: "usage_window_samples", shape: "SELECT * FROM usage_window_samples WHERE engine_id = ? AND at >= ? ORDER BY at", count: 60, p95: 14, max: 26, mean: 9, fresh: 1 },
+        { op: "SELECT", table: "thread_messages", shape: "SELECT * FROM thread_messages WHERE thread_id = ? AND id > ? ORDER BY id LIMIT ?", count: 290, p95: 8, max: 31, mean: 4, fresh: 2 },
+        { op: "INSERT", table: "task_state_changes", shape: "INSERT INTO task_state_changes (id, task_id, from_state, to_state, by, at) VALUES (?)", count: 6, p95: 5, max: 6, mean: 4, fresh: 0 },
+        { op: "DELETE", table: "signed_in_devices", shape: "DELETE FROM signed_in_devices WHERE last_seen_at < ?", count: 12, p95: 9, max: 11, mean: 6, fresh: 0 },
+      ];
+      /* What a range's table holds: the hour as it is, a fresh start's few, or Grafana's longer ranges. */
+      function slowRows(list, r) {
+        if (r.step === 5 && state.readings === "fresh") {
+          return list.filter((row) => row.fresh > 0).map((row) => ({ ...row, count: row.fresh, p95: row.p95 * 0.6, max: row.max * 0.5, mean: row.mean * 0.6 }));
+        }
+        const scale = { "1h": 1, "24h": 13, "7d": 61, "30d": 118 }[r.key];
+        if (scale === 1) return list;
+        return list.map((row, i) => ({
+          ...row,
+          count: Math.round(row.count * scale * (0.8 + jitter(i * 5, 30) * 0.4)),
+          mean: row.mean * (row.hot ? 0.5 : 1),
+          p95: row.p95 * (row.hot ? 0.75 : 1),
+        }));
+      }
+      const totalOf = (row) => row.count * row.mean;
+
+      /* ---------- System health's figures in words ---------- */
+      function fmtMs(ms) {
+        if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 1 : 2)} s`;
+        return ms >= 10 ? `${Math.round(ms)} ms` : `${ms.toFixed(1)} ms`;
+      }
+      const fmtMsAxis = (v) => (v >= 1000 ? `${+(v / 1000).toFixed(2)} s` : `${v} ms`);
+      function fmtDuration(ms) {
+        if (ms < 1000) return `${Math.round(ms)} ms`;
+        const s = ms / 1000;
+        if (s < 60) return `${s.toFixed(1)} s`;
+        const m = Math.floor(s / 60);
+        return m < 60 ? `${m} min ${Math.floor(s % 60)} s` : `${Math.floor(m / 60)} h ${m % 60} min`;
+      }
+      const fmtMb = (mb) => (mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${Math.round(mb)} MB`);
+      const fmtMbAxis = (v) => `${v} MB`;
+      const fmtCount = (v) => Math.round(v).toLocaleString("en-US");
+      const fmtCountShort = (v) => (v >= 10000 ? `${(v / 1000).toFixed(1)}k` : fmtCount(v));
+
+      /* Each measure: its name in a chart's legend and Tooltip, its column in Show as a table, its colour and its words. */
+      const MEASURES = {
+        lagP99: { name: "p99", column: "Event loop lag, p99", color: "var(--chart-2)", fmt: fmtMs, width: 1.75 },
+        lagMax: { name: "Max", column: "Event loop lag, max", color: "var(--chart-4)", fmt: fmtMs },
+        cpu: { name: "The Office", column: "The Office's CPU, of one core", color: "var(--chart-1)", fmt: fmtPercent, area: true },
+        rss: { name: "In use", column: "The Office's memory in use", color: "var(--chart-2)", fmt: fmtMb },
+        heap: { name: "Heap used", column: "Heap used", color: "var(--chart-5)", fmt: fmtMb },
+        ws: { name: "CPU", column: "Workstation CPU", color: "var(--chart-3)", fmt: fmtPercent },
+        mem: { name: "Memory", column: "Workstation memory", color: "var(--chart-5)", fmt: fmtPercent },
+        req: { name: "Requests a minute", column: "Requests a minute", color: "var(--chart-2)", fmt: fmtCount, area: true },
+        reqP95: { name: "p95 time", column: "Requests, p95 time", color: "var(--chart-1)", fmt: fmtMs },
+        q: { name: "Queries a minute", column: "Queries a minute", color: "var(--chart-3)", fmt: fmtCount, area: true },
+        qP95: { name: "p95 time", column: "Queries, p95 time", color: "var(--chart-1)", fmt: fmtMs },
+        wait: { name: "Waiting", column: "Waiting for a connection, the most", color: "var(--warning)", fmt: fmtCount },
+      };
+      const HEALTH_BLOCKS = {
+        lag: {
+          title: "Responsiveness",
+          note: "How long The Office's own work waited for its turn: the event loop lag. Above 100 ms, pages and Threads answer late. A long wait usually lines up with the slowest routes and queries below.",
+          minis: [{ id: "h-lag", title: "Event loop lag", keys: ["lagP99", "lagMax"], fmtAxis: fmtMsAxis, min: 50, guide: { value: 100, words: "100 ms: answers feel late" }, tall: true }],
+        },
+        cpumem: {
+          title: "CPU and memory",
+          note: "The Office's CPU is measured against one core: near 100%, its work queues up. Memory in use is what the workstation gave The Office; the heap is what its JavaScript holds.",
+          minis: [
+            { id: "h-cpu", title: "The Office's CPU", unit: "of one core", keys: ["cpu"], fmtAxis: fmtPercent, min: 100 },
+            { id: "h-memory", title: "The Office's memory", keys: ["rss", "heap"], fmtAxis: fmtMbAxis, min: 256 },
+            { id: "h-workstation", title: "The workstation", keys: ["ws", "mem"], fmtAxis: fmtPercent, min: 100 },
+          ],
+        },
+        requests: {
+          title: "Requests",
+          minis: [
+            { id: "h-req", title: "Requests a minute", keys: ["req"], fmtAxis: fmtCountShort, min: 100 },
+            { id: "h-req-p95", title: "p95 time", keys: ["reqP95"], fmtAxis: fmtMsAxis, min: 50 },
+          ],
+        },
+        database: {
+          title: "Database",
+          minis: [
+            { id: "h-q", title: "Queries a minute", keys: ["q"], fmtAxis: fmtCountShort, min: 200 },
+            { id: "h-q-p95", title: "p95 time", keys: ["qP95"], fmtAxis: fmtMsAxis, min: 20 },
+            { id: "h-wait", title: "Waiting for a connection", keys: ["wait"], fmtAxis: fmtCount, min: 4 },
+          ],
+        },
+      };
+      const percentile = (list, p) => {
+        const sorted = [...list].sort((a, b) => a - b);
+        return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] || 0;
+      };
+
+      /* ---------- System health's blocks ---------- */
+      function mini(m, d) {
+        const r = d.r;
+        const valid = d.points.filter(Boolean);
+        const first = MEASURES[m.keys[0]];
+        const hour = r.step === 5;
+        const figure = valid.length
+          ? hour
+            ? `now <b>${first.fmt(valid[valid.length - 1][m.keys[0]])}</b>${m.unit ? ` ${m.unit}` : ""}`
+            : `highest <b>${first.fmt(Math.max(...valid.map((p) => p[m.keys[0]])))}</b>${m.unit ? ` ${m.unit}` : ""}`
+          : "";
+        const series = m.keys.map((key) => ({ key, ...MEASURES[key] }));
+        const firstAt = d.points.findIndex(Boolean);
+        const hatch = firstAt > 0
+          ? { to: r.from + firstAt * r.step, words: hour ? "Before this start" : "Nothing sent yet" }
+          : null;
+        const spec = {
+          height: m.tall ? (phone() ? 180 : 210) : phone() ? 150 : 160,
+          range: r,
+          points: d.points,
+          series,
+          min: m.min,
+          guide: m.guide,
+          hatch,
+          fmtAxis: m.fmtAxis,
+          summary: `${m.title} over ${r.words}${valid.length ? `: ${series.map((s) => `${s.name} at most ${s.fmt(Math.max(...valid.map((p) => p[s.key])))}`).join(", ")}` : ""}. Use the arrow keys to read each ${hour ? "reading" : "step"}.`,
+          tip: (p) =>
+            `<div class="tip-title">${healthStepWords(r, p.t)}</div>${series
+              .map((s) => tipRow(s.name, s.color, `${s.fmt(p[s.key])}${s.key === "cpu" ? " of one core" : ""}`))
+              .join("")}${m.keys.includes("cpu") ? tipRow("Of the workstation", "", fmtPercent(p.cpu / 16), "muted") : ""}`,
+        };
+        const legendHtml = series.length > 1 ? legend(series.map((s) => ({ name: s.name, color: s.color, shape: "line" }))) : "";
+        return `<div class="mini"><div class="mini-head"><span class="mini-title">${m.title}</span>${figure ? `<span class="mini-now">${figure}</span>` : ""}</div>${legendHtml}${chart(m.id, "trend", spec)}</div>`;
+      }
+      /* A block's charts, or all their figures in one table. */
+      function chartsBody(key, d) {
+        const def = HEALTH_BLOCKS[key];
+        if (tables.has(key)) {
+          const keys = def.minis.flatMap((m) => m.keys);
+          const rows = d.points.filter(Boolean).map((p) => [healthStepWords(d.r, p.t), ...keys.map((k) => MEASURES[k].fmt(p[k]))]);
+          return tableHtml([d.r.step === 5 ? "Reading" : "Step", ...keys.map((k) => MEASURES[k].column)], rows);
+        }
+        return `<div class="minis" style="--minis:${def.minis.length}">${def.minis.map((m) => mini(m, d)).join("")}</div>`;
+      }
+      function healthBlock(key, d, { figure = "", extra = "", foot = "" } = {}) {
+        const def = HEALTH_BLOCKS[key];
+        const id = `health-${key}`;
+        const base = { id, cls: "span-12", title: def.title, badge: officeWide() };
+        if (d.loading) return block({ ...base, body: `${loaderLines()}${extra ? loaderRows(4) : ""}` });
+        if (d.failed.has(key)) return block({ ...base, body: unreachableAlert() });
+        const empty = d.points.every((p) => p === null);
+        return block({
+          ...base,
+          tools: empty ? "" : tableToggle(key),
+          figure: empty ? "" : figure,
+          body: empty ? `<p class="empty">Nothing read yet. The first Health reading comes within 5 seconds of The Office starting.</p>` : `${chartsBody(key, d)}${extra}`,
+          foot: foot || (def.note ? def.note : ""),
+        });
+      }
+      function responsivenessBlock(d) {
+        const valid = d.points.filter(Boolean);
+        let figure = "";
+        if (valid.length) {
+          const worst = valid.reduce((a, b) => (b.lagMax > a.lagMax ? b : a));
+          const lead = d.r.step === 5
+            ? `<b>${fmtMs(valid[valid.length - 1].lagP99)}</b> p99 now`
+            : `<b>${fmtMs(Math.max(...valid.map((p) => p.lagP99)))}</b> highest p99`;
+          figure = `${lead} · <span class="${worst.lagMax >= 100 ? "figure-tone-warning" : ""}">the longest wait ${fmtMs(worst.lagMax)}${atWords(d.r, worst.t)}</span>`;
+        }
+        return healthBlock("lag", d, { figure });
+      }
+      function countFigure(d, key, p95Key, noun) {
+        const valid = d.points.filter(Boolean);
+        if (!valid.length) return "";
+        const count = sum(valid.map((p) => (p[key] * d.r.step) / 60));
+        return `<b>${fmtCountShort(count)}</b> ${noun} in ${d.r.words} · p95 ${fmtMs(percentile(valid.map((p) => p[p95Key]), 0.95))}`;
+      }
+      /* The slowest routes or queries: by total time at first, each column a sort. */
+      const SORTS = OPTIONS.routesBy;
+      const expanded = new Set();
+      function slowTable({ id, title, when, whatHead, countHead, rows, what, noun, empty }) {
+        const by = state[`${id}By`];
+        const valueOf = (row) => (by === "total" ? totalOf(row) : row[by]);
+        const sorted = [...rows].sort((a, b) => valueOf(b) - valueOf(a));
+        const shown = expanded.has(id) ? sorted : sorted.slice(0, 10);
+        const all = sum(rows.map(totalOf));
+        const topTotal = Math.max(1, ...rows.map(totalOf));
+        const th = ({ key, label }) =>
+          `<th scope="col"${by === key ? ' aria-sort="descending"' : ""}><button type="button" class="sort" data-set="${id}By" data-value="${key}" aria-label="Sort by ${key === "count" ? countHead : label}">${key === "count" ? countHead : label}${icon("arrowDown", 12)}</button></th>`;
+        const body = shown
+          .map((row, i) => {
+            const total = totalOf(row);
+            return `<tr${by === "total" && i === 0 ? ' class="top"' : ""}><th scope="row" class="what${row.plain ? " plain" : ""}">${what(row)}</th><td>${fmtCount(row.count)}</td><td>${fmtMs(row.p95)}</td><td>${fmtMs(row.max)}</td><td class="total"><span class="share"><span class="share-track" aria-hidden="true"><i style="width:${((total / topTotal) * 100).toFixed(1)}%"></i></span>${fmtDuration(total)} <span class="faint">${Math.round((total / all) * 100)}%</span></span></td></tr>`;
+          })
+          .join("");
+        const head = `<div class="sub-head"><span class="sub-title">${title}<span class="block-when">${when}</span></span></div>`;
+        if (rows.length === 0) return `${head}<p class="empty">${empty}</p>`;
+        const more = rows.length > 10
+          ? `<button type="button" class="btn ghost sm" data-expand="${id}">${expanded.has(id) ? "Show the first 10" : `Show all ${rows.length}`}</button>`
+          : "";
+        return `${head}<div class="table-scroll"><table class="data-table slow-table"><thead><tr><th scope="col" class="what">${whatHead}</th>${SORTS.map(th).join("")}</tr></thead><tbody>${body}</tbody></table></div><div class="table-foot"><span>${plural(rows.length, noun, `${noun}s`)} · ${fmtDuration(all)} in all; the % is each one's share of it.</span>${more}</div>`;
+      }
+      function requestsBlock(d) {
+        const rows = slowRows(ROUTES, d.r).map((row) => ({ ...row, plain: row.route === "Unmatched" }));
+        const table = slowTable({
+          id: "routes",
+          title: "Slowest routes",
+          when: "by total time: what kept The Office busiest",
+          whatHead: "Route",
+          countHead: "Requests",
+          rows,
+          noun: "route",
+          what: (row) => (row.plain ? "Unmatched: no route answered" : `<span class="method">${row.method}</span>${esc(row.route)}`),
+          empty: `No request in ${d.r.words}. Each route shows here once The Office answers one.`,
+        });
+        return healthBlock("requests", d, {
+          figure: countFigure(d, "req", "reqP95", "requests"),
+          extra: table,
+          foot: "Each route by its template, such as /api/tasks/:id, never the address asked for, so one route is one row however many Tasks it served.",
+        });
+      }
+      function databaseBlock(d) {
+        const hour = d.r.step === 5;
+        const rows = slowRows(QUERIES, d.r);
+        const valid = d.points.filter(Boolean);
+        const most = valid.length ? Math.max(...valid.map((p) => p.wait)) : 0;
+        const figure = valid.length
+          ? `${countFigure(d, "q", "qP95", "queries")} · <span class="${most ? "figure-tone-warning" : ""}">${most ? `up to ${plural(most, "query", "queries")} waited for a connection` : "none waited for a connection"}</span>`
+          : "";
+        const table = slowTable({
+          id: "queries",
+          title: hour ? "Slowest queries" : "Slowest queries, by operation and table",
+          when: hour ? "by total time, each statement by its shape" : "by total time",
+          whatHead: hour ? "Statement shape" : "Operation and table",
+          countHead: "Queries",
+          rows,
+          noun: hour ? "statement shape" : "operation and table",
+          what: (row) => (hour ? esc(row.shape) : `<span class="method">${row.op}</span><span class="table-name">${row.table}</span>`),
+          empty: `No query in ${d.r.words}. Each ${hour ? "statement shape" : "operation and table"} shows here once The Office runs one.`,
+        });
+        const foot = hour
+          ? "A statement's shape has its values and parameters made ?, its IN lists and VALUES rows made one ?, and is cut at 200 characters. The Office keeps the 500 shapes seen most."
+          : "Grafana keeps queries by operation and table only, never their statements. Pick 1 h to see each statement's shape.";
+        return healthBlock("database", d, { figure, extra: table, foot });
+      }
+      /* Load now: figures read now, whatever the range. */
+      const LOAD = [
+        { key: "sessions", icon: "bot", label: "Sessions running", text: "Engine sessions working now: in Stages, chats and Threads." },
+        { key: "stageRuns", icon: "route", label: "Stage runs running", text: "Agent and Script Stages running now, on any Task." },
+        { key: "connections", icon: "monitor", label: "Browser connections open", text: "Browser tabs following The Office's events now, from every signed-in device." },
+      ];
+      function loadNowBlock(loading) {
+        const now = state.readings === "fresh" ? { sessions: 0, stageRuns: 0, connections: 1 } : { sessions: 4, stageRuns: 2, connections: 3 };
+        const body = `<div class="load-figs">${LOAD.map((f) =>
+          loading
+            ? `<div class="load-fig" role="status"><span class="load-icon">${icon(f.icon, 16)}</span><span class="skeleton" style="width:60%;height:22px"></span><span class="skeleton" style="width:80%;height:10px;margin-top:6px"></span></div>`
+            : `<div class="load-fig"><span class="load-icon">${icon(f.icon, 16)}</span><div class="load-head"><span class="load-num">${now[f.key]}</span><span class="load-label">${f.label}</span></div><p class="load-text">${f.text}</p></div>`,
+        ).join("")}</div>`;
+        return block({ id: "health-load", cls: "span-12", title: "Load now", badge: officeWide(), when: '<span class="block-when">the same on every range</span>', body });
+      }
+      /* The longer ranges with no Grafana to read: why, the next step, and the way back to the last hour. */
+      const LONGER_WORDS = "24 h, 7 d and 30 d read the measurements The Office sends Grafana. The last hour needs no Grafana: it comes from The Office's own Health readings.";
+      function longerRangesMessage(v) {
+        const m = v.kind === "basic" ? MESSAGES[v.s.message] : null;
+        const title = m
+          ? m.words
+          : v.s.banner === "nodata"
+            ? "24 h, 7 d and 30 d show once The Office's first export arrives."
+            : "24 h, 7 d and 30 d show once Grafana answers.";
+        const back = `<button type="button" class="btn secondary sm" data-set="hrange" data-value="1h">${icon("clock", 13)}Show the last hour</button>`;
+        return `<section class="card message span-12" aria-label="The longer ranges"><span class="message-icon">${icon("activity", 18)}</span><div class="message-words"><p class="message-title">${title}</p><p class="message-text">${LONGER_WORDS}</p><div class="message-actions">${back}${m ? m.step : ""}</div></div></section>`;
+      }
+      function readingsFailedAlert() {
+        const button = live.healthRetrying
+          ? `<button type="button" class="btn secondary sm" aria-busy="true" disabled>${spinner(13, "")}Try again</button>`
+          : `<button type="button" class="btn secondary sm" data-action="health-retry">${icon("rotate", 13)}Try again</button>`;
+        return `<div class="state-banner">${alertBox("danger", "Couldn't read System health", "The Office didn't answer within 10 seconds. The figures below are its last answer, from 14:04:55.", button)}</div>`;
+      }
+      function sourceLine(r, loading) {
+        if (loading) return '<p class="source-line"><span class="skeleton" style="width:420px;max-width:100%;height:12px"></span></p>';
+        if (r.step === 5) {
+          const started = state.readings === "fresh" ? hhmmss(FRESH_STARTED_AT) : hhmm(STARTED_AT / 60);
+          const updated = state.readings === "failed"
+            ? '<span class="updated">Last answer 14:04:55</span>'
+            : '<span class="updated"><span class="live-dot" aria-hidden="true"></span>Updated 14:05:00 · every 5 seconds</span>';
+          return `<p class="source-line">${icon("activity", 13)}From The Office's own Health readings: one every 5 seconds since it started at ${started}, kept in memory for an hour.${updated}</p>`;
+        }
+        return `<p class="source-line">${icon("calendar", 13)}24 h, 7 d and 30 d cover what The Office has sent Grafana since it started sending these measurements.<span class="updated">Updated 14:05 · every minute</span></p>`;
+      }
+      function healthTab() {
+        const r = healthRangeOf();
+        const hour = r.step === 5;
         const v = view();
+        const drawn = hour || v.kind === "full" || v.kind === "partial";
+        const loading = hour ? state.readings === "loading" : v.loading;
+        const d = {
+          r,
+          loading,
+          failed: new Set(!hour && v.kind === "partial" ? ["database"] : []),
+          // A failed read keeps the last answer, from 14:04:55.
+          points: loading || !drawn ? [] : hour && state.readings === "failed" ? [...healthPoints(r).slice(0, -1), null] : healthPoints(r),
+        };
+        const alert = hour
+          ? state.readings === "failed" ? readingsFailedAlert() : ""
+          : v.kind === "banner" ? `<div class="state-banner">${bannerHtml(v.s.banner, "health")}</div>` : "";
+        const blocks = [loadNowBlock(hour && loading)];
+        if (drawn) blocks.push(responsivenessBlock(d), healthBlock("cpumem", d), requestsBlock(d), databaseBlock(d));
+        else blocks.push(longerRangesMessage(v));
+        return `${drawn ? sourceLine(r, loading) : ""}${alert}<div class="blocks">${blocks.join("")}</div>`;
+      }
+
+      /* ---------- The Stats page: its head, its two tabs, and each tab's range on the tabs' row ---------- */
+      const STATS_TABS = OPTIONS.tab; // Tokens and cost at /stats, System health at /stats/system-health
+      const statsTabs = () =>
+        `<div class="tabs" role="tablist" aria-label="Stats">${STATS_TABS.map(
+          (t) => `<button type="button" class="tab" role="tab" aria-selected="${state.tab === t.key}" data-set="tab" data-value="${t.key}">${t.label}</button>`,
+        ).join("")}</div>`;
+      const rangeControl = (key) => `<div class="range">${phone() ? selectControl(key, "Range") : segmented(key, "Range")}</div>`;
+      function costTab(v) {
         const full = v.kind === "full" || v.kind === "partial";
         const failed = v.kind === "partial";
-        const range = full
-          ? `<div class="range">${phone() ? selectControl("range", "Range") : segmented("range", "Range")}</div>`
-          : "";
         const coverage = full
           ? `<p class="coverage">${v.loading ? '<span class="skeleton" style="width:340px;max-width:100%;height:12px"></span>' : `${icon("calendar", 13)}The full stats cover what The Office has sent Grafana since 3 Nov, when it started sending it.`}</p>`
           : "";
-        const banner = v.kind === "banner" ? `<div class="state-banner">${bannerHtml(v.s.banner)}</div>` : "";
+        const banner = v.kind === "banner" ? `<div class="state-banner">${bannerHtml(v.s.banner, "cost")}</div>` : "";
         const blocks = full
           ? [spendBlock(v.loading, failed), expensiveBlock(v.loading), windowsOverTimeBlock(v.loading, failed), windowsNowBlock("pair"), thisWeekBlock("pair")]
           : [tokensPerDayBlock(), windowsNowBlock("span-4 t-6"), topTasksBlock(), thisWeekBlock("span-4 t-6"), v.kind === "basic" ? messageBlock(v.s.message) : ""];
+        return `${coverage}${banner}<div class="blocks">${blocks.join("")}</div>`;
+      }
+      function statsPage() {
+        const v = view();
+        const health = state.tab === "health";
+        const range = health ? rangeControl("hrange") : v.kind === "full" || v.kind === "partial" ? rangeControl("range") : "";
         return `<div class="page">
-          <div class="page-head"><div class="page-head-words"><h2 class="page-title">Stats</h2><p class="page-sub">How The Office performs: what it spends in tokens and Usage windows.</p></div>${range}</div>
-          ${coverage}${banner}
-          <div class="blocks">${blocks.join("")}</div>
+          <div class="page-head"><div class="page-head-words"><h2 class="page-title">Stats</h2><p class="page-sub">How The Office performs: what it spends, and how well it runs.</p></div></div>
+          <div class="stats-tabs">${statsTabs()}${range}</div>
+          ${health ? healthTab() : costTab(v)}
         </div>`;
       }
 
@@ -3815,7 +4723,9 @@
         const filter = state.filter === "all"
           ? `${icon("layers")}<span class="top-words">All Projects</span>`
           : `<span class="project-mark" style="--mark:${PROJECTS["not-astray"].color}">NA</span><span class="top-words">not-astray</span>`;
-        const title = state.screen === "stats" ? "<h1>Stats</h1>" : '<h1>Settings</h1><span class="crumb">› Telemetry</span>';
+        const title = state.screen === "stats"
+          ? `<h1>Stats</h1><span class="crumb">› ${STATS_TABS.find((t) => t.key === state.tab).label}</span>`
+          : '<h1>Settings</h1><span class="crumb">› Telemetry</span>';
         return `<header class="top">${title}<span class="grow"></span>
           <button type="button" class="btn top-btn" data-action="filter" aria-label="Project filter: ${state.filter === "all" ? "All Projects" : "not-astray"}" data-tip="Project filter: a press switches it in this mock">${filter}${icon("chevronDown", 12)}</button>
           <span class="search">${icon("search")}<span>Search</span><kbd>/</kbd></span>
@@ -3972,8 +4882,13 @@
           ? `the page ${px - 56}px beside the rail${px === 390 ? ", the strip on two rows, one column" : ", fewer columns"}`
           : "1,180 to 1,440px, as the window is";
         const page = state.screen === "stats" ? statsPage() : settingsPage();
+        const address = state.screen !== "stats"
+          ? "/settings/telemetry"
+          : state.tab === "health"
+            ? `/stats/system-health${state.hrange === "1h" ? "" : `?range=${state.hrange}`}`
+            : `/stats${state.range === "7d" ? "" : `?range=${state.range}`}`;
         return `<div class="frame-wrap${px ? "" : " wide"}"${px ? ` style="width:${px}px"` : ""}>
-          <div class="frame-caption"><b>${caption}</b><span>${words}</span></div>
+          <div class="frame-caption"><b>${caption}</b><span>${words} · <code>${address}</code></span></div>
           <div class="frame"><div class="app ${bucket}">${rail()}${topBar()}${strip()}<main class="main">${page}</main></div></div>
         </div>`;
       }
@@ -3989,8 +4904,11 @@
           const play = state.scenario === "starting"
             ? `<button type="button" class="play-button" data-action="play"${live.playing ? " disabled" : ""}>${live.playing ? spinner(13, "") : icon("play", 13)}${live.playing ? "Grafana is starting…" : live.answered ? "Play it again" : "Play it"}</button>`
             : "";
-          second = `${control("Scenario", "scenario")}${control("Engines", "engines")}${control("Project filter", "filter")}${play}`;
-          note = scenario().note;
+          const health = state.tab === "health";
+          second = `${control("Scenario", "scenario")}${health ? control("Health readings", "readings") : control("Engines", "engines")}${control("Project filter", "filter")}${play}`;
+          if (!health) note = scenario().note;
+          else if (state.hrange === "1h") note = OPTIONS.readings.find((o) => o.key === state.readings).note;
+          else note = `24 h, 7 d and 30 d follow the Scenario, Grafana's state: with Grafana answering they draw from it; otherwise they say why in the same words as Tokens and cost, and offer the last hour. Load now stays. Scenario now: ${scenario().label}.`;
         } else {
           second = `${control("Telemetry", "tel")}${control("Test answers", "test")}`;
           note = "Settings › Telemetry with Your own endpoint picked gains a Stats group under the export fields; with the bundled Grafana running, it says where Stats reads it. Test answers as the bar says.";
@@ -4031,7 +4949,7 @@
       }
       function resetLive() {
         live.timers.forEach(clearTimeout);
-        Object.assign(live, { answered: false, loading: false, playing: false, retrying: false, timers: [] });
+        Object.assign(live, { answered: false, loading: false, playing: false, retrying: false, healthRetrying: false, timers: [] });
       }
       let toastTimer;
       function toast(words) {
@@ -4068,15 +4986,24 @@
       }
 
       document.addEventListener("click", (event) => {
-        const target = event.target.closest("[data-set], [data-action], [data-table], [data-fold], [data-rail], [data-toast]");
+        const target = event.target.closest("[data-set], [data-action], [data-table], [data-fold], [data-expand], [data-rail], [data-toast]");
         if (!target) return;
+        if (target.dataset.expand) {
+          const id = target.dataset.expand;
+          if (expanded.has(id)) expanded.delete(id);
+          else expanded.add(id);
+          render();
+          document.querySelector(`[data-expand="${id}"]`)?.focus();
+          return;
+        }
         if (target.dataset.set) {
           const key = target.dataset.set;
           state[key] = target.dataset.value;
           if (key === "scenario") resetLive();
           if (key === "tel" || key === "screen") form = null;
           render();
-          document.querySelector(`[data-set="${key}"][data-value="${CSS.escape(target.dataset.value)}"]`)?.focus();
+          // On a narrow page a range is a select: focus it when no button of that value is left.
+          (document.querySelector(`[data-set="${key}"][data-value="${CSS.escape(target.dataset.value)}"]`) ?? document.querySelector(`[data-select="${key}"]`))?.focus();
           return;
         }
         if (target.dataset.table) {
@@ -4130,6 +5057,18 @@
             Object.assign(live, { retrying: false, answered: true, loading: false });
             render();
             if (state.screen === "stats") toast("Grafana answered");
+          }, 1200);
+        } else if (action === "health-retry") {
+          if (live.healthRetrying) return;
+          live.healthRetrying = true;
+          render();
+          later(() => {
+            live.healthRetrying = false;
+            if (state.readings !== "failed") return;
+            state.readings = "busy";
+            render();
+            document.querySelector('[data-chart="h-lag"]')?.focus();
+            toast("System health answered");
           }, 1200);
         } else if (action === "test") {
           const tested = form;

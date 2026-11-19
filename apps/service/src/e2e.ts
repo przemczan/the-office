@@ -31,20 +31,60 @@ const E2E_CODEX_APPROVAL_PATH = "/api/e2e/codex-sign-ins/:engineId/approval";
  */
 const E2E_COPILOT_CLI_APPROVAL_PATH = "/api/e2e/copilot-cli-sign-ins/:engineId/approval";
 /**
- * `POST` it to set what the scripted Grafana holds for the full stats, replacing all it held: each
- * part absent answers empty (the data sources both there), and a `failure` answers every read
+ * `POST` it to set what the scripted Grafana holds for the full stats and System health's longer
+ * ranges, replacing all it held: each part absent answers empty (the data sources both there), a
+ * `failure` answers every read and `systemHealthFailures` each System health block named
  * (`ScriptedStatsSource`). 204.
  */
 const E2E_STATS_SOURCE_PATH = "/api/e2e/stats-source";
 const e2ePointsSchema = z.array(z.object({ at: z.coerce.date(), value: z.number() }));
 const e2eSpendSchema = { tokens: z.number(), estimatedCostUsd: z.number() };
+const e2eSlowestSchema = {
+  count: z.number(),
+  p95Ms: z.number(),
+  maxMs: z.number(),
+  totalMs: z.number(),
+};
+/** System health on the longer ranges, each block left out answering empty. */
+const e2eSystemHealthSchema = z
+  .object({
+    responsiveness: z.object({ lagP99Ms: e2ePointsSchema, lagMaxMs: e2ePointsSchema }),
+    "cpu-and-memory": z.object({
+      officeCpuPercent: e2ePointsSchema,
+      officeCpuOfWorkstationPercent: e2ePointsSchema,
+      memoryInUseBytes: e2ePointsSchema,
+      heapUsedBytes: e2ePointsSchema,
+      workstationCpuPercent: e2ePointsSchema,
+      workstationMemoryPercent: e2ePointsSchema,
+    }),
+    requests: z.object({
+      perMinute: e2ePointsSchema,
+      p95Ms: e2ePointsSchema,
+      total: z.number(),
+      totalP95Ms: z.number().nullable(),
+      slowest: z.array(
+        z.object({
+          route: z.object({ method: z.string(), template: z.string() }).nullable(),
+          ...e2eSlowestSchema,
+        }),
+      ),
+    }),
+    database: z.object({
+      perMinute: e2ePointsSchema,
+      p95Ms: e2ePointsSchema,
+      connectionsWaiting: e2ePointsSchema,
+      total: z.number(),
+      totalP95Ms: z.number().nullable(),
+      slowest: z.array(z.object({ operation: z.string(), table: z.string(), ...e2eSlowestSchema })),
+    }),
+  })
+  .partial();
+const e2eFailureSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("unreachable"), problem: z.string() }),
+  z.object({ kind: z.literal("rejected") }),
+]);
 const e2eStatsSourceSchema = z.object({
-  failure: z
-    .discriminatedUnion("kind", [
-      z.object({ kind: z.literal("unreachable"), problem: z.string() }),
-      z.object({ kind: z.literal("rejected") }),
-    ])
-    .optional(),
+  failure: e2eFailureSchema.optional(),
   dataSources: z
     .object({ prometheus: z.string().optional(), loki: z.string().optional() })
     .optional(),
@@ -87,6 +127,16 @@ const e2eStatsSourceSchema = z.object({
         points: e2ePointsSchema,
       }),
     )
+    .optional(),
+  systemHealth: e2eSystemHealthSchema.optional(),
+  systemHealthFailures: z
+    .object({
+      responsiveness: e2eFailureSchema,
+      "cpu-and-memory": e2eFailureSchema,
+      requests: e2eFailureSchema,
+      database: e2eFailureSchema,
+    })
+    .partial()
     .optional(),
 });
 if (!scripts) throw new Error("The end-to-end service needs OFFICE_ENGINE_SCRIPTS.");

@@ -33,6 +33,7 @@ import {
   SettingsLink,
   useStatsRange,
 } from "./full-stats.tsx";
+import { StatsFrame } from "./stats-tabs.tsx";
 import {
   BarsChart,
   OfficeWideBadge,
@@ -60,8 +61,6 @@ import {
   sinceWords,
   STAGE_RETRIES,
   STAGE_RETRIES_TEXT,
-  STATS_SUB,
-  STATS_TITLE,
   statsMessageOf,
   TASKS_DONE,
   TASKS_DONE_TEXT,
@@ -80,8 +79,8 @@ import {
 import "./stats.css";
 
 /**
- * Stats (spec 2.11): the basic stats, from what The Office already keeps, always; and the full
- * stats from Grafana once it answers, with the range in the address. Tokens per day and the Usage
+ * Stats' Tokens and cost tab (spec 2.11), at /stats: the basic stats, from what The Office already
+ * keeps, always; and the full stats from Grafana once it answers, with the range in the address. Tokens per day and the Usage
  * windows are Office-wide; the rest follows the Project filter. Each is read when the page opens and
  * every minute while it is open, the full stats every few seconds while Grafana starts.
  */
@@ -131,14 +130,10 @@ export function StatsPage(): ReactNode {
     </StatsBlock>
   );
   return (
-    <div className="stats-page">
-      <div className="stats-page-head">
-        <div className="stats-page-words">
-          <h2 className="stats-page-title">{STATS_TITLE}</h2>
-          <p className="stats-page-sub">{STATS_SUB}</p>
-        </div>
-        {showsFull && <RangePicker range={range} onChange={setRange} />}
-      </div>
+    <StatsFrame
+      shown="cost"
+      picker={showsFull && <RangePicker range={range} onChange={setRange} />}
+    >
       {showsFull &&
         (fullLoading ? (
           <Skeleton width={340} height={12} style={{ maxWidth: "100%" }} />
@@ -203,7 +198,7 @@ export function StatsPage(): ReactNode {
           </>
         )}
       </div>
-    </div>
+    </StatsFrame>
   );
 }
 

@@ -35,6 +35,7 @@ import {
   PipelineLibraryModule,
   PipelinesModule,
   RunningStageRuns,
+  StageRunsRunningNow,
   TaskStagesService,
   StageResultWords,
   StageRunTotals,
@@ -89,9 +90,13 @@ import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identit
 import { HealthModule } from "./platform/health/health.module.js";
 import { RequestAccessModule } from "./platform/http/request-access.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
+import { SystemHealthRecorder } from "./platform/system-health/system-health-recorder.js";
+import { SystemHealthModule } from "./platform/system-health/system-health.module.js";
+import { SystemHealthMetricsModule } from "./platform/telemetry/system-health-metrics.module.js";
 import { TelemetryHttpModule } from "./platform/telemetry/telemetry-http.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
+import { EventStream } from "./platform/websocket/event-stream.js";
 import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
 import { WorkstationModule } from "./platform/workstation/workstation.module.js";
 
@@ -246,7 +251,15 @@ export class AppModule {
         runEnvironments,
         SkillsModule,
         StatsModule.register({
-          imports: [notifications, EngineModule, UsageHistoryModule, work, projects],
+          imports: [
+            notifications,
+            EngineModule,
+            UsageHistoryModule,
+            work,
+            projects,
+            conversations,
+            pipelines,
+          ],
           dayTokens: DayTokenHistory,
           engineWindows: UsageWindowsNow,
           stageRunTotals: StageRunTotals,
@@ -254,8 +267,14 @@ export class AppModule {
           officeTasks: TaskService,
           officeInitiatives: InitiativeService,
           projectNames: ProjectService,
+          healthReadings: SystemHealthRecorder,
+          sessionsRunning: ThreadService,
+          stageRunsRunning: StageRunsRunningNow,
+          browserConnections: EventStream,
           statsSource: GrafanaStatsSource,
         }),
+        SystemHealthModule,
+        SystemHealthMetricsModule,
         TelemetryModule,
         TelemetryHttpModule,
         users,

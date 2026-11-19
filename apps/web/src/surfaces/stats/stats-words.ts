@@ -3,7 +3,7 @@ import type { FullStatsRange, FullStatsSplit, TelemetrySettings } from "@the-off
 import { clockOf, sameDay } from "../../shell/time.ts";
 
 export const STATS_TITLE = "Stats";
-export const STATS_SUB = "How The Office performs: what it spends in tokens and Usage windows.";
+export const STATS_SUB = "How The Office performs: what it spends, and how well it runs.";
 
 export const OFFICE_WIDE = "Office-wide";
 export const OFFICE_WIDE_WORDS =

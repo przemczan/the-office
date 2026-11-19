@@ -16,6 +16,7 @@ import {
   type Answers,
 } from "../../shell/page.fixtures.tsx";
 import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
+import { PageHeadingProvider } from "../../shell/page-heading.tsx";
 import { StatsPage } from "./stats-page.tsx";
 import { stretchWords } from "./stats-words.ts";
 
@@ -163,7 +164,13 @@ const FULL: FullStatsRead = {
 
 const FULL_PATH = "GET /api/stats/full?range=7d&split=model";
 
-const pages = { stats: StatsPage };
+const pages = {
+  stats: () => (
+    <PageHeadingProvider setPageHeading={() => undefined}>
+      <StatsPage />
+    </PageHeadingProvider>
+  ),
+};
 
 function openStats(
   full: FullStats | ((path: string) => FullStats) = FULL,

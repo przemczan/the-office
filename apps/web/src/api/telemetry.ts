@@ -3,12 +3,14 @@ import {
   basicStatsSchema,
   fullStatsSchema,
   grafanaCheckAnswerSchema,
+  systemHealthSchema,
   telemetrySettingsSchema,
   type FullStatsRange,
   type FullStatsSplit,
   type GrafanaCheck,
   type GrafanaCheckAnswer,
   type ProjectFilter,
+  type SystemHealthRange,
   type TelemetryChoice,
   type TelemetrySettings,
 } from "@the-office/contracts";
@@ -29,7 +31,39 @@ export const FULL_STATS = ["stats", "full"] as const;
 /** How often Stats reads the full stats again while Grafana starts: every few seconds. */
 export const FULL_STATS_STARTING_REFRESH_MS = 3_000;
 
+/** System health, its Load now and its readings for a range (spec 2.11, System health). */
+export const SYSTEM_HEALTH = ["stats", "system-health"] as const;
+
+/** How often System health reads the last hour again while its tab is visible: each Health reading. */
+export const SYSTEM_HEALTH_HOUR_REFRESH_MS = 5_000;
+
+/** How long System health waits for the service before it says it couldn't read. */
+export const SYSTEM_HEALTH_TIMEOUT_MS = 10_000;
+
 export const statsQueries = {
+  /**
+   * System health for the range: the last hour every 5 s, the longer ranges every minute (every few
+   * seconds while Grafana starts), only while the tab is visible (`refetchIntervalInBackground` is
+   * off). A read is given up after 10 s and not tried again, as the next one comes soon.
+   */
+  systemHealth: (range: SystemHealthRange) =>
+    queryOptions({
+      queryKey: [...SYSTEM_HEALTH, range],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/stats/system-health?range=${range}`,
+          systemHealthSchema,
+          AbortSignal.any([signal, AbortSignal.timeout(SYSTEM_HEALTH_TIMEOUT_MS)]),
+        ),
+      refetchInterval: (query) =>
+        range === "1h"
+          ? SYSTEM_HEALTH_HOUR_REFRESH_MS
+          : query.state.data?.readings.state === "starting"
+            ? FULL_STATS_STARTING_REFRESH_MS
+            : BASIC_STATS_REFRESH_MS,
+      refetchIntervalInBackground: false,
+      retry: false,
+    }),
   /**
    * The full stats for the range and split, tokens and cost over time and the most expensive
    * narrowed to the Projects the Project filter shows; read every few seconds while Grafana starts.

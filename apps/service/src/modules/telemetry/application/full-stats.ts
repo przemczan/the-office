@@ -28,12 +28,14 @@ import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { ProjectNames } from "../ports/project-names.js";
 import { RunningStageRuns } from "../ports/running-stage-runs.js";
+import { StatsSource, type GrafanaAccess, type ProjectNamesFilter } from "../ports/stats-source.js";
 import {
-  StatsSource,
-  type GrafanaAccess,
-  type ProjectNamesFilter,
-  type StatsSourceAnswer,
-} from "../ports/stats-source.js";
+  answered,
+  failedRead,
+  isRead,
+  readFromGrafana,
+  type GrafanaUnread,
+} from "./grafana-reads.js";
 
 export interface FullStatsQuery {
   readonly range: FullStatsRange;
@@ -56,14 +58,7 @@ export interface FullStatsFigures {
 }
 
 /** The full stats (spec 2.11, States): which state they are in, and the figures once read. */
-export type FullStatsRead =
-  | { readonly state: "not-on" }
-  | { readonly state: "starting"; readonly address: string }
-  | { readonly state: "failed"; readonly address: string; readonly problem: string }
-  | { readonly state: "unreachable"; readonly address: string; readonly problem: string }
-  | { readonly state: "rejected"; readonly address: string }
-  | { readonly state: "no-data"; readonly address: string }
-  | FullStatsFigures;
+export type FullStatsRead = GrafanaUnread | FullStatsFigures;
 
 const NO_USAGE: UsageSeries = { tokens: [], estimatedCostUsd: [] };
 const NO_COSTLIEST: CostliestSpend = { tasks: [], initiatives: [] };
@@ -88,18 +83,8 @@ export class FullStats {
    * Office-wide. The first read that fails, in the order usage, most expensive, Usage windows,
    * gives the state.
    */
-  async read(query: FullStatsQuery, filter: StatsProjectFilter): Promise<FullStatsRead> {
-    const grafana = await this.grafana.now();
-    switch (grafana.kind) {
-      case "none":
-        return { state: "not-on" };
-      case "starting":
-        return { state: "starting", address: grafana.address };
-      case "failed":
-        return { state: "failed", address: grafana.address, problem: grafana.problem };
-      case "ready":
-        return this.readFrom(grafana.access, query, filter);
-    }
+  read(query: FullStatsQuery, filter: StatsProjectFilter): Promise<FullStatsRead> {
+    return readFromGrafana(this.grafana, (access) => this.readFrom(access, query, filter));
   }
 
   private async readFrom(
@@ -185,26 +170,4 @@ export class FullStats {
       initiativeIds.length === 0 ? [] : this.initiatives.titlesOf(initiativeIds),
     ]);
   }
-}
-
-function answered<T>(value: T): Promise<StatsSourceAnswer<T>> {
-  return Promise.resolve({ kind: "read", value });
-}
-
-function isRead<T>(
-  answer: StatsSourceAnswer<T>,
-): answer is { readonly kind: "read"; readonly value: T } {
-  return answer.kind === "read";
-}
-
-/** The state of the first answer that wasn't read: Grafana unreachable, or the token rejected. */
-function failedRead(
-  address: string,
-  answers: readonly StatsSourceAnswer<unknown>[],
-): FullStatsRead {
-  const failed = answers.find((answer) => answer.kind !== "read");
-  if (failed?.kind === "unreachable") {
-    return { state: "unreachable", address, problem: failed.problem };
-  }
-  return { state: "rejected", address };
 }

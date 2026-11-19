@@ -39,6 +39,7 @@ import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
 import { StageTemplateLibraryEditor } from "./application/stage-template-library-editor.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
+import { StageRunsRunningNow } from "./application/stage-runs-running-now.js";
 import { DroppedTaskWorktrees } from "./application/dropped-task-worktrees.js";
 import { InitiativeBranchStages } from "./application/initiative-branch-stages.js";
 import { StageRunners } from "./application/stage-runners.js";
@@ -164,6 +165,7 @@ export class PipelinesModule {
         StaffingHolds,
         StageRunners,
         StageInterpreter,
+        StageRunsRunningNow,
         InitiativeBranchStages,
         DroppedTaskWorktrees,
         StageGit,
@@ -189,7 +191,13 @@ export class PipelinesModule {
         PipelinesPromptTemplates,
         PipelinesWebEvents,
       ],
-      exports: [PipelineLibraryModule, TaskStagesService, AlarmResumes, StandInChoices],
+      exports: [
+        PipelineLibraryModule,
+        TaskStagesService,
+        AlarmResumes,
+        StandInChoices,
+        StageRunsRunningNow,
+      ],
     };
   }
 }

@@ -124,7 +124,12 @@ export type RecordingName =
   | "windows"
   | "costliest-top"
   | "costliest-breakdown"
-  | "data-source-error";
+  | "data-source-error"
+  // Hand-written in Grafana's format until the live check records System health's measurements.
+  | "system-health-responsiveness"
+  | "system-health-cpu-and-memory"
+  | "system-health-requests"
+  | "system-health-database";
 
 function recordingPath(name: RecordingName): string {
   return fileURLToPath(new URL(`./recorded/${name}.json`, import.meta.url));

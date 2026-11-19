@@ -1,0 +1,318 @@
+{
+  "range": {
+    "from": "2026-11-17T10:00:00.000Z",
+    "to": "2026-11-17T11:00:00.000Z",
+    "stepSeconds": 300
+  },
+  "status": 200,
+  "body": {
+    "results": {
+      "officeCpu": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "officeCpu",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: officeCpu\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [23.4, 25.1, 31.0, 96.2, 28.3, 24.8, 22.1, 21.7]
+              ]
+            }
+          }
+        ]
+      },
+      "officeCpuOfWorkstation": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "officeCpuOfWorkstation",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: officeCpuOfWorkstation\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [2.925, 3.1375, 3.875, 12.025, 3.5375, 3.1, 2.7625, 2.7125]
+              ]
+            }
+          }
+        ]
+      },
+      "memory": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "memory",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: memory\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [
+                  301989888, 305135616, 312475648, 356515840, 320864256, 318767104, 316669952,
+                  315621376
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "heap": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "heap",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: heap\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [
+                  121634816, 123731968, 130023424, 168820736, 134217728, 132120576, 131072000,
+                  130547712
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "systemCpu": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "systemCpu",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: systemCpu\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [38.2, 40.1, 44.7, 71.3, 42.5, 39.9, 37.4, 36.8]
+              ]
+            }
+          }
+        ]
+      },
+      "systemMemory": {
+        "status": 200,
+        "frames": [
+          {
+            "schema": {
+              "name": "",
+              "refId": "systemMemory",
+              "meta": {
+                "type": "timeseries-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": "Expr: systemMemory\nStep: 5m0s",
+                "custom": {
+                  "resultType": "matrix"
+                }
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {
+                    "interval": 300000
+                  }
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64",
+                    "nullable": true
+                  },
+                  "labels": {},
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [
+                [
+                  1794911100000, 1794911400000, 1794911700000, 1794912000000, 1794912300000,
+                  1794912600000, 1794912900000, 1794913200000
+                ],
+                [61.2, 61.4, 61.9, 64.8, 62.3, 62.1, 62.0, 61.9]
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

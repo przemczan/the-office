@@ -20,6 +20,10 @@ const BY_FIRST_REF: Readonly<Record<string, RecordingName>> = {
   topTasks: "costliest-top",
   taskCost: "costliest-breakdown",
   initiativeCost: "costliest-breakdown",
+  lagP99: "system-health-responsiveness",
+  officeCpu: "system-health-cpu-and-memory",
+  requestsPerMinute: "system-health-requests",
+  queriesPerMinute: "system-health-database",
 };
 
 /**
@@ -30,6 +34,8 @@ const BY_FIRST_REF: Readonly<Record<string, RecordingName>> = {
 export class FakeGrafana {
   readonly requests: TakenRequest[] = [];
   readonly answers = new Map<string, FakeAnswer>();
+  /** Overrides the answer of `POST /api/ds/query` to a request by its first query's refId. */
+  readonly queryAnswers = new Map<string, FakeAnswer>();
   private constructor(private readonly server: Server) {}
 
   static async start(): Promise<FakeGrafana> {
@@ -48,7 +54,8 @@ export class FakeGrafana {
           headers: request.headers,
           body,
         });
-        const answer = fake.answers.get(path) ?? fake.recordedFor(path, body);
+        const answer =
+          fake.answers.get(path) ?? fake.queryAnswerFor(path, body) ?? fake.recordedFor(path, body);
         if (answer === "never") return;
         response.writeHead(answer.status, { "Content-Type": "application/json" });
         response.end(JSON.stringify(answer.body));
@@ -78,15 +85,22 @@ export class FakeGrafana {
     await new Promise<void>((resolve) => this.server.close(() => resolve()));
   }
 
+  private queryAnswerFor(path: string, body: unknown): FakeAnswer | undefined {
+    return path === "/api/ds/query" ? this.queryAnswers.get(firstRefOf(body)) : undefined;
+  }
+
   private recordedFor(path: string, body: unknown): RecordedAnswer {
     if (path === "/api/datasources") return recorded("data-sources");
     if (path === "/api/ds/query") {
-      const first = (body as { queries: { refId: string }[] }).queries[0]?.refId ?? "";
-      const name = BY_FIRST_REF[first];
+      const name = BY_FIRST_REF[firstRefOf(body)];
       if (name) return recorded(name);
     }
     return { range: null, status: 404, body: { message: "Not found" } };
   }
+}
+
+function firstRefOf(body: unknown): string {
+  return (body as { queries: { refId: string }[] }).queries[0]?.refId ?? "";
 }
 
 /** A port nothing listens on, a moment ago free. */
