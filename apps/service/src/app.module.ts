@@ -84,6 +84,7 @@ import {
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EarlierRecordsModule } from "./platform/earlier-records/earlier-records.module.js";
+import { KnowledgeBaseModule } from "./platform/knowledge-base/knowledge-base.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
@@ -226,6 +227,7 @@ export class AppModule {
         EventsModule,
         EventStreamModule,
         github,
+        KnowledgeBaseModule,
         GitHubUserTokenModule.register({ imports: [github], gitHubUserToken: GitHubAccess }),
         HealthModule,
         McpServersModule,

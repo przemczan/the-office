@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   checksumLine,
   claudeCodeProblems,
@@ -15,6 +17,14 @@ import {
 const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 const SDK = "@anthropic-ai/claude-agent-sdk";
 
+/** Whether the release carries `path` from the checkout. */
+function carries(path: string): boolean {
+  return (
+    isReleased(path) &&
+    RELEASE_FILES.some((file) => path === file.path || path.startsWith(`${file.path}/`))
+  );
+}
+
 describe("an Office release's tarball", () => {
   it("is named by its version and CPU, with a checksum line sha256sum -c reads", () => {
     assert.equal(tarballName("1.2.3", "arm64"), "the-office-1.2.3-linux-arm64.tar.gz");
@@ -24,7 +34,16 @@ describe("an Office release's tarball", () => {
     );
   });
 
-  it("carries the built service, web app, contracts, migrations and launcher, without tests or build state", () => {
+  it("carries the knowledge base's index and the glossary it links to, at their checkout paths", () => {
+    for (const path of ["docs/spec/README.md", "GLOSSARY.md"]) {
+      assert.equal(existsSync(fileURLToPath(new URL(`../../../${path}`, import.meta.url))), true);
+      assert.equal(carries(path), true, `${path} is released`);
+    }
+    // The mock-ups are for design work only.
+    assert.equal(carries("docs/design/README.md"), false);
+  });
+
+  it("carries the built service, web app, contracts, migrations, launcher and knowledge base, without tests or build state", () => {
     assert.deepEqual(
       RELEASE_FILES.map(({ path }) => path),
       [
@@ -39,6 +58,8 @@ describe("an Office release's tarball", () => {
         "packages/contracts/dist",
         "tools/office-launcher/package.json",
         "tools/office-launcher/src",
+        "docs/spec",
+        "GLOSSARY.md",
       ],
     );
     assert.equal(isReleased("tools/office-launcher/src/launcher.ts"), true);

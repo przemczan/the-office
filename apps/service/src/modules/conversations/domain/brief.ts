@@ -347,6 +347,20 @@ function openQuestions({ questions }: Decision) {
   }));
 }
 
+/** The Brief's line naming the knowledge base's index, at its path in the install. */
+export function knowledgeBaseLine(index: string): string {
+  return `The Office's knowledge base, about The Office itself, starts at its index, ${index}. It is read-only.`;
+}
+
+/**
+ * `brief` led by the line naming the knowledge base's index, on every engine; as it is when the
+ * install has no knowledge base.
+ */
+export function withKnowledgeBase(brief: Brief, index: string | undefined): Brief {
+  if (index === undefined) return brief;
+  return briefOf(`${knowledgeBaseLine(index)}\n\n${brief.text}`);
+}
+
 const NO_REMOVED_IMAGES: ReadonlySet<string> = new Set();
 
 function briefOf(text: string): Brief {

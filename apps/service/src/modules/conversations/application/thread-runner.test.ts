@@ -24,6 +24,7 @@ import type { ManualSchedule } from "../../../platform/schedule/schedule.fixture
 import { ScheduleModule } from "../../../platform/schedule/schedule.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
+import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
   EngineModels,
@@ -69,7 +70,7 @@ import {
   TurnEnded,
 } from "../domain/conversation-events.js";
 import type { ContextDecision } from "../domain/context-policy.js";
-import type { BriefProject } from "../domain/brief.js";
+import { knowledgeBaseLine, type BriefProject } from "../domain/brief.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
 import { aThread } from "../domain/thread.fixtures.js";
@@ -172,6 +173,10 @@ let roleKey: string;
 const NO_SESSION_REASON = "This Task is Done, so its conversation can't go on.";
 /** The user's first message in a planning Thread, which starts the Planner. */
 const PLAN_IT = "Let's plan the export.";
+
+/** The checkout's knowledge base, which every session reads and its Brief names first. */
+const KNOWLEDGE_BASE = KnowledgeBase.at();
+const KNOWLEDGE_BASE_LINE = knowledgeBaseLine(String(KNOWLEDGE_BASE.index));
 /** Tasks whose setup says no session can work on them (Done: Publish removed the worktree). */
 const tasksWithoutSessions = new Set<string>();
 /** Tasks whose Threads are people's, only read, as the Work module sets them up. */
@@ -1783,7 +1788,7 @@ describe("a Thread on a Task", () => {
     const [session] = engine.sessions;
     const brief = session?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toBe(
-      `You are planning the Task ${taskId}.\n\n## The message from the user Ann Lee\n\n${PLAN_IT}`,
+      `${KNOWLEDGE_BASE_LINE}\n\nYou are planning the Task ${taskId}.\n\n## The message from the user Ann Lee\n\n${PLAN_IT}`,
     );
     expect(session?.options).toMatchObject({
       folder: worktree,
@@ -1822,7 +1827,7 @@ describe("a Thread on a Task", () => {
     // The line keeps the Brief as it was sent, for the user to read.
     expect(log[0]).toMatchObject({
       kind: "context",
-      brief: `You are planning the Task ${taskId}.`,
+      brief: `${KNOWLEDGE_BASE_LINE}\n\nYou are planning the Task ${taskId}.`,
     });
     expect((await threads.read(opened.id)).title).toBe("Planning");
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBe(taskId);
@@ -1933,7 +1938,7 @@ describe("a Thread on a Task", () => {
     const [session] = engine.sessions;
     const brief = session?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toBe(
-      `You are planning the Task ${taskId}.\n\n## What to do now\n\nPlan this Task from its title and its Description.`,
+      `${KNOWLEDGE_BASE_LINE}\n\nYou are planning the Task ${taskId}.\n\n## What to do now\n\nPlan this Task from its title and its Description.`,
     );
     expect(exchanges(log)).toEqual([
       { kind: "person", roleKey, text: "I'll read the sign-in first." },
@@ -2034,12 +2039,12 @@ describe("a Thread on an Initiative", () => {
     const brief = session?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toMatch(
       new RegExp(
-        `^You are shaping the Initiative ${initiativeId}\\.\\n\\n## The Projects[\\s\\S]*\\n\\n## What to do now\\n\\nShape the Initiative with the user\\.$`,
+        `^The Office's knowledge base[^\\n]*\\n\\nYou are shaping the Initiative ${initiativeId}\\.\\n\\n## The Projects[\\s\\S]*\\n\\n## What to do now\\n\\nShape the Initiative with the user\\.$`,
       ),
     );
     expect(session?.options).toMatchObject({
       folder: join(officeData, "bases"),
-      readableFolders: [],
+      readableFolders: KNOWLEDGE_BASE.readableFolders,
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
       readsEngineTranscripts: false,
     });
@@ -2128,7 +2133,10 @@ describe("a Thread on an Initiative", () => {
     // The folder stays the one a session started while shaping works in, so it still resumes.
     expect(first?.options).toMatchObject({
       folder: join(officeData, "bases"),
-      readableFolders: [join(officeData, "initiative-bases", "sync")],
+      readableFolders: [
+        ...KNOWLEDGE_BASE.readableFolders,
+        join(officeData, "initiative-bases", "sync"),
+      ],
     });
     expect(refreshedOnInitiative).toEqual([reads]);
     await runner.onModuleDestroy();
@@ -2170,7 +2178,10 @@ describe("a Thread on an Initiative", () => {
     expect(resumed?.id).toBe(shaping?.id);
     expect(resumed?.options).toMatchObject({
       folder: shaping?.options.folder,
-      readableFolders: [join(officeData, "initiative-bases", "sync")],
+      readableFolders: [
+        ...KNOWLEDGE_BASE.readableFolders,
+        join(officeData, "initiative-bases", "sync"),
+      ],
     });
     expect(refreshedOnInitiative).toEqual([reads]);
   });
@@ -2193,7 +2204,7 @@ describe("a Thread on an Initiative", () => {
 
     expect(engine.sessions[0]?.options).toMatchObject({
       folder: join(officeData, "bases"),
-      readableFolders: [],
+      readableFolders: KNOWLEDGE_BASE.readableFolders,
     });
     expect(refreshedOnInitiative).toEqual([]);
   });

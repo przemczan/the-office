@@ -46,6 +46,7 @@ The run needs nothing set up: it signs in to GHCR and GitHub with the workflow's
 - `package.json`: the root's at the version, with the workspaces it carries and the scripts `start`, `set-password` and `setup-token`;
 - `office-release.json`: the version and the commit it was built from, with its date and subject. The service reads it: Settings › Updates shows `1.2.3 · <commit>`, and the log at start says "The Office 1.2.3 (<commit>)";
 - `apps/service/` (`dist/` and the `drizzle/` migrations), `apps/web/dist/`, `packages/contracts/dist/`, `tools/office-launcher/src/`, `LICENSE` and `.env.example`;
+- the knowledge base every Brief names, `docs/spec/` and `GLOSSARY.md`, at the checkout's paths so the spec's links to the glossary hold; `docs/design/`, the mock-ups, stays out;
 - `node_modules/`: the production packages at the lockfile's versions, with Claude Code for the tarball's CPU alone (the SDK's glibc build).
 
 The pack refuses a devDependency in `node_modules`, a package at a version other than the lockfile's, a missing Claude Code build, or another platform's. Nothing is built or installed on the target: it needs Node 22 (`.nvmrc`'s major), a Postgres reached at `DATABASE_URL`, git and ssh, and the Docker CLI with Compose and buildx for the run environments ([container-runtime.md](container-runtime.md)). `node apps/service/dist/main.js` in the folder starts the service.

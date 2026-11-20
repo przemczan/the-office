@@ -8,6 +8,7 @@ import type {
 import { Test } from "@nestjs/testing";
 import { DatabaseModule } from "../src/platform/database/database.module.js";
 import { EarlierRecordsModule } from "../src/platform/earlier-records/earlier-records.module.js";
+import { KnowledgeBaseModule } from "../src/platform/knowledge-base/knowledge-base.module.js";
 import { configureHttp, HTTP_APPLICATION_OPTIONS } from "../src/platform/http/configure-http.js";
 import { OfficeAddresses } from "../src/platform/http/office-addresses.js";
 import { SignedInRequests } from "../src/platform/http/signed-in-requests.js";
@@ -81,6 +82,7 @@ export async function startTestApplication({
     ...metadata,
     imports: [
       EarlierRecordsModule,
+      KnowledgeBaseModule,
       ...(database === false
         ? []
         : [DatabaseModule.forRoot({ url: database === true ? testDatabaseUrl() : database.url })]),

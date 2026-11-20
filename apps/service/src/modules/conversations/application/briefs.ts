@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { onceByKey } from "../../../platform/database/fan-out.js";
+import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
 import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import {
   freshChatThreadBrief,
@@ -7,6 +8,7 @@ import {
   initiativeThreadBrief,
   newChatThreadBrief,
   taskThreadBrief,
+  withKnowledgeBase,
   type Brief,
 } from "../domain/brief.js";
 import { BRIEF_TEMPLATES } from "../domain/brief-templates.js";
@@ -32,6 +34,7 @@ export class Briefs {
     private readonly memory: SessionMemory,
     private readonly images: ThreadImages,
     private readonly promptTemplates: PromptTemplates,
+    private readonly knowledgeBase: KnowledgeBase,
   ) {}
 
   /** The Brief of the Thread's next session. Read before the message it answers is logged. */
@@ -85,21 +88,20 @@ export class Briefs {
       if (setup.brief === undefined) {
         const log = await this.repository.messages(thread.id);
         const removedImages = await this.images.removedIn(log);
-        return freshPersonsThreadBrief(texts, {
-          title: thread.title,
-          log,
-          removedImages,
-          memory,
-        });
+        return this.led(
+          freshPersonsThreadBrief(texts, { title: thread.title, log, removedImages, memory }),
+        );
       }
-      return taskThreadBrief(texts, {
-        record: setup.brief,
-        continuing: thread.session !== undefined,
-        answered: await answeredOn(home.taskId),
-        // A Thread on a Task waits on one Decision at most.
-        open: thread.openDecisions[0],
-        memory,
-      });
+      return this.led(
+        taskThreadBrief(texts, {
+          record: setup.brief,
+          continuing: thread.session !== undefined,
+          answered: await answeredOn(home.taskId),
+          // A Thread on a Task waits on one Decision at most.
+          open: thread.openDecisions[0],
+          memory,
+        }),
+      );
     };
   }
 
@@ -112,13 +114,18 @@ export class Briefs {
       firstSession: true,
     });
     if (setup.brief === undefined) throw new Error(`Task ${taskId} gave no first session's Brief.`);
-    return taskThreadBrief(await this.texts(), {
-      record: setup.brief,
-      continuing: false,
-      answered: await this.repository.answeredOn(taskId),
-      open: undefined,
-      memory: await this.memory.forBrief(roleKey, { kind: "project", projectId: setup.projectId }),
-    });
+    return this.led(
+      taskThreadBrief(await this.texts(), {
+        record: setup.brief,
+        continuing: false,
+        answered: await this.repository.answeredOn(taskId),
+        open: undefined,
+        memory: await this.memory.forBrief(roleKey, {
+          kind: "project",
+          projectId: setup.projectId,
+        }),
+      }),
+    );
   }
 
   /**
@@ -126,17 +133,19 @@ export class Briefs {
    * the Decision on no Task the Thread waits on.
    */
   async forInitiativeThread(thread: Thread, setup: InitiativeThreadSetup): Promise<Brief> {
-    return initiativeThreadBrief(await this.texts(), {
-      // A Thread on an Initiative waits on one Decision on no Task at most.
-      open: thread.openDecisions.find(({ taskId }) => taskId === undefined),
-      record: setup.record,
-      continuing: thread.session !== undefined,
-      // An Initiative spans Projects, so it reads the notes that hold for all of them.
-      memory: await this.memory.forBrief(thread.roleKey, { kind: "all-projects" }),
-      projects: await (setup.branchReads === undefined
-        ? this.bases.list()
-        : this.bases.listOnInitiative(setup.branchReads)),
-    });
+    return this.led(
+      initiativeThreadBrief(await this.texts(), {
+        // A Thread on an Initiative waits on one Decision on no Task at most.
+        open: thread.openDecisions.find(({ taskId }) => taskId === undefined),
+        record: setup.record,
+        continuing: thread.session !== undefined,
+        // An Initiative spans Projects, so it reads the notes that hold for all of them.
+        memory: await this.memory.forBrief(thread.roleKey, { kind: "all-projects" }),
+        projects: await (setup.branchReads === undefined
+          ? this.bases.list()
+          : this.bases.listOnInitiative(setup.branchReads)),
+      }),
+    );
   }
 
   /** A new chat Thread's, or the one it continues fresh with from its log so far. */
@@ -145,16 +154,18 @@ export class Briefs {
     const projects = await this.bases.list();
     // A chat reads every Project, so it reads every note.
     const memory = await this.memory.forBrief(thread.roleKey, { kind: "every-note", projects });
-    if (thread.session === undefined) return newChatThreadBrief(prompts, projects, memory);
+    if (thread.session === undefined)
+      return this.led(newChatThreadBrief(prompts, projects, memory));
     const log = await this.repository.messages(thread.id);
     const removedImages = await this.images.removedIn(log);
-    return freshChatThreadBrief(prompts, {
-      title: thread.title,
-      log,
-      removedImages,
-      projects,
-      memory,
-    });
+    return this.led(
+      freshChatThreadBrief(prompts, { title: thread.title, log, removedImages, projects, memory }),
+    );
+  }
+
+  /** Every session's Brief names the knowledge base, which it reads about The Office itself. */
+  private led(brief: Brief): Brief {
+    return withKnowledgeBase(brief, this.knowledgeBase.index);
   }
 
   private texts(): Promise<PromptTexts> {

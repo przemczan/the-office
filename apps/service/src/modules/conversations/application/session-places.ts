@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
+import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { CARETAKER, Duties } from "../../people/index.js";
 import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
@@ -33,7 +34,9 @@ import { taskThreadRequest, TaskThreadSetups, type TaskThreadSetup } from "./tas
 /** Where a Thread's session works and what it is given, which its home decides. */
 export interface SessionPlace {
   readonly folder: string;
-  /** The folders it reads besides its own: an Initiative's branch checkouts; none for any other. */
+  /**
+   * The folders it reads besides its own: the knowledge base, and an Initiative's branch checkouts.
+   */
   readonly readableFolders: readonly string[];
   readonly environment: Readonly<Record<string, string>>;
   /**
@@ -129,13 +132,14 @@ export class SessionPlaces {
     private readonly duties: Duties,
     private readonly tools: OfficeToolRegistry,
     private readonly promptTemplates: PromptTemplates,
+    private readonly knowledgeBase: KnowledgeBase,
   ) {}
 
   /**
    * Every Thread the user talks to a person in also gets the Office actions' tools their held
    * duties cover (spec 5.4); a Stage's Thread does its Stage's work only, so gets none. Its
    * instructions render with the templates' texts as they are now, so a resumed session gets the
-   * current text too.
+   * current text too. Every session reads the knowledge base its Brief names, never changing it.
    */
   async of(thread: Thread): Promise<SessionPlace> {
     const held = await this.duties.heldBy(thread.roleKey);
@@ -146,6 +150,7 @@ export class SessionPlaces {
       : this.tools.coveredBy(held).filter((name) => !home.officeTools.includes(name));
     return {
       ...home,
+      readableFolders: [...this.knowledgeBase.readableFolders, ...home.readableFolders],
       officeTools: [...home.officeTools, ...actionTools],
       heldDuties: held,
       instructions: (person) => home.instructions(prompts, person),

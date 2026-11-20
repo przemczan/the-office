@@ -67,9 +67,16 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 - They are immediate, with a reason the Agent reads ("Not allowed for a Reviewer: editing files. Open a Decision if you need it."), logged on the Thread.
 
+## The knowledge base
+
+- The knowledge base is this spec, `docs/spec/` with its index `docs/spec/README.md`, and the [glossary](../../GLOSSARY.md) it links to.
+- A release carries it at the checkout's paths, so the direct install's release folder and the Compose image (`/opt/the-office/docs/spec/`) hold it; a checkout's is the checkout's own.
+- The service finds it from its own install, as it finds the web app, with no setting; an install without it logs that once and goes on, its Briefs not naming it ([2.5](2.5-context-policy.md#the-brief)).
+- Every session, on every engine, reads it where it is on the host, never in a Task's run environment, and never changes it: the hook allows Read, Grep, Glob and LSP there and refuses an edit or a command writing there.
+
 ## Reading records
 
-- Everyone also reads their session's skills folder and the engine's output of their own background commands, and uses the Office tools.
+- Everyone also reads their session's skills folder, the [knowledge base](#the-knowledge-base) and the engine's output of their own background commands, and uses the Office tools.
 - Every session, Agent Stages included, can read every record with the Office tools: Projects, people, Tasks, Ideas, Initiatives, the links between them and all their Attachments, each by what it holds (`read_attachment`).
 - `read_attachment` reads a text file, a document among them, and a PDF's text by numbered lines, in slices, a search for a phrase, and a line too long for one answer read on from a character.
 - It gives an image as a picture on an engine that shows pictures (Claude Code), up to the size its answer passes, else in words saying why it isn't shown.

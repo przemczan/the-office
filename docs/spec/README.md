@@ -97,6 +97,10 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Join, Walk**: [2.3.2 A Pipeline is a flow](2.3.2-flows.md#a-pipeline-is-a-flow); [2.3.2 The Pipeline's order](2.3.2-flows.md#the-pipelines-order)
 
+### K
+
+- **Knowledge base**: [6 The knowledge base](6-permissions-and-safety.md#the-knowledge-base); [2.5 The Brief](2.5-context-policy.md#the-brief)
+
 ### L
 
 - **Language server**: [5.4.1 Language servers for Agents](5.4.1-engine-kinds.md#language-servers-for-agents); [6 Language servers run Project code](6-permissions-and-safety.md#language-servers-run-project-code)

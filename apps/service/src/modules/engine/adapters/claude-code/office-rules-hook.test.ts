@@ -70,6 +70,49 @@ describe("officeRulesHook", () => {
     });
   });
 
+  it("lets a session that edits its worktree read the knowledge base, and refuses writing there", async () => {
+    const knowledgeBase = "/opt/the-office/docs/spec";
+    const hook = officeRulesHook(
+      new OfficeRules({
+        workingFolder: "/work/task-1",
+        readableFolders: [knowledgeBase],
+        profile: { edit: true, run: { kind: "anything" }, web: false, mcpTools: {} },
+        workstation: false,
+        secrets: SYSTEM.secretPaths,
+        readableInSecrets: [],
+        readsEngineTranscripts: false,
+        officeFiles: [],
+        cloneFolders: [],
+        homeFolder: "/home/office",
+        environment: {},
+        paths: SYSTEM.paths,
+      }),
+      new ToolRefusals(),
+    );
+    const decision = (tool: string, input: unknown) => hook(preToolUse(tool, input), "c1", SIGNAL);
+
+    for (const [tool, input] of [
+      ["Read", { file_path: `${knowledgeBase}/README.md` }],
+      ["Grep", { pattern: "Brief", path: knowledgeBase }],
+      ["Glob", { pattern: "**/*.md", path: knowledgeBase }],
+    ] as const) {
+      await expect(decision(tool, input)).resolves.toEqual({
+        hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow" },
+      });
+    }
+    for (const [tool, input] of [
+      ["Write", { file_path: `${knowledgeBase}/README.md`, content: "" }],
+      ["Edit", { file_path: `${knowledgeBase}/README.md`, old_string: "a", new_string: "b" }],
+    ] as const) {
+      await expect(decision(tool, input)).resolves.toMatchObject({
+        hookSpecificOutput: {
+          permissionDecision: "deny",
+          permissionDecisionReason: expect.stringMatching(/is outside the worktree; edit only/),
+        },
+      });
+    }
+  });
+
   it("refuses with the reason the Agent reads, and keeps the refusal for the Thread log", async () => {
     const refusals = new ToolRefusals();
     const refused = vi.spyOn(refusals, "refusedByOfficeRules");

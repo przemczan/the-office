@@ -80,7 +80,7 @@ curl -fsSL https://github.com/przemczan/the-office/releases/latest/download/inst
 | What | Where |
 | --- | --- |
 | The system user `the-office`, in the `docker` group, which runs The Office | home `/home/the-office` |
-| The release, unpacked, and the link to the one that runs | `/opt/the-office/releases/<version>/`, `/opt/the-office/current` |
+| The release, unpacked, and the link to the one that runs; it carries the knowledge base Agents read, `docs/spec/` with `GLOSSARY.md` | `/opt/the-office/releases/<version>/`, `/opt/the-office/current` |
 | The configuration, readable by root alone | `/etc/the-office/office.env` |
 | The systemd service, started now and at every boot | `the-office.service` (`/etc/systemd/system/the-office.service`) |
 | The database `the_office`, owned by the role `office` with a random password | PostgreSQL 18's own cluster, on port 5432 unless another PostgreSQL already holds it (`DATABASE_URL` in `office.env` names the port) |
@@ -162,7 +162,7 @@ Go on with [First run](#first-run). If The Office doesn't start in time, the ins
 
 Go on with [First run](#first-run).
 
-The Compose install runs two containers: `office` and `postgres` (its data in the volume `the-office_postgres-data`). When Bundled Grafana is chosen ([Telemetry](#telemetry)), The Office starts it itself, as a Compose project of its own, `the-office-grafana`. The repository's own `docker-compose.yml`, the dev stack, uses the same project name and volume, so a machine runs one of them, never both.
+The Compose install runs two containers: `office` and `postgres` (its data in the volume `the-office_postgres-data`). The `office` image carries the knowledge base Agents read at `/opt/the-office/docs/spec/`. When Bundled Grafana is chosen ([Telemetry](#telemetry)), The Office starts it itself, as a Compose project of its own, `the-office-grafana`. The repository's own `docker-compose.yml`, the dev stack, uses the same project name and volume, so a machine runs one of them, never both.
 
 **Only Projects inside the data folder work with run environments:** those added by Repository URL, which The Office clones into `<data folder>/repositories/`. A Project added from a local folder outside the data folder isn't at that path on the host, so its run environment can't mount it.
 

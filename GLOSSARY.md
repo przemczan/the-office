@@ -334,8 +334,12 @@ A few lines written for whoever continues: by an Agent at the end of a Stage (wh
 _Avoid_: Summary, transcript, report
 
 **Memory**:
-What a person with the Shared memory capability keeps across Tasks and conversations: a list of Memory notes, only ever added to, read into the Brief of each new session. Shown on the Memory tab of the person's page.
-_Avoid_: Knowledge base, history, context
+What a person with the Shared memory capability keeps across Tasks and conversations: a list of Memory notes, only ever added to, read into the Brief of each new session. Shown on the Memory tab of the person's page. Not the Knowledge base, which is The Office's own.
+_Avoid_: History, context
+
+**Knowledge base**:
+The Office's spec (`docs/spec/`, its index `docs/spec/README.md`) and this glossary, shipped with every install, which every session reads, read-only, about The Office itself; each Brief names its index.
+_Avoid_: Docs, wiki, manual
 
 **Memory note**:
 One short entry in a Memory, with its date and where it came from (an Agent's Thread, or the user). Written by an Agent with the `remember` tool or by the user; deleted one at a time or all together, never edited.
