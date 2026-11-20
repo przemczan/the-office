@@ -10,7 +10,11 @@ import { builtInStageTemplates as allBuiltInStageTemplates } from "../../domain/
 import type { Stage } from "../../domain/stage.js";
 
 /** The built-ins the migration knew: the later ones were seeded naming their duties already. */
-const LATER_BUILT_INS: ReadonlySet<string> = new Set(["resolve-conflicts", "test"]);
+const LATER_BUILT_INS: ReadonlySet<string> = new Set([
+  "resolve-conflicts",
+  "test",
+  "set-up-test-targets",
+]);
 const builtInPipelines = allBuiltInPipelines.filter(({ id }) => !LATER_BUILT_INS.has(id));
 const builtInStageTemplates = allBuiltInStageTemplates.filter(({ id }) => !LATER_BUILT_INS.has(id));
 

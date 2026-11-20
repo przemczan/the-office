@@ -4,6 +4,7 @@ import {
   ONBOARD_PIPELINE,
   RESOLVE_CONFLICTS_PIPELINE,
   SET_UP_RUN_ENVIRONMENT_PIPELINE,
+  SET_UP_TEST_TARGETS_PIPELINE,
 } from "./built-in-pipelines.js";
 import { stageProblems } from "./pipeline.js";
 import { stageWorker, type Stage } from "./stage.js";
@@ -18,7 +19,7 @@ function lastStageOf(id: string): Stage | undefined {
 }
 
 describe("the built-in Pipelines", () => {
-  it("are Full, Quick fix, Document, Onboard, Proof of concept, Set up run environment and Resolve conflicts, each with its own id", () => {
+  it("are Full, Quick fix, Document, Onboard, Proof of concept, Set up run environment, Resolve conflicts and Set up test targets, each with its own id", () => {
     expect(builtInPipelines.map((pipeline) => pipeline.name)).toEqual([
       "Full",
       "Quick fix",
@@ -27,8 +28,9 @@ describe("the built-in Pipelines", () => {
       "Proof of concept",
       "Set up run environment",
       "Resolve conflicts",
+      "Set up test targets",
     ]);
-    expect(new Set(builtInPipelines.map((pipeline) => pipeline.id)).size).toBe(7);
+    expect(new Set(builtInPipelines.map((pipeline) => pipeline.id)).size).toBe(8);
   });
 
   it("follow the Stages of spec §2.3", () => {
@@ -39,6 +41,7 @@ describe("the built-in Pipelines", () => {
     expect(stagesOf("Proof of concept")).toEqual(["Implement", "Tests", "Publish"]);
     expect(stagesOf("Set up run environment")).toEqual(["Set up", "Verify", "Publish"]);
     expect(stagesOf("Resolve conflicts")).toEqual(["Resolve conflicts", "Test", "Publish"]);
+    expect(stagesOf("Set up test targets")).toEqual(["Set up test targets"]);
   });
 
   it.each(builtInPipelines.map((pipeline) => [pipeline.name, pipeline] as const))(
@@ -60,7 +63,9 @@ describe("the built-in Pipelines", () => {
         id,
         {
           duty:
-            id === ONBOARD_PIPELINE || id === SET_UP_RUN_ENVIRONMENT_PIPELINE
+            id === ONBOARD_PIPELINE ||
+            id === SET_UP_RUN_ENVIRONMENT_PIPELINE ||
+            id === SET_UP_TEST_TARGETS_PIPELINE
               ? "onboards-projects"
               : "implements",
         },
@@ -83,6 +88,7 @@ describe("the built-in Pipelines", () => {
       ["Proof of concept", [200_000]],
       ["Set up run environment", [150_000]],
       ["Resolve conflicts", [150_000]],
+      ["Set up test targets", [100_000]],
     ]);
   });
 
@@ -137,5 +143,16 @@ describe("the built-in Pipelines", () => {
       command: "publish",
       publishTarget: "branch-only",
     });
+  });
+
+  it("set up test targets in one Agent Stage that changes no file, names only the entry points spec 2.12 allows and ends with propose_test_targets, with no Publish", () => {
+    const stages = builtInPipelines.find(({ id }) => id === SET_UP_TEST_TARGETS_PIPELINE)!.stages;
+
+    expect(stages).toHaveLength(1);
+    expect(stages[0]).toMatchObject({ kind: "agent", key: "set-up-test-targets" });
+    if (stages[0]?.kind !== "agent") return;
+    expect(stages[0].brief).toContain("change no file");
+    expect(stages[0].brief).toContain("entry points spec 2.12 allows");
+    expect(stages[0].brief).toContain("End with propose_test_targets");
   });
 });

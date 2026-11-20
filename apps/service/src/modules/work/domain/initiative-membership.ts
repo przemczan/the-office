@@ -35,6 +35,7 @@ export interface MembershipGrounds {
 const MADE_FOR_WORDS: Readonly<Record<TaskMadeFor, string>> = {
   onboard: "a Project's Onboard Task",
   "run-environment-setup": "a Project's Set up the run environment Task",
+  "test-targets-setup": "a Project's Set up test targets Task",
   publishing: "an Initiative's Publishing Task",
   "resolve-conflicts": "a Conflict resolution Task",
 };

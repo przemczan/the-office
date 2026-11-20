@@ -21,6 +21,7 @@ import {
   repositoryFolderSchema,
   taskChangesSchema,
   testTargetListSchema,
+  testTargetsSetUpSchema,
   type AddProject,
   type EngineModel,
   type EnvironmentCheck,
@@ -49,6 +50,7 @@ import {
   type TaskKind,
   type TestTargetList,
   type TestTargetsEdit,
+  type TestTargetsSetUp,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
@@ -69,6 +71,8 @@ export const REMOTE_NEEDS = ["remote-needs"] as const;
  * that turns it On.
  */
 export const RUN_ENVIRONMENTS = ["run-environments"] as const;
+/** Apart from the Projects' key, since a Task's events change it: the open set-up Task. */
+export const TEST_TARGETS_SET_UPS = ["test-targets-set-ups"] as const;
 /**
  * Apart from the Projects' key, so no event moves an open file browser to another commit; what a
  * commit holds never changes.
@@ -124,6 +128,13 @@ export const projectQueries = {
       queryKey: testTargetsKey(id),
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/test-targets`, testTargetListSchema, signal),
+    }),
+  /** The open "Set up test targets" Task, or null. */
+  testTargetsSetUp: (id: string) =>
+    queryOptions({
+      queryKey: [...TEST_TARGETS_SET_UPS, id],
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPath(id)}/test-targets/set-up-task`, testTargetsSetUpSchema, signal),
     }),
   /** The repository's own skills and commands, read from its checkout. */
   skills: (id: string) =>
@@ -480,6 +491,11 @@ export function changeProjectServerValues(
  */
 export function saveTestTargets(id: string, edit: TestTargetsEdit): Promise<TestTargetList> {
   return sendToApi("PUT", `${projectPath(id)}/test-targets`, edit, testTargetListSchema);
+}
+
+/** Adds the Project's set-up Task, Ready, unless one is open; answers the open one. */
+export function setUpTestTargets(id: string): Promise<TestTargetsSetUp> {
+  return sendToApi("POST", `${projectPath(id)}/test-targets/set-up`, {}, testTargetsSetUpSchema);
 }
 
 function testTargetsKey(id: string) {

@@ -87,7 +87,7 @@ import {
 import { attachmentCopiesOf } from "./attachment-copies.ts";
 import { pagedQueryOptions } from "./pages.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
-import { RUN_ENVIRONMENTS } from "./projects.ts";
+import { RUN_ENVIRONMENTS, TEST_TARGETS_SET_UPS } from "./projects.ts";
 
 const IDEAS = ["ideas"] as const;
 const INITIATIVES = ["initiatives"] as const;
@@ -790,12 +790,13 @@ export const workEventInvalidations: Readonly<
   "initiative.paused": () => [INITIATIVES, TASKS],
   "initiative.resumed": () => [INITIATIVES, TASKS],
   "initiative.planning-started": () => [INITIATIVES],
-  "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS],
+  "task.created": () => [TASKS, INITIATIVES, RUN_ENVIRONMENTS, TEST_TARGETS_SET_UPS],
   // A move to Planning in its Initiative's planning Thread changes the planning tab too.
   "task.state-changed": (event) => [
     TASKS,
     INITIATIVES,
     RUN_ENVIRONMENTS,
+    TEST_TARGETS_SET_UPS,
     ...taskConversationKeys(event),
   ],
   "task.started": () => [TASKS],

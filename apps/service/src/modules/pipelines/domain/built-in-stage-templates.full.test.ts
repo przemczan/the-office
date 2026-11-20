@@ -16,6 +16,7 @@ describe("builtInStageTemplates", () => {
       ["set-up", "Set up"],
       ["resolve-conflicts", "Resolve conflicts"],
       ["test", "Test"],
+      ["set-up-test-targets", "Set up test targets"],
     ]);
   });
 
@@ -41,6 +42,7 @@ describe("builtInStageTemplates", () => {
       ["onboard", { duty: "onboards-projects" }],
       ["set-up", { duty: "onboards-projects" }],
       ["resolve-conflicts", { duty: "implements" }],
+      ["set-up-test-targets", { duty: "onboards-projects" }],
     ]);
   });
 });

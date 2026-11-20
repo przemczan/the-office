@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { taskStateSchema } from "./work.js";
 
 /**
  * A key a test target may take: lower-case letters, digits and `-`, starting with a letter, at most
@@ -172,3 +173,20 @@ export const proposedTestTargetsSchema = z.object({
 });
 export type ProposedTestTargets = z.infer<typeof proposedTestTargetsSchema>;
 export type ProposedTestTarget = ProposedTestTargets["targets"][number];
+
+/** A Project's open "Set up test targets" Task (spec §2.12, "Set up test targets"). */
+export const testTargetsSetUpTaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  state: taskStateSchema,
+});
+export type TestTargetsSetUpTask = z.infer<typeof testTargetsSetUpTaskSchema>;
+
+/**
+ * GET /projects/:id/test-targets/set-up-task, and what POST /projects/:id/test-targets/set-up
+ * answers: the Project's open "Set up test targets" Task, null when it has none.
+ */
+export const testTargetsSetUpSchema = z.object({
+  setUpTask: testTargetsSetUpTaskSchema.nullable(),
+});
+export type TestTargetsSetUp = z.infer<typeof testTargetsSetUpSchema>;

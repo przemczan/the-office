@@ -269,6 +269,12 @@ describe("removalProblems", () => {
     ]);
   });
 
+  it("always keeps the Set up test targets Pipeline, which a set-up Task uses", () => {
+    expect(removalProblems("set-up-test-targets", NO_USE)).toEqual([
+      "Setting up test targets uses the Set up test targets Pipeline, so it stays in the library.",
+    ]);
+  });
+
   it("always keeps the Resolve conflicts Pipeline, which a Conflict resolution Task uses", () => {
     expect(removalProblems("resolve-conflicts", NO_USE)).toEqual([
       "Resolving a pull request's conflicts uses the Resolve conflicts Pipeline, so it stays in the library.",

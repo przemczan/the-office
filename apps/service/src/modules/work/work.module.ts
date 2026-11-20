@@ -58,6 +58,7 @@ import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
 import { ConflictResolutionsController } from "./adapters/http/conflict-resolutions.controller.js";
+import { TestTargetsSetUpsController } from "./adapters/http/test-targets-set-ups.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./adapters/postgres/postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
@@ -84,6 +85,7 @@ import { OfficeLimits } from "./application/office-limits.js";
 import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
 import { OnboardingService } from "./application/onboarding-service.js";
 import { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
+import { TestTargetsSetUps } from "./application/test-targets-set-ups.js";
 import { ConflictResolutions } from "./application/conflict-resolutions.js";
 import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
@@ -230,6 +232,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativesController,
         TasksController,
         ConflictResolutionsController,
+        TestTargetsSetUpsController,
         QueueController,
         AttachmentsController,
         OfficeLimitsController,
@@ -296,6 +299,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         RemovedEngineCaps,
         OnboardingService,
         RunEnvironmentSetUps,
+        TestTargetsSetUps,
         ConflictResolutions,
         AttachmentService,
         SearchService,

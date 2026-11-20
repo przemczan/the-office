@@ -25,13 +25,15 @@ export const TASK_STATES = [
 export type TaskState = (typeof TASK_STATES)[number];
 
 /**
- * The Tasks The Office makes by itself: a Project's Onboard Task and its "Set up the run
- * environment" Task, an Initiative's Publishing Task in a Project (publishing-task.ts), and a
- * Conflict resolution Task for a pull request with conflicts (conflict-resolution.ts).
+ * The Tasks The Office makes by itself: a Project's Onboard Task, its "Set up the run
+ * environment" Task and its "Set up test targets" Task, an Initiative's Publishing Task in a
+ * Project (publishing-task.ts), and a Conflict resolution Task for a pull request with conflicts
+ * (conflict-resolution.ts).
  */
 export const TASK_MADE_FOR = [
   "onboard",
   "run-environment-setup",
+  "test-targets-setup",
   "publishing",
   "resolve-conflicts",
 ] as const;

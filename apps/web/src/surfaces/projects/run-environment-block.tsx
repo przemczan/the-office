@@ -1,20 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import type {
   Project,
   ProjectRunEnvironment,
   RunEnvironmentChange,
   RunEnvironmentDefinition,
-  RunEnvironmentSetUpTask,
 } from "@the-office/contracts";
 import { Badge, Button, Icon, SegmentedControl } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { changeRunEnvironment, projectQueries, setUpRunEnvironment } from "../../api/projects.ts";
 import { settingChosenWords, setUpWords } from "../../shell/run-environment-words.ts";
-import { TASK_STATE_NAMES } from "../../shell/work/work-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
+import { SetUpTaskLine } from "./set-up-task-line.tsx";
 
 const DEFINITION_BADGES: Readonly<
   Record<
@@ -147,7 +145,13 @@ function SetUp({
   readonly pending: boolean;
   readonly onSetUp: () => void;
 }): ReactNode {
-  if (runEnvironment.setUpTask) return <SetUpTaskLine task={runEnvironment.setUpTask} />;
+  if (runEnvironment.setUpTask) {
+    return (
+      <SetUpTaskLine task={runEnvironment.setUpTask}>
+        Run environment turns On when it is Done.
+      </SetUpTaskLine>
+    );
+  }
   if (runEnvironment.runEnvironment === "on" && runEnvironment.definition.state === "valid") {
     return null;
   }
@@ -167,20 +171,6 @@ function SetUp({
         one in a Task.
       </span>
     </div>
-  );
-}
-
-function SetUpTaskLine({ task }: { readonly task: RunEnvironmentSetUpTask }): ReactNode {
-  return (
-    <p className="project-block-note">
-      Being set up in the Task{" "}
-      <Link to="/tasks/$taskId" params={{ taskId: task.id }}>
-        {task.title}
-      </Link>{" "}
-      · {TASK_STATE_NAMES[task.state]}
-      {task.state === "ready" && ", waiting for your Start"}. Run environment turns On when it is
-      Done.
-    </p>
   );
 }
 

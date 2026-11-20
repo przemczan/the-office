@@ -353,6 +353,7 @@ export type PullRequestEnd = z.infer<typeof pullRequestEndSchema>;
 export const TASK_MADE_FOR = [
   "onboard",
   "run-environment-setup",
+  "test-targets-setup",
   "publishing",
   "resolve-conflicts",
 ] as const;

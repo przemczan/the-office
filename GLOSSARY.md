@@ -505,6 +505,10 @@ _Avoid_: run environment slots, concurrency limit
 A named entry in a Project's settings for what can be launched on an Initiative's branch to try the work: a key, a name, a kind and that kind's settings, pointing only to the repository's own entry points (a file, a package script, a Gradle task, a `.devcontainer/` service). Stored in the database only, never in a repository; written on the Project page or by Devops' `propose_test_targets` Proposal, which the user applies.
 _Avoid_: preview config, deploy target, environment
 
+**Set up test targets**:
+The Project page's button, in its Test targets section, that adds the Project's "Set up test targets" Task on the built-in Pipeline of that name: one Agent Stage naming Onboards and repairs Projects and no Publish, in which Devops reads the repository, changes no file and ends with a `propose_test_targets` Proposal. The Task is Done once Devops has proposed; the Proposal stays open for the user to apply. One open per Project.
+_Avoid_: test target wizard, auto-detect targets
+
 **Test instance**:
 One launch of one Test target on one Initiative's branch in one Project, on its own checkout, with its own data and only the target's own variables. Building, then Running and Stopped (Hosted) or Built (Build to install), or Failed.
 _Avoid_: preview, staging, sandbox, deploy, review app

@@ -7,6 +7,7 @@ import {
   type Project,
   type Proposal,
   type TestTarget,
+  type TestTargetsSetUp,
   type TestTargetField,
   type TestTargetSetter,
 } from "@the-office/contracts";
@@ -22,7 +23,7 @@ import {
 } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { proposalQueries } from "../../api/conversations.ts";
-import { projectQueries, saveTestTargets } from "../../api/projects.ts";
+import { projectQueries, saveTestTargets, setUpTestTargets } from "../../api/projects.ts";
 import { useDevops } from "../../shell/ask-devops.tsx";
 import { ProposalCard } from "../../shell/conversation/proposal-card.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -32,10 +33,12 @@ import {
   entryPointWords,
   TEST_TARGET_KIND_LABELS,
 } from "../../shell/test-target-words.ts";
+import { TASK_STATE_NAMES } from "../../shell/work/work-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useSignedInUserId } from "../../shell/use-user-name.ts";
 import { SecretVariables } from "./environment-variables-block.tsx";
 import { ProjectBlock } from "./project-block.tsx";
+import { SetUpTaskLine } from "./set-up-task-line.tsx";
 import {
   editedTestTargetOf,
   NEW_TEST_TARGET_DRAFT,
@@ -102,12 +105,45 @@ export function TestTargetsBlock({ project }: { readonly project: Project }): Re
     },
   });
   const done = (): void => setEditing(undefined);
+  const setUpTask = useQuery(projectQueries.testTargetsSetUp(project.id));
+  const queryClient = useQueryClient();
+  const settingUp = useMutation({
+    mutationFn: () => setUpTestTargets(project.id),
+    onSuccess: (saved: TestTargetsSetUp) => {
+      queryClient.setQueryData(projectQueries.testTargetsSetUp(project.id).queryKey, saved);
+      const task = saved.setUpTask;
+      if (task) {
+        showToast(
+          `${task.title} is ${TASK_STATE_NAMES[task.state]}${task.state === "ready" ? ", waiting for your Start" : ""}.`,
+        );
+      }
+    },
+  });
+  const openTask = setUpTask.data?.setUpTask;
   return (
-    <ProjectBlock icon="flask-conical" title="Test targets">
+    <ProjectBlock
+      icon="flask-conical"
+      title="Test targets"
+      actions={
+        openTask ? undefined : (
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Icon name="wand-sparkles" size={14} />}
+            loading={settingUp.isPending}
+            onClick={() => settingUp.mutate()}
+          >
+            Set up test targets
+          </Button>
+        )
+      }
+    >
       <p className="project-block-text">
         What can be launched on an Initiative&apos;s branch to try the work. Kept in The Office,
         never in the repository.
       </p>
+      {openTask && <SetUpTaskLine task={openTask} />}
+      {settingUp.error && <RefusalAlert title="Nothing was set up" error={settingUp.error} />}
       <OpenProposals projectId={project.id} />
       {read.error && <RefusalAlert title="The test targets can't be read" error={read.error} />}
       {targets && (

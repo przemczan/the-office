@@ -39,6 +39,9 @@ export function moveProblems(task: Task, { stateChanges, hasWorktree }: MoveGrou
       'A "Set up the run environment" Task belongs to its Project, so it can\'t move to another.',
     ];
   }
+  if (task.madeFor === "test-targets-setup") {
+    return ['A "Set up test targets" Task belongs to its Project, so it can\'t move to another.'];
+  }
   if (task.madeFor === "publishing") {
     return ["A Publishing Task belongs to its Project, so it can't move to another."];
   }

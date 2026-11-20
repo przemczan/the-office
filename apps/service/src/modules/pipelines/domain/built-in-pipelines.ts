@@ -2,6 +2,7 @@ import {
   RUN_PROJECT_COMMAND_TOOL,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
 } from "../../engine/index.js";
+import { PROPOSE_TEST_TARGETS_TOOL } from "../../conversations/index.js";
 import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
 import { UPDATE_BRANCH_TOOL } from "./stage-commit.js";
@@ -18,6 +19,9 @@ export const ONBOARD_PIPELINE = "onboard";
 
 /** The Pipeline of a Project's "Set up the run environment" Task, which can't be removed either. */
 export const SET_UP_RUN_ENVIRONMENT_PIPELINE = "set-up-run-environment";
+
+/** The Pipeline of a Project's "Set up test targets" Task, which can't be removed either. */
+export const SET_UP_TEST_TARGETS_PIPELINE = "set-up-test-targets";
 
 /** The Pipeline of a Conflict resolution Task, which Work keys as `RESOLVE_CONFLICTS_PIPELINE`. */
 export const RESOLVE_CONFLICTS_PIPELINE = "resolve-conflicts";
@@ -265,6 +269,29 @@ const resolveConflicts: Pipeline = {
 };
 
 /**
+ * Test targets are settings kept in The Office, not files (spec §2.12), so nothing is verified or
+ * published: the Task is Done once the Agent has proposed them, and the user applies the Proposal.
+ */
+const setUpTestTargets: Pipeline = {
+  id: SET_UP_TEST_TARGETS_PIPELINE,
+  name: "Set up test targets",
+  description:
+    "Reads a Project's repository and proposes its test targets, for the user to apply; changes no file.",
+  stages: [
+    {
+      kind: "agent",
+      key: "set-up-test-targets",
+      name: "Set up test targets",
+      duty: ONBOARDS_PROJECTS,
+      brief: `Read the repository's manifests and their scripts, its Gradle files and wrapper, its own start and build scripts and .devcontainer/, and change no file. Name only the entry points spec 2.12 allows: a file in the repository with its arguments, a script the package manifest lists, a Gradle task through the repository's wrapper, or a .devcontainer/ service (Hosted only); never a command line or inline shell. End with ${PROPOSE_TEST_TARGETS_TOOL}, giving every target at once.`,
+      session: "fresh",
+      budget: 100_000,
+      optional: false,
+    },
+  ],
+};
+
+/**
  * Spec §2.3's built-ins, in the library's order. The `pipelines` table's migration seeds them once;
  * from then on the library holds them and the user edits them like any.
  */
@@ -276,4 +303,5 @@ export const builtInPipelines: readonly Pipeline[] = [
   proofOfConcept,
   setUpRunEnvironment,
   resolveConflicts,
+  setUpTestTargets,
 ];

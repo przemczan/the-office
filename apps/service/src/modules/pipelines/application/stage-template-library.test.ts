@@ -43,9 +43,11 @@ describe("StageTemplateLibrary", () => {
 
   it("seeds nothing more when its migrations' seeds run again", async () => {
     const migrations = await Promise.all(
-      ["0107_stage_templates.sql", "0172_conflict_resolution_tasks.sql"].map((file) =>
-        readFile(new URL(`../../../../drizzle/${file}`, import.meta.url), "utf8"),
-      ),
+      [
+        "0107_stage_templates.sql",
+        "0172_conflict_resolution_tasks.sql",
+        "0179_test_targets_set_up.sql",
+      ].map((file) => readFile(new URL(`../../../../drizzle/${file}`, import.meta.url), "utf8")),
     );
     const seed = migrations
       .flatMap((migration) => migration.split("--> statement-breakpoint"))
