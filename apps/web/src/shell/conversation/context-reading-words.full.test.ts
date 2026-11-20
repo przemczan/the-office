@@ -6,15 +6,20 @@ import {
   type ContextReadingLook,
 } from "./context-reading-words.ts";
 
-type ReadThread = Pick<Thread, "context" | "state" | "stageThread">;
+type ReadThread = Pick<Thread, "context" | "state" | "stageThread" | "stageContextLimits">;
 
 function aThread(
   context: Partial<Thread["context"]>,
-  { state = "waiting", stageThread = false }: Partial<Omit<ReadThread, "context">> = {},
+  {
+    state = "waiting",
+    stageThread = false,
+    stageContextLimits = null,
+  }: Partial<Omit<ReadThread, "context">> = {},
 ): ReadThread {
   return {
     state,
     stageThread,
+    stageContextLimits,
     context: {
       move: "resume",
       reason: "cache-warm",
@@ -120,7 +125,30 @@ describe("a Thread's context reading", () => {
     expect(look.meter).toBeUndefined();
   });
 
-  it("gives a Stage's Thread no mark, amber only from 80%", () => {
+  it("marks a Stage's Thread at its soft and hard limits, amber from the soft one", () => {
+    const stage = {
+      stageThread: true,
+      state: "answering",
+      stageContextLimits: { soft: 100_000, hard: 180_000 },
+    } as const;
+
+    const look = threadReadingLook(aThread({ contextTokens: 41_000 }, stage), "Jim");
+    expect(look).toMatchObject({
+      near: false,
+      label: "Context: 41k of 200k, soft limit 100k, hard limit 180k",
+      meter: {
+        mark: false,
+        limits: [
+          { share: 0.5, label: "Soft limit 100k" },
+          { share: 0.9, label: "Hard limit 180k" },
+        ],
+      },
+    });
+    expect(look.tip).toContain("Soft limit 100k · Hard limit 180k: past the soft limit");
+    expect(threadReadingLook(aThread({ contextTokens: 101_000 }, stage), "Jim").near).toBe(true);
+  });
+
+  it("gives a Stage's Thread without limits no mark, amber only from 80%", () => {
     const stage = { stageThread: true, state: "answering" } as const;
 
     expect(threadReadingLook(aThread({ contextTokens: 150_000 }, stage), "Jim")).toMatchObject({

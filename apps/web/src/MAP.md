@@ -55,7 +55,7 @@
 - `api-client.ts`: ApiError, SignedOut, RefusedAs, shouldRetry, getFromApi, sendToApi, deleteFromApiReturning, callOfficeAction, sendFileToApi, sendToApiWithNoAnswer, sendToApiRefusedAs, sendToApiWithNoAnswerRefusedAs, deleteFromApi
 - `attachment-copies.ts`: AttachmentCopies, attachmentCopiesOf
 - `ci-runs.ts`: ciRunQueries, refreshCiRuns, rerunCiRun, startWorkflow, ciRunEventInvalidations
-- `conversations.ts`: threadQueries, readSubAgentMessages, readProcessOutput, sizeThresholdQuery, changeSizeThreshold, officeInstructionsQuery, changeOfficeInstructions, decisionQueries, proposalQueries, applyProposal, declineProposal, fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack, startChatThread, openPersonsThread, sendMessage, uploadMessageImage, renameThread, chooseContextOverride, allowChanges, markThreadSeen, switchChangesOff, answerDecision, threadEventInvalidations, threadEventCacheUpdates, homeThreadsKey
+- `conversations.ts`: threadQueries, readSubAgentMessages, readProcessOutput, sizeThresholdQuery, changeSizeThreshold, stageContextLimitsQuery, changeStageContextLimits, officeInstructionsQuery, changeOfficeInstructions, decisionQueries, proposalQueries, applyProposal, declineProposal, fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack, startChatThread, openPersonsThread, sendMessage, uploadMessageImage, renameThread, chooseContextOverride, allowChanges, markThreadSeen, switchChangesOff, answerDecision, threadEventInvalidations, threadEventCacheUpdates, homeThreadsKey
 - `engine.ts`: engineSettingsQuery, changeEngineSettings, engineRemovalQuery, removeEngine, engineAccountQuery, startEngineSignIn, enterEngineSignInCode, pasteEngineToken, setEngineApiKey, signOutOfEngine, useEngineAccountChanged, engineEventInvalidations
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, ThreadEvents, ThreadEventsContext, EventStreamProvider, useOfficeEvent, useThreadEvents, useConnectedEventStream, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, ThreadSubscription, SIGNED_OUT_CLOSE_CODE, RECONNECT_DELAYS_MS, EventStream
@@ -223,9 +223,9 @@
 - `composer-images.fixtures.tsx`: THREAD_ID, aThread, stubObjectUrls, aFile, ShownComposer, showComposer, drop, dragOver
 - `composer.tsx`: PrefilledNote, Composer
 - `context-bar.tsx`: ContextBar
-- `context-reading-words.ts`: ReadingShown, ReadingPart, ReadingMeter, ContextReadingLook, threadReadingLook, endedRunReadingLook
+- `context-reading-words.ts`: ReadingShown, ReadingPart, ReadingLimitMark, ReadingMeter, ContextReadingLook, threadReadingLook, endedRunReadingLook
 - `context-reading.tsx`: SessionRow, ContextReading
-- `context-words.ts`: MOVE_WORDS, ContextChoice, CONTEXT_CHOICES, overrideOf, contextChoiceOf, CacheState, cacheStateAt, startsASessionWords, offersAChoice, contextChoiceWords, tokensShort, contextDetail, contextLabel, newSessionLabel, earlierSessionLabel, contextBarLabel
+- `context-words.ts`: MOVE_WORDS, ContextChoice, CONTEXT_CHOICES, overrideOf, contextChoiceOf, CacheState, cacheStateAt, startsASessionWords, offersAChoice, contextChoiceWords, tokensShort, contextDetail, contextLabel, newSessionLabel, earlierSessionLabel, contextBarLabel, stageContextLimitWords, stageSessionRestartedWords
 - `decision-answered.tsx`: DecisionAnswered
 - `decision-card.fixtures.tsx`: INITIATIVE_ID, PLANNING_THREAD, TASK_THREAD, CHAT_THREAD, CONSULTATION_ON_TASK, DECISION_ID, TASK, PLANNER, REVIEWER, FORMAT, FILE_NAME, COLUMNS, aDecision, rendered, buttonsNamed, buttonName, buttonNamed, fieldsLabelled, fieldLabelled, type, click, radio, settle
 - `decision-card.tsx`: DecisionCardPlace, DecisionCardProps, DecisionCard, DecisionInThread, DecisionCardLinkContext
@@ -267,7 +267,7 @@
 - `thread-view.tsx`: ThreadView, ThreadLog, ThreadLoader, ThreadTitle
 - `thread-writing.ts`: takesMessages, writingPlaceholder
 - `use-answering.ts`: ProposalAnswering, useAnswering
-- Tests: bug-task-card.test.tsx, composer-images.full.test.tsx, composer-images.test.tsx, context-reading-words.full.test.ts, context-words.full.test.ts, decision-card.full.test.tsx, decision-drafts.full.test.tsx, decision-form-words.full.test.ts, decision-on-task.full.test.tsx, decision-words.full.test.ts, details-store.full.test.ts, devops-proposal-changes.full.test.tsx, link-card-words.full.test.ts, message-field.full.test.tsx, message-groups.full.test.ts, message-list-images.full.test.tsx, message-list-kinds.full.test.tsx, message-list.full.test.tsx, message-visibility.full.test.ts, office-status-words.full.test.ts, proposal-card.full.test.tsx, proposal-on-flow.full.test.tsx, thread-drafts.test.tsx, thread-sessions.full.test.ts, thread-title.full.test.ts, thread-writing.full.test.ts
+- Tests: bug-task-card.test.tsx, composer-images.full.test.tsx, composer-images.test.tsx, context-reading-words.full.test.ts, context-reading.full.test.tsx, context-words.full.test.ts, decision-card.full.test.tsx, decision-drafts.full.test.tsx, decision-form-words.full.test.ts, decision-on-task.full.test.tsx, decision-words.full.test.ts, details-store.full.test.ts, devops-proposal-changes.full.test.tsx, link-card-words.full.test.ts, message-field.full.test.tsx, message-groups.full.test.ts, message-list-images.full.test.tsx, message-list-kinds.full.test.tsx, message-list.full.test.tsx, message-visibility.full.test.ts, office-status-words.full.test.ts, proposal-card.full.test.tsx, proposal-on-flow.full.test.tsx, thread-drafts.test.tsx, thread-sessions.full.test.ts, thread-title.full.test.ts, thread-writing.full.test.ts
 
 ### shell/fire-alarm/
 
@@ -322,6 +322,7 @@
 - `stage-change-words.ts`: counted, STAGE_FIELD_LABELS, STAGE_CHANGE_KIND_NAMES, OriginWords, originWords, ROUTES_CHANGED, routesUndoWords, changedFieldsWords, undoWords, stageChangeLine, FieldWordsContext, fieldWords, getsLine, projectPipelineLine, builtOnByWords
 - `stage-check-alerts.tsx`: StageCheckAlerts
 - `stage-commands.ts`: PUBLISH_COMMAND, ANOTHER_KEY, StageCommandSource, PublishingLines, StageCommandChoice, commandChoices, commandWords, namedCommands, commandKeysOf, publishingLinesWords
+- `stage-context-limit-fields.tsx`: StageContextLimitFields
 - `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_KIND_ICONS, addStage, addStageFrom, withoutFailureRule, AddedStage, namedAmong, keyAmong, standaloneStage, removeStage, replaceStage, StageWorker, stageWorker, withRole, withDuty, withCommand, canContinue
 - `stage-form.tsx`: StageFormProps, StageForm
 - `stage-permission-fields.tsx`: StagePermissionFields

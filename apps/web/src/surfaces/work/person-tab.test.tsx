@@ -88,6 +88,7 @@ const DEVELOPERS_THREAD = {
   title: null,
   state: "waiting",
   stageThread: false,
+  stageContextLimits: null,
 } as unknown as Thread;
 
 const DEVELOPERS_TAB: ConversationTab = {

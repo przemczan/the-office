@@ -17,6 +17,7 @@ import {
   proposalListSchema,
   proposalSchema,
   sizeThresholdSchema,
+  stageContextLimitsSettingSchema,
   firstBriefSchema,
   subAgentMessagesSchema,
   subAgentsAndProcessesSchema,
@@ -36,6 +37,8 @@ import {
   type Proposal,
   type ProposalApplication,
   type SizeThreshold,
+  type StageContextLimits,
+  type StageContextLimitsSetting,
   type ChatThreadPage,
   type SubAgentMessages,
   type TaskThreadPage,
@@ -53,6 +56,7 @@ const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
 const PROPOSALS = ["proposals"] as const;
 const SIZE_THRESHOLD = ["settings", "size-threshold"] as const;
+const STAGE_CONTEXT_LIMITS = ["settings", "stage-context-limits"] as const;
 const OFFICE_INSTRUCTIONS = ["settings", "office-instructions"] as const;
 
 export const threadQueries = {
@@ -188,6 +192,25 @@ export const sizeThresholdQuery = () =>
 
 export function changeSizeThreshold(sizeThreshold: number): Promise<SizeThreshold> {
   return sendToApi("PUT", "/settings/size-threshold", { sizeThreshold }, sizeThresholdSchema);
+}
+
+/** Settings › Office limits: the Office defaults of every Agent Stage session's context limits. */
+export const stageContextLimitsQuery = () =>
+  queryOptions({
+    queryKey: STAGE_CONTEXT_LIMITS,
+    queryFn: ({ signal }) =>
+      getFromApi("/settings/stage-context-limits", stageContextLimitsSettingSchema, signal),
+  });
+
+export function changeStageContextLimits(
+  stageContextLimits: StageContextLimits,
+): Promise<StageContextLimitsSetting> {
+  return sendToApi(
+    "PUT",
+    "/settings/stage-context-limits",
+    { stageContextLimits },
+    stageContextLimitsSettingSchema,
+  );
 }
 
 /** Settings › Office instructions: the text every new session gets. */

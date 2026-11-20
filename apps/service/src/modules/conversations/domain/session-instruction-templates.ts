@@ -185,6 +185,35 @@ export const HANDOVER_REQUEST = promptTemplate({
   text: "Your context is nearly full, so this session ends after your next answer and the Thread continues in a fresh one. Write your Handover note for it now, in a few lines: where you are, what is left, and what to watch. Reply with the note alone.",
 });
 
+const HANDOVER_NOTE_CONTENTS =
+  "In the Handover note, name the files and line ranges the next session must re-read, and no others, then what is done, what is left and what to watch.";
+
+const STAGE_LIMIT_VARIABLE = {
+  limit: { kind: "text", description: "The limit passed, in tokens, such as 100,000." },
+} as const;
+
+/** What The Office tells an Agent in a Stage whose context passed its soft limit (spec §2.5). */
+export const STAGE_SOFT_LIMIT = promptTemplate({
+  key: "conversations.stage-soft-limit",
+  domain: "conversations",
+  name: "Stage soft limit",
+  description:
+    "What an Agent in a Stage is told once its context passes the Stage's soft limit: finish the part it is on and hand over to a fresh session.",
+  variables: STAGE_LIMIT_VARIABLE,
+  text: `Your context passed {{limit}} tokens. If this Stage is nearly done, finish it and end with your result as usual. Otherwise finish the part you are on, leave the worktree consistent with its checks green, then end your turn with status \`handing_over\` and a Handover note. ${HANDOVER_NOTE_CONTENTS}`,
+});
+
+/** What The Office asks of an Agent in a Stage whose turn it stopped at the hard limit (spec §2.5). */
+export const STAGE_HARD_LIMIT = promptTemplate({
+  key: "conversations.stage-hard-limit",
+  domain: "conversations",
+  name: "Stage hard limit",
+  description:
+    "What an Agent in a Stage is asked once The Office stopped its turn at the Stage's hard context limit: its Handover note, at once.",
+  variables: STAGE_LIMIT_VARIABLE,
+  text: `Your context passed the hard limit of {{limit}} tokens, so The Office stopped your turn. End your turn now with status \`handing_over\` and a Handover note; do no more work. ${HANDOVER_NOTE_CONTENTS}`,
+});
+
 /** Every session instruction template, which `SessionPlaces` loads together. */
 export const SESSION_INSTRUCTION_TEMPLATES = [
   PERSON_INSTRUCTIONS,
@@ -193,6 +222,8 @@ export const SESSION_INSTRUCTION_TEMPLATES = [
   WORK_THREAD_INSTRUCTIONS,
   CONSULTATION_INSTRUCTIONS,
   HANDOVER_REQUEST,
+  STAGE_SOFT_LIMIT,
+  STAGE_HARD_LIMIT,
 ] as const;
 
 function lowerFirst(text: string): string {
@@ -272,4 +303,15 @@ export function consultationInstructions(
 /** What The Office asks for when a session's context nears its limit. */
 export function handoverRequest(prompts: PromptTexts): string {
   return renderedPart(prompts, HANDOVER_REQUEST, {});
+}
+
+/** What The Office tells a Stage's Agent whose context passed `limit`, its soft or hard limit. */
+export function stageLimitMessage(
+  prompts: PromptTexts,
+  passed: "soft" | "hard",
+  limit: number,
+): string {
+  return renderedPart(prompts, passed === "soft" ? STAGE_SOFT_LIMIT : STAGE_HARD_LIMIT, {
+    limit: limit.toLocaleString("en-US"),
+  });
 }

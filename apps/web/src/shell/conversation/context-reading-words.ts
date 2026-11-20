@@ -4,7 +4,8 @@ import { tokensShort } from "./context-words.ts";
 /**
  * The context reading: a session's context size against its model's window, at the right end of
  * the row above the message input (spec §2.5, docs/design/session-context.html). "41k of 200k" with
- * a meter whose mark stands where The Office asks for a Handover note.
+ * a meter whose mark stands where The Office asks for a Handover note; on a Stage Thread, marks at its
+ * soft and hard limits instead.
  */
 
 /** Where The Office asks for a Handover note, as the service's `handOverAtShare` sets it. */
@@ -25,9 +26,23 @@ export interface ReadingPart {
   readonly shown: ReadingShown;
 }
 
-/** The meter under the words: filled to `share`, or empty and dashed when nothing was read. */
+/** A Stage Thread's limit on the meter: where it stands, and what it reads, "Soft limit 100k". */
+export interface ReadingLimitMark {
+  readonly share: number;
+  readonly label: string;
+}
+
+/**
+ * The meter under the words: filled to `share`, or empty and dashed when nothing was read. `mark`
+ * is a chat's hand-over mark at 80%; `limits` a Stage Thread's soft and hard limits.
+ */
 export type ReadingMeter =
-  | { readonly kind: "filled"; readonly share: number; readonly mark: boolean }
+  | {
+      readonly kind: "filled";
+      readonly share: number;
+      readonly mark: boolean;
+      readonly limits?: readonly ReadingLimitMark[];
+    }
   | { readonly kind: "empty"; readonly mark: boolean };
 
 export interface ContextReadingLook {
@@ -46,7 +61,12 @@ export interface ContextReadingLook {
 
 /** The reading of a Thread that takes messages, from what GET /threads/:id gives. */
 export function threadReadingLook(
-  { context, state, stageThread }: Pick<Thread, "context" | "state" | "stageThread">,
+  {
+    context,
+    state,
+    stageThread,
+    stageContextLimits,
+  }: Pick<Thread, "context" | "state" | "stageThread" | "stageContextLimits">,
   personName: string,
 ): ContextReadingLook {
   const { reason, contextTokens: tokens, contextWindow: window, contextReported } = context;
@@ -66,12 +86,31 @@ export function threadReadingLook(
   const share = tokens / window;
   const handOverAt = Math.round(window * HAND_OVER_AT_SHARE);
   if (stageThread) {
-    return sized(tokens, window, {
-      near: share >= HAND_OVER_AT_SHARE,
+    const read = readWords(tokens, window, personName, answering);
+    if (stageContextLimits === null) {
+      return sized(tokens, window, {
+        near: share >= HAND_OVER_AT_SHARE,
+        mark: false,
+        extra: undefined,
+        tip: `${read}.`,
+      });
+    }
+    const { soft, hard } = stageContextLimits;
+    const limits = [
+      { share: shareOf(soft, window), label: limitLabel("soft", soft) },
+      { share: shareOf(hard, window), label: limitLabel("hard", hard) },
+    ];
+    const reading = sized(tokens, window, {
+      near: tokens >= soft,
       mark: false,
       extra: undefined,
-      tip: `${readWords(tokens, window, personName, answering)}.`,
+      tip: `${read}. ${limits.map(({ label }) => label).join(" · ")}: past the soft limit The Office asks ${personName} to finish the part and hand over; at the hard limit it stops the turn and asks at once. The Stage goes on in a fresh session.`,
     });
+    return {
+      ...reading,
+      meter: { kind: "filled", share: shareOf(tokens, window), mark: false, limits },
+      label: `${reading.label}, ${limits.map(({ label }) => label.toLowerCase()).join(", ")}`,
+    };
   }
   const pastMark = share >= HAND_OVER_AT_SHARE;
   return sized(tokens, window, {
@@ -119,6 +158,11 @@ export function endedRunReadingLook(
     label: `Context: ended at ${tokensShort(tokens)} of ${tokensShort(window)}`,
     tip: `${tokensWhole(tokens, window)}, ${personName}'s session after the run's last turn.`,
   };
+}
+
+/** "Soft limit 100k", "Hard limit 180k". */
+function limitLabel(limit: "soft" | "hard", tokens: number): string {
+  return `${limit === "soft" ? "Soft" : "Hard"} limit ${tokensShort(tokens)}`;
 }
 
 function sized(

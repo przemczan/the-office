@@ -268,6 +268,7 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     useProjectSkills: false,
     projectSkillsOff: [],
     engineStandIns: [],
+    contextLimits: undefined,
     session: {
       instructions: "You work a Stage.",
       profile: PROFILE,

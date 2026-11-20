@@ -46,7 +46,9 @@ describe("readStageResult", () => {
       undefined,
       STATEMENTS,
     );
-    expect(listedNone.valid && listedNone.outcome).not.toHaveProperty("definitionOfDoneOutOfReach");
+    expect(listedNone.valid && !listedNone.handingOver && listedNone.outcome).not.toHaveProperty(
+      "definitionOfDoneOutOfReach",
+    );
   });
 
   it("asks to correct a statement out of reach that is also met, or that the Definition of Done doesn't have", () => {

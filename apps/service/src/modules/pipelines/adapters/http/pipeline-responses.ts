@@ -270,6 +270,7 @@ function toStageResponse(stage: Stage): StageResponse {
         budget: stage.budget,
         effort: stage.effort,
         permissions: stage.permissions,
+        contextLimits: stage.contextLimits,
         onFailure: stage.onFailure,
       };
     case "script":

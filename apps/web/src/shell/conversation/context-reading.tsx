@@ -32,7 +32,7 @@ export function SessionRow({
 
 /**
  * The session's context size against its model's window, with a meter whose mark stands where The
- * Office asks for a Handover note. It asks nothing, so it is no button; its Tooltip says it whole.
+ * Office asks for a Handover note, or, on a Stage Thread, marks at its soft and hard limits. It asks nothing, so it is no button; its Tooltip says it whole.
  */
 export function ContextReading({ look }: { readonly look: ContextReadingLook }): ReactNode {
   const ticked = useChanged(look.parts.find(({ strong }) => strong)?.text);
@@ -72,6 +72,15 @@ function Meter({ meter }: { readonly meter: ReadingMeter }): ReactNode {
         <span className="context-meter-fill" style={{ width: `${meter.share * 100}%` }} />
       )}
       {meter.mark && <span className="context-meter-mark" />}
+      {meter.kind === "filled" &&
+        meter.limits?.map(({ share, label }) => (
+          <span
+            key={label}
+            className="context-meter-mark"
+            data-limit={label}
+            style={{ left: `${share * 100}%` }}
+          />
+        ))}
     </span>
   );
 }

@@ -1,7 +1,9 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Duty, Role, RoleCardOptions, Stage } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { stageContextLimitsQuery } from "../../api/conversations.ts";
 import { StageForm } from "./stage-form.tsx";
 
 declare global {
@@ -65,16 +67,23 @@ afterEach(() => {
 
 /** Renders the form for `stage`, keeping each list of Stages it answers in `changed`. */
 function rendered(stage: Stage, changed: (readonly Stage[])[] = []): (readonly Stage[])[] {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  // The Office defaults as Settings › Office limits has them, changed from the shipped ones.
+  queryClient.setQueryData(stageContextLimitsQuery().queryKey, {
+    stageContextLimits: { soft: 120_000, hard: 200_000 },
+  });
   act(() =>
     root.render(
-      <StageForm
-        stages={[stage]}
-        index={0}
-        onChange={(stages) => changed.push(stages)}
-        roles={[developer]}
-        duties={duties}
-        options={options}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <StageForm
+          stages={[stage]}
+          index={0}
+          onChange={(stages) => changed.push(stages)}
+          roles={[developer]}
+          duties={duties}
+          options={options}
+        />
+      </QueryClientProvider>,
     ),
   );
   return changed;
@@ -128,5 +137,65 @@ describe("Who works it", () => {
     expect(page.querySelector("[role=combobox]")?.textContent).toBe(
       "Shapes Initiatives · nobody holds it",
     );
+  });
+});
+
+/** Picks the option reading `option` in the Select labelled `label`. */
+function choose(label: string, option: string): void {
+  const field = [...page.querySelectorAll("label")].find(({ textContent }) =>
+    textContent?.startsWith(label),
+  );
+  const select = page.querySelector<HTMLSelectElement>(`select[id="${field?.htmlFor ?? ""}"]`);
+  if (!select) throw new Error(`No Select labelled ${label}.`);
+  act(() => {
+    select.value = [...select.options].find(({ text }) => text === option)?.value ?? "";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function button(label: string): HTMLButtonElement | null {
+  return page.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+}
+
+describe("Context limits", () => {
+  it("names the Office defaults it takes while the Stage leaves them out", () => {
+    rendered(implement);
+    expect(page.textContent).toContain("Office default (120k / 200k)");
+    expect(page.textContent).not.toContain("Soft limit");
+  });
+
+  it("gives the Stage its own limits, starting at the Office defaults", () => {
+    const changed = rendered(implement);
+    choose("Context limits", "Set for this Stage");
+    expect(changed.at(-1)?.[0]).toMatchObject({
+      contextLimits: { kind: "set", limits: { soft: 120_000, hard: 200_000 } },
+    });
+  });
+
+  it("steps the Stage's own limits, never under the soft minimum", () => {
+    const changed = rendered({
+      ...implement,
+      contextLimits: { kind: "set", limits: { soft: 50_000, hard: 70_000 } },
+    });
+    expect(button("Lower the soft limit")?.disabled).toBe(true);
+    expect(button("Lower the hard limit")?.disabled).toBe(true);
+    act(() => button("Raise the hard limit")?.click());
+    expect(changed.at(-1)?.[0]).toMatchObject({
+      contextLimits: { kind: "set", limits: { soft: 50_000, hard: 75_000 } },
+    });
+  });
+
+  it("sets No limit", () => {
+    const changed = rendered(implement);
+    choose("Context limits", "No limit");
+    expect(changed.at(-1)?.[0]).toMatchObject({ contextLimits: { kind: "none" } });
+  });
+
+  it("goes back to the Office defaults by leaving the limits out", () => {
+    const changed = rendered({ ...implement, contextLimits: { kind: "none" } });
+    choose("Context limits", "Office default (120k / 200k)");
+    const [stage] = changed.at(-1) ?? [];
+    expect(stage).toBeDefined();
+    expect(stage).not.toHaveProperty("contextLimits");
   });
 });

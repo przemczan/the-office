@@ -156,6 +156,21 @@ const EVERY_KIND: {
     { at, id: "17", kind: "mcp-server-not-started", server: "files", reason: null },
     "The MCP server files didn't start.",
   ],
+  "stage-context-limit": [
+    { at, id: "18", kind: "stage-context-limit", limit: "soft", contextTokens: 101_200 },
+    "Context passed the soft limit at 101k: asked for a Handover note",
+  ],
+  "stage-session-restarted": [
+    {
+      at,
+      id: "19",
+      kind: "stage-session-restarted",
+      contextTokens: 102_400,
+      handoverNotePassedOn: true,
+      brief: "Go on with the Plan.",
+    },
+    "Fresh session at 102k context, Handover note passed on",
+  ],
 };
 
 function shownLog(
@@ -213,6 +228,42 @@ describe("MessageList's kinds", () => {
     const every = Object.values(EVERY_KIND);
     const log = shownLog(every.map(([message]) => message));
     for (const [, words] of every) expect(log.textContent).toContain(words);
+  });
+
+  it("says where a Stage session passed its limits, the hard one stopping the turn", () => {
+    const log = shownLog([
+      { at, id: "a", kind: "stage-context-limit", limit: "soft", contextTokens: 101_000 },
+      { at, id: "b", kind: "stage-context-limit", limit: "hard", contextTokens: 181_000 },
+    ]);
+    expect(
+      [...log.querySelectorAll(".message-office")].map(({ textContent }) => textContent),
+    ).toEqual([
+      "Context passed the soft limit at 101k: asked for a Handover note",
+      "Context passed the hard limit at 181k: turn stopped, Handover note asked",
+    ]);
+  });
+
+  it("opens a Stage's fresh session line to its Brief, saying whether a Handover note went on", () => {
+    const log = shownLog([
+      {
+        at,
+        id: "a",
+        kind: "stage-session-restarted",
+        contextTokens: 102_000,
+        handoverNotePassedOn: false,
+        brief: "Go on with **the Plan**.",
+      },
+    ]);
+    const fold = log.querySelector<HTMLDetailsElement>("details.message-brief");
+    expect(fold?.querySelector("summary")?.textContent).toBe(
+      "Fresh session at 102k context, no Handover noteBrief",
+    );
+    expect(fold?.textContent).not.toContain("the Plan");
+    act(() => {
+      if (fold) fold.open = true;
+      fold?.dispatchEvent(new Event("toggle"));
+    });
+    expect(fold?.querySelector(".message-brief-text")?.textContent).toContain("the Plan");
   });
 
   it.each(["decision", "proposal", "link-card", "idea", "office-status"] as const)(

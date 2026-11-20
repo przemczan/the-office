@@ -9,9 +9,9 @@ import type { StageDecision, StageOutcome } from "./stage-run.js";
  */
 const stageResult = z.object({
   status: z
-    .enum(["done", "needs_decision", "failed"])
+    .enum(["done", "needs_decision", "failed", "handing_over"])
     .describe(
-      "done when the Stage's work is finished; needs_decision once you opened a Decision with open_decision, consult or propose_bug_task and wait for the answer; failed when you can't finish it.",
+      "done when the Stage's work is finished; needs_decision once you opened a Decision with open_decision, consult or propose_bug_task and wait for the answer; failed when you can't finish it; handing_over only once The Office asked you to hand over as your session's context passed its limit, and the Stage goes on in a fresh session.",
     ),
   summary: z.string().min(1).describe("One or two sentences: what you did, or why you stopped."),
   handoverNote: z
@@ -19,7 +19,7 @@ const stageResult = z.object({
     .min(1)
     .optional()
     .describe(
-      "Required when status is done: a few lines for whoever continues: where you are, what is left, what to watch. Welcome with the other statuses too.",
+      "Required when status is done or handing_over: a few lines for whoever continues: where you are, what is left, what to watch. Welcome with the other statuses too.",
     ),
   definitionOfDoneMet: z
     .array(z.int().min(1))
@@ -61,6 +61,7 @@ const REQUIRED_BY_STATUS: Readonly<Record<StageResult["status"], readonly (keyof
     done: ["handoverNote", "definitionOfDoneMet"],
     needs_decision: [],
     failed: ["failureReason"],
+    handing_over: ["handoverNote"],
   };
 
 /**
@@ -89,6 +90,15 @@ export type StageResultReading =
       readonly outcome: StageOutcome;
       /** Relative to the screenshots folder; none when it lists none. */
       readonly screenshots: readonly string[];
+      readonly handingOver?: undefined;
+    }
+  | {
+      readonly valid: true;
+      /**
+       * The session hands the Stage over with its Handover note, as its context passed a limit
+       * (spec §2.5): the Stage goes on in a fresh session of the same Stage run.
+       */
+      readonly handingOver: { readonly handoverNote: string };
     }
   | { readonly valid: false; readonly problems: string };
 
@@ -99,11 +109,14 @@ export type StageResultReading =
  * screenshots. Without one,
  * needs_decision asks nothing, so it is corrected like any other mismatch. `statementCount` is how
  * many statements the Task's Definition of Done has, which the out of reach ones are checked against.
+ * handing_over is valid only once the session passed a context limit (`limitPassed`), so a session
+ * that wasn't asked to hand over is corrected rather than restarted.
  */
 export function readStageResult(
   output: unknown,
   asked: StageDecision | undefined,
   statementCount: number,
+  limitPassed = false,
 ): StageResultReading {
   // The Stage runs again once the Decision is answered, and lists its screenshots as it ends then.
   if (asked) return { valid: true, outcome: askedOutcome(asked, output), screenshots: [] };
@@ -113,6 +126,10 @@ export function readStageResult(
   const missing = REQUIRED_BY_STATUS[result.status].find((field) => result[field] === undefined);
   if (missing) {
     return { valid: false, problems: `status "${result.status}" requires "${missing}".` };
+  }
+  if (result.status === "handing_over") {
+    if (!limitPassed) return { valid: false, problems: NOT_ASKED_TO_HAND_OVER };
+    return { valid: true, handingOver: { handoverNote: result.handoverNote ?? "" } };
   }
   const statementProblem =
     outOfReachProblemOf(result, statementCount) ?? noLongerMetProblemOf(result, statementCount);
@@ -191,8 +208,13 @@ function outcomeOf({
       return undefined;
     case "failed":
       return { status: "failed", error: failureReason ?? summary, ...note };
+    case "handing_over":
+      throw new Error("A handover is read before its outcome.");
   }
 }
+
+const NOT_ASKED_TO_HAND_OVER =
+  "status \"handing_over\" is only for when The Office asks you to hand over, as your session's context passed its limit, and it hasn't. Go on with the Stage's work and end it with done, needs_decision or failed.";
 
 const NO_DECISION_OPENED =
   'status "needs_decision" means you opened a Decision with open_decision, consult or propose_bug_task, and you opened none. Open it with one of them first, then end your turn with needs_decision again.';

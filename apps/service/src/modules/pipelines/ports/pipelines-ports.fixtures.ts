@@ -24,6 +24,7 @@ import {
 import {
   StageThreads,
   type AskedDecision,
+  type StageContextLimitPassed,
   type StageSessionAhead,
   type StageThread,
   type StageThreadRequest,
@@ -81,6 +82,8 @@ import { TaskRecords, type TaskRecord } from "./task-records.js";
 import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
 import { TaskThreadSessions } from "./task-thread-sessions.js";
 import { TaskUsage } from "./task-usage.js";
+import { StageContextLimitDefaults } from "./stage-context-limit-defaults.js";
+import type { ContextLimits } from "../domain/stage-context-limits.js";
 
 /** Run environments' check and write in memory: valid unless a test puts what the next gives. */
 @Injectable()
@@ -520,6 +523,17 @@ export class StageThreadsForTests extends StageThreads {
   switchFails: Error | undefined = undefined;
   /** Told as a session moves to a Stand-in Engine, such as for the user to pause meanwhile. */
   whileSwitching: ((threadId: string) => void | Promise<void>) | undefined = undefined;
+  /**
+   * The context limit each Thread's session passed, as a test scripts it: none unless set, and
+   * none again once the Thread restarts.
+   */
+  readonly limitPassed = new Map<string, StageContextLimitPassed>();
+  /** Each restart of a Stage's session, in order, by its Thread. */
+  readonly restarted: {
+    readonly threadId: string;
+    readonly brief: string;
+    readonly handoverNote: string | undefined;
+  }[] = [];
 
   constructor(
     private readonly sessions: EngineSessions,
@@ -639,6 +653,16 @@ export class StageThreadsForTests extends StageThreads {
         engine = to.engineId;
       },
       askedDecision: async () => asked,
+      contextLimitPassed: () => this.limitPassed.get(threadId),
+      // The scripted session goes on as it is, as though fresh, its next turn answering the Brief.
+      restart: async ({ record, work }, handoverNote) => {
+        const brief = `${record}\n\n## What to do now\n\n${work}`;
+        this.restarted.push({ threadId, brief, handoverNote });
+        this.limitPassed.delete(threadId);
+        session.send({ id: randomUUID(), text: brief }, "later");
+        turnRunning = true;
+        return brief;
+      },
       send: (text, why) => {
         this.sent.push({ threadId, text, why });
         session.send({ id: randomUUID(), text }, "later");
@@ -728,6 +752,16 @@ export class TaskUsageForTests extends TaskUsage {
   budgetTokensSoFar(taskId: string): Promise<number> {
     this.observe?.(taskId);
     return Promise.resolve(this.tokens.get(taskId) ?? 0);
+  }
+}
+
+/** The Office defaults of Settings › Office limits, as a test sets them: the contracts' defaults. */
+@Injectable()
+export class StageContextLimitDefaultsForTests extends StageContextLimitDefaults {
+  limits: ContextLimits = { soft: 100_000, hard: 180_000 };
+
+  stageContextLimits(): Promise<ContextLimits> {
+    return Promise.resolve(this.limits);
   }
 }
 
@@ -1236,6 +1270,7 @@ export class PipelinesPortsForTestsModule {
       TaskPublishingForTests,
       TaskScreenshotsForTests,
       TaskUsageForTests,
+      StageContextLimitDefaultsForTests,
       TaskThreadSessionsForTests,
       ProposalDraftsForTests,
       StageRoleEnginesForTests,

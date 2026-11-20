@@ -34,11 +34,13 @@ import {
   type MessageDelivery,
   type MessageDraft,
   type MessageImage,
+  type StageSessionRestartedLine,
   type StageWorkClosing,
 } from "./message.js";
 import type { OpenPage } from "./open-page.js";
 import { proposedChangeProblems, type Proposal, type ProposedChange } from "./proposal.js";
 import { ProposalRefused } from "./proposal-refused.js";
+import type { StageContextLimits } from "./stage-context-limits.js";
 import {
   addTokens,
   isPersonsChat,
@@ -913,11 +915,54 @@ export function beginAskingAgain(
  */
 export function beginStageWork(
   thread: Thread,
-  opening: Opening,
+  opening: StageOpening,
   startedAt: Date,
 ): ThreadChange<MessagesLogged> {
   if (!thread.stageThread) throw new Error(`Thread ${thread.id} is not a Stage Thread.`);
-  return begin(thread, opening, [contextLineOf(thread, opening, startedAt)], startedAt);
+  return begin(
+    { ...thread, stageContextLimits: opening.contextLimits },
+    opening,
+    [contextLineOf(thread, opening, startedAt)],
+    startedAt,
+  );
+}
+
+/** A Stage's work beginning in its Stage Thread, with the context limits it runs under. */
+export interface StageOpening extends Opening {
+  /** Undefined for No limit, or on an engine that doesn't report its context. */
+  readonly contextLimits: StageContextLimits | undefined;
+}
+
+/**
+ * A Stage's session handed over at a context limit, and the Stage goes on in `newSession` in the
+ * same Stage Thread, which stays answering (spec §2.5): The Office's line says so, with the ended
+ * session's context, whether the Handover note was passed on and the fresh session's Brief.
+ */
+export function restartStageSession(
+  thread: Thread,
+  {
+    newSession,
+    ...line
+  }: Omit<StageSessionRestartedLine, "kind"> & {
+    readonly newSession: ThreadSession;
+  },
+  restartedAt: Date,
+): ThreadChange<MessagesLogged> {
+  if (!thread.stageThread) throw new Error(`Thread ${thread.id} is not a Stage Thread.`);
+  const restarted: Message = {
+    kind: "stage-session-restarted",
+    ...line,
+    id: crypto.randomUUID(),
+    threadId: thread.id,
+    at: restartedAt,
+  };
+  const logged = logMessages(
+    { ...settleRunningTurn(thread), session: newSession },
+    [restarted],
+    restartedAt,
+  );
+  if (!logged) throw new Error("A restart always logs its line.");
+  return logged;
 }
 
 /** How a Stage's work in its Stage Thread ended, in the lines its log closes with. */

@@ -23,3 +23,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* An Agent Stage's own soft and hard limits, side by side in one cell. */
+.stage-form-limits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}

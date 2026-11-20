@@ -136,7 +136,10 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 - Quiet readings: "No session yet" (a new Thread, another person), "Not read yet", and the size alone ("41k context") for a session read before its window was kept; while the person answers past the mark it reads "Writing a Handover note · 170k" ("Handing over" on a phone's width); a Thread whose context is full and Handover note written reads as starting fresh next.
 - Its words by width: "context" and the mark text only from 520px; "of 200k" and the figure always; a phone's (under 400px) shows the figure alone.
 - A focusable `img` named "Context: 41k of 200k" whose tooltip says it whole, for instance "At 160k (80%), The Office asks <name> for a Handover note and the next message starts a fresh session."
-- A Stage run's ended reading is "Ended at 41k of 200k"; a Stage Thread has no mark.
+- A Stage run's ended reading is "Ended at 41k of 200k".
+- A Stage Thread's meter marks the Stage's limits instead: "Soft limit 100k" and "Hard limit 180k"; a Stage with No limit has no marks.
+- The log says "Context passed the soft limit at 101k: asked for a Handover note" and "Context passed the hard limit at 181k: turn stopped, Handover note asked".
+- Each restart is its own line, "Fresh session at 102k context, Handover note passed on" (or "…, no Handover note"), and opens to show the Brief like other fresh-session lines.
 - It asks nothing, so it is no button.
 
 ## Sub-agents and Processes

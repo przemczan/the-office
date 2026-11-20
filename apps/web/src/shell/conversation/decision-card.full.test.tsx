@@ -945,6 +945,7 @@ describe("a call made from a chat", () => {
       roleKey: "reviewer",
       state: "waiting",
       stageThread: false,
+      stageContextLimits: null,
       consultation: {
         decisionId: decision.id,
         askerThreadId: CALLERS_CHAT,
@@ -961,6 +962,7 @@ describe("a call made from a chat", () => {
       roleKey: "planner",
       state: "waiting",
       stageThread: false,
+      stageContextLimits: null,
     } as Thread);
     queryClient.setQueryData(threadQueries.one(CONSULTATION).queryKey, consultation);
     queryClient.setQueryData(threadQueries.inChat("reviewer").queryKey, {

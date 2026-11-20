@@ -103,6 +103,7 @@ async function shown(needsYou: readonly NeedsYouItem[]): Promise<HTMLElement> {
     roleKey: "planner",
     state: "waiting",
     stageThread: false,
+    stageContextLimits: null,
   } as Thread);
   const router = createRouter({
     routeTree: createRootRoute({ component: Feed }),

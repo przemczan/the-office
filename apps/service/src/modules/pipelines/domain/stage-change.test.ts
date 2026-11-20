@@ -90,6 +90,23 @@ describe("buildStages", () => {
     expect(built.broken).toEqual([]);
   });
 
+  it("gives an Agent Stage context limits of its own and clears them, which a Script Stage lacks", () => {
+    const own = { kind: "set", limits: { soft: 60_000, hard: 90_000 } } as const;
+    const set = buildStages(FULL, [
+      { kind: "change", stageKey: "review", fields: { contextLimits: own } },
+    ]);
+    const cleared = buildStages({ ...FULL, stages: set.stages }, [
+      { kind: "change", stageKey: "review", fields: { contextLimits: null } },
+    ]);
+    const onScript = buildStages(FULL, [
+      { kind: "change", stageKey: "tests", fields: { contextLimits: { kind: "none" } } },
+    ]);
+
+    expect(set.stages[2]).toEqual({ ...FULL_LINE[2], contextLimits: own });
+    expect(cleared.stages[2]).toEqual(FULL_LINE[2]);
+    expect(onScript.broken).toHaveLength(1);
+  });
+
   it("removes a Stage, keeping its row where it was", () => {
     const built = buildStages(FULL, [{ kind: "remove", stageKey: "tests" }]);
 

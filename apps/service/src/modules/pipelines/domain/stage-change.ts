@@ -9,6 +9,7 @@ import {
   type ConditionTest,
   type Route,
 } from "./route.js";
+import type { StageContextLimitsOverride } from "./stage-context-limits.js";
 import type { StagePermissions } from "./stage-permissions.js";
 import {
   sameAsKept,
@@ -39,6 +40,7 @@ export interface StageFieldChanges {
   readonly budget?: number;
   readonly effort?: Effort | null;
   readonly permissions?: StagePermissions | null;
+  readonly contextLimits?: StageContextLimitsOverride | null;
   readonly onFailure?: OnFailure | null;
   readonly command?: ScriptStageCommand;
   readonly publishTarget?: PublishTarget | null;
@@ -58,6 +60,7 @@ export const STAGE_FIELD_NAMES: Readonly<Record<StageField, string>> = {
   budget: "Budget",
   effort: "Effort",
   permissions: "Permissions",
+  contextLimits: "Context limits",
   onFailure: "On failure",
   command: "Command",
   publishTarget: "Publish target",
@@ -76,6 +79,7 @@ const FIELDS_OF_KIND: Readonly<Record<StageKind, readonly StageField[]>> = {
     "budget",
     "effort",
     "permissions",
+    "contextLimits",
     "onFailure",
   ],
   script: ["name", "optional", "command", "publishTarget", "afterConflict", "onFailure"],

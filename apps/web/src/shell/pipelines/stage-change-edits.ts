@@ -38,6 +38,7 @@ export const STAGE_FIELDS: readonly StageField[] = [
   "effort",
   "brief",
   "permissions",
+  "contextLimits",
   "onFailure",
 ];
 

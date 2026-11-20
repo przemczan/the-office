@@ -13,6 +13,7 @@ import {
   peopleWorkingSchema,
   proposalSchema,
   sizeThresholdSchema,
+  stageContextLimitsSettingSchema,
   firstBriefSchema,
   taskConversationSchema,
   taskThreadPageSchema,
@@ -89,6 +90,7 @@ import { FireAlarmLiftsController } from "./fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./proposals.controller.js";
 import { OfficeInstructionsController } from "./office-instructions.controller.js";
 import { SizeThresholdController } from "./size-threshold.controller.js";
+import { StageContextLimitsController } from "./stage-context-limits.controller.js";
 import { ThreadsController } from "./threads.controller.js";
 import { ConversationsSettings } from "../../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../../ports/conversations-settings.fixtures.js";
@@ -246,6 +248,7 @@ function setUpEachTest(): void {
         DecisionsController,
         ProposalsController,
         SizeThresholdController,
+        StageContextLimitsController,
         OfficeInstructionsController,
         FireAlarmLiftsController,
       ],
@@ -869,6 +872,40 @@ describe("/api/settings/size-threshold", () => {
 
     expect(refused.status).toBe(400);
     expect(published).toEqual([]);
+  });
+});
+
+describe("/api/settings/stage-context-limits", () => {
+  const path = "/settings/stage-context-limits";
+
+  it("answers the Office defaults, and keeps new ones for the next Stage", async () => {
+    expect(stageContextLimitsSettingSchema.parse(await (await get(path)).json())).toEqual({
+      stageContextLimits: { soft: 100_000, hard: 180_000 },
+    });
+
+    const changed = await send("PUT", path, { stageContextLimits: { soft: 60_000, hard: 80_000 } });
+
+    expect(changed.status).toBe(200);
+    expect(stageContextLimitsSettingSchema.parse(await (await get(path)).json())).toEqual({
+      stageContextLimits: { soft: 60_000, hard: 80_000 },
+    });
+    await expect(app.get(ContextPolicySettingsService).stageContextLimits()).resolves.toEqual({
+      soft: 60_000,
+      hard: 80_000,
+    });
+  });
+
+  it.each([
+    ["a soft limit under 50k", { soft: 45_000, hard: 100_000 }],
+    ["a hard limit less than 20k above the soft one", { soft: 100_000, hard: 115_000 }],
+    ["a limit off the 5k step", { soft: 100_000, hard: 181_000 }],
+  ])("refuses %s", async (_, stageContextLimits) => {
+    const refused = await send("PUT", path, { stageContextLimits });
+
+    expect(refused.status).toBe(400);
+    await expect(app.get(ContextPolicySettingsService).stageContextLimits()).resolves.not.toEqual(
+      stageContextLimits,
+    );
   });
 });
 

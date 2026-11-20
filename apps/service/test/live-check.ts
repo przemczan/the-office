@@ -72,6 +72,10 @@ export function messageLine(message: Message): string {
       return `engine switched: ${message.fromName}'s ${message.window} until ${message.resetsAt}, on ${message.toName}`;
     case "held":
       return `held (${message.heldBy}): ${message.text}`;
+    case "stage-context-limit":
+      return `stage-context-limit ${message.limit} at ${message.contextTokens}`;
+    case "stage-session-restarted":
+      return `stage-session-restarted from ${message.contextTokens}, note ${message.handoverNotePassedOn ? "passed on" : "none"}: ${message.brief.replaceAll("\n", " / ")}`;
     case "decision":
       return `decision: ${message.decision.questions.map(questionLine).join(" / ")}`;
     case "decision-answer":

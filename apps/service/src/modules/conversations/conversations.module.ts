@@ -22,6 +22,7 @@ import { LiveViewController } from "./adapters/http/live-view.controller.js";
 import { OfficeInstructionsController } from "./adapters/http/office-instructions.controller.js";
 import { ProposalsController } from "./adapters/http/proposals.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
+import { StageContextLimitsController } from "./adapters/http/stage-context-limits.controller.js";
 import {
   THREAD_IMAGE_UPLOAD_ROUTE,
   ThreadsController,
@@ -147,6 +148,7 @@ export class ConversationsModule implements NestModule {
         DecisionsController,
         ProposalsController,
         SizeThresholdController,
+        StageContextLimitsController,
         OfficeInstructionsController,
         FireAlarmLiftsController,
         SubAgentsAndProcessesController,
@@ -231,6 +233,7 @@ export class ConversationsModule implements NestModule {
         LiveViewWebEvents,
       ],
       exports: [
+        ContextPolicySettingsService,
         DecisionService,
         FireAlarmInThreads,
         InterruptedAnswers,

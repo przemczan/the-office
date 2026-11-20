@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import type { DutyKey } from "../../people/index.js";
 import { RESOLVE_TEST_COMMAND } from "./resolve-stages.js";
 import { commandKeysOfRoutes, type Route, type StagePlace } from "./route.js";
+import type { StageContextLimitsOverride } from "./stage-context-limits.js";
 import type { StagePermissions } from "./stage-permissions.js";
 
 /** One step of a Pipeline (spec §2.3): work by an Agent in a Role, a Project command, or a Gate. */
@@ -94,6 +95,8 @@ export interface AgentStage extends StageFields {
   readonly effort?: Effort;
   /** Narrows the Role card's permission profile; absent keeps it whole. */
   readonly permissions?: StagePermissions;
+  /** Its own context limits, or No limit; absent takes the Office defaults (spec §2.5). */
+  readonly contextLimits?: StageContextLimitsOverride;
   readonly onFailure?: OnFailure;
 }
 

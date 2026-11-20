@@ -663,6 +663,10 @@ _Avoid_: Capacity, slots, concurrency
 How many of a Project's Tasks may be started at once (In progress, Waiting on you or Paused), 1 unless the user raises it on the Project page; only the Project's own Tasks count against it.
 _Avoid_: Project capacity, parallelism, concurrency
 
+**Hard limit**:
+The context size, 180k tokens by default, past which The Office stops an Agent Stage's turn and asks for a Handover note alone, so a fresh session carries the Stage on; set Office-wide in Settings, or per Stage.
+_Avoid_: Max context, cutoff
+
 **Hard switch**:
 One of the few actions on a Role card that need someone's say whatever the Agent thinks (run installs, publish outside the Pipeline, change Roles), set to Allowed, Consult a person, Ask me or Never.
 _Avoid_: Permission flag, guard, gate (for this)
@@ -682,6 +686,10 @@ _Avoid_: Slash command, built-in command, system command
 **Skill use**:
 One Skill tool call or skill command in a session, on any engine, counted for the Skill that session got from The Office under that name; each Skill shows its uses in the last 7 days wherever Skills are listed.
 _Avoid_: Invocation, run, call count
+
+**Soft limit**:
+The context size, 100k tokens by default, past which The Office asks an Agent Stage's Agent to finish its part and end the turn with a Handover note, so a fresh session carries the Stage on; set Office-wide in Settings, or per Stage.
+_Avoid_: Warning threshold, compaction
 
 **Source**:
 The git repository an installed Skill comes from (`owner/repo` on GitHub, or a git URL), with the Skill's folder in it. Written and uploaded Skills have none.

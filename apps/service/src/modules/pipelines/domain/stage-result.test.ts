@@ -74,6 +74,28 @@ describe("readStageResult", () => {
     });
   });
 
+  it("reads handing_over, with its Handover note, only once the session passed a context limit", () => {
+    const handingOver = {
+      status: "handing_over",
+      summary: "Halfway.",
+      handoverNote: "Left: tests.",
+    };
+
+    expect(readStageResult(handingOver, undefined, STATEMENTS, true)).toEqual({
+      valid: true,
+      handingOver: { handoverNote: "Left: tests." },
+    });
+    expect(
+      readStageResult({ status: "handing_over", summary: "Halfway." }, undefined, STATEMENTS, true),
+    ).toEqual({ valid: false, problems: 'status "handing_over" requires "handoverNote".' });
+    expect(readStageResult(handingOver, undefined, STATEMENTS)).toMatchObject({
+      valid: false,
+      problems: expect.stringContaining(
+        'status "handing_over" is only for when The Office asks you to hand over',
+      ),
+    });
+  });
+
   it("says what is wrong, for the Agent to correct", () => {
     expect(readStageResult({ status: "done", summary: "Built." }, undefined, STATEMENTS)).toEqual({
       valid: false,

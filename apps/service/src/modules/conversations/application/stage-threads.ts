@@ -26,7 +26,17 @@ import { ApprovalHolds } from "./approval-holds.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
 import { BRIEF_TEMPLATES } from "../domain/brief-templates.js";
-import { decideContext, type ContextDecision } from "../domain/context-policy.js";
+import {
+  decideContext,
+  DEFAULT_CONTEXT_POLICY_SETTINGS,
+  type ContextDecision,
+} from "../domain/context-policy.js";
+import {
+  limitReached,
+  stageLimitsWithin,
+  type StageContextLimit,
+  type StageContextLimits,
+} from "../domain/stage-context-limits.js";
 import { decisionSummary, onlyChoice, type Recommendation } from "../domain/decision.js";
 import type {
   Message,
@@ -48,6 +58,9 @@ import {
 } from "../domain/session-instructions.js";
 import {
   SESSION_INSTRUCTION_TEMPLATES,
+  STAGE_HARD_LIMIT,
+  STAGE_SOFT_LIMIT,
+  stageLimitMessage,
   workThreadInstructions,
 } from "../domain/session-instruction-templates.js";
 import {
@@ -71,6 +84,7 @@ import {
   markDelivery,
   moveSessionBack,
   readRunningContext,
+  restartStageSession,
   startStageThread,
   type StageWorkEnding,
   type ThreadChange,
@@ -154,6 +168,11 @@ export interface StageThreadRequest {
    * session runs on the stand-in while it is listed and serves the cascade's model.
    */
   readonly engineStandIns: readonly StageThreadStandIn[];
+  /**
+   * The Stage's context limits, its own or the Office defaults (spec §2.5); undefined for No limit.
+   * The Thread caps them at the share of the model's window where a chat hands over.
+   */
+  readonly contextLimits: StageContextLimits | undefined;
 }
 
 /** A Stand-in Engine chosen at the Task's Start for the cascade's engine `engineId`, and why. */
@@ -262,6 +281,23 @@ export interface StageThread {
    * between turns or once the session has ended.
    */
   interrupt(): Promise<void>;
+  /**
+   * The context limit the session passed, past which The Office asked the person for a Handover
+   * note (spec §2.5): the hard one once both; undefined while it passed none, and again after
+   * `restart`.
+   */
+  contextLimitPassed(): StageContextLimit | undefined;
+  /**
+   * Ends the session and goes on in a fresh one in the same Thread (spec §2.5): logs the restart
+   * with the ended session's context and whether `handoverNote` was passed on, and starts the
+   * person's turn with a Brief of the Task's `record`, made as a Stage's first session's is, then
+   * `work`; `nextTurn` then reads it. The Thread's waiting messages and the Stage's work in it carry
+   * on. Returns the message the fresh session started with.
+   */
+  restart(
+    fresh: { readonly record: string; readonly work: string },
+    handoverNote: string | undefined,
+  ): Promise<string>;
   /** Ends the session, and with it every process the session left running; once. */
   endSession(): Promise<void>;
   /** Ends the Stage's work in the Thread, which then waits, and the session unless it has ended. */
@@ -526,10 +562,17 @@ export class StageThreads {
       session.officeInstructionsVersion,
     );
     const person = { ...role, officeInstructions: office.text };
+    const contextLimits = await this.contextLimitsOn(session.engineId, request.contextLimits);
     await this.change(previous.id, (latest) =>
       beginStageWork(
         latest,
-        { personName: role.card.name, decision: move, newSession: undefined, brief: brief.text },
+        {
+          personName: role.card.name,
+          decision: move,
+          newSession: undefined,
+          brief: brief.text,
+          contextLimits,
+        },
         now,
       ),
     );
@@ -560,6 +603,8 @@ export class StageThreads {
         standInFor: session.standInFor,
         canInterrupt,
         contextTokens: session.contextTokens,
+        contextLimits,
+        contextWindow: session.contextWindow,
         reopening,
         model: applying.model,
         folder: request.folder,
@@ -594,6 +639,76 @@ export class StageThreads {
     );
     await this.repository.add(thread);
     await this.events.publish(event);
+    const contextLimits = await this.contextLimitsOn(applying.engineId, request.contextLimits);
+    const started = await this.startSession(
+      { threadId: thread.id, request, role, held, applying, standInFor, prompts },
+      (session) =>
+        this.change(thread.id, (latest) =>
+          beginStageWork(
+            latest,
+            {
+              personName: role.card.name,
+              decision: move,
+              newSession: session,
+              brief: brief.text,
+              contextLimits,
+            },
+            now,
+          ),
+        ),
+      { text: openingMessage(brief.text, request.work), images },
+      now,
+    );
+    return this.live(
+      {
+        threadId: thread.id,
+        roleKey: role.roleKey,
+        personName: role.card.name,
+        engine: applying.engineId,
+        standInFor,
+        canInterrupt: started.canInterrupt,
+        contextTokens: 0,
+        contextLimits,
+        contextWindow: undefined,
+        reopening: started.reopening,
+        model: applying.model,
+        folder: request.folder,
+        mask: await this.masks.outputMaskOf(request.projectId),
+        taskId: request.taskId,
+        began: now,
+        subAgentsLabel: `${role.card.name}'s Sub-agents in the Stage ${request.stageName}`,
+      },
+      move,
+      started.opened,
+      started.start,
+      carried(started.firstMessageId),
+    );
+  }
+
+  /**
+   * Opens a new session for the person in the Stage Thread, on the engine `applying` gives, with
+   * the current Office instructions: `record` keeps it on the Thread first, then the session starts
+   * with `first`, as a new Stage Thread's does with its Brief and a restarted one with the Brief
+   * Pipelines gives.
+   */
+  private async startSession(
+    {
+      threadId,
+      request,
+      role,
+      held,
+      applying,
+      standInFor,
+      prompts,
+    }: Pick<StageSessionDecision, "held" | "applying" | "standInFor" | "prompts"> & {
+      readonly threadId: string;
+      readonly request: StageThreadRequest;
+      readonly role: SessionRole;
+    },
+    record: (session: ThreadSession) => Promise<unknown>,
+    first: { readonly text: string; readonly images: readonly MessageImageContent[] },
+    now: Date,
+  ): Promise<StartedSession> {
     const office = await this.officeInstructions.current();
     const session = freshSession(
       randomUUID(),
@@ -607,18 +722,12 @@ export class StageThreads {
       },
       now,
     );
-    await this.change(thread.id, (latest) =>
-      beginStageWork(
-        latest,
-        { personName: role.card.name, decision: move, newSession: session, brief: brief.text },
-        now,
-      ),
-    );
-    const briefId = randomUUID();
+    await record(session);
+    const firstMessageId = randomUUID();
     const person = { ...role, officeInstructions: office.text };
     let canInterrupt = false;
-    const start = this.startWatch(thread.id, session, role.card.name, "start");
-    const opened = await this.opening(start, thread.id, session.id, async () => {
+    const start = this.startWatch(threadId, session, role.card.name, "start");
+    const opened = await this.opening(start, threadId, session.id, async () => {
       canInterrupt = (await this.engine.capabilitiesOf(applying.engineId)).interrupt;
       start.at("preparing skills");
       const skills = await this.sessionSkills.prepare({
@@ -643,7 +752,7 @@ export class StageThreads {
         id: session.id,
         settings: this.settingsOf(
           prompts,
-          thread.id,
+          threadId,
           session,
           request,
           person,
@@ -653,34 +762,27 @@ export class StageThreads {
           servers.servers,
         ),
         brief: {
-          id: briefId,
-          text: withLeftOutServers(openingMessage(brief.text, request.work), servers.leftOut),
-          ...(images.length > 0 && { images }),
+          id: firstMessageId,
+          text: withLeftOutServers(first.text, servers.leftOut),
+          ...(first.images.length > 0 && { images: first.images }),
         },
       });
     });
-    return this.live(
-      {
-        threadId: thread.id,
-        roleKey: role.roleKey,
-        personName: role.card.name,
-        engine: applying.engineId,
-        standInFor,
-        canInterrupt,
-        contextTokens: 0,
-        reopening: { threadId: thread.id, request, person, held },
-        model: applying.model,
-        folder: request.folder,
-        mask: await this.masks.outputMaskOf(request.projectId),
-        taskId: request.taskId,
-        began: now,
-        subAgentsLabel: `${role.card.name}'s Sub-agents in the Stage ${request.stageName}`,
-      },
-      move,
+    return {
       opened,
+      canInterrupt,
       start,
-      carried(briefId),
-    );
+      firstMessageId,
+      reopening: { threadId, request, person, held },
+    };
+  }
+
+  /** The Stage's context limits on `engineId`: none on an engine that doesn't report its context. */
+  private async contextLimitsOn(
+    engineId: EngineId,
+    limits: StageContextLimits | undefined,
+  ): Promise<StageContextLimits | undefined> {
+    return limits && (await this.engine.reportsContext(engineId)) ? limits : undefined;
   }
 
   /** Writes the opening of the Stage Thread's session into the service log. */
@@ -832,7 +934,9 @@ export class StageThreads {
       standInFor: startedFor,
       canInterrupt: startedInterruptible,
       contextTokens: contextBefore,
-      reopening,
+      contextLimits,
+      contextWindow,
+      reopening: openedWith,
       model,
       folder,
       mask,
@@ -852,6 +956,20 @@ export class StageThreads {
     let standInFor = startedFor;
     let canInterrupt = startedInterruptible;
     let contextTokens = contextBefore;
+    let reopening = openedWith;
+    // The context limits the session works under (spec §2.5), capped by its window once known, and
+    // the session's latest reading against them.
+    let limits = contextLimits;
+    let window = contextWindow;
+    let latestContext = contextBefore;
+    let limitPassed: StageContextLimit | undefined;
+    // The Office's own message about a limit, until a turn takes it; a turn ended before it landed
+    // is followed by one the engine starts with it.
+    let officeMessageId: string | undefined;
+    // The turn The Office stopped at the hard limit, until it ends; or the session it ended there,
+    // on an engine that can't stop a turn.
+    let stoppingAtHardLimit = false;
+    let endedAtHardLimit = false;
     // MCP servers a resume on a Stand-in Engine left out, which The Office's next message names.
     let leftOut: readonly LeftOutMcpServer[] = [];
     const followed = (sessionId: string): FollowedSession => ({
@@ -868,29 +986,100 @@ export class StageThreads {
     const bargeIns = new BargeIns((message) => session.send(message, "next"));
     this.bargeIns.set(threadId, bargeIns);
     let turnRunning = true;
-    // A turn ended before the user's message landed is followed by one the engine starts with
-    // it: the Stage reads that one, with the tokens of both.
+    const effectiveLimits = (): StageContextLimits | undefined =>
+      limits && stageLimitsWithin(limits, window, DEFAULT_CONTEXT_POLICY_SETTINGS.handOverAtShare);
+    const sendOffice = (text: string, priority: "next" | "later"): void => {
+      officeMessageId = randomUUID();
+      session.send({ id: officeMessageId, text }, priority);
+    };
+    const limitMessage = async (passed: StageContextLimit, limit: number): Promise<string> =>
+      stageLimitMessage(
+        await this.promptTemplates.textsOf([STAGE_SOFT_LIMIT, STAGE_HARD_LIMIT]),
+        passed,
+        limit,
+      );
+    // Past the soft limit the person is told once, at the running turn's next safe point, to hand
+    // over; past the hard one the turn stops, and the person is asked for the note as it ends.
+    const watchLimits = async (tokens: number): Promise<void> => {
+      const within = effectiveLimits();
+      const passed = within && limitReached(within, tokens);
+      if (!within || !passed || passed === limitPassed || limitPassed === "hard") return;
+      limitPassed = passed;
+      await this.log(threadId, [
+        { kind: "stage-context-limit", limit: passed, contextTokens: tokens },
+      ]);
+      if (passed === "soft") {
+        sendOffice(await limitMessage("soft", within.soft), "next");
+        return;
+      }
+      stoppingAtHardLimit = true;
+      if (canInterrupt) {
+        try {
+          await session.interrupt();
+          return;
+        } catch (error) {
+          this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
+        }
+      }
+      // The session ends instead: its turn ends with it, and the Stage goes on in a fresh one.
+      stoppingAtHardLimit = false;
+      endedAtHardLimit = true;
+      await closeSession();
+    };
+    // A turn ended before the user's message landed, or The Office's, is followed by one the engine
+    // starts with it: the Stage reads that one, with the tokens of both. So is a turn stopped at the
+    // hard limit, by the one answering The Office's ask for the Handover note.
     const nextTurn = async (): Promise<StageTurn> => {
       let earlierTokens = NO_TOKENS;
       for (;;) {
         const next = await events.next();
-        if (next.done) throw new Error("The session ended before the Stage's turn did.");
+        if (next.done) {
+          if (!endedAtHardLimit) throw new Error("The session ended before the Stage's turn did.");
+          turnRunning = false;
+          return {
+            output: undefined,
+            problem: "The session passed its hard context limit and ended.",
+            tokens: earlierTokens,
+            context: window === undefined ? undefined : { tokens: latestContext, window },
+          };
+        }
         if (next.value.kind === "turn-ended") {
           const turn = await this.turnEnded(threadId, session, engine, next.value);
-          if (turn.context) contextTokens = turn.context.tokens;
+          if (turn.context) {
+            contextTokens = turn.context.tokens;
+            latestContext = turn.context.tokens;
+            window = turn.context.window;
+          }
+          const completed = next.value.outcome === "completed";
           const { delivered, stillToLand } = bargeIns.turnEnded(
             next.value.consumedMessageIds,
-            next.value.outcome === "completed",
+            completed,
           );
           await this.mark(threadId, delivered, "delivered");
           if (carrying && next.value.consumedMessageIds.includes(carrying.carrierId)) {
             await this.mark(carrying.threadId, carrying.messageIds, "delivered");
             carrying = undefined;
           }
-          if (!stillToLand) {
+          if (officeMessageId && next.value.consumedMessageIds.includes(officeMessageId)) {
+            officeMessageId = undefined;
+          }
+          if (stoppingAtHardLimit) {
+            stoppingAtHardLimit = false;
+            earlierTokens = addTokens(earlierTokens, turn.tokens);
+            sendOffice(
+              await limitMessage("hard", effectiveLimits()?.hard ?? latestContext),
+              "later",
+            );
+            turnRunning = true;
+            bargeIns.turnStarted();
+            continue;
+          }
+          if (!stillToLand && !(completed && officeMessageId)) {
             turnRunning = false;
+            officeMessageId = undefined;
             return { ...turn, tokens: addTokens(earlierTokens, turn.tokens) };
           }
+          if (!stillToLand) bargeIns.turnStarted();
           earlierTokens = addTokens(earlierTokens, turn.tokens);
           continue;
         }
@@ -901,7 +1090,9 @@ export class StageThreads {
         }
         if (next.value.kind === "context-read") {
           const { tokens } = next.value;
+          latestContext = tokens;
           await this.change(threadId, (thread) => readRunningContext(thread, tokens, new Date()));
+          await watchLimits(tokens);
           continue;
         }
         const lines = sessionLogLines(next.value, logger);
@@ -982,8 +1173,81 @@ export class StageThreads {
       standInFor = moved.standInFor;
       canInterrupt = reopened.canInterrupt;
       leftOut = reopened.leftOut;
+      limits = await this.contextLimitsOn(engine, limits);
       // The new session never got what was sent into the old one: it goes with the next turn.
       bargeIns.sessionReplaced();
+    };
+    const restart = async (
+      fresh: { readonly record: string; readonly work: string },
+      handoverNote: string | undefined,
+    ): Promise<string> => {
+      if (sessionEnded) throw new Error("The Stage's session has ended.");
+      const ended = { id: session.id, contextTokens: latestContext };
+      await closeSession();
+      await this.forget(ended.id);
+      const { request } = reopening;
+      const prompts = await this.promptTemplates.textsOf([
+        ...BRIEF_TEMPLATES,
+        ...SESSION_INSTRUCTION_TEMPLATES,
+      ]);
+      // Briefed as the Stage's first session is, with the Memory and answered Decisions as they are now.
+      const brief = taskThreadBrief(prompts, {
+        record: fresh.record,
+        continuing: true,
+        answered: await this.repository.answeredOn(request.taskId),
+        open: undefined,
+        memory: await this.memory.forBrief(roleKey, {
+          kind: "project",
+          projectId: request.projectId,
+        }),
+      }).text;
+      const first = openingMessage(brief, fresh.work);
+      const role = await this.roleCards.forNewSession(roleKey);
+      const started = await this.startSession(
+        {
+          threadId,
+          request,
+          role,
+          held: await this.duties.heldBy(roleKey),
+          applying: { engineId: engine, model },
+          standInFor,
+          prompts,
+        },
+        (newSession) =>
+          this.change(threadId, (latest) =>
+            restartStageSession(
+              latest,
+              {
+                newSession,
+                contextTokens: ended.contextTokens,
+                handoverNotePassedOn: handoverNote !== undefined,
+                brief,
+              },
+              new Date(),
+            ),
+          ),
+        { text: first, images: [] },
+        new Date(),
+      );
+      session = started.opened;
+      closing = undefined;
+      reading = this.read(session, followed(session.id), started.start);
+      events = reading.turnEvents[Symbol.asyncIterator]();
+      canInterrupt = started.canInterrupt;
+      reopening = started.reopening;
+      leftOut = [];
+      contextTokens = 0;
+      latestContext = 0;
+      // The window stays: the fresh session runs the same model on the same engine.
+      limitPassed = undefined;
+      officeMessageId = undefined;
+      stoppingAtHardLimit = false;
+      endedAtHardLimit = false;
+      turnRunning = true;
+      // What the ended session never took goes into the fresh one's first turn.
+      bargeIns.sessionReplaced();
+      bargeIns.turnStarted();
+      return first;
     };
     return {
       threadId,
@@ -997,6 +1261,8 @@ export class StageThreads {
       },
       nextTurn,
       contextTokens: () => contextTokens,
+      contextLimitPassed: () => limitPassed,
+      restart,
       switchTo,
       askedDecision: () => this.askedIn(threadId, began),
       send: async (text, why) => {
@@ -1207,6 +1473,10 @@ interface StageWorkPlace {
   readonly canInterrupt: boolean;
   /** The session's context as the Stage's work begins: the Thread session's; 0 for a new one. */
   readonly contextTokens: number;
+  /** The Stage's context limits; undefined for none. */
+  readonly contextLimits: StageContextLimits | undefined;
+  /** The session's model's window, as its last turn read it; undefined before its first. */
+  readonly contextWindow: number | undefined;
   /** What resumes the session on a Stand-in Engine, as it was opened. */
   readonly reopening: Reopening;
   readonly model: string;
@@ -1240,6 +1510,18 @@ interface Reopening {
   readonly request: StageThreadRequest;
   readonly person: SessionRole & Pick<SessionPerson, "officeInstructions">;
   readonly held: HeldDuties;
+}
+
+/**
+ * A new session opened in a Stage Thread: what it starts with, whether its engine can interrupt a
+ * turn, its opening's watch, the id of its first message, and what resumes it.
+ */
+interface StartedSession {
+  readonly opened: EngineSession;
+  readonly canInterrupt: boolean;
+  readonly start: SessionStartWatch;
+  readonly firstMessageId: string;
+  readonly reopening: Reopening;
 }
 
 /** A session resumed, whether its engine can interrupt a turn, and the MCP servers left out. */

@@ -6,6 +6,7 @@ import type {
   Stage,
   StageChange,
 } from "@the-office/contracts";
+import { tokensShort } from "../conversation/context-words.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
 import {
   AFTER_CONFLICT_NAMES,
@@ -40,6 +41,7 @@ export const STAGE_FIELD_LABELS: Readonly<Record<StageField, string>> = {
   effort: "Effort",
   brief: "Brief",
   permissions: "Permissions",
+  contextLimits: "Context limits",
   onFailure: "On failure",
 };
 
@@ -194,6 +196,8 @@ export function fieldWords(stage: Stage, field: StageField, context: FieldWordsC
       return stage.effort ? EFFORT_LABELS[stage.effort] : "Role default";
     case "permissions":
       return stage.kind === "agent" && stage.permissions ? "Narrowed" : "The Role card's";
+    case "contextLimits":
+      return stage.kind === "agent" ? contextLimitsWords(stage.contextLimits) : "None";
     case "onFailure":
       return onFailureWords(stage, context.stages);
     case "brief":
@@ -237,4 +241,14 @@ export function projectPipelineLine({
 /** "Built on by 4 Project Pipelines". */
 export function builtOnByWords(projectPipelines: number): string {
   return `Built on by ${counted(projectPipelines, "Project Pipeline", "Project Pipelines")}`;
+}
+
+/** An Agent Stage's context limits as the Stage form's choice names them. */
+function contextLimitsWords(
+  contextLimits: Extract<Stage, { kind: "agent" }>["contextLimits"],
+): string {
+  if (!contextLimits) return "Office default";
+  if (contextLimits.kind === "none") return "No limit";
+  const { soft, hard } = contextLimits.limits;
+  return `Soft ${tokensShort(soft)}, hard ${tokensShort(hard)}`;
 }

@@ -512,6 +512,7 @@ function toRow(thread: Thread): ThreadRow {
     startedAt: thread.startedAt,
     stageThread: thread.stageThread,
     consultation: thread.consultation ?? null,
+    stageContextLimits: thread.stageContextLimits ?? null,
   };
 }
 
@@ -530,6 +531,7 @@ function toThread(row: ThreadRow, openDecisions: readonly Decision[]): Thread {
     openDecisions,
     stageThread: row.stageThread,
     consultation: row.consultation ?? undefined,
+    stageContextLimits: row.stageContextLimits ?? undefined,
   };
 }
 

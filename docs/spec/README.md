@@ -228,6 +228,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Cache breakers**: [5.4.1 Cache breakers](5.4.1-engine-kinds.md#cache-breakers)
 - **Commit message convention**: [2.3.4 The Task's commit message](2.3.4-publish.md#the-tasks-commit-message); [2.1.3 Commit message](2.1.3-tasks.md#commit-message)
 - **Context policy (resume, fresh or hand off)**: [2.5 The three moves](2.5-context-policy.md#the-three-moves); [2.5 Choosing a move](2.5-context-policy.md#choosing-a-move)
+- **Context limits (Soft limit, Hard limit)**: [2.5 A Stage's session has a Soft limit and a Hard limit](2.5-context-policy.md#a-stages-session-has-a-soft-limit-and-a-hard-limit); [2.3.1 A Stage run restarts in a fresh session at its limits](2.3.1-stages.md#a-stage-run-restarts-in-a-fresh-session-at-its-limits); screen: [Settings › Office limits](screens/settings.md#office-limits)
 - **Crash loop**: [2.4.5 Crash loop](2.4.5-stopping-and-restarts.md#crash-loop)
 - **Dependencies between Tasks**: [2.1.3 Dependencies](2.1.3-tasks.md#dependencies); [2.1.3 A Dropped blocker](2.1.3-tasks.md#a-dropped-blocker)
 - **Engine kinds**: [5.4.1 Engine kinds](5.4.1-engine-kinds.md#engine-kinds); [5.4.1 The AgentEngine port](5.4.1-engine-kinds.md#the-agentengine-port)
@@ -292,7 +293,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.4.4 Messages](2.4.4-messages.md): barge-in, Office actions, Mentions, images, Open page, commands.
   - [2.4.5 Stopping and restarts](2.4.5-stopping-and-restarts.md): Stop, Pause, shutdown, restarts, refused turns.
   - [2.4.6 Reading records](2.4.6-reading-records.md): reading the Stage history and the Threads.
-- [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides.
+- [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides, a Stage's context limits.
 - [2.6 Skills](2.6-skills.md): the library, adding skills, Project skills, what a session gets.
 - [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults.
 - [2.8 Fire alarm](2.8-fire-alarm.md): the alarm and the all clear.
@@ -449,6 +450,7 @@ Where each default lives, by page:
   - [A turn refused for the usage window](2.4.5-stopping-and-restarts.md#a-turn-refused-for-the-usage-window)
   - [After a restart](2.4.5-stopping-and-restarts.md#after-a-restart)
 - 2.5 Context policy
+  - [A Stage's session has a Soft limit and a Hard limit](2.5-context-policy.md#a-stages-session-has-a-soft-limit-and-a-hard-limit)
   - [A person's session default decides only the cold case](2.5-context-policy.md#a-persons-session-default-decides-only-the-cold-case)
   - [The Context policy's size threshold counts what the conversation added](2.5-context-policy.md#the-context-policys-size-threshold-counts-what-the-conversation-added)
   - [A chat Thread's Brief](2.5-context-policy.md#a-chat-threads-brief)

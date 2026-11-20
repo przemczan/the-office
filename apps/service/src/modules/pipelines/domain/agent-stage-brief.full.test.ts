@@ -350,8 +350,24 @@ describe("agentStageWork's Later Stages", () => {
 
   it("lists every Stage after this one in order: a command, a Role and its brief, a Gate", () => {
     expect(workIn(implement, [implement, review, lint, look])).toBe(
-      "## The Stage: Implement\n\nBuild it.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Review & fix (Agent Stage, Reviewer): Review the diff.\n  Fix what you find.\n- Lint after review (Script Stage): runs `npm run build`.\n- UI acceptance (Gate): the user looks at the work there and lets it continue or sends it back.",
+      "## The Stage: Implement\n\nBuild it.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Review & fix (Agent Stage, Reviewer): Review the diff.\n  Fix what you find.\n- Lint after review (Script Stage): runs `npm run build`.\n- UI acceptance (Gate): the user looks at the work there and lets it continue or sends it back.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.",
     );
+  });
+
+  it("tells the Agent to run only the tests it needs while a later Script Stage runs a Project command, never for Publish alone", () => {
+    const line =
+      "While you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.";
+
+    expect(workIn(implement, [implement, lint])).toContain(line);
+    expect(
+      workIn(implement, [
+        implement,
+        review,
+        { ...lint, key: "publish", name: "Publish", command: "publish" },
+      ]),
+    ).not.toContain(line);
+    expect(workIn(implement, [implement, { ...lint, command: "lint" }])).not.toContain(line);
+    expect(workIn(review, [lint, implement, review])).not.toContain(line);
   });
 
   it("leaves out the Stages before this one", () => {

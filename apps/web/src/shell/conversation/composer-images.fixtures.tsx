@@ -21,6 +21,7 @@ export function aThread(): Thread {
     id: THREAD_ID,
     state: "idle",
     stageThread: false,
+    stageContextLimits: null,
     skillCommands: [{ name: "review-pr", description: "Review a pull request." }],
     context: {
       move: "resume",

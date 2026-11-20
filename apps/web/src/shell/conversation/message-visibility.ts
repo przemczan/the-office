@@ -64,6 +64,8 @@ const SHOWS: { readonly [Kind in Message["kind"]]: "always" | "with-details" } =
   "office-status": "always",
   refusal: "always",
   "mcp-server-not-started": "always",
+  "stage-context-limit": "always",
+  "stage-session-restarted": "always",
 };
 
 /**

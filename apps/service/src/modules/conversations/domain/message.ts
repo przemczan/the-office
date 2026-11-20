@@ -2,6 +2,7 @@ import { usageWindowWords } from "../../engine/index.js";
 import type { ContextMove, ContextReason } from "./context-policy.js";
 import type { AtUsersRequest, DecisionAnswer } from "./decision.js";
 import type { OpenPage } from "./open-page.js";
+import type { StageContextLimit } from "./stage-context-limits.js";
 import type { UserRef } from "./user.js";
 
 /**
@@ -36,6 +37,8 @@ export type MessageDraft =
   | ChangesAllowedLine
   | UsageWindowUsedUpLine
   | EngineSwitchedLine
+  | StageContextLimitLine
+  | StageSessionRestartedLine
   | StageWorkClosing;
 
 /**
@@ -112,6 +115,28 @@ export function usageWindowUsedUpWords({
   resetsAt,
 }: Omit<UsageWindowUsedUpLine, "kind">): string {
   return `${engineName}'s ${usageWindowWords(window)} is used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC.`;
+}
+
+/**
+ * A Stage session's context passed its soft or hard limit, and The Office asked the person for a
+ * Handover note (spec §2.5): The Office's line.
+ */
+export interface StageContextLimitLine {
+  readonly kind: "stage-context-limit";
+  readonly limit: StageContextLimit;
+  readonly contextTokens: number;
+}
+
+/**
+ * The Stage went on in a fresh session of the same Stage Thread (spec §2.5): The Office's line,
+ * with the ended session's context, whether the person's Handover note was passed on, and the Brief
+ * the fresh session started with.
+ */
+export interface StageSessionRestartedLine {
+  readonly kind: "stage-session-restarted";
+  readonly contextTokens: number;
+  readonly handoverNotePassedOn: boolean;
+  readonly brief: string;
 }
 
 /**

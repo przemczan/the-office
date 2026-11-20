@@ -20,7 +20,13 @@ import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
 import { engineSwitchedWords, usageWindowUsedUpWords } from "../usage-window-words.ts";
 import { userName, useSignedInUserId, useUserName, type UserNamer } from "../use-user-name.ts";
-import { contextLabel, earlierSessionLabel, newSessionLabel } from "./context-words.ts";
+import {
+  contextLabel,
+  earlierSessionLabel,
+  newSessionLabel,
+  stageContextLimitWords,
+  stageSessionRestartedWords,
+} from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionInThread } from "./decision-card.tsx";
 import { formAnswerWords } from "./decision-form-words.ts";
@@ -678,6 +684,10 @@ function MessageItem({
       );
     case "context":
       return <ContextLine line={message} personName={personName} />;
+    case "stage-context-limit":
+      return <div className="message-office">{stageContextLimitWords(message)}</div>;
+    case "stage-session-restarted":
+      return <BriefFold brief={message.brief}>{stageSessionRestartedWords(message)}</BriefFold>;
     case "changes-allowed":
       return <div className="message-office">{changesAllowedWords(message, nameOfUser)}</div>;
     case "failure":

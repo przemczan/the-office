@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
+  ContextPolicySettingsService,
   ConversationsModule,
   DecisionService,
   ProposalService,
@@ -193,6 +194,7 @@ export class AppModule {
       taskPublishing: TaskWorktrees,
       taskScreenshots: StageScreenshots,
       taskUsage: TaskTokens,
+      stageContextLimitDefaults: ContextPolicySettingsService,
       taskThreadSessions: ThreadRunner,
       proposalDrafts: ProposalService,
       stageRoleEngines: PipelineRoleCapabilityChecks,

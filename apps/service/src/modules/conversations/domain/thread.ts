@@ -1,5 +1,6 @@
 import type { EngineId } from "../../engine/index.js";
 import type { Decision } from "./decision.js";
+import type { StageContextLimits } from "./stage-context-limits.js";
 
 /**
  * Where a conversation lives (spec §2.4): a person's chat, a Task's conversation, or an
@@ -164,4 +165,10 @@ export interface Thread {
   readonly stageThread: boolean;
   /** Undefined unless this is a Consultation. */
   readonly consultation?: Consultation | undefined;
+  /**
+   * A Stage Thread's context limits as the Stage running or last run in it resolved them, before
+   * its model's window caps them (spec §2.5); undefined for No limit, on an engine that doesn't
+   * report its context, and outside a Stage Thread.
+   */
+  readonly stageContextLimits?: StageContextLimits | undefined;
 }

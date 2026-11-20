@@ -310,6 +310,7 @@ describe("an Agent run's Sub-agents and processes", () => {
     title: null,
     state: "waiting",
     stageThread: true,
+    stageContextLimits: null,
     consultation: null,
   } as Thread;
 

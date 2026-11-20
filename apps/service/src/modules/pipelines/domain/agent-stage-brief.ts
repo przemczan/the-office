@@ -8,6 +8,7 @@ import {
 import {
   EARLIER_STAGE_RESULT,
   STAGE_BRIEF,
+  STAGE_HANDOVER,
   STAGE_HELD,
   STAGE_MESSAGE,
   STAGE_RUNS_AGAIN,
@@ -295,6 +296,8 @@ export function agentStageWork(
     stageBrief: stage.brief,
     listsLaterStages: pipeline !== undefined,
     hasLaterStages: later.length > 0,
+    // A Script Stage's set command, such as the Project's tests or build: Publish runs none.
+    fullCommandLater: later.some(({ commandLine }) => commandLine !== ""),
     laterStages: later,
     recheck: recheck !== undefined,
     landsOn: recheck?.landsOn ?? "",
@@ -313,6 +316,22 @@ export function agentStageWork(
     feedback: sentBack?.feedback ?? "",
     installProblem: installProblem ?? "",
   });
+}
+
+/**
+ * What the fresh session a Stage goes on in, within the same Stage run, once its session passed its
+ * context limit (spec §2.5), is asked to do after its Brief: go on from the earlier session's
+ * Handover note (or, with none, from the worktree's diff), then the Stage's work.
+ */
+export function restartedSessionWork(
+  prompts: PromptTexts,
+  { work, handoverNote }: { readonly work: string; readonly handoverNote: string | undefined },
+): string {
+  const handover = renderedPart(prompts, STAGE_HANDOVER, {
+    hasHandoverNote: handoverNote !== undefined,
+    handoverNote: handoverNote ?? "",
+  });
+  return `${handover}\n\n${work}`;
 }
 
 /**

@@ -8,6 +8,7 @@ import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { proposedTestTargetsSchema } from "./test-targets.js";
 import { pinnedVersionSchema } from "./skills.js";
+import { stageContextLimitsSchema } from "./stage-context-limits.js";
 import { routeSchema, stageChangeSchema, stageProblemSchema, stageSchema } from "./stages.js";
 import { userRefSchema } from "./users.js";
 import { prioritySchema } from "./work.js";
@@ -111,6 +112,15 @@ export const threadSchema = z.object({
    * next safe point instead of waiting for the answer.
    */
   stageThread: z.boolean(),
+  /**
+   * A Stage Thread's context limits as its running Stage resolved them (spec §2.5), which its context
+   * meter marks; null outside a Stage Thread, for a Stage set to No limit, and on an engine that
+   * doesn't report its context. Capped by the model's window as the session works under them, so
+   * not held to the steps Settings saves them by.
+   */
+  stageContextLimits: z
+    .object({ soft: z.int().nonnegative(), hard: z.int().nonnegative() })
+    .nullable(),
   /**
    * Set for a Consultation: the sub-thread where a Consultant answers the Decision an Agent put to
    * them. The Thread's `roleKey` is the Consultant; the asker is named here.
@@ -923,6 +933,29 @@ export const messageSchema = z.discriminatedUnion("kind", [
     allowed: z.boolean(),
     by: userRefSchema.nullable(),
   }),
+  /**
+   * A Stage session's context passed its soft or hard limit, and The Office asked the Agent for a
+   * Handover note: The Office's line.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("stage-context-limit"),
+    limit: z.enum(["soft", "hard"]),
+    contextTokens: z.number().int().nonnegative(),
+  }),
+  /**
+   * The Stage went on in a fresh session of the same Stage Thread, briefed with its Brief and the
+   * Handover note, if the Agent wrote one: The Office's line.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("stage-session-restarted"),
+    /** The ended session's context when it handed over. */
+    contextTokens: z.number().int().nonnegative(),
+    handoverNotePassedOn: z.boolean(),
+    /** The Brief the fresh session started with, for the user to read. */
+    brief: z.string(),
+  }),
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),
   /**
@@ -1068,6 +1101,12 @@ export const sizeThresholdSchema = z.object({
     .multipleOf(SIZE_THRESHOLD_TOKENS.step),
 });
 export type SizeThreshold = z.infer<typeof sizeThresholdSchema>;
+
+/** GET and PUT /settings/stage-context-limits: the Office defaults of every Agent Stage's limits. */
+export const stageContextLimitsSettingSchema = z.object({
+  stageContextLimits: stageContextLimitsSchema,
+});
+export type StageContextLimitsSetting = z.infer<typeof stageContextLimitsSettingSchema>;
 
 /** About 5k tokens, which every session carries. */
 export const OFFICE_INSTRUCTIONS_MAX_CHARACTERS = 20_000;

@@ -140,6 +140,16 @@ function speakerAndText(
       return { speaker: THE_OFFICE, text: usageWindowUsedUpWords(message) };
     case "engine-switched":
       return { speaker: THE_OFFICE, text: engineSwitchedWords(message) };
+    case "stage-context-limit":
+      return {
+        speaker: THE_OFFICE,
+        text: `The context passed the ${message.limit} limit at ${message.contextTokens} tokens; asked for a Handover note.`,
+      };
+    case "stage-session-restarted":
+      return {
+        speaker: THE_OFFICE,
+        text: `The Stage went on in a fresh session${message.handoverNotePassedOn ? ", with the Handover note" : ", with no Handover note"}.`,
+      };
     case "held":
       return { speaker: THE_OFFICE, text: message.text };
   }

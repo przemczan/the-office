@@ -2,6 +2,7 @@ import type {
   ContextMove,
   ContextOverride,
   ContextReason,
+  Message,
   ThreadContext,
 } from "@the-office/contracts";
 
@@ -217,4 +218,34 @@ function reasonWords(
     case "duties-changed":
       return "duties changed";
   }
+}
+
+/**
+ * The Office's line when a Stage session's context passes a limit: "Context passed the soft limit at
+ * 101k: asked for a Handover note".
+ */
+export function stageContextLimitWords({
+  limit,
+  contextTokens,
+}: Pick<Extract<Message, { kind: "stage-context-limit" }>, "limit" | "contextTokens">): string {
+  const at = tokensShort(contextTokens);
+  return limit === "soft"
+    ? `Context passed the soft limit at ${at}: asked for a Handover note`
+    : `Context passed the hard limit at ${at}: turn stopped, Handover note asked`;
+}
+
+/**
+ * The Office's line when a Stage goes on in a fresh session: "Fresh session at 102k context,
+ * Handover note passed on".
+ */
+export function stageSessionRestartedWords({
+  contextTokens,
+  handoverNotePassedOn,
+}: Pick<
+  Extract<Message, { kind: "stage-session-restarted" }>,
+  "contextTokens" | "handoverNotePassedOn"
+>): string {
+  return `Fresh session at ${tokensShort(contextTokens)} context, ${
+    handoverNotePassedOn ? "Handover note passed on" : "no Handover note"
+  }`;
 }

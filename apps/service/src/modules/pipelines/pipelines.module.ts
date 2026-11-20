@@ -63,6 +63,7 @@ import { TaskRecords } from "./ports/task-records.js";
 import { TaskScreenshots } from "./ports/task-screenshots.js";
 import { TaskThreadSessions } from "./ports/task-thread-sessions.js";
 import { TaskUsage } from "./ports/task-usage.js";
+import { StageContextLimitDefaults } from "./ports/stage-context-limit-defaults.js";
 import { UsageHistoryModule } from "./usage-history.module.js";
 
 export interface PipelinesModuleOptions {
@@ -85,6 +86,7 @@ export interface PipelinesModuleOptions {
   readonly taskPublishing: Type<TaskPublishing>;
   readonly taskScreenshots: Type<TaskScreenshots>;
   readonly taskUsage: Type<TaskUsage>;
+  readonly stageContextLimitDefaults: Type<StageContextLimitDefaults>;
   readonly taskThreadSessions: Type<TaskThreadSessions>;
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly stageRoleEngines: Type<StageRoleEngines>;
@@ -112,6 +114,7 @@ export class PipelinesModule {
     taskPublishing,
     taskScreenshots,
     taskUsage,
+    stageContextLimitDefaults,
     taskThreadSessions,
     proposalDrafts,
     stageRoleEngines,
@@ -151,6 +154,7 @@ export class PipelinesModule {
         { provide: TaskPublishing, useExisting: taskPublishing },
         { provide: TaskScreenshots, useExisting: taskScreenshots },
         { provide: TaskUsage, useExisting: taskUsage },
+        { provide: StageContextLimitDefaults, useExisting: stageContextLimitDefaults },
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: StageRoleEngines, useExisting: stageRoleEngines },

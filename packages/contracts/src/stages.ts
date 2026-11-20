@@ -6,6 +6,7 @@ import {
   runPermissionSchema,
 } from "./people.js";
 import { projectCommandKeySchema } from "./projects.js";
+import { stageContextLimitsOverrideSchema } from "./stage-context-limits.js";
 
 /** "On failure go back to Stage X, at most N times": the Stage's key and its rounds. */
 export const onFailureSchema = z.object({
@@ -148,6 +149,8 @@ export const stageSchema = z.discriminatedUnion("kind", [
     effort: effortSchema.optional(),
     /** Absent keeps the Role card's profile whole. */
     permissions: stagePermissionsSchema.optional(),
+    /** Absent takes the Office defaults of Settings › Office limits (spec §2.5). */
+    contextLimits: stageContextLimitsOverrideSchema.optional(),
     onFailure: onFailureSchema.optional(),
   }),
   z.object({
@@ -211,6 +214,7 @@ export const stageFieldChangesSchema = z
     budget: z.int().positive().optional(),
     effort: effortSchema.nullable().optional(),
     permissions: stagePermissionsSchema.nullable().optional(),
+    contextLimits: stageContextLimitsOverrideSchema.nullable().optional(),
     onFailure: onFailureSchema.nullable().optional(),
     command: scriptStageCommandSchema.optional(),
     publishTarget: publishTargetSchema.nullable().optional(),

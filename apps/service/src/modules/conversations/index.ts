@@ -1,3 +1,5 @@
+export { ContextPolicySettingsService } from "./application/context-policy-settings.js";
+export type { StageContextLimits } from "./domain/stage-context-limits.js";
 export { DecisionService, type DecisionWaitingOnTheUser } from "./application/decision-service.js";
 export {
   InitiativeThreadSetups,

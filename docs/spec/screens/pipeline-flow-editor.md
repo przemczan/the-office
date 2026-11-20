@@ -130,6 +130,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
     - **Session**: "Fresh, with a brief" or "Continue the previous Stage's session" (only with the same Role or duty in the Stage before; hint "Continuing needs the same Role or the same duty in the Stage before").
     - **Budget**: a number, suffix "k tokens", hint "Reaching it asks you"; kept as typed until it is a number above 0.
     - **Effort**: "Role default" or one of the efforts.
+    - **Context limits**: "Office default (100k / 180k)", "Set for this Stage" (a **Soft limit** and a **Hard limit**, in k tokens) or "No limit" (never restarts on context size).
     - **Brief**: hint "Filled with the Task's Plan, Definition of Done and earlier results".
     - **Permission profile**, hint "Narrows the Role card's for this Stage, never widens it" (shown once a Role is known): **Files** (the Role default, or reads only), **Runs**, **Web**, an **MCP tool <key>** select per tool of the Role's MCP servers, and **Project commands** (tags; hint "Only these of the Project's commands; never install"). Each offers only what is narrower than the Role card ("Role default: <words>").
   - Script Stage: **Project command** (hint "Runs with no Agent; the result is recorded"), choices from the Project's commands (a Project Pipeline, Edit for this Task) or every Project's (Settings), Publish among them, and in Settings **another key**, which opens **Command key** (hint "Lower-case letters, digits and -, as the Project's commands name it"; a wrong key says `"<key>" isn't a command key: lower-case letters, digits and -, starting with a letter, and not install.`).
@@ -230,7 +231,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
   - For a Changed Stage a table "What <Stage> changes": **Field**, **<base> has**, **<Project> gets**, and **Set back** per field ("Set <Field> back to <base>'s").
   - For a Stage whose routes changed: the routes side by side ("<base> has" / "<Project> gets", numbered "→ <target>, <when>") and the **Undo: give <Stage> <base>'s routes back** button ("Undo: give <Stage> its routes back" for an inserted Stage).
   - A removed Stage: only "Removed: <Project> doesn't get it. Each route that led into it leads where its one route out led. Undo puts <base>'s <Stage> back, in its place."
-  - A Project Pipeline's Stage fields cover Name, Who works it (Role or duty), Project command, Publishes, After a conflict, Session, Budget, Effort, Brief, Permissions and On failure.
+  - A Project Pipeline's Stage fields cover Name, Who works it (Role or duty), Project command, Publishes, After a conflict, Session, Budget, Effort, Context limits, Brief, Permissions and On failure.
 
 ## Proposal on the flow
 

@@ -296,6 +296,7 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     useProjectSkills: false,
     projectSkillsOff: [],
     engineStandIns: [],
+    contextLimits: undefined,
     session: {
       instructions: "You work a Stage.",
       profile: PROFILE,
@@ -1311,6 +1312,142 @@ describe("a turn refused for a used-up usage window", () => {
       window: "seven-day",
       resetsAt: "2026-11-13T14:00:00.000Z",
     });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+});
+
+const contextRead = (tokens: number): Step => ({
+  step: "event",
+  event: { kind: "context-read", tokens },
+});
+
+const anOfficeMessage = (id: string, priority: "next" | "later"): Step => ({
+  step: "send",
+  message: { id, text: "" },
+  priority,
+});
+
+function sentText(sessionIndex: number): string | undefined {
+  const sent = engine.sessions[sessionIndex]?.received.find(({ step }) => step === "send");
+  return sent?.step === "send" ? sent.message.text : undefined;
+}
+
+async function limitLines(threadId: string): Promise<MessageDraft[]> {
+  return drafts(await repository.messages(threadId)).filter(
+    ({ kind }) => kind === "stage-context-limit" || kind === "stage-session-restarted",
+  );
+}
+
+describe("a Stage's context limits", () => {
+  const LIMITS = { soft: 100_000, hard: 150_000 };
+
+  it("tells the person once, at the next safe point, to hand over past the soft limit", async () => {
+    await startWith(
+      started(
+        contextRead(110_000),
+        anOfficeMessage("soft", "next"),
+        contextRead(120_000),
+        ...aTurn({ status: "handing_over" }, "Handing over.", ["brief", "soft"]),
+      ),
+    );
+    const stageThread = await stageThreads.open(
+      aStage({ roleKey: aPerson("Ada"), contextLimits: LIMITS }),
+    );
+
+    const turn = await stageThread.nextTurn();
+
+    expect(turn.output).toEqual({ status: "handing_over" });
+    expect(stageThread.contextLimitPassed()).toBe("soft");
+    expect(sentText(0)).toContain("Your context passed 100,000 tokens.");
+    expect(sentText(0)).toContain("files and line ranges");
+    expect(await limitLines(stageThread.threadId)).toEqual([
+      { kind: "stage-context-limit", limit: "soft", contextTokens: 110_000 },
+    ]);
+    expect((await threadOf(stageThread.threadId)).stageContextLimits).toEqual(LIMITS);
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+
+  it("stops the turn past the hard limit, and reads the person's answer to the ask for a Handover note", async () => {
+    const answer = { status: "handing_over", handoverNote: "Re-read src/a.ts:1-40." };
+    await startWith(
+      started(
+        contextRead(160_000),
+        { step: "interrupt" },
+        anInterruptedTurn,
+        { step: "read-context-usage", usage: { tokens: 160_000, window: 1_000_000 } },
+        anOfficeMessage("hard", "later"),
+        ...aTurn(answer, "Here is my note.", ["hard"]),
+      ),
+    );
+    const stageThread = await stageThreads.open(
+      aStage({ roleKey: aPerson("Ada"), contextLimits: LIMITS }),
+    );
+
+    const turn = await stageThread.nextTurn();
+
+    expect(turn.output).toEqual(answer);
+    expect(turn.problem).toBeUndefined();
+    expect(turn.tokens.output).toBe(2 * USAGE.output);
+    expect(stageThread.contextLimitPassed()).toBe("hard");
+    expect(sentText(0)).toContain("Your context passed the hard limit of 150,000 tokens");
+    expect(await limitLines(stageThread.threadId)).toEqual([
+      { kind: "stage-context-limit", limit: "hard", contextTokens: 160_000 },
+    ]);
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
+
+  it("goes on in a fresh session of the same Stage Thread on restart, which the next turn reads", async () => {
+    await startWith(
+      started(...aTurn({ status: "handing_over" }, "Handing over.")),
+      started(...aTurn({ status: "done" }, "Done in the fresh session.")),
+    );
+    const stageThread = await stageThreads.open(
+      aStage({ roleKey: aPerson("Ada"), contextLimits: LIMITS }),
+    );
+    await stageThread.nextTurn();
+    const fresh = {
+      record: "## The Task\n\nRename a device.",
+      work: "## Handover note\n\nLeft: the list.",
+    };
+
+    const opening = await stageThread.restart(fresh, "Left: the list.");
+    const turn = await stageThread.nextTurn();
+
+    expect(turn.output).toEqual({ status: "done" });
+    expect(stageThread.contextLimitPassed()).toBeUndefined();
+    const [ended, freshSession] = engine.sessions;
+    expect(ended?.received.at(-1)?.step).toBe("end");
+    expect(freshSession?.received[0]).toMatchObject({ step: "start", brief: { text: opening } });
+    // Briefed as a Stage's first session is, as one that continues the Thread, then its work.
+    const [brief, work] = opening.split("\n\n## What to do now\n\n");
+    expect(brief).toMatch(/^You are continuing a Thread on a Task in a fresh session/);
+    expect(brief).toContain(fresh.record);
+    expect(work).toBe(fresh.work);
+    expect(forgotten).toEqual([ended?.id]);
+    const thread = await threadOf(stageThread.threadId);
+    expect(thread).toMatchObject({ state: "answering", session: { id: freshSession?.id } });
+    expect(await limitLines(stageThread.threadId)).toEqual([
+      {
+        kind: "stage-session-restarted",
+        contextTokens: 30_000,
+        handoverNotePassedOn: true,
+        brief,
+      },
+    ]);
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+    expect(freshSession?.received.at(-1)?.step).toBe("end");
+  });
+
+  it("does nothing for a Stage with No limit", async () => {
+    await startWith(started(contextRead(500_000), ...aTurn({ status: "done" })));
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+
+    const turn = await stageThread.nextTurn();
+
+    expect(turn.output).toEqual({ status: "done" });
+    expect(stageThread.contextLimitPassed()).toBeUndefined();
+    expect(await limitLines(stageThread.threadId)).toEqual([]);
+    expect((await threadOf(stageThread.threadId)).stageContextLimits).toBeUndefined();
     await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
 });

@@ -29,6 +29,8 @@ import { type Decision, type DecisionAnswer } from "../../domain/decision.js";
 import { hiredKeyOf } from "../../../people/index.js";
 import type { NewProject, ProposedTestTargetFields } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
+import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js";
+import { stageLimitsWithin } from "../../domain/stage-context-limits.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
 import type {
   PipelineRoutes,
@@ -65,6 +67,7 @@ export function toThreadResponse(
     },
     startedAt: thread.startedAt.toISOString(),
     stageThread: thread.stageThread,
+    stageContextLimits: stageContextLimitsOf(thread),
     consultation: thread.consultation
       ? { ...thread.consultation, askerRoleKey: thread.consultation.askerRoleKey ?? null }
       : null,
@@ -76,6 +79,20 @@ export function toThreadResponse(
       .filter(({ name }) => !officeCommandClash(name))
       .map(({ name, description }) => ({ name, description })),
   };
+}
+
+/** A Stage Thread's limits as its session works under them: capped by its window once known. */
+function stageContextLimitsOf({
+  stageThread,
+  stageContextLimits,
+  session,
+}: Thread): ThreadResponse["stageContextLimits"] {
+  if (!stageThread || !stageContextLimits) return null;
+  return stageLimitsWithin(
+    stageContextLimits,
+    session?.contextWindow,
+    DEFAULT_CONTEXT_POLICY_SETTINGS.handOverAtShare,
+  );
 }
 
 /** A list's row: its context's move, with no Brief's estimate and nothing to choose instead. */

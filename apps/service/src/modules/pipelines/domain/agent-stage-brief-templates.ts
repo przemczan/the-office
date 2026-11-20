@@ -460,6 +460,11 @@ export const STAGE_MESSAGE = promptTemplate({
       description: "The message lists the Stages after this one in the Task's Pipeline.",
     },
     hasLaterStages: { kind: "flag", description: "Some Stage comes after this one." },
+    fullCommandLater: {
+      kind: "flag",
+      description:
+        "A later Script Stage runs one of the Project's commands, such as its tests or build, other than Publish.",
+    },
     laterStages: {
       kind: "list",
       description: "The Stages after this one, in Pipeline order.",
@@ -542,6 +547,10 @@ These Stages come after this one in the Task's Pipeline, in order:
 {{#laterStages}}
 - {{name}} ({{kindName}}{{#agent}}, {{#roleTitle}}{{roleTitle}}{{/roleTitle}}{{^roleTitle}}{{#dutyLabel}}{{dutyLabel}}, nobody holds it{{/dutyLabel}}{{^dutyLabel}}nobody chosen yet{{/dutyLabel}}{{/roleTitle}}{{/agent}}): {{#agent}}{{brief}}{{/agent}}{{#gate}}the user looks at the work there and lets it continue or sends it back.{{/gate}}{{#publish}}The Office publishes the Task's work.{{/publish}}{{#commandLine}}runs \`{{commandLine}}\`.{{/commandLine}}{{#unsetCommand}}runs the Project's command {{unsetCommand}}, which isn't set.{{/unsetCommand}}{{#comesBack}} If it fails, the work comes back here.{{/comesBack}}
 {{/laterStages}}
+{{#fullCommandLater}}
+
+While you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.
+{{/fullCommandLater}}
 {{/hasLaterStages}}
 {{^hasLaterStages}}
 No Stage comes after this one in the Task's Pipeline.
@@ -594,6 +603,39 @@ Commands that need the dependencies may fail until it passes. If the Task's chan
 `,
 });
 
+/**
+ * The section of the Brief a Stage's fresh session starts with after its earlier session in the same
+ * Stage run passed its context limit (spec §2.5): that session's Handover note, or that it wrote none.
+ */
+export const STAGE_HANDOVER = promptTemplate({
+  key: "pipelines.stage-handover",
+  domain: "pipelines",
+  name: "Handover note from this Stage's earlier session",
+  description:
+    "The part of a Stage's Brief for the fresh session The Office starts once the Stage's session passed its context limit: the earlier session's Handover note, or that it wrote none.",
+  variables: {
+    hasHandoverNote: {
+      kind: "flag",
+      description: "The earlier session wrote a Handover note.",
+    },
+    handoverNote: { kind: "text", description: "The earlier session's Handover note." },
+  },
+  text: `## Handover note from this Stage's earlier session
+
+This Stage began in an earlier session, whose context grew past its limit, so The Office goes on with the Stage in this fresh session. That session's edits are in the worktree, uncommitted: go on from where it left the work, without redoing what is done, and end the Stage with its result.
+{{#hasHandoverNote}}
+
+Its Handover note:
+
+{{handoverNote}}
+{{/hasHandoverNote}}
+{{^hasHandoverNote}}
+
+It wrote no Handover note: check the worktree's diff first (\`git status\` and \`git diff\`) to see where it left the work.
+{{/hasHandoverNote}}
+`,
+});
+
 /** Every template an Agent Stage's Brief and message render, which the runner loads together. */
 export const AGENT_STAGE_BRIEF_TEMPLATES = [
   STAGE_BRIEF,
@@ -602,4 +644,5 @@ export const AGENT_STAGE_BRIEF_TEMPLATES = [
   STAGE_HELD,
   STAGE_RUNS_AGAIN,
   STAGE_SENT_AGAIN,
+  STAGE_HANDOVER,
 ] as const;

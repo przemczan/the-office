@@ -41,6 +41,7 @@ function aThread(fields: { stageThread?: boolean; context?: Partial<ThreadContex
     id: "thread-1",
     state: "idle",
     stageThread: fields.stageThread ?? false,
+    stageContextLimits: null,
     skillCommands: SKILL_COMMANDS,
     context: {
       move: "resume",

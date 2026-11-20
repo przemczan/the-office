@@ -20,6 +20,7 @@ import {
   type CarriedRound,
   earlierResults,
   type HeldRun,
+  restartedSessionWork,
   workSentAgain,
 } from "../domain/agent-stage-brief.js";
 import { AGENT_STAGE_BRIEF_TEMPLATES } from "../domain/agent-stage-brief-templates.js";
@@ -41,6 +42,7 @@ import {
   type ExpectedHead,
 } from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
+import { effectiveStageContextLimits } from "../domain/stage-context-limits.js";
 import { closingOf, interruptedOutcome } from "../domain/stage-interruption.js";
 import type { AgentStage, Stage } from "../domain/stage.js";
 import { budgetOutcome, budgetReached } from "../domain/stage-budget.js";
@@ -69,6 +71,7 @@ import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
+import { StageContextLimitDefaults } from "../ports/stage-context-limit-defaults.js";
 import {
   StageThreads,
   type AskedDecision,
@@ -154,6 +157,21 @@ type AfterRefusal =
 
 const HOLD: AfterRefusal = { kind: "hold" };
 
+/**
+ * What reading a Stage's result needs beside its run: how many Definition of Done statements the
+ * Task has, and the Brief of a fresh session, with the Handover note it goes on from.
+ */
+interface ReadingTheResult {
+  readonly statementCount: number;
+  readonly freshSession: (handoverNote: string | undefined) => Promise<FreshSession>;
+}
+
+/** What a Stage's fresh session is briefed with: the Task's record, then its work. */
+interface FreshSession {
+  readonly record: string;
+  readonly work: string;
+}
+
 /** Why the refused message goes again, as the Stage Thread logs it. */
 const SENT_AGAIN =
   "The engine refused the turn for its used-up usage window, so The Office sent it again on the Stand-in Engine.";
@@ -201,6 +219,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly library: PipelineLibrary,
     private readonly engineSessions: EngineSessions,
     private readonly promptTemplates: PromptTemplates,
+    private readonly contextLimitDefaults: StageContextLimitDefaults,
   ) {}
 
   onModuleInit(): void {
@@ -263,7 +282,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     await this.runs.saveCommandRuns(work.run.id, installRuns(installation));
     if (work.interruption.requested) return this.holdWork(work, task, expected);
     const failed = failedInstall(installation);
-    const thread = await this.open(work, person, task, failed && installFailure(failed));
+    const installProblem = failed && installFailure(failed);
+    const thread = await this.open(work, person, task, installProblem);
     this.commandRuns.begin(work.run.id, work.interruption.commandsSignal);
     let ending: Ending = { handoverNote: undefined, closing: undefined };
     try {
@@ -290,7 +310,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         engineName,
         cascade: cascadeEngineOf(task, thread, engineName),
       };
-      const reading = await this.resultOf(work, thread, running, task.definitionOfDone.length);
+      const reading = await this.resultOf(work, thread, running, {
+        statementCount: task.definitionOfDone.length,
+        freshSession: (handoverNote) =>
+          this.freshSessionOf(work, person, installProblem, handoverNote),
+      });
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();
       if (asked) await this.keep(work, asked);
@@ -370,11 +394,69 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   }
 
   private async open(
+    stageWork: StageWork<"agent">,
+    person: KnownPerson,
+    task: TaskRecord,
+    installProblem: string | undefined,
+  ): Promise<StageThread> {
+    const { stage, run, stages, earlierRuns } = stageWork;
+    const { prompts, profile, commands, record, work } = await this.briefOf(
+      stageWork,
+      person,
+      task,
+      installProblem,
+    );
+    const held = heldRun(stage, earlierRuns);
+    return this.threads.open({
+      taskId: run.taskId,
+      projectId: task.project.id,
+      roleKey: workingRole(stage),
+      stageName: stage.name,
+      initiativeId: task.initiativeId,
+      stageRun: run.number,
+      pipelineName: await this.pipelineNameOf(run.taskId),
+      projectName: task.project.name,
+      effort: stage.effort,
+      ...stageSessionOf(stage, stages, earlierRuns),
+      // What the user wrote that the held run's session ended before taking goes with this run.
+      carryMessagesSince: held?.startedAt,
+      record,
+      work,
+      folder: task.worktree.path,
+      environment: task.worktree.environment,
+      useProjectSkills: task.project.useProjectSkills,
+      projectSkillsOff: task.project.projectSkillsOff,
+      session: {
+        instructions: prompts.render(AGENT_STAGE_THREAD_INSTRUCTIONS, {}),
+        profile: { ...profile, run: commands.permission },
+        officeTools: AGENT_STAGE_OFFICE_TOOLS,
+        outputSchema: STAGE_RESULT_SCHEMA,
+      },
+      engineStandIns: task.engineStandIns,
+      contextLimits: effectiveStageContextLimits(
+        stage.contextLimits,
+        await this.contextLimitDefaults.stageContextLimits(),
+      ),
+    });
+  }
+
+  /**
+   * What a new session of the Stage is briefed with: the Task's record as it reads now, naming the
+   * commands the narrowed profile lets the Agent run, and the Stage's work. A run's first session
+   * and the fresh one it goes on in past a context limit read it alike.
+   */
+  private async briefOf(
     { stage, run, stages, earlierRuns }: StageWork<"agent">,
     { card, mcpToolDefault }: KnownPerson,
     task: TaskRecord,
     installProblem: string | undefined,
-  ): Promise<StageThread> {
+  ): Promise<{
+    readonly prompts: PromptTexts;
+    readonly profile: ReturnType<typeof narrowedPermissionProfile>;
+    readonly commands: AllowedCommands;
+    readonly record: string;
+    readonly work: string;
+  }> {
     const profile = narrowedPermissionProfile(
       card.permissionProfile,
       stage.permissions,
@@ -390,19 +472,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     );
     const answered = answeredQuestion(stage, earlierRuns);
     const held = heldRun(stage, earlierRuns);
-    return this.threads.open({
-      taskId: run.taskId,
-      projectId: task.project.id,
-      roleKey: workingRole(stage),
-      stageName: stage.name,
-      initiativeId: task.initiativeId,
-      stageRun: run.number,
-      pipelineName: await this.pipelineNameOf(run.taskId),
-      projectName: task.project.name,
-      effort: stage.effort,
-      ...stageSessionOf(stage, stages, earlierRuns),
-      // What the user wrote that the held run's session ended before taking goes with this run.
-      carryMessagesSince: held?.startedAt,
+    return {
+      prompts,
+      profile,
+      commands,
       record: await this.recordOf(prompts, run.taskId, card, commands, task, stages, earlierRuns),
       work: agentStageWork(prompts, stage, {
         carried: await this.carriedRound(stages, run.carriedFailure),
@@ -424,18 +497,26 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
           changesFrom: await this.git.changeBases(task.project.id, run.taskId),
         },
       }),
-      folder: task.worktree.path,
-      environment: task.worktree.environment,
-      useProjectSkills: task.project.useProjectSkills,
-      projectSkillsOff: task.project.projectSkillsOff,
-      session: {
-        instructions: prompts.render(AGENT_STAGE_THREAD_INSTRUCTIONS, {}),
-        profile: { ...profile, run: commands.permission },
-        officeTools: AGENT_STAGE_OFFICE_TOOLS,
-        outputSchema: STAGE_RESULT_SCHEMA,
-      },
-      engineStandIns: task.engineStandIns,
-    });
+    };
+  }
+
+  /**
+   * What the fresh session the Stage goes on in past a context limit (spec §2.5) is briefed with:
+   * the record read again, so "What changed so far" and the earlier results are current, then the
+   * earlier session's Handover note, or that it wrote none, and the Stage's work.
+   */
+  private async freshSessionOf(
+    work: StageWork<"agent">,
+    person: KnownPerson,
+    installProblem: string | undefined,
+    handoverNote: string | undefined,
+  ): Promise<FreshSession> {
+    const task = await this.records.read(work.run.taskId);
+    const brief = await this.briefOf(work, person, task, installProblem);
+    return {
+      record: brief.record,
+      work: restartedSessionWork(brief.prompts, { work: brief.work, handoverNote }),
+    };
   }
 
   /**
@@ -594,7 +675,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     work: StageWork<"agent">,
     thread: StageThread,
     running: RunningEngine,
-    statementCount: number,
+    reading: ReadingTheResult,
   ): Promise<ResultReading> {
     const { interruption } = work;
     const stopListening = interruption.onNow(() => {
@@ -603,7 +684,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       });
     });
     try {
-      return await this.readResult(work, thread, running, statementCount);
+      return await this.readResult(work, thread, running, reading);
     } catch (error) {
       // An engine that can't interrupt ends the session instead, so the turn read fails.
       if (interruption.now) return { kind: "held" };
@@ -613,11 +694,17 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     }
   }
 
+  /**
+   * Reads the Stage's result, session after session: past a context limit (spec §2.5) the session
+   * hands over with its Handover note (`handing_over`), or, at the hard limit, ends its turn with no
+   * result, and the Stage goes on in a fresh session of the same Thread and run, briefed again with
+   * the note; its tokens and context keep adding up on the run.
+   */
   private async readResult(
     work: StageWork<"agent">,
     thread: StageThread,
     running: RunningEngine,
-    statementCount: number,
+    { statementCount, freshSession }: ReadingTheResult,
   ): Promise<ResultReading> {
     const prompts = await this.promptTexts();
     let tokens = NO_STAGE_TOKENS;
@@ -627,50 +714,78 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       if (turn.context) await this.runs.saveContext(work.run.id, turn.context);
       return turn;
     };
+    const resultIn = async (turn: StageTurn): Promise<StageResultReading> =>
+      this.withScreenshots(
+        work,
+        readingOf(
+          turn,
+          await thread.askedDecision(),
+          statementCount,
+          thread.contextLimitPassed() !== undefined,
+        ),
+      );
     // Stopped while the session opened, before there was a turn to stop.
     if (work.interruption.now) return { kind: "held" };
     // A session the Stage began holds nothing but the refused work; one it went on in stays.
-    const workMessage = { message: "work", sessionLeft: thread.move.move === "resume" } as const;
-    const firstTurn = await this.throughRefusals(
-      { work, thread, running },
-      await counted(await thread.nextTurn()),
-      workMessage,
-      async () => counted(await thread.send(workSentAgain(prompts, workMessage), SENT_AGAIN)),
-    );
-    if ("reading" in firstTurn) return firstTurn.reading;
-    if (work.interruption.requested) return { kind: "held" };
-    const first = await this.withScreenshots(
-      work,
-      readingOf(firstTurn.turn, await thread.askedDecision(), statementCount),
-    );
-    if (first.valid) return { kind: "result", outcome: first.outcome };
-    // The correction is another engine call, so the budget is checked before it too.
-    const reached = await this.budgetCheck(work);
-    if (reached) return { kind: "result", outcome: reached };
-    const sendCorrection = async (why: string) =>
-      counted(await thread.send(correctionMessage(prompts, first.problems), why));
-    const correctedTurn = await this.throughRefusals(
-      { work, thread, running },
-      await sendCorrection(
-        `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
-      ),
-      { message: "correction", problems: first.problems, sessionLeft: true },
-      () => sendCorrection(SENT_AGAIN),
-    );
-    if ("reading" in correctedTurn) return correctedTurn.reading;
-    if (work.interruption.requested) return { kind: "held" };
-    const corrected = await this.withScreenshots(
-      work,
-      readingOf(correctedTurn.turn, await thread.askedDecision(), statementCount),
-    );
-    if (corrected.valid) return { kind: "result", outcome: corrected.outcome };
-    return {
-      kind: "result",
-      outcome: {
-        status: "failed",
-        error: `The Stage's result still didn't match its schema after one correction: ${corrected.problems}`,
-      },
+    let workMessage: Pick<RefusedTurn, "message" | "sessionLeft"> = {
+      message: "work",
+      sessionLeft: thread.move.move === "resume",
     };
+    let sendWorkAgain = (): Promise<StageTurn> =>
+      thread.send(workSentAgain(prompts, workMessage), SENT_AGAIN);
+    for (;;) {
+      const firstTurn = await this.throughRefusals(
+        { work, thread, running },
+        await counted(await thread.nextTurn()),
+        workMessage,
+        async () => counted(await sendWorkAgain()),
+      );
+      if ("reading" in firstTurn) return firstTurn.reading;
+      if (work.interruption.requested) return { kind: "held" };
+      const first = await resultIn(firstTurn.turn);
+      let handover = handoverOf(first, thread);
+      if (first.valid && first.handingOver === undefined) {
+        return { kind: "result", outcome: first.outcome };
+      }
+      if (!first.valid && handover === undefined) {
+        // The correction is another engine call, so the budget is checked before it too.
+        const reached = await this.budgetCheck(work);
+        if (reached) return { kind: "result", outcome: reached };
+        const sendCorrection = async (why: string) =>
+          counted(await thread.send(correctionMessage(prompts, first.problems), why));
+        const correctedTurn = await this.throughRefusals(
+          { work, thread, running },
+          await sendCorrection(
+            `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
+          ),
+          { message: "correction", problems: first.problems, sessionLeft: true },
+          () => sendCorrection(SENT_AGAIN),
+        );
+        if ("reading" in correctedTurn) return correctedTurn.reading;
+        if (work.interruption.requested) return { kind: "held" };
+        const corrected = await resultIn(correctedTurn.turn);
+        if (corrected.valid && corrected.handingOver === undefined) {
+          return { kind: "result", outcome: corrected.outcome };
+        }
+        handover = handoverOf(corrected, thread);
+        if (!corrected.valid && handover === undefined) {
+          return {
+            kind: "result",
+            outcome: {
+              status: "failed",
+              error: `The Stage's result still didn't match its schema after one correction: ${corrected.problems}`,
+            },
+          };
+        }
+      }
+      if (handover === undefined) throw new Error("A handover without its Handover note.");
+      // The fresh session's first turn is another engine call: a run past its budget stops here.
+      const reached = await this.budgetCheck(work);
+      if (reached) return { kind: "result", outcome: withHandoverNote(reached, handover.note) };
+      const opening = await thread.restart(await freshSession(handover.note), handover.note);
+      workMessage = { message: "work", sessionLeft: false };
+      sendWorkAgain = () => thread.send(opening, SENT_AGAIN);
+    }
   }
 
   /**
@@ -857,7 +972,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     { run, stage }: StageWork<"agent">,
     reading: StageResultReading,
   ): Promise<StageResultReading> {
-    if (!reading.valid || reading.screenshots.length === 0) return reading;
+    if (!reading.valid || reading.handingOver || reading.screenshots.length === 0) return reading;
     const attaching = await this.screenshots.attach(
       run.taskId,
       workingRole(stage),
@@ -880,11 +995,32 @@ function readingOf(
   { output, problem }: StageTurn,
   asked: AskedDecision | undefined,
   statementCount: number,
+  limitPassed: boolean,
 ): StageResultReading {
   if (output === undefined && !asked) {
     return { valid: false, problems: problem ?? "The turn ended without a result." };
   }
-  return readStageResult(output, asked, statementCount);
+  return readStageResult(output, asked, statementCount, limitPassed);
+}
+
+/**
+ * The handover a reading asks for (spec §2.5): a `handing_over` result with its Handover note, or,
+ * past the hard limit, a turn with no valid result, which goes on with no note. Undefined when the
+ * Stage goes on in this session: a session that passed no limit never restarts.
+ */
+function handoverOf(
+  reading: StageResultReading,
+  thread: StageThread,
+): { readonly note: string | undefined } | undefined {
+  if (reading.valid) {
+    return reading.handingOver && { note: reading.handingOver.handoverNote };
+  }
+  return thread.contextLimitPassed() === "hard" ? { note: undefined } : undefined;
+}
+
+/** The outcome, keeping the Handover note of a session that handed over as it ended. */
+function withHandoverNote(outcome: StageOutcome, handoverNote: string | undefined): StageOutcome {
+  return handoverNote === undefined ? outcome : { ...outcome, handoverNote };
 }
 
 /**

@@ -32,6 +32,7 @@ import {
   type AgentStage,
   type ScriptStage,
 } from "./stage-edits.ts";
+import { StageContextLimitFields } from "./stage-context-limit-fields.tsx";
 import { StagePermissionFields } from "./stage-permission-fields.tsx";
 import "./stage-form.css";
 
@@ -232,6 +233,7 @@ function AgentFields({
         ]}
         onChange={(effort) => change({ ...stage, effort: effortSchema.safeParse(effort).data })}
       />
+      <StageContextLimitFields stage={stage} change={change} />
       <div className="stage-form-wide">
         <Textarea
           label="Brief"

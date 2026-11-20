@@ -77,7 +77,21 @@ export interface StageThreadRequest {
    * the stand-in in its place.
    */
   readonly engineStandIns: readonly TaskEngineStandIn[];
+  /**
+   * The Stage's context limits, its own or the Office defaults (spec §2.5); undefined for No limit.
+   * The Thread caps them at the share of the model's window where a chat hands over.
+   */
+  readonly contextLimits: StageContextLimits | undefined;
 }
+
+/** A Stage session's soft and hard context limits, in tokens (spec §2.5). */
+export interface StageContextLimits {
+  readonly soft: number;
+  readonly hard: number;
+}
+
+/** Which of its context limits a Stage session passed, once The Office asked for a Handover note. */
+export type StageContextLimitPassed = "soft" | "hard";
 
 /** How a turn of the person's ended. */
 export interface StageTurn {
@@ -135,6 +149,22 @@ export interface StageThread {
    * Stage still runs, which the walk reads as it would wait. Undefined when they asked none.
    */
   askedDecision(): Promise<AskedDecision | undefined>;
+  /**
+   * The context limit the session passed, past which The Office asked the person for a Handover
+   * note (spec §2.5); undefined while it passed none, and again after `restart`.
+   */
+  contextLimitPassed(): StageContextLimitPassed | undefined;
+  /**
+   * Ends the session and goes on in a fresh one in the same Thread (spec §2.5): logs the restart
+   * with the ended session's context and whether `handoverNote` was passed on, and starts the
+   * person's turn with a Brief of the Task's `record`, as a Stage's first session's is made, then
+   * `work`; `nextTurn` then reads it. The Thread's waiting messages and the Stage's work in it carry
+   * on. Returns the message the fresh session started with.
+   */
+  restart(
+    fresh: { readonly record: string; readonly work: string },
+    handoverNote: string | undefined,
+  ): Promise<string>;
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */
   send(text: string, why: string): Promise<StageTurn>;
   /**

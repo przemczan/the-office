@@ -23,6 +23,7 @@ import type {
 } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
 import type { ProposalStatus, ProposedChange } from "../../domain/proposal.js";
+import type { StageContextLimits } from "../../domain/stage-context-limits.js";
 import type {
   Consultation,
   ContextOverride,
@@ -115,6 +116,8 @@ export const threads = pgTable(
     stageThread: boolean("stage_thread").notNull().default(false),
     /** Set for a Consultation: the Decision it answers and the Agent who asked it. */
     consultation: jsonb("consultation").$type<Consultation>(),
+    /** A Stage Thread's context limits, as the Stage running or last run in it resolved them. */
+    stageContextLimits: jsonb("stage_context_limits").$type<StageContextLimits>(),
   },
   (table) => [
     index("threads_home").on(table.homeKind, table.homeId),

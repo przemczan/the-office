@@ -90,6 +90,7 @@ const PLANNING_THREAD_RECORD = {
   roleKey: "planner",
   state: "answering",
   stageThread: false,
+  stageContextLimits: null,
 } as unknown as Thread;
 
 const READINESS: Readiness = {

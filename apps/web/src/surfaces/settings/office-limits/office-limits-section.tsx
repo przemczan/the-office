@@ -3,10 +3,18 @@ import {
   ARCHIVE_PERIOD_MAX,
   OFFICE_WIDE_LIMIT_MAX,
   SIZE_THRESHOLD_TOKENS,
+  STAGE_CONTEXT_LIMIT_TOKENS,
+  stageContextLimitsSchema,
+  type StageContextLimits,
 } from "@the-office/contracts";
 import { Card, Stepper } from "@the-office/ui";
-import type { ReactNode } from "react";
-import { changeSizeThreshold, sizeThresholdQuery } from "../../../api/conversations.ts";
+import { useState, type ReactNode } from "react";
+import {
+  changeSizeThreshold,
+  changeStageContextLimits,
+  sizeThresholdQuery,
+  stageContextLimitsQuery,
+} from "../../../api/conversations.ts";
 import { nowQueries } from "../../../api/notifications.ts";
 import {
   archivePeriodQuery,
@@ -21,8 +29,8 @@ import { RunEnvironmentsCard } from "./run-environments-card.tsx";
 import { UsageCard } from "./usage-card.tsx";
 
 /**
- * Settings › Office limits: the desks, the usage measures and caps, the size threshold, the
- * Archive period and the run environments' CPU limit.
+ * Settings › Office limits: the desks, the usage measures and caps, the size threshold and the
+ * Agent Stage sessions' context limits, the Archive period and the run environments' CPU limit.
  */
 export function OfficeLimitsSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Office limits" });
@@ -30,7 +38,7 @@ export function OfficeLimitsSection(): ReactNode {
     <>
       <DesksCard />
       <UsageCard />
-      <SizeThresholdCard />
+      <ContextPolicyCard />
       <ArchiveCard />
       <RunEnvironmentsCard />
     </>
@@ -75,7 +83,7 @@ function DesksCard(): ReactNode {
   );
 }
 
-function SizeThresholdCard(): ReactNode {
+function ContextPolicyCard(): ReactNode {
   const queryClient = useQueryClient();
   const threshold = useQuery(sizeThresholdQuery());
   const saving = useMutation({
@@ -112,7 +120,77 @@ function SizeThresholdCard(): ReactNode {
       </p>
       <SettingsProblem title="The size threshold can't be read" error={threshold.error} />
       <SettingsProblem title="The size threshold can't be saved" error={saving.error} />
+      <StageContextLimitsFields />
     </Card>
+  );
+}
+
+/**
+ * The Office defaults of every Agent Stage session's soft and hard limits, each stepped within the
+ * other's bounds and checked against the contract before it is saved.
+ */
+function StageContextLimitsFields(): ReactNode {
+  const queryClient = useQueryClient();
+  const limits = useQuery(stageContextLimitsQuery());
+  const [refusal, setRefusal] = useState<Error | null>(null);
+  const saving = useMutation({
+    mutationFn: changeStageContextLimits,
+    onSuccess: (saved) => queryClient.setQueryData(stageContextLimitsQuery().queryKey, saved),
+  });
+  const current = limits.data?.stageContextLimits;
+  const save = (next: StageContextLimits): void => {
+    const checked = stageContextLimitsSchema.safeParse(next);
+    if (!checked.success) {
+      setRefusal(new Error(checked.error.issues[0]?.message ?? "These limits can't be saved."));
+      return;
+    }
+    setRefusal(null);
+    saving.mutate(checked.data);
+  };
+  const { softMin, gap, max, step } = STAGE_CONTEXT_LIMIT_TOKENS;
+  return (
+    <>
+      <p className="settings-note stepper-note">
+        An Agent Stage session past the soft limit is asked to finish its part and hand over; at the
+        hard limit The Office stops it and asks at once. The Stage goes on in a fresh session.
+      </p>
+      {current && (
+        <>
+          <div className="stepper-row">
+            <div className="stepper-row-words">
+              <b>Soft limit</b>
+            </div>
+            <Stepper
+              label="the soft limit"
+              value={current.soft}
+              min={softMin}
+              max={Math.min(max, current.hard - gap)}
+              step={step}
+              format={tokensShort}
+              disabled={saving.isPending}
+              onChange={(soft) => save({ soft, hard: current.hard })}
+            />
+          </div>
+          <div className="stepper-row">
+            <div className="stepper-row-words">
+              <b>Hard limit</b>
+            </div>
+            <Stepper
+              label="the hard limit"
+              value={current.hard}
+              min={current.soft + gap}
+              max={max}
+              step={step}
+              format={tokensShort}
+              disabled={saving.isPending}
+              onChange={(hard) => save({ soft: current.soft, hard })}
+            />
+          </div>
+        </>
+      )}
+      <SettingsProblem title="The context limits can't be read" error={limits.error} />
+      <SettingsProblem title="The context limits can't be saved" error={refusal ?? saving.error} />
+    </>
   );
 }
 

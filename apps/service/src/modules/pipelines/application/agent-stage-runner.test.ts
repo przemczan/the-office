@@ -46,6 +46,15 @@ async function outcomesOf(taskId: string): Promise<(StageOutcome | undefined)[]>
   return (await runsOf(pipelines, taskId)).map(({ outcome }) => outcome);
 }
 
+/** The session passes `limit` as its first turn runs, and none in the fresh one after. */
+function passesOnFirstTurn(limit: "soft" | "hard"): void {
+  let turns = 0;
+  pipelines.stageThreads.whileTurnRuns = (threadId) => {
+    turns += 1;
+    if (turns === 1) pipelines.stageThreads.limitPassed.set(threadId, limit);
+  };
+}
+
 describe("AgentStageRunner", () => {
   it("briefs a new session from the record, with the Stage's work, the commands it may run and every reading tool", async () => {
     pipelines = await startPipelinesApplication([
@@ -229,6 +238,99 @@ describe("AgentStageRunner", () => {
     expect(correction?.text).toContain('status "done" requires "handoverNote".');
     expect(correction?.text).toContain("Don't redo the work");
     expect(correction?.why).toContain("The Office asked once to correct it");
+  });
+
+  describe("past a context limit (spec §2.5)", () => {
+    const HANDING_OVER = {
+      status: "handing_over",
+      summary: "Halfway through the dialog.",
+      handoverNote: "The dialog is in; the list's refresh is left.",
+    };
+
+    it("goes on in a fresh session of the same run after a handover, briefed with the Handover note, and commits once", async () => {
+      pipelines = await startPipelinesApplication([
+        corrected(HANDING_OVER, aDoneResult("Added the dialog.")),
+      ]);
+      passesOnFirstTurn("soft");
+
+      const taskId = await walkStages(pipelines, [implement]);
+
+      const [run, ...more] = await runsOf(pipelines, taskId);
+      expect(more).toEqual([]);
+      expect(run?.outcome).toMatchObject({ status: "done", summary: "Added the dialog." });
+      expect(run?.tokens).toEqual({ input: 20, output: 20, cacheRead: 0, cacheCreation: 0 });
+      expect(pipelines.git.commits).toHaveLength(1);
+      expect(pipelines.stageThreads.sent).toEqual([]);
+      const [restart, ...again] = pipelines.stageThreads.restarted;
+      expect(again).toEqual([]);
+      expect(restart).toMatchObject({
+        threadId: run?.threadId,
+        handoverNote: "The dialog is in; the list's refresh is left.",
+      });
+      expect(restart?.brief).toContain("## The Task\n\nRename a device");
+      expect(restart?.brief).toContain(
+        "## Handover note from this Stage's earlier session\n\nThis Stage began in an earlier session",
+      );
+      expect(restart?.brief).toContain(
+        "Its Handover note:\n\nThe dialog is in; the list's refresh is left.",
+      );
+      expect(restart?.brief).toContain("left.\n\n## The Stage: Implement");
+    });
+
+    it("goes on with no Handover note after a hard-limit turn that gave no result", async () => {
+      pipelines = await startPipelinesApplication([
+        corrected(undefined, aDoneResult("Added the dialog.")),
+      ]);
+      passesOnFirstTurn("hard");
+
+      const taskId = await walkStages(pipelines, [implement]);
+
+      expect(await outcomesOf(taskId)).toEqual([
+        expect.objectContaining({ status: "done", summary: "Added the dialog." }),
+      ]);
+      expect(pipelines.stageThreads.sent).toEqual([]);
+      const [restart] = pipelines.stageThreads.restarted;
+      expect(restart?.handoverNote).toBeUndefined();
+      expect(restart?.brief).toContain("It wrote no Handover note: check the worktree's diff");
+    });
+
+    it("corrects a handover the session wasn't asked for, never restarting", async () => {
+      pipelines = await startPipelinesApplication([
+        corrected(HANDING_OVER, aDoneResult("Added the dialog.")),
+      ]);
+
+      const taskId = await walkStages(pipelines, [implement]);
+
+      expect(await outcomesOf(taskId)).toEqual([
+        expect.objectContaining({ status: "done", summary: "Added the dialog." }),
+      ]);
+      expect(pipelines.stageThreads.restarted).toEqual([]);
+      const [correction] = pipelines.stageThreads.sent;
+      expect(correction?.text).toContain('status "handing_over" is only for when The Office asks');
+    });
+
+    it("hands the Stage's own limits, none for No limit, or else the Office defaults, to its Thread", async () => {
+      pipelines = await startPipelinesApplication([
+        anAgentSession(aDoneResult()),
+        anAgentSession(aDoneResult()),
+        anAgentSession(aDoneResult()),
+      ]);
+      pipelines.contextLimitDefaults.limits = { soft: 120_000, hard: 200_000 };
+
+      await walkStages(pipelines, [
+        anAgentStage("own", {
+          contextLimits: { kind: "set", limits: { soft: 60_000, hard: 90_000 } },
+        }),
+        anAgentStage("none", { contextLimits: { kind: "none" } }),
+        anAgentStage("defaults"),
+      ]);
+
+      expect(pipelines.stageThreads.requests.map(({ contextLimits }) => contextLimits)).toEqual([
+        { soft: 60_000, hard: 90_000 },
+        undefined,
+        { soft: 120_000, hard: 200_000 },
+      ]);
+    });
   });
 
   // The walk holds the Task before such a Stage; the runner still refuses one let go meanwhile.

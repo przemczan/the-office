@@ -38,6 +38,7 @@ import {
   StageThreadsForTests,
   StartedTasksForTests,
   TaskUsageForTests,
+  StageContextLimitDefaultsForTests,
   TaskCommandsForTests,
   TaskGitForTests,
   TaskPublishingForTests,
@@ -65,6 +66,7 @@ export interface PipelinesApplication {
   readonly publishing: TaskPublishingForTests;
   readonly screenshots: TaskScreenshotsForTests;
   readonly usage: TaskUsageForTests;
+  readonly contextLimitDefaults: StageContextLimitDefaultsForTests;
   readonly threadSessions: TaskThreadSessionsForTests;
   readonly roleEngines: StageRoleEnginesForTests;
   readonly definitions: RunEnvironmentDefinitionsForTests;
@@ -155,6 +157,7 @@ async function startOn(
         taskPublishing: TaskPublishingForTests,
         taskScreenshots: TaskScreenshotsForTests,
         taskUsage: TaskUsageForTests,
+        stageContextLimitDefaults: StageContextLimitDefaultsForTests,
         taskThreadSessions: TaskThreadSessionsForTests,
         proposalDrafts: ProposalDraftsForTests,
         stageRoleEngines: StageRoleEnginesForTests,
@@ -183,6 +186,7 @@ async function startOn(
     publishing: app.get(TaskPublishingForTests, { strict: false }),
     screenshots: app.get(TaskScreenshotsForTests, { strict: false }),
     usage: app.get(TaskUsageForTests, { strict: false }),
+    contextLimitDefaults: app.get(StageContextLimitDefaultsForTests, { strict: false }),
     threadSessions: app.get(TaskThreadSessionsForTests, { strict: false }),
     roleEngines: app.get(StageRoleEnginesForTests, { strict: false }),
     definitions: app.get(RunEnvironmentDefinitionsForTests, { strict: false }),
