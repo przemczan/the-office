@@ -38,7 +38,7 @@ import {
   ENGINE_PROMPT_TEMPLATES,
 } from "../../domain/engine-prompt-templates.js";
 import { PromptTemplates } from "../../../prompt-templates/index.js";
-import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
+import { STRUCTURED_OUTPUT_TOOL } from "../structured-output/structured-output.js";
 import { systemPrompt } from "./system-prompt.js";
 
 /** It never reads usage windows: a local server has none. */

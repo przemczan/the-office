@@ -97,7 +97,6 @@ export { StandInCopilotCliAccounts } from "./adapters/scripted/stand-in-copilot-
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export { CODEX_CAPABILITIES } from "./adapters/codex/codex-engine.js";
 export { COPILOT_CLI_CAPABILITIES } from "./adapters/copilot-cli/copilot-cli-engine.js";
-export { UnavailableGeminiCliEngine } from "./adapters/gemini-cli/unavailable-gemini-cli-engine.js";
 export { GEMINI_CLI_CAPABILITIES } from "./adapters/gemini-cli/gemini-cli-capabilities.js";
 export type { NewSession } from "./ports/agent-engine.js";
 export { NoEngineListed, SessionNotCarried } from "./ports/agent-engine.js";

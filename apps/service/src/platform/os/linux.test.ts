@@ -31,4 +31,13 @@ describe("linux", () => {
       ]),
     );
   });
+
+  it("puts a local socket in the temporary folder, and quotes a hook's words for bash", () => {
+    const system = linux({ variables: { TMPDIR: "/run/tmp" }, homeDirectory });
+
+    expect(system.localSocketPath("office-gemini-1")).toBe("/run/tmp/office-gemini-1.sock");
+    expect(system.nodeScriptHookCommand("/srv/relay.js", ["hook", "/data/it's.json"])).toBe(
+      `'${process.execPath}' '/srv/relay.js' 'hook' '/data/it'\\''s.json'`,
+    );
+  });
 });

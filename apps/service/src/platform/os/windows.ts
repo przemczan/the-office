@@ -74,9 +74,17 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     hasLoadAverage: false,
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
     printFileCommand: (file) => printFileCommand(doubleQuoted, file),
+    localSocketPath: (name) => `\\\\.\\pipe\\${name}`,
+    nodeScriptHookCommand: (script, args) =>
+      `& ${[process.execPath, script, ...args].map(powerShellQuoted).join(" ")}`,
     gitHomeDirectory: (commandVariables) => gitForWindowsHome(commandVariables, homeDirectory),
     restrictToOwner: (path, kind) => icaclsOwnerOnly(variables, path, kind),
   };
+}
+
+/** A word in PowerShell's single quotes, where only a single quote is special, written twice. */
+function powerShellQuoted(word: string): string {
+  return `'${word.replaceAll("'", "''")}'`;
 }
 
 /**

@@ -71,6 +71,9 @@ export function linux({
     hasLoadAverage: true,
     sameVariableName: (one, other) => one === other,
     printFileCommand: (file) => printFileCommand(shQuoted, file),
+    localSocketPath: (name) => posix.join(variables["TMPDIR"] || "/tmp", `${name}.sock`),
+    nodeScriptHookCommand: (script, args) =>
+      [process.execPath, script, ...args].map(shQuoted).join(" "),
     gitHomeDirectory: (commandVariables) => commandVariables["HOME"] || homeDirectory,
     restrictToOwner: (path, kind) => chmod(path, kind === "folder" ? 0o700 : 0o600),
   };

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import { SKILL_TOOL, skillNameOf } from "../../domain/skill-calls.js";
 import type { SkillCommand } from "../../ports/engine-session.js";
 import { fileProblem } from "./file-problems.js";
@@ -9,6 +10,12 @@ import { markdownFile } from "./markdown-file.js";
 export type SkillLoading =
   | { readonly loaded: true; readonly text: string }
   | { readonly loaded: false; readonly problem: string };
+
+/** Claude Code's Skill tool's input, whatever way an engine offers the tool. */
+export const SKILL_TOOL_INPUT = z.object({
+  skill: z.string().min(1).describe('The skill name. E.g., "commit", "review-pr", or "pdf"'),
+  args: z.string().optional().describe("Optional arguments for the skill"),
+});
 
 /** Where a skill's body takes the call's arguments, as Claude Code fills them in. */
 const ARGUMENTS_PLACEHOLDER = "$ARGUMENTS";

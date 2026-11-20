@@ -2,7 +2,7 @@ import type { PromptTexts } from "../../../prompt-templates/index.js";
 import { API_SYSTEM_PROMPT } from "../../domain/engine-prompt-templates.js";
 import type { SystemMessage } from "./chat-completions.js";
 import type { InstructionFile } from "./project-instructions.js";
-import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
+import { STRUCTURED_OUTPUT_TOOL } from "../structured-output/structured-output.js";
 
 export interface SystemPromptParts {
   /** The folder the session works in. */

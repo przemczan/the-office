@@ -31,7 +31,11 @@ import type { ListedSkill } from "../skills/listed-skills.js";
 import { skillCommandText } from "../skills/skill-loading.js";
 import type { ConversationFile } from "./conversation-file.js";
 import type { SessionTools } from "./session-tools.js";
-import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
+import {
+  missingOutputError,
+  OUTPUT_REMINDERS,
+  STRUCTURED_OUTPUT_TOOL,
+} from "../structured-output/structured-output.js";
 import {
   ESTIMATED_IMAGE_TOKENS,
   imageCount,
@@ -76,12 +80,6 @@ export interface ApiSessionParts {
 }
 
 const NO_TOKENS: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-
-/**
- * How often a turn that must end in output is reminded when its model answers without calling
- * StructuredOutput, before the turn fails, as Claude Code retries it within the turn.
- */
-const OUTPUT_REMINDERS = 2;
 
 /** What the conversation says where a turn was interrupted, as Claude Code marks it. */
 const INTERRUPTED_NOTE = "[The user interrupted this turn.]";
@@ -222,7 +220,7 @@ export class ApiSession implements EngineSession {
         if (unanswered.length === 0) {
           if (!this.parts.answersInSchema || output !== undefined) break;
           if (reminders === OUTPUT_REMINDERS) {
-            this.turnEnded("failed", consumed, usage, [noOutput()]);
+            this.turnEnded("failed", consumed, usage, [missingOutputError()]);
             return;
           }
           reminders += 1;
@@ -459,10 +457,6 @@ class SessionEnded extends Error {
   constructor() {
     super("The session ended.");
   }
-}
-
-function noOutput(): string {
-  return `The turn ended without its output: the model answered ${OUTPUT_REMINDERS + 1} times without calling ${STRUCTURED_OUTPUT_TOOL} with input that fits.`;
 }
 
 /** What `work` settles with, or the signal's reason once it aborts; `work` runs on unwatched. */

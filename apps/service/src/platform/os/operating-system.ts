@@ -60,6 +60,18 @@ export interface OperatingSystem {
    */
   printFileCommand(file: string): string;
   /**
+   * Where a local socket named `name` listens, which processes of this machine reach by its path
+   * and no other machine does: a Unix socket in the temporary folder on Linux, a named pipe on
+   * Windows. `name` is short and unique to its use, as a Unix socket's path is limited in length.
+   */
+  localSocketPath(name: string): string;
+  /**
+   * A command line that runs `script` with the Node The Office runs on, each word quoted, for the
+   * shell the Gemini CLI runs a command hook in: bash on Linux, PowerShell on Windows, where a
+   * quoted path is a string unless called with `&`.
+   */
+  nodeScriptHookCommand(script: string, args: readonly string[]): string;
+  /**
    * The home folder git reads the user's global config from, and expands `~` against, for a
    * command run with `variables`.
    */

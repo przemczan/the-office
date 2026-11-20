@@ -9,7 +9,7 @@ import {
   type CopilotCliEngine,
   type GeminiCliEngine,
 } from "../domain/engines.js";
-import { UnavailableGeminiCliEngine } from "../adapters/gemini-cli/unavailable-gemini-cli-engine.js";
+import { GEMINI_CLI_CAPABILITIES } from "../adapters/gemini-cli/gemini-cli-capabilities.js";
 import {
   EngineNotListed,
   SessionSkillsDiffer,
@@ -374,7 +374,7 @@ describe("EngineSessions on a Gemini CLI engine", () => {
         "openai-compatible-api": new ScriptedEngine([]),
         codex: new ScriptedEngine([]),
         "copilot-cli": new ScriptedEngine([]),
-        "gemini-cli": new UnavailableGeminiCliEngine(),
+        "gemini-cli": new ScriptedEngine([], GEMINI_CLI_CAPABILITIES),
       },
       new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, GEMINI] }),
     );

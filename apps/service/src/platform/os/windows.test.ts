@@ -80,4 +80,13 @@ describe("windows", () => {
       },
     );
   });
+
+  it("names a local socket as a named pipe, and calls a hook's quoted words with & for PowerShell", () => {
+    const system = windows({ variables: {}, homeDirectory });
+
+    expect(system.localSocketPath("office-gemini-1")).toBe(raw`\\.\pipe\office-gemini-1`);
+    expect(system.nodeScriptHookCommand(raw`C:\relay.js`, ["hook", raw`C:\it's.json`])).toBe(
+      `& '${process.execPath}' 'C:\\relay.js' 'hook' 'C:\\it''s.json'`,
+    );
+  });
 });

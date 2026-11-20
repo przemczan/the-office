@@ -85,6 +85,25 @@ export const API_OUTPUT_REMINDER = promptTemplate({
 });
 
 /**
+ * What a Gemini CLI turn that must end in output is sent, as the next turn, when it ended without
+ * the structured output tool's answer.
+ */
+export const GEMINI_OUTPUT_REMINDER = promptTemplate({
+  key: "engine.gemini-output-reminder",
+  domain: "engine",
+  name: "Gemini CLI output reminder",
+  description:
+    "What a session on a Gemini CLI engine is told when its model ends a turn that must give output without giving it.",
+  variables: {
+    structuredOutputTool: {
+      kind: "text",
+      description: "The name the model calls the tool that takes the turn's output by.",
+    },
+  },
+  text: "Your turn isn't over: call the {{structuredOutputTool}} tool with your answer, in the shape its input asks for.",
+});
+
+/**
  * What a Codex session's developer instructions hold besides the Agent's own: the skills the model
  * may load, how to change files and what a declined call means.
  */
@@ -120,5 +139,6 @@ export const CODEX_INSTRUCTIONS = promptTemplate({
 export const ENGINE_PROMPT_TEMPLATES: readonly PromptTemplate[] = [
   API_SYSTEM_PROMPT,
   API_OUTPUT_REMINDER,
+  GEMINI_OUTPUT_REMINDER,
   CODEX_INSTRUCTIONS,
 ];
