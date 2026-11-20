@@ -32,7 +32,8 @@ export class LastHourTable<Label> {
     return this.rows.size;
   }
 
-  record(key: string, label: Label, durationMs: number, atMs: number): void {
+  /** Records a duration under `key`, `label` naming a new row; answers the row's label as kept. */
+  record(key: string, label: Label, durationMs: number, atMs: number): Label {
     let row = this.rows.get(key);
     if (row === undefined) {
       if (this.rows.size >= this.keptRows) this.dropLeastSeen();
@@ -47,6 +48,7 @@ export class LastHourTable<Label> {
     }
     histogram.add(durationMs);
     row.seen += 1;
+    return row.label;
   }
 
   /** Drops the minutes older than the hour up to `nowMs`, and the rows left with none. */

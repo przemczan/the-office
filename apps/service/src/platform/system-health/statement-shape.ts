@@ -1,15 +1,18 @@
-/** A statement shape is cut at this many characters (spec 5.2, System health). */
-export const STATEMENT_SHAPE_LENGTH = 200;
-
 /**
- * Only this much of a statement is read: its shape is cut at 200 characters anyway, and a long
- * VALUES list or IN list cut short still becomes one `?`.
+ * Only this much of a statement is read and shaped (spec 5.2, System health), so a shape stays
+ * bounded; a long VALUES list or IN list cut short still becomes one `?`.
  */
-const READ_LENGTH = 8_192;
+export const READ_LENGTH = 8_192;
+
+/** Ends the shape of a statement longer than `READ_LENGTH`. */
+const CUT_MARK = "…";
 
 /** A statement's shape, and the operation and table it is counted by. */
 export interface StatementShape {
-  /** Whitespace collapsed, values and parameters `?`, IN lists and VALUES rows one `?`. */
+  /**
+   * Whitespace collapsed, values and parameters `?`, IN lists and VALUES rows one `?`; ends with
+   * `…` when the statement was longer than what is read.
+   */
   readonly shape: string;
   /** The statement's main keyword upper-cased, such as `SELECT`; "" when it has none. */
   readonly operation: string;
@@ -40,12 +43,12 @@ const TABLE_KEYWORDS = new Map([
 /** The shape a statement is named by in System health's slowest queries (glossary, Statement shape). */
 export function statementShapeOf(statement: string): StatementShape {
   const tokens = collapseLists(tokenize(statement.slice(0, READ_LENGTH)));
+  const shape = tokens
+    .map((token) => token.text)
+    .join("")
+    .trim();
   return {
-    shape: tokens
-      .map((token) => token.text)
-      .join("")
-      .trim()
-      .slice(0, STATEMENT_SHAPE_LENGTH),
+    shape: statement.length > READ_LENGTH ? `${shape}${CUT_MARK}` : shape,
     ...operationAndTable(tokens),
   };
 }

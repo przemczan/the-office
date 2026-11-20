@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { HEALTH_READING_INTERVAL_MS, HEALTH_READING_JOB } from "./system-health-recorder.js";
 import { recorderForTests, START } from "./system-health.fixtures.js";
 
+/** A call stack whose first frame is a repository's file `file`. */
+function stackFrom(file: string): string {
+  return `Error: \n    at Repository.read (/office/apps/service/src/modules/work/adapters/${file}.ts:10:5)`;
+}
+
 describe("SystemHealthRecorder", () => {
   it("takes a Health reading of the process, the workstation and the 5 s of requests and queries", () => {
     const { recorder, workstation, officeProcess, pass } = recorderForTests();
@@ -78,6 +83,7 @@ describe("SystemHealthRecorder", () => {
         operation: "SELECT",
         table: "stage_runs",
         shape: "SELECT * FROM stage_runs WHERE id IN (?)",
+        calledFrom: [],
         count: 1,
         p95Ms: 30,
         maxMs: 30,
@@ -106,6 +112,42 @@ describe("SystemHealthRecorder", () => {
 
     recorder.onModuleDestroy();
     expect(officeProcess.started).toBe(false);
+  });
+
+  it("keeps up to 3 places in the service's code a shape was called from, reading its first 20 call stacks", () => {
+    const { recorder } = recorderForTests();
+    let stacksRead = 0;
+    const record = (stack: string | undefined): void =>
+      recorder.recordQuery('select "id" from "tasks"', 1, 0, () => {
+        stacksRead += 1;
+        return stack;
+      });
+
+    record(stackFrom("one"));
+    record(stackFrom("one"));
+    record(undefined);
+    record(stackFrom("two"));
+    record(stackFrom("three"));
+    record(stackFrom("four"));
+
+    expect(recorder.lastHour().slowestQueries[0]?.calledFrom).toEqual([
+      "apps/service/src/modules/work/adapters/one.ts:10 (Repository.read)",
+      "apps/service/src/modules/work/adapters/two.ts:10 (Repository.read)",
+      "apps/service/src/modules/work/adapters/three.ts:10 (Repository.read)",
+    ]);
+    expect(stacksRead).toBe(5);
+
+    for (let query = 0; query < 30; query += 1) {
+      recorder.recordQuery("select 1", 1, 0, () => {
+        stacksRead += 1;
+        return undefined;
+      });
+    }
+
+    expect(stacksRead).toBe(5 + 20);
+    expect(
+      recorder.lastHour().slowestQueries.find(({ shape }) => shape === "select ?")?.calledFrom,
+    ).toEqual([]);
   });
 
   it("tells each query's operation, table and duration to its listeners", () => {

@@ -21,6 +21,7 @@ Covers: the Stats page and its two tabs (Tokens and cost, System health), the ba
 
 - A picker is a segmented control in a named group; on a narrow page (`@container page`) it is a select.
 - Stacked bar charts and line charts are one tab stop: the arrow keys step through the points (Shift for ten), Home and End go to the first and last, and each step opens its tooltip.
+- Hovering a line chart picks the point nearest the pointer: a crosshair and a dot on each line, and its tooltip above the point (under it when there's no room) with each line's value there; it follows the pointer from point to point.
 - **Show as a table** swaps a chart for its table; **Show as a chart** swaps back.
 - The badge **Office-wide** marks a block the Project filter doesn't narrow; its tooltip "The Project filter doesn't narrow this: these figures belong to The Office as a whole." shows only while a Project filter is set.
 - Estimated cost is always called estimated, in US dollars ("$38.10").
@@ -140,7 +141,7 @@ Covers: the Stats page and its two tabs (Tokens and cost, System health), the ba
 ## Database
 
 - Head: "<N> queries in <range> · p95 <time>" and "up to N queries waited for a connection" or "none waited for a connection"; charts **Queries a minute**, **p95 time**, **Waiting for a connection** (the longest wait); **Show as a table**.
-- Foot on 1 h: "A statement's shape has its values and parameters made ?, its IN lists and VALUES rows made one ?, and is cut at 200 characters. The Office keeps the 500 shapes seen most."
+- Foot on 1 h: "A statement's shape has its values and parameters made ?, and its IN lists and VALUES rows made one ?. Each shape names up to 3 places in The Office's code it was run from. The Office keeps the 500 shapes seen most."
 - Foot on the longer ranges: "Grafana keeps queries by operation and table only, never their statements. Pick 1 h to see each statement's shape."
 
 ## Slowest routes and queries
@@ -148,6 +149,7 @@ Covers: the Stats page and its two tabs (Tokens and cost, System health), the ba
 - **Slowest routes** ("by total time: what kept The Office busiest"; columns Route, Requests, p95, Max, Total time) and **Slowest queries** (1 h: "by total time, each statement by its shape", column **Statement shape**; longer ranges: "Slowest queries, by operation and table", column **Operation and table**).
 - Each figure column's head is a button ("Sort by <column>") with `aria-sort`; largest first. The first 10 rows show, then **Show all N** / **Show the first 10**.
 - A route no route answered reads "Unmatched: no route answered".
+- On 1 h, a statement shape shows its first 2 lines; its fold button ("The whole statement shape", `aria-expanded`) unfolds it whole, in monospace, with under it **Copy**, which copies the whole shape ("Statement shape copied."), and **Called from**, each place in The Office's code on its own line in monospace (`apps/service/src/modules/work/adapters/drizzle-task-repository.ts:142 (DrizzleTaskRepository.findById)`), or "Called from: not found in The Office's code". Routes and the longer ranges' rows don't unfold.
 - Foot: "<N> routes · <total> in all; the % is each one's share of it." (also "statement shapes", "operations and tables").
 - Empty: "No request in <range>. Each route shows here once The Office answers one." and "No query in <range>. Each statement shape shows here once The Office runs one."
 

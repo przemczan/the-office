@@ -3,6 +3,7 @@ import { SYSTEM_HEALTH_KEPT_ROWS } from "@the-office/contracts";
 import { Schedule } from "../schedule/schedule.js";
 import { coreTimesOf, cpuUseBetween, type CoreTimes } from "../workstation/cpu-use.js";
 import { Workstation } from "../workstation/workstation.js";
+import { callSiteOf } from "./call-site.js";
 import { DurationHistogram } from "./duration-histogram.js";
 import { LastHourTable } from "./last-hour-table.js";
 import { OfficeProcess } from "./office-process.js";
@@ -27,6 +28,14 @@ const SHORTEST_READING_MS = 1_000;
 const SHAPES_KEPT_MADE = 1_000;
 /** A longer statement is shaped afresh each time rather than kept as a key. */
 const LONGEST_KEPT_STATEMENT = 4_096;
+
+/** A statement shape keeps at most this many places it was called from (spec 5.2, System health). */
+const CALL_SITES_KEPT = 3;
+/**
+ * A shape's call stacks are read for its first this many queries while kept, so a hot query
+ * doesn't format a stack each time it runs.
+ */
+const CALL_STACKS_READ = 20;
 
 /** What The Office measured of itself over 5 s (glossary, Health reading). */
 export interface HealthReading {
@@ -65,6 +74,8 @@ export interface SlowestQuery {
   readonly operation: string;
   readonly table: string;
   readonly shape: string;
+  /** Where in the service's code it ran from, at most 3 (`callSiteOf`). */
+  readonly calledFrom: string[];
   readonly count: number;
   readonly p95Ms: number;
   readonly maxMs: number;
@@ -91,7 +102,11 @@ export interface SystemHealthLastHour {
 export type QueryListener = (operation: string, table: string, durationMs: number) => void;
 
 type RouteLabel = SlowestRoute["route"];
-type QueryLabel = Pick<StatementShape, "operation" | "table" | "shape">;
+/** A statement shape's row, with the call sites found while the row is kept. */
+interface QueryLabel extends Pick<StatementShape, "operation" | "table" | "shape"> {
+  readonly calledFrom: string[];
+  callStacksRead: number;
+}
 
 /** The requests and queries of the 5 seconds not yet closed by a reading. */
 class Step {
@@ -214,18 +229,25 @@ export class SystemHealthRecorder implements OnApplicationBootstrap, OnModuleDes
 
   /**
    * Records a query's duration by its statement shape, and how many queries waited for one of the
-   * pool's connections as it ran.
+   * pool's connections as it ran. `callStack` answers the stack of the call that ran it, read only
+   * while its shape has fewer than 3 call sites and fewer than 20 stacks read.
    */
-  recordQuery(text: string, durationMs: number, waitingCount: number): void {
+  recordQuery(
+    text: string,
+    durationMs: number,
+    waitingCount: number,
+    callStack?: () => string | undefined,
+  ): void {
     const { shape, operation, table } = this.shapeOf(text);
     this.step.queries.add(durationMs);
     if (waitingCount > this.step.mostWaiting) this.step.mostWaiting = waitingCount;
-    this.shapes.record(
+    const label = this.shapes.record(
       shape,
-      { operation, table, shape },
+      { operation, table, shape, calledFrom: [], callStacksRead: 0 },
       durationMs,
       this.schedule.now().getTime(),
     );
+    if (callStack) this.findCallSite(label, callStack);
     for (const listener of this.queryListeners) listener(operation, table, durationMs);
   }
 
@@ -268,8 +290,23 @@ export class SystemHealthRecorder implements OnApplicationBootstrap, OnModuleDes
         .map(({ label, ...figures }) => ({ route: label, ...figures })),
       slowestQueries: this.shapes
         .lastHour(nowMs)
-        .map(({ label, ...figures }) => ({ ...label, ...figures })),
+        .map(({ label: { operation, table, shape, calledFrom }, ...figures }) => ({
+          operation,
+          table,
+          shape,
+          calledFrom: [...calledFrom],
+          ...figures,
+        })),
     };
+  }
+
+  private findCallSite(label: QueryLabel, callStack: () => string | undefined): void {
+    if (label.calledFrom.length >= CALL_SITES_KEPT || label.callStacksRead >= CALL_STACKS_READ) {
+      return;
+    }
+    label.callStacksRead += 1;
+    const site = callSiteOf(callStack());
+    if (site !== undefined && !label.calledFrom.includes(site)) label.calledFrom.push(site);
   }
 
   private keptOldestFirst(): KeptReading[] {

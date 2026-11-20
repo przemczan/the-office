@@ -153,10 +153,11 @@ function toHealthReadings(read: HealthReadingsRead): SystemHealthReadResponse {
       totalMs,
     })),
     slowestQueries: read.slowestQueries.map(
-      ({ operation, table, shape, count, p95Ms, maxMs, totalMs }) => ({
+      ({ operation, table, shape, calledFrom, count, p95Ms, maxMs, totalMs }) => ({
         operation,
         table,
         ...(shape === undefined ? {} : { shape }),
+        ...(calledFrom === undefined ? {} : { calledFrom: [...calledFrom] }),
         count,
         p95Ms,
         maxMs,

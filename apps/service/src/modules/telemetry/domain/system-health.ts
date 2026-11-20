@@ -79,11 +79,13 @@ export interface SlowestRoute extends SlowestFigures {
   readonly route: { readonly method: string; readonly template: string } | null;
 }
 
-/** A query by its operation and table, and on 1 h by its statement shape too. */
+/** A query by its operation and table, and on 1 h by its statement shape and call sites too. */
 export interface SlowestQuery extends SlowestFigures {
   readonly operation: string;
   readonly table: string;
   readonly shape?: string;
+  /** Up to 3 places in the service's code it ran from. */
+  readonly calledFrom?: readonly string[];
 }
 
 /** The last hour of Health readings, oldest first, with its totals and slowest tables. */
@@ -95,7 +97,10 @@ export interface HealthHour {
   readonly queries: number;
   readonly queryP95Ms: number | null;
   readonly slowestRoutes: readonly SlowestRoute[];
-  readonly slowestQueries: readonly (SlowestQuery & { readonly shape: string })[];
+  readonly slowestQueries: readonly (SlowestQuery & {
+    readonly shape: string;
+    readonly calledFrom: readonly string[];
+  })[];
 }
 
 /** The event loop lag over Grafana's steps: each step's highest p99 and highest wait. */

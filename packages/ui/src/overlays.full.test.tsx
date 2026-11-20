@@ -773,6 +773,15 @@ function tooltipOn(open?: boolean): ReactNode {
   );
 }
 
+/** A Tooltip held open on a trigger with no size, as a chart's hovered point holds one. */
+function heldOpen(point: string): ReactNode {
+  return (
+    <Tooltip content={point} open>
+      <span />
+    </Tooltip>
+  );
+}
+
 describe("Tooltip", () => {
   it("shows on hover and goes when the pointer leaves", () => {
     show(tooltipOn());
@@ -815,6 +824,31 @@ describe("Tooltip", () => {
 
     show(tooltipOn(true));
     expect(tooltip()).not.toBeNull();
+  });
+
+  it("is placed when it mounts open, and moves with its trigger while held open", () => {
+    vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1_000);
+    vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+    let triggerLeft = 100;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const left = this.classList.contains("tooltip-trigger") ? triggerLeft : 0;
+      const width = this.classList.contains("tooltip") ? 40 : 0;
+      return DOMRect.fromRect({ x: left, y: 400, width, height: 0 });
+    });
+    try {
+      show(heldOpen("first point"));
+      expect(tooltip()?.style.visibility).toBe("");
+      expect(tooltip()?.style.left).toBe("80px");
+
+      triggerLeft = 500;
+      show(heldOpen("second point"));
+      expect(tooltip()?.textContent).toBe("second point");
+      expect(tooltip()?.style.left).toBe("480px");
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it("closes when what holds the trigger scrolls, and stays for any other scroller", () => {

@@ -9,13 +9,19 @@ interface Observed {
   readonly text: string;
   readonly durationMs: number;
   readonly waitingCount: number;
+  readonly callStack: () => string | undefined;
 }
 
 class CollectingObserver implements DatabaseQueryObserver {
   readonly queries: Observed[] = [];
 
-  recordQuery(text: string, durationMs: number, waitingCount: number): void {
-    this.queries.push({ text, durationMs, waitingCount });
+  recordQuery(
+    text: string,
+    durationMs: number,
+    waitingCount: number,
+    callStack: () => string | undefined,
+  ): void {
+    this.queries.push({ text, durationMs, waitingCount, callStack });
   }
 
   texts(): string[] {
@@ -77,6 +83,29 @@ describe("createDatabasePool with a query observer", () => {
       "select 3",
       "select * from no_such_table",
       "select 4",
+    ]);
+  });
+
+  it("tells the stack of each query's call, the pool's own queries' and a held client's", async () => {
+    const { pool: observed, observer } = observedPool();
+    async function readByPool(): Promise<void> {
+      await observed.query("select 1");
+    }
+    async function readOnClient(): Promise<void> {
+      const client = await observed.connect();
+      try {
+        await client.query("select 2");
+      } finally {
+        client.release();
+      }
+    }
+
+    await readByPool();
+    await readOnClient();
+
+    expect(observer.queries.map(({ callStack }) => callStack())).toEqual([
+      expect.stringContaining("readByPool"),
+      expect.stringContaining("readOnClient"),
     ]);
   });
 

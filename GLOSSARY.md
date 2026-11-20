@@ -704,7 +704,7 @@ What The Office measures of itself every 5 seconds, whether telemetry is On or O
 _Avoid_: Sample, snapshot, metric (a metric is what is sent to Grafana), health check, probe
 
 **Statement shape**:
-A database statement with its values and parameters made `?`, its IN lists and VALUES rows made one `?`, and cut at 200 characters, by which System health's slowest queries of the last hour are named. It is kept in memory only, never sent as telemetry.
+A database statement with its values and parameters made `?`, and its IN lists and VALUES rows made one `?`, by which System health's slowest queries of the last hour are named, with up to 3 places in The Office's code it was run from. It is kept in memory only, never sent as telemetry.
 _Avoid_: Query text, SQL, fingerprint, normalised query
 
 **Basic stats**:

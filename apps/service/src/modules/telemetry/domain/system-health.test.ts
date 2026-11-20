@@ -73,6 +73,7 @@ describe("the last hour's figures", () => {
           operation: "SELECT",
           table: "tasks",
           shape: "SELECT * FROM tasks WHERE id = ?",
+          calledFrom: [],
           count: 10,
           p95Ms: 9.8,
           maxMs: 11,

@@ -356,11 +356,13 @@ export function Tooltip({
   focusable = false,
 }: TooltipProps): ReactNode {
   const [pointedAt, setPointedAt] = useState(false);
-  const trigger = useRef<HTMLSpanElement>(null);
+  // Held as state, not a ref: a Tooltip mounted open runs its body's layout effect before a ref on
+  // the trigger is attached, so the body waits for the trigger's element instead.
+  const [trigger, setTrigger] = useState<HTMLSpanElement | null>(null);
   useCloseOnTriggerMove(pointedAt, setPointedAt, trigger);
   return (
     <span
-      ref={trigger}
+      ref={setTrigger}
       className="tooltip-trigger"
       tabIndex={focusable ? 0 : undefined}
       onMouseEnter={() => setPointedAt(true)}
@@ -369,7 +371,9 @@ export function Tooltip({
       onBlur={() => setPointedAt(false)}
     >
       {children}
-      {(open ?? pointedAt) && <TooltipBody content={content} side={side} trigger={trigger} />}
+      {(open ?? pointedAt) && trigger !== null && (
+        <TooltipBody content={content} side={side} trigger={trigger} />
+      )}
     </span>
   );
 }
@@ -385,24 +389,29 @@ function TooltipBody({
 }: {
   readonly content: ReactNode;
   readonly side: TooltipSide;
-  readonly trigger: RefObject<HTMLElement | null>;
+  readonly trigger: HTMLElement;
 }): ReactNode {
   const body = useRef<HTMLSpanElement>(null);
   const [place, setPlace] = useState<TooltipPlace>();
+  const placeIt = useCallback((): void => {
+    const shown = body.current;
+    if (shown === null) return;
+    const { clientWidth: width, clientHeight: height } = document.documentElement;
+    const size = shown.getBoundingClientRect();
+    const next = tooltipPlace(trigger.getBoundingClientRect(), size, side, { width, height });
+    // The same place keeps the same state, so placing on each render settles.
+    setPlace((last) => (last?.left === next.left && last.top === next.top ? last : next));
+  }, [side, trigger]);
+  // On each render: a Tooltip held open moves with its trigger, as a chart's hovered point does.
+  useLayoutEffect(placeIt);
   useLayoutEffect(() => {
-    const [from, shown] = [trigger.current, body.current];
-    if (from === null || shown === null) return;
-    const placeIt = (): void => {
-      const { clientWidth: width, clientHeight: height } = document.documentElement;
-      const size = shown.getBoundingClientRect();
-      setPlace(tooltipPlace(from.getBoundingClientRect(), size, side, { width, height }));
-    };
-    placeIt();
+    const shown = body.current;
+    if (shown === null) return;
     // What it shows can change size while it is open, as a live token count does.
     const resizing = new ResizeObserver(placeIt);
     resizing.observe(shown);
     return () => resizing.disconnect();
-  }, [side, trigger]);
+  }, [placeIt]);
   return createPortal(
     <span
       ref={body}
@@ -426,12 +435,12 @@ function TooltipBody({
 function useCloseOnTriggerMove(
   pointedAt: boolean,
   setPointedAt: (pointedAt: boolean) => void,
-  trigger: RefObject<HTMLElement | null>,
+  trigger: HTMLElement | null,
 ): void {
   useEffect(() => {
     if (!pointedAt) return;
     const closeOnScroll = ({ target }: Event): void => {
-      if (target instanceof Node && target.contains(trigger.current)) setPointedAt(false);
+      if (target instanceof Node && target.contains(trigger)) setPointedAt(false);
     };
     const closeOnResize = (): void => setPointedAt(false);
     // Scroll events don't bubble, so only the capture phase hears every scroller.

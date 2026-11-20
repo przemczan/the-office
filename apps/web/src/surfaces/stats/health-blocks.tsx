@@ -10,6 +10,7 @@ import { BlockLoader } from "../../shell/block-loader.tsx";
 import { SettingsLink } from "./full-stats.tsx";
 import { LineChart, type LineGuide, type TimeTick } from "./line-chart.tsx";
 import { SlowestTable, type SlowestRow } from "./slowest-table.tsx";
+import { StatementFold } from "./statement-fold.tsx";
 import { niceStep, OfficeWideBadge, StatsBlock, TableToggle, TipRow } from "./stats-parts.tsx";
 import { TRY_AGAIN, UNREACHABLE_TEXT, unreachableWords } from "./stats-words.ts";
 import {
@@ -77,6 +78,7 @@ import {
   UNMATCHED,
   WAITING_FOR_A_CONNECTION,
   waitedWords,
+  WHOLE_SHAPE,
   WORKSTATION,
   type HealthMeasure,
 } from "./system-health-words.ts";
@@ -698,6 +700,14 @@ export function DatabaseBlock(props: HealthBlockProps): ReactNode {
     p95Ms: row.p95Ms,
     maxMs: row.maxMs,
     totalMs: row.totalMs,
+    ...(hour && row.shape !== undefined
+      ? {
+          fold: {
+            label: WHOLE_SHAPE,
+            content: <StatementFold shape={row.shape} calledFrom={row.calledFrom ?? []} />,
+          },
+        }
+      : {}),
   }));
   const most = highest(valuesOf(readings?.points ?? [], "wait")) ?? 0;
   return (

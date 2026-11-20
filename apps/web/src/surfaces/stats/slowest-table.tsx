@@ -1,5 +1,5 @@
 import { Button, Icon } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import {
   countWords,
   durationWords,
@@ -25,7 +25,12 @@ export interface SlowestRow {
   readonly p95Ms: number;
   readonly maxMs: number;
   readonly totalMs: number;
+  /** What the row unfolds to, under it; the row's `what` is clamped to 2 lines while folded. */
+  readonly fold?: { readonly label: string; readonly content: ReactNode };
 }
+
+/** Columns besides `what`: the figures. */
+const FIGURE_COLUMNS = 4;
 
 const SORTS: readonly SlowestSort[] = ["count", "p95", "max", "total"];
 
@@ -46,7 +51,8 @@ function sortValue(row: SlowestRow, by: SlowestSort): number {
  * The slowest routes or queries (spec 2.11, System health 8): by total time at first, what kept
  * The Office busiest; each figure column's head a sort button, largest first, `aria-sort` on the
  * column sorted by. The first 10 rows, then Show all; each row's total time with a bar against the
- * longest and its share of all the time; the foot says how many and their time in all.
+ * longest and its share of all the time; the foot says how many and their time in all. A row with
+ * a fold shows its first 2 lines until its fold button unfolds it whole, with the fold under it.
  *
  * Drawn as its own table, as the design system's DataTable has no `aria-sort` and sorts both ways.
  */
@@ -114,31 +120,13 @@ export function SlowestTable({
               </thead>
               <tbody>
                 {shown.map((row, index) => (
-                  <tr
+                  <SlowestTableRow
                     key={row.id}
-                    className={by === "total" && index === 0 ? "stats-slowest-top" : undefined}
-                  >
-                    <th
-                      scope="row"
-                      className={`stats-slowest-what${row.plain ? " stats-slowest-plain" : ""}`}
-                    >
-                      {row.what}
-                    </th>
-                    <td>{countWords(row.count)}</td>
-                    <td>{msWords(row.p95Ms)}</td>
-                    <td>{msWords(row.maxMs)}</td>
-                    <td className="stats-slowest-total">
-                      <span className="stats-share">
-                        <span className="stats-share-track" aria-hidden="true">
-                          <i style={{ width: `${((row.totalMs / longest) * 100).toFixed(1)}%` }} />
-                        </span>
-                        {durationWords(row.totalMs)}{" "}
-                        <span className="stats-muted">
-                          {Math.round((row.totalMs / Math.max(1, allTime)) * 100)}%
-                        </span>
-                      </span>
-                    </td>
-                  </tr>
+                    row={row}
+                    top={by === "total" && index === 0}
+                    longest={longest}
+                    allTime={allTime}
+                  />
                 ))}
               </tbody>
             </table>
@@ -154,5 +142,69 @@ export function SlowestTable({
         </>
       )}
     </div>
+  );
+}
+
+/** A row with its figures and, for a row that unfolds, its fold button and the row it opens. */
+function SlowestTableRow({
+  row,
+  top,
+  longest,
+  allTime,
+}: {
+  readonly row: SlowestRow;
+  /** The first by total time, its bar marked. */
+  readonly top: boolean;
+  readonly longest: number;
+  readonly allTime: number;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const foldId = useId();
+  const { fold } = row;
+  return (
+    <>
+      <tr className={top ? "stats-slowest-top" : undefined}>
+        <th scope="row" className={`stats-slowest-what${row.plain ? " stats-slowest-plain" : ""}`}>
+          {fold === undefined ? (
+            row.what
+          ) : (
+            <span className="stats-slowest-folding">
+              <button
+                type="button"
+                className="stats-fold"
+                aria-expanded={open}
+                aria-controls={open ? foldId : undefined}
+                aria-label={fold.label}
+                onClick={() => setOpen(!open)}
+              >
+                <Icon name="chevron-right" size={14} />
+              </button>
+              <span className={open ? undefined : "stats-slowest-clamp"}>{row.what}</span>
+            </span>
+          )}
+        </th>
+        <td>{countWords(row.count)}</td>
+        <td>{msWords(row.p95Ms)}</td>
+        <td>{msWords(row.maxMs)}</td>
+        <td className="stats-slowest-total">
+          <span className="stats-share">
+            <span className="stats-share-track" aria-hidden="true">
+              <i style={{ width: `${((row.totalMs / longest) * 100).toFixed(1)}%` }} />
+            </span>
+            {durationWords(row.totalMs)}{" "}
+            <span className="stats-muted">
+              {Math.round((row.totalMs / Math.max(1, allTime)) * 100)}%
+            </span>
+          </span>
+        </td>
+      </tr>
+      {fold !== undefined && open && (
+        <tr className="stats-slowest-fold">
+          <td id={foldId} colSpan={1 + FIGURE_COLUMNS}>
+            {fold.content}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
