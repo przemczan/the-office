@@ -94,7 +94,7 @@ export const REQUESTS_FOOT =
   "Each route by its template, such as /api/tasks/:id, never the address asked for, so one route is one row however many Tasks it served.";
 export const DATABASE = "Database";
 export const DATABASE_FOOT_HOUR =
-  "A statement's shape has its values and parameters made ?, its IN lists and VALUES rows made one ?, and is cut at 200 characters. The Office keeps the 500 shapes seen most.";
+  "A statement's shape has its values and parameters made ?, and its IN lists and VALUES rows made one ?. Each shape names up to 3 places in The Office's code it was run from. The Office keeps the 500 shapes seen most.";
 export const DATABASE_FOOT_LONGER =
   "Grafana keeps queries by operation and table only, never their statements. Pick 1 h to see each statement's shape.";
 
@@ -166,6 +166,14 @@ export const SLOWEST_QUERIES_BY_TABLE = "Slowest queries, by operation and table
 export const SLOWEST_QUERIES_BY_TABLE_WHEN = "by total time";
 export const ROUTE = "Route";
 export const STATEMENT_SHAPE = "Statement shape";
+/** The fold button of a slowest query's row; the row's shape beside it says which. */
+export const WHOLE_SHAPE = "The whole statement shape";
+export const COPY_SHAPE = "Copy";
+export const SHAPE_COPIED = "Statement shape copied.";
+export const SHAPE_NOT_COPIED =
+  "The statement shape couldn't be copied. Select it and copy it instead.";
+export const CALLED_FROM = "Called from";
+export const CALLED_FROM_NONE = "Called from: not found in The Office's code";
 export const OPERATION_AND_TABLE = "Operation and table";
 export const REQUESTS_COLUMN = "Requests";
 export const QUERIES_COLUMN = "Queries";

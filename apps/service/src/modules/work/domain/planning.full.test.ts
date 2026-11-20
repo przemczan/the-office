@@ -59,6 +59,7 @@ describe("a planning Brief", () => {
       [
         "You are planning a Task with the user, in the Task's planning Thread.",
         "## The Task\n\nFix the login redirect (Task task-1), in the Project Admin panel.",
+        "Kind: Feature. Its commit type is feat (Bug → fix, Feature → feat, Chore → chore).\nIf the Task isn't what its Kind says, change it with write_kind; set Caused by and Found in version with write_bug_details.",
         "## Who asked\n\nThe Task was created by the user Ann Lee.",
         "## What the user wants, in their own words\n\nNone: the title is all there is.",
         "## Where you work\n\nThe Task's worktree, at /office/worktrees/admin-panel/task-1 on the branch office/task-1, which started from the freshly fetched main.",
@@ -66,7 +67,7 @@ describe("a planning Brief", () => {
         "## Linked records\n\n- Shaped from: Export usage as CSV (Idea idea-1), in the Project admin-panel, shaped; read_idea reads it\n\nRead them with read_task, read_idea and read_initiative, and their Attachments with read_attachment: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase, an image as a picture where the engine shows one, and any other file by its name, kind and size.",
         "## Attachments\n\nRead one with read_attachment, by its id: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase; an image as a picture where the engine shows one; any other file by its name, kind and size.\n\n- CSV format notes (link to https://example.com/csv) · Attachment attachment-1",
         "## The Project's commands\n\n- install (Install): `npm install`\n- build (Build): `npm run build`\n- lint (Lint): none\n- test (Test): `npm test`",
-        "## The Pipelines\n\nThe Task follows Full (full) until the user confirms another. Propose the one its Definition of Done needs with propose_pipeline:",
+        "## The Pipelines\n\nThe Task follows Full (full) until the user confirms another. The Pipeline Admin panel gives Features is Full (full); propose it with propose_pipeline unless the work needs another:",
         "- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
         "## Auto mode\n\nOff: the user confirms the Plan, the Definition of Done and the Pipeline, and marks the Task Ready.",
       ].join("\n\n"),
@@ -206,11 +207,19 @@ describe("a planning Brief", () => {
     );
   });
 
-  it("says the Task has no Pipeline yet and names the Project's default", () => {
+  it("says the Task has no Pipeline yet and names the one the Project gives its Kind", () => {
     const task = aTask({ pipelineId: undefined });
 
     expect(planningBrief(prompts, { ...RECORD, task })).toContain(
-      "## The Pipelines\n\nThe Task has no Pipeline yet; the Project's default is Full (full). Propose the one its Definition of Done needs with propose_pipeline:",
+      "## The Pipelines\n\nThe Task has no Pipeline yet. The Pipeline Admin panel gives Features is Full (full); propose it with propose_pipeline unless the work needs another:",
+    );
+  });
+
+  it("names a Bug's Kind, its commit type and its bug details", () => {
+    const task = aTask({ kind: "bug", causedBy: "task-9", foundInVersion: "v1.14.2" });
+
+    expect(planningBrief(prompts, { ...RECORD, task })).toContain(
+      "Kind: Bug. Its commit type is fix (Bug → fix, Feature → feat, Chore → chore).\nCaused by: Task task-9. Found in version: v1.14.2.\nIf the Task isn't what its Kind says",
     );
   });
 
@@ -247,7 +256,7 @@ describe("a planning Brief", () => {
 
     expect(brief).toContain(
       [
-        "## The Pipelines\n\nThe Task has no Pipeline yet; the Project's default is Spec change (spec-change), which is Broken: Changes Produce, which Document no longer has. It can't be proposed. Propose the one its Definition of Done needs with propose_pipeline:",
+        "## The Pipelines\n\nThe Task has no Pipeline yet. The Pipeline Admin panel gives Features is Spec change (spec-change), which is Broken: Changes Produce, which Document no longer has. It can't be proposed. Propose the one its Definition of Done needs with propose_pipeline:",
         "Admin panel's own Pipelines, which only its Tasks can follow:\n- spec-change: Spec change (Write). Built from Document. For a change to the spec. Broken: Changes Produce, which Document no longer has. It can't be proposed.\n- full-with-linux: Full with Linux check (Implement → Verify on Linux). Built from Full. For a change the Linux run can break.",
         "Office-wide Pipelines:\n- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
       ].join("\n\n"),

@@ -1,4 +1,6 @@
 import type { EngineModel } from "../../engine/index.js";
+import type { IssueSettings } from "./issue-settings.js";
+import type { KindDefaultPipelines } from "./kind-default-pipeline.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 import type { ProjectImageVersions } from "./project-image.js";
 
@@ -129,6 +131,10 @@ export interface Project {
   /** How many of the Project's Tasks may be started at once (spec §2.1), 1 to `PROJECT_LIMIT_MAX`. */
   readonly projectLimit: number;
   readonly addedAt: Date;
+  /** Each Kind's own default Pipeline; null follows `defaultPipeline` (kind-default-pipeline.ts). */
+  readonly kindDefaultPipelines: KindDefaultPipelines;
+  /** Its GitHub issue switches. */
+  readonly issueSettings: IssueSettings;
 }
 
 /** Every Project starts with one Task at a time; the user raises it on the Project page. */

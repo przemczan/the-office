@@ -68,6 +68,8 @@ import {
   TaskPullRequestEnded,
   TaskPullRequestReopened,
   TaskTitleChanged,
+  TaskKindChanged,
+  TaskBugDetailsChanged,
   TaskTagsChanged,
   TaskReordered,
   TaskResumed,
@@ -281,6 +283,17 @@ export class WorkWebEvents implements OnModuleInit {
       type: "task.title-changed",
       taskId: event.taskId,
     }));
+    this.forwarding.forward(TaskKindChanged, (event): WebEventOf<"task.kind-changed"> => ({
+      type: "task.kind-changed",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(
+      TaskBugDetailsChanged,
+      (event): WebEventOf<"task.bug-details-changed"> => ({
+        type: "task.bug-details-changed",
+        taskId: event.taskId,
+      }),
+    );
     this.forwarding.forward(
       TaskDescriptionChanged,
       (event): WebEventOf<"task.description-changed"> => ({

@@ -356,6 +356,48 @@ test.describe("the full stats from the bundled Grafana", () => {
     await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
   });
 
+  test("a line chart's tooltip shows the values of the point hovered and follows the pointer", async ({
+    page,
+  }) => {
+    await scriptGrafana(page, grafanaHolding(task));
+    await chooseTelemetry(page, "bundled-grafana");
+    await fullStatsAre(page, "full");
+    await page.goto("/stats");
+    const windows = page.getByRole("region", { name: "Usage windows over time", exact: true });
+    const plot = windows.locator(".stats-lines-plot").first();
+    await plot.scrollIntoViewIfNeeded();
+    const box = await plot.boundingBox();
+    if (box === null) throw new Error("The Usage windows chart has no box.");
+    const tooltip = page.getByRole("tooltip");
+
+    /** Hovers the plot at `share` of its width, answering the tooltip's words and its centre. */
+    const hoverAt = async (share: number): Promise<{ words: string; centre: number }> => {
+      const pointerX = box.x + box.width * share;
+      await page.mouse.move(pointerX, box.y + box.height / 2);
+      await expect(tooltip).toBeVisible();
+      // The scripted points are an hour apart, so the nearest one is within a few pixels.
+      await expect
+        .poll(async () => {
+          const shown = await tooltip.boundingBox();
+          return shown === null ? Infinity : Math.abs(shown.x + shown.width / 2 - pointerX);
+        })
+        .toBeLessThan(12);
+      const shown = await tooltip.boundingBox();
+      return {
+        words: await tooltip.innerText(),
+        centre: (shown?.x ?? 0) + (shown?.width ?? 0) / 2,
+      };
+    };
+
+    // The scripted windows cover the last 48 hours of the 7 days, at the plot's right.
+    const earlier = await hoverAt(0.75);
+    const later = await hoverAt(0.9);
+
+    expect(earlier.words).toMatch(/%/);
+    expect(later.words).not.toBe(earlier.words);
+    expect(later.centre - earlier.centre).toBeGreaterThan(box.width * 0.1);
+  });
+
   test("says when Grafana can't be reached, with Try again, the basic stats staying", async ({
     page,
   }) => {

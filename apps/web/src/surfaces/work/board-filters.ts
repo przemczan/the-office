@@ -1,4 +1,9 @@
-import { prioritySchema, type BoardFilters, type Task } from "@the-office/contracts";
+import {
+  prioritySchema,
+  taskKindSchema,
+  type BoardFilters,
+  type Task,
+} from "@the-office/contracts";
 import { isArchived } from "../../shell/work/work-words.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 
@@ -7,11 +12,13 @@ import { blockingTasksOf } from "./dependency-words.ts";
  * search's words are matched by the service (`GET /tasks?query=`), so they mean what ⌘K's do.
  */
 export function boardFiltersOf(search: Record<string, unknown>): BoardFilters {
-  const { query, priority, initiative, blocked } = search;
+  const { query, priority, kind, initiative, blocked } = search;
   const priorityFound = prioritySchema.safeParse(priority);
+  const kindFound = taskKindSchema.safeParse(kind);
   return {
     ...(typeof query === "string" && query.trim() !== "" && { query }),
     ...(priorityFound.success && { priority: priorityFound.data }),
+    ...(kindFound.success && { kind: kindFound.data }),
     ...(typeof initiative === "string" && initiative !== "" && { initiative }),
     ...(blocked === true && { blocked: true as const }),
   };
@@ -20,6 +27,7 @@ export function boardFiltersOf(search: Record<string, unknown>): BoardFilters {
 const BOARD_FILTER_KEYS: ReadonlySet<string> = new Set<keyof BoardFilters>([
   "query",
   "priority",
+  "kind",
   "initiative",
   "blocked",
 ]);
@@ -38,6 +46,7 @@ export function sameBoardFilters(one: BoardFilters, other: BoardFilters): boolea
   return (
     (one.query ?? "").trim() === (other.query ?? "").trim() &&
     one.priority === other.priority &&
+    one.kind === other.kind &&
     one.initiative === other.initiative &&
     one.blocked === other.blocked
   );
@@ -72,6 +81,7 @@ export function boardFilter(
   return (task) =>
     (filters.query === undefined || found === undefined || found.has(task.id)) &&
     (filters.priority === undefined || task.priority === filters.priority) &&
+    (filters.kind === undefined || task.kind === filters.kind) &&
     (filters.initiative === undefined || task.initiativeId === filters.initiative) &&
     (filters.blocked === undefined || blockingTasksOf(task, tasks).length > 0);
 }

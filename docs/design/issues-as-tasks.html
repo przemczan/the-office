@@ -1,0 +1,3337 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-palette="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Office · Issues as Tasks · design</title>
+    <!--
+      A design proposal, not the UI spec: see README.md next to this file. Self-contained on purpose
+      (no network requests): tokens are copied from design-system/tokens and packages/ui/src/appearance;
+      the fonts fall back to the system's when Geist isn't installed.
+    -->
+    <style>
+      /* ---------- Tokens: design-system/tokens ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-100: #ffe0d4;
+        --ember-300: #ff9370;
+        --ember-400: #ff6638;
+        --ember-500: #f23d0f;
+        --ember-600: #cc2f07;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-600: #aa0d27;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-400);
+        --fg-inverse: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-hover: var(--gray-700);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-hover: var(--red-600);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+        --overlay: color-mix(in oklab, var(--gray-950) 45%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --text-xl: 18px;
+        --text-2xl: 20px;
+        --tracking-caps: 0.06em;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+        --radius-card: 10px;
+        --control-xs: 24px;
+        --control-sm: 28px;
+        --control-md: 32px;
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --duration-fast: 120ms;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --accent-hover: var(--ember-400);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --overlay: color-mix(in oklab, #000 65%, transparent);
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --primary-hover: #e6e6e2;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+
+      /* ---------- Page ---------- */
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: 400 var(--text-md) / 1.5 var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--fg-1);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+      }
+      code,
+      pre,
+      .mono {
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+      }
+      p code,
+      li code,
+      td code {
+        background: var(--neutral-subtle);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        padding: 0 4px;
+      }
+      svg.i {
+        width: 16px;
+        height: 16px;
+        flex: none;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vertical-align: -3px;
+      }
+      svg.i.s13 {
+        width: 13px;
+        height: 13px;
+        vertical-align: -2px;
+      }
+      svg.i.s14 {
+        width: 14px;
+        height: 14px;
+      }
+
+      .doc-top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 24px;
+        background: color-mix(in oklab, var(--surface) 92%, transparent);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border);
+      }
+      .doc-top .brand {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-md);
+        background: var(--accent);
+        color: var(--white);
+        font-weight: 700;
+        font-size: var(--text-xs);
+      }
+      .doc-top h1 {
+        font-size: var(--text-lg);
+        margin: 0;
+        font-weight: 600;
+      }
+      .doc-top .sub {
+        color: var(--fg-2);
+        font-size: var(--text-sm);
+      }
+      .doc-top .spacer {
+        flex: 1;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 232px minmax(0, 1fr);
+        gap: 32px;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .toc {
+        position: sticky;
+        top: 76px;
+        align-self: start;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: var(--text-sm);
+      }
+      .toc .group {
+        margin: 14px 0 4px;
+        font: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .toc a {
+        text-decoration: none;
+        color: var(--fg-2);
+        padding: 4px 10px;
+        border-radius: var(--radius-md);
+      }
+      .toc a:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .toc a.on {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+        box-shadow: inset 2px 0 0 var(--accent);
+      }
+      main section {
+        scroll-margin-top: 76px;
+        margin-bottom: 56px;
+      }
+      .overline {
+        font: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--accent-subtle-fg);
+        margin: 0 0 6px;
+      }
+      main h2 {
+        font-size: var(--text-2xl);
+        font-weight: 600;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+      main h3 {
+        font-size: var(--text-lg);
+        font-weight: 600;
+        margin: 28px 0 8px;
+      }
+      main h4 {
+        font-size: var(--text-md);
+        font-weight: 600;
+        margin: 18px 0 6px;
+      }
+      .lead {
+        color: var(--fg-2);
+        max-width: 78ch;
+        margin: 0 0 16px;
+      }
+      .prose {
+        max-width: 80ch;
+      }
+      .prose li {
+        margin: 3px 0;
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+        align-items: start;
+      }
+      .note {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 14px 16px;
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+      }
+      .note strong {
+        color: var(--fg-1);
+      }
+      .note ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .callout {
+        border-left: 3px solid var(--warning);
+        background: var(--warning-subtle);
+        border-radius: var(--radius-md);
+        padding: 12px 16px;
+        font-size: var(--text-sm);
+        margin: 12px 0;
+      }
+      .callout.info {
+        border-left-color: var(--info);
+        background: var(--info-subtle);
+      }
+      .callout h4 {
+        margin: 0 0 4px;
+      }
+      .callout ol,
+      .callout ul {
+        margin: 6px 0 0;
+        padding-left: 20px;
+      }
+      .callout li {
+        margin: 6px 0;
+      }
+      pre {
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 14px 16px;
+        overflow: auto;
+        line-height: 1.55;
+        margin: 8px 0 16px;
+        color: var(--fg-1);
+      }
+      pre .c {
+        color: var(--fg-3);
+      }
+      pre .k {
+        color: var(--accent-subtle-fg);
+      }
+      table.spec {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        overflow: hidden;
+        font-size: var(--text-sm);
+        margin: 8px 0 16px;
+      }
+      table.spec th {
+        text-align: left;
+        font-weight: 500;
+        color: var(--fg-2);
+        background: var(--surface-sunken);
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      table.spec td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        vertical-align: top;
+      }
+      table.spec tr:last-child td {
+        border-bottom: 0;
+      }
+
+      /* ---------- Mock-up frames ---------- */
+      .frame {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+        overflow: hidden;
+        margin: 12px 0 8px;
+      }
+      .frame-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+      }
+      .frame-label .dots {
+        display: flex;
+        gap: 5px;
+      }
+      .frame-label .dots i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .frame-body {
+        padding: 20px;
+      }
+      .frame-body.overlay {
+        background: var(--overlay);
+        display: flex;
+        justify-content: center;
+        padding: 36px 20px;
+      }
+      .caption {
+        font-size: var(--text-xs);
+        color: var(--fg-3);
+        margin: 0 0 20px;
+      }
+
+      /* ---------- Components (packages/ui look) ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 12px;
+        border-radius: var(--radius-md);
+        border: 1px solid transparent;
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: default;
+        color: var(--fg-1);
+        background: transparent;
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .btn.secondary {
+        background: var(--surface);
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-1);
+      }
+      .btn.ghost {
+        color: var(--fg-2);
+      }
+      .btn.danger {
+        background: var(--danger);
+        color: var(--white);
+      }
+      .btn.sm {
+        height: var(--control-xs);
+        padding: 0 9px;
+        font-size: var(--text-xs);
+      }
+      .btn.split {
+        padding-right: 8px;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .btn.split-arrow {
+        padding: 0 6px;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        margin-left: -1px;
+      }
+      .icon-btn {
+        display: inline-grid;
+        place-items: center;
+        width: var(--control-xs);
+        height: var(--control-xs);
+        border-radius: var(--radius-md);
+        color: var(--fg-3);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        border-radius: var(--radius-sm);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        border: 1px solid var(--neutral-border);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        white-space: nowrap;
+      }
+      .badge.accent {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        border-color: color-mix(in oklab, var(--accent) 20%, transparent);
+      }
+      .badge.warning {
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+        border-color: var(--warning-border);
+      }
+      .badge.danger {
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+        border-color: var(--danger-border);
+      }
+      .badge.info {
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        border-color: var(--info-border);
+      }
+      .badge.success {
+        background: var(--success-subtle);
+        color: var(--success-fg);
+        border-color: var(--success-border);
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 8px;
+        border-radius: var(--radius-full);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+      }
+      .pmark {
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: var(--radius-sm);
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 9px / 1 var(--font-sans);
+      }
+      .pchip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+      }
+      .input,
+      .select,
+      .textarea {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font-size: var(--text-sm);
+        color: var(--fg-1);
+      }
+      .input.focus,
+      .select.focus {
+        border-color: var(--accent);
+        box-shadow: var(--focus-ring);
+      }
+      .input .ph {
+        color: var(--fg-3);
+      }
+      .select {
+        justify-content: space-between;
+      }
+      .select .chev {
+        color: var(--fg-3);
+      }
+      .textarea {
+        display: block;
+        padding: 8px 10px;
+        min-height: 120px;
+        font-size: var(--text-sm);
+        white-space: pre-wrap;
+        line-height: 1.55;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 16px;
+      }
+      .field > label,
+      .field .label {
+        font-size: var(--text-sm);
+        font-weight: 500;
+      }
+      .field .hint {
+        font-size: var(--text-xs);
+        color: var(--fg-3);
+      }
+      .field .optional {
+        color: var(--fg-3);
+        font-weight: 400;
+      }
+      .seg {
+        display: inline-flex;
+        padding: 2px;
+        gap: 2px;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+      }
+      .seg span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 24px;
+        padding: 0 12px;
+        border-radius: var(--radius-sm);
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+      }
+      .seg span.on {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1);
+        font-weight: 500;
+      }
+      .switch {
+        position: relative;
+        width: 30px;
+        height: 18px;
+        border-radius: var(--radius-full);
+        background: var(--border-strong);
+        flex: none;
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: var(--shadow-1);
+      }
+      .switch.on {
+        background: var(--primary);
+      }
+      .switch.on::after {
+        left: 14px;
+        background: var(--primary-fg);
+      }
+      .check {
+        display: inline-grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        flex: none;
+      }
+      .check.on {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--primary-fg);
+      }
+      .check.on svg {
+        width: 12px;
+        height: 12px;
+        stroke-width: 3;
+      }
+      .check.some::after {
+        content: "";
+        width: 8px;
+        height: 2px;
+        background: var(--fg-2);
+      }
+      .radio {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1px solid var(--border-strong);
+        background: var(--surface);
+        flex: none;
+        position: relative;
+      }
+      .radio.on {
+        border: 5px solid var(--primary);
+      }
+      .alert {
+        display: flex;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--warning-border);
+        background: var(--warning-subtle);
+        font-size: var(--text-sm);
+      }
+      .alert .t {
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .alert .ico {
+        color: var(--warning-fg);
+      }
+      .alert.neutral {
+        background: var(--surface-sunken);
+        border-color: var(--border);
+      }
+      .alert.neutral .ico {
+        color: var(--fg-3);
+      }
+      .alert p {
+        margin: 2px 0;
+        color: var(--fg-2);
+      }
+
+      /* Menu / popover */
+      .menu {
+        min-width: 200px;
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-3);
+        padding: 4px;
+        font-size: var(--text-sm);
+      }
+      .menu .h {
+        padding: 6px 10px 4px;
+        font-size: var(--text-xs);
+        color: var(--fg-3);
+      }
+      .menu .it {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: var(--radius-md);
+      }
+      .menu .it.hover {
+        background: var(--control-hover);
+      }
+      .menu .it .r {
+        margin-left: auto;
+        color: var(--fg-2);
+      }
+      .menu .it.danger {
+        color: var(--danger-fg);
+      }
+      .menu .it .sub {
+        color: var(--fg-3);
+        font-size: var(--text-xs);
+      }
+      .menu hr {
+        border: 0;
+        border-top: 1px solid var(--border-subtle);
+        margin: 4px 0;
+      }
+      /* Dialog */
+      .dlg {
+        width: 100%;
+        background: var(--surface);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-3);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+      .dlg.small {
+        max-width: 440px;
+      }
+      .dlg.medium {
+        max-width: 720px;
+      }
+      .dlg.large {
+        max-width: 1000px;
+      }
+      .dlg-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .dlg-head .title {
+        font-weight: 600;
+        font-size: var(--text-lg);
+        flex: 1;
+        min-width: 0;
+      }
+      .dlg-body {
+        padding: 18px;
+        overflow: auto;
+      }
+      .dlg-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border);
+        background: var(--surface-sunken);
+      }
+      .dlg-bar .grow {
+        flex: 1;
+      }
+      .dlg-bar .hint {
+        font-size: var(--text-xs);
+        color: var(--fg-3);
+      }
+
+      /* ---------- Work board ---------- */
+      .board-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 220px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-3);
+        font-size: var(--text-sm);
+      }
+      .fchip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border-radius: var(--radius-full);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+      }
+      .fchip.on {
+        background: var(--surface-selected);
+        border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+        color: var(--fg-1);
+      }
+      .bar-sep {
+        width: 1px;
+        height: 20px;
+        background: var(--border);
+        margin: 0 2px;
+      }
+      .bar-label {
+        font-size: var(--text-xs);
+        color: var(--fg-3);
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .col-head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: var(--text-sm);
+        font-weight: 600;
+        margin: 4px 2px 8px;
+      }
+      .col-head .n {
+        color: var(--fg-3);
+        font-weight: 400;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 12px 14px;
+        margin-bottom: 10px;
+        box-shadow: var(--shadow-1);
+        position: relative;
+      }
+      .card.edge-decision {
+        box-shadow:
+          inset 3px 0 0 var(--warning),
+          var(--shadow-1);
+      }
+      .card-head {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+      }
+      .card-title {
+        flex: 1;
+        font-size: var(--text-md);
+        font-weight: 500;
+        line-height: 1.4;
+      }
+      .prio-high {
+        color: var(--danger-fg);
+        margin-top: 2px;
+      }
+      .prio-low {
+        color: var(--fg-3);
+        margin-top: 2px;
+      }
+      .card-marks {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        color: var(--fg-3);
+        font-size: var(--text-xs);
+      }
+      .card-marks .right {
+        margin-left: auto;
+      }
+      .kmark {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: var(--radius-sm);
+      }
+      .kmark.feature {
+        color: var(--fg-3);
+      }
+      .kmark.bug {
+        color: var(--danger-fg);
+        background: var(--danger-subtle);
+      }
+      .kmark.chore {
+        color: var(--fg-3);
+      }
+      .kglyph.bug {
+        color: var(--danger-fg);
+      }
+      .kglyph.feature,
+      .kglyph.chore {
+        color: var(--fg-2);
+      }
+      .mark-warning {
+        color: var(--warning-fg);
+      }
+      .avatars {
+        display: flex;
+      }
+      .av {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        font: 600 9px / 1 var(--font-sans);
+        color: var(--white);
+        border: 2px solid var(--surface);
+      }
+
+      /* ---------- Task page ---------- */
+      .task-head .crumb {
+        margin-bottom: 6px;
+      }
+      .task-head .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .task-head h3 {
+        margin: 0;
+        font-size: var(--text-2xl);
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 14px;
+        margin-top: 8px;
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+      }
+      .meta .it {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .fold {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        margin-top: 16px;
+      }
+      .fold-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font-weight: 600;
+      }
+      .fold-head .sum {
+        color: var(--fg-3);
+        font-weight: 400;
+        font-size: var(--text-sm);
+      }
+      .fold-body {
+        padding: 14px 16px;
+        font-size: var(--text-sm);
+        max-width: 80ch;
+      }
+      .fold-body p {
+        margin: 0 0 8px;
+      }
+      .rsec {
+        border-top: 1px solid var(--border-subtle);
+        padding-top: 12px;
+        margin-top: 14px;
+      }
+      .rsec-title {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: var(--text-xs);
+        font-weight: 500;
+        color: var(--fg-3);
+        text-transform: uppercase;
+        letter-spacing: var(--tracking-caps);
+        margin-bottom: 8px;
+        font-family: var(--font-mono);
+      }
+      .rrow {
+        display: grid;
+        grid-template-columns: 180px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 5px 0;
+      }
+      .rrow .k {
+        color: var(--fg-2);
+      }
+      .rrow .acts {
+        display: flex;
+        gap: 2px;
+      }
+      .tchip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px 2px 6px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font-size: var(--text-sm);
+        max-width: 100%;
+      }
+      .tchip .st {
+        color: var(--fg-3);
+        font-size: var(--text-xs);
+      }
+      .muted {
+        color: var(--fg-3);
+      }
+      .textbtn {
+        color: var(--fg-1);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        text-underline-offset: 2px;
+        font-size: var(--text-sm);
+      }
+      .dropnote {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        background: var(--surface-sunken);
+        font-size: var(--text-sm);
+      }
+      .dropnote .ico {
+        color: var(--fg-3);
+        margin-top: 1px;
+      }
+
+      /* ---------- Lists ---------- */
+      .list {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: var(--surface);
+      }
+      .list-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: var(--surface-sunken);
+        border-bottom: 1px solid var(--border);
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+      }
+      .lrow {
+        display: grid;
+        grid-template-columns: 16px 52px minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: var(--text-sm);
+      }
+      .lrow:last-child {
+        border-bottom: 0;
+      }
+      .lrow.picked {
+        background: var(--surface-selected);
+      }
+      .lrow .num {
+        color: var(--fg-3);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        padding-top: 2px;
+      }
+      .lrow .t {
+        font-weight: 500;
+      }
+      .lrow .m {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+        color: var(--fg-3);
+        font-size: var(--text-xs);
+      }
+      .lrow .kind {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+        padding-top: 2px;
+      }
+      .ghlabel {
+        display: inline-flex;
+        align-items: center;
+        height: 18px;
+        padding: 0 7px;
+        border-radius: var(--radius-full);
+        font-size: var(--text-2xs);
+        font-weight: 500;
+        border: 1px solid var(--border);
+        color: var(--fg-2);
+      }
+      .ghlabel.bug {
+        border-color: var(--danger-border);
+        color: var(--danger-fg);
+        background: var(--danger-subtle);
+      }
+      table.data {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--text-sm);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      table.data th {
+        text-align: left;
+        font-weight: 500;
+        color: var(--fg-2);
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-sunken);
+        font-size: var(--text-xs);
+      }
+      table.data td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        vertical-align: middle;
+      }
+      table.data tr:last-child td {
+        border-bottom: 0;
+      }
+      .state-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+      }
+      .state-cell .why {
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+      }
+
+      /* ---------- Project page ---------- */
+      .pblock {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        margin-bottom: 16px;
+      }
+      .pblock-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font-weight: 600;
+      }
+      .pblock-head .grow {
+        flex: 1;
+      }
+      .pblock-body {
+        padding: 6px 16px 14px;
+      }
+      .prow {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(160px, 280px);
+        gap: 16px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: var(--text-sm);
+      }
+      .prow:last-child {
+        border-bottom: 0;
+      }
+      .prow .k {
+        font-weight: 500;
+      }
+      .prow .d {
+        font-size: var(--text-xs);
+        color: var(--fg-3);
+        margin-top: 2px;
+      }
+      .prow .v {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+      }
+      .group-label {
+        font: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+        padding: 14px 0 2px;
+      }
+
+      /* ---------- Decision card ---------- */
+      .dcard {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        box-shadow:
+          inset 3px 0 0 var(--warning),
+          var(--shadow-2);
+        overflow: hidden;
+        max-width: 760px;
+      }
+      .dcard-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: var(--text-sm);
+      }
+      .dcard-body {
+        padding: 14px 16px 4px;
+      }
+      .dcard-ctx {
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+        margin: 0 0 14px;
+        max-width: 72ch;
+      }
+      .dcard-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+      }
+      .line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+        padding: 8px 0;
+      }
+
+      /* ---------- Diagram ---------- */
+      .diagram {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        align-items: stretch;
+      }
+      .mod code {
+        overflow-wrap: anywhere;
+      }
+      .mod {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 12px 14px;
+        font-size: var(--text-sm);
+      }
+      .mod h5 {
+        margin: 0 0 6px;
+        font-size: var(--text-md);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .mod ul {
+        margin: 0;
+        padding-left: 16px;
+        color: var(--fg-2);
+      }
+      .mod.leaf {
+        border-style: dashed;
+      }
+      .arrows {
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+        margin-top: 12px;
+      }
+      .arrows li {
+        margin: 4px 0;
+      }
+      .order {
+        counter-reset: step;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 12px;
+      }
+      .order > li {
+        counter-increment: step;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        padding: 14px 16px 14px 56px;
+        position: relative;
+        font-size: var(--text-sm);
+      }
+      .order > li::before {
+        content: counter(step);
+        position: absolute;
+        left: 16px;
+        top: 14px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        font-weight: 600;
+        font-size: var(--text-sm);
+      }
+      .order h4 {
+        margin: 2px 0 6px;
+      }
+      .order ul {
+        margin: 4px 0;
+        padding-left: 18px;
+        color: var(--fg-2);
+      }
+      .order .check-line {
+        margin-top: 6px;
+        font-size: var(--text-xs);
+        color: var(--fg-3);
+      }
+      @media (max-width: 1100px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .toc {
+          display: none;
+        }
+        .board {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .diagram {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <symbol id="i-bug" viewBox="0 0 24 24">
+          <path d="m8 2 1.88 1.88" />
+          <path d="M14.12 3.88 16 2" />
+          <path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1" />
+          <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6" />
+          <path d="M12 20v-9" />
+          <path d="M6.53 9C4.6 8.8 3 7.1 3 5" />
+          <path d="M6 13H2" />
+          <path d="M3 21c0-2.1 1.7-3.9 3.8-4" />
+          <path d="M20.97 5c0 2.1-1.6 3.8-3.5 4" />
+          <path d="M22 13h-4" />
+          <path d="M17.2 17c2.1.1 3.8 1.9 3.8 4" />
+        </symbol>
+        <symbol id="i-sparkles" viewBox="0 0 24 24">
+          <path
+            d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+          />
+          <path d="M20 3v4" />
+          <path d="M22 5h-4" />
+        </symbol>
+        <symbol id="i-wrench" viewBox="0 0 24 24">
+          <path
+            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+          />
+        </symbol>
+        <symbol id="i-chevrons-up" viewBox="0 0 24 24">
+          <path d="m17 11-5-5-5 5" />
+          <path d="m17 18-5-5-5 5" />
+        </symbol>
+        <symbol id="i-chevrons-down" viewBox="0 0 24 24">
+          <path d="m7 6 5 5 5-5" />
+          <path d="m7 13 5 5 5-5" />
+        </symbol>
+        <symbol id="i-equal" viewBox="0 0 24 24">
+          <path d="M5 9h14" />
+          <path d="M5 15h14" />
+        </symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24">
+          <rect width="18" height="11" x="3" y="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </symbol>
+        <symbol id="i-hand" viewBox="0 0 24 24">
+          <path d="M18 11V6a2 2 0 0 0-4 0" />
+          <path d="M14 10V4a2 2 0 0 0-4 0v2" />
+          <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+        </symbol>
+        <symbol id="i-more" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="1" />
+          <circle cx="19" cy="12" r="1" />
+          <circle cx="5" cy="12" r="1" />
+        </symbol>
+        <symbol id="i-github" viewBox="0 0 24 24">
+          <path
+            d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+          />
+          <path d="M9 18c-4.51 2-5-2-7-2" />
+        </symbol>
+        <symbol id="i-circle-dot" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="1" />
+        </symbol>
+        <symbol id="i-circle-check" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" />
+          <path d="m9 12 2 2 4-4" />
+        </symbol>
+        <symbol id="i-circle-x" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" />
+          <path d="m15 9-6 6" />
+          <path d="m9 9 6 6" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </symbol>
+        <symbol id="i-x" viewBox="0 0 24 24">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <path d="M20 6 9 17l-5-5" />
+        </symbol>
+        <symbol id="i-chevron-down" viewBox="0 0 24 24">
+          <path d="m6 9 6 6 6-6" />
+        </symbol>
+        <symbol id="i-route" viewBox="0 0 24 24">
+          <circle cx="6" cy="19" r="3" />
+          <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
+          <circle cx="18" cy="5" r="3" />
+        </symbol>
+        <symbol id="i-pr" viewBox="0 0 24 24">
+          <circle cx="18" cy="18" r="3" />
+          <circle cx="6" cy="6" r="3" />
+          <path d="M13 6h3a2 2 0 0 1 2 2v7" />
+          <path d="M6 9v12" />
+        </symbol>
+        <symbol id="i-tag" viewBox="0 0 24 24">
+          <path
+            d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"
+          />
+          <circle cx="7.5" cy="7.5" r=".5" />
+        </symbol>
+        <symbol id="i-map" viewBox="0 0 24 24">
+          <path
+            d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"
+          />
+          <path d="M15 5.764v15" />
+          <path d="M9 3.236v15" />
+        </symbol>
+        <symbol id="i-pencil" viewBox="0 0 24 24">
+          <path
+            d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+          />
+        </symbol>
+        <symbol id="i-bookmark" viewBox="0 0 24 24">
+          <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <path d="m7 10 5 5 5-5" />
+          <path d="M12 15V3" />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24">
+          <path d="M5 12h14" />
+          <path d="M12 5v14" />
+        </symbol>
+        <symbol id="i-file-text" viewBox="0 0 24 24">
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+          <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+          <path d="M16 13H8" />
+          <path d="M16 17H8" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+        </symbol>
+        <symbol id="i-list-checks" viewBox="0 0 24 24">
+          <path d="m3 17 2 2 4-4" />
+          <path d="m3 7 2 2 4-4" />
+          <path d="M13 6h8" />
+          <path d="M13 12h8" />
+          <path d="M13 18h8" />
+        </symbol>
+        <symbol id="i-lightbulb" viewBox="0 0 24 24">
+          <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+          <path d="M9 18h6" />
+          <path d="M10 22h4" />
+        </symbol>
+        <symbol id="i-link" viewBox="0 0 24 24">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <header class="doc-top">
+      <span class="brand">TO</span>
+      <div>
+        <h1>Issues as Tasks</h1>
+        <div class="sub">Design for the Task "Issues tracker" · Kind, bug details, Drop reasons, Bug Task Decisions, GitHub issues</div>
+      </div>
+      <span class="spacer"></span>
+      <span class="badge warning">For review at the Gate</span>
+      <div class="seg" role="group" aria-label="Palette">
+        <span class="on" data-palette-choice="light"><svg class="i s14"><use href="#i-sun" /></svg>Light</span>
+        <span data-palette-choice="dark"><svg class="i s14"><use href="#i-moon" /></svg>Dark</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav class="toc" aria-label="Contents">
+        <div class="group">Overview</div>
+        <a href="#summary">Summary</a>
+        <a href="#gate">Points to check</a>
+        <a href="#words">Words</a>
+        <div class="group">Screens</div>
+        <a href="#board">Work board</a>
+        <a href="#new-task">New Task</a>
+        <a href="#shape">Shape into a Task</a>
+        <a href="#task-page">Task page</a>
+        <a href="#drop">Drop and Archived</a>
+        <a href="#project-page">Project page</a>
+        <a href="#import">Import issues</a>
+        <a href="#bug-proposal">Bug Task Decision</a>
+        <a href="#permissions">GitHub permissions</a>
+        <div class="group">Engineering</div>
+        <a href="#data">Data and migration</a>
+        <a href="#contracts">Contracts</a>
+        <a href="#boundaries">Module boundaries</a>
+        <a href="#github-rules">GitHub issue rules</a>
+        <a href="#prompts">Briefs and Office actions</a>
+        <a href="#order">Implementation order</a>
+        <a href="#tests">Tests</a>
+        <a href="#docs">Docs</a>
+      </nav>
+
+      <main>
+        <!-- ================= SUMMARY ================= -->
+        <section id="summary">
+          <p class="overline">Overview</p>
+          <h2>Issues are Tasks with a Kind</h2>
+          <p class="lead">
+            There is no new Issue entity. A Task gets a <strong>Kind</strong>: Feature, Bug or Chore. A Bug can also record <strong>Caused by</strong>, <strong>Found in version</strong> and
+            <strong>Found while working on</strong>. Dropping a Task takes an optional <strong>Drop reason</strong>. Bugs come from three places: the user, Agents through a Decision, and the
+            Project's GitHub issues. Write-back to GitHub is set per Project.
+          </p>
+          <div class="cols">
+            <div class="note">
+              <strong>What the user sees</strong>
+              <ul>
+                <li>A Kind mark on every card and a Kind filter on the Work board, kept in Saved views.</li>
+                <li>A Kind choice in New Task and in Shape into a Task. Choosing Bug fills an empty Description with a short template.</li>
+                <li>Kind and the bug details on the Task page, changeable until Done or Dropped.</li>
+                <li>A reason in the Drop window, shown on the Task page and in Archived.</li>
+                <li>Import issues, auto-import by label and three write-back switches on the Project page.</li>
+                <li>A Default Pipeline per Kind in the Project's Pipelines.</li>
+              </ul>
+            </div>
+            <div class="note">
+              <strong>What changes underneath</strong>
+              <ul>
+                <li><code>tasks</code> gains <code>kind</code> (NOT NULL, default <code>'feature'</code>) and nullable bug and drop columns. The migration only expands, then backfills Chore from <code>made_for</code>.</li>
+                <li><code>projects</code> gains three Default Pipeline per Kind columns, the auto-import label and the write-back switches.</li>
+                <li>A new projects-owned <code>issue_links</code> table, unique on (repository, issue number), which guarantees import-once. A <code>issue_write_backs</code> outbox retries what GitHub refused.</li>
+                <li>github gains a <code>GitHubIssues</code> entry and <code>issues: "write"</code> in <code>REQUIRED_PERMISSIONS</code>.</li>
+                <li>A new Office action, <code>propose_bug_task</code>, in Agent Stages. The Planner gains <code>write_kind</code> and <code>write_bug_details</code>.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= GATE POINTS ================= -->
+        <section id="gate">
+          <p class="overline">Overview</p>
+          <h2>Points to check at the Gate</h2>
+          <p class="lead">The code differs from the Plan in a few places. Each point below follows the code and keeps the Plan's intent. Send the design back if one should go another way.</p>
+          <div class="callout">
+            <ol>
+              <li>
+                <strong>projects can't import work.</strong> work already imports projects, and <code>import/no-cycle</code> forbids the reverse. So projects creates Tasks and hears that one started,
+                was Done or was Dropped the way the module template prescribes. projects offers an <code>IssueTasks</code> registry, and work fills it at start, as it fills <code>TaskBases</code>
+                today. A work adapter forwards Task started, Done and Dropped to projects' <code>IssueWriteBack</code>. The rules for import and write-back stay in projects, and work stores no
+                GitHub data.
+              </li>
+              <li>
+                <strong>Nothing preselects a Pipeline at Mark Ready today.</strong> Mark Ready needs a Pipeline already chosen on the rail. "Preselects" therefore means this: the rail's picker lists the
+                Kind's default first, marked <em>Default for Bugs</em>, and opens on it, so one press chooses it. Before Ready names it too: "Choose a Pipeline on the rail: Quick fix is the
+                default for Bugs". A new Task still takes no Pipeline by itself.
+              </li>
+              <li>
+                <strong>Nothing can be created by The Office today.</strong> A Task's <code>createdBy</code> is an Author, which is a user or a person. Writing
+                <code>{"kind":"office"}</code> into <code>created_by</code> would break the previous release after a rollback, since its <code>authorOf</code> passes the value through and its
+                contracts refuse it. So <code>created_by</code> keeps a valid Author: the user who pressed Create the Bug Task on a Bug Task Decision, or the user who last set the Project's auto-import label.
+                A new flag, <code>created_by_the_office</code>, makes the read model's <code>createdBy</code> a <code>TaskCreator</code> of <code>{ kind: "office" }</code>, as
+                <code>ArchivedBy</code> already has. The Office therefore creates auto-imported Tasks and approved Bug Tasks. An issue imported by hand is created by the user who imported it.
+              </li>
+              <li>
+                <strong>There is no TaskDone or TaskDropped event.</strong> The forwarder listens to <code>TaskStarted</code> and to <code>TaskStateChanged</code> into
+                <code>done</code> or <code>dropped</code>. No new event is needed.
+              </li>
+              <li>
+                <strong>In an Initiative, Fixes #n goes in two places.</strong> It goes on each Task's merge into the Initiative's branch, and also on the Publishing Task's commit and pull request,
+                which reach the default branch. GitHub closes issues only from the default branch.
+              </li>
+              <li>
+                <strong>Shape into a Task stays one click</strong> for a Feature. It becomes a split button whose menu offers all three Kinds: "Shape into a Feature Task", "Shape into a Bug
+                Task" and "Shape into a Chore Task".
+              </li>
+              <li>
+                <strong>The bug details show only on a Bug.</strong> Changing the Kind away from Bug keeps them, hidden, so changing it back loses nothing.
+              </li>
+              <li>
+                <strong>A Done card keeps its Kind mark.</strong> <code>work-board.md</code> says a Done card shows no marks beyond its Project's. Kind says what the Task is, not what is
+                happening to it, and definition of done 5 asks for it on each card. So it becomes the one exception.
+              </li>
+              <li>
+                <strong>The Work board gains a second way to add Tasks.</strong> <code>work-board.md</code> says Tasks are made only from Create. Import issues… adds Tasks from GitHub, so it
+                sits on the filter bar, before the Layout group, as well as on the Project page.
+              </li>
+              <li>
+                <strong>The Bug Task Decision is a new form of the Decision card</strong>, as the approval card is. It has editable fields and three actions: Create the Bug Task, Don't create
+                it and Ask me again. Like any Stage Thread's Decision, it can't be dismissed.
+              </li>
+              <li>
+                <strong>The Drop window stays Small (440px).</strong> It now holds an optional reason, so it is a short form rather than a bare confirmation. Medium would make the most
+                common case, a Drop with no reason, look heavy. The Gate's Drop step shows the same reason field in its step over the bar.
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <!-- ================= WORDS ================= -->
+        <section id="words">
+          <p class="overline">Overview</p>
+          <h2>Words</h2>
+          <p class="lead">
+            The glossary has <em>Command kind</em>, a Project command's kind, and the spec speaks of a Stage's kind. Neither is about a Task, so <strong>Task kind</strong> is free. On a Task
+            it shows as <strong>Kind</strong>, with the same word in the code, the API and the database (<code>kind</code>). The card and the Task page always say "Kind" next to a Task's own
+            values, so the word can't be read as a Stage's or a command's kind.
+          </p>
+          <table class="spec">
+            <tr>
+              <th style="width: 190px">Term</th>
+              <th>Glossary entry (proposed)</th>
+              <th style="width: 220px">Avoid</th>
+            </tr>
+            <tr>
+              <td><strong>Task kind</strong></td>
+              <td>What a Task is: <strong>Feature</strong>, new or changed behaviour; <strong>Bug</strong>, something that doesn't work as it should; <strong>Chore</strong>, upkeep such as an update or a clean-up. It shows as "Kind" on a Task. New Tasks are Features. The Tasks The Office adds on its own (Onboard, run environment set-up, Publishing, Conflict resolution) are Chores.</td>
+              <td>Type, Issue type, Category, Issue (as an entity)</td>
+            </tr>
+            <tr>
+              <td><strong>Drop reason</strong></td>
+              <td>Why a Task was Dropped, optional: Won't fix, Duplicate (of another Task), Can't reproduce, or Other (with words).</td>
+              <td>Resolution, Close reason</td>
+            </tr>
+            <tr>
+              <td><strong>Caused by</strong></td>
+              <td>The Task whose change brought a Bug in. The other Task lists it under "Caused bugs".</td>
+              <td>Regression of, Introduced by</td>
+            </tr>
+            <tr>
+              <td><strong>Found in version</strong></td>
+              <td>The release a Bug was seen in: one of the Project's <code>v*</code> tags, or free text.</td>
+              <td>Affected version</td>
+            </tr>
+            <tr>
+              <td><strong>Found while working on</strong></td>
+              <td>The Task whose Agent found a Bug and proposed the Bug Task.</td>
+              <td>Parent, Origin task</td>
+            </tr>
+            <tr>
+              <td><strong>GitHub issue</strong></td>
+              <td>An issue in a Project's GitHub repository. Importing one makes a Task from it, once only, and the Task lists it in its linked records.</td>
+              <td>Ticket, External issue</td>
+            </tr>
+            <tr>
+              <td><strong>Bug Task Decision</strong></td>
+              <td>A Decision an Agent opens with <code>propose_bug_task</code> on its own Task, for a big issue outside its scope. "Create the Bug Task" makes a Bug Task in Backlog from the form as edited. It isn't a Proposal: it waits on the user as a Decision does.</td>
+              <td>Bug report, Bug Task proposal</td>
+            </tr>
+          </table>
+          <table class="spec">
+            <tr>
+              <th style="width: 120px">Kind</th>
+              <th style="width: 110px">Icon (Lucide)</th>
+              <th style="width: 220px">Mark tone</th>
+              <th>Commit type the Planner suggests</th>
+            </tr>
+            <tr>
+              <td><span class="kglyph feature"><svg class="i"><use href="#i-sparkles" /></svg></span> Feature</td>
+              <td><code>sparkles</code></td>
+              <td>muted, <code>--fg-3</code></td>
+              <td><code>feat</code></td>
+            </tr>
+            <tr>
+              <td><span class="kglyph bug"><svg class="i"><use href="#i-bug" /></svg></span> Bug</td>
+              <td><code>bug</code></td>
+              <td><code>--danger-fg</code> on <code>--danger-subtle</code></td>
+              <td><code>fix</code></td>
+            </tr>
+            <tr>
+              <td><span class="kglyph chore"><svg class="i"><use href="#i-wrench" /></svg></span> Chore</td>
+              <td><code>wrench</code></td>
+              <td>muted, <code>--fg-3</code></td>
+              <td><code>chore</code></td>
+            </tr>
+          </table>
+          <p class="caption">
+            Only Bug is coloured, so bugs stand out on a busy board and the other two stay quiet. The marks pair as <code>KIND_ICONS</code> in <code>shell/work/work-words.ts</code>, beside
+            <code>PRIORITY_ICONS</code>. In Pipeline pickers, the badge on a Kind's default reads "Default for Features", "Default for Bugs" or "Default for Chores".
+          </p>
+        </section>
+
+        <!-- ================= WORK BOARD ================= -->
+        <section id="board">
+          <p class="overline">Screen · work-board.md</p>
+          <h2>Work board</h2>
+          <p class="lead">
+            The marks row gains a Kind mark right after the Project mark, on every card. The filter bar gains three Kind chips after the priority chips, and an
+            <strong>Import issues…</strong> button before the Layout group.
+          </p>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Work › Board · Project filter: the-office</div>
+            <div class="frame-body">
+              <div class="board-bar">
+                <span class="search"><svg class="i s14"><use href="#i-search" /></svg>Search Tasks</span>
+                <span class="fchip"><svg class="i s13 prio-high" style="margin: 0"><use href="#i-chevrons-up" /></svg>High</span>
+                <span class="fchip"><svg class="i s13"><use href="#i-equal" /></svg>Normal</span>
+                <span class="fchip"><svg class="i s13"><use href="#i-chevrons-down" /></svg>Low</span>
+                <span class="bar-sep"></span>
+                <span class="fchip"><svg class="i s13"><use href="#i-sparkles" /></svg>Feature</span>
+                <span class="fchip on"><svg class="i s13 kglyph bug"><use href="#i-bug" /></svg>Bug</span>
+                <span class="fchip"><svg class="i s13"><use href="#i-wrench" /></svg>Chore</span>
+                <span class="bar-sep"></span>
+                <span class="select" style="width: 160px; height: 28px"><span class="muted">Any Initiative</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span>
+                <span class="fchip"><svg class="i s13"><use href="#i-lock" /></svg>Blocked</span>
+                <span class="btn ghost sm">Clear</span>
+                <span class="spacer" style="flex: 1"></span>
+                <span class="btn secondary"><svg class="i s14"><use href="#i-github" /></svg>Import issues…</span>
+                <span class="bar-sep"></span>
+                <span class="bar-label">Layout</span>
+                <span style="display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--fg-2)"><span class="switch"></span>Group by Initiative</span>
+              </div>
+              <div class="board-bar">
+                <span class="bar-label">Views</span>
+                <span class="tag"><svg class="i s13"><use href="#i-bookmark" /></svg>Open bugs <svg class="i s13 muted"><use href="#i-x" /></svg></span>
+                <span class="tag"><svg class="i s13"><use href="#i-bookmark" /></svg>High priority <svg class="i s13 muted"><use href="#i-x" /></svg></span>
+                <span class="btn ghost sm"><svg class="i s13"><use href="#i-bookmark" /></svg>Save view…</span>
+              </div>
+              <div class="board">
+                <div>
+                  <div class="col-head">Backlog <span class="n">3</span></div>
+                  <div class="card">
+                    <div class="card-head">
+                      <svg class="i s14 prio-high"><use href="#i-chevrons-up" /></svg>
+                      <span class="card-title">Login fails after a password reset</span>
+                      <span class="icon-btn"><svg class="i s14"><use href="#i-more" /></svg></span>
+                    </div>
+                    <div class="card-marks">
+                      <span class="pmark">TO</span>
+                      <span class="kmark bug" title="Bug"><svg class="i s13"><use href="#i-bug" /></svg></span>
+                      <span class="right icon-btn" title="Plan"><svg class="i s14"><use href="#i-map" /></svg></span>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <div class="card-head">
+                      <span class="card-title">Stage history scrolls past its last run</span>
+                      <span class="icon-btn"><svg class="i s14"><use href="#i-more" /></svg></span>
+                    </div>
+                    <div class="card-marks">
+                      <span class="pmark">TO</span>
+                      <span class="kmark bug"><svg class="i s13"><use href="#i-bug" /></svg></span>
+                      <span class="mark-warning" style="display: inline-flex; gap: 3px"><svg class="i s13"><use href="#i-lock" /></svg>1</span>
+                      <span class="right icon-btn" title="Plan"><svg class="i s14"><use href="#i-map" /></svg></span>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <div class="card-head">
+                      <svg class="i s14 prio-low"><use href="#i-chevrons-down" /></svg>
+                      <span class="card-title">Bump Playwright to 1.58</span>
+                      <span class="icon-btn"><svg class="i s14"><use href="#i-more" /></svg></span>
+                    </div>
+                    <div class="card-marks">
+                      <span class="pmark">TO</span>
+                      <span class="kmark chore"><svg class="i s13"><use href="#i-wrench" /></svg></span>
+                      <span class="right icon-btn" title="Plan"><svg class="i s14"><use href="#i-map" /></svg></span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="col-head">Planning <span class="n">1</span></div>
+                  <div class="card">
+                    <div class="card-head">
+                      <span class="card-title">Saved views keep the Kind filter</span>
+                      <span class="icon-btn"><svg class="i s14"><use href="#i-more" /></svg></span>
+                    </div>
+                    <div class="card-marks">
+                      <span class="pmark">TO</span>
+                      <span class="kmark feature"><svg class="i s13"><use href="#i-sparkles" /></svg></span>
+                      <svg class="i s13"><use href="#i-map" /></svg>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="col-head">Ready <span class="n">1</span></div>
+                  <div class="card">
+                    <div class="card-head">
+                      <span class="card-title">Drop window takes a reason</span>
+                      <span class="icon-btn"><svg class="i s14"><use href="#i-more" /></svg></span>
+                    </div>
+                    <div class="card-marks">
+                      <span class="pmark">TO</span>
+                      <span class="kmark feature"><svg class="i s13"><use href="#i-sparkles" /></svg></span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="col-head">In progress <span class="n">1</span></div>
+                  <div class="card edge-decision">
+                    <div class="card-head">
+                      <span class="card-title">Import issues window</span>
+                      <span class="icon-btn"><svg class="i s14"><use href="#i-more" /></svg></span>
+                    </div>
+                    <div class="card-marks">
+                      <span class="pmark">TO</span>
+                      <span class="kmark feature"><svg class="i s13"><use href="#i-sparkles" /></svg></span>
+                      <span class="mark-warning"><svg class="i s13"><use href="#i-hand" /></svg></span>
+                      <span class="right avatars"><span class="av" style="background: var(--violet-500)">ST</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="caption">The Bug chip is on, the way the board looks with the "Open bugs" Saved view. The real board narrows to the Bug cards; this frame shows all three Kinds side by side.</p>
+          <div class="cols">
+            <div class="note">
+              <strong>Kind mark</strong>
+              <ul>
+                <li>A <code>PlainMark</code> after the <code>ProjectMark</code>, 13px icon in a 20px box. Its tooltip names the Kind: "Bug", "Feature" or "Chore".</li>
+                <li>Every card has one, Done cards included (definition of done 5; see the points to check). Feature and Chore are muted, so only bugs draw the eye.</li>
+                <li>The mark is the same on Initiative blocks and group cards, as it is part of <code>BoardCard</code>.</li>
+              </ul>
+            </div>
+            <div class="note">
+              <strong>Kind filter</strong>
+              <ul>
+                <li>Three <code>FilterChip</code>s, as the priority chips are, one value at a time. Pressing the pressed one clears it.</li>
+                <li>The address key is <code>kind</code>; <code>boardFiltersSchema</code> gains an optional <code>kind</code>, which Saved views keep.</li>
+                <li>Clear clears it too. A Saved view saved before Kinds existed has no <code>kind</code> and parses as it did.</li>
+                <li>Board search and the top bar's search match a Kind's word, so "bug" finds Bug Tasks.</li>
+              </ul>
+            </div>
+            <div class="note">
+              <strong>Import issues…</strong>
+              <ul>
+                <li>A secondary button with the <code>github</code> icon, at the bar's right end before the Layout group. It opens the <a href="#import">Import issues</a> window in the Project the filter shows.</li>
+                <li>With no Project filter, the window opens on the first Project on GitHub. Its Project picker, at the top of the body, changes it.</li>
+                <li>It doesn't show when no Project's repository is on GitHub.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= NEW TASK ================= -->
+        <section id="new-task">
+          <p class="overline">Screen · shell (Create) · new-task-dialog.tsx</p>
+          <h2>New Task</h2>
+          <p class="lead">
+            A <strong>Kind</strong> row with a <code>SegmentedControl</code> goes between the title and the Description, because the Kind decides what the Description starts as. Feature is picked
+            first. Only the Task side of Create has it; an Idea has no Kind.
+          </p>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Create › Task · medium window, 720px</div>
+            <div class="frame-body overlay">
+              <div class="dlg medium">
+                <div class="dlg-head">
+                  <span class="title">New Task</span>
+                  <span class="icon-btn"><svg class="i"><use href="#i-x" /></svg></span>
+                </div>
+                <div class="dlg-body">
+                  <div class="field">
+                    <div>
+                      <span class="seg"><span class="on">Task</span><span>Idea</span></span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Title</label>
+                    <div class="input">Login fails after a password reset</div>
+                  </div>
+                  <div class="field">
+                    <span class="label">Kind</span>
+                    <div>
+                      <span class="seg">
+                        <span><svg class="i s14"><use href="#i-sparkles" /></svg>Feature</span>
+                        <span class="on"><svg class="i s14 kglyph bug"><use href="#i-bug" /></svg>Bug</span>
+                        <span><svg class="i s14"><use href="#i-wrench" /></svg>Chore</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>Description <span class="optional">· optional</span></label>
+                    <div class="textarea">**Steps to reproduce**
+1. Reset the password from the sign-in page
+2. Sign in with the new password
+
+**Expected**
+Signed in, on Now.
+
+**Actual**
+"That password doesn't match" until the page is reloaded.</div>
+                    <span class="hint">Choosing Bug filled in this outline because the Description was empty. Edit it freely.</span>
+                  </div>
+                  <div class="field">
+                    <span class="label">Attachments <span class="optional">· optional</span></span>
+                    <div><span class="btn secondary sm"><svg class="i s13"><use href="#i-plus" /></svg>Add a file or link</span></div>
+                  </div>
+                  <div class="field">
+                    <span class="label">Project</span>
+                    <div style="display: flex; gap: 8px">
+                      <span class="tag" style="border-color: var(--accent); background: var(--surface-selected); color: var(--fg-1)"><span class="pmark" style="width: 14px; height: 14px; font-size: 7px">TO</span>the-office</span>
+                      <span class="tag"><span class="pmark" style="width: 14px; height: 14px; font-size: 7px; background: var(--teal-500)">NA</span>not-astray</span>
+                      <span class="tag"><span class="pmark" style="width: 14px; height: 14px; font-size: 7px; background: var(--blue-500)">NS</span>notnullsoft</span>
+                    </div>
+                  </div>
+                  <div class="field" style="margin-bottom: 0">
+                    <span class="label">Tags <span class="optional">· optional</span></span>
+                    <div class="input"><span class="ph">Words to find it by, such as its area</span></div>
+                  </div>
+                </div>
+                <div class="dlg-bar">
+                  <span class="btn primary">Add the Task</span>
+                  <span class="hint">It starts in Backlog.</span>
+                  <span class="grow"></span>
+                  <span class="btn secondary">Close</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="cols">
+            <div class="note">
+              <strong>The Bug outline (web only)</strong>
+              <ul>
+                <li>Choosing Bug while the Description is empty fills in the outline below. The cursor goes to the end of "1. ".</li>
+                <li>Leaving Bug while the Description still equals the untouched outline empties it again. Once edited, it stays.</li>
+                <li>A Description that already has words is never touched.</li>
+                <li>The outline is one constant, <code>BUG_DESCRIPTION_OUTLINE</code>, in <code>shell/work/</code>. The service never sees it as anything but a Description.</li>
+              </ul>
+<pre>**Steps to reproduce**
+1.
+
+**Expected**
+
+
+**Actual**
+</pre>
+            </div>
+            <div class="note">
+              <strong>Details</strong>
+              <ul>
+                <li>The draft keeps <code>kind</code> as it keeps the title, so "Close without saving?" counts a changed Kind as unsaved input.</li>
+                <li>"Add a Task to &lt;Initiative&gt;" has the same row.</li>
+                <li>The Tags hint drops "or kind" and now reads "Optional. Words to find it by, such as its area.", since Kind has its own field.</li>
+                <li><code>POST /tasks</code> sends <code>kind</code>. An older client that leaves it out gets a Feature.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= SHAPE ================= -->
+        <section id="shape">
+          <p class="overline">Screen · ideas.md</p>
+          <h2>Shape into a Task</h2>
+          <p class="lead">One click still shapes a Feature. A split arrow offers a Bug or a Chore. An Office-wide Idea's "Which Project is the Task in?" window gains the same Kind row as New Task.</p>
+          <div class="cols">
+            <div class="frame">
+              <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Work › Ideas · an Idea's actions</div>
+              <div class="frame-body" style="min-height: 300px">
+                <div class="card" style="max-width: 440px">
+                  <div class="card-head">
+                    <svg class="i s14 muted" style="margin-top: 3px"><use href="#i-lightbulb" /></svg>
+                    <span class="card-title">Stage history window scrolls past the last run on short screens</span>
+                  </div>
+                  <p style="margin: 6px 0 12px; font-size: var(--text-sm); color: var(--fg-2)">Seen on the laptop: the list keeps going after the last run.</p>
+                  <div style="display: flex; gap: 8px; position: relative">
+                    <span style="display: inline-flex">
+                      <span class="btn secondary split"><svg class="i s14"><use href="#i-list-checks" /></svg>Shape into a Task</span>
+                      <span class="btn secondary split-arrow"><svg class="i s14"><use href="#i-chevron-down" /></svg></span>
+                    </span>
+                    <span class="btn ghost">Edit</span>
+                    <div class="menu" style="position: absolute; top: 34px; left: 0; width: 240px">
+                      <div class="it"><svg class="i s14"><use href="#i-sparkles" /></svg>Shape into a Feature Task</div>
+                      <div class="it hover"><svg class="i s14 kglyph bug"><use href="#i-bug" /></svg>Shape into a Bug Task</div>
+                      <div class="it"><svg class="i s14"><use href="#i-wrench" /></svg>Shape into a Chore Task</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="note">
+              <strong>Rules</strong>
+              <ul>
+                <li><code>SplitButton</code> from <code>packages/ui</code>. The main part keeps its words and shapes a Feature, as today.</li>
+                <li>Shaping as a Bug an Idea with no notes gives the Task the Bug outline as its Description. The web sends it as <code>description</code>, so the service still doesn't know the outline.</li>
+                <li>An Idea with notes keeps its notes as the Description, whatever the Kind.</li>
+                <li>The shape request (<code>ideaShapeSchema</code>) gains optional <code>kind</code> and <code>description</code>, so older clients still parse.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TASK PAGE ================= -->
+        <section id="task-page">
+          <p class="overline">Screen · task-page.md</p>
+          <h2>Task page</h2>
+          <p class="lead">
+            The head's meta line names the Kind first. The More menu gains a <strong>Kind</strong> group under Priority. The Description fold's linked records gain a <strong>Bug</strong> section and,
+            for an imported Task, a <strong>GitHub issue</strong> section.
+          </p>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Task page · head and Description fold (Backlog, imported from GitHub)</div>
+            <div class="frame-body">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 20px; align-items: start">
+                <div>
+                  <div class="task-head">
+                    <div class="crumb pchip"><span class="pmark">TO</span>the-office</div>
+                    <div class="row">
+                      <h3>Login fails after a password reset</h3>
+                      <span class="icon-btn"><svg class="i s14"><use href="#i-pencil" /></svg></span>
+                      <span class="badge">Backlog</span>
+                    </div>
+                    <div class="meta">
+                      <span class="it kglyph bug"><svg class="i s14"><use href="#i-bug" /></svg>Bug</span>
+                      <span class="it"><svg class="i s14 prio-high" style="margin: 0"><use href="#i-chevrons-up" /></svg>High priority</span>
+                      <span class="it"><svg class="i s14"><use href="#i-route" /></svg>Pipeline Not chosen yet</span>
+                      <span class="tag">sign-in</span>
+                    </div>
+                  </div>
+                  <div class="fold">
+                    <div class="fold-head"><svg class="i s14 muted"><use href="#i-file-text" /></svg>Description <span class="sum">· from GitHub issue #412</span></div>
+                    <div class="fold-body">
+                      <p><strong>Steps to reproduce</strong><br />1. Reset the password from the sign-in page<br />2. Sign in with the new password</p>
+                      <p><strong>Expected</strong><br />Signed in, on Now.</p>
+                      <p><strong>Actual</strong><br />"That password doesn't match" until the page is reloaded.</p>
+
+                      <div class="rsec">
+                        <div class="rsec-title"><svg class="i s13"><use href="#i-bug" /></svg>Bug</div>
+                        <div class="rrow">
+                          <span class="k">Caused by</span>
+                          <span><span class="tchip"><span class="kglyph feature"><svg class="i s13"><use href="#i-sparkles" /></svg></span>Passkeys on the sign-in page <span class="st">Done</span></span></span>
+                          <span class="acts"><span class="btn ghost sm">Change</span><span class="btn ghost sm">Remove</span></span>
+                        </div>
+                        <div class="rrow">
+                          <span class="k">Found in version</span>
+                          <span><span class="badge" style="font-family: var(--font-mono)">v1.14.2</span></span>
+                          <span class="acts"><span class="btn ghost sm">Change</span><span class="btn ghost sm">Remove</span></span>
+                        </div>
+                        <div class="rrow">
+                          <span class="k">Found while working on</span>
+                          <span class="muted">Not found by an Agent</span>
+                          <span></span>
+                        </div>
+                      </div>
+
+                      <div class="rsec">
+                        <div class="rsec-title"><svg class="i s13"><use href="#i-github" /></svg>GitHub issue</div>
+                        <div class="rrow" style="grid-template-columns: minmax(0, 1fr) auto">
+                          <span style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+                            <svg class="i s14" style="color: var(--success)"><use href="#i-circle-dot" /></svg>
+                            <a href="#import">#412 Login fails after a password reset</a>
+                            <span class="muted">opened by</span>
+                            <span class="av" style="background: var(--blue-500); border: 0; width: 18px; height: 18px">OC</span>
+                            <span>octocat</span>
+                            <span class="muted">· imported by Przemysław, 2 days ago</span>
+                          </span>
+                          <span></span>
+                        </div>
+                        <div class="alert" style="margin-top: 8px">
+                          <span class="ico"><svg class="i"><use href="#i-circle-check" /></svg></span>
+                          <div>
+                            <div class="t">Closed on GitHub, 3 hours ago</div>
+                            <p>The issue was closed before this Task started. Nothing changes here: check whether the Task is still needed, or drop it.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="rsec">
+                        <div class="rsec-title">Dependencies</div>
+                        <div class="rrow">
+                          <span class="muted" style="grid-column: 1 / 3">It waits for no Task, and none waits for it.</span>
+                          <span class="acts"><span class="btn ghost sm">Add</span></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div style="display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px">
+                    <span class="btn secondary sm">Plan with Morgan</span><span class="btn secondary sm" style="padding: 0 6px" title="More for Login fails after a password reset"><svg class="i s14"><use href="#i-more" /></svg></span>
+                  </div>
+                  <div class="menu">
+                    <div class="it">Plan with Morgan</div>
+                    <hr />
+                    <div class="h">Priority</div>
+                    <div class="it"><svg class="i s14 prio-high" style="margin: 0"><use href="#i-chevrons-up" /></svg>High<span class="r"><svg class="i s14"><use href="#i-check" /></svg></span></div>
+                    <div class="it"><svg class="i s14"><use href="#i-equal" /></svg>Normal</div>
+                    <div class="it"><svg class="i s14"><use href="#i-chevrons-down" /></svg>Low</div>
+                    <hr />
+                    <div class="h">Kind</div>
+                    <div class="it"><svg class="i s14"><use href="#i-sparkles" /></svg>Feature</div>
+                    <div class="it hover"><svg class="i s14 kglyph bug"><use href="#i-bug" /></svg>Bug<span class="r"><svg class="i s14"><use href="#i-check" /></svg></span></div>
+                    <div class="it"><svg class="i s14"><use href="#i-wrench" /></svg>Chore</div>
+                    <hr />
+                    <div class="it">Edit Stages for this Task</div>
+                    <div class="it">Move to another Project…</div>
+                    <hr />
+                    <div class="it danger">Drop…</div>
+                  </div>
+                  <p class="caption" style="margin-top: 8px">
+                    The More menu. The Kind group follows Priority. Unlike Priority, it shows in any state until Done or Dropped, and choosing one toasts "&lt;title&gt; is now a Bug." The Task
+                    stays where it is.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3>Changing the bug details</h3>
+          <div class="cols">
+            <div class="frame" style="margin-top: 0">
+              <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Found in version · Change</div>
+              <div class="frame-body" style="min-height: 290px">
+                <div class="input focus" style="max-width: 320px">v1.14<span class="muted" style="margin-left: auto"><svg class="i s13"><use href="#i-chevron-down" /></svg></span></div>
+                <div class="menu" style="max-width: 320px; margin-top: 4px">
+                  <div class="h">This Project's release tags</div>
+                  <div class="it hover"><span class="mono">v1.14.2</span><span class="r sub">newest</span></div>
+                  <div class="it"><span class="mono">v1.14.1</span></div>
+                  <div class="it"><span class="mono">v1.14.0</span></div>
+                  <hr />
+                  <div class="it"><svg class="i s14 muted"><use href="#i-plus" /></svg>Use "v1.14"</div>
+                </div>
+              </div>
+            </div>
+            <div class="note">
+              <strong>Found in version</strong>
+              <ul>
+                <li><code>SearchableSelect</code> over the Project's tags matching <code>v*</code>, newest first, from the existing <code>GET /projects/:id/refs</code>.</li>
+                <li>The last row, <em>Use "…"</em>, takes the typed words as free text, up to 64 characters. This needs <code>SearchableSelect</code> to gain an <code>ownValue</code> option in <code>packages/ui</code>, so no lookalike combobox is drawn in the surface.</li>
+                <li>With no repository on a code host, or none reachable, the list is empty and only free text is offered.</li>
+              </ul>
+              <strong>Caused by</strong>
+              <ul>
+                <li>"Add what caused it" opens the same Task picker as Dependencies' Add, but it lists Done and archived Tasks too, since a Bug's cause is usually Done. It never offers this Task.</li>
+                <li>The other Task lists this one under <strong>Caused bugs</strong> in its linked records.</li>
+              </ul>
+              <strong>When they show</strong>
+              <ul>
+                <li>The Bug section shows only on a Bug. Once Done or Dropped, it is read-only and hides empty rows.</li>
+                <li>"Found while working on" is set only when a Bug Task Decision creates the Task, and can't be changed.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>GitHub issue linked record</h3>
+          <div class="note prose">
+            <ul>
+              <li>Shown only for a Task made from an issue. projects serves it (<code>GET /issue-links?taskId=</code>), and the web asks for it with the Task's record.</li>
+              <li>The row shows the issue's state icon (open in <code>--success</code>, closed in <code>--fg-3</code>), "#n title" linking to GitHub, its author, and who imported it and when.</li>
+              <li><strong>Closed on GitHub</strong> shows as an Alert while the Task hasn't started (definition of done 13). Once the Task has started, it is a muted line instead, "Closed on GitHub, 3 hours ago", since closing is then expected.</li>
+              <li>When GitHub refused a write-back, a muted line says so, for example "Couldn't comment on GitHub: the App lacks the Issues permission. Trying again every 5 minutes." The line goes when the write-back succeeds or after 24 hours.</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================= DROP ================= -->
+        <section id="drop">
+          <p class="overline">Screens · drop-task-dialog.tsx · gate-window.tsx · archived.md</p>
+          <h2>Drop and Archived</h2>
+          <p class="lead">
+            The Drop window gains an optional <strong>Reason</strong>. The Gate's Drop step uses the same field, so a Task dropped at a Gate can say why as well.
+          </p>
+          <div class="cols">
+            <div class="frame" style="margin-top: 0">
+              <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Drop · small window, 440px</div>
+              <div class="frame-body overlay">
+                <div class="dlg small">
+                  <div class="dlg-head">
+                    <span class="title">Drop "Login fails after a password reset"?</span>
+                    <span class="icon-btn"><svg class="i"><use href="#i-x" /></svg></span>
+                  </div>
+                  <div class="dlg-body">
+                    <p style="margin: 0 0 14px; font-size: var(--text-sm); color: var(--fg-2)">It moves to Done as dropped and stays readable there; a dropped Task can't be picked up again.</p>
+                    <div class="field">
+                      <span class="label">Reason <span class="optional">· optional</span></span>
+                      <div style="display: grid; gap: 8px; font-size: var(--text-sm)">
+                        <span style="display: flex; gap: 8px; align-items: center"><span class="radio"></span>Won't fix</span>
+                        <span style="display: flex; gap: 8px; align-items: center"><span class="radio on"></span>Duplicate</span>
+                        <div style="margin-left: 24px">
+                          <div class="select focus" style="height: 32px">
+                            <span style="display: inline-flex; align-items: center; gap: 6px"><span class="kglyph bug"><svg class="i s13"><use href="#i-bug" /></svg></span>Password reset leaves an old session</span>
+                            <svg class="i s13 chev"><use href="#i-chevron-down" /></svg>
+                          </div>
+                          <span class="hint" style="font-size: var(--text-xs); color: var(--fg-3)">The Task this one duplicates. Required for Duplicate.</span>
+                        </div>
+                        <span style="display: flex; gap: 8px; align-items: center"><span class="radio"></span>Can't reproduce</span>
+                        <span style="display: flex; gap: 8px; align-items: center"><span class="radio"></span>Other</span>
+                      </div>
+                    </div>
+                    <div class="alert neutral" style="margin-top: 4px">
+                      <span class="ico"><svg class="i"><use href="#i-github" /></svg></span>
+                      <div><p style="margin: 0">GitHub issue #412 will be closed with this reason, as the-office closes issues of dropped Tasks.</p></div>
+                    </div>
+                  </div>
+                  <div class="dlg-bar">
+                    <span class="btn danger">Drop the Task</span>
+                    <span class="grow"></span>
+                    <span class="btn secondary">Close</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="note">
+              <strong>Rules</strong>
+              <ul>
+                <li><code>RadioList</code> with nothing picked at first, since the reason is optional. Pressing a picked one again clears it.</li>
+                <li><strong>Duplicate</strong> shows a Task <code>SearchableSelect</code> beneath it. It lists every Task but this one, in any Project, including Done, Dropped and archived Tasks. Drop the Task stays disabled until one is picked, and its hover says "Pick the Task it duplicates".</li>
+                <li><strong>Other</strong> shows a <code>Textarea</code> of three rows, required, up to 500 characters.</li>
+                <li>The GitHub line shows only when the Task has an issue link and the Project's "Close with the drop reason" switch is on.</li>
+                <li>Picking a reason is unsaved input, so closing asks first, as with any window.</li>
+                <li><code>POST /tasks/:id/drop</code> takes an optional body, <code>{ reason }</code>. Dropping an Initiative drops its open Tasks with no reason.</li>
+                <li>The Gate's Drop step, over its bar, holds the same words and the same <code>DropReasonField</code>, then <strong>Drop the Task</strong> and <strong>Cancel</strong>. The step grows upwards, as Send back's notes do.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>Dropped Task page</h3>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Task page · Dropped</div>
+            <div class="frame-body">
+              <div class="task-head">
+                <div class="crumb pchip"><span class="pmark">TO</span>the-office</div>
+                <div class="row">
+                  <h3>Login fails after a password reset</h3>
+                  <span class="badge"><svg class="i s13"><use href="#i-circle-x" /></svg>Dropped</span>
+                </div>
+                <div class="meta">
+                  <span class="it kglyph bug"><svg class="i s14"><use href="#i-bug" /></svg>Bug</span>
+                  <span class="it"><svg class="i s14 prio-high" style="margin: 0"><use href="#i-chevrons-up" /></svg>High priority</span>
+                </div>
+              </div>
+              <div class="dropnote">
+                <span class="ico"><svg class="i"><use href="#i-circle-x" /></svg></span>
+                <div>
+                  <strong>Dropped as a duplicate of</strong>
+                  <span class="tchip" style="margin: 0 4px"><span class="kglyph bug"><svg class="i s13"><use href="#i-bug" /></svg></span>Password reset leaves an old session <span class="st">In progress</span></span>
+                  <span class="muted">by Przemysław, 2 hours ago</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="caption">
+            The note sits under the head, above the record. It reads "Dropped: won't fix", "Dropped: can't reproduce", "Dropped: &lt;Other's words&gt;" or "Dropped as a duplicate of &lt;Task&gt;". A Task dropped with no reason has no note: the badge and its state changes say it all. The duplicated Task lists this one under
+            <strong>Duplicates</strong> in its linked records.
+          </p>
+
+          <h3>Archived tab</h3>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Work › Archived › Tasks</div>
+            <div class="frame-body">
+              <table class="data">
+                <tr>
+                  <th>Task</th>
+                  <th style="width: 150px">Project</th>
+                  <th style="width: 260px">State</th>
+                  <th style="width: 120px">Archived</th>
+                  <th style="width: 90px"></th>
+                </tr>
+                <tr>
+                  <td><span style="display: inline-flex; gap: 8px; align-items: center"><span class="kmark bug"><svg class="i s13"><use href="#i-bug" /></svg></span><a href="#task-page">Login fails after a password reset</a></span></td>
+                  <td><span class="pchip"><span class="pmark">TO</span>the-office</span></td>
+                  <td>
+                    <div class="state-cell"><span class="badge">Dropped</span><span class="why">Duplicate of <a href="#task-page">Password reset leaves an old session</a></span></div>
+                  </td>
+                  <td class="muted">Nov 18</td>
+                  <td><span class="btn ghost sm">Restore</span></td>
+                </tr>
+                <tr>
+                  <td><span style="display: inline-flex; gap: 8px; align-items: center"><span class="kmark bug"><svg class="i s13"><use href="#i-bug" /></svg></span><a href="#task-page">Usage window resets an hour late in winter</a></span></td>
+                  <td><span class="pchip"><span class="pmark">TO</span>the-office</span></td>
+                  <td>
+                    <div class="state-cell"><span class="badge">Dropped</span><span class="why">Can't reproduce</span></div>
+                  </td>
+                  <td class="muted">Nov 12</td>
+                  <td><span class="btn ghost sm">Restore</span></td>
+                </tr>
+                <tr>
+                  <td><span style="display: inline-flex; gap: 8px; align-items: center"><span class="kmark feature"><svg class="i s13"><use href="#i-sparkles" /></svg></span><a href="#task-page">Stats page shows cost per Role</a></span></td>
+                  <td><span class="pchip"><span class="pmark">TO</span>the-office</span></td>
+                  <td><div class="state-cell"><span class="badge success">Done</span></div></td>
+                  <td class="muted">Nov 02</td>
+                  <td><span class="btn ghost sm">Restore</span></td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          <p class="caption">The Task column gains the Kind mark. The State cell adds the Drop reason under the Dropped badge in <code>--fg-2</code>, so the table needs no new column that would stay empty for Done Tasks.</p>
+        </section>
+
+        <!-- ================= PROJECT PAGE ================= -->
+        <section id="project-page">
+          <p class="overline">Screen · project-page.md</p>
+          <h2>Project page</h2>
+          <p class="lead">
+            The Pipelines section's <strong>Default Pipeline</strong> block gains a row per Kind. A new section, <strong>GitHub issues</strong>, goes after Pipelines in the section menu. It holds
+            Import issues, auto-import and the three write-back switches.
+          </p>
+          <div class="cols">
+            <div>
+              <div class="frame" style="margin-top: 0">
+                <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>the-office › Pipelines › Default Pipeline</div>
+                <div class="frame-body">
+                  <div class="pblock" style="margin: 0">
+                    <div class="pblock-head"><svg class="i s14 muted"><use href="#i-route" /></svg><span class="grow">Default Pipeline</span></div>
+                    <div class="pblock-body">
+                      <div class="prow">
+                        <div>
+                          <div class="k">Every Task</div>
+                          <div class="d">What the Planner proposes first, unless the Task's Kind has its own below.</div>
+                        </div>
+                        <div class="v"><span class="select" style="width: 100%"><span>Design and implement</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span></div>
+                      </div>
+                      <div class="group-label">By Kind</div>
+                      <div class="prow">
+                        <div class="k" style="display: flex; gap: 6px; align-items: center"><svg class="i s14 muted"><use href="#i-sparkles" /></svg>Features</div>
+                        <div class="v"><span class="select" style="width: 100%"><span class="muted">Same as every Task</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span></div>
+                      </div>
+                      <div class="prow">
+                        <div class="k" style="display: flex; gap: 6px; align-items: center"><svg class="i s14 kglyph bug"><use href="#i-bug" /></svg>Bugs</div>
+                        <div class="v"><span class="select" style="width: 100%"><span>Quick fix</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span></div>
+                      </div>
+                      <div class="prow">
+                        <div class="k" style="display: flex; gap: 6px; align-items: center"><svg class="i s14 muted"><use href="#i-wrench" /></svg>Chores</div>
+                        <div class="v"><span class="select" style="width: 100%"><span class="muted">Same as every Task</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="note" style="margin-top: 12px">
+                <ul style="margin: 0">
+                  <li>Each Kind row is the shell's <code>PipelinePicker</code>, with <em>Same as every Task</em> at the top, which stores null.</li>
+                  <li>Each change saves at once, as the default does, through <code>PUT /projects/:id/kind-default-pipeline</code>.</li>
+                  <li>A Task's picker on the rail lists its Kind's default first, marked <span class="badge" style="height: 18px">Default for Bugs</span>. When the Kind has none, it lists the Project's default first, marked <span class="badge" style="height: 18px">Project default</span>, as today.</li>
+                  <li>Removing a Pipeline that a Kind's row names is refused, as it is for the default, and the refusal names the row.</li>
+                </ul>
+              </div>
+            </div>
+            <div>
+              <div class="frame" style="margin-top: 0">
+                <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>the-office › GitHub issues</div>
+                <div class="frame-body">
+                  <div class="pblock" style="margin: 0">
+                    <div class="pblock-head">
+                      <svg class="i s14 muted"><use href="#i-circle-dot" /></svg><span class="grow">GitHub issues</span>
+                      <span class="btn secondary sm"><svg class="i s13"><use href="#i-github" /></svg>Import issues…</span>
+                    </div>
+                    <div class="pblock-body">
+                      <div class="prow">
+                        <div>
+                          <div class="k">Repository</div>
+                          <div class="d">ptelazka/the-office · 24 open issues, 9 imported</div>
+                        </div>
+                        <div class="v"><span class="muted" style="font-size: var(--text-xs)">Signed in with GitHub</span></div>
+                      </div>
+                      <div class="prow">
+                        <div>
+                          <div class="k">Auto-import issues with a label</div>
+                          <div class="d">Open issues with this label become Tasks in Backlog. Checked every 5 minutes while The Office is signed in with GitHub.</div>
+                        </div>
+                        <div class="v">
+                          <span class="input" style="width: 140px"><svg class="i s13 muted"><use href="#i-tag" /></svg>office</span>
+                          <span class="switch on"></span>
+                        </div>
+                      </div>
+                      <div class="group-label">Write back to GitHub</div>
+                      <div class="prow">
+                        <div>
+                          <div class="k">Close the issue when the Task is Done</div>
+                          <div class="d">Puts "Fixes #n" in the commit message and the pull request. GitHub closes the issue when the change reaches the default branch.</div>
+                        </div>
+                        <div class="v"><span class="switch on"></span></div>
+                      </div>
+                      <div class="prow">
+                        <div>
+                          <div class="k">Comment when the Task starts and when it is Done</div>
+                          <div class="d">The Done comment links the pull request, or names the commit when publishing merges.</div>
+                        </div>
+                        <div class="v"><span class="switch"></span></div>
+                      </div>
+                      <div class="prow">
+                        <div>
+                          <div class="k">Close the issue when the Task is Dropped</div>
+                          <div class="d">Closes it as not planned, with a comment giving the Drop reason.</div>
+                        </div>
+                        <div class="v"><span class="switch"></span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="note" style="margin-top: 12px">
+                <ul style="margin: 0">
+                  <li>The label is an <code>Input</code> with a <code>Switch</code>. Turning the switch on with an empty label asks for one ("Name the label first"). Turning it off keeps the label for next time and stores null.</li>
+                  <li>When the Project's repository isn't on GitHub, the block shows an <code>EmptyState</code>: "GitHub issues need a repository on GitHub. This Project's is at &lt;host&gt;."</li>
+                  <li>Not signed in: "Sign in with GitHub in Settings › Office identity to import issues.", with a link there. The switches can still be set.</li>
+                  <li>When the App lacks the Issues permission, the <a href="#permissions">permissions prompt</a> shows at the block's top.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= IMPORT ================= -->
+        <section id="import">
+          <p class="overline">New window · surfaces/projects/issues/import-issues-dialog.tsx</p>
+          <h2>Import issues</h2>
+          <p class="lead">
+            A medium window, 720px wide, that keeps a 640px height while the list changes. It lists the repository's open issues not yet imported, newest first. Pull requests are left out, though
+            GitHub's issues API returns them too.
+          </p>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Import issues · medium window, fixed height</div>
+            <div class="frame-body overlay">
+              <div class="dlg medium" style="height: 640px">
+                <div class="dlg-head">
+                  <span class="title">Import issues</span>
+                  <span class="icon-btn"><svg class="i"><use href="#i-x" /></svg></span>
+                </div>
+                <div class="dlg-body" style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px">
+                  <div style="display: flex; gap: 8px; align-items: center">
+                    <span class="select" style="width: 200px"><span class="pchip"><span class="pmark">TO</span>the-office</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span>
+                    <span class="search" style="flex: 1; width: auto"><svg class="i s14"><use href="#i-search" /></svg>Search by title, number, label or author</span>
+                  </div>
+                  <div class="list" style="flex: 1; overflow: auto">
+                    <div class="list-head">
+                      <span class="check some"></span>
+                      <span>15 open issues not yet imported · <strong style="color: var(--fg-1)">3 picked</strong></span>
+                      <span style="margin-left: auto">ptelazka/the-office</span>
+                    </div>
+                    <div class="lrow picked">
+                      <span class="check on"><svg class="i"><use href="#i-check" /></svg></span>
+                      <span class="num">#418</span>
+                      <div>
+                        <div class="t">Live view freezes after the laptop wakes up</div>
+                        <div class="m"><span class="ghlabel bug">bug</span><span class="ghlabel">live-view</span><span>· opened by octocat, 2 hours ago</span></div>
+                      </div>
+                      <span class="kind kglyph bug"><svg class="i s13"><use href="#i-bug" /></svg>Bug</span>
+                    </div>
+                    <div class="lrow picked">
+                      <span class="check on"><svg class="i"><use href="#i-check" /></svg></span>
+                      <span class="num">#415</span>
+                      <div>
+                        <div class="t">Export Stats as CSV</div>
+                        <div class="m"><span class="ghlabel">enhancement</span><span>· opened by hubot, yesterday</span></div>
+                      </div>
+                      <span class="kind"><svg class="i s13"><use href="#i-sparkles" /></svg>Feature</span>
+                    </div>
+                    <div class="lrow picked">
+                      <span class="check on"><svg class="i"><use href="#i-check" /></svg></span>
+                      <span class="num">#412</span>
+                      <div>
+                        <div class="t">Login fails after a password reset</div>
+                        <div class="m"><span class="ghlabel bug">bug</span><span>· opened by octocat, 2 days ago</span></div>
+                      </div>
+                      <span class="kind kglyph bug"><svg class="i s13"><use href="#i-bug" /></svg>Bug</span>
+                    </div>
+                    <div class="lrow">
+                      <span class="check"></span>
+                      <span class="num">#409</span>
+                      <div>
+                        <div class="t">Typo on the sign-in page: "pasword"</div>
+                        <div class="m"><span class="ghlabel bug">bug</span><span class="ghlabel">good first issue</span><span>· opened by mona, 4 days ago</span></div>
+                      </div>
+                      <span class="kind kglyph bug"><svg class="i s13"><use href="#i-bug" /></svg>Bug</span>
+                    </div>
+                    <div class="lrow">
+                      <span class="check"></span>
+                      <span class="num">#401</span>
+                      <div>
+                        <div class="t">Dark palette for the Live view's night</div>
+                        <div class="m"><span>opened by mona, Nov 9</span></div>
+                      </div>
+                      <span class="kind"><svg class="i s13"><use href="#i-sparkles" /></svg>Feature</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="dlg-bar">
+                  <span class="btn primary">Import 3 issues</span>
+                  <span class="hint">Each becomes a Task in Backlog with Normal priority.</span>
+                  <span class="grow"></span>
+                  <span class="btn secondary">Close</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="cols">
+            <div class="note">
+              <strong>The list</strong>
+              <ul>
+                <li>A row is one press target that toggles its <code>Checkbox</code>. The head's checkbox picks or unpicks every row shown, up to 50.</li>
+                <li>At most 50 are imported at a time. Once 50 are picked, the other rows' checkboxes are disabled, and their hover says "Import these 50 first: at most 50 at a time."</li>
+                <li>The Project picker at the body's top lists only Projects whose repository is on GitHub. It starts on the Project the Work board's filter or the Project page shows.</li>
+                <li>The right end previews the Kind the Task will get: Bug when the issue has a <code>bug</code> label (case-insensitive), else Feature. The Kind can be changed on the Task afterwards.</li>
+                <li>Search filters what is already loaded and doesn't count as unsaved input. Picked rows do count.</li>
+                <li>The list loads up to 500 open issues. Past that, a last row says "Showing the newest 500. Search on GitHub for older ones." with a link.</li>
+              </ul>
+            </div>
+            <div class="note">
+              <strong>States</strong>
+              <ul>
+                <li><strong>Loading</strong>: the shared loader, at the list's place.</li>
+                <li><strong>Empty</strong>: "Every open issue is already imported." or "This repository has no open issues."</li>
+                <li><strong>Not signed in</strong>: "Sign in with GitHub in Settings › Office identity to import issues.", with a link there, as on the Project page.</li>
+                <li><strong>Missing permission</strong>: the permissions prompt in place of the list.</li>
+                <li><strong>After Import</strong>: the window closes and a toast says "3 Tasks added to Backlog." An issue imported meanwhile, for example by auto-import, is skipped and named: "#412 was already imported."</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= BUG PROPOSAL ================= -->
+        <section id="bug-proposal">
+          <p class="overline">Decision card · decision-card.md</p>
+          <h2>Bug Task Decision</h2>
+          <p class="lead">
+            An Agent that finds a big issue outside its Task's scope calls <code>propose_bug_task</code>. That opens a Decision of a new kind, <code>bug-task</code>, on the Agent's own Task.
+            The Task is Waiting on you until it is answered. The card is a new form of the Decision card, beside the approval card: the proposed Task's fields, editable, then the General
+            comment and three actions.
+          </p>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Task page › Needs you · the form in place</div>
+            <div class="frame-body">
+              <div class="dcard">
+                <div class="dcard-head">
+                  <span class="badge warning">Decision</span>
+                  <span class="av" style="background: var(--violet-500); border: 0; width: 22px; height: 22px; font-size: 9px">KA</span>
+                  <span><strong>Kai</strong> <span class="muted">· Developer · 4 minutes ago</span></span>
+                  <span class="icon-btn" style="margin-left: auto" title="Copy link"><svg class="i s14"><use href="#i-link" /></svg></span>
+                </div>
+                <div class="dcard-body">
+                  <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 6px">
+                    <span class="kmark bug"><svg class="i s13"><use href="#i-bug" /></svg></span>Kai proposes a Bug Task
+                  </div>
+                  <p class="dcard-ctx">
+                    The token refresh in <code>GitHubAccess.userToken()</code> runs twice when two requests start in the same second, and GitHub then signs The Office out. It is outside this Task and
+                    touches the sign-in, so it isn't fixed here.
+                  </p>
+                  <div class="field">
+                    <label>Title</label>
+                    <div class="input">Two token refreshes at once sign The Office out of GitHub</div>
+                  </div>
+                  <div class="field">
+                    <label>Description</label>
+                    <div class="textarea" style="min-height: 96px">**Steps to reproduce**
+1. Let the GitHub token come within 15 minutes of expiring
+2. Open Pull requests and CI at the same time
+
+**Expected**
+One refresh, still signed in.
+
+**Actual**
+Signed out of GitHub; Settings › Office identity asks to sign in again.</div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+                    <div class="field">
+                      <span class="label">Project</span>
+                      <span class="select"><span class="pchip"><span class="pmark">TO</span>the-office</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span>
+                    </div>
+                    <div class="field">
+                      <span class="label">Caused by <span class="optional">· optional</span></span>
+                      <span class="select"><span style="display: inline-flex; gap: 6px; align-items: center"><span class="kglyph feature"><svg class="i s13"><use href="#i-sparkles" /></svg></span>Refresh GitHub tokens before they expire</span><svg class="i s13 chev"><use href="#i-chevron-down" /></svg></span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label>General comment <span class="optional">· Optional.</span></label>
+                    <div class="input"><span class="ph">Anything about the form as a whole</span></div>
+                  </div>
+                </div>
+                <div class="dcard-bar">
+                  <span class="btn primary"><svg class="i s14"><use href="#i-bug" /></svg>Create the Bug Task</span>
+                  <span class="btn secondary">Don't create it</span>
+                  <span class="btn secondary">Ask me again</span>
+                  <span class="grow" style="flex: 1"></span>
+                  <span class="muted" style="font-size: var(--text-xs)">It goes to Backlog as a Bug, found while working on this Task.</span>
+                </div>
+              </div>
+              <div class="dcard" style="margin-top: 14px; box-shadow: var(--shadow-1)">
+                <div class="dcard-head">
+                  <span class="badge">Decision</span>
+                  <span><strong>Kai</strong> <span class="muted">· Developer · 4 minutes ago</span></span>
+                </div>
+                <div class="dcard-body" style="padding-bottom: 12px">
+                  <div class="line" style="padding: 0 0 6px; color: var(--fg-1)">
+                    Created the Bug Task
+                    <span class="tchip"><span class="kglyph bug"><svg class="i s13"><use href="#i-bug" /></svg></span>Two token refreshes at once sign The Office out of GitHub <span class="st">Backlog</span></span>
+                  </div>
+                  <div class="muted" style="font-size: var(--text-sm)">Answered by you</div>
+                </div>
+              </div>
+              <p class="caption" style="margin-top: 6px">The answered card.</p>
+            </div>
+          </div>
+          <div class="cols">
+            <div class="note">
+              <strong>The card</strong>
+              <ul>
+                <li>The top line follows every Decision card: the <strong>Decision</strong> badge (amber while open), who asks, when, and Copy link. Under it, "&lt;Name&gt; proposes a Bug Task", then the Agent's <code>why</code> as the context.</li>
+                <li>The fields are the Agent's proposal, editable: Title (required), Description (<code>MentionField</code>), Project (the Agent's Task's Project at first), and Caused by (the Task picker, optional).</li>
+                <li><strong>Create the Bug Task</strong> sends the form as edited. <strong>Don't create it</strong> answers no. Both send the General comment when written.</li>
+                <li><strong>Ask me again</strong> works as on any form: a step asking what the Agent should explain or change, and the Agent asks again in a new card.</li>
+                <li>There is no Dismiss, as on any Stage Thread's Decision.</li>
+                <li>Answered card: "Created the Bug Task &lt;Task&gt;" or "Didn't create the Bug Task", then the usual outcome line ("Answered by you") and "General comment: …".</li>
+                <li>Shared feed (Now, the Needs you panel): the compact card shows the context's first line, "Bug Task: &lt;title&gt;" and <strong>Open details</strong>. Its Large window holds the same form, with the three actions in its bar.</li>
+              </ul>
+            </div>
+            <div class="note">
+              <strong>What happens</strong>
+              <ul>
+                <li>The Agent ends its Stage with <code>needs_decision</code>, and the Task shows Waiting on you, as with <code>open_decision</code>.</li>
+                <li>On Create, work makes the Task in the same request: Backlog, Kind Bug, Normal priority, created by The Office, with Found while working on set to the Agent's Task and Caused by when given.</li>
+                <li>The answer the Agent reads names the new Task, as a link with its id, or says no and gives the comment. The Agent then goes on with its own Task.</li>
+                <li>A Create that work refuses, for example because the Caused by Task was removed, keeps the card open with the refusal shown in its bar.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= PERMISSIONS ================= -->
+        <section id="permissions">
+          <p class="overline">Shared · shell/github-permissions-prompt.tsx · pull-requests.md</p>
+          <h2>GitHub permissions prompt</h2>
+          <p class="lead">
+            Adding <code>issues: "write"</code> to <code>REQUIRED_PERMISSIONS</code> makes the existing prompt ask for it on every App registered before this change. Its first sentence now covers
+            issues, and it also shows in the GitHub issues block and the Import issues window.
+          </p>
+          <div class="frame">
+            <div class="frame-label"><span class="dots"><i></i><i></i><i></i></span>Pull requests · CI · Settings › Office identity · GitHub issues block · Import issues</div>
+            <div class="frame-body">
+              <div class="alert" style="max-width: 720px">
+                <span class="ico"><svg class="i"><use href="#i-alert" /></svg></span>
+                <div style="flex: 1">
+                  <div class="t">The GitHub App needs more permissions</div>
+                  <p>Without them The Office can't read every pull request's checks or merge state, or import, comment on and close issues. Missing:</p>
+                  <ul style="margin: 4px 0; padding-left: 18px; color: var(--fg-2)">
+                    <li>Issues: read and write</li>
+                  </ul>
+                  <p><a href="#permissions">Add them to the App on GitHub</a></p>
+                </div>
+                <span class="btn secondary sm">Check again</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= DATA ================= -->
+        <section id="data">
+          <p class="overline">Engineering · work and projects</p>
+          <h2>Data and migration</h2>
+          <p class="lead">
+            There are two migrations, one per module, and both only expand. The previous release keeps working: it never reads the new columns, and its inserts take their defaults.
+          </p>
+          <h4><code>0174_task_kinds_and_drop_reasons.sql</code> (work)</h4>
+<pre><span class="k">ALTER TABLE</span> tasks <span class="k">ADD COLUMN</span> kind text <span class="k">NOT NULL DEFAULT</span> 'feature';
+<span class="c">--> statement-breakpoint</span>
+<span class="c">-- Tasks The Office made are Chores (Onboard, run environment set-up, Publishing, Conflict resolution).</span>
+<span class="k">UPDATE</span> tasks <span class="k">SET</span> kind = 'chore' <span class="k">WHERE</span> made_for <span class="k">IS NOT NULL</span>;
+<span class="c">--> statement-breakpoint</span>
+<span class="k">ALTER TABLE</span> tasks
+  <span class="k">ADD COLUMN</span> drop_reason text,                          <span class="c">-- 'wont-fix' | 'duplicate' | 'cant-reproduce' | 'other'</span>
+  <span class="k">ADD COLUMN</span> drop_reason_text text,                     <span class="c">-- Other's words only</span>
+  <span class="k">ADD COLUMN</span> duplicate_of_task_id uuid <span class="k">REFERENCES</span> tasks(id),
+  <span class="k">ADD COLUMN</span> caused_by_task_id uuid <span class="k">REFERENCES</span> tasks(id),
+  <span class="k">ADD COLUMN</span> found_in_version text,
+  <span class="k">ADD COLUMN</span> found_while_working_on_task_id uuid <span class="k">REFERENCES</span> tasks(id),
+  <span class="k">ADD COLUMN</span> created_by_the_office boolean <span class="k">NOT NULL DEFAULT</span> false;  <span class="c">-- created_by still names a user</span>
+<span class="c">--> statement-breakpoint</span>
+<span class="k">CREATE INDEX</span> tasks_kind_idx <span class="k">ON</span> tasks (kind);
+<span class="k">CREATE INDEX</span> tasks_caused_by_idx <span class="k">ON</span> tasks (caused_by_task_id) <span class="k">WHERE</span> caused_by_task_id <span class="k">IS NOT NULL</span>;</pre>
+          <p class="caption">
+            <code>created_by</code> always holds a valid Author, so the previous release reads every row as it does today and names a user as the creator of The Office's Tasks. Only the new
+            release reads <code>created_by_the_office</code>. No value appears that the previous release's <code>authorOf</code> or its contracts don't know.
+          </p>
+          <h4><code>0175_issue_links_and_kind_pipelines.sql</code> (projects)</h4>
+<pre><span class="k">ALTER TABLE</span> projects
+  <span class="k">ADD COLUMN</span> feature_default_pipeline text,           <span class="c">-- null: the Project's default_pipeline</span>
+  <span class="k">ADD COLUMN</span> bug_default_pipeline text,
+  <span class="k">ADD COLUMN</span> chore_default_pipeline text,
+  <span class="k">ADD COLUMN</span> issue_import_label text,                 <span class="c">-- null: auto-import off</span>
+  <span class="k">ADD COLUMN</span> issue_import_label_set_by jsonb,         <span class="c">-- the user named in created_by of auto-imported Tasks</span>
+  <span class="k">ADD COLUMN</span> close_issue_on_done boolean <span class="k">NOT NULL DEFAULT</span> true,
+  <span class="k">ADD COLUMN</span> comment_on_issue boolean <span class="k">NOT NULL DEFAULT</span> false,
+  <span class="k">ADD COLUMN</span> close_issue_on_drop boolean <span class="k">NOT NULL DEFAULT</span> false;
+<span class="c">--> statement-breakpoint</span>
+<span class="k">CREATE TABLE</span> issue_links (
+  id uuid <span class="k">PRIMARY KEY</span>,
+  project_id text <span class="k">NOT NULL</span>,
+  remote_url text <span class="k">NOT NULL</span>,                         <span class="c">-- the repository, normalised as pull_requests.remote_url is</span>
+  number integer <span class="k">NOT NULL</span>,
+  task_id uuid,                                      <span class="c">-- null only while the import claims the issue</span>
+  title text <span class="k">NOT NULL</span>,
+  url text <span class="k">NOT NULL</span>,
+  author_login text <span class="k">NOT NULL</span>,
+  author_url text <span class="k">NOT NULL</span>,
+  imported_at timestamptz <span class="k">NOT NULL</span>,
+  imported_by jsonb <span class="k">NOT NULL</span>,                       <span class="c">-- a user, or {"kind":"office"} for auto-import</span>
+  closed_on_host_at timestamptz,
+  task_ended_at timestamptz,                         <span class="c">-- Done or Dropped: watching stops</span>
+  checked_at timestamptz,
+  <span class="k">UNIQUE</span> (remote_url, number)                         <span class="c">-- import-once; rows are never deleted</span>
+);
+<span class="k">CREATE INDEX</span> issue_links_task_idx <span class="k">ON</span> issue_links (task_id);
+<span class="c">--> statement-breakpoint</span>
+<span class="k">CREATE TABLE</span> issue_write_backs (                       <span class="c">-- an outbox: what GitHub refused is retried</span>
+  id uuid <span class="k">PRIMARY KEY</span>,
+  issue_link_id uuid <span class="k">NOT NULL REFERENCES</span> issue_links(id),
+  action text <span class="k">NOT NULL</span>,                             <span class="c">-- 'comment' | 'close'</span>
+  body text <span class="k">NOT NULL</span>,
+  created_at timestamptz <span class="k">NOT NULL</span>,
+  done_at timestamptz,
+  tries integer <span class="k">NOT NULL DEFAULT</span> 0,
+  last_problem text
+);</pre>
+          <table class="spec">
+            <tr>
+              <th style="width: 260px">Rule</th>
+              <th>Where it lives</th>
+            </tr>
+            <tr>
+              <td>Kind, Caused by and Found in version change in any state but Done and Dropped, and never move the Task.</td>
+              <td><code>work/domain/task-changes.ts</code>: <code>changeKind</code>, <code>changeCausedBy</code> and <code>changeFoundInVersion</code>, refused as the title is: "A Task keeps its Kind once it is Done or Dropped."</td>
+            </tr>
+            <tr>
+              <td>Caused by is another Task, never itself, in any Project and any state, archived ones included.</td>
+              <td><code>changeCausedBy</code>. A cycle is allowed: two bugs may each have caused the other.</td>
+            </tr>
+            <tr>
+              <td>Found in version is 1 to 64 characters, trimmed.</td>
+              <td>Contract and domain. The value isn't checked against tags, since free text is allowed.</td>
+            </tr>
+            <tr>
+              <td>Drop reason: Duplicate needs a Task other than itself; Other needs 1 to 500 characters; the others take nothing.</td>
+              <td><code>work/domain/drop-reason.ts</code>, applied in the drop's state change, so the reason and the move are one write.</td>
+            </tr>
+            <tr>
+              <td>Office-made Tasks are Chores.</td>
+              <td><code>createTaskMadeFor</code> sets <code>kind: "chore"</code>.</td>
+            </tr>
+            <tr>
+              <td>New Tasks default to Feature.</td>
+              <td><code>TaskService.create</code>, <code>IdeaService.shape</code>, <code>create_task</code>, Initiative <code>add_task</code> and Proposals: <code>kind ?? "feature"</code>.</td>
+            </tr>
+          </table>
+        </section>
+
+        <!-- ================= CONTRACTS ================= -->
+        <section id="contracts">
+          <p class="overline">Engineering · packages/contracts</p>
+          <h2>Contracts</h2>
+          <p class="lead">
+            Every new input field is optional or defaulted, so older clients and stored Saved views still parse. The read model always carries the new fields.
+          </p>
+          <h4><code>work.ts</code></h4>
+<pre><span class="k">export const</span> TASK_KINDS = ["feature", "bug", "chore"] <span class="k">as const</span>;
+<span class="k">export const</span> taskKindSchema = z.enum(TASK_KINDS);
+
+<span class="k">export const</span> dropReasonSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("wont-fix") }),
+  z.object({ kind: z.literal("duplicate"), taskId: z.string().uuid() }),
+  z.object({ kind: z.literal("cant-reproduce") }),
+  z.object({ kind: z.literal("other"), text: z.string().trim().min(1).max(500) }),
+]);
+
+<span class="c">// read model only: the service sends { kind: "office" } when created_by_the_office is set</span>
+<span class="k">export const</span> taskCreatorSchema = z.union([authorSchema, z.object({ kind: z.literal("office") })]);
+
+<span class="c">// newTaskSchema, newInitiativeTaskSchema: + kind</span>
+kind: taskKindSchema.default("feature"),
+
+<span class="c">// taskSchema (read): + these, and createdBy becomes taskCreatorSchema</span>
+kind: taskKindSchema.default("feature"),
+causedBy: z.string().uuid().nullable(),
+foundInVersion: z.string().nullable(),
+foundWhileWorkingOn: z.string().uuid().nullable(),
+dropReason: dropReasonSchema.nullable(),
+
+<span class="c">// edits, one schema and one PUT route each, as for the title</span>
+<span class="k">export const</span> kindChangeSchema = z.object({ kind: taskKindSchema });                      <span class="c">// PUT /tasks/:id/kind</span>
+<span class="k">export const</span> causedByChangeSchema = z.object({ causedBy: z.string().uuid().nullable() }); <span class="c">// PUT /tasks/:id/caused-by</span>
+<span class="k">export const</span> foundInVersionChangeSchema = z.object({                                     <span class="c">// PUT /tasks/:id/found-in-version</span>
+  foundInVersion: z.string().trim().min(1).max(64).nullable(),
+});
+<span class="k">export const</span> dropSchema = z.object({ reason: dropReasonSchema.optional() });               <span class="c">// POST /tasks/:id/drop, body optional</span>
+
+<span class="c">// boardFiltersSchema: + kind, optional, so stored Saved views still parse</span>
+kind: taskKindSchema.optional(),
+
+<span class="c">// ideaShapeSchema: + kind and description, both optional</span>
+kind: taskKindSchema.optional(),
+description: z.string().optional(),   <span class="c">// sent only for a Bug from an Idea without notes</span>
+
+<span class="c">// web events: task.kind-changed, task.bug-details-changed (drop reason rides on task.state-changed's Task)</span></pre>
+          <h4><code>projects.ts</code></h4>
+<pre><span class="c">// projectSchema (read): + these</span>
+kindDefaultPipelines: z.object({ feature: z.string().nullable(), bug: z.string().nullable(), chore: z.string().nullable() }),
+defaultPipelineOfKind: z.object({ feature: z.string(), bug: z.string(), chore: z.string() }), <span class="c">// resolved by projects</span>
+issueSettings: issueSettingsSchema,
+
+<span class="k">export const</span> kindDefaultPipelineChangeSchema = z.object({                    <span class="c">// PUT /projects/:id/kind-default-pipeline</span>
+  kind: taskKindSchema, pipelineId: z.string().nullable(),
+});
+<span class="k">export const</span> issueSettingsSchema = z.object({                                <span class="c">// PUT /projects/:id/issue-settings</span>
+  autoImportLabel: z.string().trim().min(1).max(50).nullable(),
+  closeOnDone: z.boolean(),
+  commentOnStartAndDone: z.boolean(),
+  closeOnDrop: z.boolean(),
+});
+<span class="k">export const</span> openIssueSchema = z.object({                                    <span class="c">// GET /projects/:id/issues → openIssueSchema[]</span>
+  number: z.number().int(), title: z.string(), url: z.string().url(),
+  author: z.object({ login: z.string(), url: z.string().url() }),
+  labels: z.array(z.string()), openedAt: z.string().datetime(),
+  kind: taskKindSchema,                                                          <span class="c">// what it would import as</span>
+});
+<span class="k">export const</span> issueImportSchema = z.object({ numbers: z.array(z.number().int().positive()).min(1).max(50) });
+<span class="k">export const</span> issueImportResultSchema = z.object({                           <span class="c">// POST /projects/:id/issues/import</span>
+  imported: z.array(z.object({ number: z.number().int(), taskId: z.string().uuid() })),
+  skipped: z.array(z.object({ number: z.number().int(), why: z.string() })),
+});
+<span class="k">export const</span> issueLinkSchema = z.object({                                    <span class="c">// GET /issue-links?taskId= → issueLinkSchema | null</span>
+  number: z.number().int(), title: z.string(), url: z.string().url(),
+  author: z.object({ login: z.string(), url: z.string().url() }),
+  importedAt: z.string().datetime(), importedBy: taskCreatorSchema,
+  closedOnHostAt: z.string().datetime().nullable(),
+  writeBackProblem: z.string().nullable(),
+});
+<span class="c">// web events: project.issues-imported, issue-link.changed</span></pre>
+          <p class="caption">
+            <code>taskKindSchema</code> is defined in <code>work.ts</code>, and <code>projects.ts</code> imports it. Contracts may import across files, and Kind is one concept.
+          </p>
+        </section>
+
+        <!-- ================= BOUNDARIES ================= -->
+        <section id="boundaries">
+          <p class="overline">Engineering · spec 5.3</p>
+          <h2>Module boundaries</h2>
+          <p class="lead">
+            github stays a leaf. projects holds the rules for issues. work holds Kind and the bug details and knows nothing about GitHub. Every arrow below follows the existing direction (work →
+            projects → github), so no cycle appears.
+          </p>
+          <div class="diagram">
+            <div class="mod">
+              <h5><svg class="i s14"><use href="#i-list-checks" /></svg>work</h5>
+              <ul>
+                <li>Kind, Caused by, Found in version, Found while working on, Drop reason</li>
+                <li><code>write_kind</code>, <code>write_bug_details</code> (Planner)</li>
+                <li>bug-task applier: makes the Bug Task</li>
+                <li><code>adapters/projects/</code>: fills <code>IssueTasks</code>; forwards started, Done and Dropped to <code>IssueWriteBack</code></li>
+                <li>Brief: Kind, commit type, bug details</li>
+              </ul>
+            </div>
+            <div class="mod">
+              <h5><svg class="i s14"><use href="#i-route" /></svg>projects</h5>
+              <ul>
+                <li><code>defaultPipelineFor(project, kind)</code>, the one resolver</li>
+                <li><code>issue_links</code>, <code>issue_write_backs</code></li>
+                <li><code>IssueImport</code> (by hand), <code>IssueWatch</code> (every 5 min)</li>
+                <li><code>IssueWriteBack</code>, and Fixes #n in <code>Publishing</code></li>
+                <li><code>IssueTasks</code> registry, which work fills</li>
+                <li><code>CodeHost</code> port + issues side</li>
+              </ul>
+            </div>
+            <div class="mod leaf">
+              <h5><svg class="i s14"><use href="#i-github" /></svg>github (leaf)</h5>
+              <ul>
+                <li><code>GitHubIssues</code>: <code>openIssues</code>, <code>issueState</code>, <code>comment</code>, <code>close</code></li>
+                <li><code>REQUIRED_PERMISSIONS.issues = "write"</code></li>
+                <li>Leaves pull requests out of issue lists</li>
+              </ul>
+            </div>
+            <div class="mod">
+              <h5><svg class="i s14"><use href="#i-hand" /></svg>conversations</h5>
+              <ul>
+                <li>Decision kind <code>bug-task</code></li>
+                <li><code>propose_bug_task</code> tool</li>
+                <li>Applies through the existing <code>ProposalAppliers</code> registry, where work registers <code>bug-task</code></li>
+              </ul>
+            </div>
+          </div>
+          <ul class="arrows">
+            <li><strong>Create a Task from an issue:</strong> projects <code>IssueImport</code> claims the <code>issue_links</code> row (unique), then calls <code>IssueTasks.create({ projectId, title, description, kind, createdBy })</code>. work fills that at start, as it fills <code>TaskBases</code>. projects then writes the <code>task_id</code>. If the create fails, the claim row is removed, so a later import can try again.</li>
+            <li><strong>Write-back:</strong> <code>work/adapters/projects/issue-write-back-forwarding.ts</code> listens to <code>TaskStarted</code> and to <code>TaskStateChanged</code> into done or dropped. It calls projects' <code>IssueWriteBack.taskStarted / taskDone / taskDropped(taskId, dropReason)</code>, and projects decides from its switches and links. For a Duplicate, projects finds the other Task's issue link itself.</li>
+            <li><strong>Default Pipeline:</strong> work's <code>KnownProjects</code> port gains <code>defaultPipelineFor(projectId, kind)</code>, which projects' <code>defaultPipelineFor</code> answers. The web reads <code>project.defaultPipelineOfKind[task.kind]</code>, which the same function resolves.</li>
+            <li><strong>Fixes #n:</strong> <code>Publishing.publish</code> asks its own <code>IssueLinks</code> for the Task's link in the same repository. When "Close the issue when the Task is Done" is on, it adds a <code>Fixes #n</code> line to both <code>message.whole</code> and the pull request's <code>body</code>, unless one is already there. A Publishing Task gathers the lines of its Initiative's Tasks in that Project.</li>
+            <li><strong>Bug Task Decision:</strong> conversations stores the Decision with its proposed change. On Create it calls the <code>bug-task</code> applier, which work registers, in the same request, then records the answer with the new Task's id.</li>
+          </ul>
+        </section>
+
+        <!-- ================= GITHUB RULES ================= -->
+        <section id="github-rules">
+          <p class="overline">Engineering · projects</p>
+          <h2>GitHub issue rules</h2>
+          <table class="spec">
+            <tr>
+              <th style="width: 220px">Concern</th>
+              <th>Rule</th>
+            </tr>
+            <tr>
+              <td>Import by hand</td>
+              <td>Title, then body as the Description (empty body gives an empty Description). Kind is Bug with a <code>bug</code> label, any case, else Feature. Priority is Normal, state Backlog, and the creator is the user who imported it. Up to 50 per request.</td>
+            </tr>
+            <tr>
+              <td>Auto-import</td>
+              <td><code>IssueWatch</code> runs through <code>Schedule.every(5 min)</code>, for each Project with a label and a GitHub remote, while <code>GitHubAccess</code> has a valid token. With no token it skips silently. It imports open issues with the label that aren't yet linked, at most 50 per check, oldest first, created by The Office.</td>
+            </tr>
+            <tr>
+              <td>Import-once</td>
+              <td><code>UNIQUE (remote_url, number)</code>. Rows are never deleted when a Task is Dropped or archived. Both paths insert the row first and treat a unique violation as "already imported".</td>
+            </tr>
+            <tr>
+              <td>Closed on GitHub</td>
+              <td>The same 5-minute check reads the state of every link whose Task hasn't ended, and sets or clears <code>closed_on_host_at</code>. The Task doesn't move.</td>
+            </tr>
+            <tr>
+              <td>Close on Done (on by default)</td>
+              <td>A <code>Fixes #n</code> line goes in the commit message and the pull request body, on the Push + PR path and the merge path. GitHub closes the issue when the change reaches the default branch.</td>
+            </tr>
+            <tr>
+              <td>Comment on start and Done (off)</td>
+              <td>On start: "Work on this issue started in The Office: &lt;Task title&gt;." On Done: "Done in #&lt;pull request&gt;." with Push + PR, or "Done in &lt;short sha&gt;." with merge.</td>
+            </tr>
+            <tr>
+              <td>Close on Drop (off)</td>
+              <td>A comment giving the reason, then close as <code>not_planned</code>. The comments are: "Closed: won't fix.", "Closed as a duplicate of #m." (or "…of another Task in The Office: &lt;title&gt;." when that Task has no issue), "Closed: can't be reproduced.", "Closed: &lt;Other's words&gt;", and "Closed: the Task was dropped." with no reason.</td>
+            </tr>
+            <tr>
+              <td>Failures</td>
+              <td>Every comment and close goes through <code>issue_write_backs</code> and is tried at once. What fails is retried on each 5-minute check for 24 hours, and its problem shows on the Task's GitHub issue record.</td>
+            </tr>
+            <tr>
+              <td>Out of scope</td>
+              <td>Two-way sync: edits on GitHub don't change the Task, and edits to the Task don't change the issue.</td>
+            </tr>
+          </table>
+        </section>
+
+        <!-- ================= PROMPTS ================= -->
+        <section id="prompts">
+          <p class="overline">Engineering · prompt templates</p>
+          <h2>Briefs and Office actions</h2>
+          <h4>Planner's Brief (<code>work.planning-brief</code>)</h4>
+<pre>Kind: Bug. Its commit type is fix (Bug → fix, Feature → feat, Chore → chore).
+Caused by: Passkeys on the sign-in page (3f2c…, Done). Found in version: v1.14.2.
+The Pipeline the-office gives Bugs is Quick fix; propose it with propose_pipeline unless the work needs another.
+If the Task isn't what its Kind says, change it with write_kind; set Caused by and Found in version with write_bug_details.</pre>
+          <p class="caption">
+            The Pipeline line replaces "the Project's default is {{defaultPipeline}}" with the resolved Kind default, from <code>KnownProjects.defaultPipelineFor</code>. The Initiative planning Brief
+            does the same per Task.
+          </p>
+          <h4>Agent Stage guidance (<code>StageThreads</code>' work instructions)</h4>
+<pre>Small issues you find along the way, such as a typo, a missing check or a broken test beside your change,
+fix within this Task and name them in your Handover note. An issue too big for this Task or outside its
+scope, don't fix: propose a Bug Task with propose_bug_task, end the Stage with needs_decision, and go on
+with your own work once the answer comes, whichever it is.</pre>
+          <table class="spec">
+            <tr>
+              <th style="width: 200px">Office action</th>
+              <th style="width: 200px">Who has it</th>
+              <th>Input → effect</th>
+            </tr>
+            <tr>
+              <td><code>propose_bug_task</code></td>
+              <td>Every Agent Stage (<code>AGENT_STAGE_OFFICE_TOOLS</code>)</td>
+              <td>
+                <code>{ title, description, why, projectId?, causedBy? }</code> → opens a <code>bug-task</code> Decision on the session's own Task. Its problems are checked first, as a Proposal's
+                are (unknown Project or Task). It answers "Opened the Decision. End the Stage with needs_decision."
+              </td>
+            </tr>
+            <tr>
+              <td><code>write_kind</code></td>
+              <td>Planner (<code>PLANNING_OFFICE_TOOLS</code>, initiative planning)</td>
+              <td><code>{ kind, taskId? }</code> → <code>TaskService.changeKind</code>, by the person.</td>
+            </tr>
+            <tr>
+              <td><code>write_bug_details</code></td>
+              <td>Planner</td>
+              <td><code>{ causedBy?: uuid | null, foundInVersion?: string | null, taskId? }</code> → the two changes. A field left out stays as it is.</td>
+            </tr>
+          </table>
+          <p class="caption">
+            Agents still get no <code>create_task</code> in a Stage, and <code>AGENT_STAGE_OFFICE_TOOLS</code> gains only <code>propose_bug_task</code>. The <code>read_task</code> words name the Kind:
+            "…; Bug; normal priority; Pipeline Quick fix". Templates follow <code>prompt-templates/MAP.md</code>'s rules for changed default text, including the golden-file trap.
+          </p>
+        </section>
+
+        <!-- ================= ORDER ================= -->
+        <section id="order">
+          <p class="overline">Engineering · for the Implement Stage</p>
+          <h2>Implementation order</h2>
+          <p class="lead">
+            Six parts, in this order. Each can go to one foreground subagent with the brief below. Part 1 fixes the interfaces the others build on.
+          </p>
+          <ol class="order">
+            <li>
+              <h4>Contracts and migrations</h4>
+              <ul>
+                <li><code>packages/contracts/src/work.ts</code>, <code>projects.ts</code>: everything in <a href="#contracts">Contracts</a>.</li>
+                <li><code>work.schema.ts</code>, <code>projects.schema.ts</code>, the new <code>issue-links.schema.ts</code>; generate 0174 and 0175 and add the backfill by hand.</li>
+                <li>The ports' shapes, signatures only: <code>IssueTasks</code>, <code>IssueWriteBack</code>, <code>CodeHost</code>'s issues side, <code>KnownProjects.defaultPipelineFor</code>.</li>
+              </ul>
+              <div class="check-line">Check: contracts' tests; the service's migration test on a database with Office-made Tasks (backfill to Chore).</div>
+            </li>
+            <li>
+              <h4>work</h4>
+              <ul>
+                <li>Domain: <code>TaskKind</code>, <code>TaskCreator</code>, <code>drop-reason.ts</code>, the change functions and their events; <code>createTaskMadeFor</code> → Chore.</li>
+                <li>Application and HTTP: <code>changeKind</code>, <code>changeCausedBy</code>, <code>changeFoundInVersion</code>, <code>drop(id, by, reason?)</code>, shaping with kind and description; the routes.</li>
+                <li>Search matches the Kind's word; <code>keptBoardFilters</code> keeps <code>kind</code>; <code>linksOf</code> adds Caused by, Caused bugs, Duplicates and Found while working on.</li>
+                <li>Planner tools <code>write_kind</code> and <code>write_bug_details</code>; <code>adapters/projects/</code> fills <code>IssueTasks</code> and adds the write-back forwarder.</li>
+              </ul>
+              <div class="check-line">Check: work's domain and application tests for these files.</div>
+            </li>
+            <li>
+              <h4>projects and github</h4>
+              <ul>
+                <li>github: <code>GitHubIssues</code> (list open issues without pull requests, read state, comment, close as not_planned), <code>REQUIRED_PERMISSIONS.issues</code>, the prompt's wording source.</li>
+                <li>projects: the <code>CodeHost</code> issues side in <code>GitHubCodeHost</code>; <code>defaultPipelineFor</code>; <code>IssueLinkRepository</code>; <code>IssueImport</code>, <code>IssueWatch</code>, <code>IssueWriteBack</code> with the outbox; Fixes #n in <code>pushAndOpenPullRequest</code>, <code>merge</code> and the Initiative branch path; routes and settings.</li>
+                <li>Pipelines' removal check covers the per-Kind defaults.</li>
+              </ul>
+              <div class="check-line">Check: projects' and github's tests, with a faked CodeHost and <code>ManualSchedule</code>.</div>
+            </li>
+            <li>
+              <h4>conversations and prompts</h4>
+              <ul>
+                <li>Decision kind <code>bug-task</code> with its proposed change and answer; <code>propose_bug_task</code> in <code>AGENT_STAGE_OFFICE_TOOLS</code>; work's <code>bug-task</code> applier on <code>ProposalAppliers</code>.</li>
+                <li>Stage guidance, the Planner's Brief (Kind, commit type, bug details, the Kind default), and <code>read_task</code>'s words.</li>
+              </ul>
+              <div class="check-line">Check: <code>stage-threads.test.ts</code>-style test through the scripted engine; golden prompt cases updated as the MAP says.</div>
+            </li>
+            <li>
+              <h4>web</h4>
+              <ul>
+                <li><code>KIND_ICONS</code> and words; the card's Kind mark; the Kind chips; New Task's Kind row and the Bug outline; the Shape split button.</li>
+                <li>Task page: meta line, More menu Kind group, Bug section, GitHub issue section, Drop note; <code>DropReasonField</code> shared by the Drop window and the Gate's Drop step; the Archived State cell.</li>
+                <li>Project page: Kind rows in Default Pipeline, the GitHub issues section, the Import issues window; the picker's Kind default; the permissions prompt's words.</li>
+                <li><code>packages/ui</code>: <code>SearchableSelect</code> gains <code>ownValue</code>.</li>
+              </ul>
+              <div class="check-line">Check: the surfaces' component tests; then the e2e cases in <a href="#tests">Tests</a>. Look at every screen in Light and Dark.</div>
+            </li>
+            <li>
+              <h4>docs</h4>
+              <ul>
+                <li>Everything in <a href="#docs">Docs</a>, then <code>npm run maps</code> and the handwritten parts of the changed MAPs.</li>
+              </ul>
+              <div class="check-line">Check: <code>npm run maps:check</code>.</div>
+            </li>
+          </ol>
+        </section>
+
+        <!-- ================= TESTS ================= -->
+        <section id="tests">
+          <p class="overline">Engineering</p>
+          <h2>Tests</h2>
+          <div class="cols">
+            <div class="note">
+              <strong>Domain and application</strong>
+              <ul>
+                <li>The migration backfills Chore only where <code>made_for</code> is set; other Tasks are Feature.</li>
+                <li>Kind and bug detail changes are refused when Done or Dropped, never move a Ready Task, and refuse Caused by of itself.</li>
+                <li>Drop reason rules: Duplicate without a Task and Other without words are refused; an Initiative drop gives no reason.</li>
+                <li><code>defaultPipelineFor</code> returns the Kind's Pipeline, else the Project's default.</li>
+                <li>Import-once: by hand, auto, both at once, after Drop and after archive.</li>
+                <li><code>IssueWatch</code> with a faked CodeHost and <code>ManualSchedule</code>: the label, the 50 cap, skipped with no token, closed on host.</li>
+                <li>Write-back for each switch on and off, the Duplicate's issue naming, and the outbox retry.</li>
+                <li>Fixes #n in <code>message.whole</code> and the pull request body on Push + PR, in the merge commit, and on the Publishing Task; never twice.</li>
+              </ul>
+            </div>
+            <div class="note">
+              <strong>Scripted engine</strong>
+              <ul>
+                <li><code>propose_bug_task</code> → <code>bug-task</code> Decision → the Task is Waiting on you → Create with an edited title → a Bug Task in Backlog, created by The Office, with Found while working on and Caused by → the Agent's next run reads the new Task's link.</li>
+                <li>Don't create it: no Task, and the comment reaches the Agent.</li>
+                <li><code>AGENT_STAGE_OFFICE_TOOLS</code> has no <code>create_task</code>.</li>
+              </ul>
+              <strong>e2e (stubbed GitHub)</strong>
+              <ul>
+                <li>The Kind mark and the Kind filter, kept by a Saved view, and an old Saved view without <code>kind</code>.</li>
+                <li>New Task as Bug fills the outline; switching back empties it.</li>
+                <li>Drop with Duplicate; the note on the Task page and the Archived row.</li>
+                <li>Import issues: pick two, import, and see them in Backlog with their GitHub issue records.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= DOCS ================= -->
+        <section id="docs">
+          <p class="overline">Engineering</p>
+          <h2>Docs</h2>
+          <table class="spec">
+            <tr>
+              <th style="width: 260px">Page</th>
+              <th>What changes</th>
+            </tr>
+            <tr>
+              <td><code>GLOSSARY.md</code></td>
+              <td>The seven entries in <a href="#words">Words</a>.</td>
+            </tr>
+            <tr>
+              <td>2.1.1 Projects</td>
+              <td>Default Pipeline per Kind; GitHub issues settings and their defaults.</td>
+            </tr>
+            <tr>
+              <td>2.1.2 Ideas</td>
+              <td>Shape into a Task with a Kind.</td>
+            </tr>
+            <tr>
+              <td>2.1.3 Tasks</td>
+              <td>Task kind, bug details, Drop reason, Office-made Tasks are Chores, created by The Office; GitHub issue as a linked record.</td>
+            </tr>
+            <tr>
+              <td>2.1.5 Planning</td>
+              <td>The Kind's default Pipeline is proposed first; <code>write_kind</code>, <code>write_bug_details</code>.</td>
+            </tr>
+            <tr>
+              <td>2.1.6 Board and search</td>
+              <td>Kind filter, Saved views, search by Kind.</td>
+            </tr>
+            <tr>
+              <td>2.3.4 Publish</td>
+              <td>Fixes #n in the commit message and the pull request body.</td>
+            </tr>
+            <tr>
+              <td>2.4.2 Decisions</td>
+              <td>The <code>bug-task</code> Decision.</td>
+            </tr>
+            <tr>
+              <td>2.5 Context policy (Brief)</td>
+              <td>Kind and commit type in the Planner's Brief; Stage guidance on issues found.</td>
+            </tr>
+            <tr>
+              <td>GitHub permissions (2.1.1 or 6)</td>
+              <td>Issues: read and write.</td>
+            </tr>
+            <tr>
+              <td>Screens</td>
+              <td>work-board, task-page, archived, project-page, ideas, decision-card, pull-requests (the prompt's words), shell (New Task).</td>
+            </tr>
+            <tr>
+              <td>README</td>
+              <td>Topic map: Task kind, Drop reason, GitHub issues. Defaults: Kind Feature; auto-import off; the 5-minute check; Close on Done on; Comment off; Close on Drop off.</td>
+            </tr>
+            <tr>
+              <td><code>docs/design/README.md</code></td>
+              <td>This file's line.</td>
+            </tr>
+            <tr>
+              <td>MAP.md</td>
+              <td>work, projects, github, conversations, pipelines; web work and projects surfaces; contracts.</td>
+            </tr>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var choices = document.querySelectorAll("[data-palette-choice]");
+        choices.forEach(function (choice) {
+          choice.addEventListener("click", function () {
+            var palette = choice.getAttribute("data-palette-choice");
+            root.setAttribute("data-palette", palette);
+            root.setAttribute("data-theme", palette === "dark" ? "dark" : "light");
+            choices.forEach(function (other) {
+              other.classList.toggle("on", other === choice);
+            });
+          });
+        });
+        var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+        var sections = links.map(function (link) {
+          return document.querySelector(link.getAttribute("href"));
+        });
+        function mark() {
+          var current = 0;
+          sections.forEach(function (section, index) {
+            if (section && section.getBoundingClientRect().top < 120) current = index;
+          });
+          links.forEach(function (link, index) {
+            link.classList.toggle("on", index === current);
+          });
+        }
+        document.addEventListener("scroll", mark, { passive: true });
+        mark();
+      })();
+    </script>
+  </body>
+</html>

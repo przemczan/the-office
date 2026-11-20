@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { BugTaskFields } from "../domain/decision.js";
 import type { UserRef } from "../domain/user.js";
 import type {
   OfficeSetting,
@@ -34,6 +35,34 @@ export interface SettingProposalApplier<
   valueNow(): Promise<OfficeSettingValues[Setting]>;
 }
 
+/** The Bug Task created from a bug-task Decision. */
+export interface CreatedBugTask {
+  readonly id: string;
+  readonly title: string;
+}
+
+/**
+ * How Work sees to a Bug Task an Agent proposes from a Stage (`propose_bug_task`): the Project of
+ * the Agent's Task, which the proposal starts in; every problem with it as proposed; and creating
+ * it when the user answers Create the Bug Task.
+ */
+export interface BugTaskApplier {
+  /** The Task's Project, by its id; undefined when there is no such Task. */
+  projectOf(taskId: string): Promise<string | undefined>;
+  /** Every reason creating it would be refused now, such as an unknown Project or Task. */
+  problemsWith(task: BugTaskFields): Promise<readonly string[]>;
+  /**
+   * Creates the Bug Task in Backlog, created by The Office for the user `createdBy`, found while
+   * working on the Task `foundWhileWorkingOn`. Throws ProposalRefused, creating nothing, when it
+   * can't.
+   */
+  create(
+    task: BugTaskFields,
+    foundWhileWorkingOn: string,
+    createdBy: UserRef | null,
+  ): Promise<CreatedBugTask>;
+}
+
 type Appliers = { [Kind in ProposedChangeKind]?: ProposalApplier<Kind> };
 type SettingAppliers = { [Setting in OfficeSetting]?: SettingProposalApplier<Setting> };
 
@@ -46,6 +75,7 @@ type SettingAppliers = { [Setting in OfficeSetting]?: SettingProposalApplier<Set
 export class ProposalAppliers {
   private readonly appliers: Appliers = {};
   private readonly settings: SettingAppliers = {};
+  private bugTasks: BugTaskApplier | undefined;
 
   register<Kind extends ProposedChangeKind>(kind: Kind, applier: ProposalApplier<Kind>): void {
     if (this.appliers[kind]) throw new Error(`Proposals of "${kind}" have an applier already.`);
@@ -60,6 +90,21 @@ export class ProposalAppliers {
   ): void {
     this.register(setting, applier);
     this.settings[setting] = applier as SettingAppliers[Setting];
+  }
+
+  /**
+   * Registers who creates the Bug Tasks Agents propose: Work, as it starts. Proposed in a
+   * bug-task Decision rather than a Proposal, a Bug Task is no ProposedChange.
+   */
+  registerBugTask(applier: BugTaskApplier): void {
+    if (this.bugTasks) throw new Error("Bug Tasks have an applier already.");
+    this.bugTasks = applier;
+  }
+
+  /** Who creates the Bug Tasks Agents propose. */
+  bugTask(): BugTaskApplier {
+    if (!this.bugTasks) throw new Error("Nothing creates proposed Bug Tasks.");
+    return this.bugTasks;
   }
 
   /** The Office setting's value now, as the module that owns it keeps it. */

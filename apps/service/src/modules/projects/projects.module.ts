@@ -24,6 +24,7 @@ import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubCodeHost } from "./adapters/github/github-code-host.js";
 import { RepositoryFilesController } from "./adapters/http/repository-files.controller.js";
 import { CiRunsController } from "./adapters/http/ci-runs.controller.js";
+import { IssuesController } from "./adapters/http/issues.controller.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectImagesController } from "./adapters/http/project-images.controller.js";
 import { ProjectOfficeActionsController } from "./adapters/http/project-office-actions.controller.js";
@@ -32,11 +33,13 @@ import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { PullRequestsController } from "./adapters/http/pull-requests.controller.js";
 import { RepositoryClonesController } from "./adapters/http/repository-clones.controller.js";
 import { TaskChangesController } from "./adapters/http/task-changes.controller.js";
+import { PostgresIssueLinkRepository } from "./adapters/postgres/postgres-issue-link-repository.js";
 import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres-environment-check-repository.js";
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { PostgresPullRequestRepository } from "./adapters/postgres/postgres-pull-request-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { CiRunWebEvents } from "./adapters/websocket/ci-run-web-events.js";
+import { IssueWebEvents } from "./adapters/websocket/issue-web-events.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { PullRequestWebEvents } from "./adapters/websocket/pull-request-web-events.js";
 import { RepositoryFiles } from "./application/repository-files.js";
@@ -70,11 +73,19 @@ import { BranchUpdates } from "./application/branch-updates.js";
 import { Resolving } from "./application/resolving.js";
 import { ScriptCommands } from "./application/script-commands.js";
 import { AgentCommands } from "./application/agent-commands.js";
+import { IssueFixes } from "./application/issue-fixes.js";
+import { IssueImport } from "./application/issue-import.js";
+import { IssueTasks } from "./application/issue-tasks.js";
+import { IssueWatch } from "./application/issue-watch.js";
+import { IssueWriteBack } from "./application/issue-write-back.js";
+import { IssueWriteBacks } from "./application/issue-write-backs.js";
+import { ProjectIssueHosts } from "./application/project-issue-hosts.js";
 import { TaskBases } from "./application/task-bases.js";
 import { TaskWorktrees } from "./application/task-worktrees.js";
 import { Worktrees } from "./application/worktrees.js";
 import { CommandRunner } from "./ports/command-runner.js";
 import { EnvironmentCheckRepository } from "./ports/environment-check-repository.js";
+import { IssueLinkRepository } from "./ports/issue-link-repository.js";
 import { Git } from "./ports/git.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ProjectImageFiles } from "./ports/project-image-files.js";
@@ -123,6 +134,7 @@ export class ProjectsModule implements NestModule {
         RepositoryClonesController,
         PullRequestsController,
         CiRunsController,
+        IssuesController,
         ProjectOfficeActionsController,
       ],
       providers: [
@@ -137,6 +149,7 @@ export class ProjectsModule implements NestModule {
         { provide: Git, useClass: CommandLineGit },
         RepositoryLocks,
         { provide: PullRequestRepository, useClass: PostgresPullRequestRepository },
+        { provide: IssueLinkRepository, useClass: PostgresIssueLinkRepository },
         GitHubCodeHost,
         // Each remote's pull requests and CI runs go to the first host that reaches its URL; another host,
         // such as GitLab, is one more adapter of `CodeHost` in this list.
@@ -168,6 +181,14 @@ export class ProjectsModule implements NestModule {
         ProjectRemotes,
         Worktrees,
         TaskBases,
+        IssueTasks,
+        ProjectIssueHosts,
+        IssueImport,
+        IssueFixes,
+        IssueWriteBacks,
+        { provide: IssueWriteBack, useExisting: IssueWriteBacks },
+        IssueWatch,
+        IssueWebEvents,
         ScriptCommands,
         AgentCommands,
         Publishing,
@@ -199,6 +220,8 @@ export class ProjectsModule implements NestModule {
         TaskRunEnvironments,
         TaskWorktrees,
         TaskBases,
+        IssueTasks,
+        IssueWriteBack,
       ],
     };
   }

@@ -17,6 +17,7 @@ import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, setPipeline } from "../../api/work.ts";
 import {
   choiceById,
+  openingChoice,
   taskPipelineChoices,
   type PipelineChoiceGroup,
 } from "../../shell/pipelines/pipeline-choices.ts";
@@ -65,7 +66,12 @@ export function EditTaskStagesDialog({
   ) {
     return null;
   }
-  const groups = taskPipelineChoices(project.data, library.officeWide, library.projectPipelines);
+  const groups = taskPipelineChoices(
+    project.data,
+    library.officeWide,
+    library.projectPipelines,
+    task.kind,
+  );
   if (task.initiativeId !== null && !initiative.data) return null;
   return (
     <EditTaskStagesForm
@@ -119,8 +125,10 @@ function EditTaskStagesForm({
   // "" while a Task with no Pipeline has none chosen yet.
   const followed = task.pipelineId ?? "";
   const notChosen = task.pipelineId === null;
-  const [chosenPipelineId, setChosenPipelineId] = useState(followed);
-  const [stages, setStages] = useState(() => stagesOf(followed));
+  // With none chosen yet, it opens on its Kind's default, so one press chooses it.
+  const [opening] = useState(() => (notChosen ? (openingChoice(groups)?.id ?? "") : followed));
+  const [chosenPipelineId, setChosenPipelineId] = useState(opening);
+  const [stages, setStages] = useState(() => stagesOf(opening));
   const [edited, setEdited] = useState(false);
   const pipeline = choiceById(groups, chosenPipelineId);
   const swapped = chosenPipelineId !== followed;
@@ -179,7 +187,7 @@ function EditTaskStagesForm({
       size="large"
       keepsHeight
       title={notChosen ? `Choose a Pipeline for ${task.title}` : `Stages of ${task.title}`}
-      unsavedChanges={edited || swapped}
+      unsavedChanges={edited || chosenPipelineId !== opening}
       onClose={onClose}
       actions={saveActions}
     >

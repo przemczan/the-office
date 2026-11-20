@@ -269,6 +269,20 @@ export class PostgresThreadRepository extends ThreadRepository {
     return row && toDecision(row);
   }
 
+  async holdingDecision<Result>(
+    id: string,
+    work: (decision: Decision | undefined) => Promise<Result>,
+  ): Promise<Result> {
+    // A lock on the Decision's id, not its row, so `work` can still update the row through
+    // `update`'s own transaction; the Decision is read after the lock, as the last holder left it.
+    return this.database.transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`conversations.decision.${id}`}))`,
+      );
+      return work(await this.decision(id));
+    });
+  }
+
   async decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]> {
     if (ids.length === 0) return [];
     const rows = await this.database
@@ -608,10 +622,12 @@ function toDecisionRow({
   kind,
   questions,
   inStageThread: _inStageThread,
+  bugTask,
   ...fields
 }: Decision): SavedDecision {
   const decision = {
     ...fields,
+    bugTask: bugTask ?? null,
     ...oneQuestionView({ questions }),
     kind: oneQuestionKind(kind),
     questions,
@@ -667,6 +683,7 @@ function toDecision({
     recommendation,
     questions,
     formAnswer,
+    bugTask,
     ...row
   },
   inStageThread,
@@ -675,7 +692,7 @@ function toDecision({
   return {
     ...row,
     inStageThread,
-    kind: asked.kind,
+    ...(bugTask === null ? { kind: asked.kind } : { kind: "bug-task", bugTask }),
     questions: questions ?? asked.questions,
     ...(closedAt === null ? {} : { closedAt }),
     taskId: taskId ?? undefined,

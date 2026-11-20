@@ -314,6 +314,8 @@ export function consultationAskedLine(askerName: string, decision: Decision): st
     case "approval":
       return `${askerName} asks your approval: ${decisionSummary(decision)}`;
     case "form":
+    // A Bug Task is never put to a Consultant; its one choice reads as a form's.
+    case "bug-task":
       return `${askerName} asks: ${decisionSummary(decision)}`;
   }
 }

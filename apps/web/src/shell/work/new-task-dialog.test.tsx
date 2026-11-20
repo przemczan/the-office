@@ -16,6 +16,7 @@ import { paste, screenshot } from "../attachments/pasted-files.fixtures.ts";
 import { buttonNamed, shownText, typed, until } from "../page.fixtures.tsx";
 import { ToastProvider } from "../toasts.tsx";
 import { NewTaskDialog } from "./new-task-dialog.tsx";
+import { BUG_DESCRIPTION_OUTLINE } from "./work-words.ts";
 
 const api = vi.hoisted(() => ({
   createTask: vi.fn<typeof createTask>(),
@@ -165,4 +166,67 @@ describe("New Task", () => {
     );
     expect(buttonNamed(document.body, "Close without saving")).toBeDefined();
   });
+
+  it("fills the Bug outline into an empty Description, and empties it again while untouched", async () => {
+    await openNewTask();
+
+    chooseKind("Bug");
+    expect(description().value).toBe(BUG_DESCRIPTION_OUTLINE);
+    // The Kind's tabs carry inline styles jsdom can't clone, so the text is read as it is.
+    expect(document.body.textContent).toContain("Choosing Bug filled in this outline");
+
+    chooseKind("Chore");
+    expect(description().value).toBe("");
+  });
+
+  it("keeps a Description with words whatever the Kind, and sends the Kind", async () => {
+    await openNewTask();
+    typed(document.body, "Title", TASK.title);
+    typedDescription("It fails after a reset.");
+
+    chooseKind("Bug");
+    expect(description().value).toBe("It fails after a reset.");
+    const add = [...document.body.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("Add the Task"),
+    );
+    await act(async () => add?.click());
+
+    await until(() => expect(api.createTask).toHaveBeenCalledOnce());
+    expect(api.createTask.mock.calls[0]?.[0]).toMatchObject({ kind: "bug" });
+  });
+
+  it("counts a changed Kind as unsaved input", async () => {
+    await openNewTask();
+    chooseKind("Chore");
+
+    pressOutside();
+
+    expect(document.body.textContent).toContain("Close without saving?");
+  });
 });
+
+function kindTab(name: string): HTMLButtonElement | undefined {
+  return [
+    ...document.body.querySelectorAll<HTMLButtonElement>(
+      '[role="group"][aria-label="Kind"] button',
+    ),
+  ].find((button) => button.textContent === name);
+}
+
+function chooseKind(name: string): void {
+  act(() => kindTab(name)?.click());
+}
+
+function description(): HTMLTextAreaElement {
+  const field = document.body.querySelector("textarea");
+  if (!field) throw new Error("There is no Description field.");
+  return field;
+}
+
+function typedDescription(text: string): void {
+  const field = description();
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(field, text);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}

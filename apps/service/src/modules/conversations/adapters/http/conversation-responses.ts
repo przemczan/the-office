@@ -424,10 +424,22 @@ export function toDecisionResponse({
   askedAt,
   closedAt,
   questions,
+  bugTask,
   ...decision
 }: Decision): DecisionResponse {
   return {
     ...decision,
+    ...(bugTask === undefined
+      ? {}
+      : {
+          bugTask: {
+            title: bugTask.title,
+            description: bugTask.description,
+            why: bugTask.why,
+            projectId: bugTask.projectId,
+            causedBy: bugTask.causedBy ?? null,
+          },
+        }),
     taskId: decision.taskId ?? null,
     roleKey: decision.roleKey ?? null,
     putTo: decision.putTo ?? null,
@@ -479,5 +491,16 @@ function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerRespons
         : { kind: "words", text: given.text, ...comment };
     }),
     ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
+    ...(answer.bugTask === undefined
+      ? {}
+      : {
+          bugTask: {
+            title: answer.bugTask.title,
+            description: answer.bugTask.description,
+            projectId: answer.bugTask.projectId,
+            causedBy: answer.bugTask.causedBy ?? null,
+          },
+        }),
+    ...(answer.createdTaskId === undefined ? {} : { createdTaskId: answer.createdTaskId }),
   };
 }

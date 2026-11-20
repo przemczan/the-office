@@ -1,6 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { UserRef } from "./author.js";
-import type { Priority, Task, TaskHolder, TaskState } from "./task.js";
+import type { Priority, Task, TaskHolder, TaskKind, TaskState } from "./task.js";
 
 export class TaskCreated extends DomainEvent {
   constructor(readonly task: Task) {
@@ -49,6 +49,23 @@ export class TaskPriorityChanged extends DomainEvent {
 
 /** The Task's title was rewritten. */
 export class TaskTitleChanged extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+/** The Task's Kind changed: Feature, Bug or Chore. */
+export class TaskKindChanged extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly kind: TaskKind,
+  ) {
+    super();
+  }
+}
+
+/** The Task's Caused by or Found in version changed. */
+export class TaskBugDetailsChanged extends DomainEvent {
   constructor(readonly taskId: string) {
     super();
   }

@@ -1,5 +1,5 @@
 {
-  "id": "084b3e4d-fb78-4010-8c2f-5dc801842be5",
+  "id": "91f98897-60d1-4404-b99d-a524964db3bd",
   "prevId": "b57ff414-6baf-4a7c-8aaa-680ec0a09b0a",
   "version": "7",
   "dialect": "postgresql",
@@ -1299,7 +1299,7 @@
         },
         "engines_kind": {
           "name": "engines_kind",
-          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> '')) OR (\"engines\".\"kind\" = 'copilot-cli' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> '')) OR (\"engines\".\"kind\" = 'gemini-cli' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
+          "value": "(\"engines\".\"kind\" = 'claude-code' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"key\" IS NULL AND \"engines\".\"models\" IS NULL) OR (\"engines\".\"kind\" = 'openai-compatible-api' AND \"engines\".\"base_url\" IS NOT NULL AND \"engines\".\"key\" IS NOT NULL AND \"engines\".\"models\" IS NOT NULL AND NOT \"engines\".\"claude_code_p\") OR (\"engines\".\"kind\" = 'codex' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> '')) OR (\"engines\".\"kind\" = 'copilot-cli' AND \"engines\".\"base_url\" IS NULL AND \"engines\".\"models\" IS NULL AND NOT \"engines\".\"claude_code_p\" AND (\"engines\".\"key\" IS NULL OR \"engines\".\"key\" <> ''))"
         }
       },
       "isRLSEnabled": false
@@ -5991,6 +5991,56 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'feature'"
+        },
+        "drop_reason": {
+          "name": "drop_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "drop_reason_text": {
+          "name": "drop_reason_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duplicate_of_task_id": {
+          "name": "duplicate_of_task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "caused_by_task_id": {
+          "name": "caused_by_task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "found_in_version": {
+          "name": "found_in_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "found_while_working_on_task_id": {
+          "name": "found_while_working_on_task_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_the_office": {
+          "name": "created_by_the_office",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {
@@ -6020,6 +6070,37 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tasks_kind_idx": {
+          "name": "tasks_kind_idx",
+          "columns": [
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tasks_caused_by_idx": {
+          "name": "tasks_caused_by_idx",
+          "columns": [
+            {
+              "expression": "caused_by_task_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"tasks\".\"caused_by_task_id\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -6115,6 +6196,45 @@
           "tableTo": "initiatives",
           "columnsFrom": [
             "initiative_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tasks_duplicate_of_task_id_tasks_id_fk": {
+          "name": "tasks_duplicate_of_task_id_tasks_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "tasks",
+          "columnsFrom": [
+            "duplicate_of_task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tasks_caused_by_task_id_tasks_id_fk": {
+          "name": "tasks_caused_by_task_id_tasks_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "tasks",
+          "columnsFrom": [
+            "caused_by_task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "tasks_found_while_working_on_task_id_tasks_id_fk": {
+          "name": "tasks_found_while_working_on_task_id_tasks_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "tasks",
+          "columnsFrom": [
+            "found_while_working_on_task_id"
           ],
           "columnsTo": [
             "id"

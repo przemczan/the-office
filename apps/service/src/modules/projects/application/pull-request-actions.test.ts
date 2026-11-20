@@ -17,6 +17,8 @@ import {
   CodeHostChangedSince,
   CodeHostRefused,
   type CiRunOnHost,
+  type IssueOnHost,
+  type FoundIssueOnHost,
   type MergedOnHost,
   type MergeMethodsOnHost,
   type MergeRequest,
@@ -83,6 +85,22 @@ class MergingCodeHost extends CodeHost {
   }
   startWorkflow(): Promise<void> {
     return Promise.reject(new Error("Not started here."));
+  }
+
+  openIssues(): Promise<readonly IssueOnHost[]> {
+    return Promise.resolve([]);
+  }
+
+  issue(): Promise<FoundIssueOnHost | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  commentOnIssue(): Promise<void> {
+    return Promise.reject(new Error("Not commented here."));
+  }
+
+  closeIssue(): Promise<void> {
+    return Promise.reject(new Error("Not closed here."));
   }
 }
 

@@ -60,6 +60,15 @@ const ADMIN_PANEL: Project = {
   runEnvironment: "not-decided",
   projectLimit: 1,
   addedAt: "2026-11-01T10:00:00.000Z",
+  codeHost: null,
+  kindDefaultPipelines: { feature: null, bug: null, chore: null },
+  defaultPipelineOfKind: { feature: "full", bug: "full", chore: "full" },
+  issueSettings: {
+    autoImportLabel: null,
+    closeOnDone: true,
+    commentOnStartAndDone: false,
+    closeOnDrop: false,
+  },
 };
 
 /** The Origin block of an Initiative shaped from the Idea, in a router of its own for its links. */

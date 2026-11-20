@@ -8,7 +8,13 @@ import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries } from "../../api/work.ts";
 import { AttachmentGallery } from "../attachments/attachment-gallery.tsx";
 import { oneRound } from "../attachments/attachment-rounds.ts";
-import { useDroppingTask, WhatDroppingDoes } from "./drop-task-dialog.tsx";
+import {
+  DropReasonField,
+  dropReasonOf,
+  NO_DROP_REASON,
+  type DropReasonDraft,
+} from "./drop-reason-field.tsx";
+import { DropButton, useDroppingTask, WhatDroppingDoes } from "./drop-task-dialog.tsx";
 import {
   ContinueNotesField,
   ContinueRefused,
@@ -58,7 +64,12 @@ export function GateWindow({
   const continuing = useContinuingAtGate(task, waiting);
   const continuingWithNotes = useContinuingWithNotes(task, waiting, roles, onClose);
   const sending = useSendingBack(task, waiting.sendBackTargets, roles, onClose);
-  const dropping = useDroppingTask(() => dropAtGate(task.id), onClose);
+  const [dropReason, setDropReason] = useState<DropReasonDraft>(NO_DROP_REASON);
+  const sentReason = dropReasonOf(dropReason);
+  const dropping = useDroppingTask(
+    () => dropAtGate(task.id, "reason" in sentReason ? sentReason.reason : undefined),
+    onClose,
+  );
   const allAttachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
   const attachments = attachmentsOfThisRound(
     allAttachments ?? [],
@@ -79,14 +90,14 @@ export function GateWindow({
             <strong>Drop {task.title}?</strong>
           </p>
           <WhatDroppingDoes error={dropping.error} />
+          <DropReasonField task={task} draft={dropReason} onChange={setDropReason} />
         </>
       ),
-      actions: (
-        <Button variant="danger" loading={dropping.isPending} onClick={() => dropping.mutate()}>
-          Drop
-        </Button>
-      ),
-      onCancel: cancelStep,
+      actions: <DropButton label="Drop" sent={sentReason} dropping={dropping} />,
+      onCancel: () => {
+        setDropReason(NO_DROP_REASON);
+        cancelStep();
+      },
     },
   };
   return (

@@ -1,11 +1,21 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Author } from "./author.js";
 import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js";
-import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task } from "./task.js";
+import { dropReasonProblems, keptDropReason, type DropReason } from "./drop-reason.js";
 import {
+  newTaskProblems,
+  trimmedNewTask,
+  type NewTask,
+  type Priority,
+  type Task,
+  type TaskKind,
+} from "./task.js";
+import {
+  TaskBugDetailsChanged,
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
   TaskHeldAtAllClear,
+  TaskKindChanged,
   TaskMarkedReadyAsItStands,
   TaskPaused,
   TaskPlanConfirmed,
@@ -77,8 +87,19 @@ const NO_USAGE_WINDOW_RESUME = {
   usageWindowPausedAt: undefined,
 } as const satisfies Partial<Task>;
 
+/**
+ * Where a new Task comes from beyond who created it: whether The Office created it by itself (an
+ * approved Bug Task, an auto-imported issue), and a Bug's links set as it is created. None by
+ * default.
+ */
+export interface NewTaskOrigin {
+  readonly createdByTheOffice?: boolean;
+  readonly causedBy?: string;
+  readonly foundWhileWorkingOn?: string;
+}
+
 /** What The Office sets on a new Task. */
-export interface NewTaskSetting {
+export interface NewTaskSetting extends NewTaskOrigin {
   readonly order: string;
   readonly originIdeaId: string | undefined;
   readonly initiativeId: string | undefined;
@@ -137,6 +158,11 @@ export function createTask(
     restoredBy: undefined,
     endedAt: undefined,
     pullRequestEnd: undefined,
+    causedBy: setting.causedBy,
+    foundInVersion: undefined,
+    foundWhileWorkingOn: setting.foundWhileWorkingOn,
+    dropReason: undefined,
+    createdByTheOffice: setting.createdByTheOffice ?? false,
   };
   return {
     task,
@@ -612,6 +638,76 @@ function refuseUnlessRunning(task: Task, verb: "paused" | "stopped"): void {
   throw new TaskRefused([
     `Only a Task in progress can be ${verb}; this one is in ${TASK_STATE_NAMES[task.state]}.`,
   ]);
+}
+
+/**
+ * Drop, by the user, with the reason they gave, if any (drop-reason.ts): the reason and the move
+ * are one change, so they are saved together. Undefined when the Task is Dropped already.
+ */
+export function dropTask(
+  task: Task,
+  by: StateChangeCause,
+  reason?: DropReason,
+): TaskChange<TaskStateChanged> | undefined {
+  if (reason) {
+    const problems = dropReasonProblems(task.id, reason);
+    if (problems.length > 0) throw new TaskRefused(problems);
+  }
+  const dropped = changeTaskState(task, "dropped", by);
+  if (!dropped || !reason) return dropped;
+  return { ...dropped, task: { ...dropped.task, dropReason: keptDropReason(reason) } };
+}
+
+/** A Task's Kind and bug details change in any state but Done and Dropped, never moving it. */
+function refuseOnceEnded(task: Task, what: string): void {
+  if (task.state === "done" || task.state === "dropped") {
+    throw new TaskRefused([`A Task keeps its ${what} once it is Done or Dropped.`]);
+  }
+}
+
+/** Feature, Bug or Chore, in any state but Done and Dropped; undefined when it already is. */
+export function changeKind(task: Task, kind: TaskKind): TaskChange<TaskKindChanged> | undefined {
+  refuseOnceEnded(task, "Kind");
+  if (task.kind === kind) return undefined;
+  return { task: { ...task, kind }, event: new TaskKindChanged(task.id, kind) };
+}
+
+/**
+ * The Task whose work caused this Bug: any other Task, in any Project and any state (a cycle is
+ * allowed), or undefined for none. Undefined when it already names it.
+ */
+export function changeCausedBy(
+  task: Task,
+  causedBy: string | undefined,
+): TaskChange<TaskBugDetailsChanged> | undefined {
+  refuseOnceEnded(task, "bug details");
+  if (causedBy === task.id) throw new TaskRefused(["A Task can't be caused by itself."]);
+  if (task.causedBy === causedBy) return undefined;
+  return { task: { ...task, causedBy }, event: new TaskBugDetailsChanged(task.id) };
+}
+
+/** The most a Found in version may hold, trimmed. */
+export const MAX_FOUND_IN_VERSION = 64;
+
+/**
+ * The version the Bug was found in, free text, trimmed, 1 to 64 characters, or undefined for none.
+ * Undefined when it already reads so.
+ */
+export function changeFoundInVersion(
+  task: Task,
+  given: string | undefined,
+): TaskChange<TaskBugDetailsChanged> | undefined {
+  refuseOnceEnded(task, "bug details");
+  const foundInVersion = given?.trim();
+  if (foundInVersion !== undefined && !between(foundInVersion.length, 1, MAX_FOUND_IN_VERSION)) {
+    throw new TaskRefused([`Found in version is 1 to ${MAX_FOUND_IN_VERSION} characters.`]);
+  }
+  if (task.foundInVersion === foundInVersion) return undefined;
+  return { task: { ...task, foundInVersion }, event: new TaskBugDetailsChanged(task.id) };
+}
+
+function between(value: number, least: number, most: number): boolean {
+  return value >= least && value <= most;
 }
 
 /** Undefined when the Task already has that priority. */

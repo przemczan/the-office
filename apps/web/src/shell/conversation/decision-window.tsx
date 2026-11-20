@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Attachment, Decision } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
+import { BugTaskWindowOf } from "./bug-task-card.tsx";
 import { DecisionForm } from "./decision-form.tsx";
 import {
   useDecisionThread,
@@ -25,6 +26,9 @@ export function DecisionWindow({
   readonly firstQuestion?: number;
   readonly onClose: () => void;
 }): ReactNode {
+  if (answering.decision.kind === "bug-task") {
+    return <BugTaskWindowOf {...answering} onClose={onClose} />;
+  }
   return (
     <DecisionForm
       {...answering}

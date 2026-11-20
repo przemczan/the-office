@@ -6,6 +6,7 @@ import { roleQueries } from "../../api/people.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { roleFirstName } from "../person-name.ts";
 import { userName, useSignedInUserId } from "../use-user-name.ts";
+import { BugTaskAnswered } from "./bug-task-card.tsx";
 import { answeredLines, type AnsweredLine } from "./decision-form-words.ts";
 import {
   ClosedLine,
@@ -37,13 +38,16 @@ export function DecisionAnswered({ decision }: { readonly decision: Decision }):
         unanswered: true as const,
       }));
   // A request's one question is the card's "Asked you to" line already, so unanswered it shows none.
-  const listed = decision.kind === "request" && !submitted ? [] : lines;
+  // A bug-task's one choice reads as what became of the Bug Task.
+  const bugTask = decision.kind === "bug-task";
+  const listed = (decision.kind === "request" && !submitted) || bugTask ? [] : lines;
   const shown = showingAll ? listed : listed.slice(0, SHOWN_AT_FIRST);
   const numbered = questions.length > 1;
   const general = formAnswer?.generalComment?.trim();
   return (
     <div className="decision-settled">
       <ContextFirstLine decision={decision} />
+      {bugTask && <BugTaskAnswered decision={decision} />}
       {shown.length > 0 && (
         <ol className="decision-answers">
           {shown.map((line) => (

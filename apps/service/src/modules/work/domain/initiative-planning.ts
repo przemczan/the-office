@@ -7,15 +7,17 @@ import type { InitiativeChange } from "./initiative-changes.js";
 import { InitiativePlanningStarted } from "./initiative-events.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import {
+  bugDetailsWords,
   commandLines,
   defaultPipelineWords,
+  kindValues,
   pipelineGroups,
   type PlanningPipeline,
   type PlanningProject,
 } from "./planning.js";
 import { PUBLISHING_TASK_NEVER_PLANNED } from "./publishing-task.js";
 import { flagField, renderedText } from "./rendered-text.js";
-import { isPublishingTask, type Task, type TaskState } from "./task.js";
+import { isPublishingTask, type Task, type TaskKind, type TaskState } from "./task.js";
 import { startPlanningTask, withStateChange, type TaskChange } from "./task-changes.js";
 import { TaskRewrittenInInitiative, TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
@@ -292,6 +294,8 @@ export interface InitiativePlanningProject extends PlanningProject {
   readonly id: string;
   /** Its Project Pipelines, which only its Tasks can follow. */
   readonly ownPipelines: readonly PlanningPipeline[];
+  /** The Pipeline it gives each Kind it has a default of its own for; its default otherwise. */
+  readonly kindPipelines?: Readonly<Partial<Record<TaskKind, string>>>;
 }
 
 /**
@@ -326,7 +330,7 @@ export function initiativePlanningBrief(
   prompts: PromptTexts,
   { initiative, waiting, record, tasks, projects, pipelines }: InitiativePlanningRecord,
 ): string {
-  const tasksToPlan = tasksToPlanValues(tasks, projects);
+  const tasksToPlan = tasksToPlanValues(tasks, projects, pipelines);
   const beingPlanned = beingPlannedValues(initiative, tasks);
   const waitingOnTasks = waitingValues(waiting, tasks);
   return renderedText(prompts, INITIATIVE_PLANNING_BRIEF, {
@@ -362,15 +366,37 @@ export function initiativePlanningBrief(
 function tasksToPlanValues(
   tasks: readonly Task[],
   projects: readonly InitiativePlanningProject[],
-): { title: string; id: string; projectName: string; waitsFor: string }[] {
+  officeWide: readonly PlanningPipeline[],
+): {
+  title: string;
+  id: string;
+  projectName: string;
+  waitsFor: string;
+  kind: string;
+  kindPlural: string;
+  commitType: string;
+  bugDetails: string;
+  defaultPipeline: string;
+}[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
-  const projectName = (id: string) => projects.find((project) => project.id === id)?.name ?? id;
+  const projectOf = (id: string) => projects.find((project) => project.id === id);
+  const kindPipeline = (task: Task) => {
+    const project = projectOf(task.projectId);
+    if (!project) return "";
+    return defaultPipelineWords(
+      [...project.ownPipelines, ...officeWide],
+      project.kindPipelines?.[task.kind] ?? project.defaultPipeline,
+    );
+  };
   return tasks
     .filter(({ state }) => state === "backlog")
     .map((task) => ({
       title: task.title,
       id: task.id,
-      projectName: projectName(task.projectId),
+      projectName: projectOf(task.projectId)?.name ?? task.projectId,
+      ...kindValues(task),
+      bugDetails: bugDetailsWords(task, task.causedBy ? byId.get(task.causedBy) : undefined),
+      defaultPipeline: kindPipeline(task),
       waitsFor: task.blockedBy
         .map((id) => byId.get(id))
         .filter((blocker) => blocker !== undefined)

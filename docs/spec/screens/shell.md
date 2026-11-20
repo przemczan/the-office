@@ -80,7 +80,14 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 - It opens one window ([task-page.md](task-page.md) for the Task it makes): **Task** or **Idea** chosen at its top by a segmented control, Task first; below it the body of "New Task" or "Capture an Idea", the window titled after it.
 - It starts in the Project of the Project page or Task page shown, else the one Project the filter shows, else none; the user may choose otherwise.
 - Switching between Task and Idea keeps the title, the Description (the Idea's notes), the Project chosen (Office-wide kept for the Idea while the Task shows its own) and the Attachments.
-- New Task: a title, a Description, Attachments, the Project and Tags; it then opens the new Task's page.
+- New Task: a title, a **Kind**, a Description, Attachments, the Project and Tags; it then opens the new Task's page.
+- Kind: a segmented control of **Feature**, **Bug** and **Chore**, each with its glyph, between the title and the Description; Feature at first ([2.1.3](../2.1.3-tasks.md#task-kind)). "Add a Task to <Initiative>" has it too; an Idea has none.
+  - Choosing Bug while the Description is empty fills in the Bug outline, "**Steps to reproduce**", "1. ", "**Expected**" and "**Actual**", the cursor at the end of "1. ".
+  - While the Description is the untouched outline, its hint reads "Optional. Choosing Bug filled in this outline because the Description was empty. Edit it freely.", and on a Bug the field is eight rows tall rather than four.
+  - Leaving Bug while the Description is still the untouched outline empties it again; a Description with the user's words is never touched.
+  - The outline is the web's alone: the service sees only a Description.
+  - A changed Kind is unsaved input.
+- Tags' hint: "Optional. Words to find it by, such as its area."
 - See [2.1.3](../2.1.3-tasks.md) and [2.1.2](../2.1.2-ideas-and-attachments.md).
 
 ## Fire alarm control

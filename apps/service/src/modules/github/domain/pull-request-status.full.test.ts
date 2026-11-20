@@ -71,6 +71,7 @@ describe("the permissions an installation lacks", () => {
         checks: "write",
         statuses: "unheard-of",
         actions: "write",
+        issues: "write",
       }),
     ).toEqual([
       { name: "contents", level: "write" },

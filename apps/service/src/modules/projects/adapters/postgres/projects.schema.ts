@@ -7,6 +7,7 @@ import type {
   PublishingMode,
   RunEnvironmentSetting,
 } from "../../domain/project.js";
+import type { IssueUser } from "../../domain/issue-settings.js";
 import type { StoredEnvironment } from "./stored-environment.js";
 import { NO_PROJECT_IMAGE, type ProjectImageVersions } from "../../domain/project-image.js";
 
@@ -59,6 +60,17 @@ export const projects = pgTable(
       .default(sql`'{}'`),
     projectLimit: integer("project_limit").notNull().default(1),
     addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
+    /** Each Kind's own default Pipeline; null follows `default_pipeline`. */
+    featureDefaultPipeline: text("feature_default_pipeline"),
+    bugDefaultPipeline: text("bug_default_pipeline"),
+    choreDefaultPipeline: text("chore_default_pipeline"),
+    /** Null while the auto-import is off. */
+    issueImportLabel: text("issue_import_label"),
+    /** The user who set the label, named in `created_by` of the Tasks the auto-import makes. */
+    issueImportLabelSetBy: jsonb("issue_import_label_set_by").$type<IssueUser>(),
+    closeIssueOnDone: boolean("close_issue_on_done").notNull().default(true),
+    commentOnIssue: boolean("comment_on_issue").notNull().default(false),
+    closeIssueOnDrop: boolean("close_issue_on_drop").notNull().default(false),
   },
   (table) => [check("projects_project_limit", sql`${table.projectLimit} > 0`)],
 );

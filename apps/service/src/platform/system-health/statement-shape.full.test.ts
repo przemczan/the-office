@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STATEMENT_SHAPE_LENGTH, statementShapeOf } from "./statement-shape.js";
+import { READ_LENGTH, statementShapeOf } from "./statement-shape.js";
 
 const shapeOf = (statement: string): string => statementShapeOf(statement).shape;
 
@@ -39,20 +39,22 @@ describe("statementShapeOf, edge cases", () => {
     );
   });
 
-  it("cuts the shape at 200 characters, a long VALUES list still one `?`", () => {
+  it("keeps the whole shape of a long statement, past 200 characters", () => {
     const columns = Array.from({ length: 60 }, (_, index) => `"column_${index}"`).join(", ");
+    const statement = `select ${columns} from "t" where "column_59" = $1`;
+
+    expect(shapeOf(statement)).toBe(`select ${columns} from "t" where "column_59" = ?`);
+  });
+
+  it("shapes only what is read of a longer statement, ending it with …, a long VALUES list still one `?`", () => {
     const rows = Array.from(
       { length: 3_000 },
       (_, index) => `($${index * 2 + 1}, $${index * 2 + 2})`,
     );
-    const statement = `insert into "t" (${columns}) values ${rows.join(", ")}`;
+    const statement = `insert into t (a, b) values ${rows.join(", ")}`;
 
-    const { shape } = statementShapeOf(statement);
-
-    expect(shape).toHaveLength(STATEMENT_SHAPE_LENGTH);
-    expect(shapeOf(`insert into t (a, b) values ${rows.join(", ")}`)).toBe(
-      "insert into t (a, b) values (?)",
-    );
+    expect(statement.length).toBeGreaterThan(READ_LENGTH);
+    expect(shapeOf(statement)).toBe("insert into t (a, b) values (?)…");
   });
 
   it.each([

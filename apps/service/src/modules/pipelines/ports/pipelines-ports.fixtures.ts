@@ -52,7 +52,12 @@ import type { StagePermissions } from "../domain/stage-permissions.js";
 import type { PublishTarget } from "../domain/stage.js";
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
-import type { StageRunContext, StageRunStandIn, StageSessionMove } from "../domain/stage-run.js";
+import type {
+  GateDropReason,
+  StageRunContext,
+  StageRunStandIn,
+  StageSessionMove,
+} from "../domain/stage-run.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import {
   TaskCommands,
@@ -135,7 +140,12 @@ export class PipelineInitiativesForTests extends PipelineInitiatives {
 export class StartedTasksForTests extends StartedTasks {
   private readonly tasks = new Map<string, StartedTask>();
   /** Every state the walk moved a Task to, in order. */
-  readonly changes: { readonly taskId: string; readonly state: WalkTaskState }[] = [];
+  readonly changes: {
+    readonly taskId: string;
+    readonly state: WalkTaskState;
+    /** The reason a drop at a Gate brought, when it brought one. */
+    readonly dropReason?: GateDropReason;
+  }[] = [];
 
   /** Whether the fire alarm is on, as Work keeps it. */
   fireAlarmOn = false;
@@ -171,11 +181,15 @@ export class StartedTasksForTests extends StartedTasks {
   }
 
   /** As Work moves it: a Paused Task stays Paused, held by the user; TaskStateChanged tells of it. */
-  async changeState(taskId: string, state: WalkTaskState): Promise<StartedTask> {
+  async changeState(
+    taskId: string,
+    state: WalkTaskState,
+    dropReason?: GateDropReason,
+  ): Promise<StartedTask> {
     const task = await this.read(taskId);
     if (task.state === "paused") return task;
     this.put(taskId, { ...task, state });
-    this.changes.push({ taskId, state });
+    this.changes.push(dropReason ? { taskId, state, dropReason } : { taskId, state });
     if (task.state !== state) {
       await this.announce(new TaskStateChanged(taskId, task.state as WalkTaskState, state));
     }

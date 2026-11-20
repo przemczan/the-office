@@ -27,8 +27,8 @@ export type PermissionLevel = "read" | "write";
 
 /**
  * The permissions the App needs, by GitHub's names: cloning, pushing and pull requests, pushing a
- * branch that changes workflows, reading a pull request's checks and commit statuses, and running
- * workflows again. An App registered before one was added lacks it until its owner adds it on
+ * branch that changes workflows, reading a pull request's checks and commit statuses, running
+ * workflows again, and importing, commenting on and closing issues. An App registered before one was added lacks it until its owner adds it on
  * GitHub and each installation accepts it.
  */
 export const REQUIRED_PERMISSIONS: Readonly<Record<string, PermissionLevel>> = {
@@ -39,6 +39,7 @@ export const REQUIRED_PERMISSIONS: Readonly<Record<string, PermissionLevel>> = {
   checks: "read",
   statuses: "read",
   actions: "write",
+  issues: "write",
 };
 
 /** One permission the App needs that an installation hasn't granted at its level. */

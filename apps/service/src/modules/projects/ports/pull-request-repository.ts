@@ -31,6 +31,9 @@ export abstract class PullRequestRepository {
   /** The open pull requests (no `endedAt`), newest first; only the Project's when one is named. */
   abstract listOpen(projectId?: string): Promise<readonly PullRequest[]>;
 
+  /** The newest pull request the Task opened, open or ended; undefined when it opened none. */
+  abstract ofTask(taskId: string): Promise<PullRequest | undefined>;
+
   /** The pull request kept for the remote's `number`, open or ended; undefined when none is. */
   abstract find(remoteUrl: string, number: number): Promise<PullRequest | undefined>;
 }

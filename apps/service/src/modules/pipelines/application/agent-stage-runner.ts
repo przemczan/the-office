@@ -97,7 +97,8 @@ import { StageRunners } from "./stage-runners.js";
  * the Task's commit message (`write_commit_message`, Work's), asks The Office to update the Task's
  * branch from the base, runs the Project's commands where they run (`StageProjectCommands`), and
  * reads the Stage history, an earlier run's whole outputs and Stage Thread too, so a later Stage
- * doesn't repeat a failed approach. Never `read_threads`: it reads Thread messages only through a
+ * doesn't repeat a failed approach, and proposes a Bug Task for an issue outside its Task
+ * (`propose_bug_task`, Conversations'), never creating a Task itself. Never `read_threads`: it reads Thread messages only through a
  * run's Stage Thread. The names are the tools' own, which Conversations, Work and Pipelines
  * register.
  */
@@ -111,6 +112,7 @@ export const AGENT_STAGE_OFFICE_TOOLS = [
   "write_commit_message",
   UPDATE_BRANCH_TOOL,
   RUN_PROJECT_COMMAND_TOOL,
+  "propose_bug_task",
 ] as const;
 
 type Ending = Parameters<StageThread["end"]>[0];

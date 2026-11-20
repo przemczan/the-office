@@ -23,7 +23,7 @@ import {
 } from "../../domain/initiative-planning.js";
 import { initiativeRecordText } from "../../domain/record-words.js";
 import { shapingBrief, shapingInstructions, type ShapingProject } from "../../domain/shaping.js";
-import type { Task } from "../../domain/task.js";
+import { TASK_KINDS, type Task, type TaskKind } from "../../domain/task.js";
 import {
   INITIATIVE_PLANNING_BRIEF,
   INITIATIVE_PLANNING_INSTRUCTIONS,
@@ -39,6 +39,8 @@ import {
   PROPOSE_PIPELINE,
   START_PLANNING,
   WRITE_DEFINITION_OF_DONE,
+  WRITE_BUG_DETAILS,
+  WRITE_KIND,
   WRITE_PLAN,
   WRITE_TAGS,
 } from "../office-tools/planning-office-tools.js";
@@ -97,6 +99,8 @@ export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
   WRITE_DEFINITION_OF_DONE,
   PROPOSE_PIPELINE,
   WRITE_TAGS,
+  WRITE_KIND,
+  WRITE_BUG_DETAILS,
   WRITE_COMMIT_MESSAGE,
   MARK_PLANNED,
   ANSWER_DECISION_TOOL,
@@ -198,19 +202,31 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
   }
 
   private async planningProject(id: string): Promise<InitiativePlanningProject | undefined> {
-    const [project, pipelines] = await Promise.all([
+    const [project, pipelines, kindPipelines] = await Promise.all([
       this.projects.find(id),
       this.pipelines.listFor(id),
+      this.kindPipelinesOf(id),
     ]);
     if (!project) return undefined;
     return {
       id,
       ownPipelines: pipelines.filter(({ projectId }) => projectId === id),
+      kindPipelines,
       name: project.name,
       baseBranch: project.baseBranch,
       defaultPipeline: project.defaultPipeline,
       installCommand: project.installCommand,
       commands: project.commands,
     };
+  }
+
+  /** The Pipeline the Project gives each Kind, as its Tasks are proposed one. */
+  private async kindPipelinesOf(id: string): Promise<Partial<Record<TaskKind, string>>> {
+    const pipelines = await Promise.all(
+      TASK_KINDS.map(
+        async (kind) => [kind, await this.projects.defaultPipelineFor(id, kind)] as const,
+      ),
+    );
+    return Object.fromEntries(pipelines.filter(([, pipeline]) => pipeline !== undefined));
   }
 }

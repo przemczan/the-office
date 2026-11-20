@@ -11,7 +11,7 @@ import {
 } from "react";
 import { counted } from "../../shell/pipelines/stage-change-words.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
-import { PriorityIcon } from "../../shell/work/task-state-badge.tsx";
+import { KindMark, PriorityIcon } from "../../shell/work/task-state-badge.tsx";
 import { useUsageEstimate } from "../../shell/work/usage-estimate-line.tsx";
 import { usageEstimateWords } from "../../shell/work/usage-estimate-words.ts";
 import { NOT_STARTED, TASK_STATE_TONES, taskStateWords } from "../../shell/work/work-words.ts";
@@ -191,6 +191,8 @@ export function BoardCard({
         ) : (
           <span className="board-card-project">{task.projectId}</span>
         )}
+        {/* What the Task is, on every card, a Done one's too. */}
+        <KindMark kind={task.kind} />
         {marks.map(markOf)}
       </div>
     </article>

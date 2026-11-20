@@ -316,6 +316,22 @@ export function goldenCaseOutputs(
       task: aTask({ plan: "Keep the path.", planConfirmed: true, autoMode: true }),
       stateChanges: [{ from: "ready", to: "planning", at, by: A_PLANNER }],
     }),
+    "planning Brief, a Bug with its details and its Kind's Pipeline": planningBrief(prompts, {
+      ...FEWEST_PLANNING,
+      task: aTask({
+        state: "planning",
+        pipelineId: undefined,
+        kind: "bug",
+        causedBy: "task-2",
+        foundInVersion: "v1.14.2",
+      }),
+      links: {
+        ...NO_LINKS,
+        causedBy: aTask({ id: "task-2", title: "Passkeys on the sign-in page", state: "done" }),
+      },
+      project: { ...FEWEST_PLANNING.project, defaultPipeline: "admin-quick" },
+      pipelines: [...OFFICE_WIDE, ...ADMIN_OWN],
+    }),
     "asking Brief, fewest sections": askingBrief(prompts, FEWEST_ASKING),
     "asking Brief, every section": askingBrief(prompts, ALL_ASKING),
     "asking Brief, a worktree and Stage results alone": askingBrief(prompts, {

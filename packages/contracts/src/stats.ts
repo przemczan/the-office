@@ -302,13 +302,18 @@ export type SystemHealthSlowestRoute = z.infer<typeof systemHealthSlowestRouteSc
 
 /**
  * A query among the slowest, by its operation and table (`SELECT`, `stage_runs`; "" when the
- * statement names none), and on 1 h by its statement shape too.
+ * statement names none), and on 1 h by its statement shape and where it was called from too.
  */
 export const systemHealthSlowestQuerySchema = slowestFiguresSchema.extend({
   operation: z.string(),
   table: z.string(),
   /** On 1 h only: Grafana's metrics carry no shape. */
   shape: z.string().optional(),
+  /**
+   * On 1 h only: up to 3 places in the service's code it ran from, each
+   * `apps/service/src/<file>:<line> (<function>)`; empty when none was found.
+   */
+  calledFrom: z.array(z.string()).optional(),
 });
 export type SystemHealthSlowestQuery = z.infer<typeof systemHealthSlowestQuerySchema>;
 

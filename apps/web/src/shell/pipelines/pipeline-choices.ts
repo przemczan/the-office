@@ -1,4 +1,11 @@
-import type { Pipeline, ProjectPipeline, Stage } from "@the-office/contracts";
+import type {
+  DefaultPipelineOfKind,
+  KindDefaultPipelines,
+  Pipeline,
+  ProjectPipeline,
+  Stage,
+  TaskKind,
+} from "@the-office/contracts";
 import { stagesLine } from "./pipeline-words.ts";
 
 /** A Pipeline a picker offers, read the same whether it is office-wide or a Project Pipeline. */
@@ -9,8 +16,10 @@ export interface PipelineChoice {
   readonly stages: readonly Stage[];
   /** Its second line: its Stages, and the base Pipeline a Project Pipeline is built from. */
   readonly line: string;
-  /** Whether it is the Project's default, marked as such in a Task's picker. */
+  /** Whether it is the Project's default, or its Task's Kind's, marked as such in a Task's picker. */
   readonly isDefault: boolean;
+  /** The Kind it is the default for, where a Task's Kind chose it: "Default for Bugs". */
+  readonly defaultFor?: TaskKind;
   /** Why it can't be chosen: a Broken one's reasons; undefined when it can be. */
   readonly brokenWhy: string | undefined;
   /** A Broken one's reasons alone; empty when it isn't Broken. */
@@ -27,6 +36,10 @@ export interface ChoosingProject {
   readonly id: string;
   readonly name: string;
   readonly defaultPipeline: string;
+  /** Each Kind's default, resolved: its own, else the Project's. */
+  readonly defaultPipelineOfKind?: DefaultPipelineOfKind;
+  /** Each Kind's own default, null where it follows the Project's. */
+  readonly kindDefaultPipelines?: KindDefaultPipelines;
 }
 
 const OFFICE_WIDE_PIPELINES = "Office-wide Pipelines";
@@ -34,14 +47,32 @@ const OFFICE_WIDE_PIPELINES = "Office-wide Pipelines";
 /**
  * A Task's choices (spec §2.3, "Project Pipelines"): its Project's own Pipelines, then the
  * office-wide ones, the Project's default first in its group and marked; a Broken one is listed
- * with why and can't be chosen. Another Project's Project Pipelines are never offered.
+ * with why and can't be chosen. Another Project's Project Pipelines are never offered. Given the
+ * Task's Kind, its Kind's default is the one first and marked: "Default for Bugs" when the Kind
+ * sets its own, the Project's default otherwise.
  */
 export function taskPipelineChoices(
   project: ChoosingProject,
   officeWide: readonly Pipeline[],
   projectPipelines: readonly ProjectPipeline[],
+  kind?: TaskKind,
 ): PipelineChoiceGroup[] {
-  return grouped(project, officeWide, projectPipelines, { marksDefault: true });
+  const kindDefault = kind && project.defaultPipelineOfKind?.[kind];
+  if (kind === undefined || kindDefault === undefined) {
+    return grouped(project, officeWide, projectPipelines, { marksDefault: true });
+  }
+  const kindHasItsOwn = (project.kindDefaultPipelines?.[kind] ?? null) !== null;
+  return grouped({ ...project, defaultPipeline: kindDefault }, officeWide, projectPipelines, {
+    marksDefault: true,
+    ...(kindHasItsOwn && { defaultFor: kind }),
+  });
+}
+
+/** The Pipeline a Task's picker opens on: its marked default, unless that one is Broken. */
+export function openingChoice(groups: readonly PipelineChoiceGroup[]): PipelineChoice | undefined {
+  return groups
+    .flatMap(({ choices }) => choices)
+    .find(({ isDefault, brokenWhy }) => isDefault && brokenWhy === undefined);
 }
 
 /** A Project's default's choices: its own Pipelines, then the office-wide ones, none marked. */
@@ -70,12 +101,12 @@ function grouped(
   project: ChoosingProject,
   officeWide: readonly Pipeline[],
   projectPipelines: readonly ProjectPipeline[],
-  { marksDefault }: { readonly marksDefault: boolean },
+  { marksDefault, defaultFor }: { readonly marksDefault: boolean; readonly defaultFor?: TaskKind },
 ): PipelineChoiceGroup[] {
-  const marked = (choice: PipelineChoice): PipelineChoice => ({
-    ...choice,
-    isDefault: marksDefault && choice.id === project.defaultPipeline,
-  });
+  const marked = (choice: PipelineChoice): PipelineChoice => {
+    const isDefault = marksDefault && choice.id === project.defaultPipeline;
+    return { ...choice, isDefault, ...(isDefault && defaultFor && { defaultFor }) };
+  };
   const own = projectPipelines
     .filter(({ projectId }) => projectId === project.id)
     .map((projectPipeline) => projectPipelineChoice(projectPipeline, project.name));

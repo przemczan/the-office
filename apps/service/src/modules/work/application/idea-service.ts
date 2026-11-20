@@ -11,6 +11,7 @@ import {
   editIdea,
   restoreIdea,
   shapeIdeaIntoTask,
+  type IdeaTaskShaping,
   type IdeaChange,
 } from "../domain/idea-changes.js";
 import { IdeaNotFound } from "../domain/idea-not-found.js";
@@ -62,16 +63,21 @@ export class IdeaService {
   }
 
   /**
-   * Makes the Idea a Task in Backlog in the Project, with no Pipeline yet, last on the board; the
-   * Idea's Attachments move to the Task.
+   * Makes the Idea a Task in Backlog in the Project, of the Kind given (a Feature by default), with
+   * no Pipeline yet, last on the board; the Idea's Attachments move to the Task.
    */
-  async shape(id: string, projectId: string, shapedBy: Author): Promise<Task> {
+  async shape(
+    id: string,
+    projectId: string,
+    shapedBy: Author,
+    given: Pick<IdeaTaskShaping, "kind" | "description"> = {},
+  ): Promise<Task> {
     if (!(await this.projects.find(projectId))) throw new IdeaRefused([unknownProject(projectId)]);
     const taskId = randomUUID();
     const shaped = await this.repository.shape(id, (idea, attachments, takenOrders) => ({
       ...shapeIdeaIntoTask(
         idea,
-        { id: taskId, projectId },
+        { id: taskId, projectId, ...given },
         { order: orderAfter(takenOrders), createdBy: shapedBy },
         new Date(),
       ),

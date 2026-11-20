@@ -1,8 +1,13 @@
-/** A Project as the library reads it: the Pipeline it names as its default, and its commands' keys. */
+/**
+ * A Project as the library reads it: the Pipeline it names as its default, each Kind's own default,
+ * and its commands' keys.
+ */
 export interface ProjectDefault {
   readonly id: string;
   readonly name: string;
   readonly defaultPipeline: string;
+  /** Each Kind's own default Pipeline, by Kind; null follows `defaultPipeline`. */
+  readonly kindDefaultPipelines?: Readonly<Record<string, string | null>>;
   readonly commands: readonly { readonly key: string }[];
 }
 

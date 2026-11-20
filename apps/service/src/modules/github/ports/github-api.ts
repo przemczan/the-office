@@ -191,6 +191,73 @@ export abstract class GitHubApi {
     repository: RepositoryOnGitHub,
     dispatch: WorkflowDispatch,
   ): Promise<void>;
+
+  /**
+   * The repository's open issues as `listing` asks, pull requests left out (GitHub's issues API
+   * lists them too), every page until `most`. Also throws `GitHubApiFailure` when GitHub refuses.
+   */
+  abstract openIssuesOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    listing: IssueListing,
+  ): Promise<readonly IssueOnGitHubApi[]>;
+
+  /**
+   * Issue `number`, open or closed; undefined when GitHub has no such issue (404, 410) or it is a
+   * pull request. Throws `GitHubApiFailure` when GitHub refuses otherwise or fails.
+   */
+  abstract issueOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<IssueOnGitHubApi | undefined>;
+
+  /** Comments on issue `number`. Throws `GitHubApiFailure`, quoting GitHub's message, when it refuses. */
+  abstract commentOnIssue(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+    body: string,
+  ): Promise<void>;
+
+  /**
+   * Closes issue `number` with GitHub's `state_reason`. Throws `GitHubApiFailure`, quoting
+   * GitHub's message, when it refuses.
+   */
+  abstract closeIssue(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+    reason: IssueCloseReason,
+  ): Promise<void>;
+}
+
+/** Which open issues to list: with a label, in the order they were opened, and how many at most. */
+export interface IssueListing {
+  /** Only issues with this label; GitHub matches it in any case. */
+  readonly label?: string | undefined;
+  /** By when each was opened: `asc` oldest first, `desc` newest first. */
+  readonly direction: "asc" | "desc";
+  readonly most: number;
+}
+
+/** Why an issue was closed, as GitHub's `state_reason` names it. */
+export type IssueCloseReason = "completed" | "not_planned";
+
+/** An issue as GitHub gives it; never a pull request. */
+export interface IssueOnGitHubApi {
+  readonly number: number;
+  readonly title: string;
+  /** Markdown; empty when it has none. */
+  readonly body: string;
+  readonly url: string;
+  readonly authorLogin: string;
+  readonly authorUrl: string;
+  readonly labels: readonly string[];
+  readonly createdAt: string;
+  readonly state: "open" | "closed";
+  /** When it was closed; null while open. */
+  readonly closedAt: string | null;
 }
 
 /** A workflow whose file declares `workflow_dispatch` at a ref, as GitHub lists it. */

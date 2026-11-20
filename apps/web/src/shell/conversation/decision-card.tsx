@@ -6,6 +6,7 @@ import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { RecordMention } from "../record-mention.tsx";
 import { ApprovalCard } from "./approval-card.tsx";
+import { BugTaskCard } from "./bug-task-card.tsx";
 import { DecisionAnswered } from "./decision-answered.tsx";
 import { CompactDecision } from "./decision-compact.tsx";
 import { DecisionForm } from "./decision-form.tsx";
@@ -70,6 +71,8 @@ export function DecisionCard({
         <DecisionAnswered decision={decision} />
       ) : decision.kind === "approval" ? (
         <ApprovalCard {...answering} />
+      ) : decision.kind === "bug-task" ? (
+        <BugTaskCard {...answering} compact={where === "feed"} />
       ) : where !== "inline" && isCompact(decision, where === "feed" ? "feed" : "elsewhere") ? (
         <CompactDecision {...answering} />
       ) : (
@@ -140,11 +143,15 @@ export function DecisionInThread({
         <DecisionAnswered decision={decision} />
       ) : (
         <>
-          {decision.kind !== "request" && (
-            <p className="message-text decision-question">
-              {count > 1 && `${count} questions, starting with: `}
-              {decision.questions[0]?.question}
-            </p>
+          {decision.kind === "bug-task" ? (
+            <p className="message-text decision-question">{decisionSummary(decision)}</p>
+          ) : (
+            decision.kind !== "request" && (
+              <p className="message-text decision-question">
+                {count > 1 && `${count} questions, starting with: `}
+                {decision.questions[0]?.question}
+              </p>
+            )
           )}
           <p className="decision-hint">
             {decision.putTo === null

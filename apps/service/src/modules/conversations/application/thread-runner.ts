@@ -1266,8 +1266,11 @@ export class ThreadRunner implements OnModuleDestroy {
     context: ContextUsage | undefined,
   ): Promise<boolean> {
     const session = (await this.repository.find(threadId))?.session;
-    const sentAgain = live.turnMessage;
-    if (!usedUpWindow || !session || !sentAgain || live.handingOver) return false;
+    const refused = live.turnMessage;
+    if (!usedUpWindow || !session || !refused || live.handingOver) return false;
+    // Under a new id: the carried transcript holds the refused message's, and the engine skips a
+    // message whose id it already has, which would leave the Thread answering with no turn running.
+    const sentAgain = { ...refused, id: randomUUID() };
     const running = { engineId: session.engineId, model: live.reopening.model };
     const standIn = await this.engine.standInFor(running);
     if (!standIn) return false;

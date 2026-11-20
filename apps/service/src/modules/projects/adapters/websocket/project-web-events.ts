@@ -16,6 +16,8 @@ import {
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
+  ProjectIssueSettingsChanged,
+  ProjectKindDefaultPipelineChanged,
   ProjectImageChanged,
   ProjectInstallCommandChanged,
   ProjectInstallInputsChanged,
@@ -160,6 +162,21 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectDefaultPipelineChanged,
       (event): WebEventOf<"project.default-pipeline-changed"> => ({
         type: "project.default-pipeline-changed",
+        projectId: event.projectId,
+      }),
+    );
+    // A Kind's own default is one more default Pipeline: the page refetches the Project either way.
+    this.forwarding.forward(
+      ProjectKindDefaultPipelineChanged,
+      (event): WebEventOf<"project.default-pipeline-changed"> => ({
+        type: "project.default-pipeline-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectIssueSettingsChanged,
+      (event): WebEventOf<"project.issue-settings-changed"> => ({
+        type: "project.issue-settings-changed",
         projectId: event.projectId,
       }),
     );

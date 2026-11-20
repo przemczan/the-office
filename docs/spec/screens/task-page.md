@@ -1,6 +1,6 @@
 # Task page
 
-Covers: the Task page's head and actions, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks, the Task menu, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section and the GitHub issue among them), the Task menu, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
@@ -27,12 +27,13 @@ Covers: the Task page's head and actions, Start and the queue, planning actions,
 - Badges: the Task's state ([2.1.3](../2.1.3-tasks.md#task-states)); "Waiting on you" when a Decision or Gate waits on the user; **Archived <day>** once archived; the Stand-in mark.
 - A Task Stopped at its current Stage shows the state "Stopped" while the Task itself stays Paused; a Paused Task shown without its Stages reads "Paused".
 - Stand-in mark: while a started Task's run works on Stand-in Engines, an info badge "On a Stand-in Engine: <stand-in> for <engine>" (several joined), the reasons on hover; a Stage's switch mid-run refreshes it.
-- Facts line: the priority glyph with "<High|Normal|Low> priority"; "Pipeline <name>"; the Task's tokens; its Tags.
+- Facts line: the Kind's glyph with its name ("Feature", "Bug" or "Chore", [2.1.3](../2.1.3-tasks.md#task-kind)); the priority glyph with "<High|Normal|Low> priority"; "Pipeline <name>"; the Task's tokens; its Tags.
 - Pipeline fact: the Pipeline's name, with the "edited for this Task" label once the Task has its own Stages; "Pipeline Not chosen yet" while none is chosen, never "removed".
 - Tokens: a plain count labelled "tokens", or a meter against the Planner's estimate when the Task has one.
 - Tags: the shell's tags input, saved as each is added or removed, in any state; the last change sent wins.
 - Right: the actions (see Head actions), then **More**.
-- Under the head: the Start notes (see Start and the queue).
+- Under the head: the Start notes (see Start and the queue), then the drop note.
+- Drop note: on a Task dropped with a reason, "Dropped: won't fix", "Dropped: can't reproduce", "Dropped: <Other's words>" or "Dropped as a duplicate of <Task>" (linked, with its state badge), then when; none for a Task dropped with no reason ([2.1.3](../2.1.3-tasks.md#drop-reason)).
 
 ## Head actions
 
@@ -51,11 +52,18 @@ Covers: the Task page's head and actions, Start and the queue, planning actions,
 - **More for <title>** (ellipsis).
 - First the head's actions, then:
 - While not started: a **Priority** heading with **High**, **Normal**, **Low**, a check on the current one; choosing one toasts "<title> is now <priority> priority."
+- Until it ends: a **Kind** heading with **Feature**, **Bug**, **Chore**, each with its glyph and a check on the current one; choosing one toasts "<title> is now a <Kind>." ([2.1.3](../2.1.3-tasks.md#task-kind)).
 - **Archive**: on a Done or Dropped Task that isn't archived.
 - **Edit Stages for this Task**: until it ends, never in Shaping; opens the Stage editor (see Edit for this Task).
 - **Move to another Project…**: until it ends; shown even where it is refused, as its window says why.
 - A divider, then **Drop…** (danger), until it ends.
-- Drop… opens "Drop <title>?" with the button **Drop the Task**; it says the Task moves to Done as dropped, stays readable there, and can't be picked up again; a refusal shows as "The Task can't be dropped"; success toasts "Task dropped."
+- Drop… opens "Drop <title>?" (Small) with the button **Drop the Task**; it says the Task moves to Done as dropped, stays readable there, and can't be picked up again; a refusal shows as "The Task can't be dropped"; success toasts "Task dropped."
+- Its optional **Reason** (hint "Optional."): a radio list of **Won't fix**, **Duplicate**, **Can't reproduce** and **Other**, none picked at first; pressing the picked one again clears it ([2.1.3](../2.1.3-tasks.md#drop-reason)).
+  - What Duplicate and Other ask shows right under them while picked.
+  - Duplicate shows "Find a Task by its title", a searchable select of every other Task in any Project and state, with the hint "The Task this one duplicates. Required for Duplicate."; Drop the Task waits with "Pick the Task it duplicates".
+  - Other shows a required box of three rows, up to 500 characters; Drop the Task waits with "Write the reason first".
+  - When the Task has a GitHub issue and its Project closes issues of dropped Tasks: "GitHub issue #<n> will be closed with this reason, as <Project> closes issues of dropped Tasks."
+  - A picked reason is unsaved input, so closing asks first.
 
 ## Move to another Project
 
@@ -146,7 +154,7 @@ Covers: the Task page's head and actions, Start and the queue, planning actions,
 - Each Stage with a run is locked, with its state's words.
 - Script Stages are offered the Project's commands and Publish.
 - A swap or an edit naming a command the Project lacks is refused by the service, shown as an alert.
-- With no Pipeline chosen yet, the picker starts empty (the Project's own Pipelines, its default first and badged "Project default", then the office-wide ones; a Broken one is listed with why and never chosen), Save is disabled with "Choose a Pipeline first.", and once one is picked its Stages show in the window to edit; Save sets the Pipeline, then saves the Stages if edited.
+- With no Pipeline chosen yet, the picker opens on the default for the Task's Kind, its Stages shown, so one press of Save chooses it; it is listed first and badged "Default for Features", "Default for Bugs" or "Default for Chores" ("Project default" when the Kind has none of its own, [2.1.1](../2.1.1-projects.md#project-settings)), then the Project's own Pipelines and the office-wide ones; a Broken one is listed with why and never chosen, and with none to open on Save is disabled with "Choose a Pipeline first."; Save sets the Pipeline, then saves the Stages if edited.
 
 ## Stage history
 
@@ -197,14 +205,14 @@ Covers: the Task page's head and actions, Start and the queue, planning actions,
 - Each unmet line says where it is settled and links there:
   - Plan: "Write it" or "Confirm it" "on the Plan" (shows Overview, opens the block and scrolls to it);
   - Definition of Done: the same, "on the Definition of Done";
-  - Pipeline: "<Planner> proposes <name> · confirm it on the rail", "Choose a Pipeline on the rail" (Backlog), "<Planner> proposes one while planning", or "<name>, which is Broken · choose another on the rail";
+  - Pipeline: "<Planner> proposes <name> · confirm it on the rail", "Choose a Pipeline on the rail", ending ": <name> is the default for <Bugs|Features|Chores>" when the Task's Kind has a default of its own (Backlog), "<Planner> proposes one while planning", or "<name>, which is Broken · choose another on the rail";
   - Decisions: "<n> open, in Needs you".
 
 ## Gate
 
 - A waiting Gate shows in Needs you as the Gate card ("Gate · <name>"): what it waits for, a line of its facts (files changed, tests, Definition of Done) and the buttons **Continue** (or **Continue and publish anyway** while Definition of Done statements are unmet) and **Show details**.
 - Show details opens the large Gate window: the four facts (Files changed, Lines, Tests, Definition of Done), unmet statements, the Attachments of this round, and in the bar **Continue**, **Open Changes**, **Continue with notes…** (when an Agent Stage follows), **Send back with notes…** (when targets exist) and **Drop**.
-- Continue with notes and Send back (fields "Send back to", "Your feedback") and Drop's confirmation are steps over the window; their buttons stay disabled until the notes are written ("Write your notes first", "Write your feedback first").
+- Continue with notes and Send back (fields "Send back to", "Your feedback") and Drop's confirmation, which holds the same Reason as the Drop window (see Task menu), are steps over the window; their buttons stay disabled until the notes are written ("Write your notes first", "Write your feedback first").
 - A refusal shows as "The Task didn't continue" or "The work wasn't sent back".
 - An Attachment shows on the Gate when no earlier Gate run of the Task showed it.
 - Open Changes closes the window and shows the Changes tab.
@@ -227,8 +235,23 @@ Covers: the Task page's head and actions, Start and the queue, planning actions,
 - **Edit** until Start: editor labelled "Description" with the hint "What you want, in your own words, in Markdown; type @ to mention a Task, Initiative, Decision or Idea. The title alone is enough to plan from."
 - Empty: "None: the title is all there is."
 - A refusal shows as "The Description wasn't saved".
-- Sections below the text: Dependencies, Conflict resolution, Initiative, Origin.
+- Sections below the text: Bug, GitHub issue, Dependencies, Caused bugs, Duplicates, Conflict resolution, Initiative, Origin.
 - Rules: [2.1.3](../2.1.3-tasks.md#description).
+
+### Bug
+
+- Section "Bug" (bug glyph), only on a Bug; another Kind keeps its rows hidden ([2.1.3](../2.1.3-tasks.md#bug-details)).
+- **Caused by**: the Task, linked with its Kind, Project and state badge, or "Not known"; **Add what caused it** opens "What caused it?", the Task picker of Dependencies' Add listing Done and archived Tasks too and never this one ("There is no other Task to pick."); a remove button "Remove what caused it"; a refusal shows as "It can't be what caused it".
+- **Found in version**: the version or "Not known"; **Add the version** or **Change** opens a searchable select of the Project's `v*` tags, newest first, and takes typed words as free text up to 64 characters (placeholder "A release tag, or your own words", or "The version, in words" with no tags); a remove button "Remove the version"; a refusal shows as "The version wasn't saved".
+- **Found while working on**: the Task whose Agent proposed it, linked, or "Not found by an Agent"; never changed.
+- Until Done or Dropped it is editable; then read-only, its empty rows hidden.
+
+### GitHub issue
+
+- Section "GitHub issue" (github icon), only on a Task made from an issue ([2.1.1](../2.1.1-projects.md#github-issues)).
+- One line: the issue's state icon (open or closed), "#<n> <title>" linking to GitHub, "opened by <login>" linking to its author, "· imported by <user, or The Office>, <when>".
+- Closed on GitHub, while the Task hasn't started: an info alert "Closed on GitHub, <when>" with "The issue was closed before this Task started. Nothing changes here: check whether the Task is still needed, or drop it."; once it has started, a muted line "Closed on GitHub, <when>".
+- A write-back GitHub refused shows its problem in a muted line until it succeeds or stops being tried.
 
 ### Dependencies
 
@@ -238,6 +261,12 @@ Covers: the Task page's head and actions, Start and the queue, planning actions,
 - **Add** opens "What must be Done first?": a "Find a Task" search ("Find a Task by its title"), radios of candidates (archived Tasks left out), button **Add**; no candidates: "No other Task can hold it back: the rest are Done, Dropped, or already wait for it."; no match: "No Task's title has “<search>”."
 - A refusal shows as "It can't wait for that Task".
 - Rules: [2.1.3](../2.1.3-tasks.md#dependencies).
+
+### Caused bugs and Duplicates
+
+- Section "Caused bugs": the Bugs whose Caused by names this Task, each linked with its state.
+- Section "Duplicates": the Tasks dropped as duplicates of this one.
+- Each shows only with something to show.
 
 ### Conflict resolution
 

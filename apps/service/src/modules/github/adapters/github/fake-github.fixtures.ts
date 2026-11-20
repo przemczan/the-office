@@ -5,6 +5,7 @@ import { z } from "zod";
 import { GITHUB_ED25519 } from "../../../../platform/git-identity/fake-github-meta.fixtures.js";
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
+import { FakeIssues, issueControlSchema } from "./fake-github-issues.fixtures.js";
 import { FakePullRequests, pullRequestControlSchema } from "./fake-github-pulls.fixtures.js";
 import { FakeWorkflowRuns, runControlSchema } from "./fake-github-runs.fixtures.js";
 import { FakeWorkflows, workflowControlSchema } from "./fake-github-workflows.fixtures.js";
@@ -72,6 +73,12 @@ export const FAKE_RUNS_CONTROL_PATH = "/_fake/runs";
  * `workflowControlSchema`, by its `action`, answering 204; a GET answers the dispatches accepted.
  */
 export const FAKE_WORKFLOWS_CONTROL_PATH = "/_fake/workflows";
+
+/**
+ * Not GitHub's: where such a test adds and changes issues. A JSON body of `issueControlSchema`, by
+ * its `action`, answering 204; a GET answers the comments and closes taken.
+ */
+export const FAKE_ISSUES_CONTROL_PATH = "/_fake/issues";
 
 const permissionLevelsSchema = z.record(z.string(), z.enum(["read", "write", "admin"]));
 
@@ -161,6 +168,11 @@ export class FakeGitHub {
    * queues a run in `runs` and is recorded in `dispatches()`.
    */
   readonly workflows: FakeWorkflows;
+  /**
+   * The issues, pull requests among them as GitHub lists them: `addIssue`, `setIssue`; the
+   * comments and closes taken (`comments`, `closes`), each needing `issues: write`.
+   */
+  readonly issues: FakeIssues;
   private readonly appsByCode = new Map<string, FakeGitHubApp>();
   private readonly registeredApps = new Map<string, RegisteredApp>();
   private readonly signInCodes = new Map<string, SignInCode>();
@@ -177,6 +189,7 @@ export class FakeGitHub {
     this.pullRequests = new FakePullRequests(urls.web, this.installations);
     this.runs = new FakeWorkflowRuns(urls.web, this.installations);
     this.workflows = new FakeWorkflows(urls.web, this.installations, this.runs);
+    this.issues = new FakeIssues(urls.web, this.installations);
   }
 
   /**
@@ -311,6 +324,13 @@ export class FakeGitHub {
       url.pathname,
     );
     const refs = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/(branches|tags)$`).exec(url.pathname);
+    const issues = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/issues$`).exec(url.pathname);
+    const issue = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/issues/([0-9]+)$`).exec(
+      url.pathname,
+    );
+    const issueComments = new RegExp(
+      `^${API_PATH}/repos/([^/]+/[^/]+)/issues/([0-9]+)/comments$`,
+    ).exec(url.pathname);
     const appToken = new RegExp(`^${API_PATH}/applications/([^/]+)/token$`).exec(url.pathname);
     if (request.method === "POST" && url.pathname === "/settings/apps/new") {
       this.registerFromManifest(url, body, response);
@@ -406,6 +426,30 @@ export class FakeGitHub {
       );
       if (answer.status === 204) response.writeHead(204).end();
       else sendJson(response, answer.status, answer.body, answer.headers);
+    } else if (request.method === "GET" && issues) {
+      const repository = decodeURIComponent(issues[1] ?? "");
+      this.readApi(request, recorded, response, () => this.issues.list(repository, url));
+    } else if (request.method === "GET" && issue) {
+      const repository = decodeURIComponent(issue[1] ?? "");
+      this.readApi(request, recorded, response, () =>
+        this.issues.get(repository, Number(issue[2])),
+      );
+    } else if (request.method === "PATCH" && issue) {
+      this.writeApi(request, response, () =>
+        this.issues.update(decodeURIComponent(issue[1] ?? ""), Number(issue[2]), body),
+      );
+    } else if (request.method === "POST" && issueComments) {
+      this.writeApi(request, response, () =>
+        this.issues.comment(
+          decodeURIComponent(issueComments[1] ?? ""),
+          Number(issueComments[2]),
+          body,
+        ),
+      );
+    } else if (request.method === "POST" && url.pathname === FAKE_ISSUES_CONTROL_PATH) {
+      this.control(() => this.issues.control(issueControlSchema.parse(JSON.parse(body))), response);
+    } else if (request.method === "GET" && url.pathname === FAKE_ISSUES_CONTROL_PATH) {
+      sendJson(response, 200, this.issues.writes());
     } else if (request.method === "POST" && url.pathname === FAKE_WORKFLOWS_CONTROL_PATH) {
       this.control(
         () => this.workflows.control(workflowControlSchema.parse(JSON.parse(body))),

@@ -4,6 +4,8 @@ import {
   type Project,
   type ProjectCommand,
 } from "./project.js";
+import { DEFAULT_ISSUE_SETTINGS } from "./issue-settings.js";
+import { NO_KIND_DEFAULT_PIPELINES } from "./kind-default-pipeline.js";
 import { UNCHANGED_ENVIRONMENT } from "./project-environment.js";
 import { NO_PROJECT_IMAGE } from "./project-image.js";
 
@@ -54,6 +56,8 @@ export function aProject(fields: Partial<Project> = {}): Project {
     runEnvironmentSetUpProblems: [],
     projectLimit: 1,
     addedAt: new Date("2026-10-25T09:00:00.000Z"),
+    kindDefaultPipelines: NO_KIND_DEFAULT_PIPELINES,
+    issueSettings: DEFAULT_ISSUE_SETTINGS,
     ...fields,
   };
 }

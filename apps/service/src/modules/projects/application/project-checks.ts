@@ -8,6 +8,11 @@ import {
   namedByDefaultPipelineProblems,
 } from "../domain/pipeline-commands.js";
 import {
+  TASK_KINDS,
+  type KindDefaultPipelines,
+  type TaskKind,
+} from "../domain/kind-default-pipeline.js";
+import {
   newProjectProblems,
   trimmedNewProject,
   type NewProject,
@@ -72,9 +77,9 @@ export class ProjectChecks {
     if (problems.length > 0) throw new ProjectRefused(problems);
   }
 
-  /** Refuses removing a command the Project's default Pipeline runs. */
+  /** Refuses removing a command the Project's default Pipeline, or a Kind's, runs. */
   async checkCommandRemoval(
-    project: Pick<Project, "id" | "defaultPipeline">,
+    project: Pick<Project, "id" | "defaultPipeline" | "kindDefaultPipelines">,
     key: string,
   ): Promise<void> {
     const problems = await this.commandRemovalProblems(project, [key]);
@@ -82,18 +87,30 @@ export class ProjectChecks {
   }
 
   /**
-   * Why the commands can't be removed: the Project's default Pipeline runs one, a Project
-   * Pipeline of its own by its built Stages, so the default stays runnable in its Project. Another
-   * Pipeline's Stage fails as could-not-run instead.
+   * Why the commands can't be removed: the Project's default Pipeline, or a Kind's own default
+   * Pipeline, runs one, a Project Pipeline of its own by its built Stages, so each default stays
+   * runnable in its Project. Another Pipeline's Stage fails as could-not-run instead.
    */
   async commandRemovalProblems(
-    { id, defaultPipeline }: Pick<Project, "id" | "defaultPipeline">,
+    {
+      id,
+      defaultPipeline,
+      kindDefaultPipelines,
+    }: Pick<Project, "id" | "defaultPipeline" | "kindDefaultPipelines">,
     keys: readonly string[],
   ): Promise<string[]> {
     if (keys.length === 0) return [];
-    const pipeline = await this.pipelines.commandsNamedBy(defaultPipeline);
-    const ownDefault = pipeline?.projectId === undefined || pipeline.projectId === id;
-    return ownDefault ? keys.flatMap((key) => namedByDefaultPipelineProblems(key, pipeline)) : [];
+    const defaults = projectDefaults(defaultPipeline, kindDefaultPipelines);
+    const problems = await Promise.all(
+      [...defaults].map(async ([pipelineId, kinds]) => {
+        const pipeline = await this.pipelines.commandsNamedBy(pipelineId);
+        const ownDefault = pipeline?.projectId === undefined || pipeline.projectId === id;
+        return ownDefault
+          ? keys.flatMap((key) => namedByDefaultPipelineProblems(key, pipeline, kinds))
+          : [];
+      }),
+    );
+    return problems.flat();
   }
 
   /** Refuses an engine Settings › Engines doesn't list, or a model it doesn't offer. */
@@ -196,4 +213,22 @@ function folderProblem(
     case "inside-a-repository":
       return `${path} is inside the repository at ${inspection.root}; add that folder instead.`;
   }
+}
+
+/**
+ * The Project's default Pipelines, each with the Kinds it is the own default of; "all" for the
+ * Project's default Pipeline, which a Kind that names it again adds nothing to.
+ */
+function projectDefaults(
+  defaultPipeline: string,
+  kindDefaultPipelines: KindDefaultPipelines,
+): Map<string, "all" | TaskKind[]> {
+  const defaults = new Map<string, "all" | TaskKind[]>([[defaultPipeline, "all"]]);
+  for (const kind of TASK_KINDS) {
+    const pipelineId = kindDefaultPipelines[kind];
+    if (pipelineId === null) continue;
+    const kinds = defaults.get(pipelineId) ?? [];
+    if (kinds !== "all") defaults.set(pipelineId, [...kinds, kind]);
+  }
+  return defaults;
 }

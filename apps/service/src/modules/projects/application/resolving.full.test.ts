@@ -18,6 +18,9 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { PullRequestRepositoryForTests } from "../ports/pull-request-repository.fixtures.js";
 import { CodeHosts } from "./code-hosts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
+import { IssueFixes } from "./issue-fixes.js";
+import { IssueTasks } from "./issue-tasks.js";
+import { IssueLinkRepositoryForTests } from "../ports/issue-link-repository.fixtures.js";
 import { Publishing } from "./publishing.js";
 import { Resolving } from "./resolving.js";
 import { Worktrees } from "./worktrees.js";
@@ -62,6 +65,7 @@ beforeAll(async () => {
     taskBases,
     new PullRequestRepositoryForTests(),
     new EventBus(),
+    new IssueFixes(new IssueLinkRepositoryForTests(), git, new IssueTasks()),
   );
 });
 

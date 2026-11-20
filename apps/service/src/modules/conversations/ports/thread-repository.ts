@@ -111,6 +111,17 @@ export abstract class ThreadRepository {
 
   abstract decision(id: string): Promise<Decision | undefined>;
 
+  /**
+   * Runs `work` on the Decision as stored, holding it against every other `holdingDecision` of it
+   * until `work` ends, so two answers at once never carry out the same answer twice: the second
+   * reads the Decision as the first left it. `work` may change the Decision and its Thread through
+   * `update` meanwhile; undefined when there is no such Decision.
+   */
+  abstract holdingDecision<Result>(
+    id: string,
+    work: (decision: Decision | undefined) => Promise<Result>,
+  ): Promise<Result>;
+
   /** Those of the Decisions with the ids still there, in one read, in no set order. */
   abstract decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]>;
 

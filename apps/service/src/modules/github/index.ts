@@ -18,6 +18,14 @@ export {
   type RefsOfRepositoryOnGitHub,
   type WorkflowStartOnGitHub,
 } from "./application/github-pull-requests.js";
+export {
+  GitHubIssues,
+  type FoundIssueOnGitHub,
+  type IssueCloseReason,
+  type IssueOnGitHub,
+  type IssueStateOnGitHub,
+  type OpenIssuesOnGitHub,
+} from "./application/github-issues.js";
 export type { DispatchInput, DispatchInputType } from "./domain/workflow-dispatch.js";
 export type { GitHubCiRunStatus } from "./domain/ci-run-status.js";
 export type {

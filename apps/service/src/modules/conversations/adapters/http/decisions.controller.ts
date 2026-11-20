@@ -17,6 +17,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
+import { BugTaskDecisions } from "../../application/bug-task-decisions.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { toDecisionResponse, toThreadResponse } from "./conversation-responses.js";
@@ -27,6 +28,7 @@ import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
 export class DecisionsController {
   constructor(
     private readonly decisions: DecisionService,
+    private readonly bugTasks: BugTaskDecisions,
     private readonly contexts: ThreadContexts,
   ) {}
 
@@ -50,7 +52,8 @@ export class DecisionsController {
   /**
    * The signed-in user's answer, to any Decision, as every user shares them; the person who asked
    * takes it in its Thread, which this answers with: the form submitted, or Ask me again; or
-   * Dismiss, which closes it and reaches the person only with the user's next message there.
+   * Dismiss, which closes it and reaches the person only with the user's next message there. A
+   * bug-task Decision's Create the Bug Task creates the Task first, with the form's `bugTask`.
    */
   @Post("decisions/:id/answer")
   @HttpCode(HttpStatus.ACCEPTED)
@@ -59,7 +62,7 @@ export class DecisionsController {
     @Body(new ContractPipe(decisionFormAnswerSchema)) answer: DecisionFormAnswer,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ThreadResponse> {
-    const thread = await this.decisions.answer(id, answer, {
+    const thread = await this.bugTasks.answer(id, answer, {
       kind: "user",
       user: userOf(signedIn),
     });

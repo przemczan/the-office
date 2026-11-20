@@ -554,6 +554,17 @@
   border-left: 1px solid var(--border);
 }
 
+/* Import issues…, at the bar's right end before the Layout group. */
+.board-import-issues {
+  display: inline-flex;
+  flex: none;
+  margin-left: auto;
+}
+
+.board-import-issues + .board-layout {
+  margin-left: 0;
+}
+
 /*
  * The column heads once, above the groups: the frame sticks to the top as the page scrolls, and the
  * board sets its scrollLeft to the groups', so the heads move with them sideways. Heads and groups
@@ -2915,6 +2926,12 @@
   overflow-clip-margin: 4px;
 }
 
+/* A control's own menu, such as Shape into a Task's Kinds, opens below the row: unclipped while
+   open, as what doesn't fit stays hidden by its visibility. */
+.record-actions-row:has([aria-expanded="true"]) {
+  overflow: visible;
+}
+
 .record-actions-row.align-end {
   justify-content: flex-end;
 }
@@ -4269,4 +4286,102 @@ button.initiative-track-body:hover .stage-mark {
 .initiative-track-loop-words:focus-visible {
   outline: 0;
   box-shadow: var(--focus-ring);
+}
+
+/* A Dropped Task's reason, a row of the head to itself under its title and actions. */
+.drop-note {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--fg-2);
+}
+
+.drop-note > svg {
+  flex: none;
+  color: var(--danger-fg);
+}
+
+/* A section title with its icon, as the Bug and GitHub issue sections have. */
+.task-record-section-title-icon {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* A Bug's details: a row each, its name, its value and its actions. */
+.bug-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.bug-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.bug-row dt {
+  color: var(--fg-2);
+}
+
+.bug-row dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.bug-row-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.bug-task-chip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.github-issue-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0 0 8px;
+}
+
+.github-issue-open {
+  display: inline-grid;
+  color: var(--success);
+}
+
+.github-issue-closed {
+  display: inline-grid;
+  color: var(--fg-3);
+}
+
+.archived-task {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* The State cell: the badge, and a Dropped Task's reason under it. */
+.archived-task-state {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.archived-drop-reason {
+  font-size: var(--text-sm);
+  color: var(--fg-2);
 }

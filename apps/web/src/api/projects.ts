@@ -2,6 +2,9 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   API_PATH,
   baseBranchFetchSchema,
+  issueImportResultSchema,
+  issueLinkSchema,
+  openIssueListSchema,
   environmentCheckSchema,
   latestEnvironmentCheckSchema,
   projectMcpServerValuesListSchema,
@@ -25,6 +28,8 @@ import {
   type ProjectEnvironmentEdit,
   type CommandChange,
   type InstallCommandChange,
+  type IssueImportResult,
+  type IssueSettings,
   type BeforePublishingCommandChange,
   type AfterPublishingCommandChange,
   type ProjectCommand,
@@ -40,12 +45,20 @@ import {
   type RepositoryCloneStart,
   type RepositoryCloneWebEvent,
   type RunEnvironmentChange,
+  type TaskKind,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { ENGINE_CASCADE } from "./people.ts";
 
 const PROJECTS = ["projects"] as const;
+/** Each Task's issue link (GET /issue-links?taskId=), apart from the Projects' key. */
+export const ISSUE_LINKS = ["issue-links"] as const;
+/**
+ * Each Project's open issues not yet imported, read from GitHub: apart from the Projects' key, so
+ * the Project's every event doesn't list them again.
+ */
+export const OPEN_ISSUES = ["open-issues"] as const;
 /** Apart from the Projects' key, since Sign in with GitHub changes it too. */
 export const REMOTE_NEEDS = ["remote-needs"] as const;
 /**
@@ -69,6 +82,23 @@ export const projectQueries = {
     queryOptions({
       queryKey: [...PROJECTS, id],
       queryFn: ({ signal }) => getFromApi(projectPath(id), projectSchema, signal),
+    }),
+  /** The open issues not yet imported, newest first; refused (422) off GitHub or signed out. */
+  openIssues: (id: string) =>
+    queryOptions({
+      queryKey: [...OPEN_ISSUES, id],
+      queryFn: ({ signal }) => getFromApi(`${projectPath(id)}/issues`, openIssueListSchema, signal),
+    }),
+  /** The GitHub issue a Task was imported from, or null; `issue-link.changed` reads it again. */
+  issueLink: (taskId: string) =>
+    queryOptions({
+      queryKey: [...ISSUE_LINKS, taskId],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/issue-links?${new URLSearchParams({ taskId }).toString()}`,
+          issueLinkSchema.nullable(),
+          signal,
+        ),
     }),
   /** The Run environment setting, the definition on the base branch, and the set-up Task. */
   runEnvironment: (id: string) =>
@@ -341,6 +371,35 @@ export function changeDefaultPipeline(id: string, defaultPipeline: string): Prom
   );
 }
 
+/** A Kind's own default Pipeline; null follows the Project's default Pipeline. */
+export function changeKindDefaultPipeline(
+  id: string,
+  kind: TaskKind,
+  pipelineId: string | null,
+): Promise<Project> {
+  return sendToApi(
+    "PUT",
+    `${projectPath(id)}/kind-default-pipeline`,
+    { kind, pipelineId },
+    projectSchema,
+  );
+}
+
+/** The Project's GitHub issue switches, as a whole. */
+export function changeIssueSettings(id: string, settings: IssueSettings): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/issue-settings`, settings, projectSchema);
+}
+
+/** Imports the issues as Tasks in Backlog; one imported meanwhile is skipped and named. */
+export function importIssues(id: string, numbers: readonly number[]): Promise<IssueImportResult> {
+  return sendToApi(
+    "POST",
+    `${projectPath(id)}/issues/import`,
+    { numbers },
+    issueImportResultSchema,
+  );
+}
+
 /** The engine and model every Role in the Project runs on unless a more specific level wins; null clears it. */
 export function changeProjectDefault(
   id: string,
@@ -442,6 +501,9 @@ export const projectEventInvalidations: Readonly<
   "project.project-default-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.use-for-every-role-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.role-override-changed": () => [PROJECTS, ENGINE_CASCADE],
+  "project.issue-settings-changed": () => [PROJECTS],
+  "project.issues-imported": () => [PROJECTS, OPEN_ISSUES],
+  "issue-link.changed": () => [ISSUE_LINKS],
 };
 
 /** A clone that started, moved on or finished is read again by its id. */

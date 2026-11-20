@@ -48,6 +48,11 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     archivedAt: null,
     endedAt: null,
     pullRequestEnd: null,
+    kind: "feature",
+    causedBy: null,
+    foundInVersion: null,
+    foundWhileWorkingOn: null,
+    dropReason: null,
     ...fields,
   };
 }
@@ -61,6 +66,7 @@ describe("boardFiltersOf", () => {
       boardFiltersOf({
         query: "pairing",
         priority: "high",
+        kind: "bug",
         tags: ["ble"],
         initiative: "launch",
         blocked: true,
@@ -69,6 +75,7 @@ describe("boardFiltersOf", () => {
     ).toEqual({
       query: "pairing",
       priority: "high",
+      kind: "bug",
       initiative: "launch",
       blocked: true,
     });
@@ -76,6 +83,8 @@ describe("boardFiltersOf", () => {
       boardFiltersOf({
         query: "  ",
         priority: "urgent",
+        // The Archive's own `kind` is no Task's Kind.
+        kind: "initiatives",
         initiative: "",
         blocked: "yes",
       }),
@@ -108,6 +117,11 @@ describe("sameBoardFilters", () => {
     expect(sameBoardFilters(view, { priority: "high" })).toBe(false);
     expect(sameBoardFilters(view, { ...view, blocked: true })).toBe(false);
     expect(sameBoardFilters(view, { ...view, initiative: "i" })).toBe(false);
+    expect(sameBoardFilters(view, { ...view, kind: "bug" })).toBe(false);
+  });
+
+  it("keeps a Saved view from before Kinds the same as the filters without one", () => {
+    expect(sameBoardFilters({ priority: "high" }, boardFiltersOf({ priority: "high" }))).toBe(true);
   });
 });
 
@@ -144,7 +158,7 @@ describe("isOnBoard", () => {
 describe("boardFilter", () => {
   const protocol = aTask("protocol", { priority: "high" });
   const client = aTask("client", { blockedBy: ["protocol"], initiativeId: "launch" });
-  const docs = aTask("docs", { priority: "low", blockedBy: ["finished"] });
+  const docs = aTask("docs", { priority: "low", blockedBy: ["finished"], kind: "bug" });
   const finished = aTask("finished", { state: "done" });
   const tasks = [protocol, client, docs, finished];
 
@@ -157,8 +171,9 @@ describe("boardFilter", () => {
     ]);
   });
 
-  it("narrows by priority, by Initiative, and to those blocked", () => {
+  it("narrows by priority, by Kind, by Initiative, and to those blocked", () => {
     expect(shown(tasks, boardFilter({ priority: "high" }, tasks))).toEqual(["protocol"]);
+    expect(shown(tasks, boardFilter({ kind: "bug" }, tasks))).toEqual(["docs"]);
     expect(shown(tasks, boardFilter({ initiative: "launch" }, tasks))).toEqual(["client"]);
     // A Done blocker no longer holds a Task back.
     expect(shown(tasks, boardFilter({ blocked: true }, tasks))).toEqual(["client"]);

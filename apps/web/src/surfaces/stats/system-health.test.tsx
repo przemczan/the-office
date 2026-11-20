@@ -6,7 +6,7 @@ import type {
   TelemetrySettings,
 } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { statsQueries } from "../../api/telemetry.ts";
 import {
   closePage,
@@ -49,6 +49,9 @@ const POINTS: SystemHealthPoint[] = Array.from({ length: 30 }, (_, index) => ({
   connectionsWaiting: index === 9 ? 7 : 0,
 }));
 
+/** A shape well past 200 characters, its WHERE at the end, as Drizzle's SELECTs list every column. */
+const LONG_SHAPE = `SELECT ${Array.from({ length: 30 }, (_, index) => `"stage_runs"."column_${index}"`).join(", ")} FROM stage_runs WHERE task_id = ?`;
+
 const route = (
   method: string,
   template: string,
@@ -88,7 +91,11 @@ const HOUR: SystemHealthRead = {
     {
       operation: "SELECT",
       table: "stage_runs",
-      shape: "SELECT * FROM stage_runs WHERE task_id = ?",
+      shape: LONG_SHAPE,
+      calledFrom: [
+        "apps/service/src/modules/pipelines/adapters/drizzle-stage-runs.ts:88 (DrizzleStageRuns.ofTask)",
+        "apps/service/src/modules/work/application/task-page.ts:41 (TaskPage.read)",
+      ],
       count: 412,
       p95Ms: 1480,
       maxMs: 2210,
@@ -98,6 +105,7 @@ const HOUR: SystemHealthRead = {
       operation: "INSERT",
       table: "process_output",
       shape: "INSERT INTO process_output (id, chunk) VALUES (?)",
+      calledFrom: [],
       count: 18_400,
       p95Ms: 4.2,
       maxMs: 160,
@@ -252,8 +260,50 @@ describe("System health", () => {
       "39.2k queries in the last hour · p95 9.8 ms · up to 7 queries waited for a connection",
     );
     expect(database.textContent).toContain("Statement shape");
-    expect(database.textContent).toContain("SELECT * FROM stage_runs WHERE task_id = ?");
+    expect(database.textContent).toContain(LONG_SHAPE);
+    expect(database.textContent).toContain(
+      "Each shape names up to 3 places in The Office's code it was run from.",
+    );
     expect(database.textContent).toContain("The Office keeps the 500 shapes seen most.");
+  });
+
+  it("unfolds a slowest query to its whole shape, Copy and where in the code it was run from", async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      const { opened } = openHealth();
+      const { page } = await opened;
+      await until(() => expect(page.textContent).toContain("Slowest queries"));
+      const database = block(page, "Database");
+      const slowest = database.querySelector("tbody tr");
+      const folds = [...database.querySelectorAll("tbody button.stats-fold")];
+      expect(folds.map((fold) => fold.getAttribute("aria-label"))).toEqual([
+        "The whole statement shape",
+        "The whole statement shape",
+      ]);
+      const [fold, otherFold] = folds;
+      expect(fold?.getAttribute("aria-expanded")).toBe("false");
+      expect(slowest?.querySelector(".stats-slowest-clamp")?.textContent).toBe(LONG_SHAPE);
+      expect(database.textContent).not.toContain("Called from");
+
+      act(() => (fold as HTMLButtonElement).click());
+      expect(fold?.getAttribute("aria-expanded")).toBe("true");
+      expect(slowest?.querySelector(".stats-slowest-clamp")).toBeNull();
+      expect(slowest?.querySelector("th")?.textContent).toBe(LONG_SHAPE);
+      const unfolded = document.getElementById(fold?.getAttribute("aria-controls") ?? "");
+      expect(unfolded?.textContent).toContain("Called from");
+      expect(
+        [...(unfolded?.querySelectorAll("li code") ?? [])].map((site) => site.textContent),
+      ).toEqual(HOUR.slowestQueries[0]?.calledFrom);
+
+      await act(async () => button(unfolded ?? database, "Copy").click());
+      expect(writeText).toHaveBeenCalledWith(LONG_SHAPE);
+
+      act(() => (otherFold as HTMLButtonElement).click());
+      expect(database.textContent).toContain("Called from: not found in The Office's code");
+    } finally {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
   it("sorts the slowest routes by total time, each figure column a sort, and shows them all", async () => {
@@ -325,7 +375,9 @@ describe("System health", () => {
           ...point,
           at: new Date(TO - (29 - index) * 300 * 1000).toISOString(),
         })),
-        slowestQueries: HOUR.slowestQueries.map(({ shape: _shape, ...row }) => row),
+        slowestQueries: HOUR.slowestQueries.map(
+          ({ shape: _shape, calledFrom: _calledFrom, ...row }) => row,
+        ),
       },
     };
     delete (day.readings as { readingsSince?: string }).readingsSince;

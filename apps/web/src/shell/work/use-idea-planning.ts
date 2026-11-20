@@ -3,14 +3,16 @@ import { useNavigate } from "@tanstack/react-router";
 import type { Idea, Task } from "@the-office/contracts";
 import { ideaQueries, planIdea, taskQueries } from "../../api/work.ts";
 import { useToast } from "../toasts.tsx";
+import type { IdeaShapeChoice } from "./shape-idea-dialog.tsx";
 import { usePlanner } from "./use-planner.ts";
 
 /** Plan as a Task with the Planner: the Idea becomes a Task in the Project, planned at once. */
-export function useIdeaPlanning(idea: Idea): UseMutationResult<Task, Error, string> {
+export function useIdeaPlanning(idea: Idea): UseMutationResult<Task, Error, IdeaShapeChoice> {
   const queryClient = useQueryClient();
   const onPlanned = useOnPlanned();
   return useMutation({
-    mutationFn: (projectId: string) => planIdea(idea.id, projectId),
+    // Planning makes a Feature: the Planner can change its Kind.
+    mutationFn: ({ projectId }: IdeaShapeChoice) => planIdea(idea.id, projectId),
     onSuccess: onPlanned,
     onSettled: () =>
       Promise.all([

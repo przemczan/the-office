@@ -49,6 +49,11 @@ const RUNNING_TASK: Task = {
   archivedAt: null,
   endedAt: null,
   pullRequestEnd: null,
+  kind: "feature",
+  causedBy: null,
+  foundInVersion: null,
+  foundWhileWorkingOn: null,
+  dropReason: null,
 };
 
 function stagesWith(definitionOfDoneMet: readonly number[]): TaskStages {

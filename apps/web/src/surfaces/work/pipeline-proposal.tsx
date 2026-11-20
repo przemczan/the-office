@@ -39,7 +39,7 @@ export function PipelineProposal({
   if (proposed === null || task.state === "shaping") return null;
   const groups =
     project && choices
-      ? taskPipelineChoices(project, choices.officeWide, choices.projectPipelines)
+      ? taskPipelineChoices(project, choices.officeWide, choices.projectPipelines, task.kind)
       : [];
   const proposedChoice = choiceById(groups, proposed.pipelineId);
   const proposedName =

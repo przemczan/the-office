@@ -21,9 +21,10 @@ import {
 } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
-import { PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { KindGlyph, PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { DropNote } from "./drop-note.tsx";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
-import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { KIND_NAMES, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { ArchivedBadge } from "./archive-parts.tsx";
 import { AttachmentsBlock } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
@@ -225,6 +226,10 @@ function TaskHead({
           <EngineStandInsMark task={task} />
         </div>
         <div className="task-head-meta">
+          <span className="task-head-priority task-head-kind">
+            <KindGlyph kind={task.kind} size={12} />
+            {KIND_NAMES[task.kind]}
+          </span>
           <span className="task-head-priority">
             <PriorityGlyph priority={task.priority} size={12} />
             {PRIORITY_NAMES[task.priority]} priority
@@ -242,6 +247,7 @@ function TaskHead({
         <RecordActions actions={actions} menu={<TaskMenu task={task} actions={actions} />} />
       </div>
       <StartNotes task={task} />
+      <DropNote task={task} />
     </header>
   );
 }

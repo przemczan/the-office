@@ -15,6 +15,7 @@ import type { InitiativeChange } from "./initiative-changes.js";
 import { InitiativeCreated } from "./initiative-events.js";
 import { createTask, type NewTaskSetting, type TaskChange } from "./task-changes.js";
 import type { TaskCreated } from "./task-events.js";
+import type { TaskKind } from "./task.js";
 
 /** An Idea after a change, with the event that announces it. */
 export interface IdeaChange<Event extends DomainEvent> {
@@ -75,19 +76,36 @@ export interface Shaping {
 }
 
 /**
+ * The Task an Idea is shaped into: its id, its Project, its Kind (a Feature when left out) and a
+ * Description in place of the Idea's notes, given only for a Bug from an Idea without notes.
+ */
+export interface IdeaTaskShaping {
+  readonly id: string;
+  readonly projectId: string;
+  readonly kind?: TaskKind;
+  readonly description?: string;
+}
+
+/**
  * Makes a new Idea a Task in Backlog in the chosen Project, named after it, its notes the Task's
  * Description, and naming it as its origin; the Idea takes that Project. Its Attachments move with it (moveAttachment).
  */
 export function shapeIdeaIntoTask(
   idea: Idea,
-  task: { readonly id: string; readonly projectId: string },
+  task: IdeaTaskShaping,
   setting: Omit<NewTaskSetting, "originIdeaId" | "initiativeId">,
   at: Date,
 ): Shaping {
   refuseShaping(idea);
   const taskCreated = createTask(
     task.id,
-    { title: idea.title, description: idea.notes, projectId: task.projectId, priority: "normal" },
+    {
+      title: idea.title,
+      description: task.description ?? idea.notes,
+      projectId: task.projectId,
+      priority: "normal",
+      kind: task.kind ?? "feature",
+    },
     { ...setting, originIdeaId: idea.id, initiativeId: undefined },
     at,
   );

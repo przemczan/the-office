@@ -1,6 +1,6 @@
 import { SavedViewSaved } from "./saved-view-events.js";
 import { SavedViewRefused } from "./saved-view-refused.js";
-import type { Priority } from "./task.js";
+import type { Priority, TaskKind } from "./task.js";
 
 export const SAVED_VIEW_NAME_LENGTH = 60;
 
@@ -10,6 +10,8 @@ export interface BoardFilters {
   readonly priority?: Priority;
   readonly initiative?: string;
   readonly blocked?: true;
+  /** Left out by the views saved before Kinds. */
+  readonly kind?: TaskKind;
 }
 
 /** A named set of the Work board's filters, shown under "Views" (glossary: Saved view). */
@@ -34,6 +36,7 @@ export function keptBoardFilters(filters: BoardFilters): BoardFilters {
     ...(filters.priority !== undefined && { priority: filters.priority }),
     ...(filters.initiative !== undefined && { initiative: filters.initiative }),
     ...(filters.blocked === true && { blocked: true as const }),
+    ...(filters.kind !== undefined && { kind: filters.kind }),
   };
 }
 

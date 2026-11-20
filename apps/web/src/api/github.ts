@@ -11,7 +11,7 @@ import {
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
-import { REMOTE_NEEDS } from "./projects.ts";
+import { OPEN_ISSUES, REMOTE_NEEDS } from "./projects.ts";
 
 const GITHUB = ["github"] as const;
 
@@ -61,5 +61,5 @@ export const gitHubEventInvalidations: Readonly<
   Record<GitHubWebEvent["type"], EventInvalidations[string]>
 > = {
   // What a Project's remote lacks may be the sign-in.
-  "github.changed": () => [GITHUB, REMOTE_NEEDS],
+  "github.changed": () => [GITHUB, REMOTE_NEEDS, OPEN_ISSUES],
 };

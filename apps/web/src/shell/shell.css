@@ -1445,6 +1445,33 @@ button.shell-strip-alarm:hover {
   color: var(--info-fg);
 }
 
+.kind-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--fg-3);
+}
+
+.kind-icon.kind-bug {
+  color: var(--danger-fg);
+}
+
+/* A card's Kind: a 13px icon in a 20px box, only Bug's tinted, so bugs stand out on a busy board. */
+.kind-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-3);
+}
+
+.kind-mark.kind-bug {
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
 .attachment-chips,
 .pending-attachments {
   display: flex;

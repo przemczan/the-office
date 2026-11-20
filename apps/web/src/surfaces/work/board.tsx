@@ -4,6 +4,8 @@ import { Alert, Icon } from "@the-office/ui";
 import { useState, type DragEvent, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, placeTask, taskQueries } from "../../api/work.ts";
+import { ImportIssuesDialog } from "../../shell/issues/import-issues-dialog.tsx";
+import { issueImportOf } from "../../shell/issues/issue-words.ts";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { useToast } from "../../shell/toasts.tsx";
@@ -55,6 +57,9 @@ export function Board(): ReactNode {
   const [dragged, setDragged] = useState<Task>();
   const [target, setTarget] = useState<DropTarget>();
   const [outlined, setOutlined] = useState<string>();
+  const [importingIssues, setImportingIssues] = useState(false);
+  const issueImport =
+    projects.data && issueImportOf(projects.data, (id) => projectFilter.shows([id]));
   const placing = usePlacing();
   const showToast = useToast();
   const waitingOnYou = useWaitingOnYouInItsState();
@@ -243,7 +248,15 @@ export function Board(): ReactNode {
             onFoldAll: (open) => folds.setAll(foldable, open),
           }
         }
+        onImportIssues={issueImport && (() => setImportingIssues(true))}
       />
+      {importingIssues && issueImport && (
+        <ImportIssuesDialog
+          projects={issueImport.projects}
+          projectId={issueImport.projectId}
+          onClose={() => setImportingIssues(false)}
+        />
+      )}
       <InOtherProjectsNote
         count={matching.filter((task) => !inProjectFilter(task)).length}
         one="Task"

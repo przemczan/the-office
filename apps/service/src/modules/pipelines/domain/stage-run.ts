@@ -271,14 +271,25 @@ export interface CarriedFailure {
 }
 
 /**
+ * Why the user dropped the Task at a Gate, as Work keeps a drop reason: Duplicate names the Task it
+ * duplicates, Other gives their words.
+ */
+export type GateDropReason =
+  | { readonly kind: "wont-fix" }
+  | { readonly kind: "duplicate"; readonly taskId: string }
+  | { readonly kind: "cant-reproduce" }
+  | { readonly kind: "other"; readonly text: string };
+
+/**
  * What the user did at a Gate (spec §2.3): let the work continue, with notes every later Agent Stage
- * is briefed with or none, send it back with feedback to an earlier Agent Stage, or drop the Task.
- * `byUser` is who acted, undefined for an action kept before users existed.
+ * is briefed with or none, send it back with feedback to an earlier Agent Stage, or drop the Task,
+ * with the reason they gave, if any. `byUser` is who acted, undefined for an action kept before
+ * users existed.
  */
 export type GateAction = (
   | { readonly kind: "continue"; readonly feedback?: string }
   | { readonly kind: "send-back"; readonly stageKey: string; readonly feedback: string }
-  | { readonly kind: "drop" }
+  | { readonly kind: "drop"; readonly reason?: GateDropReason }
 ) & { readonly byUser?: HoldingUser };
 
 /**

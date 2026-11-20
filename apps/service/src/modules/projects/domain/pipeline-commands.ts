@@ -63,14 +63,31 @@ export function missingPipelineCommandsProblems(
   ];
 }
 
-/** Why the command can't be removed: the Project's default Pipeline runs it. */
+/** The Kinds' words, as the problems name them. */
+const KIND_PLURALS: Readonly<Record<string, string>> = {
+  feature: "Features",
+  bug: "Bugs",
+  chore: "Chores",
+};
+
+/**
+ * Why the command can't be removed: a default Pipeline of the Project runs it, its default
+ * Pipeline ("all") or the own default of `kinds`.
+ */
 export function namedByDefaultPipelineProblems(
   key: string,
   defaultPipeline: PipelineCommands | undefined,
+  kinds: "all" | readonly string[] = "all",
 ): string[] {
   if (!defaultPipeline?.keys.includes(key)) return [];
+  if (kinds === "all") {
+    return [
+      `${defaultPipeline.name}, this Project's default Pipeline, runs ${key}; choose another default first.`,
+    ];
+  }
+  const forKinds = `for ${kinds.map((kind) => KIND_PLURALS[kind] ?? kind).join(" and ")}`;
   return [
-    `${defaultPipeline.name}, this Project's default Pipeline, runs ${key}; choose another default first.`,
+    `${defaultPipeline.name}, this Project's default Pipeline ${forKinds}, runs ${key}; choose another default ${forKinds} first.`,
   ];
 }
 

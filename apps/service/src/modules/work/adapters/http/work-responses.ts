@@ -147,11 +147,16 @@ export function toTaskResponse(task: Task): TaskResponse {
       at: move.at.toISOString(),
       by: toAuthorResponse(move.by),
     })),
-    createdBy: toAuthorResponse(task.createdBy),
+    createdBy: task.createdByTheOffice ? { kind: "office" } : toAuthorResponse(task.createdBy),
     createdAt: task.createdAt.toISOString(),
     archivedAt: task.archivedAt?.toISOString() ?? null,
     endedAt: task.endedAt?.toISOString() ?? null,
     pullRequestEnd: task.pullRequestEnd ? toPullRequestEndResponse(task.pullRequestEnd) : null,
+    kind: task.kind,
+    causedBy: task.causedBy ?? null,
+    foundInVersion: task.foundInVersion ?? null,
+    foundWhileWorkingOn: task.foundWhileWorkingOn ?? null,
+    dropReason: task.dropReason ? { ...task.dropReason } : null,
   };
 }
 

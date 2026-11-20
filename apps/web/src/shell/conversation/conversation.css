@@ -2070,3 +2070,24 @@
   font: var(--type-caption);
   color: var(--fg-3);
 }
+
+/* A bug-task Decision's form: the proposed Task's fields, Project and Caused by side by side. */
+.bug-task-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: var(--space-3);
+}
+
+.bug-task-fields-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.bug-task-created {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}

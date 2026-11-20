@@ -129,6 +129,9 @@ class ProjectNamesForTests {
   }
 }
 
+const CALLED_FROM =
+  "apps/service/src/modules/work/adapters/drizzle-task-repository.ts:142 (DrizzleTaskRepository.findById)";
+
 const HOUR: HealthHour = {
   readingsSince: new Date("2026-11-17T09:12:00.000Z"),
   readings: [
@@ -167,6 +170,7 @@ const HOUR: HealthHour = {
       operation: "SELECT",
       table: "tasks",
       shape: "SELECT * FROM tasks WHERE id = ?",
+      calledFrom: [CALLED_FROM],
       count: 1,
       p95Ms: 9.8,
       maxMs: 9.8,
@@ -446,6 +450,7 @@ describe("GET /stats/system-health", () => {
           operation: "SELECT",
           table: "tasks",
           shape: "SELECT * FROM tasks WHERE id = ?",
+          calledFrom: [CALLED_FROM],
           count: 1,
           p95Ms: 9.8,
           maxMs: 9.8,

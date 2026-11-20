@@ -5,7 +5,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { Initiative, NewTask, Project, Task } from "@the-office/contracts";
+import type { Initiative, NewTask, Project, Task, TaskKind } from "@the-office/contracts";
 import { Button, Checkbox, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
 import { useId, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { projectQueries } from "../../api/projects.ts";
@@ -19,13 +19,15 @@ import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 import { tagsInUse } from "./tag-words.ts";
 import { TagsInput } from "./tags-input.tsx";
-import { TASK_STATE_NAMES } from "./work-words.ts";
+import { focusBugOutline, KindField } from "./kind-field.tsx";
+import { BUG_DESCRIPTION_OUTLINE, descriptionForKind, TASK_STATE_NAMES } from "./work-words.ts";
 import "./new-task-dialog.css";
 
 /** A new Task as the user writes it; no Project until one is chosen. */
-export type NewTaskDraft = Omit<NewTask, "projectId" | "description"> & {
+export type NewTaskDraft = Omit<NewTask, "projectId" | "description" | "kind"> & {
   readonly projectId?: string;
   readonly description: string;
+  readonly kind: TaskKind;
 };
 
 export const EMPTY_TASK_DRAFT: NewTaskDraft = {
@@ -33,6 +35,7 @@ export const EMPTY_TASK_DRAFT: NewTaskDraft = {
   description: "",
   priority: "normal",
   tags: [],
+  kind: "feature",
 };
 
 /** Where a new Task goes: the Project it starts in, and the Initiative it is added to, if any. */
@@ -146,6 +149,7 @@ export function useNewTask({
       draft.title !== "" ||
       draft.description !== "" ||
       draft.projectId !== undefined ||
+      draft.kind !== EMPTY_TASK_DRAFT.kind ||
       (draft.tags?.length ?? 0) > 0 ||
       pending.length > 0 ||
       blockedBy.size > 0,
@@ -205,6 +209,7 @@ export function NewTaskActions({ form }: { readonly form: NewTaskForm }): ReactN
 export function NewTaskBody({ form }: { readonly form: NewTaskForm }): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const { draft, onChange, projectId, projects, creating, mentions } = form;
+  const descriptionId = `${form.formId}-description`;
   return (
     <form
       id={form.formId}
@@ -231,10 +236,25 @@ export function NewTaskBody({ form }: { readonly form: NewTaskForm }): ReactNode
         onChange={(event) => onChange({ ...draft, title: event.target.value })}
         autoFocus
       />
+      <KindField
+        value={draft.kind}
+        onChange={(kind) => {
+          const description = descriptionForKind(draft.description, draft.kind, kind);
+          onChange({ ...draft, kind, description });
+          if (description === BUG_DESCRIPTION_OUTLINE && draft.description !== description) {
+            focusBugOutline(descriptionId);
+          }
+        }}
+      />
       <MentionField
+        id={descriptionId}
         label="Description"
-        hint="Optional. What you want, in your own words; type @ to mention a Task, Initiative, Decision or Idea. The title alone is enough to plan from."
-        rows={4}
+        hint={
+          draft.kind === "bug" && draft.description === BUG_DESCRIPTION_OUTLINE
+            ? "Optional. Choosing Bug filled in this outline because the Description was empty. Edit it freely."
+            : "Optional. What you want, in your own words; type @ to mention a Task, Initiative, Decision or Idea. The title alone is enough to plan from."
+        }
+        rows={draft.kind === "bug" ? 8 : 4}
         value={draft.description}
         onChange={(description) => onChange({ ...draft, description })}
         mentions={mentions}
@@ -254,7 +274,7 @@ export function NewTaskBody({ form }: { readonly form: NewTaskForm }): ReactNode
           />
         )}
       </Field>
-      <Field label="Tags" hint="Optional. Words to find it by, such as its area or kind.">
+      <Field label="Tags" hint="Optional. Words to find it by, such as its area.">
         <TagsInput
           tags={draft.tags ?? []}
           suggestions={tagsInUse(tasks.data ?? [])}

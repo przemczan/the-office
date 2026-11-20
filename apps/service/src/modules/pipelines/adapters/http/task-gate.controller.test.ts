@@ -2,6 +2,7 @@ import { gateRefusalSchema, taskStagesSchema } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { StageInterpreter } from "../../application/stage-interpreter.js";
 import type { Stage } from "../../domain/stage.js";
+import { StartedTasksForTests } from "../../ports/pipelines-ports.fixtures.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -81,6 +82,40 @@ describe("POST /api/tasks/:id/gate/…", () => {
     expect(gateRefusalSchema.parse(await refused.json()).reasons).toEqual([
       "The Task isn't waiting at a Gate.",
     ]);
+  });
+
+  it("drops the Task with the reason the body gives, which Work keeps with the move", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = await walkStages(pipelines, stages);
+
+    const response = await post(taskId, "drop", { reason: { kind: "wont-fix" } });
+    await pipelines.app.get(StageInterpreter).walked(taskId);
+
+    expect(response.status).toBe(200);
+    expect(pipelines.app.get(StartedTasksForTests).changes).toContainEqual({
+      taskId,
+      state: "dropped",
+      dropReason: { kind: "wont-fix" },
+    });
+  });
+
+  it("refuses a Duplicate of the Task itself or of no Task, keeping the Gate waiting", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = await walkStages(pipelines, stages);
+    const unknown = "00000000-0000-4000-8000-000000000000";
+
+    const itself = await post(taskId, "drop", { reason: { kind: "duplicate", taskId } });
+    const none = await post(taskId, "drop", { reason: { kind: "duplicate", taskId: unknown } });
+
+    expect(itself.status).toBe(422);
+    expect(gateRefusalSchema.parse(await itself.json()).reasons).toEqual([
+      "A Task can't be a duplicate of itself.",
+    ]);
+    expect(none.status).toBe(422);
+    expect(gateRefusalSchema.parse(await none.json()).reasons).toEqual([
+      `There is no Task ${unknown}.`,
+    ]);
+    expect((await post(taskId, "drop")).status).toBe(200);
   });
 
   it("continues with no body as plain Continue", async () => {

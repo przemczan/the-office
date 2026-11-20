@@ -84,6 +84,7 @@ import { noProjectBases } from "../../ports/project-bases.fixtures.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "../websocket/thread-web-events.js";
 import { DecisionsController } from "./decisions.controller.js";
+import { BugTaskDecisions } from "../../application/bug-task-decisions.js";
 import { FireAlarmLiftsController } from "./fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./proposals.controller.js";
 import { OfficeInstructionsController } from "./office-instructions.controller.js";
@@ -290,6 +291,7 @@ function setUpEachTest(): void {
         },
         SubAgentsAndProcesses,
         DecisionService,
+        BugTaskDecisions,
         ProposalAppliers,
         ProposalService,
         LinkCards,

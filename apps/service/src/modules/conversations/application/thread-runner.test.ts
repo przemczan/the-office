@@ -4008,11 +4008,18 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
     const log = await answered(thread.id, 4);
 
     await expectCarriedToHome(thread.id, log);
-    expect(home.sessions[0]?.received[1]).toMatchObject({
+    const sentAgain = home.sessions[0]?.received[1];
+    expect(sentAgain).toMatchObject({
       step: "send",
       priority: "later",
       message: { text: expect.stringContaining("Hello.") },
     });
+    // The carried transcript holds the refused message's id, which the engine would skip.
+    const refused = engine.sessions[0]?.received[0];
+    expect(refused?.step).toBe("start");
+    expect(sentAgain?.step === "send" && sentAgain.message.id).not.toBe(
+      refused?.step === "start" && refused.brief.id,
+    );
     expect(exchanges(log).slice(-2)).toEqual([
       SWITCHED,
       { kind: "person", roleKey, text: "Hello from the stand-in." },

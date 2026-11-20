@@ -6,6 +6,8 @@ import {
   commandChangeSchema,
   defaultPipelineChangeSchema,
   environmentChangeSchema,
+  issueSettingsSchema,
+  kindDefaultPipelineChangeSchema,
   installCommandChangeSchema,
   installInputsChangeSchema,
   markChangeSchema,
@@ -26,6 +28,8 @@ import {
   type EnvironmentChange,
   type InstallCommandChange,
   type InstallInputsChange,
+  type IssueSettings as IssueSettingsChange,
+  type KindDefaultPipelineChange,
   type MarkChange,
   type Project as ProjectResponse,
   type ProjectDefaultChange,
@@ -44,8 +48,10 @@ import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProjectSkills } from "../../../skills/index.js";
 import type { RemoteNeeds } from "../../../../platform/git-identity/remote-needs.js";
+import { ProjectIssueHosts } from "../../application/project-issue-hosts.js";
 import { ProjectRemotes } from "../../application/project-remotes.js";
 import { ProjectService } from "../../application/project-service.js";
+import type { Project } from "../../domain/project.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
 import { toProjectResponse } from "./project-responses.js";
 
@@ -56,14 +62,20 @@ export class ProjectsController {
     private readonly projects: ProjectService,
     private readonly projectSkills: ProjectSkills,
     private readonly remotes: ProjectRemotes,
+    private readonly issueHosts: ProjectIssueHosts,
   ) {}
+
+  /** The Project as the API shows it, with its code host read from git's config. */
+  private async respond(project: Project): Promise<ProjectResponse> {
+    return toProjectResponse(project, await this.issueHosts.codeHostNameOf(project));
+  }
 
   @Post()
   async add(
     @Body(new ContractPipe(addProjectSchema)) { runEnvironmentAnswer, ...newProject }: AddProject,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(
+    return this.respond(
       await this.projects.add(
         newProject,
         runEnvironmentAnswer && { answer: runEnvironmentAnswer, by: userOf(signedIn) },
@@ -73,12 +85,12 @@ export class ProjectsController {
 
   @Get()
   async list(): Promise<ProjectResponse[]> {
-    return (await this.projects.list()).map(toProjectResponse);
+    return Promise.all((await this.projects.list()).map((project) => this.respond(project)));
   }
 
   @Get(":id")
   async read(@Param("id") id: string): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.read(id));
+    return this.respond(await this.projects.read(id));
   }
 
   @Put(":id/install-command")
@@ -86,7 +98,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(installCommandChangeSchema)) { commandLine }: InstallCommandChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeInstallCommand(id, commandLine));
+    return this.respond(await this.projects.changeInstallCommand(id, commandLine));
   }
 
   @Post(":id/commands")
@@ -94,7 +106,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(projectCommandSchema)) command: ProjectCommand,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.addCommand(id, command));
+    return this.respond(await this.projects.addCommand(id, command));
   }
 
   @Put(":id/commands/:key")
@@ -103,7 +115,7 @@ export class ProjectsController {
     @Param("key") key: string,
     @Body(new ContractPipe(commandChangeSchema)) change: CommandChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeCommand(id, key, change));
+    return this.respond(await this.projects.changeCommand(id, key, change));
   }
 
   @Delete(":id/commands/:key")
@@ -111,7 +123,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Param("key") key: string,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.removeCommand(id, key));
+    return this.respond(await this.projects.removeCommand(id, key));
   }
 
   @Put(":id/install-inputs")
@@ -119,7 +131,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(installInputsChangeSchema)) { installInputs }: InstallInputsChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeInstallInputs(id, installInputs));
+    return this.respond(await this.projects.changeInstallInputs(id, installInputs));
   }
 
   @Put(":id/environment")
@@ -127,7 +139,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(environmentChangeSchema)) { environment }: EnvironmentChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeEnvironment(id, environment));
+    return this.respond(await this.projects.changeEnvironment(id, environment));
   }
 
   @Put(":id/publishing-mode")
@@ -135,7 +147,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(publishingModeChangeSchema)) { publishingMode }: PublishingModeChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changePublishingMode(id, publishingMode));
+    return this.respond(await this.projects.changePublishingMode(id, publishingMode));
   }
 
   @Put(":id/before-publishing-command")
@@ -144,7 +156,7 @@ export class ProjectsController {
     @Body(new ContractPipe(beforePublishingCommandChangeSchema))
     { commandLine }: BeforePublishingCommandChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(
+    return this.respond(
       await this.projects.changePublishingLine(id, "beforePublishingCommand", commandLine),
     );
   }
@@ -155,7 +167,7 @@ export class ProjectsController {
     @Body(new ContractPipe(afterPublishingCommandChangeSchema))
     { commandLine }: AfterPublishingCommandChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(
+    return this.respond(
       await this.projects.changePublishingLine(id, "afterPublishingCommand", commandLine),
     );
   }
@@ -165,7 +177,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(projectLimitSchema)) { projectLimit }: ProjectLimitChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeProjectLimit(id, projectLimit));
+    return this.respond(await this.projects.changeProjectLimit(id, projectLimit));
   }
 
   @Put(":id/mark")
@@ -173,7 +185,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(markChangeSchema)) { mark }: MarkChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeMark(id, mark));
+    return this.respond(await this.projects.changeMark(id, mark));
   }
 
   /**
@@ -199,7 +211,7 @@ export class ProjectsController {
     @Body(new ContractPipe(useProjectSkillsChangeSchema))
     { useProjectSkills }: UseProjectSkillsChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeUseProjectSkills(id, useProjectSkills));
+    return this.respond(await this.projects.changeUseProjectSkills(id, useProjectSkills));
   }
 
   @Put(":id/skill-use")
@@ -207,7 +219,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(projectSkillUseChangeSchema)) { key, use }: ProjectSkillUseChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeProjectSkillUse(id, key, use));
+    return this.respond(await this.projects.changeProjectSkillUse(id, key, use));
   }
 
   @Put(":id/default-pipeline")
@@ -215,7 +227,27 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(defaultPipelineChangeSchema)) { defaultPipeline }: DefaultPipelineChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeDefaultPipeline(id, defaultPipeline));
+    return this.respond(await this.projects.changeDefaultPipeline(id, defaultPipeline));
+  }
+
+  /** A Kind's own default Pipeline; null follows the Project's default Pipeline. */
+  @Put(":id/kind-default-pipeline")
+  async changeKindDefaultPipeline(
+    @Param("id") id: string,
+    @Body(new ContractPipe(kindDefaultPipelineChangeSchema))
+    { kind, pipelineId }: KindDefaultPipelineChange,
+  ): Promise<ProjectResponse> {
+    return this.respond(await this.projects.changeKindDefaultPipeline(id, kind, pipelineId));
+  }
+
+  /** The GitHub issue switches; a label set records the user as who set it. */
+  @Put(":id/issue-settings")
+  async changeIssueSettings(
+    @Param("id") id: string,
+    @Body(new ContractPipe(issueSettingsSchema)) settings: IssueSettingsChange,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ProjectResponse> {
+    return this.respond(await this.projects.changeIssueSettings(id, settings, userOf(signedIn)));
   }
 
   @Put(":id/project-default")
@@ -223,7 +255,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(projectDefaultChangeSchema)) { projectDefault }: ProjectDefaultChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeProjectDefault(id, projectDefault));
+    return this.respond(await this.projects.changeProjectDefault(id, projectDefault));
   }
 
   @Put(":id/use-for-every-role")
@@ -231,7 +263,7 @@ export class ProjectsController {
     @Param("id") id: string,
     @Body(new ContractPipe(useForEveryRoleChangeSchema)) { useForEveryRole }: UseForEveryRoleChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeUseForEveryRole(id, useForEveryRole));
+    return this.respond(await this.projects.changeUseForEveryRole(id, useForEveryRole));
   }
 
   @Put(":id/role-overrides/:roleKey")
@@ -240,7 +272,7 @@ export class ProjectsController {
     @Param("roleKey") roleKey: string,
     @Body(new ContractPipe(roleOverrideChangeSchema)) { roleOverride }: RoleOverrideChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeRoleOverride(id, roleKey, roleOverride));
+    return this.respond(await this.projects.changeRoleOverride(id, roleKey, roleOverride));
   }
 }
 

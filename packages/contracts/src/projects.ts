@@ -2,7 +2,7 @@ import { z } from "zod";
 import { engineModelSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
-import { OFFICE_WIDE_LIMIT_MAX } from "./work.js";
+import { OFFICE_WIDE_LIMIT_MAX, taskCreatorSchema, taskKindSchema } from "./work.js";
 
 /** What a Project command does; a test command also gets the test handling (spec §5.5). */
 export const projectCommandKindSchema = z.enum(["build", "lint", "test"]);
@@ -311,6 +311,34 @@ export const projectImageFromRepositorySchema = z.object({
 });
 export type ProjectImageFromRepository = z.infer<typeof projectImageFromRepositorySchema>;
 
+/**
+ * PUT /projects/:id/issue-settings: the Project's GitHub issue switches. A label turns the
+ * auto-import on; null leaves it off.
+ */
+export const issueSettingsSchema = z.object({
+  autoImportLabel: z.string().trim().min(1).max(50).nullable(),
+  closeOnDone: z.boolean(),
+  commentOnStartAndDone: z.boolean(),
+  closeOnDrop: z.boolean(),
+});
+export type IssueSettings = z.infer<typeof issueSettingsSchema>;
+
+/** Each Kind's own default Pipeline; null follows the Project's default Pipeline. */
+export const kindDefaultPipelinesSchema = z.object({
+  feature: z.string().nullable(),
+  bug: z.string().nullable(),
+  chore: z.string().nullable(),
+});
+export type KindDefaultPipelines = z.infer<typeof kindDefaultPipelinesSchema>;
+
+/** The default Pipeline each Kind's new Tasks get, resolved: its own, else the Project's. */
+export const defaultPipelineOfKindSchema = z.object({
+  feature: z.string(),
+  bug: z.string(),
+  chore: z.string(),
+});
+export type DefaultPipelineOfKind = z.infer<typeof defaultPipelineOfKindSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
   /** Shown in place of the mark's label and colour, in the version for the palette shown. */
@@ -337,6 +365,15 @@ export const projectSchema = newProjectSchema.extend({
   /** How many of the Project's Tasks may be started at once (spec §2.1). */
   projectLimit: z.int(),
   addedAt: z.iso.datetime(),
+  /**
+   * The name of the code host holding the repository its base branch's remote is, such as GitHub,
+   * read from git's config only; null when the base branch tracks no remote or no host holds it.
+   * Its issues can be imported only when it has one.
+   */
+  codeHost: z.string().min(1).nullable(),
+  kindDefaultPipelines: kindDefaultPipelinesSchema,
+  defaultPipelineOfKind: defaultPipelineOfKindSchema,
+  issueSettings: issueSettingsSchema,
 });
 export type Project = z.infer<typeof projectSchema>;
 
@@ -408,6 +445,59 @@ export type MarkChange = z.infer<typeof markChangeSchema>;
 /** PUT /projects/:id/default-pipeline */
 export const defaultPipelineChangeSchema = z.object({ defaultPipeline: z.string() });
 export type DefaultPipelineChange = z.infer<typeof defaultPipelineChangeSchema>;
+
+/** PUT /projects/:id/kind-default-pipeline: a Kind's default Pipeline; null follows the Project's default. */
+export const kindDefaultPipelineChangeSchema = z.object({
+  kind: taskKindSchema,
+  pipelineId: z.string().nullable(),
+});
+export type KindDefaultPipelineChange = z.infer<typeof kindDefaultPipelineChangeSchema>;
+
+/** GET /projects/:id/issues: an open issue on the code host, as it would import. */
+export const openIssueSchema = z.object({
+  number: z.number().int(),
+  title: z.string(),
+  url: z.url(),
+  author: z.object({ login: z.string(), url: z.url() }),
+  labels: z.array(z.string()),
+  openedAt: z.iso.datetime(),
+  /** The Kind it would import as: Bug with a bug label, else Feature. */
+  kind: taskKindSchema,
+});
+export type OpenIssue = z.infer<typeof openIssueSchema>;
+
+export const openIssueListSchema = z.array(openIssueSchema);
+
+/** POST /projects/:id/issues/import: the issues to import as Tasks, by number. */
+export const issueImportSchema = z.object({
+  numbers: z.array(z.number().int().positive()).min(1).max(50),
+});
+export type IssueImport = z.infer<typeof issueImportSchema>;
+
+/** What POST /projects/:id/issues/import answers: the Tasks made, and the issues skipped and why. */
+export const issueImportResultSchema = z.object({
+  imported: z.array(z.object({ number: z.number().int(), taskId: z.uuid() })),
+  skipped: z.array(z.object({ number: z.number().int(), why: z.string() })),
+});
+export type IssueImportResult = z.infer<typeof issueImportResultSchema>;
+
+/** The query of GET /issue-links: the Task whose issue is asked for. */
+export const issueLinkQuerySchema = z.object({ taskId: z.uuid() });
+export type IssueLinkQuery = z.infer<typeof issueLinkQuerySchema>;
+
+/** GET /issue-links?taskId=: the issue a Task was imported from, or null. */
+export const issueLinkSchema = z.object({
+  number: z.number().int(),
+  title: z.string(),
+  url: z.url(),
+  author: z.object({ login: z.string(), url: z.url() }),
+  importedAt: z.iso.datetime(),
+  importedBy: taskCreatorSchema,
+  closedOnHostAt: z.iso.datetime().nullable(),
+  /** Why the last write-back to the issue failed, while it is retried; null when none failed. */
+  writeBackProblem: z.string().nullable(),
+});
+export type IssueLink = z.infer<typeof issueLinkSchema>;
 
 /** PUT /projects/:id/use-project-skills */
 export const useProjectSkillsChangeSchema = z.object({ useProjectSkills: z.boolean() });
@@ -606,6 +696,22 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     type: z.literal("project.skill-use-changed"),
     projectId: z.string(),
+  }),
+  /** The Project's GitHub issue switches changed. */
+  webEventSchema.extend({
+    type: z.literal("project.issue-settings-changed"),
+    projectId: z.string(),
+  }),
+  /** Issues were imported as Tasks, by hand or by the auto-import. */
+  webEventSchema.extend({
+    type: z.literal("project.issues-imported"),
+    projectId: z.string(),
+  }),
+  /** A Task's issue link changed: its issue closed on the code host, or a write-back failed or went through. */
+  webEventSchema.extend({
+    type: z.literal("issue-link.changed"),
+    projectId: z.string(),
+    taskId: z.uuid(),
   }),
 ]);
 export type ProjectWebEvent = z.infer<typeof projectWebEventSchema>;

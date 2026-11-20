@@ -17,6 +17,27 @@ export const authorSchema = z.discriminatedUnion("kind", [
 ]);
 export type Author = z.infer<typeof authorSchema>;
 
+/** A Task's Kind (spec §2.1): what it is, which decides its default Pipeline and its commit type. */
+export const TASK_KINDS = ["feature", "bug", "chore"] as const;
+export const taskKindSchema = z.enum(TASK_KINDS);
+export type TaskKind = z.infer<typeof taskKindSchema>;
+
+/**
+ * Why a Task was Dropped: Duplicate names the Task it duplicates, Other the user's words; the
+ * others take nothing.
+ */
+export const dropReasonSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("wont-fix") }),
+  z.object({ kind: z.literal("duplicate"), taskId: z.uuid() }),
+  z.object({ kind: z.literal("cant-reproduce") }),
+  z.object({ kind: z.literal("other"), text: z.string().trim().min(1).max(500) }),
+]);
+export type DropReason = z.infer<typeof dropReasonSchema>;
+
+/** Who created a Task, as the read model gives it: an Author, or The Office itself. */
+export const taskCreatorSchema = z.union([authorSchema, z.object({ kind: z.literal("office") })]);
+export type TaskCreator = z.infer<typeof taskCreatorSchema>;
+
 export const ideaStateSchema = z.enum(["new", "shaped", "dropped"]);
 export type IdeaState = z.infer<typeof ideaStateSchema>;
 
@@ -47,8 +68,15 @@ export type Idea = z.infer<typeof ideaSchema>;
 
 export const ideaListSchema = z.array(ideaSchema);
 
-/** POST /ideas/:id/shape: the Project the Task is made in. */
-export const ideaShapingSchema = z.object({ projectId: z.string() });
+/**
+ * POST /ideas/:id/shape: the Project the Task is made in, and its Kind (Feature when left out). A
+ * Description is sent only for a Bug from an Idea without notes.
+ */
+export const ideaShapingSchema = z.object({
+  projectId: z.string(),
+  kind: taskKindSchema.optional(),
+  description: z.string().optional(),
+});
 export type IdeaShaping = z.infer<typeof ideaShapingSchema>;
 
 export const initiativeStateSchema = z.enum(["shaping", "active", "done", "dropped"]);
@@ -241,6 +269,8 @@ export const newTaskSchema = z.object({
   priority: prioritySchema,
   /** Free-form words to find it by; the service keeps each lower-case, once. None when left out. */
   tags: z.array(z.string()).default([]),
+  /** Feature, Bug or Chore; Feature when left out. */
+  kind: taskKindSchema.default("feature"),
 });
 export type NewTask = z.input<typeof newTaskSchema>;
 
@@ -407,8 +437,17 @@ export const taskSchema = newTaskSchema.extend({
   resolvesTaskId: z.uuid().nullable(),
   /** Each Move to another Project, oldest first. */
   projectMoves: z.array(projectMoveSchema),
-  createdBy: authorSchema,
+  /** Who created it: an Author, or The Office for a Task it made (or imported by itself). */
+  createdBy: taskCreatorSchema,
   createdAt: z.iso.datetime(),
+  /** The Task whose work caused this Bug; null for none. */
+  causedBy: z.uuid().nullable(),
+  /** The version the Bug was found in, free text; null for none. */
+  foundInVersion: z.string().nullable(),
+  /** The Task whose Pipeline found this Bug, set when the Bug Task is created; null otherwise. */
+  foundWhileWorkingOn: z.uuid().nullable(),
+  /** Why it was Dropped, when the user gave a reason; null otherwise. */
+  dropReason: dropReasonSchema.nullable(),
   /**
    * When it was archived, while it is: a mark on a Done or Dropped Task, never a state, that takes
    * it off the board and its lists; null on the board.
@@ -502,6 +541,24 @@ export type DescriptionChange = z.infer<typeof descriptionChangeSchema>;
 /** PUT /tasks/:id/title: the Task's new title, until it is Done or Dropped. */
 export const titleChangeSchema = z.object({ title: z.string() });
 export type TitleChange = z.infer<typeof titleChangeSchema>;
+
+/** PUT /tasks/:id/kind: the Task's Kind, until it is Done or Dropped. */
+export const kindChangeSchema = z.object({ kind: taskKindSchema });
+export type KindChange = z.infer<typeof kindChangeSchema>;
+
+/** PUT /tasks/:id/caused-by: the Task whose work caused this Bug, or null for none. */
+export const causedByChangeSchema = z.object({ causedBy: z.uuid().nullable() });
+export type CausedByChange = z.infer<typeof causedByChangeSchema>;
+
+/** PUT /tasks/:id/found-in-version: the version the Bug was found in, free text, or null for none. */
+export const foundInVersionChangeSchema = z.object({
+  foundInVersion: z.string().trim().min(1).max(64).nullable(),
+});
+export type FoundInVersionChange = z.infer<typeof foundInVersionChangeSchema>;
+
+/** POST /tasks/:id/drop: the body is optional, and so is the reason. */
+export const dropSchema = z.object({ reason: dropReasonSchema.optional() });
+export type Drop = z.infer<typeof dropSchema>;
 
 /** PUT /tasks/:id/commit-message: the Task's commit message; empty takes the default again. */
 export const commitMessageChangeSchema = z.object({ message: z.string() });
@@ -951,6 +1008,8 @@ export const boardFiltersSchema = z.object({
   priority: prioritySchema.optional(),
   initiative: z.uuid().optional(),
   blocked: z.literal(true).optional(),
+  /** Left out by Saved views saved before Kinds, which still parse. */
+  kind: taskKindSchema.optional(),
 });
 export type BoardFilters = z.infer<typeof boardFiltersSchema>;
 
@@ -1130,6 +1189,9 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.restored"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.title-changed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.kind-changed"), taskId: z.uuid() }),
+  /** Its Caused by or Found in version changed (Found while working on is set only at creation). */
+  webEventSchema.extend({ type: z.literal("task.bug-details-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.description-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.commit-message-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.pull-request-end-changed"), taskId: z.uuid() }),

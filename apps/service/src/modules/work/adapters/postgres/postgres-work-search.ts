@@ -9,14 +9,15 @@ import { toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
 /*
  * Each record's searched text is parsed as it is searched: The Office holds one user's records, so
  * reading every row is quick. A document's text, the one long field, is parsed once as it is
- * stored. A title or name weighs most, so it ranks first. Every match is answered: the search
- * narrows them by the Project filter before it keeps the best.
+ * stored. A title or name weighs most, so it ranks first. A Task's Kind is one of its words, so
+ * "bug" finds the Bugs. Every match is answered: the search narrows them by the Project filter
+ * before it keeps the best.
  */
 
 const taskVector = sql`setweight(${searchVectorOf(tasks.title)}, 'A')
   || ${searchVectorOf(sql`${tasks.description} || ' ' || ${tasks.plan} || ' '
     || array_to_string(${tasks.definitionOfDone}, ' ') || ' '
-    || array_to_string(${tasks.tags}, ' ')`)}`;
+    || array_to_string(${tasks.tags}, ' ') || ' ' || ${tasks.kind}`)}`;
 
 const ideaVector = sql`setweight(${searchVectorOf(ideas.title)}, 'A')
   || ${searchVectorOf(ideas.notes)}`;

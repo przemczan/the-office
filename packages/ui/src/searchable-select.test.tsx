@@ -149,4 +149,51 @@ describe("SearchableSelect", () => {
 
     expect(onChange).toHaveBeenCalledWith("");
   });
+
+  it("offers the words typed as its own value, with ownValue", () => {
+    const onChange = vi.fn<(value: string) => void>();
+    act(() =>
+      root.render(
+        <SearchableSelect
+          label="Found in version"
+          value=""
+          options={[{ value: "v1.14.2", label: "v1.14.2" }]}
+          onChange={onChange}
+          clearLabel="Remove the version"
+          noMatches="No tag matches"
+          ownValue={{ maxLength: 64 }}
+        />,
+      ),
+    );
+
+    type("v1.14");
+    expect(optionNames()).toEqual(["v1.14.2", "Use “v1.14”"]);
+    press("ArrowDown");
+    press("Enter");
+    expect(onChange).toHaveBeenCalledWith("v1.14");
+
+    type("v1.14.2");
+    expect(optionNames()).toEqual(["v1.14.2"]);
+  });
+
+  it("shows a value of the user's own words as written, which can be cleared", () => {
+    const onChange = vi.fn<(value: string) => void>();
+    act(() =>
+      root.render(
+        <SearchableSelect
+          label="Found in version"
+          value="nightly"
+          options={[]}
+          onChange={onChange}
+          clearLabel="Remove the version"
+          noMatches="No tag matches"
+          ownValue={{}}
+        />,
+      ),
+    );
+
+    expect(box().value).toBe("nightly");
+    act(() => page.querySelector<HTMLButtonElement>('[aria-label="Remove the version"]')?.click());
+    expect(onChange).toHaveBeenCalledWith("");
+  });
 });

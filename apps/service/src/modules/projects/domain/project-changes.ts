@@ -1,6 +1,13 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
 import {
+  DEFAULT_ISSUE_SETTINGS,
+  type IssueSettings,
+  type IssueSettingsChange,
+  type IssueUser,
+} from "./issue-settings.js";
+import { NO_KIND_DEFAULT_PIPELINES, type TaskKind } from "./kind-default-pipeline.js";
+import {
   commandFieldsProblems,
   commandKeyProblems,
   commandOf,
@@ -35,6 +42,8 @@ import {
   ProjectCommandRemoved,
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
+  ProjectIssueSettingsChanged,
+  ProjectKindDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectImageChanged,
   ProjectInstallCommandChanged,
@@ -179,6 +188,8 @@ export function addProject(
     runEnvironmentSetUpProblems: [],
     projectLimit: DEFAULT_PROJECT_LIMIT,
     addedAt,
+    kindDefaultPipelines: NO_KIND_DEFAULT_PIPELINES,
+    issueSettings: DEFAULT_ISSUE_SETTINGS,
   };
   return { project, event: new ProjectAdded(project) };
 }
@@ -420,6 +431,60 @@ export function changeDefaultPipeline(
   return {
     project: { ...project, defaultPipeline },
     event: new ProjectDefaultPipelineChanged(project.id, defaultPipeline),
+  };
+}
+
+/**
+ * A Kind's own default Pipeline; null follows the Project's default Pipeline. Undefined when it is
+ * already so. That the Pipeline can run in the Project is checked by the caller.
+ */
+export function changeKindDefaultPipeline(
+  project: Project,
+  kind: TaskKind,
+  pipelineId: string | null,
+): ProjectChange<ProjectKindDefaultPipelineChanged> | undefined {
+  if (project.kindDefaultPipelines[kind] === pipelineId) return undefined;
+  return {
+    project: {
+      ...project,
+      kindDefaultPipelines: { ...project.kindDefaultPipelines, [kind]: pipelineId },
+    },
+    event: new ProjectKindDefaultPipelineChanged(project.id, kind, pipelineId),
+  };
+}
+
+/**
+ * The Project's GitHub issue switches. A label set or changed records `by` as who set it, whom the
+ * auto-import names as the creator of its Tasks; no label forgets them. Undefined when nothing
+ * changed.
+ */
+export function changeIssueSettings(
+  project: Project,
+  { autoImportLabel, closeOnDone, commentOnStartAndDone, closeOnDrop }: IssueSettingsChange,
+  by: IssueUser,
+): ProjectChange<ProjectIssueSettingsChanged> | undefined {
+  const before = project.issueSettings;
+  const label = autoImportLabel?.trim() || null;
+  const autoImportLabelSetBy =
+    label === null ? null : label === before.autoImportLabel ? before.autoImportLabelSetBy : by;
+  const issueSettings: IssueSettings = {
+    autoImportLabel: label,
+    autoImportLabelSetBy,
+    closeOnDone,
+    commentOnStartAndDone,
+    closeOnDrop,
+  };
+  if (
+    before.autoImportLabel === label &&
+    before.closeOnDone === closeOnDone &&
+    before.commentOnStartAndDone === commentOnStartAndDone &&
+    before.closeOnDrop === closeOnDrop
+  ) {
+    return undefined;
+  }
+  return {
+    project: { ...project, issueSettings },
+    event: new ProjectIssueSettingsChanged(project.id, issueSettings),
   };
 }
 

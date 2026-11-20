@@ -11,9 +11,12 @@ export { InterruptedAnswers } from "./application/interrupted-answers.js";
 export { SubAgentsAndProcesses } from "./application/sub-agents-and-processes.js";
 export {
   ProposalAppliers,
+  type BugTaskApplier,
+  type CreatedBugTask,
   type ProposalApplier,
   type SettingProposalApplier,
 } from "./application/proposal-appliers.js";
+export type { BugTaskFields } from "./domain/decision.js";
 export { StageDecisions, type StageDecisionRequest } from "./application/stage-decisions.js";
 export { stageAnswerOf, type StageAnswer } from "./domain/stage-answer.js";
 export { decisionSummary } from "./domain/decision.js";

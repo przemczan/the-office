@@ -5,7 +5,10 @@ import {
   PullRequestChangedOnGitHub,
   PullRequestNotChanged,
   PullRequestNotOpened,
+  type GitHubIssues,
   type GitHubPullRequests,
+  type IssueCloseReason,
+  type OpenIssuesOnGitHub,
   type MergeOnGitHub,
   type PullRequestOnRemote,
   type WorkflowStartOnGitHub,
@@ -114,11 +117,77 @@ function gitHubAnswering(failure?: Error): {
   return { gitHub, asked, reruns, started, merged };
 }
 
+const ISSUE = {
+  number: 418,
+  title: "Live view freezes",
+  body: "After the laptop wakes up.",
+  url: "https://github.com/office/tools/issues/418",
+  author: { login: "octocat", url: "https://github.com/octocat" },
+  labels: ["bug"],
+  openedAt: new Date("2026-11-19T09:00:00.000Z"),
+} as const;
+
+/** The github module's issues, answering each asked one, or failing as a test says. */
+function issuesAnswering(failure?: Error): {
+  issues: GitHubIssues;
+  listed: [string, OpenIssuesOnGitHub][];
+  closed: [string, number, IssueCloseReason][];
+} {
+  const listed: [string, OpenIssuesOnGitHub][] = [];
+  const closed: [string, number, IssueCloseReason][] = [];
+  const answer = <Answer>(value: Answer): Promise<Answer> =>
+    failure ? Promise.reject(failure) : Promise.resolve(value);
+  const issues = {
+    openIssues: (remoteUrl: string, listing: OpenIssuesOnGitHub) => {
+      listed.push([remoteUrl, listing]);
+      return answer([ISSUE]);
+    },
+    issue: () => answer({ ...ISSUE, state: { state: "open" } }),
+    comment: () => answer(undefined),
+    close: (remoteUrl: string, number: number, reason: IssueCloseReason) => {
+      closed.push([remoteUrl, number, reason]);
+      return answer(undefined);
+    },
+  } as unknown as GitHubIssues;
+  return { issues, listed, closed };
+}
+
+describe("GitHub issues through the code host", () => {
+  it("lists, reads and closes issues as not planned", async () => {
+    const { issues, listed, closed } = issuesAnswering();
+    const host = new GitHubCodeHost(gitHubAnswering().gitHub, issues);
+    const listing = { label: "office", order: "oldest-first", most: 50 } as const;
+
+    await expect(host.openIssues(REQUEST.remoteUrl, listing)).resolves.toEqual([ISSUE]);
+    await expect(host.issue(REQUEST.remoteUrl, 418)).resolves.toEqual({
+      ...ISSUE,
+      state: { state: "open" },
+    });
+    await host.closeIssue(REQUEST.remoteUrl, 418);
+
+    expect(listed).toEqual([[REQUEST.remoteUrl, listing]]);
+    expect(closed).toEqual([[REQUEST.remoteUrl, 418, "not_planned"]]);
+  });
+
+  it("refuses in the github module's words", async () => {
+    const host = new GitHubCodeHost(
+      gitHubAnswering().gitHub,
+      issuesAnswering(new GitHubAccessFailed("GitHub refused to comment on #5.")).issues,
+    );
+
+    await expect(host.commentOnIssue(REQUEST.remoteUrl, 5, "Started.")).rejects.toThrow(
+      new CodeHostRefused("GitHub refused to comment on #5."),
+    );
+  });
+});
+
 describe("GitHub as a code host", () => {
   it("opens the branch into the base on the remote it was pushed to", async () => {
     const { gitHub, asked } = gitHubAnswering();
 
-    await expect(new GitHubCodeHost(gitHub).open(REQUEST)).resolves.toEqual({
+    await expect(
+      new GitHubCodeHost(gitHub, issuesAnswering().issues).open(REQUEST),
+    ).resolves.toEqual({
       number: 1,
       url: "https://github.com/office/tools/pull/1",
     });
@@ -137,13 +206,13 @@ describe("GitHub as a code host", () => {
     const { gitHub } = gitHubAnswering();
 
     await expect(
-      new GitHubCodeHost(gitHub).pullRequestStatus(REQUEST.remoteUrl, 1),
+      new GitHubCodeHost(gitHub, issuesAnswering().issues).pullRequestStatus(REQUEST.remoteUrl, 1),
     ).resolves.toEqual(STATUS);
   });
 
   it("lists the recent CI runs and re-runs one with all its jobs or only the failed ones", async () => {
     const { gitHub, reruns } = gitHubAnswering();
-    const host = new GitHubCodeHost(gitHub);
+    const host = new GitHubCodeHost(gitHub, issuesAnswering().issues);
 
     await expect(host.recentRuns(REQUEST.remoteUrl, 30)).resolves.toEqual([RUN]);
     await host.rerun(REQUEST.remoteUrl, RUN.id, "all");
@@ -157,7 +226,7 @@ describe("GitHub as a code host", () => {
 
   it("lists the workflows started by hand with their inputs' kinds, the refs, and starts one", async () => {
     const { gitHub, started } = gitHubAnswering();
-    const host = new GitHubCodeHost(gitHub);
+    const host = new GitHubCodeHost(gitHub, issuesAnswering().issues);
     const inputs = { channel: "beta", "dry-run": "false" };
 
     await expect(host.manualWorkflows(REQUEST.remoteUrl, "main")).resolves.toEqual([
@@ -191,7 +260,7 @@ describe("GitHub as a code host", () => {
     new GitHubAccessFailed("GitHub couldn't be reached."),
   ])("refuses in the github module's words when it fails: %s", async (failure) => {
     const { gitHub } = gitHubAnswering(failure);
-    const host = new GitHubCodeHost(gitHub);
+    const host = new GitHubCodeHost(gitHub, issuesAnswering().issues);
 
     await expect(host.open(REQUEST)).rejects.toThrow(new CodeHostRefused(failure.message));
     await expect(host.openPullRequests(REQUEST.remoteUrl)).rejects.toThrow(
@@ -219,7 +288,7 @@ describe("GitHub as a code host", () => {
 
   it("merges, closes and gives the merge methods as the github module does", async () => {
     const { gitHub, merged } = gitHubAnswering();
-    const host = new GitHubCodeHost(gitHub);
+    const host = new GitHubCodeHost(gitHub, issuesAnswering().issues);
     const merge = { method: "squash", expectedHeadCommit: "a".repeat(40) } as const;
 
     await expect(host.mergeMethods(REQUEST.remoteUrl, 1)).resolves.toEqual({
@@ -237,7 +306,7 @@ describe("GitHub as a code host", () => {
     const failure = new PullRequestNotChanged(
       "GitHub won't merge #1: Pull Request is not mergeable",
     );
-    const host = new GitHubCodeHost(gitHubAnswering(failure).gitHub);
+    const host = new GitHubCodeHost(gitHubAnswering(failure).gitHub, issuesAnswering().issues);
     const merge = { method: "merge", expectedHeadCommit: "a".repeat(40) } as const;
 
     const merging = host.merge(REQUEST.remoteUrl, 1, merge);
@@ -251,7 +320,7 @@ describe("GitHub as a code host", () => {
 
   it("refuses a merge of a pull request changed since as changed, to offer Refresh", async () => {
     const failure = new PullRequestChangedOnGitHub(1);
-    const host = new GitHubCodeHost(gitHubAnswering(failure).gitHub);
+    const host = new GitHubCodeHost(gitHubAnswering(failure).gitHub, issuesAnswering().issues);
 
     const merging = host.merge(REQUEST.remoteUrl, 1, {
       method: "merge",
@@ -263,7 +332,7 @@ describe("GitHub as a code host", () => {
 
   it("reaches only GitHub's repositories and says why none can be opened elsewhere", async () => {
     const { gitHub } = gitHubAnswering();
-    const host = new GitHubCodeHost(gitHub);
+    const host = new GitHubCodeHost(gitHub, issuesAnswering().issues);
 
     expect(host.reaches("git@gitlab.com:office/tools.git")).toBe(false);
     await expect(host.whyCannotOpen("git@gitlab.com:office/tools.git")).resolves.toBe(

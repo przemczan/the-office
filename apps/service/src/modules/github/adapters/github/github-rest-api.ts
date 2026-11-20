@@ -19,6 +19,9 @@ import {
   type DispatchableWorkflowOnGitHub,
   type GitHubInstallation,
   type GitHubUser,
+  type IssueCloseReason,
+  type IssueListing,
+  type IssueOnGitHubApi,
   type ListedPullRequest,
   type MergeAnswer,
   type PullRequestMerge,
@@ -166,6 +169,24 @@ const workflowsPageSchema = z.object({
 const fileContentsSchema = z.object({ content: z.string(), encoding: z.string() });
 
 const refsPageSchema = z.array(z.object({ name: z.string() }));
+
+/**
+ * An issue, or a pull request, which GitHub's issues API lists too and marks with `pull_request`.
+ * A deleted user's issue has no `user`.
+ */
+const issueSchema = z.object({
+  number: z.number().int(),
+  title: z.string(),
+  body: z.string().nullish(),
+  html_url: z.string(),
+  user: z.object({ login: z.string(), html_url: z.string() }).nullish(),
+  labels: z.array(z.union([z.string(), z.object({ name: z.string().nullish() })])),
+  created_at: z.string(),
+  state: z.enum(["open", "closed"]),
+  closed_at: z.string().nullish(),
+  pull_request: z.unknown().optional(),
+});
+type IssueRow = z.infer<typeof issueSchema>;
 
 /** A repository's merge settings; GitHub gives them only to those who may change them. */
 const repositorySchema = z.object({
@@ -659,6 +680,84 @@ export class GitHubRestApi extends GitHubApi {
     );
   }
 
+  async openIssuesOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    { label, direction, most }: IssueListing,
+  ): Promise<readonly IssueOnGitHubApi[]> {
+    // docs.github.com/rest/issues/issues#list-repository-issues: pull requests come too.
+    const url = gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/issues`);
+    url.searchParams.set("state", "open");
+    url.searchParams.set("sort", "created");
+    url.searchParams.set("direction", direction);
+    if (label !== undefined) url.searchParams.set("labels", label);
+    const listed = await this.everyPage(
+      url,
+      accessToken,
+      (body) =>
+        z
+          .array(issueSchema)
+          .safeParse(body)
+          .data?.filter((issue) => issue.pull_request === undefined),
+      `GitHub didn't list the open issues of ${fullNameOf(repository)}`,
+      most,
+    );
+    return listed.map((issue) => this.toIssue(issue));
+  }
+
+  async issueOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<IssueOnGitHubApi | undefined> {
+    // docs.github.com/rest/issues/issues#get-an-issue: 404 gone, 410 deleted or issues turned off.
+    const url = gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/issues/${number}`);
+    const answer = await this.read(url, accessToken, (body) => issueSchema.safeParse(body).data);
+    if (answer.status === 404 || answer.status === 410) return undefined;
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403
+          ? `GitHub refused to read issue #${number} of ${fullNameOf(repository)} (HTTP 403)${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't give issue #${number} of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    return answer.parsed.pull_request === undefined ? this.toIssue(answer.parsed) : undefined;
+  }
+
+  async commentOnIssue(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+    body: string,
+  ): Promise<void> {
+    // docs.github.com/rest/issues/comments#create-an-issue-comment
+    const path = `${repositoryPathOf(repository)}/issues/${number}/comments`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "POST",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({ body }),
+    });
+    if (response.status === 201) return;
+    await this.refuseIssueWrite(response, `comment on #${number} of ${fullNameOf(repository)}`);
+  }
+
+  async closeIssue(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+    reason: IssueCloseReason,
+  ): Promise<void> {
+    // docs.github.com/rest/issues/issues#update-an-issue
+    const path = `${repositoryPathOf(repository)}/issues/${number}`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "PATCH",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({ state: "closed", state_reason: reason }),
+    });
+    if (response.status === 200) return;
+    await this.refuseIssueWrite(response, `close #${number} of ${fullNameOf(repository)}`);
+  }
+
   async repositoryOf(
     accessToken: string,
     repository: RepositoryOnGitHub,
@@ -761,6 +860,36 @@ export class GitHubRestApi extends GitHubApi {
       );
     }
     return answer.parsed.inputs;
+  }
+
+  /** An issue in the port's words; a deleted user's is GitHub's `ghost`. */
+  private toIssue(issue: IssueRow): IssueOnGitHubApi {
+    return {
+      number: issue.number,
+      title: issue.title,
+      body: issue.body ?? "",
+      url: issue.html_url,
+      authorLogin: issue.user?.login ?? "ghost",
+      authorUrl: issue.user?.html_url ?? `${this.urls.web.replace(/\/$/, "")}/ghost`,
+      labels: issue.labels.flatMap((label) =>
+        typeof label === "string" ? [label] : label.name ? [label.name] : [],
+      ),
+      createdAt: issue.created_at,
+      state: issue.state,
+      closedAt: issue.closed_at ?? null,
+    };
+  }
+
+  /** A write to an issue GitHub didn't take, as a failure quoting its message when it refused. */
+  private async refuseIssueWrite(response: Response, what: string): Promise<never> {
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = refusalMessageOf(body) || undefined;
+    if ([403, 404, 410, 422].includes(response.status)) {
+      throw new GitHubApiFailure(
+        `GitHub refused to ${what} (HTTP ${response.status})${message === undefined ? "." : `: ${message}`}`,
+      );
+    }
+    throw new GitHubApiFailure(`GitHub didn't ${what} (HTTP ${response.status}).`);
   }
 
   /** Drops the repository's runs listed before, so the next list asks GitHub afresh. */

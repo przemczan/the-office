@@ -12,9 +12,13 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  causedByChangeSchema,
   commitMessageChangeSchema,
   definitionOfDoneChangeSchema,
   descriptionChangeSchema,
+  dropSchema,
+  foundInVersionChangeSchema,
+  kindChangeSchema,
   makeAPlanSchema,
   markReadyRequestSchema,
   newTaskSchema,
@@ -27,9 +31,13 @@ import {
   taskMoveCheckQuerySchema,
   taskMoveSchema,
   taskPlacementSchema,
+  type CausedByChange,
   type CommitMessageChange,
   type DefinitionOfDoneChange,
   type DescriptionChange,
+  type Drop,
+  type FoundInVersionChange,
+  type KindChange,
   type TitleChange,
   type MakeAPlan,
   type MarkReadyRequest,
@@ -110,6 +118,33 @@ export class TasksController {
     @Body(new ContractPipe(titleChangeSchema)) { title }: TitleChange,
   ): Promise<TaskResponse> {
     return toTaskResponse(await this.tasks.changeTitle(id, title));
+  }
+
+  /** Feature, Bug or Chore, in any state but Done and Dropped; the Task never moves for it. */
+  @Put(":id/kind")
+  async changeKind(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(kindChangeSchema)) { kind }: KindChange,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.changeKind(id, kind));
+  }
+
+  /** The Task whose work caused this Bug, or null for none. */
+  @Put(":id/caused-by")
+  async changeCausedBy(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(causedByChangeSchema)) { causedBy }: CausedByChange,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.changeCausedBy(id, causedBy ?? undefined));
+  }
+
+  /** The version the Bug was found in, free text, or null for none. */
+  @Put(":id/found-in-version")
+  async changeFoundInVersion(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(foundInVersionChangeSchema)) { foundInVersion }: FoundInVersionChange,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.changeFoundInVersion(id, foundInVersion ?? undefined));
   }
 
   /** The user's Description, until the Task starts. */
@@ -325,13 +360,15 @@ export class TasksController {
     return toTaskResponse(await this.tasks.resume(id, authorOf(signedIn)));
   }
 
+  /** Drop, with the reason the user gave, if any; no body is a Drop with no reason. */
   @Post(":id/drop")
   @HttpCode(HttpStatus.OK)
   async drop(
     @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(dropSchema.optional())) body: Drop | undefined,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.drop(id, authorOf(signedIn)));
+    return toTaskResponse(await this.tasks.drop(id, authorOf(signedIn), body?.reason));
   }
 
   /** Archive: a Done or Dropped Task leaves the board, its state as it was. */

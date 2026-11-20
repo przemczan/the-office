@@ -6,7 +6,9 @@ import type {
   Priority,
   Role,
   Task,
+  TaskCreator,
   TaskHolder,
+  TaskKind,
   TaskState,
 } from "@the-office/contracts";
 import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
@@ -106,6 +108,53 @@ export const PRIORITY_ICONS: Readonly<Record<Priority, string>> = {
   low: "chevrons-down",
 };
 
+/** Each Kind as the UI names it (spec §2.1): "Kind" shows beside it wherever the word could mislead. */
+export const KIND_NAMES: Readonly<Record<TaskKind, string>> = {
+  feature: "Feature",
+  bug: "Bug",
+  chore: "Chore",
+};
+
+/** Each Kind's Lucide icon; only Bug's is coloured (`.kind-icon.kind-bug`), so bugs stand out. */
+export const KIND_ICONS: Readonly<Record<TaskKind, string>> = {
+  feature: "sparkles",
+  bug: "bug",
+  chore: "wrench",
+};
+
+/** A Kind's plural, as a Pipeline picker's badge says it: "Default for Bugs". */
+export const KIND_PLURALS: Readonly<Record<TaskKind, string>> = {
+  feature: "Features",
+  bug: "Bugs",
+  chore: "Chores",
+};
+
+/** The badge on the Pipeline that is a Kind's default, in a Pipeline picker. */
+export function kindDefaultWords(kind: TaskKind): string {
+  return `Default for ${KIND_PLURALS[kind]}`;
+}
+
+/**
+ * What a Bug's Description starts as, when Bug is chosen while it is empty (web only: the service
+ * sees it as any Description).
+ */
+export const BUG_DESCRIPTION_OUTLINE =
+  "**Steps to reproduce**\n1. \n\n**Expected**\n\n\n**Actual**\n";
+
+/** Where the cursor goes in the outline: the end of "1. ". */
+export const BUG_OUTLINE_CURSOR = BUG_DESCRIPTION_OUTLINE.indexOf("1. ") + "1. ".length;
+
+/**
+ * The Description after the Kind changes from `from` to `to`: Bug fills the outline into an empty
+ * one, and leaving Bug empties it again while it is still the untouched outline. Words of the user's
+ * are never touched.
+ */
+export function descriptionForKind(description: string, from: TaskKind, to: TaskKind): string {
+  if (to === "bug" && from !== "bug" && description.trim() === "") return BUG_DESCRIPTION_OUTLINE;
+  if (from === "bug" && to !== "bug" && description === BUG_DESCRIPTION_OUTLINE) return "";
+  return description;
+}
+
 /**
  * "You" for the signed-in user, another user's name, or the person's first name when their Role is
  * known.
@@ -119,12 +168,21 @@ export function authorName(
   return roles?.find((role) => role.key === author.roleKey)?.card.name ?? author.roleKey;
 }
 
-/** The Projects an Idea is in, for the Project filter: none when it is Office-wide. */
+/** Who made a Task, as `authorName` says an Author: The Office for one it made by itself. */
+export function creatorName(
+  creator: TaskCreator,
+  roles: readonly Role[] | undefined,
+  signedInUserId: string | undefined,
+): string {
+  return creator.kind === "office" ? "The Office" : authorName(creator, roles, signedInUserId);
+}
+
 /** How many of the statements are among the numbers Reported met, counted from 1. */
 export function reportedMetCount(statements: readonly string[], met: readonly number[]): number {
   return statements.filter((_, index) => met.includes(index + 1)).length;
 }
 
+/** The Projects an Idea is in, for the Project filter: none when it is Office-wide. */
 export function projectIdsOfIdea(idea: Pick<Idea, "projectId">): string[] {
   return idea.projectId === null ? [] : [idea.projectId];
 }

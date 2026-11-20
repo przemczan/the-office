@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import {
   GitHubAccessFailed,
+  GitHubIssues,
   GitHubPullRequests,
   type DispatchInput,
   type DispatchInputType,
+  type IssueOnGitHub,
   type ManualWorkflowOnGitHub,
   NotSignedInWithGitHub,
   PullRequestChangedOnGitHub,
@@ -22,6 +24,9 @@ import {
   CodeHostChangedSince,
   CodeHostRefused,
   type CiRunOnHost,
+  type FoundIssueOnHost,
+  type IssueListing,
+  type IssueOnHost,
   type MergedOnHost,
   type MergeMethodsOnHost,
   type MergeRequest,
@@ -33,15 +38,19 @@ import {
 } from "../../ports/code-host.js";
 
 /**
- * GitHub as a code host: pull requests opened and read, Actions runs listed and re-run, and
- * workflows started by hand, by the github module through GitHub's REST API as the signed-in user. Its failures become
+ * GitHub as a code host: pull requests opened and read, Actions runs listed and re-run, workflows
+ * started by hand, and issues listed, read, commented on and closed as not planned, by the github
+ * module through GitHub's REST API as the signed-in user. Its failures become
  * CodeHostRefused in the github module's words.
  */
 @Injectable()
 export class GitHubCodeHost extends CodeHost {
   readonly name = "GitHub";
 
-  constructor(private readonly gitHub: GitHubPullRequests) {
+  constructor(
+    private readonly gitHub: GitHubPullRequests,
+    private readonly issues: GitHubIssues,
+  ) {
     super();
   }
 
@@ -98,6 +107,23 @@ export class GitHubCodeHost extends CodeHost {
     return refusing(this.gitHub.startWorkflow(remoteUrl, { file: workflowId, ref, inputs }));
   }
 
+  async openIssues(remoteUrl: string, listing: IssueListing): Promise<readonly IssueOnHost[]> {
+    return (await refusing(this.issues.openIssues(remoteUrl, listing))).map(toIssue);
+  }
+
+  async issue(remoteUrl: string, number: number): Promise<FoundIssueOnHost | undefined> {
+    const found = await refusing(this.issues.issue(remoteUrl, number));
+    return found && { ...toIssue(found), state: found.state };
+  }
+
+  commentOnIssue(remoteUrl: string, number: number, body: string): Promise<void> {
+    return refusing(this.issues.comment(remoteUrl, number, body));
+  }
+
+  closeIssue(remoteUrl: string, number: number): Promise<void> {
+    return refusing(this.issues.close(remoteUrl, number, "not_planned"));
+  }
+
   mergeMethods(remoteUrl: string, _number: number): Promise<MergeMethodsOnHost> {
     // GitHub's merge methods are the repository's, the same for each of its pull requests.
     return refusing(this.gitHub.mergeMethods(remoteUrl));
@@ -122,6 +148,18 @@ const KINDS: Readonly<Record<DispatchInputType, WorkflowInputKind>> = {
 
 function toManualWorkflow({ file, name, url, inputs }: ManualWorkflowOnGitHub): ManualWorkflow {
   return { id: file, name, url, inputs: inputs.map(toWorkflowInput) };
+}
+
+function toIssue({
+  number,
+  title,
+  body,
+  url,
+  author,
+  labels,
+  openedAt,
+}: IssueOnGitHub): IssueOnHost {
+  return { number, title, body, url, author, labels, openedAt };
 }
 
 function toWorkflowInput({ type, ...input }: DispatchInput): WorkflowInput {

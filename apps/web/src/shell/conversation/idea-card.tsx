@@ -96,7 +96,7 @@ function NewIdeaActions({ idea }: { readonly idea: Idea }): ReactNode {
           loading={planning.isPending}
           onClick={() => {
             if (idea.projectId === null) setChoosingProject(true);
-            else planning.mutate(idea.projectId);
+            else planning.mutate({ projectId: idea.projectId });
           }}
         >
           {label}

@@ -1,0 +1,200 @@
+/* The Import issues window (docs/design/issues-as-tasks.html): the Project and the search over
+   the list of open issues, each row one press target. */
+/* Fills the window's body, so only the rows scroll. */
+.import-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.import-issues-top {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-issues-top > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-issues-project {
+  flex: none;
+  width: 200px;
+}
+
+.import-issues-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.import-issues-list > * {
+  flex: 1 1 auto;
+}
+
+.import-issues-list > .import-issues-head {
+  flex: none;
+}
+
+.import-issues-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.import-issues-head strong {
+  color: var(--fg-1);
+}
+
+.import-issues-check {
+  display: inline-flex;
+}
+
+.import-issues-count {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-issues-repository {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.import-issues-rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.import-issues-none {
+  margin: 0;
+  padding: 24px 16px;
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  color: var(--fg-2);
+  text-align: center;
+}
+
+.import-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--pad-row);
+  cursor: pointer;
+}
+
+.import-issue + .import-issue,
+.import-issues-older {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.import-issue:hover {
+  background: var(--surface-hover);
+}
+
+.import-issue.picked {
+  background: var(--surface-selected);
+}
+
+.import-issue.disabled {
+  cursor: not-allowed;
+}
+
+.import-issue.disabled > :not(:first-child) {
+  opacity: 0.55;
+}
+
+.import-issue > :first-child {
+  margin-top: 2px;
+}
+
+.import-issue-number {
+  flex: none;
+  min-width: 40px;
+  font: 500 var(--text-body) / 1.45 var(--font-mono);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.import-issue-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.import-issue-title {
+  font: 500 var(--text-item) / 1.35 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+
+.import-issue-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.import-issue-label {
+  padding: 0 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--fg-2);
+}
+
+.import-issue-label.bug {
+  border-color: transparent;
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.import-issue-kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.import-issue-kind.kind-bug {
+  color: var(--danger-fg);
+}
+
+.import-issues-older {
+  padding: var(--space-2) var(--space-3);
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+@media (max-width: 600px) {
+  .import-issues-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .import-issues-project {
+    width: auto;
+  }
+}

@@ -33,6 +33,8 @@ export interface ProjectOnPipeline {
   readonly id: string;
   readonly name: string;
   readonly defaultPipeline: string;
+  /** Each Kind's own default Pipeline, by Kind (feature, bug, chore); null follows `defaultPipeline`. */
+  readonly kindDefaultPipelines?: Readonly<Record<string, string | null>>;
   readonly commands: readonly { readonly key: string }[];
 }
 
@@ -187,7 +189,7 @@ export function pipelineUse(
   const onPipeline = tasks.filter((task) => task.pipelineId === pipelineId);
   return {
     defaultFor: projects
-      .filter(({ defaultPipeline }) => defaultPipeline === pipelineId)
+      .filter((project) => defaultKindsOf(pipelineId, project) !== undefined)
       .map(({ id, name }) => ({ projectId: id, name })),
     notStarted: onPipeline.filter(({ state }) => NOT_STARTED_STATES.includes(state)).length,
     running: onPipeline.filter(({ state }) => RUNNING_STATES.includes(state)).length,
@@ -254,12 +256,38 @@ function whyProjectRuns(
   tasks: readonly TaskOnPipeline[],
   initiatives: readonly InitiativeOnPipeline[],
 ): string | undefined {
-  if (project.defaultPipeline === pipelineId) return "it is its default Pipeline";
+  const defaultKinds = defaultKindsOf(pipelineId, project);
+  if (defaultKinds === "all") return "it is its default Pipeline";
+  if (defaultKinds !== undefined) {
+    return `it is its default Pipeline for ${defaultKinds.map((kind) => KIND_PLURALS[kind] ?? kind).join(" and ")}`;
+  }
   const reasons = [
     notStartedTasksReason(pipelineId, project, tasks),
     initiativesReason(project, initiatives),
   ].filter((reason) => reason !== undefined);
   return reasons.length > 0 ? reasons.join("; ") : undefined;
+}
+
+/** The Kinds' words, as the problems name them. */
+const KIND_PLURALS: Readonly<Record<string, string>> = {
+  feature: "Features",
+  bug: "Bugs",
+  chore: "Chores",
+};
+
+/**
+ * Whether the Pipeline is the Project's default: "all" when it is its default Pipeline, the Kinds
+ * it is the own default of otherwise, undefined when it is neither.
+ */
+function defaultKindsOf(
+  pipelineId: string,
+  { defaultPipeline, kindDefaultPipelines = {} }: ProjectOnPipeline,
+): "all" | readonly string[] | undefined {
+  if (defaultPipeline === pipelineId) return "all";
+  const kinds = Object.entries(kindDefaultPipelines)
+    .filter(([, pipeline]) => pipeline === pipelineId)
+    .map(([kind]) => kind);
+  return kinds.length > 0 ? kinds : undefined;
 }
 
 function notStartedTasksReason(

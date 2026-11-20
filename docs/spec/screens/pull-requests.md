@@ -25,9 +25,9 @@ Covers: the Pull requests tab of Work, the list of open pull requests, Refresh, 
 ## GitHub App permissions prompt
 
 - A warning, "The GitHub App needs more permissions", while the GitHub App lacks permissions The Office needs ([2.3.4](../2.3.4-publish.md)); nothing while every installation has them or while signed out.
-- Body: "Without them The Office can't read every pull request's checks or merge state. Missing:", the permissions as GitHub's settings name them with their level ("Checks (read)", "Pull requests (write)", "Commit statuses (read)"), the link "Add them to the App on GitHub", and "Accept on each installation:" with a link per installation.
+- Body: "Without them The Office can't read every pull request's checks or merge state, or import, comment on and close issues. Missing:", the permissions as GitHub's settings name them with their level ("Checks (read)", "Pull requests (write)", "Commit statuses (read)", "Issues (write)"), the link "Add them to the App on GitHub", and "Accept on each installation:" with a link per installation.
 - **Check again** reads the permissions again; a refusal shows as "The permissions weren't checked".
-- The CI tab shows the same prompt ([ci-runs.md](ci-runs.md)); Settings › Office identity does too ([settings.md](settings.md)).
+- The CI tab shows the same prompt ([ci-runs.md](ci-runs.md)); Settings › Office identity does too ([settings.md](settings.md)), and, only while the Issues permission is missing, a Project's GitHub issues card and the Import issues window ([project-page.md](project-page.md#github-issues)).
 
 ## Problems
 
