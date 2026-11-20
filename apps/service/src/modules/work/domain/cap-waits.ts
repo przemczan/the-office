@@ -87,6 +87,8 @@ export interface UsageAtStart {
 
 /** A cap the Start would pass, worded in full and short, with when it resets. */
 export interface ExceededCap {
+  /** The engine whose cap or window it is. */
+  readonly engineId: EngineId;
   readonly words: string;
   readonly short: string;
   readonly resetsAt: Date;
@@ -174,6 +176,7 @@ export function usedUpWindows(usage: UsageAtStart): ExceededCap[] {
   return usage.usedUp
     .filter(({ until }) => until > usage.now)
     .map(({ engineId, windowWords, until }) => ({
+      engineId,
       words: `${usage.engineNames.get(engineId) ?? engineId}'s ${windowWords} is used up until ${shortResetWords(until, usage.now)}.`,
       short: `${windowWords} used up · until ${shortResetWords(until, usage.now)}`,
       resetsAt: until,
@@ -209,6 +212,7 @@ export function exceededWindowCaps(usage: UsageAtStart): ExceededCap[] {
           : `${others} and ${percent(own)} of this Task`;
       return [
         {
+          engineId: windows.engineId,
           words: `${where} would pass its ${percent(cap)} cap: ${use}. It resets ${resetWords(read.resetsAt, usage.now)}.`,
           short: `${WINDOW_WORDS[name]} cap (${percent(cap)}) · resets ${shortResetWords(read.resetsAt, usage.now)}`,
           resetsAt: read.resetsAt,
@@ -240,6 +244,7 @@ export function exceededDailyCaps(usage: UsageAtStart): ExceededCap[] {
           : `${others} and ${amount(ownAmount)} of this Task`;
       return [
         {
+          engineId: daily.engineId,
           words: `${engineWords(usage, daily.engineId)} Daily cap of ${amount(cap)} would be passed: ${use}. It resets at midnight.`,
           short: `Daily cap (${amount(cap)}) · resets at midnight`,
           resetsAt: nextMidnight(usage.now),

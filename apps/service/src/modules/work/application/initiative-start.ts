@@ -57,7 +57,7 @@ export class InitiativeStart {
     const refused: RefusedInRun[] = [];
     for (const task of toStart) {
       try {
-        await this.starting.start(task.id, "queue-behind", by);
+        await this.starting.start(task.id, { onOverlap: "queue-behind" }, by);
       } catch (error) {
         if (!(error instanceof TaskRefused)) throw error;
         refused.push({ task, reasons: error.reasons });

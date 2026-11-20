@@ -7,6 +7,8 @@ import { startOrQueue, type OverlapChoice, type Starting } from "../domain/queue
 import type { Task } from "../domain/task.js";
 import { blockingTasks } from "../domain/task-dependencies.js";
 import { overlapsOf, type Overlap } from "../domain/task-overlap.js";
+import { startPastUsageCaps, type StartPastUsageCaps } from "../domain/start-past-usage-caps.js";
+import type { UsageCapsChoice } from "../domain/stand-ins-at-start.js";
 import { startReasons, usageOnStandIns, type StartReasons } from "../domain/task-start.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import type { UsageEstimate } from "../domain/usage-estimate.js";
@@ -27,6 +29,14 @@ export interface StartCheck extends StartReasons {
   readonly overlaps: readonly Overlap[];
   /** Undefined with no measure ticked. */
   readonly usageEstimate: UsageEstimate | undefined;
+  /** Undefined unless only its usage holds it. */
+  readonly pastUsageCaps: StartPastUsageCaps | undefined;
+}
+
+/** The user's answers at Start: to an Overlap, and whether to start anyway past the usage caps. */
+export interface StartChoices {
+  readonly onOverlap: OverlapChoice;
+  readonly usageCaps?: UsageCapsChoice;
 }
 
 /**
@@ -49,15 +59,20 @@ export class StartService {
     private readonly schedule: Schedule,
   ) {}
 
-  async start(id: string, onOverlap: OverlapChoice, by: Author): Promise<Starting> {
+  async start(id: string, { onOverlap, usageCaps }: StartChoices, by: Author): Promise<Starting> {
     const conditions = await this.conditions.of(await this.read(id));
     const starting = await this.queue.start(id, (task, held, queue) =>
-      startOrQueue(task, conditions, held, queue, { now: this.schedule.now(), onOverlap, by }),
+      startOrQueue(task, conditions, held, queue, {
+        now: this.schedule.now(),
+        onOverlap,
+        usageCaps,
+        by,
+      }),
     );
     if (starting.kind === "started") {
       this.startsSinceReading.record(
         this.schedule.now(),
-        usageOnStandIns(conditions).usage.estimate,
+        usageOnStandIns(conditions, usageCaps).usage.estimate,
       );
     }
     const event = starting.kind === "started" ? starting.change.event : starting.event;
@@ -70,14 +85,16 @@ export class StartService {
     const task = await this.read(id);
     const tasks = await this.tasks.list();
     const blockers = tasks.filter(({ id: other }) => task.blockedBy.includes(other));
-    const reasons = startReasons(task, await this.conditions.of(task), {
+    const conditions = await this.conditions.of(task);
+    const held = {
       startedTasks: tasks,
       blockers,
       fireAlarmOn: (await this.fireAlarm.read()).on,
       initiativePaused: await this.initiativePaused(task),
-    });
+    };
     return {
-      ...reasons,
+      ...startReasons(task, conditions, held),
+      pastUsageCaps: startPastUsageCaps(task, conditions, held),
       blockers: blockingTasks(blockers),
       overlaps: overlapsOf(task, tasks),
       usageEstimate: await this.usageEstimates.of(task, tasks),

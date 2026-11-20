@@ -257,6 +257,61 @@ describe("onStandIns", () => {
   });
 });
 
+describe("onStandIns past the usage caps", () => {
+  it("starts on the cascade's engine over its cap, as the caps hold nothing", () => {
+    const capped = usage({ daily: [daily("work", 9500)] });
+
+    const weighed = onStandIns(capped, standIns([standIn("personal")]), "start-anyway");
+
+    expect(weighed).toEqual({ usage: capped, standIns: [], waits: [], resets: [] });
+  });
+
+  it("hands a used-up engine to the first Stand-in Engine whose window isn't used up, over its cap", () => {
+    const usedUp = usage({
+      usedUp: [{ engineId: "work", windowWords: "7-day window", until: IN_FOUR_HOURS }],
+    });
+
+    const weighed = onStandIns(
+      usedUp,
+      standIns([
+        standIn("spare", {
+          usedUp: { engineId: "spare", windowWords: "5-hour window", until: IN_THREE_HOURS },
+        }),
+        standIn("personal", { windows: windows("personal", 95), daily: daily("personal", 9500) }),
+      ]),
+      "start-anyway",
+    );
+
+    expect(weighed.standIns.map(({ standInId }) => standInId)).toEqual(["personal"]);
+    expect(weighed.waits).toEqual([]);
+  });
+
+  it("waits only for a used-up window when no Stand-in Engine has a window left", () => {
+    const usedUp = usage({
+      usedUp: [{ engineId: "work", windowWords: "7-day window", until: IN_FOUR_HOURS }],
+    });
+
+    const weighed = onStandIns(
+      usedUp,
+      standIns([
+        standIn("personal", {
+          usedUp: { engineId: "personal", windowWords: "5-hour window", until: IN_THREE_HOURS },
+        }),
+      ]),
+      "start-anyway",
+    );
+
+    expect(weighed.waits).toEqual([
+      { reason: "Work's 7-day window is used up until 13:00.", short: expect.any(String) },
+      {
+        reason:
+          "No Stand-in Engine has room either: Personal: 5-hour window used up · until 12:00.",
+        short: "No stand-in with room",
+      },
+    ]);
+  });
+});
+
 describe("standInsWithStarted", () => {
   it("counts a Task started in the same release against the Stand-in Engine's windows and Daily caps", () => {
     const listed = standIns([standIn("personal", { daily: daily("personal", 0) })]);

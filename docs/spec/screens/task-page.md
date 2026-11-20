@@ -82,6 +82,8 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - With a blocker (a Task it waits for): only **Queue behind it** (**Queue behind them** for several), counting its blockers and Overlaps together.
 - A Start that only joins the queue toasts "<title> is queued, place <n>: <reasons>".
 - A queued Task shows, instead of Start: **Move up** (a split button whose menu holds **Move to top**; none for the first place), and **Take out of the queue**.
+- While only its usage holds it ([2.1](../2.1.5-planning-and-start.md#start-anyway-past-the-usage-caps)), **Start anyway** (primary) comes first; disabled, with why on hover, while every engine its Stages could run on has a used-up window.
+  - It asks first in a dialog, "Start <title> anyway?": the caps it passes ("It starts now, past these usage caps:", one per line, such as "Personal: 5-hour window cap (90%) · resets 14:30"), the engines it runs on ("Its Stages run on Personal, standing in for Work."), and that its Usage estimate counts as usual; **Start anyway** starts it and toasts "<title> started.", and a refusal shows in the dialog.
 - Take out of the queue toasts "Taken out of the queue; it stays Ready."
 - Start notes, a line each, in a block under the head, none with nothing to say:
   - "Overlap: “<title>” is in progress and expects to change some of the same files." (files icon);

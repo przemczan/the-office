@@ -755,6 +755,20 @@ export const taskUsageEstimateListSchema = z.array(
 export type TaskUsageEstimateList = z.infer<typeof taskUsageEstimateListSchema>;
 
 /**
+ * What starting a Task anyway past its usage caps does (a Window cap, a Daily cap, a used-up
+ * window, no Stand-in Engine with room), offered while only those hold it: the caps it passes, short
+ * and named by the engine, and the engines its Stages run on, the first of the cascade's and its
+ * Stand-in Engines whose window isn't used up. `refusals` says why it can't, every such engine's
+ * window used up; empty when it can.
+ */
+export const pastUsageCapsSchema = z.object({
+  passes: z.array(z.string()),
+  engines: z.array(z.object({ name: z.string(), standingInFor: z.string().nullable() })),
+  refusals: z.array(z.string()),
+});
+export type PastUsageCaps = z.infer<typeof pastUsageCapsSchema>;
+
+/**
  * GET /tasks/:id/start: why the Task can't start now; all empty when it can. A refusal stops
  * Start; a wait (a blocker, the Office-wide limit, its person's Task limit) only holds the Task
  * until its blockers end and a desk and its person are free; an Overlap asks the user to start
@@ -768,6 +782,8 @@ export const startCheckSchema = z.object({
   overlaps: z.array(overlapSchema),
   /** What the Task is expected to use; null with no measure ticked. */
   usageEstimate: usageEstimateSchema.nullable(),
+  /** Start anyway past the usage caps; null unless only its usage holds the Task. */
+  pastUsageCaps: pastUsageCapsSchema.nullable(),
 });
 export type StartCheck = z.infer<typeof startCheckSchema>;
 
@@ -778,12 +794,20 @@ export type StartCheck = z.infer<typeof startCheckSchema>;
 export const overlapChoiceSchema = z.enum(["start-anyway", "queue-behind"]);
 export type OverlapChoice = z.infer<typeof overlapChoiceSchema>;
 
+/** The user's word to start a Task anyway past its usage caps, never queueing it. */
+export const usageCapsChoiceSchema = z.enum(["start-anyway"]);
+export type UsageCapsChoice = z.infer<typeof usageCapsChoiceSchema>;
+
 /**
  * POST /tasks/:id/start: the answer to an Overlap; while one stands, Start without it refuses. No
- * body is no answer.
+ * body is no answer. `onUsageCaps` starts it anyway past its usage caps, or refuses with whatever
+ * still holds it.
  */
 export const startRequestSchema = z
-  .object({ onOverlap: overlapChoiceSchema.optional() })
+  .object({
+    onOverlap: overlapChoiceSchema.optional(),
+    onUsageCaps: usageCapsChoiceSchema.optional(),
+  })
   .default({});
 export type StartRequest = z.infer<typeof startRequestSchema>;
 

@@ -90,6 +90,7 @@ const {
   otherProject,
   readyTask,
   startCheck,
+  reasonsOf,
   requestStart,
   finish,
   ownProjectTasks,
@@ -1085,6 +1086,31 @@ describe("Window caps", () => {
         expect.stringMatching(/^No Stand-in Engine has room either: Personal: .+\.$/),
       ]);
       expect(answer.queued?.reasons[0]).toContain("95% used, 0% expected of the Tasks started");
+    });
+
+    it("starts a Task queued for its caps anyway past them, on the cascade's engine, once asked", async () => {
+      await windowRead(95, 3 * HOUR);
+      await windowRead(88, 3 * HOUR, PERSONAL.id);
+      const task = await sixPercentTask();
+      await requestStart(task.id);
+
+      expect((await startCheck(task.id)).pastUsageCaps).toEqual({
+        passes: [
+          expect.stringContaining(
+            `${FIRST_CLAUDE_CODE_ENGINE.name}: 5-hour window cap (90%) · resets`,
+          ),
+        ],
+        engines: [{ name: FIRST_CLAUDE_CODE_ENGINE.name, standingInFor: null }],
+        refusals: [],
+      });
+      const answer = startAnswerSchema.parse(
+        await (await requestStart(task.id, { onUsageCaps: "start-anyway" })).json(),
+      );
+
+      expect(answer.queued).toBeNull();
+      expect(answer.task.state).toBe("in-progress");
+      expect(answer.task.engineStandIns).toEqual([]);
+      expect(await reasonsOf(task.id)).toBeUndefined();
     });
   });
 });

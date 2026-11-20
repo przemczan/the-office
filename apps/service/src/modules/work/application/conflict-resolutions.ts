@@ -95,7 +95,7 @@ export class ConflictResolutions {
       };
     }
     try {
-      const starting = await this.starting.start(made.id, undefined, by);
+      const starting = await this.starting.start(made.id, { onOverlap: undefined }, by);
       return {
         task: starting.kind === "started" ? starting.change.task : await this.tasks.read(made.id),
         startRefusal: undefined,

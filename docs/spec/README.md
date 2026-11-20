@@ -193,6 +193,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 On failure](2.3.2-flows.md#on-failure)
 - **Stage template**: [2.3.5 Stage templates](2.3.5-library.md#stage-templates); screen: [Pipeline flow editor › Stage templates](screens/pipeline-flow-editor.md#stage-templates)
 - **Stand-in Engine**: [5.4.6 Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines); [5.4.6 A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
+- **Start anyway past the usage caps**: [2.1.5 Start anyway past the usage caps](2.1.5-planning-and-start.md#start-anyway-past-the-usage-caps); screen: [Task page › Start and the queue](screens/task-page.md#start-and-the-queue)
 - **Start Ready Tasks**: [2.1.4 Start Ready Tasks](2.1.4-initiatives.md#start-ready-tasks); screen: [Work board › Start Ready Tasks](screens/work-board.md#start-ready-tasks)
 - **Stats**: [2.11.1 What Stats shows](2.11.1-the-stats-page.md#what-stats-shows); screen: [Stats](screens/stats.md#stats)
 
@@ -388,6 +389,7 @@ Where each default lives, by page:
   - [Waiting on you while planning](2.1.5-planning-and-start.md#waiting-on-you-while-planning)
   - [The Planner joins on the first message](2.1.5-planning-and-start.md#the-planner-joins-on-the-first-message)
   - [A queue for Start](2.1.5-planning-and-start.md#a-queue-for-start)
+  - [Start anyway past the usage caps](2.1.5-planning-and-start.md#start-anyway-past-the-usage-caps)
   - [Overlaps at Start](2.1.5-planning-and-start.md#overlaps-at-start)
   - [A pause by the usage window](2.1.5-planning-and-start.md#a-pause-by-the-usage-window)
   - [Usage estimates](2.1.5-planning-and-start.md#usage-estimates)

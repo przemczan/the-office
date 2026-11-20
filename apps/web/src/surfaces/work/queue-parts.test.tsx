@@ -4,10 +4,13 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { QueuedTask, Task } from "@the-office/contracts";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { PastUsageCaps, QueuedTask, StartCheck, Task } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
+import { taskQueries } from "../../api/work.ts";
+import { ToastProvider } from "../../shell/toasts.tsx";
 import { QueuedCardMark } from "./queue-parts.tsx";
 
 declare global {
@@ -29,9 +32,11 @@ const OTHER_ENGINE_WINDOW_CAP = WINDOW_CAP.replace("Claude Code", "Work account"
 const BLOCKED = 'Blocked by "Queue schema", which must be Done first.';
 const OVERLAP = 'Queued behind "Rework the importer" until it is Done or Dropped.';
 
+const TASK = { id: "6f1e2d3c-4b5a-4c7d-8e9f-0a1b2c3d4e5f", title: "Hosted test instances" };
+
 function queuedTask(reasons: readonly [string, string][]): QueuedTask {
   return {
-    taskId: "6f1e2d3c-4b5a-4c7d-8e9f-0a1b2c3d4e5f",
+    taskId: TASK.id,
     place: 1,
     queuedAt: "2026-11-13T09:00:00.000Z",
     reasons: reasons.map(([reason]) => reason),
@@ -42,14 +47,33 @@ function queuedTask(reasons: readonly [string, string][]): QueuedTask {
 
 const roots: Root[] = [];
 
+/** The Task's start check as read, with what starting it anyway past its usage caps does. */
+function startCheckWith(pastUsageCaps: PastUsageCaps | null): StartCheck {
+  return {
+    refusals: [],
+    waits: [],
+    blockers: [],
+    overlaps: [],
+    usageEstimate: null,
+    pastUsageCaps,
+  };
+}
+
 async function rendered(
   queued: QueuedTask,
   behind: readonly Pick<Task, "id" | "title">[] = [],
   blockers = 0,
+  pastUsageCaps: PastUsageCaps | null = null,
 ): Promise<HTMLElement> {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  });
+  queryClient.setQueryData(taskQueries.startCheck(TASK.id).queryKey, startCheckWith(pastUsageCaps));
   const router = createRouter({
     routeTree: createRootRoute({
-      component: () => <QueuedCardMark queued={queued} behind={behind} blockers={blockers} />,
+      component: () => (
+        <QueuedCardMark task={TASK} queued={queued} behind={behind} blockers={blockers} />
+      ),
     }),
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
@@ -57,7 +81,15 @@ async function rendered(
   document.body.append(page);
   const root = createRoot(page);
   roots.push(root);
-  await act(async () => root.render(<RouterProvider router={router} />));
+  await act(async () =>
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </QueryClientProvider>,
+    ),
+  );
   return page;
 }
 
@@ -76,6 +108,12 @@ function press(page: HTMLElement): void {
 
 const tooltip = (): Element | null => document.querySelector('[role="tooltip"]');
 const popover = (): Element | null => document.querySelector('[role="dialog"]');
+
+const startAnywayButton = (): HTMLButtonElement | undefined =>
+  [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+    // The design system's button carries its spinner's keyframes in its text.
+    (button) => button.textContent.startsWith("Start anyway"),
+  );
 
 const fullReasons = (): string[] =>
   [...(popover()?.querySelectorAll(".queued-full-reasons > li") ?? [])].map(
@@ -138,6 +176,52 @@ describe("QueuedCardMark", () => {
     const link = popover()?.querySelector(".queued-behind a");
     expect(link?.textContent).toBe("Rework the importer");
     expect(link?.getAttribute("href")).toBe("/tasks/0b7f0c6e-2d0b-4c55-9d1c-6f0e2b9d4a11");
+  });
+
+  it("offers Start anyway while only its usage holds it, asking first with the caps and engines", async () => {
+    const page = await rendered(
+      queuedTask([[WINDOW_CAP, "5-hour window cap (80%) · resets 14:30"]]),
+      [],
+      0,
+      {
+        passes: ["Personal: 5-hour window cap (80%) · resets 14:30"],
+        engines: [{ name: "Personal", standingInFor: "Work" }],
+        refusals: [],
+      },
+    );
+    press(page);
+    const startAnyway = startAnywayButton();
+    expect(startAnyway?.disabled).toBe(false);
+
+    act(() => startAnyway?.click());
+
+    const asked = document.querySelector('[aria-modal="true"]');
+    expect(asked?.textContent).toContain("Start Hosted test instances anyway?");
+    expect(asked?.textContent).toContain("Personal: 5-hour window cap (80%) · resets 14:30");
+    expect(asked?.textContent).toContain("Its Stages run on Personal, standing in for Work.");
+  });
+
+  it("disables Start anyway with why while every engine's window is used up", async () => {
+    const usedUp = "Work's 7-day window is used up until Sat 08:00.";
+    const page = await rendered(
+      queuedTask([[usedUp, "7-day window used up · until Sat 08:00"]]),
+      [],
+      0,
+      { passes: [], engines: [{ name: "Work", standingInFor: null }], refusals: [usedUp] },
+    );
+
+    press(page);
+
+    expect(startAnywayButton()?.disabled).toBe(true);
+    expect(popover()?.textContent).toContain(usedUp);
+  });
+
+  it("offers no Start anyway while anything but its usage holds it", async () => {
+    const page = await rendered(queuedTask([[OFFICE_WIDE_LIMIT, "Office-wide limit reached (3)"]]));
+
+    press(page);
+
+    expect(startAnywayButton()).toBeUndefined();
   });
 
   it("says only Queued on hover when its blockers alone hold it", async () => {

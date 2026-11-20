@@ -20,6 +20,7 @@ import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueuedMark, useQueueActions, useQueued } from "./queue-parts.tsx";
 import type { RecordAction } from "./record-actions.tsx";
 import { RunEnvironmentQuestion, useAskedProject } from "./run-environment-question.tsx";
+import { useStartPastUsageCapsAction } from "./start-past-usage-caps.tsx";
 
 interface StartStanding {
   readonly ready: boolean;
@@ -53,15 +54,17 @@ function useStartStanding(task: Task): StartStanding {
  * Start on a Ready Task (prototypes/app/task.js): disabled while a vacant Role refuses it. An
  * Overlap with a Task in progress in the Project makes Start "Start anyway" or "Queue behind it"
  * (spec §2.1, "Overlaps at Start"). A blocked Task can't start anyway, so "Queue behind it" is all
- * it offers, behind any Overlap too. A queued Task has the queue's actions instead. What each of
- * these says is in `StartNotes`. None but on a Ready Task.
+ * it offers, behind any Overlap too. A queued Task has the queue's actions instead, after Start
+ * anyway while only its usage holds it (spec §2.1, "Start anyway past the usage caps"). What each
+ * of these says is in `StartNotes`. None but on a Ready Task.
  */
 export function useStartActions(task: Task): RecordAction[] {
   const { ready, check, queued, refused, blockers, overlaps } = useStartStanding(task);
   const starting = useStarting();
   const queueActions = useQueueActions(queued);
+  const startPastCaps = useStartPastUsageCapsAction(task, queued && check?.pastUsageCaps);
   if (!ready) return [];
-  if (queued) return queueActions;
+  if (queued) return startPastCaps ? [startPastCaps, ...queueActions] : queueActions;
   const startWith = (onOverlap: OverlapChoice | undefined) => starting.mutate({ task, onOverlap });
   const pendingFor = (onOverlap: OverlapChoice | undefined) =>
     starting.isPending && starting.variables.onOverlap === onOverlap;
@@ -186,7 +189,8 @@ function useStarting(): UseMutationResult<StartAnswer, Error, StartRequest> {
   const queryClient = useQueryClient();
   const showToast = useToast();
   return useMutation({
-    mutationFn: ({ task, onOverlap }: StartRequest) => startTask(task.id, onOverlap),
+    mutationFn: ({ task, onOverlap }: StartRequest) =>
+      startTask(task.id, onOverlap ? { onOverlap } : {}),
     onSuccess: ({ task, queued }) =>
       showToast(
         queued

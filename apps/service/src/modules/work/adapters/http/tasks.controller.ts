@@ -296,33 +296,49 @@ export class TasksController {
 
   /**
    * Why the Task can't start now, refusals apart from waits, the blockers holding it back, its
-   * Overlaps and its Usage estimate, for the Task page beside Start.
+   * Overlaps, its Usage estimate and what starting it anyway past its usage caps does, for the Task
+   * page beside Start.
    */
   @Get(":id/start")
   async startCheck(@Param("id", ParseUUIDPipe) id: string): Promise<StartCheck> {
-    const { refusals, waits, blockers, overlaps, usageEstimate } = await this.starting.check(id);
+    const { refusals, waits, blockers, overlaps, usageEstimate, pastUsageCaps } =
+      await this.starting.check(id);
     return {
       refusals: [...refusals],
       waits: reasonsOf(waits),
       blockers: blockers.map(({ id: taskId, title }) => ({ taskId, title })),
       overlaps: overlaps.map(({ taskId, title }) => ({ taskId, title })),
       usageEstimate: usageEstimate ? toUsageEstimateResponse(usageEstimate) : null,
+      pastUsageCaps: pastUsageCaps
+        ? {
+            passes: [...pastUsageCaps.passes],
+            engines: pastUsageCaps.engines.map(({ name, standingInFor }) => ({
+              name,
+              standingInFor: standingInFor ?? null,
+            })),
+            refusals: [...pastUsageCaps.refusals],
+          }
+        : null,
     };
   }
 
   /**
    * Start: Ready → In progress, or into the queue when only a blocker or a limit holds it or the
    * user queues it behind an Overlap; refused with the reasons when anything else does, or an
-   * Overlap the user hasn't answered.
+   * Overlap the user hasn't answered. Started anyway past the usage caps, it never queues.
    */
   @Post(":id/start")
   @HttpCode(HttpStatus.OK)
   async start(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(startRequestSchema)) { onOverlap }: StartRequest,
+    @Body(new ContractPipe(startRequestSchema)) { onOverlap, onUsageCaps }: StartRequest,
     @SignedIn() signedIn: SignedIn,
   ): Promise<StartAnswer> {
-    const starting = await this.starting.start(id, onOverlap, authorOf(signedIn));
+    const starting = await this.starting.start(
+      id,
+      { onOverlap, usageCaps: onUsageCaps ?? "wait" },
+      authorOf(signedIn),
+    );
     if (starting.kind === "started") {
       return { task: toTaskResponse(starting.change.task), queued: null };
     }

@@ -77,22 +77,38 @@ export interface UsageOnStandIns {
 }
 
 /**
+ * Whether a Start waits for the usage caps ("wait") or starts anyway past them ("start-anyway",
+ * spec §2.1, "Start anyway past the usage caps"), when only a used-up window still holds an engine.
+ */
+export type UsageCapsChoice = "wait" | "start-anyway";
+
+/**
  * Hands each of the cascade's engines with no room to the first Stand-in Engine with room, then
  * weighs the caps as a Start does. With none with room, a Stand-in Engine that serves the models
- * adds its own wait and resets; with none that serves them, the waits are the caps' alone.
+ * adds its own wait and resets; with none that serves them, the waits are the caps' alone. Past the
+ * caps, room is only a window not used up: the caps neither hand a Task on nor hold it.
  */
-export function onStandIns(usage: UsageAtStart, standIns: StandInsAtStart): UsageOnStandIns {
+export function onStandIns(
+  usage: UsageAtStart,
+  standIns: StandInsAtStart,
+  choice: UsageCapsChoice = "wait",
+): UsageOnStandIns {
+  const holding = (weighing: UsageAtStart): UsageAtStart =>
+    choice === "wait" ? weighing : { ...weighing, windows: [], daily: [] };
   let weighed = usage;
   const chosen: EngineStandIn[] = [];
   const full: { readonly standIn: EngineId; readonly caps: readonly ExceededCap[] }[] = [];
   for (const [engineId, models] of standIns.modelsOn) {
-    const noRoom = noRoomOn(weighed, engineId);
+    const noRoom = noRoomOn(holding(weighed), engineId);
     if (noRoom.length === 0) continue;
     const serving = standIns.standIns.filter((standIn) =>
       servesEvery(standIns, standIn.engineId, engineId, models),
     );
     const capsOf = new Map(
-      serving.map((standIn) => [standIn.engineId, standInCaps(weighed, engineId, standIn)]),
+      serving.map((standIn) => [
+        standIn.engineId,
+        standInCaps(holding(weighed), engineId, holdingStandIn(standIn, choice)),
+      ]),
     );
     const runOn = engineToRunOn(
       { engineId, model: models[0] ?? "" },
@@ -114,7 +130,7 @@ export function onStandIns(usage: UsageAtStart, standIns: StandInsAtStart): Usag
       full.push(...[...capsOf].map(([id, caps]) => ({ standIn: id, caps })));
     }
   }
-  const caps = startWaitsForUsage(weighed);
+  const caps = startWaitsForUsage(holding(weighed));
   const fullWaits =
     caps.waits.length === 0 || full.length === 0 ? [] : [noStandInWait(usage, full)];
   return {
@@ -161,6 +177,14 @@ function noRoomOn(usage: UsageAtStart, engineId: EngineId): ExceededCap[] {
   };
   if (startWaitsForUsage(alone).waits.length === 0) return [];
   return [...usedUpWindows(alone), ...exceededCaps(alone)];
+}
+
+/** The Stand-in Engine as the choice weighs it: past the caps, by its used-up windows alone. */
+function holdingStandIn(
+  standIn: StandInEngineAtStart,
+  choice: UsageCapsChoice,
+): StandInEngineAtStart {
+  return choice === "wait" ? standIn : { ...standIn, windows: undefined, daily: undefined };
 }
 
 /** Whether the Stand-in Engine is another listed engine serving every model the Task uses. */

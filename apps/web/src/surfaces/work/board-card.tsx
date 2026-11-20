@@ -125,6 +125,7 @@ export function BoardCard({
           queued && (
             <QueuedCardMark
               key={mark.kind}
+              task={task}
               queued={queued}
               behind={queuedBehind}
               blockers={blockers.length}

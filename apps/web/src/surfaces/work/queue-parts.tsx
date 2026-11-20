@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { QueuedTask, Task } from "@the-office/contracts";
-import { Badge, Icon, Popover, SplitButton } from "@the-office/ui";
+import type { PastUsageCaps, QueuedTask, Task } from "@the-office/contracts";
+import { Badge, Button, Icon, Popover, SplitButton } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { moveToTopOfQueue, moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
 import { counted } from "../../shell/pipelines/stage-change-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { distinctShortReasons, reasonsBesideBlockers } from "./queue-reasons.ts";
 import { RecordActionButton, type RecordAction } from "./record-actions.tsx";
+import { StartPastUsageCapsDialog } from "./start-past-usage-caps.tsx";
 
 /** The Task's place in the queue for Start; undefined while it isn't queued. */
 export function useQueued(taskId: string): QueuedTask | undefined {
@@ -30,67 +31,120 @@ export function QueuedMark({ queued }: { readonly queued: QueuedTask }): ReactNo
 
 /**
  * A board card's Queued mark: the clock, its short reasons on hover, and on a press its place, the
- * full reasons and the Tasks it is queued behind as links. The waits beside its blockers only, as the
- * card's lock holds those.
+ * full reasons and the Tasks it is queued behind as links, then Start anyway while only its usage
+ * holds it, which asks first in a dialog of its own, as the popover closes on a press outside it.
+ * The waits beside its blockers only, as the card's lock holds those.
  */
 export function QueuedCardMark({
+  task,
   queued,
   behind,
   blockers,
 }: {
+  readonly task: Pick<Task, "id" | "title">;
   readonly queued: QueuedTask;
   /** The Tasks it is queued behind for an Overlap. */
   readonly behind: readonly Pick<Task, "id" | "title">[];
   /** How many Tasks block it. */
   readonly blockers: number;
 }): ReactNode {
+  const [open, setOpen] = useState(false);
+  const [asking, setAsking] = useState<PastUsageCaps>();
   const reasons = reasonsBesideBlockers(queued);
   const shortReasons = distinctShortReasons(reasons);
   return (
-    <Popover
-      label="Queued"
-      triggerClassName="card-mark card-mark-info"
-      trigger={<Icon name="clock" size={13} />}
-      tooltip={
-        shortReasons.length > 0 ? (
-          <span className="queued-short-reasons">Queued: {shortReasons.join(" · ")}</span>
-        ) : (
-          "Queued"
-        )
-      }
-    >
-      <p className="popover-head">
-        <Icon name="clock" size={13} />
-        Queued, place {queued.place}
-      </p>
-      <p className="popover-sub">
-        It starts by itself once nothing holds it.{reasons.length > 0 && " Waiting for:"}
-      </p>
-      {reasons.length > 0 && (
-        <ul className="queued-full-reasons">
-          {reasons.map(({ reason }) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      )}
-      {behind.length > 0 && (
-        <ul className="queued-behind">
-          {behind.map(({ id, title }) => (
-            <li key={id}>
-              <Icon name="arrow-right" size={13} />
-              <Link to="/tasks/$taskId" params={{ taskId: id }} draggable={false}>
-                {title}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-      {blockers > 0 && (
-        <p className="popover-foot">
-          And its {counted(blockers, "blocker", "blockers")}, under the lock.
+    <>
+      <Popover
+        label="Queued"
+        triggerClassName="card-mark card-mark-info"
+        trigger={<Icon name="clock" size={13} />}
+        open={open}
+        onOpenChange={setOpen}
+        tooltip={
+          shortReasons.length > 0 ? (
+            <span className="queued-short-reasons">Queued: {shortReasons.join(" · ")}</span>
+          ) : (
+            "Queued"
+          )
+        }
+      >
+        <p className="popover-head">
+          <Icon name="clock" size={13} />
+          Queued, place {queued.place}
         </p>
+        <p className="popover-sub">
+          It starts by itself once nothing holds it.{reasons.length > 0 && " Waiting for:"}
+        </p>
+        {reasons.length > 0 && (
+          <ul className="queued-full-reasons">
+            {reasons.map(({ reason }) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
+        {behind.length > 0 && (
+          <ul className="queued-behind">
+            {behind.map(({ id, title }) => (
+              <li key={id}>
+                <Icon name="arrow-right" size={13} />
+                <Link to="/tasks/$taskId" params={{ taskId: id }} draggable={false}>
+                  {title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        {blockers > 0 && (
+          <p className="popover-foot">
+            And its {counted(blockers, "blocker", "blockers")}, under the lock.
+          </p>
+        )}
+        <StartPastUsageCapsButton
+          taskId={task.id}
+          onSelect={(pastUsageCaps) => {
+            setOpen(false);
+            setAsking(pastUsageCaps);
+          }}
+        />
+      </Popover>
+      {asking && (
+        <StartPastUsageCapsDialog
+          task={task}
+          pastUsageCaps={asking}
+          onClose={() => setAsking(undefined)}
+        />
       )}
-    </Popover>
+    </>
+  );
+}
+
+/**
+ * The popover's Start anyway, read as it opens: none unless only the Task's usage holds it, and
+ * disabled, with why, while every engine its Stages could run on is used up.
+ */
+function StartPastUsageCapsButton({
+  taskId,
+  onSelect,
+}: {
+  readonly taskId: string;
+  readonly onSelect: (pastUsageCaps: PastUsageCaps) => void;
+}): ReactNode {
+  const pastUsageCaps = useQuery(taskQueries.startCheck(taskId)).data?.pastUsageCaps;
+  if (!pastUsageCaps) return null;
+  const cannot = pastUsageCaps.refusals.join(" ");
+  return (
+    <div className="queued-start-anyway">
+      <Button
+        variant="primary"
+        size="sm"
+        iconLeft={<Icon name="play" size={14} />}
+        disabled={cannot !== ""}
+        onClick={() => onSelect(pastUsageCaps)}
+      >
+        Start anyway
+      </Button>
+      {cannot !== "" && <p>{cannot}</p>}
+    </div>
   );
 }
 

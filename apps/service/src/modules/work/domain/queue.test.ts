@@ -129,6 +129,36 @@ describe("startOrQueue", () => {
       event: expect.any(TaskQueued) as TaskQueued,
     });
   });
+
+  it("starts a Task queued for its caps anyway past them, on the cascade's engine", () => {
+    const capped = { ...developer, ...onWorkWithPersonal(60, 70) };
+    const nothingElse = {
+      startedTasks: [],
+      blockers: [],
+      fireAlarmOn: false,
+      initiativePaused: false,
+    };
+    const pastCaps = { ...NO_CHOICE, usageCaps: "start-anyway" as const };
+
+    const starting = startOrQueue(ready("a"), capped, nothingElse, [queued("a", 1)], pastCaps);
+
+    expect(starting.kind === "started" && starting.change.task.engineStandIns).toEqual([]);
+  });
+
+  it("refuses to start anyway past the caps while anything else holds it, queuing nothing", () => {
+    const capped = { ...developer, ...onWorkWithPersonal(60, 70) };
+    const held = {
+      startedTasks: [started("x", "developer")],
+      blockers: [],
+      fireAlarmOn: false,
+      initiativePaused: false,
+    };
+    const pastCaps = { ...NO_CHOICE, usageCaps: "start-anyway" as const };
+
+    expect(() => startOrQueue(ready("a"), capped, held, [], pastCaps)).toThrow(
+      new TaskRefused([AT_TASK_LIMIT.reason]),
+    );
+  });
 });
 
 /** What a release holds while the fire alarm is off. */

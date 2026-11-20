@@ -7,6 +7,7 @@ import {
   type NewTask,
   type PlanChange,
   type StartCheck,
+  type StartRequest,
   type Task,
 } from "@the-office/contracts";
 import { expect } from "vitest";
@@ -58,6 +59,7 @@ export const nothing: StartCheck = {
   blockers: [],
   overlaps: [],
   usageEstimate: { basis: { source: "none" }, engines: [] },
+  pastUsageCaps: null,
 };
 
 export function blockedBy(title: string): string {
@@ -204,8 +206,8 @@ export function tasksHttp(current: () => TasksHttpTest) {
     );
   }
 
-  async function requestStart(taskId: string): Promise<Response> {
-    return sendJson(work(), "POST", `/tasks/${taskId}/start`);
+  async function requestStart(taskId: string, request?: StartRequest): Promise<Response> {
+    return sendJson(work(), "POST", `/tasks/${taskId}/start`, request);
   }
 
   /** Done, as Pipelines moves a Task whose walk ends. */

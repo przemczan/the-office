@@ -6,7 +6,7 @@ import type { EngineUsage } from "./usage-estimate.js";
 import { TaskQueued } from "./queue-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { withStarted } from "./cap-waits.js";
-import { standInsWithStarted } from "./stand-ins-at-start.js";
+import { standInsWithStarted, type UsageCapsChoice } from "./stand-ins-at-start.js";
 import {
   startReasons,
   startTask,
@@ -54,6 +54,7 @@ export type Starting =
  * every reason when any refuses. An Overlap with a started Task refuses until the user chooses to
  * start anyway or to queue behind it (spec §2.1, "Overlaps at Start"). A Task already queued keeps
  * its place, and the Tasks it is behind unless queued behind others now. `by` asked for the Start.
+ * Started anyway past the usage caps, it never queues: whatever still holds it refuses Start.
  */
 export function startOrQueue(
   task: Task,
@@ -63,10 +64,16 @@ export function startOrQueue(
   {
     now,
     onOverlap,
+    usageCaps = "wait",
     by,
-  }: { readonly now: Date; readonly onOverlap: OverlapChoice; readonly by: Author },
+  }: {
+    readonly now: Date;
+    readonly onOverlap: OverlapChoice;
+    readonly usageCaps?: UsageCapsChoice;
+    readonly by: Author;
+  },
 ): Starting {
-  const { refusals, waits } = startReasons(task, conditions, held);
+  const { refusals, waits } = startReasons(task, conditions, held, usageCaps);
   if (refusals.length > 0) throw new TaskRefused([...refusals, ...reasonsOf(waits)]);
   const overlaps = overlapsOf(task, held.startedTasks);
   if (overlaps.length > 0 && onOverlap === undefined) {
@@ -79,7 +86,8 @@ export function startOrQueue(
       : (queued?.behind ?? []);
   const allWaits = [...waits, ...behindWaits(behind, held.startedTasks)];
   if (allWaits.length === 0)
-    return { kind: "started", change: startTask(task, conditions, held, by) };
+    return { kind: "started", change: startTask(task, conditions, held, by, usageCaps) };
+  if (usageCaps === "start-anyway") throw new TaskRefused(reasonsOf(allWaits));
   if (queued) return { kind: "queued", queued: { ...queued, ...heldBy(allWaits), behind } };
   const joined = {
     taskId: task.id,

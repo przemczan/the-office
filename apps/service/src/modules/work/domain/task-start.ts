@@ -1,6 +1,11 @@
 import { DUTIES } from "../../people/index.js";
 import type { UsageAtStart } from "./cap-waits.js";
-import { onStandIns, type StandInsAtStart, type UsageOnStandIns } from "./stand-ins-at-start.js";
+import {
+  onStandIns,
+  type StandInsAtStart,
+  type UsageCapsChoice,
+  type UsageOnStandIns,
+} from "./stand-ins-at-start.js";
 import { hasPipeline, NO_PIPELINE_YET, type Task } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
@@ -118,8 +123,26 @@ export function firstAgentStage(stages: readonly StartingStage[]): AgentStarting
   );
 }
 
-/** Every reason the Task can't start now, the refusals apart from the waits. */
+/**
+ * Every reason the Task can't start now, the refusals apart from the waits; past the usage caps,
+ * of its usage only a used-up window with no Stand-in Engine free holds it.
+ */
 export function startReasons(
+  task: Task,
+  conditions: StartConditions,
+  held: HeldAtStart,
+  usageCaps: UsageCapsChoice = "wait",
+): StartReasons {
+  const { refusals, waits } = reasonsBesideUsage(task, conditions, held);
+  if (!hasPipeline(task) || task.state !== "ready") return { refusals, waits };
+  return { refusals, waits: [...waits, ...usageOnStandIns(conditions, usageCaps).waits] };
+}
+
+/**
+ * Every reason the Task can't start now but what it is expected to use: the refusals, and the
+ * waits that aren't usage waits (spec §2.1, "Start anyway past the usage caps").
+ */
+export function reasonsBesideUsage(
   task: Task,
   conditions: StartConditions,
   { startedTasks, blockers, fireAlarmOn, initiativePaused }: HeldAtStart,
@@ -150,28 +173,29 @@ export function startReasons(
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...projectLimitWaits(task, conditions.project, others),
       ...taskLimitWaits(stage, conditions.person, others),
-      ...usageOnStandIns(conditions).waits,
     ],
   };
 }
 
 /**
  * Ready → In progress, counted against the first Agent Stage's person: by the user's Start, or by
- * the queue as the Task's turn comes. Refuses with every reason.
+ * the queue as the Task's turn comes. Refuses with every reason. Past the usage caps, it runs on
+ * the engines `usageOnStandIns` chooses past them.
  */
 export function startTask(
   task: Task,
   conditions: StartConditions,
   held: HeldAtStart,
   by: StateChangeCause,
+  usageCaps: UsageCapsChoice = "wait",
 ): TaskChange<TaskStarted> {
-  const { refusals, waits } = startReasons(task, conditions, held);
+  const { refusals, waits } = startReasons(task, conditions, held, usageCaps);
   if (refusals.length > 0 || waits.length > 0) {
     throw new TaskRefused([...refusals, ...reasonsOf(waits)]);
   }
   if (!hasPipeline(task)) throw new TaskRefused([NO_PIPELINE_YET]);
   const personRole = conditions.stages && firstAgentStage(conditions.stages)?.role;
-  const { standIns: engineStandIns } = usageOnStandIns(conditions);
+  const { standIns: engineStandIns } = usageOnStandIns(conditions, usageCaps);
   return withStateChange(
     {
       task: { ...task, state: "in-progress", personRole, engineStandIns },
@@ -186,8 +210,11 @@ export function startTask(
  * What the Task's Start weighs once each cascade's engine with no room is handed to a Stand-in
  * Engine: the usage it counts, the stand-ins chosen and the waits of its caps.
  */
-export function usageOnStandIns({ usage, standIns }: StartConditions): UsageOnStandIns {
-  return onStandIns(usage, standIns);
+export function usageOnStandIns(
+  { usage, standIns }: StartConditions,
+  usageCaps: UsageCapsChoice = "wait",
+): UsageOnStandIns {
+  return onStandIns(usage, standIns, usageCaps);
 }
 
 /** The duty's label, such as Implements. */

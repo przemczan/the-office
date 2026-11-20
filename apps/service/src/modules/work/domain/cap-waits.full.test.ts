@@ -98,7 +98,7 @@ describe("exceededWindowCaps", () => {
 });
 
 function cap(resetsAt: Date): ExceededCap {
-  return { words: `Resets ${resetsAt.toISOString()}.`, short: "Cap", resetsAt };
+  return { engineId: "work", words: `Resets ${resetsAt.toISOString()}.`, short: "Cap", resetsAt };
 }
 
 describe("capWaits", () => {

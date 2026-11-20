@@ -125,8 +125,8 @@ async function queued(
   shortReason = ONLY_DESK_SHORT,
 ): Promise<void> {
   await queryOfficeDatabase(
-    `insert into queue (task_id, place, queued_at, reasons, short_reasons)
-       values ($1, (select coalesce(max(place), 0) + 1 from queue), now(), $2, $3)`,
+    `insert into queue (task_id, place, queued_at, queued_by, reasons, short_reasons)
+       values ($1, (select coalesce(max(place), 0) + 1 from queue), now(), '{"kind":"user"}', $2, $3)`,
     [task.id, [reason], [shortReason]],
   );
 }
@@ -425,6 +425,7 @@ test(
       blockers: [],
       overlaps: [],
       usageEstimate: null,
+      pastUsageCaps: null,
     };
     await page.route(`**/api/tasks/${task.id}/start`, async (route) => {
       if (route.request().method() === "GET") return route.fulfill({ json: check });
@@ -451,6 +452,56 @@ test(
       page.getByText(`Queued badge on the cards is queued, place 1: ${ONLY_DESK}`),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
+  },
+);
+
+test(
+  "a queued Task only its caps hold offers Start anyway on its page and its card, asking first with the caps and engines",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Queue past caps", "QP");
+    const task = await readyTask(page, project, "Hosted test instances");
+    await queued(task, CAP_WAIT, CAP_WAIT_SHORT);
+    // The check as the service gives it while only the caps hold the Task; Work's own tests cover
+    // how the engines are chosen and that Start anyway starts it.
+    const check: StartCheck = {
+      refusals: [],
+      waits: [CAP_WAIT],
+      blockers: [],
+      overlaps: [],
+      usageEstimate: null,
+      pastUsageCaps: {
+        passes: ["Personal: 5-hour window cap (90%) · resets 12:00"],
+        engines: [{ name: "Personal", standingInFor: "Claude Code" }],
+        refusals: [],
+      },
+    };
+    await page.route(`**/api/tasks/${task.id}/start`, (route) => route.fulfill({ json: check }));
+
+    await page.goto(`/tasks/${task.id}`);
+    const startAnyway = page.getByRole("button", { name: "Start anyway" });
+    await expect(startAnyway).toBeVisible();
+    await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1280-task-start-anyway.png") });
+    await startAnyway.click();
+    const asked = page.getByRole("dialog", { name: "Start Hosted test instances anyway?" });
+    await expect(asked).toContainText("Personal: 5-hour window cap (90%) · resets 12:00");
+    await expect(asked).toContainText("Its Stages run on Personal, standing in for Claude Code.");
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1280-task-start-anyway-dialog.png"),
+    });
+    await page.keyboard.press("Escape");
+    await expect(asked).toBeHidden();
+
+    await page.goto("/work");
+    await showOnly(page, project);
+    await page
+      .getByRole("article", { name: "Hosted test instances" })
+      .getByRole("button", { name: "Queued", exact: true })
+      .click();
+    const popover = page.getByRole("dialog", { name: "Queued", exact: true });
+    await expect(popover.getByRole("button", { name: "Start anyway" })).toBeEnabled();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1280-board-start-anyway.png") });
   },
 );
 
@@ -497,6 +548,7 @@ test(
       blockers: [],
       overlaps: [],
       usageEstimate: fromHistory,
+      pastUsageCaps: null,
     };
     await page.route(`**/api/tasks/${learned.id}/start`, (route) => route.fulfill({ json: check }));
     const HISTORY_WORDS =
@@ -650,6 +702,7 @@ test(
         basis: { source: "history", tasks: 4 },
         engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
       },
+      pastUsageCaps: null,
     };
     await page.route(`**/api/tasks/${task.id}/start`, (route) => route.fulfill({ json: check }));
 

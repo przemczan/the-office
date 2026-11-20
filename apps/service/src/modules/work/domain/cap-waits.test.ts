@@ -57,6 +57,7 @@ describe("exceededWindowCaps", () => {
 
     expect(exceeded).toEqual([
       {
+        engineId: "claude-code",
         words:
           "The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 5% of this Task. It resets at 12:00.",
         short: "5-hour window cap (90%) · resets 12:00",
@@ -78,7 +79,7 @@ describe("exceededWindowCaps", () => {
 });
 
 function cap(resetsAt: Date): ExceededCap {
-  return { words: `Resets ${resetsAt.toISOString()}.`, short: "Cap", resetsAt };
+  return { engineId: "work", words: `Resets ${resetsAt.toISOString()}.`, short: "Cap", resetsAt };
 }
 
 describe("capWaits", () => {
@@ -129,6 +130,7 @@ describe("exceededDailyCaps", () => {
 
     expect(exceeded).toEqual([
       {
+        engineId: "claude-code",
         words:
           "The Claude Code engine's Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 3,500 tokens left of the estimates of the Tasks in progress and 1,000 tokens of this Task. It resets at midnight.",
         short: "Daily cap (10,000 tokens) · resets at midnight",

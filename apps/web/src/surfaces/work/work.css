@@ -3009,6 +3009,29 @@
   color: var(--fg-1);
 }
 
+/* Start anyway past the usage caps, last, apart from what holds the Task; why it can't below. */
+.queued-start-anyway {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.queued-start-anyway > p {
+  margin: 0;
+  color: var(--fg-3);
+}
+
+/* The caps a Start anyway passes, one to a line. */
+.start-past-usage-caps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: 18px;
+}
+
 .queued-behind > li {
   display: grid;
   grid-template-columns: 14px minmax(0, 1fr);
