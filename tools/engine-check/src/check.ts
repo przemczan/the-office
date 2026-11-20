@@ -52,10 +52,10 @@ export interface CheckContext {
    */
   startCopilotSession(spec: CopilotSessionSpec): Promise<CopilotSession>;
   /**
-   * The same for a session on the pinned Gemini CLI, over ACP or headless as the spec says, in a home
-   * of its own, signed in as the spec's `signIn` says: with the run's Gemini API key (the default), or
-   * with the credentials of the folder `--gemini-sign-in` signed in. Throws `CheckSkipped` when the run
-   * has no key, or that folder is not signed in.
+   * The same for a session on the pinned Gemini CLI, wired as the Gemini CLI adapter wires it: its
+   * engine folder and session files in the sandbox's Office data directory, signed in with the run's
+   * Gemini API key, the service's relay as its hook and MCP servers. Throws `CheckSkipped` when the
+   * run has no key.
    */
   startGeminiSession(spec: GeminiSessionSpec): Promise<GeminiSession>;
 }

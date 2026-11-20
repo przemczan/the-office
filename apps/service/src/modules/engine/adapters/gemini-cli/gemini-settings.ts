@@ -47,10 +47,10 @@ export interface GeminiSettingsParts {
 }
 
 /**
- * One session's settings, which the CLI reads over its home's and the workspace's
- * (`GEMINI_CLI_SYSTEM_SETTINGS_PATH`), as the engine check ran them (docs/engine-check.md, "Gemini
- * CLI"): signed in by the key in its environment; folder trust off, so the hook and the MCP servers
- * load; no telemetry, usage statistics, auto update, checkpointing, auto memory, IDE or chat
+ * One session's settings, the user settings of the session's own home
+ * (`<home>/.gemini/settings.json`, `preparedGeminiSessionHome`), as the engine check ran them
+ * (docs/engine-check.md, "Gemini CLI"): signed in by the key in its environment; folder trust off,
+ * so the hook and the MCP servers load; no telemetry, usage statistics, auto update, checkpointing, auto memory, IDE or chat
  * retention sweep; the key redacted from what its shell commands, hooks and MCP servers inherit; its
  * own skill loading off; the core tools and each MCP server's tools named, as headless the CLI hides
  * any tool `tools.core` leaves out; the Office hook on every call. No Server value or token is in it:
@@ -71,6 +71,9 @@ export function geminiSettings(parts: GeminiSettingsParts): Record<string, unkno
       enableAutoUpdateNotification: false,
       checkpointing: { enabled: false },
       sessionRetention: { enabled: false },
+      // On by default, it gives the model `update_topic` whatever `tools.core` says, and the hook
+      // never sees its calls (the engine check, `gemini.tools-and-rules`).
+      topicUpdateNarration: false,
     },
     experimental: { autoMemory: false },
     ide: { enabled: false },

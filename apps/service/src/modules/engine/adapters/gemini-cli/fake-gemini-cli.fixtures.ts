@@ -7,7 +7,7 @@ export const FAKE_GEMINI_REPORT_VARIABLE = "FAKE_GEMINI_REPORT";
 /**
  * A stand-in for the pinned Gemini CLI headless (`gemini --output-format stream-json`), a Node script
  * that does what the engine check saw the CLI do (docs/engine-check.md, "Gemini CLI"): it reads its
- * settings from `GEMINI_CLI_SYSTEM_SETTINGS_PATH` and its prompt from its input, prints `init`, then
+ * settings from its home's user settings, `<GEMINI_CLI_HOME>/.gemini/settings.json`, and its prompt from its input, prints `init`, then
  * plays the prompt's first line, and ends with a `result` counting 100 prompt tokens, 40 of them
  * cached, and 10 output tokens:
  * - `answer <text>`: the text, in two deltas;
@@ -31,7 +31,7 @@ const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 
 const report = { argv: process.argv.slice(2), env: process.env, hooks: [], tools: [] };
-const settings = JSON.parse(fs.readFileSync(process.env.GEMINI_CLI_SYSTEM_SETTINGS_PATH, "utf8"));
+const settings = JSON.parse(fs.readFileSync(path.join(process.env.GEMINI_CLI_HOME, ".gemini", "settings.json"), "utf8"));
 report.settings = settings;
 const out = (event) => process.stdout.write(JSON.stringify({ timestamp: "t", ...event }) + "\n");
 const flag = (name) => { const at = report.argv.indexOf(name); return at === -1 ? undefined : report.argv[at + 1]; };

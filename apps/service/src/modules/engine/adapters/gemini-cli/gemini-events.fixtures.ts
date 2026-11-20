@@ -17,7 +17,7 @@ export const TURN_WITH_A_REFUSAL = [
   '{"type":"result","timestamp":"2026-11-20T10:00:03.100Z","status":"success","stats":{"total_tokens":2610,"input_tokens":2500,"output_tokens":110,"cached":2000,"input":500,"duration_ms":3100,"tool_calls":2,"models":{}}}',
 ];
 
-/** A turn the free tier's limit refused (`gemini.usage-windows`), as headless printed it. */
+/** A turn the free tier's limit refused (Task 2f25ef1c's engine check), as headless printed it. */
 export const QUOTA_REFUSAL = [
   '{"type":"init","timestamp":"2026-11-20T10:00:00.000Z","session_id":"5b1c0e1e-3f0a-4a51-9a51-0c0e5b9f1a11","model":"gemini-3.5-flash-lite"}',
   '{"type":"result","timestamp":"2026-11-20T10:00:01.000Z","status":"error","error":{"type":"Error","message":"429 You exceeded your current quota … Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15 … Please retry in 58.5s"},"stats":{"total_tokens":0,"input_tokens":0,"output_tokens":0,"cached":0,"input":0,"duration_ms":0,"tool_calls":0,"models":{}}}',

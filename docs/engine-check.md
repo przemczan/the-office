@@ -8,7 +8,7 @@ What The Office relies on in the engine, checked against live sessions on the pi
 - **Once per bump, also the slow checks:** `npm run engine-check -- --only engine.decision-wait --include-slow`, which waits an hour on purpose, and `npm run engine-check -- --only engine.long-office-tool --only fallback.long-office-tool --include-slow`, which each wait 11 minutes in an Office tool.
 - **On every Codex bump, before the bump is merged,** on Windows and on Linux: `npm run engine-check -- --only codex. --codex-home <folder>`, with a Codex folder signed in for the check (`ENGINE_CHECK_CODEX_HOME` when the option is left out). Without a signed-in folder the `codex.*` checks are skipped with the reason, so a plain `npm run engine-check` still passes. Regenerate the protocol with `codex app-server generate-ts --out <folder>` from the pinned binary and compare it with `tools/engine-check/src/codex/protocol.ts`.
 - **On every Copilot bump, before the bump is merged,** on Windows and on Linux: `COPILOT_GITHUB_TOKEN=<token> npm run engine-check -- --only copilot.`, the token a fine-grained personal access token with the "Copilot Requests" permission, on an account with Copilot. Without it the `copilot.*` checks are skipped with the reason, so a plain `npm run engine-check` still passes. The checks sign in with the token in a folder of their own; the user's `~/.copilot` is never read or written, and the token is never recorded.
-- **On every Gemini CLI bump, before the bump is merged,** on Windows and on Linux: `ENGINE_CHECK_GEMINI_API_KEY_FILE=<file holding the key> npm run engine-check -- --only gemini.`, the key a Gemini API key from Google AI Studio, kept in a git-ignored place such as `tools/engine-check/out/`. Without it the `gemini.*` checks are skipped with the reason. On the free tier (15 requests a minute) run them one at a time, a minute apart. `gemini.google-sign-in` also needs `npm run engine-check -- --gemini-sign-in` first, which signs a Google account into `tools/engine-check/out/gemini-home/` with a pasted code. The key and the sign-in are never printed or recorded.
+- **On every Gemini CLI bump, before the bump is merged,** on Windows and on Linux: `ENGINE_CHECK_GEMINI_API_KEY_FILE=<file holding the key> npm run engine-check -- --only gemini.`, the key a Gemini API key from Google AI Studio, kept in a git-ignored place such as `tools/engine-check/out/`. Without it the `gemini.*` checks are skipped with the reason. On the free tier (15 requests a minute) run them one at a time, a minute apart. The key is never printed or recorded. Then the AgentEngine contract live on a Gemini CLI engine ([The AgentEngine contract, live](#the-agentengine-contract-live)).
 - **With an Anthropic API key, once per bump:** `ENGINE_CHECK_API_KEY_FILE=<file holding the key> npm run engine-check -- --only engine.api-key-sign-in` ([engine.api-key-sign-in](#engineapi-key-sign-in)). Without the variable the check is skipped with the reason, so a plain `npm run engine-check` still passes.
 - **With a second Claude Code folder, once per bump:** `npm run engine-check -- --only engine.session-carry-over --only fallback.session-carry-over --second-claude-config <folder>`, the folder signed in with `CLAUDE_CONFIG_DIR=<folder> claude auth login` (`ENGINE_CHECK_SECOND_CLAUDE_CONFIG` when the option is left out); it may be signed in to the same account as the default one ([engine.session-carry-over](#enginesession-carry-over-fallbacksession-carry-over)). Without a signed-in folder the two checks are skipped with the reason, so a plain `npm run engine-check` still passes.
 - **To re-check one area:** `--only <id prefix>`, for example `--only permissions.`; `npm run engine-check -- --help` lists the options.
@@ -41,7 +41,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 - **Recorded on one:** `permissions.powershell-twin` runs on Windows only. `skills.overrides-library` and the `codex.*` checks are recorded on Linux only, the Codex checks on `gpt-6-luna` with a ChatGPT sign-in (Free plan) in a folder made for the check; a full Codex run takes about 3 minutes and about 80k input, 1k output and 390k cache-read tokens.
 - **Not recorded on either:** `skills.skill-command`, `permissions.devcontainer`, `engine.long-office-tool`, `engine.usage-window-refusal`, `engine.session-carry-over`, `engine.usage-read-alone`, `engine.lsp-tool`, `engine.background-tasks`, `engine.foreground-sub-agents`, `engine.api-key-sign-in`, `fallback.long-office-tool`, `fallback.usage-window-refusal`, `fallback.session-carry-over`, `fallback.background-tasks`, `fallback.foreground-sub-agents` and `codex.usage-read-alone`. Each needs a signed-in machine, and some more (their entries say what); a run reports them `unrecorded`.
 - **The `copilot.*` checks were run on Linux only, on 2026-11-19, and not recorded in `expectations.json`:** the check's code as it stands can't run them, so the run patched two things for itself alone. The client ran in `mode: "coding-agent"`, since the SDK refuses a session in `mode: "empty"` that names no `tools.availableTools`; and no model was named, since the account (a fine-grained token with "Copilot Requests") lists no models and the runtime refuses any model named, so Auto ran `mai-code-2-flash`. Each **Observed** below is from that run, about 1.1M input and 3k output tokens in 5.5 minutes, every check answering. Fixing the check's options and recording it, on Windows too, is the Copilot CLI adapter's Task.
-- **The `gemini.*` checks are recorded on Linux,** 2026-11-20, on `gemini-3.5-flash-lite` with a free-tier Gemini API key, in a home made per session. Each check ran alone, a minute apart, for the free tier's 15 requests a minute. The checks themselves took about 6 minutes (plus the pauses) and about 330k input, 190k cache-read and 1k output tokens. **On Windows they are pending**, by the user's decision of 2026-11-20; Task c5691eeb confirms them, and until then the capability table's Windows column says "(pending)".
+- **The `gemini.*` checks are recorded on Linux,** 2026-11-20, on the adapter's own wiring (Task c5691eeb), on `gemini-3.5-flash-lite` with a free-tier Gemini API key. Each check ran alone, a minute apart, for the free tier's 15 requests a minute; `gemini.quota-refusal` was skipped, as no quota was used up. **On Windows they are pending** until the user's run; the capability table's Windows column says "(pending)".
 - **The Copilot CLI engine on the Test Project, Linux (the Task's run environment), 2026-11-19, Auto** (`conversations/application/copilot-cli-test-project-check`, a fine-grained token with "Copilot Requests"): the engine added, signed in by the pasted token and removed with its folder, all through the API. **Chat passed:** one Read and the reply `3` in one message, in 9 s and 21.8k tokens (6 input, 46 output, 17.8k cache read, 3.9k cache write), 25 s for the whole test. **Stage failed, in the adapter:** Implement ended in 10 s with no tokens counted, as Copilot refused each turn's `responseSchema` (the Stage result schema) with `400 Invalid schema for response_format 'response': In context=(), 'if' is not permitted`. The Office reported this as a result that didn't match its schema. Premium requests aren't reported: The Office doesn't keep them. See [On the Test Project](#on-the-test-project).
 
 ## How a check runs
@@ -628,188 +628,142 @@ What the spec took from these checks, each with the date the user agreed it.
 
 ## Gemini CLI
 
-What the Gemini CLI engine ([spec §5.4.7](spec/5.4.7-gemini-cli-engine.md)) rests on, on the pinned `@google/gemini-cli`. A `gemini.*` check drives the CLI over both of its transports side by side, so each entry compares them. **ACP** (`gemini/acp-session.ts`) is one long-lived `gemini --acp` process per session, with JSON-RPC 2.0 on its stdio: `session/new` or `session/load`, a turn per `session/prompt`, a stop by `session/cancel`, and each `session/request_permission` answered by the check. **Headless** (`gemini/headless-session.ts`) is one `gemini --output-format stream-json --approval-mode yolo --prompt …` process per turn: the first with `--session-id`, each later one with `--resume`. A stop ends the turn's process. Both run the same way:
+What the Gemini CLI engine ([spec §5.4.7](spec/5.4.7-gemini-cli-engine.md)) rests on, on the pinned `@google/gemini-cli`. A `gemini.*` check drives the CLI as the adapter (`apps/service/src/modules/engine/adapters/gemini-cli/`) wires a session, headless with stream-json, so a result holds for The Office:
 
-- **The process:** the pinned CLI's JS entry, `bundle/gemini.js`, runs with `process.execPath` and `GEMINI_CLI_NO_RELAUNCH=true`, so the process The Office starts is the one that runs the session. `--model` is the check model.
-- **The home:** a `GEMINI_CLI_HOME` of the session's own inside the check's sandbox; the CLI keeps everything under its `.gemini/`. The settings it gets (`gemini/gemini-home.ts`):
-  - signed in with the API key: `security.auth.selectedType: "gemini-api-key"`, with the key only in the CLI's environment as `GEMINI_API_KEY`;
-  - `security.folderTrust.enabled` false, as an untrusted folder drops every hook, skill and MCP server;
-  - `security.disableAlwaysAllow` true;
-  - telemetry, usage statistics, auto update and its notice, checkpointing, auto memory, the IDE and the chat retention sweep off;
-  - `tools.core` names the core tools (`activate_skill`, `glob`, `grep_search`, `list_directory`, `read_file`, `replace`, `run_shell_command`, `write_file`) and `mcp_<server>_*` for each MCP server of the session. Headless, the CLI hides from the model any tool the list leaves out, MCP tools included: without the `mcp_<server>_*` entries, a headless session saw no Office tool;
-  - the `BeforeTool` command hook on every tool (`matcher: ".*"`).
-- **Over ACP, a user policy** (`.gemini/policies/office.toml`) asks before every call, built-in and MCP alike: `toolName = "*"` and `mcpName = "*"` with `decision = "ask_user"`. The ask reaches the client as `session/request_permission`. Headless the CLI turns an ask into a refusal, so headless goes without the policy.
-- **The environment:** without inherited `GEMINI*`, `GOOGLE*`, `NO_BROWSER`, `BROWSER`, `CLOUD_SHELL`, `CLAUDE*`, `ANTHROPIC*`, `OPENAI*`, `CODEX*`, `MCP_*` and `OTEL_*` variables. `NO_BROWSER=true` is always set, so a missing sign-in never opens a browser.
-- **The hook** (`gemini/hook-relay.ts`, run through the CLI's shell: bash, or PowerShell with `&` on Windows) hands its input to the session's Office channel and prints the answer. The channel (`gemini/office-channel.ts`) is a Unix socket in the sandbox, or a named pipe on Windows, never a TCP port, behind a token made per session (`OFFICE_SESSION_TOKEN`, in the environment only). The relay exits 2 on any failure it can see, which the CLI counts as a refusal.
-- **The Office tools** come from a stdio MCP server the CLI starts as a child (`gemini/office-tool-server.ts`), never an HTTP endpoint on localhost (the `-p` lesson of [spec §5.4](spec/5.4-the-engine.md#defaults)). It lists the tools and relays each call to the channel. Over ACP it is named in `session/new`'s `mcpServers` with its environment as values. Headless it is in the settings' `mcpServers` with each value as `$NAME`, which the CLI expands from its own environment when it loads the settings.
-- **A Project's MCP server** (`gemini/project-mcp-stdio.ts`) is handed over the same way.
-- **Tokens** come from ACP's `session/prompt` answer (`usage`) and from headless's `result` event (`stats`).
+- **The process:** one `gemini --model <model> --output-format stream-json --approval-mode yolo` per turn, the first with `--session-id`, each later one with `--resume`, the prompt on its standard input. The pinned JS entry, `bundle/gemini.js`, runs with `process.execPath` and `GEMINI_CLI_NO_RELAUNCH=true`, so the process started is the one that runs the session; on Linux it leads a process group of its own.
+- **The home:** `GEMINI_CLI_HOME` is the session's own folder in the engine folder, `office-data/engines/<engine id>/sessions/<session id>/`, owner-only. The CLI keeps the session's chat under its `.gemini/`, and a resume runs in the same home.
+- **The settings:** the home's `.gemini/settings.json`, owner-only, written at each opening (`gemini/gemini-settings.ts`, restating the adapter's `gemini-settings.ts`):
+  - signed in by the API key, given only in the CLI's environment as `GEMINI_API_KEY`, and redacted from what its shell commands, hooks and MCP servers inherit;
+  - folder trust off, so the hook and the MCP servers load;
+  - no telemetry, usage statistics, auto update, checkpointing, auto memory, IDE, chat retention sweep or topic narration (`update_topic`), and the CLI's own skill loading off;
+  - `tools.core` naming the core tools (`glob`, `grep_search`, `list_directory`, `read_file`, `replace`, `run_shell_command`, `write_file`) and `mcp_<server>_*` for each MCP server;
+  - the Agent's instructions as a file of the session's in the home's `.gemini/` (`context.fileName`);
+  - the `BeforeTool` command hook on every tool (`matcher: ".*"`, 60 s timeout).
+- **The relay:** the hook and every MCP server the CLI starts are the service's own script, `gemini-office-relay.ts`, run by path (`hook <channel file>`, `mcp <channel file> <server>`), never imported. Both reach the check's stand-in for the service (`gemini/office-channel.ts`) on a Unix socket, or a named pipe on Windows, behind a token made per session. The address and the token are in a channel file, owner-only in `office-data/sessions/<session id>/`, never on a command line or in an environment.
+- **The tools served:** the `office` server serves the Office tools, the Skill tool and StructuredOutput (`gemini/office-server.ts`). A Role's MCP server is started by the check, as the service starts it, and relayed under its own name; the CLI never gets its Server values (`gemini/project-mcp-connection.ts`).
+- **Stop:** ends the CLI's descendants and their process groups first, then the CLI's own tree (`gemini/process-trees.ts`; `taskkill /t /f` on Windows). After each turn, whatever the turn's process left running is ended.
+- **The environment:** without inherited `GEMINI*`, `GOOGLE*`, `NO_BROWSER`, `BROWSER`, `CLOUD_SHELL`, `CLAUDE*`, `ANTHROPIC*`, `OPENAI*`, `CODEX*`, `MCP_*` and `OTEL_*` variables; `NO_BROWSER=true` always.
+- **Tokens** come from each turn's `result` event (`stats`).
 
 Each check records facts that hold run to run, never model text. Each **Observed** below is from the Linux run of 2026-11-20 ([Runs](#runs)). **Code** is what the pinned CLI's code shows, read where no check could observe it.
 
 ### Capabilities
 
-| Capability | Linux | Windows | ACP | Headless stream-json | Shown by |
-|---|---|---|---|---|---|
-| `interrupt` | yes | (pending) | yes: `session/cancel`; the turn ends `cancelled`, its command is stopped, and the next turn answers | yes: the turn's process is ended; its command is stopped, and the next turn resumes and answers | `gemini.interrupt` |
-| `resume` | yes | (pending) | yes: `session/load` by id in the same home and folder, replaying the history | yes: `--resume <id>` in the same home and folder | `gemini.resume` |
-| `bargeIn` | no | (pending) | no: a second `session/prompt` cancels the running turn (`cancelled`) and starts a new one, the same while an Office tool answers; nothing lands in the running turn | no: no input while a turn's process runs (no `--input-format`) | `gemini.barge-in`, `gemini.office-tool-barge-in` |
-| `contextUsage` | yes | (pending) | yes: per-turn tokens in `usage`, and `usage_update` with the context's `used` and `size` | per-turn tokens only (`result.stats`); the window's size isn't given | `gemini.context-usage` |
-| `usageWindows` | no | (pending) | no: `_meta.quota` holds token counts, not quota | no: `stats` holds token counts only | `gemini.usage-windows` |
-| `officeTools` | yes | (pending) | yes, stdio MCP | yes, stdio MCP (named in `tools.core`) | `gemini.office-tools` |
-| `outputSchema` | yes, through a `StructuredOutput` Office tool | (pending) | yes | yes | `gemini.output-schema` |
-| `languageServers` | no | (pending) | no | no | `gemini.language-servers` |
-| Sign-in | API key yes; Login with Google refused for personal accounts | (pending) | both | both | `gemini.api-key`, `gemini.google-sign-in` |
-| Skills | yes, from the home's `.gemini/skills/`, and the repository's too | (pending) | yes | yes | `gemini.skills` |
-| The Office's MCP servers | yes | (pending) | yes; values in `session/new` | yes; values as `$NAME` from the CLI's environment | `gemini.mcp-servers` |
-| Tool-permission hook | headless only | (pending) | no `BeforeTool` hook. A permission request comes for every call, before it runs, with no arguments and no reason to give | `BeforeTool` sees every call with its arguments before it runs, and its reason reaches the model | `gemini.hook-sees-every-call`, `gemini.hook-refusal`, `gemini.hook-unreachable` |
+| Capability | Linux | Windows | Shown by |
+|---|---|---|---|
+| `interrupt` | yes: the turn ends `cancelled`, its command is stopped, the next turn answers | (pending) | `gemini.interrupt` |
+| `resume` | yes, in the session's own home only | (pending) | `gemini.resume` |
+| `bargeIn` | no: a message sent during a turn waits for its end, and the messages waiting make the next turn together | (pending) | `gemini.priority-next`, `gemini.priority-later` |
+| `contextUsage` | yes: per-turn tokens, and the latest answer's tokens in the chat the CLI keeps | (pending) | `gemini.context-usage` |
+| `usageWindows` | no: `stats` holds tokens only | (pending) | `gemini.context-usage` |
+| `officeTools` | yes, through the relay | (pending) | `gemini.office-tool` |
+| `outputSchema` | yes, through StructuredOutput | (pending) | `gemini.output-schema` |
+| `languageServers` | no | (pending) | `gemini.language-servers` |
+| `carrySession` | no: another engine folder doesn't hold the session | (pending) | `gemini.resume` |
+| The Office rules | every call judged before it runs; refused when the service can't be reached, the token is wrong or the answer is late | (pending) | `gemini.tools-and-rules`, `gemini.hook-unreachable` |
+| A Role's MCP servers | yes; the values stay in the service | (pending) | `gemini.mcp-tool` |
+| Skills | the session's, through the Skill tool; not the repository's | (pending) | `gemini.skills` |
 
-**The transport: headless stream-json.**
-- **The evidence:** over ACP the CLI never calls the `BeforeTool` hook, as its ACP session runs tools without the scheduler that calls hooks (`gemini.hook-sees-every-call`: the hook saw nothing over ACP). Its stand-in, `session/request_permission`, falls short of what the Office rules need ([spec §6](spec/6-permissions-and-safety.md)):
-  - it carries no arguments, only a display title (the command, a relative path, `note_progress(summary: done)`), the call's `locations` and, for an MCP tool, its server and tool name;
-  - the tool's name is known only from the call id (`<tool>__call_<n>`);
-  - a refusal can carry no reason: the model sees only that the user cancelled (`gemini.hook-refusal`).
-- **What headless gives:** the hook sees every call before it runs, built-in and MCP, with the tool's own name and arguments (`tool_name`, `tool_input`, `mcp_context`); a refusal's reason reaches the model, and the turn goes on; and a hook that can't reach the Office refuses.
-- **What headless costs:**
-  - no barge-in, but ACP has none either, as a second prompt cancels the running turn;
-  - a process per turn, about 2 s to start, plus its MCP servers started again each turn;
-  - Stop ends the process.
-- **Revisit when** the CLI calls hooks over ACP, or its permission request carries the call's arguments.
+Every capability `GEMINI_CLI_CAPABILITIES` declares holds on Linux.
 
-**Sign-in.**
-- **Login with Google is refused for personal accounts.** The check's own `--gemini-sign-in` signed a personal Google account in with a pasted code, with no terminal (the CLI's stdin a pipe, the code relayed). The credentials landed only in the folder (`oauth_creds.json`, `google_accounts.json`; no keychain file). But Google then refused every session in that folder with `This client is no longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate to the Antigravity suite of products` (headless exit 1; over ACP, `session/new` fails), then with 429s.
-- **The API key works.** A Gemini API key from Google AI Studio, given in the CLI's environment only, signs in on both transports, and no file left in the home holds it.
-- **Not checked:** a Google Workspace or Code Assist Standard or Enterprise account, which needs a Cloud project (`GOOGLE_CLOUD_PROJECT`).
+**Why headless, and only headless.** Task 2f25ef1c's run of 2026-11-20 drove ACP (`gemini --acp`) beside headless. Over ACP the CLI never calls the `BeforeTool` hook, as its ACP session runs tools without the scheduler that calls hooks. Its stand-in, `session/request_permission`, carries no arguments, names the tool only through the call id, and can give the model no reason for a refusal. ACP also has no barge-in: a second prompt cancels the running turn. So the check drives only headless, as the adapter does. **Revisit when** the CLI calls hooks over ACP, or its permission request carries the call's arguments.
 
-**Does the engine serve Stages?** Yes: `officeTools` and `outputSchema` can both be had, so the Gemini CLI engine isn't limited to chats and Consultations.
+**Sign-in.** The same run found that Google refuses Login with Google for personal accounts (`This client is no longer supported for Gemini Code Assist for individuals…`), while a Gemini API key from Google AI Studio signs in. The check, like the engine, signs in with an API key only, and `--gemini-sign-in` is gone. A Workspace or Code Assist Standard or Enterprise account wasn't tried.
 
-### The spec Default
-
-The user accepted the Gemini CLI Default on 2026-11-20. It is [spec §5.4.7](spec/5.4.7-gemini-cli-engine.md), and each fact on that page comes from a check above.
-
-### gemini.api-key
-
-- **Run:** on each transport, a session signed in with the API key in its environment runs a shell command that prints whether `GEMINI_API_KEY` is set. Then a headless session without a key gets one turn.
-- **Observed:**
-  - both transports answer;
-  - no file left in the session's home holds the key;
-  - **the model's shell commands see `GEMINI_API_KEY`** on both transports (the CLI's environment redaction is off by default);
-  - without a key, the turn is refused with exit 41.
-- **Meaning:** the key goes in the environment, never a file. The adapter must keep it from the model's shell commands, by the CLI's environment redaction or otherwise, and check that it holds.
-
-### gemini.google-sign-in
-
-- **Run:** reads what `--gemini-sign-in` noted, then one headless turn in a home holding a copy of the folder's two credential files. Skipped until the folder is signed in.
-- **Observed:**
-  - signed in with piped stdin;
-  - the credential files are in the folder, with no keychain file;
-  - the turn was refused with "no longer supported for Gemini Code Assist for individuals" (`refusedForIndividuals`).
-- **Meaning:** see Sign-in above.
+**Found on the adapter's wiring, fixed in the adapter** (2026-11-20, this Task):
+- **The system settings file was skipped.** The adapter gave a session's settings to the CLI as `GEMINI_CLI_SYSTEM_SETTINGS_PATH`. The pinned CLI reads that file only when the file and every folder above it are owned by root and writable by no group or other user, or on Windows owned by an administrator or SYSTEM. Otherwise it skips the file with a "Security Warning", folder trust comes back on, and every headless turn is refused. **Code:** `isFileAndDirectorySecureSync` in the CLI's settings loader. By the user's decision, each session now has a home of its own in the engine folder, its settings that home's `.gemini/settings.json`, which has no such rule.
+- **A repository's own settings outrank the session's.** With folder trust off the CLI treats the folder as trusted and ranks its `.gemini/settings.json` above the home's (`gemini.repository-settings`). `GEMINI_RESTRICTED_MODE=true` leaves that file unread, but also drops the home's hook and MCP servers. By the user's decision, the adapter refuses a turn in a folder holding `.gemini/settings.json`, and `.gemini/settings.json` is a protected path in the Office rules on every engine.
+- **`update_topic` got past the hook.** The CLI's topic narration, on by default, gives the model `update_topic` whatever `tools.core` says, and its calls never reach the hook. It is now off.
+- **Stop left the command running.** The CLI starts each shell command in a process group of its own, so ending the CLI's group didn't end it. Stop now ends the CLI's descendants first.
+- **A tool answering a bare JSON value failed.** The CLI wraps every MCP server's transport in its own `McpComplianceTransport`, which parses an answer's first text as JSON into `structuredContent`; when that isn't an object (`880448`, `[1,2]`), its MCP client refuses the result. The relay now gives such an answer a `structuredContent` of its own (`{ value }`); the model still reads the text (the AgentEngine contract's MCP scenario).
 
 ### gemini.start
 
-- **Run:** on each transport, one turn in a repository with a `GEMINI.md` and another `GEMINI.md` in the folder above it, asking for every code word the session was given.
+- **Run:** one turn in a repository with a `GEMINI.md` and another `GEMINI.md` in the folder above it, the Agent's instructions in the session's instructions file, asking for every code word the session was given; a shell command that prints whether `GEMINI_API_KEY` is set. Then a turn without a key.
 - **Observed:**
   - the pinned 0.70.0 answers on `gemini-3.5-flash-lite`, and the session id is a UUID;
-  - the repository's `GEMINI.md` loads, the one above it doesn't;
-  - over ACP, `initialize` gives protocol version 1, `loadSession` true, MCP capabilities `http` and `sse`, and auth methods `gateway`, `gemini-api-key`, `oauth-personal` and `vertex-ai`;
-  - `session/new` gives the modes `autoEdit`, `default`, `plan` and `yolo` (current `default`).
-- **Meaning:** a Project's `GEMINI.md` is read as its instructions, as `CLAUDE.md` is on Claude Code; none from above the repository.
+  - the instructions file and the repository's `GEMINI.md` load, the one above it doesn't;
+  - the model's shell doesn't see `GEMINI_API_KEY`, and no file left in the engine folder, the session's folder or the repository holds it;
+  - without a key, the turn is refused with exit 41.
+- **Meaning:** the key reaches only the CLI, and a Project's `GEMINI.md` is its instructions, as `CLAUDE.md` is on Claude Code.
 
-### gemini.resume
+### gemini.tools-and-rules
 
-- **Run:** a turn gives a code word, the session closes, and a new process resumes it by id in the same home and folder and asks for the word.
-- **Observed:** both transports keep the history. ACP's `session/load` replays it as `session/update` notifications first.
-- **Meaning:** a session resumes only from the home and folder that hold it: the CLI keeps chats under `<home>/.gemini/tmp/<folder>/chats/`.
+- **Run:** one turn uses each core tool, an allowed shell command, a command the hook refuses with a reason carrying a code word, and an Office tool. Each judgement looks whether the command's file exists yet.
+- **Observed:** the hook saw every call (`glob`, `grep_search`, `list_directory`, `mcp_office_note_progress`, `read_file`, `replace`, `run_shell_command`, `write_file`), each before it ran; the allowed command ran, the refused one didn't, and the refusal's reason reached the model.
+- **Meaning:** the Office rules judge every Gemini CLI tool call ([spec §6](spec/6-permissions-and-safety.md)).
 
-### gemini.interrupt
+### gemini.repository-settings
 
-- **Run:** a shell command that writes a file after 30 s, in the foreground; a stop 2 s after the call starts; then a wait past the 30 s and one more turn.
-- **Observed:** on both transports the turn ends `cancelled` well before 30 s, the command never writes its file, and the next turn answers.
-- **Also seen:** asked only to run the command once, the model ran it in the background (the shell tool's `[background]`: `Command moved to background (PID …)`). The call then completed at once, and the command ran on after the turn and the stop. `ranInBackground` records it.
-- **Meaning:** Stop works on both transports. Background commands outlive a stop, so the adapter must deny the shell tool's background mode by policy, or end those commands at Stop.
-
-### gemini.barge-in
-
-- **Run:** over ACP, a second `session/prompt` while the first turn's 10 s command runs. Headless, whether the CLI lists a flag for input during a turn.
-- **Observed:**
-  - over ACP, the first turn ends `cancelled` and the second turn answers;
-  - headless has no `--input-format`.
-- **Meaning:** no barge-in on either transport. A message waits for the turn's end, or the user stops the turn.
-
-### gemini.hook-sees-every-call
-
-- **Run:** on each transport, one turn that reads `README.md`, runs a shell command writing `ran.txt`, and calls an Office tool, `note_progress`. The check's decision looks whether `ran.txt` exists yet, and whether it was asked before the Office tool's handler ran.
-- **Observed:**
-  - **headless:** the hook saw all three calls (`read_file`, `run_shell_command`, `mcp_office_note_progress`), each before it ran, with its arguments;
-  - **over ACP, the hook saw none.** A permission request came for all three, each before it ran. None carried arguments; the MCP one named its server and tool. The options offered were `proceed_once` and `cancel`.
-- **Code:** the ACP session runs a tool by itself (`Session.runTool`), without the scheduler that fires `BeforeTool`.
-
-### gemini.hook-refusal
-
-- **Run:** one shell command writing `ran.txt`, refused: headless by the hook, with a reason carrying a code word; over ACP by rejecting the permission request.
-- **Observed:**
-  - on both transports the command didn't run, the call failed, and the turn went on;
-  - **headless, the reason reached the model**;
-  - over ACP it can't: the model sees that the user cancelled the call.
+- **Run:** the repository holds `.gemini/settings.json` with `{"hooksConfig":{"enabled":false}}`; one turn runs a command the hook would refuse. The check's session runs regardless, to see it.
+- **Observed:** the hook saw nothing, and the command ran.
+- **Meaning:** why the adapter refuses a turn in such a folder.
 
 ### gemini.hook-unreachable
 
-- **Run:** headless, the hook relay pointed at a channel nothing serves. Then a hook slower than its timeout (3 s, the check answering after 8 s).
-- **Observed:**
-  - **a hook that can't reach the Office refuses the call:** the relay exits 2, and the command didn't run;
-  - **a hook that times out lets the call run:** the CLI ran the command.
-- **Code:** the CLI lets a call run when a hook exits 1, times out or can't start, and refuses it on exit 2 or a `deny` answer.
-- **Meaning:** the relay must hold its own deadline, shorter than the CLI's hook timeout, and exit 2 when it passes, so a slow answer refuses rather than allows.
+- **Run:** a command the hook would allow, three times: with the channel file pointing at a socket nothing serves; with a wrong token; and with the service answering after 55 s, past the relay's own 50 s deadline and under the CLI's 60 s timeout.
+- **Observed:** each time the command didn't run and the call failed.
+- **Code:** the CLI lets a call run when a hook exits 1, times out or can't start, and refuses it on exit 2 or a `deny` answer; the relay exits 2 on every failure it sees, its deadline included.
+- **Meaning:** the Office rules refuse when they can't be asked, as [spec §6](spec/6-permissions-and-safety.md) says.
 
-### gemini.office-tools
+### gemini.office-tool
 
-- **Run:** on each transport, an Office tool answering a code word, from the stdio MCP server; the session closes after one turn.
-- **Observed:** on both transports the model called it once, its answer reached the model, and the server ran as the CLI's child and ended with the session.
+- **Run:** an Office tool answering a code word; the relays' processes are looked for by the channel file on their command lines while it answers and after the turn.
+- **Observed:** the model called it once, its answer reached the model, a relay ran during the call, and none was left after the turn.
 
-### gemini.office-tool-barge-in
+### gemini.mcp-tool
 
-- **Run:** over ACP, an Office tool whose handler sends a second `session/prompt` before it answers, as `fallback.priority-next-office-tool`.
-- **Observed:** the first turn ends `cancelled` and the second answers. As in `gemini.barge-in`, a message during a turn replaces the turn rather than landing in it.
-
-### gemini.output-schema
-
-- **Run:** whether `--help` lists a schema flag. Then, on each transport, a `StructuredOutput` Office tool whose input schema is the answer's (an `enum` and an integer, `additionalProperties: false`), checked when it arrives.
-- **Observed:** no schema flag. On both transports the model answered through `StructuredOutput` once, matching the schema.
-- **Meaning:** `outputSchema` holds through a `StructuredOutput` Office tool, as on the OpenAI-compatible engine.
+- **Run:** a Role's stdio MCP server with a secret value in its environment, started by the check as the service starts it, called once through the relay.
+- **Observed:** the call was judged first (`mcp_project-tools_check_secret`) and ran; the value arrived; it was in no environment of the CLI's, on no command line and in no file left; the server's process ended with the session.
 
 ### gemini.skills
 
-- **Run:** a skill in the session's home (`<home>/.gemini/skills/`, where The Office would write the session's skills) and another in the repository's `.gemini/skills/`; one turn activates each with `activate_skill`.
-- **Observed:** on both transports, both skills activate and their bodies reach the model.
-- **Meaning:** a session's skills come from its home, and the repository's own skills load beside them. No setting gives a session other skill folders.
+- **Run:** a session skill served by the Skill tool, and a skill in the repository's `.gemini/skills/`; one turn each.
+- **Observed:** the session's skill loaded through `mcp_office_Skill` and its body reached the model; the repository's skill was not offered (`activate_skill` isn't there). The model may still read the repository's `SKILL.md` as a file.
+- **Meaning:** a session's skills are exactly what The Office lists ([spec §5.6](spec/5.6-skills-per-session.md)).
 
-### gemini.mcp-servers
+### gemini.interrupt
 
-- **Run:** a Project's stdio MCP server with a secret value in its environment, called once; the session then closes.
-- **Observed:** on both transports:
-  - the call ran, and the value arrived;
-  - the value was on no command line and in no file left in the home or repository;
-  - the server's process ended with the session;
-  - the call was judged first (headless by the hook as `mcp_project-tools_check_secret`; over ACP by a permission request naming `check_secret`).
-- **Meaning:** headless, the value sits in the CLI's environment for `$NAME` to expand, so the model's shell commands can see it, as with the API key (`gemini.api-key`).
+- **Run:** a shell command that writes a file after 30 s, in the foreground; a stop 2 s after the call starts; a wait past the 30 s and one more turn. Then a turn that starts a command in the background (writing a file after 15 s) and ends.
+- **Observed:** the turn ends `cancelled` well before 30 s, the command never writes its file, and the next turn answers; the background command didn't outlive its turn.
+- **Before the fix:** the turn ended but the command wrote its file, as it ran in a process group of its own.
+
+### gemini.resume
+
+- **Run:** a turn gives a code word; a new process resumes the session by id in the same home and asks for it. Then the same id in another engine folder.
+- **Observed:** the history is kept in the same home; in another engine folder the turn fails.
+- **Meaning:** a session resumes only in its own home; `carrySession` is false.
+
+### gemini.priority-next, gemini.priority-later
+
+- **Run:** `priority-next`, a message sent while an Office tool answers; `priority-later`, two messages sent while a 10 s foreground command runs. Each sent as the adapter sends any message: it waits for the turn's end.
+- **Observed:** the running turn ends as it would have, its command running to its end and its Office tool answering; nothing lands in it; the messages make the next turn together, and each is answered (two turns in all).
+- **Meaning:** no barge-in: a headless turn takes no input; `next` and `later` both wait.
+
+### gemini.output-schema
+
+- **Run:** whether `--help` lists a schema flag; then a StructuredOutput Office tool whose input schema is the answer's (an `enum` and an integer, `additionalProperties: false`), with the adapter's reminder turn if the answer doesn't come.
+- **Observed:** no schema flag; the model answered through StructuredOutput once, matching the schema, with no reminder needed.
 
 ### gemini.context-usage
 
-- **Observed:**
-  - both transports give the turn's tokens;
-  - over ACP, `usage_update` also gives the context's `used` and its `size`;
-  - headless gives no size.
+- **Observed:** each turn's `result` gives its tokens (`stats`: `cached`, `duration_ms`, `input`, `input_tokens`, `models`, `output_tokens`, `tool_calls`, `total_tokens`), nothing about quota; the chat the CLI keeps records the latest answer's tokens.
+- **Meaning:** the context's size is read from the chat; there are no usage windows.
 
-### gemini.usage-windows
+### gemini.quota-refusal
 
-- **Observed:** ACP's `_meta.quota` holds `token_count` and `model_usage`, both token counts. Headless `stats` holds tokens, `duration_ms` and `tool_calls`. Neither says anything about quota.
-- **Also seen:** the free tier's limit came back as a refused turn: `429 You exceeded your current quota … Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15 … Please retry in 58.5s`. The error was JSON-RPC 429 over ACP, and an `error` result with the same text headless.
-- **Meaning:** no usage windows. A 429 names its metric and when to retry, which a refused turn can show.
+- **Run:** one turn; recorded only when it is refused for a used-up quota, skipped otherwise.
+- **Observed:** skipped on both tries, once right after a turn of another check was refused with `429 … Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 15 … retry in 34.9s`. The CLI retries a per-minute 429 by itself, with backoff, so a turn is refused only once its retries run out; on the `flash` alias the CLI retried for over 3 minutes without answering.
 
 ### gemini.language-servers
 
 - **Observed:** the pinned CLI's tool reference names no language-server tool.
+
+### The AgentEngine contract, live
+
+`OFFICE_ENGINE_TESTS=live GEMINI_API_KEY=<key> npx vitest run src/modules/engine/adapters/gemini-cli/gemini-cli-engine.test.ts -t "pinned CLI"` in `apps/service`, on the `flash-lite` alias (the cheapest the engine offers):
+- **Linux, 2026-11-20:** 11 of 12 scenarios pass (reply, Office tool, refusal, MCP server, `later`, interrupt, resume, output schema, context usage, and both usage-window refusals). `skill-command` failed twice the same way: on the brief's turn ("Reply with the single word: ready") the model called the Office tool `note` with `ready` unasked; the skill command's own turn then ran and noted `tangerine` as it should. The `flash` alias didn't answer within 180 s on this free-tier key.
+- **Windows:** (pending).
 
 ## The OpenAI-compatible API
 
@@ -835,7 +789,7 @@ Seen while running the checks, recorded so a bump can be compared against them.
 
 ## Not checked
 
-- On the Gemini CLI: the `gemini.*` checks on Windows (pending); Login with Google on a Workspace or Code Assist Standard or Enterprise account; whether the CLI's environment redaction keeps `GEMINI_API_KEY` and a headless MCP server's values from the model's shell while the hook relay still gets its token; a hook relay with its own deadline; the shape of a daily-quota refusal; sub-agents (`invoke_agent`, `codebase_investigator`), which the check's `tools.core` leaves out.
+- On the Gemini CLI: Login with Google on a Workspace or Code Assist Standard or Enterprise account; the shape of a daily-quota refusal; sub-agents (`invoke_agent`, `codebase_investigator`), which `tools.core` leaves out; models other than `flash-lite` on a paid key.
 - On the `-p` fallback: priority `now` (not used), a hook that answers too late or with an error status rather than not at all, and whether the Skill tool asks for permission without the `Skill(…)` rule.
 - Which engine-owned paths outside the worktree, other than the auto-memory folder, the engine auto-allows writes to. The hook fences writes regardless.
 - Whether `forkSession` resumes read the parent's cache, a non-child process posting into a session's inbox on Windows, concurrency limits beyond three sessions and how cache reads count against plan quota, `projectConfigRoot` and `CLAUDE_SECURESTORAGE_CONFIG_DIR`. The Office uses none of them.

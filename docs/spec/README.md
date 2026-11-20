@@ -588,6 +588,7 @@ Where each default lives, by page:
   - [The Gemini CLI engine](5.4.7-gemini-cli-engine.md#the-gemini-cli-engine)
   - [Gemini CLI: sign-in](5.4.7-gemini-cli-engine.md#gemini-cli-sign-in)
   - [Gemini CLI: the headless transport](5.4.7-gemini-cli-engine.md#gemini-cli-the-headless-transport)
+  - [Gemini CLI: the repository's Gemini settings](5.4.7-gemini-cli-engine.md#gemini-cli-the-repositorys-gemini-settings)
   - [Gemini CLI: the Office rules through the BeforeTool hook](5.4.7-gemini-cli-engine.md#gemini-cli-the-office-rules-through-the-beforetool-hook)
   - [Gemini CLI: Office tools and MCP servers](5.4.7-gemini-cli-engine.md#gemini-cli-office-tools-and-mcp-servers)
   - [Gemini CLI: answers held to a schema](5.4.7-gemini-cli-engine.md#gemini-cli-answers-held-to-a-schema)

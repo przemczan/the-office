@@ -381,6 +381,26 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
     );
 
     it.each([
+      ".gemini/settings.json",
+      join(platform.worktree, "packages", "web", ".gemini", "settings.json"),
+    ])("refuses the protected %s", (path) => {
+      expect(decide({ kind: "edit", paths: [path] })).toEqual({
+        allowed: false,
+        reason:
+          "Refused by The Office: .gemini/settings.json would rank above The Office's settings on a Gemini CLI engine, so Agents never write it; the rest of .gemini/ is open to edits.",
+      });
+    });
+
+    it.each([
+      ".gemini/commands/x.toml",
+      ".gemini/settings.json.bak",
+      "settings.json",
+      "config/settings.json",
+    ])("allows %s, not the protected .gemini/settings.json", (path) => {
+      expect(decide({ kind: "edit", paths: [path] })).toEqual({ allowed: true });
+    });
+
+    it.each([
       ".devcontainer/devcontainer.json",
       join(platform.worktree, ".devcontainer", "compose.yaml"),
     ])("refuses %s, pointing to the tool that writes the run environment definition", (path) => {
@@ -393,6 +413,9 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
 
     it.runIf(platform === WINDOWS)("refuses a protected path in any case on Windows", () => {
       expect(decide({ kind: "edit", paths: [raw`.GIT\config`] })).toMatchObject({ allowed: false });
+      expect(decide({ kind: "edit", paths: [raw`.Gemini\Settings.json`] })).toMatchObject({
+        allowed: false,
+      });
     });
 
     it("refuses a file outside the worktree, its skills folder too", () => {

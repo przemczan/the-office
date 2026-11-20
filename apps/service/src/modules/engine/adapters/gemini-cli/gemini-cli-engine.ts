@@ -38,7 +38,7 @@ import { GEMINI_CLI_CAPABILITIES } from "./gemini-cli-capabilities.js";
 import { GeminiCliSession } from "./gemini-cli-session.js";
 import { geminiCommandEnvironment, geminiEnvironment } from "./gemini-environment.js";
 import { HookRefusals } from "./gemini-events.js";
-import { GeminiSessionFiles } from "./gemini-session-files.js";
+import { GeminiSessionFiles, preparedGeminiSessionHome } from "./gemini-session-files.js";
 import { geminiMcpToolName, geminiSettings, type RelayServer } from "./gemini-settings.js";
 import { geminiDecision, geminiToolCall, type GeminiToolSession } from "./gemini-tool-actions.js";
 import { OfficeChannel, type HookAnswer } from "./office-channel.js";
@@ -61,8 +61,8 @@ function relayScript(): string {
 
 /**
  * The Gemini CLI engine (spec §5.4.7): each turn a process of the pinned `@google/gemini-cli`,
- * headless with stream-json, its home the engine's folder, signed in by the engine's API key in its
- * environment alone; every tool call judged by the Office rules in its `BeforeTool` hook, and the
+ * headless with stream-json, its home the session's own folder in the engine's, signed in by the
+ * engine's API key in its environment alone; every tool call judged by the Office rules in its `BeforeTool` hook, and the
  * Office tools, the Skill tool, StructuredOutput and the Role's MCP servers served from the service,
  * both through relays the CLI runs that reach the session's local socket (`OfficeChannel`).
  */
@@ -90,7 +90,7 @@ export class GeminiCliHeadlessEngine extends AgentEngine {
     return session;
   }
 
-  /** In the engine's home and the session's folder, which keep its chat (spec §5.4.7). */
+  /** In the session's home, which keeps its chat, and its working folder (spec §5.4.7). */
   async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
     this.require("resume");
     this.requireFor(options);
@@ -121,7 +121,10 @@ export class GeminiCliHeadlessEngine extends AgentEngine {
     if (problems.length > 0) throw new SessionSkillsDiffer(id, problems);
     const prompts = await this.promptTemplates.textsOf(ENGINE_PROMPT_TEMPLATES);
     const os = this.operatingSystem;
-    const home = await preparedEngineConfigFolder(this.officeData, engine.id);
+    const home = await preparedGeminiSessionHome(
+      await preparedEngineConfigFolder(this.officeData, engine.id),
+      id,
+    );
     const files = GeminiSessionFiles.named(
       this.officeData.folder("sessions"),
       id,
@@ -130,7 +133,6 @@ export class GeminiCliHeadlessEngine extends AgentEngine {
     );
     const environment = geminiEnvironment(options.environment, {
       home,
-      settingsFile: files.settingsFile,
       apiKey: engine.apiKey?.reveal(),
     });
     const rules = sessionOfficeRules(os, this.officeData, id, options, {

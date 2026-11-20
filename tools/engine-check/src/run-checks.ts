@@ -19,11 +19,8 @@ import { COPILOT_TOKEN_VARIABLE } from "./copilot-cli/options.ts";
 import type { CopilotSessionSpec } from "./copilot-cli/session-options.ts";
 import type { SessionEvent } from "@microsoft/copilot-sdk";
 import type { Expectations } from "./expectations.ts";
-import { GeminiAcpSession } from "./gemini/acp-session.ts";
-import { isSignedIn, SIGNED_IN_HOME } from "./gemini/gemini-home.ts";
+import { GeminiSession, type GeminiSessionSpec } from "./gemini/gemini-session.ts";
 import { GEMINI_API_KEY_FILE_VARIABLE } from "./gemini/options.ts";
-import type { GeminiSession, GeminiSessionSpec } from "./gemini/gemini-session.ts";
-import { GeminiHeadlessSession } from "./gemini/headless-session.ts";
 import { diffJson, type Json, type JsonDifference } from "./json.ts";
 import { ProbeSession } from "./probe-session.ts";
 import type { HookCall, RecordedSession, TokenUsage } from "./recorded-session.ts";
@@ -56,12 +53,10 @@ export interface CopilotSessionTranscript {
 }
 
 export interface GeminiSessionTranscript {
-  readonly transport: string;
   readonly sessionId: string;
   readonly events: readonly Json[];
   readonly hookCalls: GeminiSession["hookCalls"];
   readonly officeToolCalls: GeminiSession["officeToolCalls"];
-  readonly permissionRequests: GeminiSession["permissionRequests"];
   readonly stderr: string;
 }
 
@@ -151,7 +146,7 @@ export async function runCheck(
         startGeminiSession: async (spec) => {
           const session = await startGeminiSession(
             spec,
-            sandbox.root,
+            sandbox.officeData,
             options.geminiApiKey,
             signal,
           );
@@ -227,12 +222,10 @@ export async function runCheck(
         permissionCalls: session.permissionCalls,
       })),
       geminiSessions: geminiSessions.map((session) => ({
-        transport: session.transport,
         sessionId: session.sessionId,
         events: session.events,
         hookCalls: session.hookCalls,
         officeToolCalls: session.officeToolCalls,
-        permissionRequests: session.permissionRequests,
         stderr: session.stderr,
       })),
     };
@@ -255,25 +248,16 @@ async function startCopilotSession(
 
 async function startGeminiSession(
   spec: GeminiSessionSpec,
-  folder: string,
+  officeData: string,
   apiKey: string | undefined,
   signal: AbortSignal,
 ): Promise<GeminiSession> {
-  const signIn = spec.signIn ?? "api-key";
-  if (signIn === "api-key" && apiKey === undefined) {
+  if (apiKey === undefined) {
     throw new CheckSkipped(
       `No Gemini API key: name a file holding one in ${GEMINI_API_KEY_FILE_VARIABLE}`,
     );
   }
-  if (signIn === "google" && !(await isSignedIn(SIGNED_IN_HOME))) {
-    throw new CheckSkipped(
-      `The Gemini folder ${SIGNED_IN_HOME} is not signed in: sign it in with npm run engine-check -- --gemini-sign-in`,
-    );
-  }
-  const place = { folder, apiKey, googleHome: SIGNED_IN_HOME, signal };
-  return spec.transport === "acp"
-    ? GeminiAcpSession.start(spec, place)
-    : GeminiHeadlessSession.start(spec, place);
+  return GeminiSession.start(spec, { officeData, apiKey, signal });
 }
 
 async function startCodexSession(

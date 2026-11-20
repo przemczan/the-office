@@ -4,6 +4,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { OfficeChannel, type ChannelHandlers, type HookAnswer } from "./office-channel.js";
@@ -118,4 +120,64 @@ describe("the Gemini CLI hook relay", () => {
     expect(run).toMatchObject({ status: 2, stdout: "" });
     expect(run.stderr).toContain("the service gave no decision");
   });
+});
+
+describe("the Gemini CLI MCP relay", () => {
+  let folder: string;
+  let channel: OfficeChannel | undefined;
+  let client: Client | undefined;
+
+  beforeEach(async () => {
+    folder = await mkdtemp(join(tmpdir(), "office-gemini-relay-"));
+  });
+
+  afterEach(async () => {
+    await client?.close();
+    client = undefined;
+    await channel?.close();
+    channel = undefined;
+    await rm(folder, { recursive: true, force: true });
+  });
+
+  async function connected(answer: string): Promise<Client> {
+    const address = currentOperatingSystem().localSocketPath(
+      `office-gemini-test-${randomBytes(6).toString("hex")}`,
+    );
+    channel = await OfficeChannel.open(address, {
+      ...HANDLERS,
+      callTool: () => Promise.resolve({ content: [{ type: "text", text: answer }] }),
+    });
+    const channelFile = join(folder, "channel.json");
+    await writeFile(channelFile, JSON.stringify(channel.place));
+    client = new Client({ name: "test", version: "1.0.0" });
+    await client.connect(
+      new StdioClientTransport({
+        command: process.execPath,
+        args: [RELAY, "mcp", channelFile, "office"],
+      }),
+    );
+    return client;
+  }
+
+  it.each([
+    ["42", { value: 42 }],
+    ["[1,2]", { value: [1, 2] }],
+    ['"quoted"', { value: "quoted" }],
+  ])(
+    "gives an answer whose text is JSON but no object a structured content the CLI accepts: %s",
+    async (text, structuredContent) => {
+      const relayed = await (await connected(text)).callTool({ name: "note", arguments: {} });
+
+      expect(relayed).toMatchObject({ content: [{ type: "text", text }], structuredContent });
+    },
+  );
+
+  it.each(['{"word":"tangerine"}', "Noted."])(
+    "relays any other answer as the service gave it: %s",
+    async (text) => {
+      const relayed = await (await connected(text)).callTool({ name: "note", arguments: {} });
+
+      expect(relayed).toEqual({ content: [{ type: "text", text }] });
+    },
+  );
 });

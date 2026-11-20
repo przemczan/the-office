@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { OfficeChannel } from "./office-channel.ts";
-import { OFFICE_CHANNEL_VARIABLE, OFFICE_SESSION_TOKEN_VARIABLE } from "./options.ts";
+import { OfficeServer } from "./office-server.ts";
+import { OFFICE_RELAY } from "./options.ts";
 
-const HOOK_RELAY = join(import.meta.dirname, "hook-relay.ts");
-const OFFICE_TOOL_SERVER = join(import.meta.dirname, "office-tool-server.ts");
 const HOOK_INPUT = {
   hook_event_name: "BeforeTool",
   tool_name: "run_shell_command",
@@ -30,72 +29,85 @@ after(async () => {
   await rm(folder, { recursive: true, force: true });
 });
 
-test("the hook relay prints the Office's answer", async () => {
+test("the service's hook relay prints the channel's answer", async () => {
+  channel.decideHooksWith(async () => ({ decision: "allow" }));
+  const allowed = await runHookRelay(await channelFile(channel.address, channel.token));
+  assert.equal(allowed.exitCode, 0);
+  assert.deepEqual(JSON.parse(allowed.stdout), { decision: "allow" });
   channel.decideHooksWith(async () => ({ decision: "deny", reason: "Not here." }));
-  const run = await runHookRelay({
-    [OFFICE_CHANNEL_VARIABLE]: channel.address,
-    [OFFICE_SESSION_TOKEN_VARIABLE]: channel.token,
-  });
-  assert.equal(run.exitCode, 0);
-  assert.deepEqual(JSON.parse(run.stdout), { decision: "deny", reason: "Not here." });
+  const denied = await runHookRelay(await channelFile(channel.address, channel.token));
+  assert.equal(denied.exitCode, 0);
+  assert.deepEqual(JSON.parse(denied.stdout), { decision: "deny", reason: "Not here." });
   assert.equal(channel.hookCalls.at(-1)?.input.tool_name, "run_shell_command");
 });
 
-test("the hook relay refuses with exit 2 when the token is wrong or nothing listens", async () => {
+test("the service's hook relay refuses with exit 2 when the token is wrong or nothing listens", async () => {
   const refusedBefore = channel.refused;
-  const wrongToken = await runHookRelay({
-    [OFFICE_CHANNEL_VARIABLE]: channel.address,
-    [OFFICE_SESSION_TOKEN_VARIABLE]: "wrong",
-  });
+  const wrongToken = await runHookRelay(await channelFile(channel.address, "wrong"));
   assert.equal(wrongToken.exitCode, 2);
   assert.equal(channel.refused, refusedBefore + 1);
-  const unreachable = await runHookRelay({
-    [OFFICE_CHANNEL_VARIABLE]: join(folder, "nothing.sock"),
-    [OFFICE_SESSION_TOKEN_VARIABLE]: channel.token,
-  });
+  const unreachable = await runHookRelay(
+    await channelFile(OfficeChannel.addressIn(folder), channel.token),
+  );
   assert.equal(unreachable.exitCode, 2);
   assert.match(unreachable.stderr, /refused/);
 });
 
-test("the stdio Office tool server lists the channel's tools and relays a call", async () => {
-  channel.serveTools([
-    {
-      name: "get_code_word",
-      description: "Answers the code word.",
-      inputSchema: { type: "object", properties: {} },
-      run: async () => ({ text: "LANTERN" }),
-    },
-  ]);
+test("the service's MCP relay lists a server's tools from the channel and relays a call", async () => {
+  channel.addServer(
+    "office",
+    new OfficeServer({
+      officeTools: [
+        {
+          name: "get_code_word",
+          description: "Answers the code word.",
+          inputSchema: { type: "object", properties: {} },
+          run: async () => ({ text: "LANTERN" }),
+        },
+      ],
+      skills: { review: "---\nname: review\ndescription: Reviews.\n---\n\nReview it.\n" },
+      outputSchema: undefined,
+    }),
+  );
   const client = new Client({ name: "test", version: "1.0.0" });
   await client.connect(
     new StdioClientTransport({
       command: process.execPath,
-      args: [OFFICE_TOOL_SERVER],
-      env: {
-        [OFFICE_CHANNEL_VARIABLE]: channel.address,
-        [OFFICE_SESSION_TOKEN_VARIABLE]: channel.token,
-      },
+      args: [OFFICE_RELAY, "mcp", await channelFile(channel.address, channel.token), "office"],
     }),
   );
   try {
     const { tools } = await client.listTools();
     assert.deepEqual(
       tools.map((tool) => tool.name),
-      ["get_code_word"],
+      ["get_code_word", "Skill"],
     );
-    const result = await client.callTool({ name: "get_code_word", arguments: {} });
-    assert.deepEqual(result.content, [{ type: "text", text: "LANTERN" }]);
-    assert.equal(channel.toolCalls.at(-1)?.name, "get_code_word");
+    const word = await client.callTool({ name: "get_code_word", arguments: {} });
+    assert.deepEqual(word.content, [{ type: "text", text: "LANTERN" }]);
+    const skill = await client.callTool({ name: "Skill", arguments: { skill: "review" } });
+    assert.deepEqual(skill.content, [{ type: "text", text: "\nReview it.\n" }]);
+    assert.deepEqual(
+      channel.toolCalls.map(({ server, name }) => `${server}/${name}`),
+      ["office/get_code_word", "office/Skill"],
+    );
   } finally {
     await client.close();
   }
 });
 
+let channelFiles = 0;
+
+async function channelFile(address: string, token: string): Promise<string> {
+  const file = join(folder, `channel-${channelFiles++}.json`);
+  await writeFile(file, JSON.stringify({ address, token }));
+  return file;
+}
+
 async function runHookRelay(
-  environment: Record<string, string>,
+  file: string,
 ): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
-  const child = spawn(process.execPath, [HOOK_RELAY], {
-    env: { PATH: process.env["PATH"] ?? "", ...environment },
+  const child = spawn(process.execPath, [OFFICE_RELAY, "hook", file], {
+    env: { PATH: process.env["PATH"] ?? "" },
   });
   let stdout = "";
   let stderr = "";

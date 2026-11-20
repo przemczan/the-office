@@ -26,6 +26,15 @@ export type ToolDecision =
 const PROTECTED_NAMES: ReadonlySet<string> = new Set([".git", ".claude", ".mcp.json"]);
 
 /**
+ * Files protected by a folder and a name together, anywhere in a worktree: the Gemini CLI ranks a
+ * folder's `.gemini/settings.json` above the session's own settings, so one could turn the Office
+ * rules off (spec 5.4.7); the rest of `.gemini/` stays the Agents'.
+ */
+const PROTECTED_FILES: readonly (readonly [folder: string, name: string])[] = [
+  [".gemini", "settings.json"],
+];
+
+/**
  * The repository's run environment definition folder, which Agents write only through The Office's
  * tool, which checks it first; the engine's own protection refuses it too, without a reason.
  */
@@ -137,6 +146,11 @@ export class OfficeRules {
     if (names.some((name) => PROTECTED_NAMES.has(name))) {
       return this.advised(
         "Refused by The Office: .git, .claude and .mcp.json are The Office's to change; Agents never write there.",
+      );
+    }
+    if (isProtectedFile(names)) {
+      return this.advised(
+        "Refused by The Office: .gemini/settings.json would rank above The Office's settings on a Gemini CLI engine, so Agents never write it; the rest of .gemini/ is open to edits.",
       );
     }
     return names[0] === RUN_ENVIRONMENT_DEFINITION_FOLDER
@@ -313,6 +327,11 @@ export class OfficeRules {
           `commands other than the Project's own (${permission.commandLines.join("; ")}) and ${READ_ONLY_GIT}`,
         );
   }
+}
+
+/** Whether a worktree path's names end in a protected file, as `.gemini/settings.json`. */
+function isProtectedFile(names: readonly string[]): boolean {
+  return PROTECTED_FILES.some(([folder, name]) => names.at(-1) === name && names.at(-2) === folder);
 }
 
 /**

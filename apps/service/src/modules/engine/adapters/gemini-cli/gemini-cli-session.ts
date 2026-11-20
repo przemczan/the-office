@@ -1,4 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { lstat } from "node:fs/promises";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
@@ -44,7 +46,7 @@ export interface GeminiSessionParts {
   readonly command: GeminiTurnCommand;
   /** Whether the CLI already keeps the session, so the next turn resumes it. */
   readonly resumes: boolean;
-  /** The engine's folder, the CLI's home, which keeps the session's chat. */
+  /** The session's own home in the engine's folder, which keeps its chat. */
   readonly home: string;
   readonly toolSession: GeminiToolSession;
   /** The calls the session's hook refused, which the CLI's output doesn't tell from other failures. */
@@ -239,8 +241,10 @@ export class GeminiCliSession implements EngineSession {
     if (this.ending || this.turnStopped) {
       return { outcome: "interrupted", usage: NO_TOKENS, errors: [] };
     }
-    this.stderrTail = "";
     const { cliEntry, model, folder, environment } = this.parts.command;
+    const refusal = await repositorySettingsRefusal(folder);
+    if (refusal !== undefined) return { outcome: "failed", usage: NO_TOKENS, errors: [refusal] };
+    this.stderrTail = "";
     const child = spawn(
       process.execPath,
       [
@@ -305,17 +309,47 @@ export class GeminiCliSession implements EngineSession {
     return { outcome: "failed", usage: ending.usage, errors };
   }
 
-  /** Ends a turn's process with every process it started, its commands and MCP relays among them. */
+  /**
+   * Ends a turn's process with every process it started, its commands and MCP relays among them.
+   * The CLI starts each shell command in a process group of its own, which ending the CLI's tree
+   * misses on Linux, so its descendants go first, while they can still be found by their parent
+   * (the engine check, `gemini.interrupt`).
+   */
   private async stop(running: RunningTurn): Promise<void> {
     running.stopped = true;
     const processId = running.child.pid;
-    if (processId === undefined) running.child.kill();
-    else await this.parts.processTrees.end(processId);
+    if (processId === undefined) {
+      running.child.kill();
+      return;
+    }
+    await this.parts.processTrees.endDescendants(processId);
+    await this.parts.processTrees.end(processId);
   }
 
   private push(event: SessionEvent): void {
     if (this.reported.isOpen) this.reported.push(event);
   }
+}
+
+/**
+ * Why no turn runs in a folder holding `.gemini/settings.json`: the CLI, with folder trust off,
+ * ranks it above the session's own settings, so it could turn the Office hook off (spec §5.4.7).
+ * Checked before each process starts, so none starts.
+ */
+async function repositorySettingsRefusal(folder: string): Promise<string | undefined> {
+  const settings = join(folder, ".gemini", "settings.json");
+  try {
+    await lstat(settings);
+  } catch (error) {
+    if (isMissing(error)) return undefined;
+    throw error;
+  }
+  return `The Gemini CLI engine can't run in ${folder}: its .gemini/settings.json would rank above The Office's settings and could turn the Office rules off. Remove the file, or pick another engine for this Role.`;
+}
+
+function isMissing(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === "ENOENT" || code === "ENOTDIR";
 }
 
 function messageOf(error: unknown): string {

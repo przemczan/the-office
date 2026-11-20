@@ -94,12 +94,14 @@ async function relayMcpServer(name: string): Promise<void> {
   }));
   mcp.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
     try {
-      return (await ask({
-        kind: "call-tool",
-        server: name,
-        name: request.params.name,
-        input: request.params.arguments ?? {},
-      })) as CallToolResult;
+      return withStructuredContent(
+        (await ask({
+          kind: "call-tool",
+          server: name,
+          name: request.params.name,
+          input: request.params.arguments ?? {},
+        })) as CallToolResult,
+      );
     } catch (error) {
       return {
         content: [
@@ -110,6 +112,25 @@ async function relayMcpServer(name: string): Promise<void> {
     }
   });
   await mcp.connect(new StdioServerTransport());
+}
+
+/**
+ * The CLI takes a result without `structuredContent` and parses its first text as JSON into it,
+ * then refuses the result when that JSON isn't an object, so a tool answering `42` or `[1, 2]`
+ * would fail (the AgentEngine contract on the pinned CLI). Such a result gets the parsed value
+ * wrapped as its `structuredContent`; the model still reads the text, as the CLI shows content.
+ */
+function withStructuredContent(result: CallToolResult): CallToolResult {
+  const [first] = result.content;
+  if (result.structuredContent !== undefined || first?.type !== "text") return result;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(first.text);
+  } catch {
+    return result;
+  }
+  const isObject = typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+  return isObject ? result : { ...result, structuredContent: { value: parsed } };
 }
 
 /** Sends one request to the session's channel and reads its one answer line. */

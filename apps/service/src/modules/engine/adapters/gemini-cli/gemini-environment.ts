@@ -26,10 +26,11 @@ export const GEMINI_API_KEY_VARIABLE = "GEMINI_API_KEY";
 
 /** Where a turn's CLI keeps its chats and reads its settings and key from. */
 export interface GeminiProcessPlaces {
-  /** The engine's folder, the CLI's home (`GEMINI_CLI_HOME`). */
+  /**
+   * The session's own home in the engine's folder (`GEMINI_CLI_HOME`), whose `.gemini/settings.json`
+   * holds the session's settings (`preparedGeminiSessionHome`).
+   */
   readonly home: string;
-  /** The session's own settings file, read over every other (`GEMINI_CLI_SYSTEM_SETTINGS_PATH`). */
-  readonly settingsFile: string;
   /** The engine's Gemini API key; the folder's own sign-in when undefined. */
   readonly apiKey: string | undefined;
 }
@@ -37,13 +38,13 @@ export interface GeminiProcessPlaces {
 /**
  * The variables the CLI runs with (spec §5.4.7): the session's without the dropped ones, nor The
  * Office's own, which hold its database credentials (spec §6), nor the container runtime's; then its
- * home, its settings, no relaunch, so the process The Office starts runs the session and a Stop
+ * home, no relaunch, so the process The Office starts runs the session and a Stop
  * reaches it, no browser, and the key. The model's shell commands, hooks and MCP servers get them
  * redacted of the key (`gemini-settings.ts`).
  */
 export function geminiEnvironment(
   environment: Readonly<Record<string, string>>,
-  { home, settingsFile, apiKey }: GeminiProcessPlaces,
+  { home, apiKey }: GeminiProcessPlaces,
 ): Record<string, string> {
   const given = Object.entries(withoutContainerRuntimeVariables(environment)).filter(
     ([name]) =>
@@ -53,7 +54,6 @@ export function geminiEnvironment(
   return {
     ...Object.fromEntries(given),
     GEMINI_CLI_HOME: home,
-    GEMINI_CLI_SYSTEM_SETTINGS_PATH: settingsFile,
     GEMINI_CLI_NO_RELAUNCH: "true",
     NO_BROWSER: "true",
     ...(apiKey === undefined ? {} : { [GEMINI_API_KEY_VARIABLE]: apiKey }),

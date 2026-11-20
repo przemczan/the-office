@@ -1,44 +1,41 @@
-import type { ChildProcess } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { createInterface } from "node:readline";
 import type { Json } from "../json.ts";
 import type { TokenUsage } from "../recorded-session.ts";
+import { geminiSettings, nodeScriptHookCommand, type RelayServer } from "./gemini-settings.ts";
+import { OfficeChannel, type HookDecider } from "./office-channel.ts";
+import { OfficeServer, type OfficeTool, type OutputSchema } from "./office-server.ts";
 import {
-  ASK_EVERY_CALL_POLICY,
-  geminiSettings,
-  nodeScriptCommand,
-  writeHome,
-  type StdioServerSetting,
-} from "./gemini-home.ts";
-import { OfficeChannel, type HookDecider, type OfficeTool } from "./office-channel.ts";
-import {
-  OFFICE_CHANNEL_VARIABLE,
+  GEMINI_CHECK_ENGINE_ID,
+  GEMINI_CHECK_MODEL,
+  OFFICE_RELAY,
   OFFICE_SERVER,
-  OFFICE_SESSION_TOKEN_VARIABLE,
-  type GeminiTransport,
 } from "./options.ts";
+import { pinnedCliEntry } from "./pinned-cli.ts";
+import { DETACHED, endLeftovers, endProcessTree } from "./process-trees.ts";
+import { ProjectMcpConnection, type ProjectMcpServer } from "./project-mcp-connection.ts";
 import { geminiProcessEnvironment } from "./session-environment.ts";
+import { SessionFiles } from "./session-files.ts";
 
-const HOOK_RELAY = join(import.meta.dirname, "hook-relay.ts");
-const OFFICE_TOOL_SERVER = join(import.meta.dirname, "office-tool-server.ts");
+export type ToolCallStatus = "in_progress" | "completed" | "failed";
 
-export type ToolCallStatus = "pending" | "in_progress" | "completed" | "failed";
-
-/** A tool call as the session's own output shows it. */
+/** A tool call as the stream shows it. */
 export interface GeminiToolCall {
   readonly id: string;
-  /** The tool's name: the stream's `tool_name`, or over ACP the call id's prefix (`<name>-<ms>-<n>`). */
   readonly name: string;
+  readonly input: Json;
   status: ToolCallStatus;
-  /** The text the call's result shows, when the output carries one. */
+  /** The text the call's result shows, when the stream carries one. */
   output: string;
   readonly turn: number;
   readonly firstSeenAt: number;
 }
 
 export interface GeminiTurnError {
-  /** The JSON-RPC error code over ACP; the `result` event's error type headless. */
+  /** The `result` event's error type, or the exit code when the process gave none. */
   readonly code: number | string | null;
   readonly message: string;
 }
@@ -46,74 +43,57 @@ export interface GeminiTurnError {
 /** How a turn ended. */
 export interface GeminiTurn {
   readonly index: number;
-  /** ACP's `stopReason`; headless, `end_turn`, `cancelled` for a stopped process, or `error`. */
-  readonly stopReason: string;
+  /** How many messages the turn's prompt held: more than one when messages waited for it. */
+  readonly messageCount: number;
+  /** `end_turn`, `cancelled` for a stopped process, or `error`. */
+  readonly stopReason: "end_turn" | "cancelled" | "error";
   readonly reply: string;
   readonly toolCalls: readonly GeminiToolCall[];
   readonly usage: TokenUsage | undefined;
   readonly error: GeminiTurnError | undefined;
-  /** Headless only: the process's exit code (null when a signal ended it). */
-  readonly exitCode?: number | null;
-}
-
-/** A Project's MCP server for a session: the values of its environment are handed over without a file. */
-export interface ProjectMcpServer {
-  readonly command: string;
-  readonly args: readonly string[];
-  readonly env: Readonly<Record<string, string>>;
+  /** The process's exit code (null when a signal ended it). */
+  readonly exitCode: number | null;
 }
 
 export interface GeminiSessionSpec {
-  readonly transport: GeminiTransport;
   readonly repository: string;
-  /** Runs in a home an earlier session of the check made (to resume its session); a new one when omitted. */
-  readonly home?: string;
+  /** The engine whose folder is the CLI's home; the check's one engine when omitted. */
+  readonly engineId?: string;
   /** Resumes this session id instead of starting one. */
   readonly resume?: string;
   readonly officeTools?: readonly OfficeTool[];
+  /** The session's skills by name, each a whole `SKILL.md`, which the Skill tool lists and loads. */
+  readonly skills?: Readonly<Record<string, string>>;
+  /** The schema the session's answers are held to, through StructuredOutput. */
+  readonly outputSchema?: OutputSchema;
   readonly projectMcpServers?: Readonly<Record<string, ProjectMcpServer>>;
   /** Decides each `BeforeTool` hook call; allows when omitted. */
   readonly decideHook?: HookDecider;
-  /** Over ACP: answers each permission request; allows when omitted. */
-  readonly decidePermission?: PermissionDecider;
-  /** Over ACP: whether the session asks before every call (the user policy), as The Office would; true when omitted. */
-  readonly askEveryCall?: boolean;
-  /** Points the hook relay at a channel nothing serves, to see what a failing hook does. */
+  /** Points the channel file at a socket nothing serves, to see what a failing hook does. */
   readonly unreachableHook?: boolean;
-  /** Skills the session's home gets in `.gemini/skills/<name>/SKILL.md`. */
-  readonly skills?: Readonly<Record<string, string>>;
-  /** How long the CLI waits for the hook; its default when omitted. */
+  /** Writes a wrong token in the channel file, so the channel refuses every relay. */
+  readonly wrongToken?: boolean;
+  /** How long the CLI waits for the hook; the adapter's when omitted. */
   readonly hookTimeoutMs?: number;
+  /** The Agent's instructions, which the CLI reads from a file in the engine folder. */
+  readonly instructions?: string;
+  /** Runs the CLI without the run's API key. */
+  readonly withoutApiKey?: boolean;
   /**
    * Lets a turn the engine refused (an error, not a stop) end normally; otherwise `prompt` throws,
    * so a check records nothing from a session that never got to work.
    */
   readonly refusedTurnsExpected?: boolean;
-  /**
-   * How the session signs in: `api-key`, the run's Gemini API key in the CLI's environment (the
-   * default); `google`, a copy of the credential files `--gemini-sign-in` left; `none`, neither.
-   */
-  readonly signIn?: GeminiSignIn;
-  /** The approval mode: ACP `default` and headless `yolo` when omitted. */
-  readonly approvalMode?: string;
 }
 
-export interface PermissionRequest {
-  readonly toolCallId: string;
-  readonly toolName: string;
-  readonly kind: string;
-  readonly title: string;
-  readonly optionIds: readonly string[];
-  /** Whether the request carried the call's arguments (`rawInput`). */
-  readonly carriesArguments: boolean;
-  readonly mcp: { readonly server_name?: string; readonly tool_name?: string } | undefined;
-  readonly at: number;
-  answer?: "allow" | "reject";
+/** Where a check's sessions run: the sandbox's Office data directory, the key and the check's end. */
+export interface GeminiSessionPlace {
+  readonly officeData: string;
+  readonly apiKey: string;
+  readonly signal: AbortSignal;
 }
 
-export type PermissionDecider = (request: PermissionRequest) => Promise<"allow" | "reject">;
-
-/** A turn the engine refused, such as a refused account or a used-up quota. */
+/** A turn the engine refused, such as a used-up quota. */
 export class TurnRefused extends Error {
   readonly turn: GeminiTurn;
 
@@ -125,58 +105,164 @@ export class TurnRefused extends Error {
   }
 }
 
-export type GeminiSignIn = "api-key" | "google" | "none";
+/** One line of `--output-format stream-json`. */
+interface StreamEvent {
+  readonly type: string;
+  readonly status?: string;
+  readonly role?: string;
+  readonly content?: string;
+  readonly tool_name?: string;
+  readonly tool_id?: string;
+  readonly parameters?: Json;
+  readonly output?: string;
+  readonly error?: { readonly type?: string; readonly message?: string };
+  readonly stats?: Readonly<Record<string, Json>>;
+}
 
-/** Where a session runs: its folder, what it signs in with, and its end. */
-export interface GeminiSessionPlace {
-  /** A folder of the check's sandbox, where the session's home and logs go. */
-  readonly folder: string;
-  /** The Gemini API key a session signed in by `api-key` gets in its environment, never in a file. */
-  readonly apiKey: string | undefined;
-  /** The home `--gemini-sign-in` signed in, whose credential files a `google` session copies. */
-  readonly googleHome: string;
+interface WaitingMessage {
+  readonly text: string;
+  resolve(turn: GeminiTurn): void;
+  reject(error: unknown): void;
+}
+
+/** What a session is made of once its files are written and its servers started. */
+interface OpenedSession {
+  readonly sessionId: string;
+  readonly spec: GeminiSessionSpec;
+  readonly home: string;
+  readonly environment: Readonly<Record<string, string>>;
+  readonly channel: OfficeChannel;
+  readonly officeServer: OfficeServer;
+  readonly files: SessionFiles;
+  readonly projectConnections: readonly ProjectMcpConnection[];
   readonly signal: AbortSignal;
 }
 
+interface RunningTurn {
+  readonly child: ChildProcessWithoutNullStreams;
+  readonly closed: Promise<number | null>;
+  stopped: boolean;
+}
+
 /**
- * One Gemini CLI session a check drives, over either transport: the raw output is recorded, tool
- * calls are followed, and the hook and Office tool calls arrive on the session's Office channel.
+ * One Gemini CLI session as the adapter (`gemini-cli-session.ts`, `gemini-cli-engine.ts`) runs it:
+ * a `--output-format stream-json` process per turn, the prompt on its input, in the engine's folder
+ * with the session's own settings file; the hook and every MCP server the service's relay, reaching
+ * the session's channel by the channel file. A message sent while a turn runs waits for its end, and
+ * the messages waiting then make the next turn together. Stop ends the turn's process tree.
  */
-export abstract class GeminiSession {
-  abstract readonly transport: GeminiTransport;
+export class GeminiSession {
   readonly events: Json[] = [];
   readonly toolCalls: GeminiToolCall[] = [];
   readonly turns: GeminiTurn[] = [];
-  readonly permissionRequests: PermissionRequest[] = [];
-  /** The file the session's MCP servers note their pid and command line in. */
-  readonly processLog: string;
-  protected stderrChunks: string[] = [];
-  protected readonly toolCallWaiters = new Set<() => void>();
-
+  private stderrChunks: string[] = [];
+  private readonly toolCallWaiters = new Set<() => void>();
+  private readonly waiting: WaitingMessage[] = [];
+  private takingTurns = false;
+  private running: RunningTurn | undefined;
+  private resumes: boolean;
+  readonly sessionId: string;
   readonly spec: GeminiSessionSpec;
+  /** The engine folder, the CLI's home. */
   readonly home: string;
-  readonly channel: OfficeChannel;
   readonly environment: Readonly<Record<string, string>>;
-  protected readonly signal: AbortSignal;
+  readonly channel: OfficeChannel;
+  readonly officeServer: OfficeServer;
+  private readonly files: SessionFiles;
+  private readonly projectConnections: readonly ProjectMcpConnection[];
+  private readonly signal: AbortSignal;
 
-  protected constructor(prepared: PreparedSession, spec: GeminiSessionSpec, signal: AbortSignal) {
-    this.spec = spec;
-    this.home = prepared.home;
-    this.channel = prepared.channel;
-    this.environment = prepared.environment;
-    this.signal = signal;
-    this.processLog = join(prepared.home, "processes.jsonl");
+  private constructor(opened: OpenedSession) {
+    this.sessionId = opened.sessionId;
+    this.spec = opened.spec;
+    this.home = opened.home;
+    this.environment = opened.environment;
+    this.channel = opened.channel;
+    this.officeServer = opened.officeServer;
+    this.files = opened.files;
+    this.projectConnections = opened.projectConnections;
+    this.signal = opened.signal;
+    this.resumes = opened.spec.resume !== undefined;
   }
 
-  abstract get sessionId(): string;
+  static async start(spec: GeminiSessionSpec, place: GeminiSessionPlace): Promise<GeminiSession> {
+    const sessionId = spec.resume ?? randomUUID();
+    const home = join(
+      place.officeData,
+      "engines",
+      spec.engineId ?? GEMINI_CHECK_ENGINE_ID,
+      "sessions",
+      sessionId,
+    );
+    await mkdir(home, { recursive: true, mode: 0o700 });
+    const files = SessionFiles.named(
+      join(place.officeData, "sessions"),
+      sessionId,
+      home,
+      spec.instructions ?? "",
+    );
+    const channel = await OfficeChannel.start(place.officeData);
+    const projectConnections: ProjectMcpConnection[] = [];
+    try {
+      if (spec.decideHook !== undefined) channel.decideHooksWith(spec.decideHook);
+      const officeServer = new OfficeServer({
+        officeTools: spec.officeTools ?? [],
+        skills: spec.skills,
+        outputSchema: spec.outputSchema,
+      });
+      if (officeServer.serves) channel.addServer(OFFICE_SERVER, officeServer);
+      for (const [name, server] of Object.entries(spec.projectMcpServers ?? {})) {
+        const connection = await ProjectMcpConnection.open(server);
+        projectConnections.push(connection);
+        channel.addServer(name, connection);
+      }
+      await files.write({
+        channel: {
+          address: spec.unreachableHook
+            ? OfficeChannel.addressIn(place.officeData)
+            : channel.address,
+          token: spec.wrongToken ? "not-the-session-token" : channel.token,
+        },
+        instructions: spec.instructions ?? "",
+        settings: geminiSettings({
+          hookCommand: nodeScriptHookCommand(OFFICE_RELAY, ["hook", files.channelFile]),
+          mcpServers: channel.serverNames.map((name): RelayServer => ({
+            name,
+            command: process.execPath,
+            args: [OFFICE_RELAY, "mcp", files.channelFile, name],
+          })),
+          instructionsFileName: files.instructionsFileName,
+          ...(spec.hookTimeoutMs === undefined ? {} : { hookTimeoutMs: spec.hookTimeoutMs }),
+        }),
+      });
+      const environment = geminiProcessEnvironment({
+        home,
+        ...(spec.withoutApiKey ? {} : { apiKey: place.apiKey }),
+      });
+      return new GeminiSession({
+        sessionId,
+        spec,
+        home,
+        environment,
+        channel,
+        officeServer,
+        files,
+        projectConnections,
+        signal: place.signal,
+      });
+    } catch (error) {
+      await closeAll(channel, files, projectConnections);
+      throw error;
+    }
+  }
 
-  /** Runs one turn to its end; a check that wants to act during the turn doesn't await it yet. */
-  abstract prompt(text: string): Promise<GeminiTurn>;
+  get sessionFolder(): string {
+    return this.files.sessionFolder;
+  }
 
-  /** Stops the running turn: ACP `session/cancel`, headless a stop of the turn's process. */
-  abstract cancel(): Promise<void>;
-
-  abstract close(): Promise<void>;
+  get channelFile(): string {
+    return this.files.channelFile;
+  }
 
   get stderr(): string {
     return this.stderrChunks.join("");
@@ -188,6 +274,42 @@ export abstract class GeminiSession {
 
   get officeToolCalls(): OfficeChannel["toolCalls"] {
     return this.channel.toolCalls;
+  }
+
+  /** Whether a turn's process is running now. */
+  get turnRunning(): boolean {
+    return this.running !== undefined;
+  }
+
+  /**
+   * Sends a message: it starts a turn, or waits for the running one's end and goes in the next turn
+   * with every other message waiting then. Resolves with the turn that took it.
+   */
+  prompt(text: string): Promise<GeminiTurn> {
+    return new Promise((resolve, reject) => {
+      this.waiting.push({ text, resolve, reject });
+      if (!this.takingTurns) void this.takeTurns();
+    });
+  }
+
+  /** Stops the running turn by ending its process tree, as the adapter's Stop. */
+  async cancel(): Promise<void> {
+    const running = this.running;
+    if (running === undefined) return;
+    running.stopped = true;
+    await this.endTree(running);
+    await running.closed;
+  }
+
+  async close(): Promise<void> {
+    this.waiting.length = 0;
+    const running = this.running;
+    if (running !== undefined) {
+      running.stopped = true;
+      await this.endTree(running);
+      await running.closed;
+    }
+    await closeAll(this.channel, this.files, this.projectConnections);
   }
 
   tokens(): TokenUsage {
@@ -206,194 +328,181 @@ export abstract class GeminiSession {
   async waitForToolCall(predicate: (call: GeminiToolCall) => boolean): Promise<GeminiToolCall> {
     for (;;) {
       const found = this.toolCalls.find(predicate);
-      if (found !== undefined) {
-        return found;
-      }
-      if (this.signal.aborted) {
-        throw this.signal.reason;
-      }
+      if (found !== undefined) return found;
+      if (this.signal.aborted) throw this.signal.reason;
       await new Promise<void>((resolve) => this.toolCallWaiters.add(resolve));
     }
   }
 
-  /** The pids and command lines the session's MCP servers noted. */
-  async mcpProcesses(): Promise<{ pid: number; argv: string[] }[]> {
-    const text = await readFile(this.processLog, "utf8").catch(() => "");
-    return text
-      .split("\n")
-      .filter((line) => line !== "")
-      .map((line) => JSON.parse(line) as { pid?: number; argv?: string[] })
-      .flatMap((entry) =>
-        entry.pid === undefined ? [] : [{ pid: entry.pid, argv: entry.argv ?? [] }],
-      );
+  private async takeTurns(): Promise<void> {
+    this.takingTurns = true;
+    try {
+      while (this.waiting.length > 0) {
+        const messages = this.waiting.splice(0);
+        try {
+          const turn = await this.runTurn(messages.map(({ text }) => text));
+          for (const message of messages) message.resolve(turn);
+        } catch (error) {
+          for (const message of messages) message.reject(error);
+        }
+      }
+    } finally {
+      this.takingTurns = false;
+    }
+  }
+
+  private async runTurn(messages: readonly string[]): Promise<GeminiTurn> {
+    const index = this.turns.length;
+    const child = spawn(
+      process.execPath,
+      [
+        pinnedCliEntry(),
+        "--model",
+        GEMINI_CHECK_MODEL,
+        "--output-format",
+        "stream-json",
+        "--approval-mode",
+        "yolo",
+        ...(this.resumes ? ["--resume", this.sessionId] : ["--session-id", this.sessionId]),
+      ],
+      {
+        cwd: this.spec.repository,
+        env: { ...this.environment },
+        stdio: "pipe",
+        detached: DETACHED,
+        windowsHide: true,
+      },
+    );
+    const closed = new Promise<number | null>((resolve) =>
+      child.once("close", (code) => resolve(code)),
+    );
+    const running: RunningTurn = { child, closed, stopped: false };
+    this.running = running;
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => this.stderrChunks.push(chunk));
+    child.stdin.on("error", () => undefined);
+    child.stdin.end(messages.join("\n\n"));
+    const replies: string[] = [];
+    let result: StreamEvent | undefined;
+    for await (const line of createInterface({ input: child.stdout })) {
+      const event = parseEvent(line);
+      if (event === undefined) {
+        this.stderrChunks.push(`[stdout, not stream-json] ${line}\n`);
+        continue;
+      }
+      this.events.push(event as unknown as Json);
+      if (event.type === "init") this.resumes = true;
+      else if (event.type === "message" && event.role === "assistant") {
+        replies.push(event.content ?? "");
+      } else if (event.type === "tool_use") this.noteToolCall(event, index);
+      else if (event.type === "tool_result") this.noteToolResult(event);
+      else if (event.type === "result") result = event;
+    }
+    const exitCode = await closed;
+    this.running = undefined;
+    if (child.pid !== undefined) await endLeftovers(child.pid);
+    return this.endTurn({
+      index,
+      messageCount: messages.length,
+      stopReason: running.stopped
+        ? "cancelled"
+        : result?.status === "success"
+          ? "end_turn"
+          : "error",
+      reply: replies.join(""),
+      toolCalls: this.toolCalls.filter((call) => call.turn === index),
+      usage: tokenUsage(result),
+      error: turnError(result, exitCode, running.stopped, this.stderr),
+      exitCode,
+    });
+  }
+
+  private async endTree({ child }: RunningTurn): Promise<void> {
+    if (child.pid === undefined) child.kill();
+    else await endProcessTree(child.pid);
   }
 
   /** Records a turn that ended, and throws when the engine refused it unless the spec expects that. */
-  protected endTurn(turn: GeminiTurn): GeminiTurn {
+  private endTurn(turn: GeminiTurn): GeminiTurn {
     this.turns.push(turn);
-    this.turns.sort((first, second) => first.index - second.index);
     if (turn.stopReason === "error" && this.spec.refusedTurnsExpected !== true) {
       throw new TurnRefused(turn);
     }
     return turn;
   }
 
-  protected noteToolCall(call: GeminiToolCall): void {
-    this.toolCalls.push(call);
+  private noteToolCall(event: StreamEvent, turn: number): void {
+    this.toolCalls.push({
+      id: event.tool_id ?? "",
+      name: event.tool_name ?? "",
+      input: event.parameters ?? null,
+      status: "in_progress",
+      output: "",
+      turn,
+      firstSeenAt: Date.now(),
+    });
     this.wakeToolCallWaiters();
   }
 
-  protected wakeToolCallWaiters(): void {
-    for (const wake of this.toolCallWaiters) {
-      wake();
-    }
+  private noteToolResult(event: StreamEvent): void {
+    const call = this.toolCalls.find((candidate) => candidate.id === event.tool_id);
+    if (call === undefined) return;
+    call.status = event.status === "success" ? "completed" : "failed";
+    call.output = event.output ?? event.error?.message ?? "";
+    this.wakeToolCallWaiters();
+  }
+
+  private wakeToolCallWaiters(): void {
+    for (const wake of this.toolCallWaiters) wake();
     this.toolCallWaiters.clear();
   }
-
-  protected collectStderr(child: ChildProcess): void {
-    child.stderr?.setEncoding("utf8");
-    child.stderr?.on("data", (chunk: string) => this.stderrChunks.push(chunk));
-  }
-
-  /** The Office tool server, as the CLI starts it: its address and token in its environment only. */
-  protected officeToolServer(): ProjectMcpServer {
-    return {
-      command: process.execPath,
-      args: [OFFICE_TOOL_SERVER, this.processLog],
-      env: {
-        [OFFICE_CHANNEL_VARIABLE]: this.environment[OFFICE_CHANNEL_VARIABLE] ?? "",
-        [OFFICE_SESSION_TOKEN_VARIABLE]: this.channel.token,
-      },
-    };
-  }
-
-  /** Every MCP server of the session by name: the Office's when it has Office tools, and the Project's. */
-  protected mcpServers(): Record<string, ProjectMcpServer> {
-    return {
-      ...((this.spec.officeTools?.length ?? 0) > 0
-        ? { [OFFICE_SERVER]: this.officeToolServer() }
-        : {}),
-      ...this.spec.projectMcpServers,
-    };
-  }
 }
 
-export interface PreparedSession {
-  readonly home: string;
-  readonly channel: OfficeChannel;
-  readonly environment: Readonly<Record<string, string>>;
-}
-
-/** Everything a session needs before its process starts: its home, settings, channel and environment. */
-export async function prepareSession(
-  spec: GeminiSessionSpec,
-  place: GeminiSessionPlace,
-): Promise<PreparedSession> {
-  const channel = await OfficeChannel.start(place.folder);
-  try {
-    return await prepareWithChannel(spec, place, channel);
-  } catch (error) {
-    await channel.close();
-    throw error;
-  }
-}
-
-async function prepareWithChannel(
-  spec: GeminiSessionSpec,
-  place: GeminiSessionPlace,
+async function closeAll(
   channel: OfficeChannel,
-): Promise<PreparedSession> {
-  const home = spec.home ?? join(place.folder, `gemini-home-${randomUUID().slice(0, 8)}`);
-  if (spec.decideHook !== undefined) {
-    channel.decideHooksWith(spec.decideHook);
-  }
-  channel.serveTools(spec.officeTools ?? []);
-  const channelAddress = spec.unreachableHook
-    ? join(place.folder, "nothing-listens-here.sock")
-    : channel.address;
-  const signIn = spec.signIn ?? "api-key";
-  const projectValues = Object.values(spec.projectMcpServers ?? {}).map((server) => server.env);
-  const environment = geminiProcessEnvironment(home, {
-    ...(signIn === "api-key" && place.apiKey !== undefined ? { GEMINI_API_KEY: place.apiKey } : {}),
-    [OFFICE_CHANNEL_VARIABLE]: channelAddress,
-    [OFFICE_SESSION_TOKEN_VARIABLE]: channel.token,
-    // Headless, the settings name a Project server's values as `$NAME`, which the CLI expands from here.
-    ...(spec.transport === "headless" ? Object.assign({}, ...projectValues) : {}),
-  });
-  await writeHome(home, {
-    settings: geminiSettings({
-      authType: signIn === "google" ? "oauth-personal" : "gemini-api-key",
-      hookCommand: nodeScriptCommand(HOOK_RELAY),
-      mcpServerNames: mcpServerNames(spec),
-      ...(spec.hookTimeoutMs === undefined ? {} : { hookTimeoutMs: spec.hookTimeoutMs }),
-      ...(spec.transport === "headless" ? { mcpServers: headlessMcpServers(spec, home) } : {}),
-    }),
-    policies:
-      spec.transport === "acp" && (spec.askEveryCall ?? true)
-        ? { "office.toml": ASK_EVERY_CALL_POLICY }
-        : {},
-    ...(signIn === "google" ? { credentialsFrom: place.googleHome } : {}),
-  });
-  for (const [name, text] of Object.entries(spec.skills ?? {})) {
-    const folder = join(home, ".gemini", "skills", name);
-    await mkdir(folder, { recursive: true });
-    await writeFile(join(folder, "SKILL.md"), text);
-  }
-  return { home, channel, environment };
+  files: SessionFiles,
+  projectConnections: readonly ProjectMcpConnection[],
+): Promise<void> {
+  await channel.close();
+  await files.remove();
+  await Promise.allSettled(projectConnections.map((connection) => connection.close()));
 }
 
-function mcpServerNames(spec: GeminiSessionSpec): string[] {
-  return [
-    ...((spec.officeTools?.length ?? 0) > 0 ? [OFFICE_SERVER] : []),
-    ...Object.keys(spec.projectMcpServers ?? {}),
-  ];
+function parseEvent(line: string): StreamEvent | undefined {
+  if (line.trim() === "") return undefined;
+  try {
+    const event = JSON.parse(line) as StreamEvent;
+    return typeof event.type === "string" ? event : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
-function byReference(env: Readonly<Record<string, string>>): Record<string, string> {
-  return Object.fromEntries(Object.keys(env).map((name) => [name, `$${name}`]));
+function turnError(
+  result: StreamEvent | undefined,
+  exitCode: number | null,
+  stopped: boolean,
+  stderr: string,
+): GeminiTurnError | undefined {
+  if (result?.error !== undefined) {
+    return { code: result.error.type ?? null, message: result.error.message ?? "" };
+  }
+  return exitCode === 0 || stopped ? undefined : { code: exitCode, message: stderr.slice(-2000) };
 }
 
-/** Headless, the CLI starts MCP servers from its settings, each value named as `$NAME`. */
-function headlessMcpServers(
-  spec: GeminiSessionSpec,
-  home: string,
-): Record<string, StdioServerSetting> {
-  const servers: Record<string, StdioServerSetting> = {};
-  if ((spec.officeTools?.length ?? 0) > 0) {
-    servers[OFFICE_SERVER] = {
-      command: process.execPath,
-      args: [OFFICE_TOOL_SERVER, join(home, "processes.jsonl")],
-      env: byReference({ [OFFICE_CHANNEL_VARIABLE]: "", [OFFICE_SESSION_TOKEN_VARIABLE]: "" }),
-    };
-  }
-  for (const [name, server] of Object.entries(spec.projectMcpServers ?? {})) {
-    servers[name] = { command: server.command, args: server.args, env: byReference(server.env) };
-  }
-  return servers;
-}
-
-/**
- * The tool name an ACP call id carries: `<name>__<the model's call id>`, or `<name>-<ms>-<n>` when
- * the model gave the call no id.
- */
-export function toolNameFromCallId(callId: string): string {
-  const match = /^(.+?)__call_\w+$/.exec(callId) ?? /^(.*)-\d{10,}-\d+$/.exec(callId);
-  return match?.[1] ?? callId;
-}
-
-/** Ends a session's process: its input closed first so it can end its MCP servers, then killed after a grace. */
-export async function endProcess(child: ChildProcess, graceMs = 5000): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-  const exited = new Promise<void>((resolve) => child.once("exit", () => resolve()));
-  child.stdin?.end();
-  const ended = await Promise.race([
-    exited.then(() => true),
-    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), graceMs)),
-  ]);
-  if (!ended) {
-    child.kill("SIGKILL");
-    await exited;
-  }
+function tokenUsage(result: StreamEvent | undefined): TokenUsage | undefined {
+  const stats = result?.stats;
+  if (stats === undefined) return undefined;
+  const number = (key: string): number => {
+    const value = stats[key];
+    return typeof value === "number" ? value : 0;
+  };
+  // `input_tokens` counts the cached prompt tokens too.
+  const cacheRead = number("cached");
+  return {
+    input: number("input_tokens") - cacheRead,
+    output: number("output_tokens"),
+    cacheRead,
+    cacheCreation: 0,
+  };
 }

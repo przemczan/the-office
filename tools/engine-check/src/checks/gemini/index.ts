@@ -1,49 +1,45 @@
 import type { Check } from "../../check.ts";
 import {
-  geminiHookRefusalCheck,
-  geminiHookSeesEveryCallCheck,
   geminiHookUnreachableCheck,
+  geminiRepositorySettingsCheck,
+  geminiToolsAndRulesCheck,
 } from "./permissions.ts";
 import {
-  geminiApiKeyCheck,
-  geminiBargeInCheck,
-  geminiGoogleSignInCheck,
   geminiInterruptCheck,
+  geminiPriorityLaterCheck,
+  geminiPriorityNextCheck,
+  geminiQuotaRefusalCheck,
   geminiResumeCheck,
   geminiStartCheck,
 } from "./session.ts";
 import {
   geminiContextUsageCheck,
   geminiLanguageServersCheck,
-  geminiMcpServersCheck,
-  geminiOfficeToolBargeInCheck,
-  geminiOfficeToolsCheck,
+  geminiMcpToolCheck,
+  geminiOfficeToolCheck,
   geminiOutputSchemaCheck,
   geminiSkillsCheck,
-  geminiUsageWindowsCheck,
 } from "./tools.ts";
 
 /**
- * The Gemini CLI engine's runs on the pinned `@google/gemini-cli`, over ACP and headless side by side,
- * signed in with the API key `ENGINE_CHECK_GEMINI_API_KEY_FILE` names; each is skipped without it, and
- * `gemini.google-sign-in` until `--gemini-sign-in` has signed the check's folder in.
+ * The Gemini CLI engine's runs on the pinned `@google/gemini-cli`, wired as the Gemini CLI adapter
+ * wires a session (spec §5.4.7), signed in with the API key `ENGINE_CHECK_GEMINI_API_KEY_FILE`
+ * names; each is skipped without it.
  */
 export const geminiChecks: readonly Check[] = [
-  geminiApiKeyCheck,
-  geminiGoogleSignInCheck,
   geminiStartCheck,
-  geminiResumeCheck,
-  geminiInterruptCheck,
-  geminiBargeInCheck,
-  geminiHookSeesEveryCallCheck,
-  geminiHookRefusalCheck,
+  geminiToolsAndRulesCheck,
+  geminiRepositorySettingsCheck,
   geminiHookUnreachableCheck,
-  geminiOfficeToolsCheck,
-  geminiOfficeToolBargeInCheck,
-  geminiOutputSchemaCheck,
+  geminiOfficeToolCheck,
+  geminiMcpToolCheck,
   geminiSkillsCheck,
-  geminiMcpServersCheck,
+  geminiInterruptCheck,
+  geminiResumeCheck,
+  geminiPriorityNextCheck,
+  geminiPriorityLaterCheck,
+  geminiOutputSchemaCheck,
   geminiContextUsageCheck,
-  geminiUsageWindowsCheck,
+  geminiQuotaRefusalCheck,
   geminiLanguageServersCheck,
 ];

@@ -947,115 +947,23 @@
       "requestsToHost": []
     }
   },
-  "gemini.api-key": {
-    "linux": {
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "shellSeesKey": true,
-        "keyInFilesLeft": false
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "shellSeesKey": true,
-        "keyInFilesLeft": false
-      },
-      "withoutKey": {
-        "stopReason": "error",
-        "failed": true,
-        "exitCode": 41
-      }
-    }
-  },
-  "gemini.barge-in": {
-    "linux": {
-      "acp": {
-        "firstTurn": {
-          "stopReason": "cancelled",
-          "failed": false
-        },
-        "secondTurn": {
-          "stopReason": "end_turn",
-          "failed": false
-        },
-        "secondAnswered": true,
-        "firstCallRanInBackground": false,
-        "firstToolCall": "completed"
-      },
-      "headless": {
-        "inputFormatFlag": false
-      }
-    }
-  },
   "gemini.context-usage": {
     "linux": {
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "turnTokens": true,
-        "usageUpdates": true,
-        "contextSizeGiven": true
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "turnTokens": true
-      }
-    }
-  },
-  "gemini.google-sign-in": {
-    "linux": {
-      "signedInWithPipedStdin": true,
-      "credentialFilesInFolder": true,
-      "encryptedKeychainFile": false,
-      "copiedFolder": {
-        "stopReason": "error",
-        "failed": true
-      },
-      "refusedForIndividuals": true
-    }
-  },
-  "gemini.hook-refusal": {
-    "linux": {
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "commandRan": false,
-        "reasonReachedModel": false,
-        "callStatus": "failed"
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "commandRan": false,
-        "reasonReachedModel": true,
-        "callStatus": "failed"
-      }
-    }
-  },
-  "gemini.hook-sees-every-call": {
-    "linux": {
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "calls": ["mcp_office_note_progress", "read_file", "run_shell_command"],
-        "hookSaw": [],
-        "permissionAskedFor": ["mcp_office_note_progress", "read_file", "run_shell_command"],
-        "permissionCarriesArguments": false,
-        "permissionNamesMcpTool": true,
-        "permissionOptions": ["cancel", "proceed_once"],
-        "shellJudgedBeforeItRan": true,
-        "officeToolJudgedBeforeItRan": true
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "calls": ["mcp_office_note_progress", "read_file", "run_shell_command"],
-        "hookSaw": ["mcp_office_note_progress", "read_file", "run_shell_command"],
-        "shellJudgedBeforeItRan": true,
-        "officeToolJudgedBeforeItRan": true
-      }
+      "stopReason": "end_turn",
+      "failed": false,
+      "turnTokens": true,
+      "resultStatsKeys": [
+        "cached",
+        "duration_ms",
+        "input",
+        "input_tokens",
+        "models",
+        "output_tokens",
+        "tool_calls",
+        "total_tokens"
+      ],
+      "quotaInStream": false,
+      "chatRecordsTokens": true
     }
   },
   "gemini.hook-unreachable": {
@@ -1064,40 +972,34 @@
         "commandRan": false,
         "callStatus": "failed"
       },
-      "timedOut": {
-        "commandRan": true,
-        "callStatus": "completed"
+      "wrongToken": {
+        "commandRan": false,
+        "callStatus": "failed"
+      },
+      "tooSlow": {
+        "commandRan": false,
+        "callStatus": "failed"
       }
     }
   },
   "gemini.interrupt": {
     "linux": {
-      "acp": {
-        "stopped": {
-          "stopReason": "cancelled",
-          "failed": false
-        },
-        "stoppedBeforeTheCommandEnded": true,
-        "commandRanToItsEnd": false,
-        "ranInBackground": false,
-        "nextTurn": {
-          "stopReason": "end_turn",
-          "failed": false
-        }
+      "stopped": {
+        "stopReason": "cancelled",
+        "failed": false
       },
-      "headless": {
-        "stopped": {
-          "stopReason": "cancelled",
-          "failed": false
-        },
-        "stoppedBeforeTheCommandEnded": true,
-        "commandRanToItsEnd": false,
-        "ranInBackground": false,
-        "nextTurn": {
-          "stopReason": "end_turn",
-          "failed": false
-        }
-      }
+      "stoppedBeforeTheCommandEnded": true,
+      "commandRanToItsEnd": false,
+      "nextTurn": {
+        "stopReason": "end_turn",
+        "failed": false
+      },
+      "backgroundTurn": {
+        "stopReason": "end_turn",
+        "failed": false
+      },
+      "ranInBackground": true,
+      "backgroundCommandOutlivedTurn": false
     }
   },
   "gemini.language-servers": {
@@ -1105,171 +1007,158 @@
       "toolReferenceNamesLanguageServer": false
     }
   },
-  "gemini.mcp-servers": {
+  "gemini.mcp-tool": {
     "linux": {
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "called": true,
-        "secretArrived": true,
-        "secretOnCommandLine": false,
-        "secretInFilesLeft": false,
-        "processEnded": true,
-        "judged": ["check_secret"]
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "called": true,
-        "secretArrived": true,
-        "secretOnCommandLine": false,
-        "secretInFilesLeft": false,
-        "processEnded": true,
-        "judged": ["mcp_project-tools_check_secret"]
-      }
+      "stopReason": "end_turn",
+      "failed": false,
+      "judged": ["mcp_project-tools_check_secret"],
+      "called": true,
+      "secretArrived": true,
+      "secretInCliEnvironment": false,
+      "secretOnCommandLine": false,
+      "secretInFilesLeft": false,
+      "processEnded": true
     }
   },
-  "gemini.office-tool-barge-in": {
+  "gemini.office-tool": {
     "linux": {
+      "stopReason": "end_turn",
+      "failed": false,
       "officeToolCalls": 1,
-      "firstTurn": {
-        "stopReason": "cancelled",
-        "failed": false
-      },
-      "secondTurn": {
-        "stopReason": "end_turn",
-        "failed": false
-      },
-      "noteAnswered": true
-    }
-  },
-  "gemini.office-tools": {
-    "linux": {
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "officeToolCalls": 1,
-        "answerReachedModel": true,
-        "serverStartedAsChild": true,
-        "serverEndedWithSession": true
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "officeToolCalls": 1,
-        "answerReachedModel": true,
-        "serverStartedAsChild": true,
-        "serverEndedWithSession": true
-      }
+      "answerReachedModel": true,
+      "relaysRunningDuringCall": true,
+      "relaysLeftAfterTurn": 0
     }
   },
   "gemini.output-schema": {
     "linux": {
       "schemaFlags": [],
-      "acp": {
+      "stopReason": "end_turn",
+      "failed": false,
+      "structuredOutputCalls": 1,
+      "outputTaken": true,
+      "remindersNeeded": 0,
+      "lastAnswerMatchesSchema": true
+    }
+  },
+  "gemini.priority-later": {
+    "linux": {
+      "firstTurn": {
         "stopReason": "end_turn",
-        "failed": false,
-        "structuredOutputCalls": 1,
-        "lastAnswerMatchesSchema": true
+        "failed": false
       },
-      "headless": {
+      "commandRanToItsEnd": true,
+      "nextTurn": {
         "stopReason": "end_turn",
-        "failed": false,
-        "structuredOutputCalls": 1,
-        "lastAnswerMatchesSchema": true
-      }
+        "failed": false
+      },
+      "bothInOneTurn": true,
+      "bothAnswered": true,
+      "turnsRun": 2
+    }
+  },
+  "gemini.priority-next": {
+    "linux": {
+      "firstTurn": {
+        "stopReason": "end_turn",
+        "failed": false
+      },
+      "officeToolAnswered": true,
+      "landedInRunningTurn": false,
+      "secondTurn": {
+        "stopReason": "end_turn",
+        "failed": false
+      },
+      "secondTookTheNextTurn": true,
+      "secondAnswered": true,
+      "turnsRun": 2
+    }
+  },
+  "gemini.repository-settings": {
+    "linux": {
+      "stopReason": "end_turn",
+      "failed": false,
+      "hookSaw": [],
+      "refusedCommandRan": true
     }
   },
   "gemini.resume": {
     "linux": {
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "historyKept": true,
-        "historyReplayedOnLoad": true
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "historyKept": true
+      "stopReason": "end_turn",
+      "failed": false,
+      "historyKept": true,
+      "otherEngineFolder": {
+        "stopReason": "error",
+        "failed": true,
+        "historyKept": false
       }
     }
   },
   "gemini.skills": {
     "linux": {
-      "acp": {
-        "sessionSkill": {
-          "stopReason": "end_turn",
-          "failed": false,
-          "bodyReachedModel": true
-        },
-        "workspaceSkill": {
-          "stopReason": "end_turn",
-          "failed": false,
-          "bodyReachedModel": true
-        },
-        "activations": ["completed", "completed"]
+      "sessionSkill": {
+        "stopReason": "end_turn",
+        "failed": false,
+        "loadedBySkillTool": true,
+        "bodyReachedModel": true
       },
-      "headless": {
-        "sessionSkill": {
-          "stopReason": "end_turn",
-          "failed": false,
-          "bodyReachedModel": true
-        },
-        "workspaceSkill": {
-          "stopReason": "end_turn",
-          "failed": false,
-          "bodyReachedModel": true
-        },
-        "activations": ["completed", "completed"]
-      }
+      "repositorySkill": {
+        "stopReason": "end_turn",
+        "failed": false,
+        "loadedAsSkill": false
+      },
+      "activateSkillCalled": false
     }
   },
   "gemini.start": {
     "linux": {
       "version": "0.70.0",
       "model": "gemini-3.5-flash-lite",
-      "acp": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "sessionIdIsUuid": true,
-        "repositoryMemoryLoaded": true,
-        "parentMemoryLoaded": false,
-        "protocolVersion": 1,
-        "loadSession": true,
-        "mcpCapabilities": ["http", "sse"],
-        "authMethods": ["gateway", "gemini-api-key", "oauth-personal", "vertex-ai"],
-        "modes": ["autoEdit", "default", "plan", "yolo"],
-        "currentMode": "default"
-      },
-      "headless": {
-        "stopReason": "end_turn",
-        "failed": false,
-        "sessionIdIsUuid": true,
-        "repositoryMemoryLoaded": true,
-        "parentMemoryLoaded": false
+      "stopReason": "end_turn",
+      "failed": false,
+      "sessionIdIsUuid": true,
+      "instructionsLoaded": true,
+      "repositoryMemoryLoaded": true,
+      "parentMemoryLoaded": false,
+      "shellSeesKey": false,
+      "keyInFilesLeft": false,
+      "withoutKey": {
+        "stopReason": "error",
+        "failed": true,
+        "exitCode": 41
       }
     }
   },
-  "gemini.usage-windows": {
+  "gemini.tools-and-rules": {
     "linux": {
-      "acp": {
-        "promptResponseQuotaKeys": ["model_usage", "token_count"],
-        "quotaInUpdates": false
-      },
-      "headless": {
-        "resultStatsKeys": [
-          "cached",
-          "duration_ms",
-          "input",
-          "input_tokens",
-          "models",
-          "output_tokens",
-          "tool_calls",
-          "total_tokens"
-        ],
-        "quotaInStream": false
-      }
+      "stopReason": "end_turn",
+      "failed": false,
+      "calls": [
+        "glob",
+        "grep_search",
+        "list_directory",
+        "mcp_office_note_progress",
+        "read_file",
+        "replace",
+        "run_shell_command",
+        "write_file"
+      ],
+      "hookSaw": [
+        "glob",
+        "grep_search",
+        "list_directory",
+        "mcp_office_note_progress",
+        "read_file",
+        "replace",
+        "run_shell_command",
+        "write_file"
+      ],
+      "everyCallJudged": true,
+      "allowedCommandRan": true,
+      "refusedCommandRan": false,
+      "reasonReachedModel": true,
+      "shellJudgedBeforeItRan": true,
+      "officeToolJudgedBeforeItRan": true
     }
   },
   "permissions.hook-after-resume": {

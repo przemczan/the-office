@@ -174,18 +174,19 @@ describe("GeminiCliHeadlessEngine on a fake CLI", () => {
     expect(run?.prompt).toBe("answer hello there");
   });
 
-  it("runs the CLI in the engine's home, signed in by the engine's key in its environment alone", async () => {
-    const { log } = await started(message("answer hi"));
+  it("runs the CLI in the session's own home in the engine's folder, signed in by the engine's key in its environment alone", async () => {
+    const { id, log } = await started(message("answer hi"));
     await log.turn(0);
 
     const [run] = await fakeGeminiRuns(report);
     expect(run?.env).toMatchObject({
       GEMINI_API_KEY: KEY,
-      GEMINI_CLI_HOME: join(officeData, "engines", ENGINE.id),
+      GEMINI_CLI_HOME: join(officeData, "engines", ENGINE.id, "sessions", id),
       GEMINI_CLI_NO_RELAUNCH: "true",
       NO_BROWSER: "true",
     });
     expect(run?.env["GOOGLE_CLOUD_PROJECT"]).toBeUndefined();
+    expect(run?.env["GEMINI_CLI_SYSTEM_SETTINGS_PATH"]).toBeUndefined();
     expect(run?.argv.join(" ")).not.toContain(KEY);
     expect(JSON.stringify(run?.settings)).not.toContain(KEY);
     expect(run?.settings).toMatchObject({
@@ -198,24 +199,29 @@ describe("GeminiCliHeadlessEngine on a fake CLI", () => {
     });
   });
 
-  it("keeps the settings and channel files owner-only, and removes them and the instructions as the session ends", async () => {
+  it("keeps the home, its settings and the channel file owner-only, and removes the channel and the instructions as the session ends", async () => {
     const { id, session, log } = await started(message("answer hi"));
     await log.turn(0);
     const sessionFolder = join(officeData, "sessions", id);
     const files = await readdir(sessionFolder);
     const channelFile = files.find((name) => name.startsWith("gemini-channel-")) ?? "";
-    const home = join(officeData, "engines", ENGINE.id, ".gemini");
-    const [instructions] = (await readdir(home)).filter((name) => name.startsWith("office-"));
+    const home = join(officeData, "engines", ENGINE.id, "sessions", id);
+    const settingsFile = join(home, ".gemini", "settings.json");
+    const [instructions] = (await readdir(join(home, ".gemini"))).filter((name) =>
+      name.startsWith("office-"),
+    );
 
+    expect((await stat(home)).mode & 0o777).toBe(0o700);
+    expect((await stat(settingsFile)).mode & 0o777).toBe(0o600);
     expect((await stat(join(sessionFolder, channelFile))).mode & 0o777).toBe(0o600);
-    expect(await readFile(join(home, instructions ?? ""), "utf8")).toBe("Be brief.");
+    expect(await readFile(join(home, ".gemini", instructions ?? ""), "utf8")).toBe("Be brief.");
     const [run] = await fakeGeminiRuns(report);
     expect(run?.settings).toMatchObject({ context: { fileName: ["GEMINI.md", instructions] } });
 
     await session.end();
 
     expect(await readdir(sessionFolder)).toEqual([]);
-    expect((await readdir(home)).filter((name) => name.startsWith("office-"))).toEqual([]);
+    expect(await readdir(join(home, ".gemini"))).toEqual(["settings.json"]);
   });
 
   it("resumes the session for each later turn, and a message sent during a turn waits for its end", async () => {
@@ -251,8 +257,10 @@ describe("GeminiCliHeadlessEngine on a fake CLI", () => {
     expect(runs[1]?.argv.slice(-2)).toEqual(["--resume", id]);
   });
 
-  it("resumes an ended session by its id on the engine's home", async () => {
-    const id = randomUUID();
+  it("resumes an ended session by its id in the same home, its settings written over", async () => {
+    const { id, session: first, log: firstLog } = await started(message("answer hi"));
+    await firstLog.turn(0);
+    await first.end();
     const session = await engine().resume(id, options());
     sessions.push(session);
     const log = reading(session);
@@ -260,8 +268,10 @@ describe("GeminiCliHeadlessEngine on a fake CLI", () => {
 
     await log.turn(0);
 
-    const [run] = await fakeGeminiRuns(report);
-    expect(run?.argv.slice(-2)).toEqual(["--resume", id]);
+    const [firstRun, resumed] = await fakeGeminiRuns(report);
+    expect(resumed?.argv.slice(-2)).toEqual(["--resume", id]);
+    expect(resumed?.env["GEMINI_CLI_HOME"]).toBe(firstRun?.env["GEMINI_CLI_HOME"]);
+    expect(resumed?.settings).not.toEqual(firstRun?.settings);
   });
 
   it("refuses a call the Office rules refuse in their words, which reach the model", async () => {
@@ -483,6 +493,30 @@ describe("GeminiCliHeadlessEngine on a fake CLI", () => {
     });
     expect(crashed.outcome).toBe("failed");
     expect(crashed.errors[0]).toContain("The CLI fell over.");
+  });
+
+  it("fails a turn in a folder holding .gemini/settings.json, which would rank above the session's settings, starting no process", async () => {
+    await mkdir(join(folder, ".gemini"));
+    await writeFile(join(folder, ".gemini", "settings.json"), '{"hooksConfig":{"enabled":false}}');
+    const { log } = await started(message("answer hello there"));
+
+    const turn = await log.turn(0);
+
+    expect(turn).toMatchObject({
+      outcome: "failed",
+      errors: [
+        `The Gemini CLI engine can't run in ${folder}: its .gemini/settings.json would rank above The Office's settings and could turn the Office rules off. Remove the file, or pick another engine for this Role.`,
+      ],
+    });
+    expect(await fakeGeminiRuns(report)).toEqual([]);
+  });
+
+  it("runs in a folder whose .gemini/ holds other files", async () => {
+    await mkdir(join(folder, ".gemini", "commands"), { recursive: true });
+    await writeFile(join(folder, ".gemini", "commands", "x.toml"), 'prompt = "x"');
+    const { log } = await started(message("answer hello there"));
+
+    expect((await log.turn(0)).outcome).toBe("completed");
   });
 
   it("refuses a model the engine doesn't offer and another kind of engine", async () => {
