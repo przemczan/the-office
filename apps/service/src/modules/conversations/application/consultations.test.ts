@@ -22,11 +22,14 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
+  EngineModels,
+  FIRST_CLAUDE_CODE_ENGINE,
   OfficeToolRegistry,
   ScriptedEngine,
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
+import { EngineSettingsForTests } from "../../engine/index.fixtures.js";
 import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { BusyWorkModule } from "../../office-updates/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
@@ -102,6 +105,14 @@ const OPTIONS = ["SQLite", "Postgres"];
 let app: INestApplication;
 
 let engine: ScriptedEngine;
+
+/**
+ * A second Claude Code engine, listed as the Stand-in Engine, when a test boots with one through
+ * `startWithStandIn` (spec 5.4).
+ */
+let standIn: ScriptedEngine | undefined;
+
+const HOME = { ...FIRST_CLAUDE_CODE_ENGINE, id: "home", name: "Claude Code 2", claudeCodeP: true };
 
 let officeData: string;
 
@@ -197,7 +208,17 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
-      ScriptedEngineModule.register(engine),
+      ScriptedEngineModule.register(
+        standIn === undefined
+          ? engine
+          : {
+              "agent-sdk": engine,
+              "claude-code-p": standIn,
+              "openai-compatible-api": new ScriptedEngine([]),
+              codex: new ScriptedEngine([]),
+              "copilot-cli": new ScriptedEngine([]),
+            },
+      ),
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -246,6 +267,20 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       FireAlarmInThreads,
       DecisionOfficeTools,
     ],
+    overrides:
+      standIn === undefined
+        ? []
+        : [
+            {
+              provide: EngineModels,
+              useValue: new EngineModels(
+                new EngineSettingsForTests({
+                  engines: [FIRST_CLAUDE_CODE_ENGINE, HOME],
+                  standInEngines: [HOME.id],
+                }),
+              ),
+            },
+          ],
   }));
   // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
   for (const name of consultationOfficeTools(await duties.heldBy(consultantKey), true).filter(
@@ -307,6 +342,15 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   threads = app.get(ThreadService);
   decisions = app.get(DecisionService);
   consultations = app.get(Consultations);
+}
+
+/** Boots as `startWith` does, with `HOME` replaying `homeScripts` as the Stand-in Engine. */
+async function startWithStandIn(
+  scripts: readonly SessionScript[],
+  homeScripts: readonly SessionScript[],
+): Promise<void> {
+  standIn = new ScriptedEngine(homeScripts);
+  await startWith(...scripts);
 }
 
 async function isFolder(path: string): Promise<boolean> {
@@ -445,6 +489,7 @@ function setUpEachTest(): void {
     askerIsAConsultant = false;
     worktreeMade = true;
     missingFolderFailsFor = undefined;
+    standIn = undefined;
   });
 
   afterEach(async () => {
@@ -605,6 +650,68 @@ describe("a consult of a hired Consultant", () => {
         text: `Your answer to Dana:\n\n${words}`,
       }),
     );
+  });
+});
+
+describe("a Consultation whose engine's usage window is used up", () => {
+  it("goes on on the Stand-in Engine, where the Consultant answers (spec 5.4)", async () => {
+    const resetsAt = new Date("2099-11-13T14:00:00.000Z");
+    await startWithStandIn(
+      [
+        started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER),
+        started(
+          {
+            step: "event",
+            event: {
+              kind: "turn-ended",
+              outcome: "usage-window-used-up",
+              consumedMessageIds: ["brief"],
+              usage: USAGE,
+              sessionCostUsd: 0,
+              output: undefined,
+              errors: ["You've hit your limit · resets 2pm (UTC)"],
+              usedUpWindow: { window: "five-hour", resetsAt, resetGiven: true },
+            },
+          },
+          { step: "read-context-usage", usage: { tokens: 32_000, window: 1_000_000 } },
+        ),
+      ],
+      [
+        [
+          { step: "resume" },
+          { step: "send", message: { id: "again", text: "" }, priority: "later" },
+          ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { answers: [{ option: 2 }] }),
+          ...aTurn("again", "Done."),
+        ],
+      ],
+    );
+    const asker = await developerOnATask();
+
+    const consultation = await consultationOn(asker);
+    const answeredAsker = await vi.waitFor(
+      async () => {
+        const [decision] = await decisions.listInThread(asker.id);
+        if (!decision?.answer) throw new Error("Not answered yet.");
+        return decision;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const settledConsultation = await settled(consultation.id);
+
+    expect(answeredAsker).toMatchObject({ answer: { answeredBy: consultantKey } });
+    expect(settledConsultation.session).toMatchObject({
+      engineId: HOME.id,
+      standInFor: { engineId: FIRST_CLAUDE_CODE_ENGINE.id },
+    });
+    expect(await threads.messages(consultation.id)).toContainEqual(
+      expect.objectContaining({
+        kind: "engine-switched",
+        fromName: FIRST_CLAUDE_CODE_ENGINE.name,
+        toName: HOME.name,
+        personName: "Casey",
+      }),
+    );
+    await settled(asker.id);
   });
 });
 

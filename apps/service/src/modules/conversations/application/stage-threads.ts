@@ -70,7 +70,6 @@ import {
   logMessages,
   markDelivery,
   moveSessionBack,
-  moveSessionToEngine,
   readRunningContext,
   startStageThread,
   type StageWorkEnding,
@@ -90,6 +89,7 @@ import { BargeIns } from "./barge-ins.js";
 import { ThreadImages, type MessageImageContent } from "./thread-images.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
 import { SessionStartWatch } from "./session-start-watch.js";
+import { carrySessionToEngine, type SessionCarrying } from "./session-carry.js";
 import { SubAgentsAndProcesses, type FollowedSession } from "./sub-agents-and-processes.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { OfficeInstructions } from "./office-instructions.js";
@@ -946,11 +946,12 @@ export class StageThreads {
       let names: { readonly fromName: string; readonly toName: string };
       try {
         await closeSession();
-        ({ session: moved, ...names } = await this.carrySession(threadId, session.id, {
-          from,
-          to: standIn.engineId,
-          ...why,
-        }));
+        ({ session: moved, ...names } = await carrySessionToEngine(
+          this.carrying,
+          threadId,
+          session.id,
+          { from, to: standIn.engineId, ...why },
+        ));
       } catch (error) {
         throw failed(error);
       }
@@ -1162,49 +1163,19 @@ export class StageThreads {
       throw failed(new Error(`Its session runs on ${thread.session.engineId}, not ${from}.`));
     }
     try {
-      await this.carrySession(threadId, thread.session.id, { from, to: standIn.engineId, ...why });
+      await carrySessionToEngine(this.carrying, threadId, thread.session.id, {
+        from,
+        to: standIn.engineId,
+        ...why,
+      });
     } catch (error) {
       throw failed(error);
     }
   }
 
-  /**
-   * Carries the Thread's session `sessionId` from the engine `from` to `to`, then records it there
-   * and logs why (spec 5.4): copied, then recorded, so at a crash in between the engine the Thread
-   * records holds its session. Answers the moved session and both engines' names.
-   */
-  private async carrySession(
-    threadId: string,
-    sessionId: string,
-    {
-      from,
-      to,
-      ...why
-    }: {
-      readonly from: EngineId;
-      readonly to: EngineId;
-      readonly window: UsageWindowName;
-      readonly resetsAt: Date;
-    },
-  ): Promise<{
-    readonly session: ThreadSession;
-    readonly fromName: string;
-    readonly toName: string;
-  }> {
-    const names = {
-      fromName: await this.engine.nameOf(from),
-      toName: await this.engine.nameOf(to),
-    };
-    await this.engine.carrySession(sessionId, from, to);
-    const thread = await this.change(threadId, (latest) =>
-      moveSessionToEngine(
-        latest,
-        { messageId: randomUUID(), from, to, ...names, ...why },
-        new Date(),
-      ),
-    );
-    if (!thread.session) throw new Error(`Thread ${threadId} has no session.`);
-    return { session: thread.session, ...names };
+  /** What carries a session to a Stand-in Engine. */
+  private get carrying(): SessionCarrying {
+    return { engine: this.engine, change: (threadId, change) => this.change(threadId, change) };
   }
 
   private async change<Event extends DomainEvent>(

@@ -1040,9 +1040,9 @@ export function readRunningContext(
 }
 
 /**
- * A Stage's session going on on a Stand-in Engine as its engine refused a turn for a used-up usage
- * window (spec 5.4): the engines by their ids and their names now, the window by the engine port's
- * name, and the id of the line that says so.
+ * A session going on on a Stand-in Engine as its engine's usage window is used up (spec 5.4): the
+ * engines by their ids and their names now, the window by the engine port's name, the id of the
+ * line that says so, and in a person's Thread the person who went on.
  */
 export interface SessionMoveToEngine {
   readonly messageId: string;
@@ -1052,6 +1052,8 @@ export interface SessionMoveToEngine {
   readonly toName: string;
   readonly window: string;
   readonly resetsAt: Date;
+  /** The person who went on, in a person's Thread; undefined in a Stage Thread. */
+  readonly personName?: string;
 }
 
 /**
@@ -1060,14 +1062,20 @@ export interface SessionMoveToEngine {
  */
 export function moveSessionToEngine(
   thread: Thread,
-  { messageId, from, to, fromName, toName, window, resetsAt }: SessionMoveToEngine,
+  { messageId, from, to, fromName, toName, window, resetsAt, personName }: SessionMoveToEngine,
   movedAt: Date,
 ): ThreadChange<ThreadSessionMovedToEngine> {
   const { session } = thread;
   if (session?.engineId !== from) {
     throw new Error(`Thread ${thread.id}'s session doesn't run on the engine ${from}.`);
   }
-  const words = { fromName, toName, window, resetsAt: resetsAt.toISOString() };
+  const words = {
+    fromName,
+    toName,
+    window,
+    resetsAt: resetsAt.toISOString(),
+    ...(personName !== undefined && { personName }),
+  };
   const line: Message = {
     id: messageId,
     threadId: thread.id,

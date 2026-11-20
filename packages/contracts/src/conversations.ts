@@ -868,10 +868,12 @@ export const messageSchema = z.discriminatedUnion("kind", [
     resetsAt: z.iso.datetime(),
   }),
   /**
-   * The engine `fromName` refused a Stage's turn as its usage window `window` is used up until
-   * `resetsAt`, so the Stage went on with its session on the Stand-in Engine `toName`: The Office's
-   * notice, such as "Claude Code's 5-hour window was used up until 14:00, so the Stage went on on
-   * Claude Code 2". `window` as in `usage-window-used-up`.
+   * The engine `fromName` refused a turn as its usage window `window` is used up until `resetsAt`,
+   * so the session went on on the Stand-in Engine `toName`: The Office's notice, such as "Claude
+   * Code's 5-hour window was used up until 14:00, so the Stage went on on Claude Code 2". In a
+   * person's Thread (a chat, a Consultation, a planning Thread) `personName` names who went on: "…,
+   * so Pam went on on Claude Code 2"; absent in a Stage Thread. `window` as in
+   * `usage-window-used-up`.
    */
   z.object({
     ...messageFields,
@@ -880,6 +882,7 @@ export const messageSchema = z.discriminatedUnion("kind", [
     toName: z.string(),
     window: z.string(),
     resetsAt: z.iso.datetime(),
+    personName: z.string().optional(),
   }),
   /**
    * The user held the Stage with Pause or Stop, the fire alarm held it, or a used-up usage window

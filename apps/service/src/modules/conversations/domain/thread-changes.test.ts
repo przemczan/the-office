@@ -193,6 +193,15 @@ describe("a Stage's session moved to a Stand-in Engine", () => {
     expect(event).toEqual(new ThreadSessionMovedToEngine(thread, "work", "home", logged, AT));
   });
 
+  it("names the person who went on in a person's Thread", () => {
+    const { thread, logged } = moveSessionToEngine(onWork, { ...move, personName: "Pam" }, AT);
+
+    expect(logged[0]).toMatchObject({ kind: "engine-switched", personName: "Pam" });
+    expect(thread.session?.standInFor?.reason).toBe(
+      "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so Pam went on on Claude Code 2.",
+    );
+  });
+
   it("still stands in for the engine it first ran on after a second switch, and for none back there", () => {
     const { thread: onHome } = moveSessionToEngine(onWork, move, AT);
     const second = { ...move, from: "home", fromName: "Claude Code 2" };

@@ -28,6 +28,7 @@ import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.j
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
   EngineModels,
+  EngineSessions,
   FIRST_CLAUDE_CODE_ENGINE,
   OfficeToolRegistry,
   ScriptedEngine,
@@ -274,6 +275,23 @@ function listing(api: ApiEngineOnFakeServer) {
   };
 }
 
+/** A second Claude Code engine on another account, listed as the Stand-in Engine (spec 5.4). */
+const HOME = {
+  ...FIRST_CLAUDE_CODE_ENGINE,
+  id: "home",
+  name: "Claude Code 2",
+  claudeCodeP: true,
+};
+
+/** The engine settings with `HOME` beside the Claude Code engine, as its Stand-in Engine. */
+function standInListing() {
+  const settings = { engines: [FIRST_CLAUDE_CODE_ENGINE, HOME], standInEngines: [HOME.id] };
+  return {
+    provide: EngineModels,
+    useValue: new EngineModels(new EngineSettingsForTests(settings)),
+  };
+}
+
 /**
  * Boots the runner with the Agent SDK's stand-in replaying `scripts`, and the OpenAI-compatible API
  * on `api`, its endpoint listed beside the Claude Code engine.
@@ -281,6 +299,7 @@ function listing(api: ApiEngineOnFakeServer) {
 async function startOn(
   scripts: readonly SessionScript[],
   api?: ApiEngineOnFakeServer,
+  standIn?: ScriptedEngine,
 ): Promise<void> {
   engine = new ScriptedEngine(scripts);
   promptTexts = new PromptTemplateRepositoryForTests();
@@ -322,7 +341,7 @@ async function startOn(
       OfficeDataModule.forRoot(officeData),
       ScriptedEngineModule.register({
         "agent-sdk": engine,
-        "claude-code-p": new ScriptedEngine([]),
+        "claude-code-p": standIn ?? new ScriptedEngine([]),
         "openai-compatible-api": api?.engine ?? new ScriptedEngine([]),
         codex: new ScriptedEngine([]),
         "copilot-cli": new ScriptedEngine([]),
@@ -381,6 +400,7 @@ async function startOn(
       { provide: PromptTemplateRepository, useValue: promptTexts },
       signedInWithGitHubForTests(GITHUB_USER_TOKEN),
       ...(api === undefined ? [] : [listing(api)]),
+      ...(standIn === undefined ? [] : [standInListing()]),
     ],
   }));
   // As the Projects and People modules register theirs, and ProposalOfficeTools the Caretaker's
@@ -3785,6 +3805,225 @@ describe("when a session doesn't answer", () => {
       "delivered",
       "not-delivered",
     ]);
+  });
+});
+
+describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
+  const WORK = FIRST_CLAUDE_CODE_ENGINE;
+  const RESETS_AT = new Date("2099-11-13T14:00:00.000Z");
+  /** The line the switch logs, naming the person who went on. */
+  const SWITCHED: MessageDraft = {
+    kind: "engine-switched",
+    fromName: WORK.name,
+    toName: HOME.name,
+    window: "five-hour",
+    resetsAt: RESETS_AT.toISOString(),
+    personName: PLANNER.name,
+  };
+
+  let home: ScriptedEngine;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The work engine's turn refused for its used-up 5-hour window, having taken `consumed`. */
+  function aRefusedTurn(consumed: string): Step[] {
+    return [
+      {
+        step: "event",
+        event: {
+          kind: "turn-ended",
+          outcome: "usage-window-used-up",
+          consumedMessageIds: [consumed],
+          usage: USAGE,
+          sessionCostUsd: 0,
+          output: undefined,
+          errors: ["You've hit your limit · resets 2pm (UTC)"],
+          usedUpWindow: { window: "five-hour", resetsAt: RESETS_AT, resetGiven: true },
+        },
+      },
+      { step: "read-context-usage", usage: { tokens: 32_000, window: WINDOW } },
+    ];
+  }
+
+  /** Boots the runner with the work engine's `scripts`, and `homeScripts` on the stand-in. */
+  async function startOnBoth(scripts: SessionScript[], homeScripts: SessionScript[]) {
+    home = new ScriptedEngine(homeScripts);
+    await startOn(scripts, undefined, home);
+  }
+
+  /** The work engine's 5-hour window known used up, as a turn it refused made it. */
+  function workUsedUp(): void {
+    vi.spyOn(app.get(EngineSessions), "usedUpUntil").mockImplementation((engineId) =>
+      engineId === WORK.id
+        ? { engineName: WORK.name, window: "five-hour", until: RESETS_AT }
+        : undefined,
+    );
+  }
+
+  /** The work engine's first session, refused at once, goes on on the stand-in on `text`. */
+  const refusedThenAnsweredOnHome = (text: string) =>
+    startOnBoth(
+      [started(...aRefusedTurn("brief"))],
+      [[{ step: "resume" }, sent("again"), ...aTurn("again", text)]],
+    );
+
+  /** Checks that the Thread's one session went from the work engine to the stand-in. */
+  async function expectCarriedToHome(threadId: string, log: readonly Message[]): Promise<void> {
+    const [onWork] = engine.sessions;
+    const [onHome] = home.sessions;
+    expect(engine.carried).toEqual([{ sessionId: onWork?.id, from: WORK.id, to: HOME.id }]);
+    expect(onHome?.id).toBe(onWork?.id);
+    expect(onHome?.options).toMatchObject({ engine: { id: HOME.id }, model: "claude-opus-5-5" });
+    expect(drafts(log)).toContainEqual(SWITCHED);
+    expect(log.map(({ kind }) => kind)).not.toContain("usage-window-used-up");
+    expect((await threads.read(threadId)).session).toMatchObject({
+      id: onWork?.id,
+      engineId: HOME.id,
+      standInFor: { engineId: WORK.id, engineName: WORK.name },
+    });
+  }
+
+  it("carries a chat's session over when its turn is refused, and the message is sent again and answered there", async () => {
+    await refusedThenAnsweredOnHome("Hello from the stand-in.");
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const log = await answered(thread.id, 4);
+
+    await expectCarriedToHome(thread.id, log);
+    expect(home.sessions[0]?.received[1]).toMatchObject({
+      step: "send",
+      priority: "later",
+      message: { text: expect.stringContaining("Hello.") },
+    });
+    expect(exchanges(log).slice(-2)).toEqual([
+      SWITCHED,
+      { kind: "person", roleKey, text: "Hello from the stand-in." },
+    ]);
+  });
+
+  it("goes on in an Initiative's planning Thread too", async () => {
+    await refusedThenAnsweredOnHome("In which order?");
+
+    const opened = await threads.startOnInitiative({
+      initiativeId: randomUUID(),
+      roleKey,
+      title: "Planning the Initiative",
+      opening: "Plan the Initiative with the user.",
+    });
+    const log = await answered(opened.id, 3);
+
+    await expectCarriedToHome(opened.id, log);
+    expect(log.at(-1)).toMatchObject({ kind: "person", text: "In which order?" });
+  });
+
+  it("goes on in a Task's planning Thread too, whatever its context's size", async () => {
+    await refusedThenAnsweredOnHome("I'll read the sign-in first.");
+
+    const opened = await threads.startOnTask({
+      taskId: randomUUID(),
+      roleKey,
+      title: "Planning",
+      opening: "Plan this Task from its title and its Description.",
+    });
+    const log = await answered(opened.id, 3);
+
+    await expectCarriedToHome(opened.id, log);
+    expect(log.at(-1)).toMatchObject({ kind: "person", text: "I'll read the sign-in first." });
+  });
+
+  it("logs today's notice and stays on its engine when the session couldn't be carried over", async () => {
+    await startOnBoth([started(...aRefusedTurn("brief"))], []);
+    engine.failSessionCarries(new Error("The disk is full."));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const after = await waiting(thread.id);
+
+    expect(after.session?.engineId).toBe(WORK.id);
+    expect(after.session?.standInFor).toBeUndefined();
+    const log = drafts(await threads.messages(thread.id));
+    expect(log.map(({ kind }) => kind)).not.toContain("engine-switched");
+    expect(log.at(-1)).toEqual({
+      kind: "usage-window-used-up",
+      engineName: WORK.name,
+      window: "five-hour",
+      resetsAt: RESETS_AT.toISOString(),
+    });
+    expect(home.sessions).toEqual([]);
+  });
+
+  it("moves the session back and says so when the stand-in didn't resume it", async () => {
+    // No script on the stand-in: it refuses to resume the session.
+    await startOnBoth([started(...aRefusedTurn("brief"))], []);
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const after = await waiting(thread.id);
+
+    expect(engine.carried).toHaveLength(1);
+    expect(after.session?.engineId).toBe(WORK.id);
+    expect(after.session?.standInFor).toBeUndefined();
+    const log = drafts(await threads.messages(thread.id));
+    expect(log).toContainEqual(SWITCHED);
+    expect(log.at(-1)).toMatchObject({
+      kind: "failure",
+      reason: expect.stringContaining(
+        `The session didn't resume on ${HOME.name}, so it stays on ${WORK.name}: `,
+      ) as string,
+    });
+  });
+
+  it("opens a new session straight on the stand-in while the cascade's engine is used up, and resumes it there", async () => {
+    await startOnBoth(
+      [],
+      [started(...aTurn("brief", "Hi."), sent("next"), ...aTurn("next", "Still here."))],
+    );
+    workUsedUp();
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+    await runner.send(thread.id, "And now?", ANN_LEE);
+    const log = await answered(thread.id, 5);
+
+    expect(engine.sessions).toEqual([]);
+    expect(home.sessions).toHaveLength(1);
+    expect(home.sessions[0]?.options).toMatchObject({ engine: { id: HOME.id } });
+    expect((await threads.read(thread.id)).session).toMatchObject({
+      engineId: HOME.id,
+      standInFor: {
+        engineId: WORK.id,
+        engineName: WORK.name,
+        reason: `${WORK.name}'s 5-hour window was used up until 2099-11-13 14:00 UTC, so ${PLANNER.name} went on on ${HOME.name}.`,
+      },
+    });
+    expect(log.at(-1)).toMatchObject({ kind: "person", text: "Still here." });
+    expect(log.map(({ kind }) => kind)).not.toContain("engine-switched");
+  });
+
+  it("carries a resumed session to the stand-in before the message is sent, once its engine is used up", async () => {
+    await startOnBoth(
+      [started(...aTurn("brief", "Hi."))],
+      [[{ step: "resume" }, sent("next"), ...aTurn("next", "From the stand-in.")]],
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+    workUsedUp();
+
+    await runner.send(thread.id, "And now?", ANN_LEE);
+    const log = await answered(thread.id, 6);
+
+    await expectCarriedToHome(thread.id, log);
+    expect(engine.sessions).toHaveLength(1);
+    expect(home.sessions[0]?.received[1]).toMatchObject({
+      step: "send",
+      message: { text: expect.stringContaining("And now?") },
+    });
+    expect(log.at(-1)).toMatchObject({ kind: "person", text: "From the stand-in." });
   });
 });
 

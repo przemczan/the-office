@@ -187,7 +187,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Stage history**: [2.4.6 Reading the Stage history](2.4.6-reading-records.md#reading-the-stage-history); screen: [Task page › Stage history](screens/task-page.md#stage-history)
 - **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 On failure](2.3.2-flows.md#on-failure)
 - **Stage template**: [2.3.5 Stage templates](2.3.5-library.md#stage-templates); screen: [Pipeline flow editor › Stage templates](screens/pipeline-flow-editor.md#stage-templates)
-- **Stand-in Engine**: [5.4.6 Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines)
+- **Stand-in Engine**: [5.4.6 Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines); [5.4.6 A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
 - **Start Ready Tasks**: [2.1.4 Start Ready Tasks](2.1.4-initiatives.md#start-ready-tasks); screen: [Work board › Start Ready Tasks](screens/work-board.md#start-ready-tasks)
 - **Stats**: [2.11.1 What Stats shows](2.11.1-the-stats-page.md#what-stats-shows); screen: [Stats](screens/stats.md#stats)
 
@@ -577,6 +577,7 @@ Where each default lives, by page:
   - [Picking the engine to run on](5.4.6-stand-in-engines-and-usage-windows.md#picking-the-engine-to-run-on)
   - [Stand-ins at Start](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-at-start)
   - [A running Stage switches](5.4.6-stand-in-engines-and-usage-windows.md#a-running-stage-switches)
+  - [A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
   - [Carrying a session](5.4.6-stand-in-engines-and-usage-windows.md#carrying-a-session)
   - [A turn refused for a used-up usage window](5.4.6-stand-in-engines-and-usage-windows.md#a-turn-refused-for-a-used-up-usage-window)
   - [Checking the usage windows](5.4.6-stand-in-engines-and-usage-windows.md#checking-the-usage-windows)

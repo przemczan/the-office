@@ -3,7 +3,12 @@ import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import { EngineSessions, NoEngineListed } from "../../engine/index.js";
+import {
+  EngineSessions,
+  NoEngineListed,
+  type EngineModel,
+  type UsageWindowName,
+} from "../../engine/index.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import {
   EngineCascade,
@@ -56,13 +61,14 @@ import {
   type OpenPageRecord,
 } from "../domain/open-page.js";
 import {
+  engineSwitchedWords,
   latestWriter,
   type Message,
   type MessageDelivery,
   type MessageDraft,
   type MessageImage,
 } from "../domain/message.js";
-import type { Thread, ThreadSession } from "../domain/thread.js";
+import type { SessionStandIn, Thread, ThreadSession } from "../domain/thread.js";
 import type { UserRef } from "../domain/user.js";
 import {
   answerDecision,
@@ -80,6 +86,7 @@ import {
   keepAnswerForTurnEnd,
   logMessages,
   markDelivery,
+  moveSessionBack,
   openDecisionOf,
   readRunningContext,
   reopenDecision,
@@ -97,6 +104,7 @@ import { sessionLogLines } from "./session-log.js";
 import { SubAgentsAndProcesses, type SessionFollowing } from "./sub-agents-and-processes.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { SessionStartWatch } from "./session-start-watch.js";
+import { carrySessionToEngine, type SessionCarrying } from "./session-carry.js";
 import { StageThreads } from "./stage-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ThreadImages } from "./thread-images.js";
@@ -147,6 +155,21 @@ interface Answer {
   readonly place: SessionPlace;
   /** The Decisions the message answers, which open again if the answers never reach a session. */
   readonly answers: readonly Decision[];
+}
+
+/** What a session is opened with, which resumes it on a Stand-in Engine too. */
+type Reopening = Pick<Answer, "role" | "officeInstructions" | "model" | "place">;
+
+/**
+ * A session carried to a Stand-in Engine as its engine's usage window is used up (spec 5.4): the
+ * session as recorded there, what resumes it there, and where it goes back to if that fails.
+ */
+interface StandInMove {
+  readonly session: ThreadSession;
+  readonly reopening: Reopening;
+  readonly fromName: string;
+  readonly toName: string;
+  readonly back: Pick<ThreadSession, "engineId" | "standInFor">;
 }
 
 /** What the user's message comes with, besides its text. */
@@ -217,6 +240,12 @@ interface LiveSession {
   ending: boolean;
   /** Keeps its Sub-agents and Processes, between turns too. */
   readonly following: SessionFollowing;
+  /** What it was opened with, which resumes it on a Stand-in Engine. */
+  readonly reopening: Reopening;
+  /** The message the turn running began with, sent again on a Stand-in Engine if it is refused. */
+  turnMessage: UserMessage | undefined;
+  /** Its events read to their end. */
+  reading: Promise<void>;
 }
 
 /**
@@ -871,26 +900,72 @@ export class ThreadRunner implements OnModuleDestroy {
     const office = resumed
       ? await this.officeInstructions.forResumedSession(resumed.officeInstructionsVersion)
       : await this.officeInstructions.current();
-    const newSession = resumed
-      ? undefined
-      : freshSession(
-          randomUUID(),
-          {
-            ...current,
-            officeInstructionsVersion: office.version,
-            engineId: applying.engineId,
-            changesAllowed: place.workstation,
-            heldDuties: place.heldDuties,
-          },
-          now,
-        );
+    if (resumed) {
+      return {
+        decision,
+        role,
+        officeInstructions: office.text,
+        model: applying.model,
+        newSession: undefined,
+      };
+    }
+    const { engine, standInFor } = await this.engineForNewSession(applying, current.card.name);
+    const newSession = freshSession(
+      randomUUID(),
+      {
+        ...current,
+        officeInstructionsVersion: office.version,
+        engineId: engine.engineId,
+        changesAllowed: place.workstation,
+        heldDuties: place.heldDuties,
+        standInFor,
+      },
+      now,
+    );
+    return { decision, role, officeInstructions: office.text, model: engine.model, newSession };
+  }
+
+  /**
+   * The engine a new session in a person's Thread opens on: the cascade's, or while its usage
+   * window is known used up, the first Stand-in Engine with room, standing in for it (spec 5.4).
+   */
+  private async engineForNewSession(
+    applying: EngineModel,
+    personName: string,
+  ): Promise<{ readonly engine: EngineModel; readonly standInFor?: SessionStandIn }> {
+    const usedUp = this.engine.usedUpUntil(applying.engineId);
+    const standIn = usedUp && (await this.engine.standInFor(applying));
+    if (!usedUp || !standIn) return { engine: applying };
+    const reason = engineSwitchedWords({
+      fromName: usedUp.engineName,
+      toName: await this.engine.nameOf(standIn.engineId),
+      window: usedUp.window,
+      resetsAt: usedUp.until.toISOString(),
+      personName,
+    });
     return {
-      decision,
-      role,
-      officeInstructions: office.text,
-      model: applying.model,
-      newSession,
+      engine: standIn,
+      standInFor: { engineId: applying.engineId, engineName: usedUp.engineName, reason },
     };
+  }
+
+  /**
+   * The Stand-in Engine a session on `running` goes on on before it takes the next message, while
+   * that engine's usage window is known used up; undefined while it has room or no stand-in has.
+   */
+  private async standInAhead(running: EngineModel): Promise<
+    | {
+        readonly standIn: EngineModel;
+        readonly window: UsageWindowName;
+        readonly resetsAt: Date;
+      }
+    | undefined
+  > {
+    const usedUp = this.engine.usedUpUntil(running.engineId);
+    const standIn = usedUp && (await this.engine.standInFor(running));
+    return usedUp && standIn
+      ? { standIn, window: usedUp.window, resetsAt: usedUp.until }
+      : undefined;
   }
 
   /**
@@ -921,8 +996,14 @@ export class ThreadRunner implements OnModuleDestroy {
     const live = this.live.get(thread.id);
     // Once the Task is Ready the Planner's tools change (spec §2.4): that takes a resume.
     const sameTools = live?.officeTools.join() === place.officeTools.join();
-    if (decision.move === "resume" && live?.session.id === session.id && sameTools) {
+    const goingOn = decision.move === "resume" && live?.session.id === session.id && sameTools;
+    // A session on a used-up engine is carried to a stand-in first, which opening it does.
+    if (
+      goingOn &&
+      !(await this.standInAhead({ engineId: session.engineId, model: answer.model }))
+    ) {
       this.turnBegan(live);
+      live.turnMessage = said;
       live.session.send(said, "later");
       this.bargeIns.get(thread.id)?.turnStarted();
       return;
@@ -946,56 +1027,30 @@ export class ThreadRunner implements OnModuleDestroy {
     }
   }
 
-  /** Opens the Thread's session on `said`, once the one running before it has ended. */
+  /**
+   * Opens the Thread's session on `said`, once the one running before it has ended. A session
+   * resumed on an engine whose usage window is known used up is carried to a Stand-in Engine with
+   * room first, and resumed there (spec 5.4).
+   */
   private async openSession(
     thread: Thread,
     session: ThreadSession,
-    {
-      said,
-      briefed,
-      commandAfterBrief,
-      decision,
-      role,
-      officeInstructions,
-      model,
-      replaced,
-      place,
-    }: Answer,
+    answer: Answer,
     start: SessionStartWatch,
   ): Promise<void> {
+    const { said, briefed, commandAfterBrief, decision, role, replaced, place } = answer;
     await this.endLive(thread.id);
     await this.endings.get(thread.id);
     start.at("refreshing the Thread's folders");
     await place.ready();
     if (decision.move === "resume") {
-      start.at("preparing skills");
-      const skills = await this.sessionSkills.rebuild(session.id);
-      start.at("preparing MCP servers");
-      const servers = await this.sessionMcpServers.rebuild(session.id, place.folder);
-      start.at("starting on the engine");
-      const opened = await this.engine.resume(
-        session.id,
-        this.settingsOf(
-          thread,
-          session,
-          { role, officeInstructions, model },
-          { skills, mcpServers: servers.servers },
-          place,
-        ),
-      );
-      start.at("waiting for the engine's first event");
-      this.watch(thread, role, place, opened, start);
-      // A skill command goes as written: the left-out servers wait for the next message.
-      opened.send(
-        said.skillCommand
-          ? said
-          : { ...said, text: withLeftOutServers(said.text, servers.leftOut) },
-        "later",
-      );
-      this.bargeIns.get(thread.id)?.turnStarted();
-      return;
+      const ahead = await this.standInAhead({ engineId: session.engineId, model: answer.model });
+      const moved = ahead && (await this.carryToStandIn(thread.id, session, answer, ahead));
+      if (!moved) return this.resume(thread, session, answer, start, said);
+      return this.resumeOnStandIn(thread, moved, start, said);
     }
     let opened: EngineSession;
+    let brief: UserMessage;
     try {
       start.at("preparing skills");
       const skills = await this.sessionSkills.prepare({
@@ -1011,28 +1066,29 @@ export class ThreadRunner implements OnModuleDestroy {
         workingFolder: place.folder,
       });
       start.at("starting on the engine");
+      // A new session takes the message's images with the Brief its text is in.
+      brief = {
+        id: said.id,
+        text: withLeftOutServers(briefed, servers.leftOut),
+        ...(said.images && { images: said.images }),
+      };
       opened = await this.engine.start({
         id: session.id,
         settings: this.settingsOf(
           thread,
           session,
-          { role, officeInstructions, model },
+          answer,
           { skills, mcpServers: servers.servers },
           place,
         ),
-        // A new session takes the message's images with the Brief its text is in.
-        brief: {
-          id: said.id,
-          text: withLeftOutServers(briefed, servers.leftOut),
-          ...(said.images && { images: said.images }),
-        },
+        brief,
       });
     } catch (error) {
       await this.forget(session.id);
       throw error;
     }
     start.at("waiting for the engine's first event");
-    this.watch(thread, role, place, opened, start);
+    this.watch(thread, answer, opened, start, brief);
     if (commandAfterBrief) {
       // Its own turn after the Brief's, which keeps the Thread answering until it lands.
       opened.send(commandAfterBrief, "later");
@@ -1044,6 +1100,159 @@ export class ThreadRunner implements OnModuleDestroy {
       await this.forget(replaced.id);
       await this.subAgentsAndProcesses.removeSession(replaced.id);
     }
+  }
+
+  /** Resumes the Thread's session on the engine it records, on `said`. */
+  private async resume(
+    thread: Thread,
+    session: ThreadSession,
+    reopening: Reopening,
+    start: SessionStartWatch,
+    said: UserMessage,
+  ): Promise<void> {
+    start.at("preparing skills");
+    const skills = await this.sessionSkills.rebuild(session.id);
+    start.at("preparing MCP servers");
+    const servers = await this.sessionMcpServers.rebuild(session.id, reopening.place.folder);
+    start.at("starting on the engine");
+    const opened = await this.engine.resume(
+      session.id,
+      this.settingsOf(
+        thread,
+        session,
+        reopening,
+        { skills, mcpServers: servers.servers },
+        reopening.place,
+      ),
+    );
+    start.at("waiting for the engine's first event");
+    // A skill command goes as written: the left-out servers wait for the next message.
+    const message = said.skillCommand
+      ? said
+      : { ...said, text: withLeftOutServers(said.text, servers.leftOut) };
+    this.watch(thread, reopening, opened, start, message);
+    opened.send(message, "later");
+    this.bargeIns.get(thread.id)?.turnStarted();
+  }
+
+  /**
+   * Carries the Thread's idle session to the Stand-in Engine `standIn` and records it there, with
+   * the line naming the person who goes on (spec 5.4). Undefined when the copy failed, which
+   * leaves the session where it was.
+   */
+  private async carryToStandIn(
+    threadId: string,
+    session: ThreadSession,
+    reopening: Reopening,
+    {
+      standIn,
+      ...why
+    }: { readonly standIn: EngineModel; readonly window: UsageWindowName; readonly resetsAt: Date },
+  ): Promise<StandInMove | undefined> {
+    try {
+      const carried = await carrySessionToEngine(this.carrying, threadId, session.id, {
+        from: session.engineId,
+        to: standIn.engineId,
+        ...why,
+        personName: reopening.role.card.name,
+      });
+      return {
+        ...carried,
+        reopening: { ...reopening, model: standIn.model },
+        back: { engineId: session.engineId, standInFor: session.standInFor },
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Thread ${threadId}'s session wasn't carried to ${standIn.engineId}: ${messageOf(error)}`,
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * Resumes a session carried to a Stand-in Engine there, on `said`. A failed resume moves it back
+   * to the engine it left, where it is resumed later, and throws saying so.
+   */
+  private async resumeOnStandIn(
+    thread: Thread,
+    { session, reopening, fromName, toName, back }: StandInMove,
+    start: SessionStartWatch,
+    said: UserMessage,
+  ): Promise<void> {
+    try {
+      await this.resume(thread, session, reopening, start, said);
+    } catch (error) {
+      await this.change(thread.id, (latest) =>
+        moveSessionBack(latest, { from: session.engineId, to: back }, new Date()),
+      );
+      // The line logged as it moved said it went on there: the failure says it didn't.
+      throw new Error(
+        `The session didn't resume on ${toName}, so it stays on ${fromName}: ${messageOf(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  /**
+   * The engine refused the turn running for a used-up usage window: when a Stand-in Engine has room
+   * and the session is carried there, the answer goes on there with the turn's message sent again,
+   * and the user's messages it never took after it (spec 5.4). False, with the session where it
+   * was, when there is none or the carry failed.
+   */
+  private async goOnOnStandIn(
+    threadId: string,
+    live: LiveSession,
+    { usedUpWindow, usage }: TurnEndedEvent,
+    context: ContextUsage | undefined,
+  ): Promise<boolean> {
+    const session = (await this.repository.find(threadId))?.session;
+    const sentAgain = live.turnMessage;
+    if (!usedUpWindow || !session || !sentAgain || live.handingOver) return false;
+    const running = { engineId: session.engineId, model: live.reopening.model };
+    const standIn = await this.engine.standInFor(running);
+    if (!standIn) return false;
+    // Nothing may write the session's transcript while it is copied.
+    await this.endLive(threadId);
+    const moved = await this.carryToStandIn(threadId, session, live.reopening, {
+      standIn,
+      window: usedUpWindow.window,
+      resetsAt: usedUpWindow.resetsAt,
+    });
+    if (!moved) return false;
+    await this.change(threadId, (thread) =>
+      endTurn(thread, {
+        usage,
+        contextTokens: context?.tokens ?? 0,
+        contextWindow: context?.window,
+        handingOver: false,
+        turnFollows: true,
+        endedAt: new Date(),
+      }),
+    );
+    this.bargeIns.get(threadId)?.sessionReplaced();
+    const start = new SessionStartWatch(
+      {
+        threadId,
+        sessionId: moved.session.id,
+        engineId: moved.session.engineId,
+        personName: live.reopening.role.card.name,
+        move: "resume",
+      },
+      this.schedule,
+      this.logger,
+    );
+    // Once this session's events are read to their end, as its turn's end is read now.
+    void live.reading
+      .then(async () =>
+        this.resumeOnStandIn(await this.threadOf(threadId), moved, start, sentAgain),
+      )
+      .catch((error: unknown) => this.fail(threadId, error, { logged: start.failed(error) }));
+    return true;
+  }
+
+  /** What carries a session to a Stand-in Engine. */
+  private get carrying(): SessionCarrying {
+    return { engine: this.engine, change: (threadId, change) => this.change(threadId, change) };
   }
 
   private settingsOf(
@@ -1096,16 +1305,18 @@ export class ThreadRunner implements OnModuleDestroy {
   }
 
   /**
-   * Reads the session's events into the log until it ends. It is started on a message, so its
+   * Reads the session's events into the log until it ends. It is started on `turnMessage`, so its
    * first turn runs; `start` hears of its first event.
    */
   private watch(
     thread: Thread,
-    { roleKey, card }: SessionRole,
-    { folder, mask, officeTools }: Pick<SessionPlace, "folder" | "mask" | "officeTools">,
+    reopening: Reopening,
     session: EngineSession,
     start: SessionStartWatch,
+    turnMessage: UserMessage,
   ): void {
+    const { roleKey, card } = reopening.role;
+    const { folder, mask, officeTools } = reopening.place;
     const { id: threadId, home } = thread;
     const following = this.subAgentsAndProcesses.follow({
       threadId,
@@ -1126,12 +1337,15 @@ export class ThreadRunner implements OnModuleDestroy {
       idle: undefined,
       ending: false,
       following,
+      reopening,
+      turnMessage,
+      reading: Promise.resolve(),
     };
     following.whenBackgroundSubAgentsEnd(() => {
       if (!live.turnRunning) this.idleFrom(threadId, live);
     });
     this.live.set(threadId, live);
-    void this.read(threadId, live, start)
+    live.reading = this.read(threadId, live, start)
       .then(() => (live.ending ? undefined : this.endedEarly(threadId, session.id)))
       .catch((error: unknown) => this.fail(threadId, error, { logged: start.failed(error) }))
       .finally(() => {
@@ -1193,8 +1407,11 @@ export class ThreadRunner implements OnModuleDestroy {
         { kind: "failure", reason: turn.errors.join(" ") || "The engine ended the turn." },
       ]);
     }
-    // No failure: the user writes again once the window resets (spec 2.4).
+    // Read before a switch to a Stand-in Engine ends the session.
+    const usage = await this.contextUsageOf(threadId, live);
     if (turn.outcome === "usage-window-used-up" && turn.usedUpWindow) {
+      if (await this.goOnOnStandIn(threadId, live, turn, usage)) return;
+      // No failure: the user writes again once the window resets (spec 2.4).
       const engineId = (await this.repository.find(threadId))?.session?.engineId;
       await this.log(threadId, [
         {
@@ -1207,9 +1424,11 @@ export class ThreadRunner implements OnModuleDestroy {
     }
     const stillToLand = await this.landBargeIns(threadId, turn);
     if (!stillToLand) live.turnRunning = false;
-    const usage = await this.contextUsageOf(threadId, live);
     const wroteNote = live.handingOver;
+    // A session ended for a switch to a Stand-in Engine whose carry failed takes nothing more.
+    const ended = live.ending;
     const handingOver =
+      !ended &&
       !stillToLand &&
       !wroteNote &&
       usage !== undefined &&
@@ -1230,14 +1449,15 @@ export class ThreadRunner implements OnModuleDestroy {
       const request = handoverRequest(await this.promptTemplates.textsOf([HANDOVER_REQUEST]));
       live.handingOver = true;
       this.turnBegan(live);
-      live.session.send({ id: randomUUID(), text: request }, "later");
+      live.turnMessage = { id: randomUUID(), text: request };
+      live.session.send(live.turnMessage, "later");
       return;
     }
     if (wroteNote) {
       await this.endLive(threadId);
       return;
     }
-    this.idleFrom(threadId, live);
+    if (!ended) this.idleFrom(threadId, live);
     // Not awaited: the session's events are read on while the answers go to it.
     void this.deliverWaitingAnswers(threadId).catch((error: unknown) => {
       this.logger.error(

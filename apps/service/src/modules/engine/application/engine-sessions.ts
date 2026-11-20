@@ -47,7 +47,11 @@ import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-c
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { UsageWindowReadings } from "./usage-window-readings.js";
-import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.js";
+import {
+  UsageWindowState,
+  type UsageWindowReading,
+  type UsedUpUsageWindow,
+} from "./usage-window-state.js";
 
 /**
  * What a caller runs a session with: the engine by its id and the model by its id there, which a
@@ -215,6 +219,15 @@ export class EngineSessions {
         this.usageWindows.latestShowsFree(engineId)
       );
     });
+  }
+
+  /**
+   * `engineId`'s used-up usage window while its reset is ahead, as a refused turn made it known;
+   * undefined while it has room. A person's Thread opens its next session on a Stand-in Engine
+   * meanwhile (spec 5.4).
+   */
+  usedUpUntil(engineId: EngineId): UsedUpUsageWindow | undefined {
+    return this.usageWindows.usedUpUntil(engineId);
   }
 
   /** Whether a session on `engine` can be carried to or from another: Claude Code's alone. */
