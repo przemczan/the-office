@@ -1,5 +1,6 @@
 import type { ProviderOverride } from "../../../../test/test-application.js";
 import { TaskService } from "../../work/index.js";
+import type { GateDropReason } from "../domain/stage-run.js";
 import {
   StartedTasks,
   type ResumedOrDroppedBy,
@@ -37,8 +38,12 @@ export class OwnProjectsStartedTasks extends StartedTasks {
     return this.tasks.find(taskId);
   }
 
-  changeState(taskId: string, state: WalkTaskState): Promise<StartedTask> {
-    return this.tasks.changeState(taskId, state);
+  changeState(
+    taskId: string,
+    state: WalkTaskState,
+    dropReason?: GateDropReason,
+  ): Promise<StartedTask> {
+    return this.tasks.changeState(taskId, state, dropReason);
   }
 
   hold(taskId: string, reason: string): Promise<StartedTask> {

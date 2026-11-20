@@ -218,6 +218,28 @@ export async function grantPermissions(
   await postToFake(FAKE_PERMISSIONS_CONTROL_PATH, { account, permissions });
 }
 
+/** The fake's own route adding and changing issues; `FAKE_ISSUES_CONTROL_PATH` in its source. */
+const FAKE_ISSUES_CONTROL_PATH = "/_fake/issues";
+
+/** An issue on the fake GitHub, as `FakeIssue` in its source; what is left out is defaulted. */
+export interface FakeIssue {
+  readonly number: number;
+  readonly title?: string;
+  readonly body?: string | null;
+  /** `octocat` unless named. */
+  readonly author?: string;
+  readonly labels?: readonly string[];
+  readonly createdAt?: string;
+  readonly state?: "open" | "closed";
+  /** A pull request, which GitHub's issues API lists among the issues. */
+  readonly pullRequest?: boolean;
+}
+
+/** Opens an issue on the repository, as someone would on GitHub. */
+export async function addIssue(repository: string, issue: FakeIssue): Promise<void> {
+  await postToFake(FAKE_ISSUES_CONTROL_PATH, { action: "addIssue", repository, issue });
+}
+
 async function postToFake(controlPath: string, body: unknown): Promise<void> {
   const response = await fetch(`${FAKE_GITHUB_URL}${controlPath}`, {
     method: "POST",

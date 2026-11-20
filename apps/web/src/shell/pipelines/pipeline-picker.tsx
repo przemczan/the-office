@@ -1,11 +1,12 @@
 import { Badge, GroupedSelect, type GroupedSelectGroup } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { kindDefaultWords } from "../work/work-words.ts";
 import type { PipelineChoice, PipelineChoiceGroup } from "./pipeline-choices.ts";
 
 /**
  * The one Pipeline picker (docs/design/project-pipelines.html, recommendation 6): the groups of
  * `pipeline-choices.ts`, each Pipeline with its Stages under its name, the Project's default
- * badged, and a Broken one listed with its reasons in place of its Stages, which can't be chosen.
+ * badged ("Default for Bugs" where the Task's Kind chose it), and a Broken one listed with its reasons in place of its Stages, which can't be chosen.
  */
 export function PipelinePicker({
   label = "Pipeline",
@@ -61,7 +62,11 @@ function badgesOf(choice: PipelineChoice): ReactNode {
   if (!choice.isDefault && choice.brokenWhy === undefined) return undefined;
   return (
     <>
-      {choice.isDefault && <Badge size="sm">Project default</Badge>}
+      {choice.isDefault && (
+        <Badge size="sm">
+          {choice.defaultFor ? kindDefaultWords(choice.defaultFor) : "Project default"}
+        </Badge>
+      )}
       {choice.brokenWhy !== undefined && (
         <Badge size="sm" tone="danger">
           Broken

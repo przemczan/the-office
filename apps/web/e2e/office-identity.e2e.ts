@@ -15,6 +15,7 @@ import {
 } from "@the-office/contracts";
 import { E2E_STORAGE_STATE, NOT_SIGNED_IN } from "./e2e-user.ts";
 import {
+  addIssue,
   addRef,
   addRun,
   addWorkflow,
@@ -27,6 +28,7 @@ import {
 } from "./fake-github.ts";
 import { serveRepository } from "./git-host.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
+import { pickPipeline } from "./pipeline-picker.ts";
 import { E2E_HOST_KEY_FINGERPRINT } from "./ssh-host.ts";
 import { screenshotScenario, TASK_SCREENSHOTS } from "./task-screenshots.ts";
 import {
@@ -481,7 +483,12 @@ test.describe.serial("Sign in with GitHub", () => {
       await screenshotScenario(page, "settings-office-identity-permissions", { inView: prompt });
 
       // Accepted on GitHub, Check again finds nothing missing.
-      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      await grantPermissions("office-user", {
+        checks: "read",
+        statuses: "read",
+        actions: "write",
+        issues: "write",
+      });
       await prompt.getByRole("button", { name: "Check again" }).click();
       await expect(prompt).toBeHidden();
 
@@ -563,7 +570,12 @@ test.describe.serial("Sign in with GitHub", () => {
     const fullName = `office-user/${repositoryName}`;
     try {
       await installApp("office-user", [{ fullName }]);
-      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      await grantPermissions("office-user", {
+        checks: "read",
+        statuses: "read",
+        actions: "write",
+        issues: "write",
+      });
       const projectName = `CI notes ${Date.now()}`;
       const newProject: NewProject = {
         name: projectName,
@@ -629,7 +641,12 @@ test.describe.serial("Sign in with GitHub", () => {
     const fullName = `office-user/release-by-hand-${Date.now()}`;
     try {
       await installApp("office-user", [{ fullName }]);
-      await grantPermissions("office-user", { checks: "read", statuses: "read", actions: "write" });
+      await grantPermissions("office-user", {
+        checks: "read",
+        statuses: "read",
+        actions: "write",
+        issues: "write",
+      });
       const project = await addProjectOnGitHub(page, repository, fullName, "Release by hand");
       await addWorkflow(fullName, { file: "release.yml", name: "Release", yaml: RELEASE_YAML });
       await addRef(fullName, { tag: "v1.2.0" });
@@ -675,6 +692,103 @@ test.describe.serial("Sign in with GitHub", () => {
           inputs: { channel: "stable", dry_run: "true" },
         },
       ]);
+    } finally {
+      await repository.remove();
+    }
+  });
+
+  // Needs the sign-in, as the service lists and reads the issues with its token.
+  test("Import issues from the Work board picks two open issues, and they show in Backlog with their GitHub issue records", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepositoryWithRemote();
+    const fullName = `office-user/issue-notes-${Date.now()}`;
+    try {
+      await installApp("office-user", [{ fullName }]);
+      await grantPermissions("office-user", {
+        checks: "read",
+        statuses: "read",
+        actions: "write",
+        issues: "write",
+      });
+      const project = await addProjectOnGitHub(page, repository, fullName, "Issue notes");
+      // A second Project, so the window offers its Project picker even when run alone.
+      await addProjectOnGitHub(page, repository, fullName, "Issue notes elsewhere");
+      const stamp = Date.now();
+      const crash = `Live view freezes after waking ${stamp}`;
+      const csvExport = `Export Stats as CSV ${stamp}`;
+      const typo = `Typo on the sign-in page ${stamp}`;
+      await addIssue(fullName, { number: 1, title: typo, author: "mona", labels: ["docs"] });
+      await addIssue(fullName, { number: 2, title: csvExport, author: "hubot" });
+      await addIssue(fullName, { number: 3, title: crash, labels: ["Bug", "live-view"] });
+      // A pull request, which GitHub lists among the issues and the window leaves out.
+      await addIssue(fullName, { number: 4, title: `Fix the typo ${stamp}`, pullRequest: true });
+
+      // The Project's page: a Kind's own default Pipeline, and the GitHub issues section.
+      await page.goto(`/projects/${project.id}/pipelines`);
+      await pickPipeline(page, "Default Pipeline for Bugs", "Full");
+      await expect(page.getByText(`${project.name}'s Bugs follow Full now.`)).toBeVisible();
+      await expect(
+        page.getByRole("combobox", { name: "Default Pipeline for Features", exact: true }),
+      ).toHaveText("Same as every Task");
+      await screenshotScenario(page, "project-default-pipeline-by-kind");
+      await page.getByRole("navigation", { name: "Project" }).getByText("GitHub issues").click();
+      await expect(page).toHaveURL(`/projects/${project.id}/issues`);
+      await expect(page.getByText("3 open issues not yet imported")).toBeVisible();
+      await expect(page.getByText("Signed in with GitHub", { exact: true })).toBeVisible();
+      await screenshotScenario(page, "project-github-issues", { fullPage: true });
+
+      // Work › Board's Import issues…, in the Project picked in the window.
+      await page.goto("/work");
+      await page.getByRole("button", { name: "Import issues…" }).click();
+      const dialog = page.getByRole("dialog", { name: "Import issues" });
+      await dialog.getByRole("combobox", { name: "Project", exact: true }).click();
+      await page
+        .getByRole("listbox", { name: "Project", exact: true })
+        .getByRole("option", { name: project.name, exact: true })
+        .click();
+      const rows = dialog.getByRole("group", { name: /^#\d+ / });
+      await expect(rows).toHaveCount(3);
+      // Newest first; the bug label (any case) previews Bug, others Feature.
+      await expect(rows.nth(0)).toHaveAccessibleName(`#3 ${crash}`);
+      await expect(rows.nth(0)).toContainText("Bug");
+      await expect(rows.nth(1)).toContainText("Feature");
+      await expect(dialog.getByRole("button", { name: "Import issues" })).toBeDisabled();
+
+      await dialog.getByRole("group", { name: `#3 ${crash}` }).click();
+      await dialog.getByRole("group", { name: `#2 ${csvExport}` }).click();
+      await expect(dialog).toContainText("3 open issues not yet imported · 2 picked");
+      await dialog.getByLabel("Search the issues").fill("typo");
+      await expect(rows).toHaveCount(1);
+      await dialog.getByLabel("Search the issues").fill("");
+      await screenshotScenario(page, "import-issues-window", { inView: dialog });
+      await dialog.getByRole("button", { name: "Import 2 issues" }).click();
+      await expect(dialog).toBeHidden();
+      await expect(page.getByText("2 Tasks added to Backlog.")).toBeVisible();
+
+      const backlog = page.getByRole("region", { name: "Backlog", exact: true });
+      const crashCard = backlog.getByRole("article", { name: crash });
+      await expect(crashCard).toBeVisible();
+      await expect(crashCard.getByRole("img", { name: "Bug", exact: true })).toBeAttached();
+      await expect(
+        backlog.getByRole("article", { name: csvExport }).getByRole("img", { name: "Feature" }),
+      ).toBeAttached();
+      await expect(backlog.getByRole("article", { name: typo })).toHaveCount(0);
+
+      await crashCard.getByRole("link", { name: crash }).click();
+      await expect(page).toHaveURL(/\/tasks\//);
+      const issue = page.getByRole("region", { name: "GitHub issue" });
+      await expect(issue.getByRole("link", { name: `#3 ${crash}` })).toHaveAttribute(
+        "href",
+        `${FAKE_GITHUB_URL}/${fullName}/issues/3`,
+      );
+      await expect(issue).toContainText("opened by");
+      await expect(issue).toContainText("imported by You");
+      await screenshotScenario(page, "task-page-imported-bug", { inView: issue });
+
+      // Imported once: the Project's page counts the one left.
+      await page.goto(`/projects/${project.id}/issues`);
+      await expect(page.getByText("1 open issue not yet imported")).toBeVisible();
     } finally {
       await repository.remove();
     }

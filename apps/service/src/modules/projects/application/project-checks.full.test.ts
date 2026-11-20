@@ -342,6 +342,33 @@ describe("ProjectChecks.checkCommandRemoval", () => {
     ]);
     await expect(checksWith().checkCommandRemoval(project, "test")).resolves.toBeUndefined();
   });
+
+  it("refuses removing a command a Kind's own default Pipeline runs, naming its Kinds", async () => {
+    const project = aProject({
+      kindDefaultPipelines: { feature: "full", bug: "thorough", chore: "thorough" },
+    });
+
+    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "e2e"))).toEqual([
+      "Thorough, this Project's default Pipeline for Bugs and Chores, runs e2e; choose another default for Bugs and Chores first.",
+    ]);
+    // A Kind following the default Pipeline names it once, as the Project's.
+    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "test"))).toEqual([
+      "Full, this Project's default Pipeline, runs test; choose another default first.",
+    ]);
+  });
+
+  it("lets a command go that only another Project's Pipeline, as a Kind's default, runs", async () => {
+    const project = aProject({
+      kindDefaultPipelines: { feature: null, bug: "e2e-for-admin", chore: null },
+    });
+
+    await expect(
+      checksWith().checkCommandRemoval({ ...project, id: "shop" }, "e2e"),
+    ).resolves.toBeUndefined();
+    expect(await reasonsOf(checksWith().checkCommandRemoval(project, "e2e"))).toEqual([
+      "Full with e2e, this Project's default Pipeline for Bugs, runs e2e; choose another default for Bugs first.",
+    ]);
+  });
 });
 
 describe("ProjectChecks.checkEngineModel", () => {

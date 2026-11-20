@@ -5,7 +5,7 @@ import { MessageImages } from "./message-images.js";
 import { ThreadImages } from "./thread-images.js";
 import { MessageImagesInMemory } from "./message-images.fixtures.js";
 import { z } from "zod";
-import { OPEN_DECISION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
+import { OPEN_DECISION_TOOL, CONSULT_TOOL, PROPOSE_BUG_TASK_TOOL } from "@the-office/contracts";
 import {
   EngineModels,
   FIRST_CLAUDE_CODE_ENGINE,
@@ -15,7 +15,22 @@ import {
   type SessionScript,
   ScriptedEngineModule,
 } from "../../engine/index.js";
-import { oneOptionAnswer } from "../domain/decision.js";
+import {
+  BUG_TASK_OPTIONS,
+  oneOptionAnswer,
+  type BugTaskFields,
+  type DecisionAnswer,
+} from "../domain/decision.js";
+import { stageAnswerOf } from "../domain/stage-answer.js";
+import { ProposalRefused } from "../domain/proposal-refused.js";
+import { ThreadRefused } from "../domain/thread-refused.js";
+import type { UserRef } from "../domain/user.js";
+import {
+  BugTaskOfficeTools,
+  BUG_TASK_DECISION_OPENED,
+} from "../adapters/office-tools/bug-task-office-tools.js";
+import { BugTaskDecisions } from "./bug-task-decisions.js";
+import { ProposalAppliers } from "./proposal-appliers.js";
 import { openDecision, answerDecision, startTaskThread } from "../domain/thread-changes.js";
 import { DecisionService } from "./decision-service.js";
 import { StageDecisions } from "./stage-decisions.js";
@@ -235,6 +250,9 @@ async function startOn(
       Consultations,
       FireAlarmInThreads,
       DecisionOfficeTools,
+      ProposalAppliers,
+      BugTaskDecisions,
+      BugTaskOfficeTools,
       ThreadService,
       TaskTokens,
     ],
@@ -910,6 +928,184 @@ describe("Office tools on a Stage", () => {
     );
     expect(offered[0]).toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
     expect(offered[1]).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
+  });
+});
+
+/** A bug-task Decision's answer: the option chosen, with any other fields. */
+const answered = (option: number, fields: Partial<DecisionAnswer> = {}): DecisionAnswer =>
+  ({ kind: "submitted", answers: [{ kind: "option", option }], ...fields }) as DecisionAnswer;
+
+describe("propose_bug_task on a Stage", () => {
+  const PROPOSED = {
+    title: "Two token refreshes at once sign The Office out of GitHub",
+    description: "**Steps to reproduce**\n1. Open Pull requests and CI at once",
+    why: "The token refresh runs twice. It is outside this Task.",
+    causedBy: "cause-task",
+  };
+
+  /** What Work was asked to create, and how it answers. */
+  let created: {
+    task: BugTaskFields;
+    foundWhileWorkingOn: string;
+    createdBy: UserRef | null;
+  }[];
+  let refusal: string[] | undefined;
+  /** How long Work takes to create a Task, in ms. */
+  let creatingFor: number;
+
+  /** Work's applier as a stand-in: the Stage's Task is in admin-panel, and api is a Project too. */
+  function withWork(stageTaskId: string): void {
+    created = [];
+    refusal = undefined;
+    creatingFor = 0;
+    app.get(ProposalAppliers).registerBugTask({
+      projectOf: (taskId) => Promise.resolve(taskId === stageTaskId ? "admin-panel" : undefined),
+      problemsWith: ({ projectId }) =>
+        Promise.resolve(
+          ["admin-panel", "api"].includes(projectId) ? [] : [`There is no Project "${projectId}".`],
+        ),
+      create: async (task, foundWhileWorkingOn, createdBy) => {
+        if (creatingFor > 0) await new Promise((resolve) => setTimeout(resolve, creatingFor));
+        if (refusal) throw new ProposalRefused(refusal);
+        created.push({ task, foundWhileWorkingOn, createdBy });
+        return { id: "bug-task", title: task.title };
+      },
+    });
+  }
+
+  /** An Agent Stage that proposes a Bug Task, then ends needing the Decision. */
+  async function aProposingStage(input: Record<string, unknown> = PROPOSED) {
+    await startWith(
+      started(
+        ...callsOfficeTool("c-1", PROPOSE_BUG_TASK_TOOL, input),
+        ...aTurn({ status: "needs_decision", summary: "Proposed.", handoverNote: "Waiting." }),
+      ),
+    );
+    const request = aStage({ roleKey: aPerson("Kai") });
+    withWork(request.taskId);
+    const stageThread = await stageThreads.open({
+      ...request,
+      session: { ...request.session, officeTools: [PROPOSE_BUG_TASK_TOOL] },
+    });
+    await stageThread.nextTurn();
+    const asked = await stageThread.askedDecision();
+    await stageThread.end({ handoverNote: "Waiting.", closing: undefined });
+    return { request, asked };
+  }
+
+  it("opens a bug-task Decision on the Agent's Task, which the Stage waits on and nobody dismisses", async () => {
+    const { request, asked } = await aProposingStage();
+
+    expect(asked).toMatchObject({
+      question: `Create the Bug Task "${PROPOSED.title}"?`,
+      context: PROPOSED.why,
+      options: [...BUG_TASK_OPTIONS],
+    });
+    const id = asked?.id ?? "";
+    expect(await repository.decision(id)).toMatchObject({
+      kind: "bug-task",
+      taskId: request.taskId,
+      inStageThread: true,
+      bugTask: { ...PROPOSED, projectId: "admin-panel" },
+    });
+    await expect(
+      app.get(DecisionService).answer(id, { kind: "dismissed" }, ANSWERED_BY_ANN_LEE),
+    ).rejects.toThrow("A proposed Bug Task can't be dismissed");
+  });
+
+  it("creates the Bug Task as edited, found while working on the Task, and tells the Agent its link", async () => {
+    const { request, asked } = await aProposingStage();
+    const id = asked?.id ?? "";
+    const edited = {
+      title: "Concurrent token refreshes sign The Office out",
+      description: PROPOSED.description,
+      projectId: "api",
+      causedBy: "cause-task",
+    };
+
+    await app
+      .get(BugTaskDecisions)
+      .answer(
+        id,
+        answered(0, { bugTask: edited, createdTaskId: "forged" } as Partial<DecisionAnswer>),
+        ANSWERED_BY_ANN_LEE,
+      );
+
+    expect(created).toEqual([
+      { task: edited, foundWhileWorkingOn: request.taskId, createdBy: ANN_LEE },
+    ]);
+    const decision = await repository.decision(id);
+    expect(decision?.answer).toMatchObject({ bugTask: edited, createdTaskId: "bug-task" });
+    expect(decision && stageAnswerOf(decision)).toEqual({
+      kind: "free-answer",
+      text: "Created the Bug Task [Concurrent token refreshes sign The Office out](/tasks/bug-task) (Task bug-task), in Backlog, found while working on this Task.",
+    });
+  });
+
+  it("creates one Bug Task when two users press Create at once, refusing the second", async () => {
+    const { asked } = await aProposingStage();
+    const id = asked?.id ?? "";
+    // Work takes its time, so the second Create arrives while the first is creating.
+    creatingFor = 50;
+
+    const answers = await Promise.allSettled(
+      [0, 1].map(() => app.get(BugTaskDecisions).answer(id, answered(0), ANSWERED_BY_ANN_LEE)),
+    );
+
+    expect(created).toHaveLength(1);
+    expect(answers.map(({ status }) => status).toSorted()).toEqual(["fulfilled", "rejected"]);
+    expect(answers.find(({ status }) => status === "rejected")).toMatchObject({
+      reason: new ThreadRefused(["This Decision is answered already."]),
+    });
+    expect((await repository.decision(id))?.answer).toMatchObject({ createdTaskId: "bug-task" });
+  });
+
+  it("creates nothing on Don't create it, and gives the Agent the comment", async () => {
+    const { asked } = await aProposingStage();
+    const id = asked?.id ?? "";
+
+    await app
+      .get(BugTaskDecisions)
+      .answer(id, answered(1, { generalComment: "It's a Task already." }), ANSWERED_BY_ANN_LEE);
+
+    expect(created).toEqual([]);
+    const decision = await repository.decision(id);
+    expect(decision && stageAnswerOf(decision)).toEqual({
+      kind: "free-answer",
+      text: `Didn't create the Bug Task "${PROPOSED.title}".\n\nGeneral comment: It's a Task already.`,
+    });
+  });
+
+  it("keeps the Decision open with Work's refusal, creating nothing", async () => {
+    const { asked } = await aProposingStage();
+    const id = asked?.id ?? "";
+    refusal = ["There is no Task cause-task."];
+
+    await expect(
+      app.get(BugTaskDecisions).answer(id, answered(0), ANSWERED_BY_ANN_LEE),
+    ).rejects.toThrow(new ThreadRefused(["There is no Task cause-task."]));
+    expect((await repository.decision(id))?.answer).toBeUndefined();
+    // A Create can't be recorded but through the Bug Task's creation.
+    await expect(
+      app.get(DecisionService).answer(id, answered(0), ANSWERED_BY_ANN_LEE),
+    ).rejects.toThrow("Create the Bug Task on its Decision's card.");
+  });
+
+  it("answers the Agent with the problems first, opening nothing, and that it opened the Decision", async () => {
+    const { request, asked } = await aProposingStage({ ...PROPOSED, projectId: "nowhere" });
+    expect(asked).toBeUndefined();
+    const [thread] = await repository.listIn({ kind: "task", taskId: request.taskId });
+    const sessionId = thread?.session?.id ?? "";
+    const [tool] = app.get(OfficeToolRegistry).named([PROPOSE_BUG_TASK_TOOL]);
+
+    expect(await tool?.run({ ...PROPOSED, projectId: "nowhere" }, { sessionId } as never)).toEqual({
+      text: 'There is no Project "nowhere".',
+      isError: true,
+    });
+    expect(await tool?.run(PROPOSED, { sessionId } as never)).toEqual({
+      text: BUG_TASK_DECISION_OPENED,
+      isError: false,
+    });
   });
 });
 

@@ -76,15 +76,19 @@ export class IdeasController {
     return toIdeaResponse(idea);
   }
 
-  /** The Task the Idea became. */
+  /** The Task the Idea became, of the Kind chosen (a Feature by default). */
   @Post(":id/shape")
   @HttpCode(HttpStatus.CREATED)
   async shape(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
+    @Body(new ContractPipe(ideaShapingSchema)) { projectId, kind, description }: IdeaShaping,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.ideas.shape(id, projectId, authorOf(signedIn)));
+    const given = {
+      ...(kind !== undefined && { kind }),
+      ...(description !== undefined && { description }),
+    };
+    return toTaskResponse(await this.ideas.shape(id, projectId, authorOf(signedIn), given));
   }
 
   /** Shape into an Initiative: the Initiative the Idea became, being shaped, with no Tasks yet. */

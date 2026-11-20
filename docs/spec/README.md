@@ -34,9 +34,11 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Basic stats, Full stats**: [2.11.2 Basic stats](2.11.2-tokens-and-cost.md#basic-stats); [2.11.2 Full stats](2.11.2-tokens-and-cost.md#full-stats)
 - **Brief**: [2.5 The Brief](2.5-context-policy.md#the-brief)
 - **Broken, Broken Pipeline**: [2.3.5 A Broken Project Pipeline](2.3.5-library.md#a-broken-project-pipeline); screen: [Task page › Broken Pipeline flag](screens/task-page.md#broken-pipeline-flag)
+- **Bug Task Decision**: [2.4.2 The Bug Task Decision](2.4.2-decisions.md#the-bug-task-decision); screen: [Decision card › The Bug Task card](screens/decision-card.md#the-bug-task-card)
 
 ### C
 
+- **Caused by, Found in version, Found while working on**: [2.1.3 Bug details](2.1.3-tasks.md#bug-details); screen: [Task page › Bug](screens/task-page.md#bug)
 - **Caretaker**: [2.2 Caretaker](2.2-people.md#caretaker); [6 The Caretaker with Allow changes on](6-permissions-and-safety.md#the-caretaker-with-allow-changes-on)
 - **CI run, Workflow**: [2.1.6 The CI tab](2.1.6-board-and-search.md#the-ci-tab); screen: [CI tab › Start a workflow window](screens/ci-runs.md#start-a-workflow-window)
 - **Chat drawer**: [4.1 The chat drawer](4.1-ui-rules.md#the-chat-drawer); screen: [Shell › The chat drawer](screens/shell.md#the-chat-drawer)
@@ -60,6 +62,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Density**: [4 Densities](4-ux-direction.md#densities); [4 Density](4-ux-direction.md#density)
 - **Description**: [2.1.3 Description](2.1.3-tasks.md#description)
 - **Details**: [2.9.3 The details](2.9.3-streaming-and-ui.md#the-details); screen: [Decision card › The details window](screens/decision-card.md#the-details-window-open-details)
+- **Drop reason**: [2.1.3 Drop reason](2.1.3-tasks.md#drop-reason); screen: [Task page › Task menu](screens/task-page.md#task-menu); [Archived tab › Archived Tasks](screens/archived.md#archived-tasks)
 - **Dismiss, Dismissed**: [2.4.2 Dismiss](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Dismiss](screens/decision-card.md#dismiss)
 - **Duty**: [2.2 Duty](2.2-people.md#duty); [2.2 Duties](2.2-people.md#duties); screen: [Settings › Duties](screens/settings.md#duties)
 
@@ -77,6 +80,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### G
 
 - **Gate**: [2.3.3 Gates](2.3.3-gates-and-checks.md#gates); screen: [Task page › Gate](screens/task-page.md#gate)
+- **GitHub issue, Import issues, auto-import**: [2.1.1 GitHub issues](2.1.1-projects.md#github-issues); [2.3.4 The Task's commit message](2.3.4-publish.md#the-tasks-commit-message) (`Fixes #n`); screen: [Project page › GitHub issues](screens/project-page.md#github-issues)
 - **Grafana read address, Read token**: [5.2 Stats reads Grafana](5.2-stack.md#stats-reads-grafana); [5.2 The bundled Grafana](5.2-stack.md#the-bundled-grafana)
 
 ### H
@@ -196,6 +200,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Tag**: [2.1.3 Tags](2.1.3-tasks.md#tags)
 - **Task**: [2.1.3 Task](2.1.3-tasks.md#task); screen: [Task page](screens/task-page.md#task-page)
+- **Task kind (Feature, Bug, Chore), a Kind's default Pipeline**: [2.1.3 Task kind](2.1.3-tasks.md#task-kind); [2.1.1 Project settings](2.1.1-projects.md#project-settings); screen: [Work board › Marks](screens/work-board.md#marks)
 - **Text file**: [2.1.2 Text files and PDFs](2.1.2-ideas-and-attachments.md#text-files-and-pdfs)
 - **Thread**: [2.4.1 Threads](2.4.1-threads.md#threads); screen: [Thread view](screens/thread.md#thread-view)
 - **Tokens and cost**: [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md#levels); screen: [Stats › Tokens and estimated cost over time](screens/stats.md#tokens-and-estimated-cost-over-time)
@@ -259,12 +264,12 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### 2. Domain model
 
 - [2.1 Work](2.1-work.md): index of the pages below.
-  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, Project limit, Icon and Logo, Project commands.
+  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, Project limit, Icon and Logo, Project commands, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
-  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its states, Ready, Description, Commit message, dependencies, priority, archive, moving.
+  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, archive, moving.
   - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Publishing Tasks, Pause.
   - [2.1.5 Planning and Start](2.1.5-planning-and-start.md): Plan and Definition of Done, Planning, Auto mode, the queue for Start, overlaps, Usage estimates.
-  - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
+  - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
 - [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, duties, the Office Manager, limits.
 - [2.3 Pipelines](2.3-pipelines.md): index of the pages below.
   - [2.3.1 Stages](2.3.1-stages.md): Stage kinds, what a Stage declares, how it ends, skipping, Review & fix.
@@ -274,7 +279,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Stage templates, Project Pipelines.
 - [2.4 Conversations](2.4-conversations.md): index of the pages below.
   - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what a Thread reads, Allow changes.
-  - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, where it shows.
+  - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows.
   - [2.4.3 Consultations](2.4.3-consultations.md): Consultation, calls from chats.
   - [2.4.4 Messages](2.4.4-messages.md): barge-in, Office actions, Mentions, images, Open page, commands.
   - [2.4.5 Stopping and restarts](2.4.5-stopping-and-restarts.md): Stop, Pause, shutdown, restarts, refused turns.
@@ -345,10 +350,12 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 Where each default lives, by page:
 
 - 2.1.1 Projects
+  - [GitHub issues switches](2.1.1-projects.md#github-issues-switches)
   - [Onboarding a Project](2.1.1-projects.md#onboarding-a-project)
 - 2.1.2 Ideas and Attachments
   - [Plan as a Task with the Planner](2.1.2-ideas-and-attachments.md#plan-as-a-task-with-the-planner)
 - 2.1.3 Tasks
+  - [New Tasks are Features](2.1.3-tasks.md#new-tasks-are-features)
   - [Tasks of an Initiative still being shaped](2.1.3-tasks.md#tasks-of-an-initiative-still-being-shaped)
   - [Archive](2.1.3-tasks.md#archive)
   - [Moving a Task](2.1.3-tasks.md#moving-a-task)

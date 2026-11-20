@@ -614,7 +614,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
         await this.events.publish(new PipelineCompleted(taskId));
         return;
       case "drop":
-        await this.tasks.changeState(taskId, "dropped");
+        await this.tasks.changeState(taskId, "dropped", move.reason);
     }
   }
 

@@ -272,12 +272,12 @@ describe("the Initiative's planning Thread", () => {
     });
     expect(brief).toContain("Initiative: Usage exports");
     expect(brief).toContain(
-      '- "Export API" (Task task-a), in the Project Admin panel: waits for no Task in the Initiative.',
+      '- "Export API" (Task task-a), a Feature in the Project Admin panel: waits for no Task in the Initiative. Its commit type is feat. The Pipeline Admin panel gives Features is Full (full).',
     );
     expect(brief).toContain(
-      '- "Export button" (Task task-b), in the Project Admin panel: waits for "Export API" (Task task-a, Backlog).',
+      '- "Export button" (Task task-b), a Feature in the Project Admin panel: waits for "Export API" (Task task-a, Backlog). Its commit type is feat. The Pipeline Admin panel gives Features is Full (full).',
     );
-    expect(brief).not.toContain("task-c), in the Project");
+    expect(brief).not.toContain("task-c), a Feature in the Project");
     expect(brief).toContain("### Admin panel (admin-panel)\n\nBase branch main");
     expect(brief).toContain("its default Pipeline is Full (full).");
     expect(brief).toContain(
@@ -287,6 +287,55 @@ describe("the Initiative's planning Thread", () => {
     expect(brief).toContain("## Auto mode\n\nOn:");
     expect(brief).not.toContain("## Being planned here");
     expect(brief).not.toContain("## Planning with the user");
+  });
+
+  it("names each Task's Kind, its commit type, a Bug's details and the Pipeline its Project gives its Kind", () => {
+    const bug = aTask({
+      id: "task-d",
+      title: "Export drops rows",
+      initiativeId: planning.id,
+      kind: "bug",
+      causedBy: first.id,
+      foundInVersion: "v1.14.2",
+    });
+    const brief = initiativePlanningBrief(prompts, {
+      initiative: planning,
+      waiting: [],
+      record: "Initiative: Usage exports",
+      tasks: [first, bug],
+      projects: [
+        {
+          id: "admin-panel",
+          name: "Admin panel",
+          baseBranch: "main",
+          defaultPipeline: "full",
+          kindPipelines: { bug: "quick-fix" },
+          installCommand: "npm ci",
+          commands: [],
+          ownPipelines: [],
+        },
+      ],
+      pipelines: [
+        {
+          id: "full",
+          name: "Full",
+          description: "For most work.",
+          stages: [{ name: "Implement" }],
+        },
+        {
+          id: "quick-fix",
+          name: "Quick fix",
+          description: "For a fix.",
+          stages: [{ name: "Fix" }],
+        },
+      ],
+    });
+
+    expect(brief).toContain(
+      '- "Export drops rows" (Task task-d), a Bug in the Project Admin panel: waits for no Task in the Initiative. Its commit type is fix. Caused by: Export API (Task task-a, Backlog). Found in version: v1.14.2. The Pipeline Admin panel gives Bugs is Quick fix (quick-fix).',
+    );
+    expect(brief).toContain("write_kind");
+    expect(brief).toContain("write_bug_details");
   });
 
   it("tells the planner to follow the user's instructions on how to plan in a Plan with… Thread", () => {

@@ -21,7 +21,9 @@ import { startWorkApplication, type WorkApplication } from "../../work-applicati
 import {
   MARK_PLANNED,
   PROPOSE_PIPELINE,
+  WRITE_BUG_DETAILS,
   WRITE_DEFINITION_OF_DONE,
+  WRITE_KIND,
   WRITE_PLAN,
   WRITE_TAGS,
 } from "./planning-office-tools.js";
@@ -86,6 +88,8 @@ it("are among a planning session's Office tools", () => {
       WRITE_DEFINITION_OF_DONE,
       PROPOSE_PIPELINE,
       WRITE_TAGS,
+      WRITE_KIND,
+      WRITE_BUG_DETAILS,
       MARK_PLANNED,
     ]),
   );
@@ -299,6 +303,38 @@ describe("write_tags", () => {
       text: `The Tag "${"x".repeat(33)}" is longer than 32 characters.`,
       isError: true,
     });
+  });
+});
+
+describe("write_kind", () => {
+  it("changes the session's Task's Kind at once, leaving it in Planning", async () => {
+    const result = await call(WRITE_KIND, { kind: "bug" });
+
+    expect(result).toEqual({ text: "The Task is a Bug now.", isError: false });
+    expect(await current()).toMatchObject({ kind: "bug", state: "planning" });
+  });
+});
+
+describe("write_bug_details", () => {
+  it("sets the fields given, keeps those left out, and clears one given null", async () => {
+    const cause = await work.app
+      .get(TaskService)
+      .create({ title: "Passkeys", projectId: task.projectId, priority: "normal" }, ANN_LEE);
+
+    await call(WRITE_BUG_DETAILS, { causedBy: cause.id, foundInVersion: "v1.14.2" });
+    const result = await call(WRITE_BUG_DETAILS, { foundInVersion: null });
+
+    expect(result).toEqual({
+      text: `The Task's bug details are now: Caused by Task ${cause.id}; Found in version none.`,
+      isError: false,
+    });
+    expect(await current()).toMatchObject({ causedBy: cause.id, foundInVersion: undefined });
+  });
+
+  it("refuses Caused by of the Task itself, with the reason", async () => {
+    const result = await call(WRITE_BUG_DETAILS, { causedBy: task.id });
+
+    expect(result).toEqual({ text: "A Task can't be caused by itself.", isError: true });
   });
 });
 

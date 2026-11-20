@@ -1,5 +1,6 @@
 export {
   FAKE_GITHUB_SECRETS,
+  FAKE_ISSUES_CONTROL_PATH,
   FAKE_PERMISSIONS_CONTROL_PATH,
   FAKE_PULL_REQUESTS_CONTROL_PATH,
   FAKE_RUNS_CONTROL_PATH,
@@ -29,6 +30,13 @@ export {
   type FakeWorkflowRunChanges,
   type RunControl,
 } from "./adapters/github/fake-github-runs.fixtures.js";
+export {
+  type FakeIssue,
+  type FakeIssueChanges,
+  type FakeIssueClose,
+  type FakeIssueComment,
+  type IssueControl,
+} from "./adapters/github/fake-github-issues.fixtures.js";
 export {
   type FakeDispatch,
   type FakeRef,

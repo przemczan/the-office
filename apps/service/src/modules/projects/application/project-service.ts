@@ -26,6 +26,8 @@ import {
   changeCommandsAsProposed,
   changeInstallCommand,
   changeDefaultPipeline,
+  changeIssueSettings,
+  changeKindDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
   changeMark,
@@ -43,6 +45,8 @@ import {
   type ProjectChange,
   type ProjectChanges,
 } from "../domain/project-changes.js";
+import { defaultPipelineFor, type TaskKind } from "../domain/kind-default-pipeline.js";
+import type { IssueSettingsChange, IssueUser } from "../domain/issue-settings.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { OutputMask } from "../domain/output-mask.js";
@@ -172,6 +176,15 @@ export class ProjectService {
     return this.repository.find(id);
   }
 
+  /**
+   * The Pipeline a new Task of `kind` gets in the Project (`defaultPipelineFor`); undefined when
+   * there is no such Project.
+   */
+  async defaultPipelineFor(projectId: string, kind: TaskKind): Promise<string | undefined> {
+    const project = await this.find(projectId);
+    return project && defaultPipelineFor(project, kind);
+  }
+
   /** The Project added from the repository at `path`, read as `add` reads it; undefined when none. */
   async findByPath(path: string): Promise<Project | undefined> {
     const repositoryPath = resolvedPath(path.trim());
@@ -192,7 +205,7 @@ export class ProjectService {
     return this.update(id, (project) => changeCommand(project, key, change));
   }
 
-  /** Refused while the Project's default Pipeline runs the command (spec §2.1). */
+  /** Refused while the Project's default Pipeline, or a Kind's, runs the command (spec §2.1). */
   async removeCommand(id: string, key: string): Promise<Project> {
     await this.checks.checkCommandRemoval(await this.read(id), key);
     return this.update(id, (project) => removeCommand(project, key));
@@ -218,7 +231,7 @@ export class ProjectService {
   /**
    * Applies a Proposal of commands (spec §2.3) all or nothing: checked against the Project as its
    * row is held and saved in one go, so a hand edit can't land between fields. Refused while the
-   * default Pipeline runs a command it removes.
+   * default Pipeline, or a Kind's, runs a command it removes.
    */
   async changeCommandsAsProposed(id: string, proposed: ProposedCommands): Promise<Project> {
     const removalProblems = await this.checks.commandRemovalProblems(
@@ -299,6 +312,33 @@ export class ProjectService {
   async changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {
     await this.checks.checkDefaultPipeline({ ...(await this.read(id)), defaultPipeline });
     return this.update(id, (project) => changeDefaultPipeline(project, defaultPipeline));
+  }
+
+  /**
+   * A Kind's own default Pipeline; null follows the Project's default Pipeline. Refused, as the
+   * Project's default is, for a Pipeline running a command the Project lacks.
+   */
+  async changeKindDefaultPipeline(
+    id: string,
+    kind: TaskKind,
+    pipelineId: string | null,
+  ): Promise<Project> {
+    if (pipelineId !== null) {
+      await this.checks.checkDefaultPipeline({
+        ...(await this.read(id)),
+        defaultPipeline: pipelineId,
+      });
+    }
+    return this.update(id, (project) => changeKindDefaultPipeline(project, kind, pipelineId));
+  }
+
+  /** The Project's GitHub issue switches; a label set records `by` as who set it. */
+  async changeIssueSettings(
+    id: string,
+    settings: IssueSettingsChange,
+    by: IssueUser,
+  ): Promise<Project> {
+    return this.update(id, (project) => changeIssueSettings(project, settings, by));
   }
 
   /** The Project's levels of the engine cascade; throws ProjectNotFound when there is none. */

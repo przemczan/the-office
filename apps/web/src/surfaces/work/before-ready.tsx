@@ -3,12 +3,14 @@ import type { Readiness, Task } from "@the-office/contracts";
 import { Icon, TextButton } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
+import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
 import {
   useEveryPipeline,
   useProjectPipelineChoices,
 } from "../../shell/pipelines/use-pipelines.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { KIND_PLURALS } from "../../shell/work/work-words.ts";
 import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
 import { PIPELINE_PROPOSAL_ELEMENT_ID } from "./pipeline-proposal.tsx";
 import { bringIntoView, useShowRecordBlock, type PartBlock } from "./record-blocks.ts";
@@ -129,11 +131,17 @@ function OnRail({ task }: { readonly task: Task }): ReactNode {
 /** No Pipeline and none proposed: the user chooses one in Backlog, the Planner proposes one in Planning. */
 function ChooseAPipeline({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner()?.card.name ?? "Whoever holds Plans";
+  const project = useQuery(projectQueries.one(task.projectId)).data;
+  const everyPipeline = useEveryPipeline();
   if (task.state !== "backlog") return `${planner} proposes one while planning`;
+  const kindDefault = project?.kindDefaultPipelines[task.kind];
+  const kindDefaultName = everyPipeline?.find(({ id }) => id === kindDefault)?.name;
   return (
     <>
       Choose a Pipeline{" "}
       <TextButton onClick={() => bringIntoView(PIPELINE_RAIL_ELEMENT_ID)}>on the rail</TextButton>
+      {kindDefaultName !== undefined &&
+        `: ${kindDefaultName} is the default for ${KIND_PLURALS[task.kind]}`}
     </>
   );
 }

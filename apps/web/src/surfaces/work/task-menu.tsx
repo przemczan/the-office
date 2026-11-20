@@ -1,12 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Priority, Task } from "@the-office/contracts";
+import { TASK_KINDS, type Priority, type Task, type TaskKind } from "@the-office/contracts";
 import { Icon, IconButton, type MenuItem } from "@the-office/ui";
 import { Fragment, useState, type ReactNode } from "react";
-import { changePriority, taskQueries } from "../../api/work.ts";
+import { changeKind, changePriority, taskQueries } from "../../api/work.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { useToast } from "../../shell/toasts.tsx";
-import { PriorityGlyph } from "../../shell/work/task-state-badge.tsx";
-import { canBeArchived, NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { KindGlyph, PriorityGlyph } from "../../shell/work/task-state-badge.tsx";
+import {
+  canBeArchived,
+  KIND_NAMES,
+  NOT_STARTED,
+  PRIORITY_NAMES,
+} from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { MoveTaskDialog } from "./move-task-dialog.tsx";
@@ -19,7 +24,7 @@ const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 /**
  * A Task's "More" menu: first its actions, every button of its page's head (`useTaskActions`), or
  * on its board card what moves it along in planning; then its priority while it hasn't started,
- * its Stages to edit, Move and Drop until it has ended, and Archive once it has. Move shows even
+ * its Kind until it has ended, its Stages to edit, Move and Drop until it has ended, and Archive once it has. Move shows even
  * where it is refused, as its window says why.
  */
 export function TaskMenu({
@@ -47,6 +52,15 @@ export function TaskMenu({
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
   });
+  const changingKind = useMutation({
+    mutationFn: (kind: TaskKind) => changeKind(task.id, kind),
+    onSuccess: (changed) => {
+      showToast(`${changed.title} is now a ${KIND_NAMES[changed.kind]}.`);
+    },
+    onError: (error) => showToast(error.message),
+    onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
+  });
+  const ended = task.state === "done" || task.state === "dropped";
   const ownItems: MenuItem[] = [
     ...(NOT_STARTED.includes(task.state)
       ? [
@@ -63,6 +77,24 @@ export function TaskMenu({
           })),
         ]
       : []),
+    // Unlike Priority, the Kind changes in any state until the Task ends.
+    ...(ended
+      ? []
+      : [
+          { heading: "Kind" },
+          ...TASK_KINDS.map((kind) => ({
+            icon: <KindGlyph kind={kind} size={14} />,
+            label: (
+              <span className="menu-choice">
+                {KIND_NAMES[kind]}
+                {kind === task.kind && <Icon name="check" size={14} />}
+              </span>
+            ),
+            onSelect: () => {
+              if (kind !== task.kind) changingKind.mutate(kind);
+            },
+          })),
+        ]),
     ...(canBeArchived(task)
       ? [
           {

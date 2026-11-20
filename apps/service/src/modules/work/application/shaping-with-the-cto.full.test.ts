@@ -33,7 +33,7 @@ import {
 } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
-import { ProjectService, TaskBases } from "../../projects/index.js";
+import { IssueTasks, ProjectService, TaskBases } from "../../projects/index.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
   KnownProjectsForTests,
@@ -204,6 +204,7 @@ const STAND_INS = [
   TaskTokensForTests,
   TaskBasesForTests,
   { provide: TaskBases, useExisting: TaskBasesForTests },
+  IssueTasks,
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */

@@ -1,3 +1,5 @@
+import type { TaskKind } from "../domain/task.js";
+
 /**
  * What Work needs to know of a Project: that it exists, the Pipeline a new Task follows, how many
  * of its Tasks may be started at once, and what a Task's Brief says of it.
@@ -35,4 +37,10 @@ export interface KnownProjectCommand {
 export abstract class KnownProjects {
   /** Undefined when there is no such Project. */
   abstract find(id: string): Promise<KnownProject | undefined>;
+
+  /**
+   * The Pipeline a new Task of `kind` gets in the Project: its Kind's own default, else the
+   * Project's default Pipeline. Undefined when there is no such Project.
+   */
+  abstract defaultPipelineFor(projectId: string, kind: TaskKind): Promise<string | undefined>;
 }

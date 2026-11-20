@@ -5,9 +5,10 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { gateActionProblems, waitingGateRun } from "../domain/gate.js";
 import { GateRefused } from "../domain/gate-refused.js";
 import type { TaskProgress } from "../domain/stage-progress.js";
-import type { GateAction, HoldingUser } from "../domain/stage-run.js";
+import type { GateAction, GateDropReason, HoldingUser } from "../domain/stage-run.js";
 import { GateContinued, GateDropped, SentBackFromGate } from "../domain/stage-run-events.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { StartedTasks } from "../ports/started-tasks.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
@@ -23,6 +24,7 @@ export class GateService {
     private readonly runs: StageRunRepository,
     private readonly interpreter: StageInterpreter,
     private readonly events: EventBus,
+    private readonly tasks: StartedTasks,
   ) {}
 
   /** Blank notes are plain Continue. */
@@ -47,8 +49,25 @@ export class GateService {
     return this.act(taskId, { kind: "send-back", stageKey, feedback: feedback.trim(), byUser });
   }
 
-  drop(taskId: string, byUser: HoldingUser): Promise<TaskProgress | undefined> {
-    return this.act(taskId, { kind: "drop", byUser });
+  /**
+   * Drop, with the reason the user gave, if any, which the Task keeps with its move. A Duplicate
+   * naming the Task itself, or a Task there is none of, is refused before the Gate's action is
+   * kept, so the walk never replays a drop Work refuses.
+   */
+  async drop(
+    taskId: string,
+    byUser: HoldingUser,
+    reason?: GateDropReason,
+  ): Promise<TaskProgress | undefined> {
+    if (reason?.kind === "duplicate") {
+      if (reason.taskId === taskId) {
+        throw new GateRefused(["A Task can't be a duplicate of itself."]);
+      }
+      if (!(await this.tasks.find(reason.taskId))) {
+        throw new GateRefused([`There is no Task ${reason.taskId}.`]);
+      }
+    }
+    return this.act(taskId, reason ? { kind: "drop", reason, byUser } : { kind: "drop", byUser });
   }
 
   /** The Task's Stages after the action; refused with the reasons when the Gate doesn't allow it. */

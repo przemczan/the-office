@@ -21,9 +21,15 @@ export function permissionWords({ name, level }: GitHubPermission): string {
  * What the GitHub App lacks, read from GitHub: the permissions to add on the App's settings, a link
  * per installation to accept them on, and Check again, which reads them again and puts the answer
  * in Sign in with GitHub's query. Nothing while every installation has them, or while signed out.
- * Settings › Office identity and Work › Pull requests show it.
+ * Settings › Office identity, Work › Pull requests and CI show it; the GitHub issues block and the
+ * Import issues window only while `needing` is among the missing (docs/design/issues-as-tasks.html).
  */
-export function GitHubPermissionsPrompt(): ReactNode {
+export function GitHubPermissionsPrompt({
+  needing,
+}: {
+  /** Shown only while this permission, by its API name such as "issues", is missing. */
+  readonly needing?: string;
+} = {}): ReactNode {
   const state = useQuery(gitHubQueries.state());
   const queryClient = useQueryClient();
   const checking = useMutation({
@@ -32,6 +38,9 @@ export function GitHubPermissionsPrompt(): ReactNode {
   });
   const permissions = state.data?.status === "signed-in" ? state.data.permissions : null;
   if (permissions === null) return null;
+  if (needing !== undefined && !permissions.missing.some(({ name }) => name === needing)) {
+    return null;
+  }
   return (
     <div className="github-permissions-prompt">
       <Alert
@@ -49,8 +58,8 @@ export function GitHubPermissionsPrompt(): ReactNode {
         }
       >
         <p>
-          Without them The Office can&apos;t read every pull request&apos;s checks or merge state.
-          Missing:
+          Without them The Office can&apos;t read every pull request&apos;s checks or merge state,
+          or import, comment on and close issues. Missing:
         </p>
         <ul className="github-permissions-missing">
           {permissions.missing.map((permission) => (

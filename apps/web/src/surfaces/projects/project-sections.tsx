@@ -4,6 +4,7 @@ import { CommandsBlock } from "./commands-block.tsx";
 import { EngineBlock } from "./engine-block.tsx";
 import { EnvironmentCheckBlock } from "./environment-check-block.tsx";
 import { EnvironmentVariablesBlock } from "./environment-variables-block.tsx";
+import { GitHubIssuesBlock } from "./issues/github-issues-block.tsx";
 import { OnboardingBlock } from "./onboarding-block.tsx";
 import { useOpenProject } from "./project-page.tsx";
 import { RunEnvironmentBlock } from "./run-environment-block.tsx";
@@ -35,6 +36,11 @@ export function ProjectEnvironmentSection(): ReactNode {
       <EnvironmentCheckBlock project={project} />
     </>
   );
+}
+
+/** GitHub issues: Import issues…, the auto-import label and the write-back switches. */
+export function ProjectIssuesSection(): ReactNode {
+  return <GitHubIssuesBlock project={useOpenProject()} />;
 }
 
 export function ProjectRunEnvironmentSection(): ReactNode {

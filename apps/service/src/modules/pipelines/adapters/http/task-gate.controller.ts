@@ -10,8 +10,10 @@ import {
 } from "@nestjs/common";
 import {
   continueAtGateSchema,
+  dropSchema,
   sendBackSchema,
   type ContinueAtGate,
+  type Drop,
   type SendBack,
   type TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
@@ -54,13 +56,14 @@ export class TaskGateController {
     );
   }
 
-  /** Drop: the Task is dropped at the Gate. */
+  /** Drop: the Task is dropped at the Gate, with the reason the body gives, if any. */
   @Post("drop")
   @HttpCode(HttpStatus.OK)
   async drop(
     @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(dropSchema.optional())) body: Drop | undefined,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(await this.gates.drop(id, userOf(signedIn)));
+    return toTaskStagesResponse(await this.gates.drop(id, userOf(signedIn), body?.reason));
   }
 }

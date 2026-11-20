@@ -17,6 +17,7 @@ const ALL_GRANTED = {
   checks: "read",
   statuses: "read",
   actions: "write",
+  issues: "write",
 } as const;
 
 let github: FakeGitHub;
@@ -75,6 +76,7 @@ describe("the permissions the App's installations lack", () => {
         { name: "checks", level: "read" },
         { name: "statuses", level: "read" },
         { name: "actions", level: "write" },
+        { name: "issues", level: "write" },
       ],
       appPermissionsUrl: `${github.urls.web}/settings/apps/the-office/permissions`,
       installations: [

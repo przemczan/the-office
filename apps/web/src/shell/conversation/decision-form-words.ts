@@ -29,7 +29,11 @@ export const COMPACT_QUESTIONS = 3;
 export const FEED_COMPACT_QUESTIONS = 2;
 
 /** The Decision in one line (spec §2.2): its first question, and how many more it asks. */
-export function decisionSummary({ questions }: Pick<Decision, "questions">): string {
+export function decisionSummary({
+  questions,
+  bugTask,
+}: Pick<Decision, "questions"> & Partial<Pick<Decision, "bugTask">>): string {
+  if (bugTask) return `Bug Task: ${bugTask.title}`;
   const first = questions[0]?.question ?? "";
   const more = questions.length - 1;
   if (more <= 0) return first;

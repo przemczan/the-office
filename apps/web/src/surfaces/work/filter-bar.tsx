@@ -1,8 +1,13 @@
-import type { BoardFilters, Initiative, Priority } from "@the-office/contracts";
+import {
+  TASK_KINDS,
+  type BoardFilters,
+  type Initiative,
+  type Priority,
+} from "@the-office/contracts";
 import { Button, Icon, SearchableSelect, Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { PriorityGlyph } from "../../shell/work/task-state-badge.tsx";
-import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { KindGlyph, PriorityGlyph } from "../../shell/work/task-state-badge.tsx";
+import { KIND_NAMES, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { hasBoardFilters, withBoardFilter } from "./board-filters.ts";
 import { SavedViewsRow } from "./saved-views.tsx";
 import { SearchBox } from "./search-box.tsx";
@@ -17,9 +22,9 @@ export interface GroupsFolding {
 }
 
 /**
- * The board's filters (prototypes/app/work.js `filterBar`): search, priority, Initiative, Blocked,
- * and the Saved views of them; then, apart, Group by Initiative, which lays the board out and
- * narrows nothing.
+ * The board's filters (prototypes/app/work.js `filterBar`): search, priority, Kind, Initiative, Blocked,
+ * and the Saved views of them; then Import issues… (docs/design/issues-as-tasks.html), and apart,
+ * Group by Initiative, which lays the board out and narrows nothing.
  */
 export function FilterBar({
   filters,
@@ -28,6 +33,7 @@ export function FilterBar({
   grouped,
   onGroupedChange,
   folding,
+  onImportIssues,
 }: {
   readonly filters: BoardFilters;
   readonly initiatives: readonly Initiative[];
@@ -36,6 +42,8 @@ export function FilterBar({
   readonly onGroupedChange: (grouped: boolean) => void;
   /** Undefined while Fold all isn't offered. */
   readonly folding: GroupsFolding | undefined;
+  /** Opens Import issues; undefined while no Project shown is on GitHub, and it doesn't show. */
+  readonly onImportIssues?: () => void;
 }): ReactNode {
   return (
     <div className="board-filters" role="search" aria-label="Filter the board">
@@ -66,6 +74,20 @@ export function FilterBar({
             </FilterChip>
           ))}
         </div>
+        <div className="board-filters-group" role="group" aria-label="Kind">
+          {TASK_KINDS.map((kind) => (
+            <FilterChip
+              key={kind}
+              on={filters.kind === kind}
+              onClick={() =>
+                onChange(withBoardFilter(filters, "kind", filters.kind === kind ? undefined : kind))
+              }
+            >
+              <KindGlyph kind={kind} size={13} />
+              {KIND_NAMES[kind]}
+            </FilterChip>
+          ))}
+        </div>
         <div className="board-filter-initiative">
           <SearchableSelect
             label="Initiative"
@@ -92,6 +114,18 @@ export function FilterBar({
           <Button size="sm" variant="ghost" onClick={() => onChange({})}>
             Clear
           </Button>
+        )}
+        {onImportIssues && (
+          <span className="board-import-issues">
+            <Button
+              size="sm"
+              variant="secondary"
+              iconLeft={<Icon name="github" size={13} />}
+              onClick={onImportIssues}
+            >
+              Import issues…
+            </Button>
+          </span>
         )}
         <div className="board-layout" role="group" aria-label="Layout">
           <Switch

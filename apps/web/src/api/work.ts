@@ -40,6 +40,9 @@ import {
   type InitiativePauseAnswer,
   type InitiativePipelinesChange,
   type IdeaEdit,
+  type IdeaShaping,
+  type DropReason,
+  type TaskKind,
   type MarkReadyRequest,
   type NewIdea,
   type NewInitiativeTask,
@@ -377,8 +380,8 @@ export function editIdea(id: string, edit: IdeaEdit): Promise<Idea> {
 }
 
 /** The Task the Idea became, in Backlog in the Project. */
-export function shapeIdea(id: string, projectId: string): Promise<Task> {
-  return sendToApi("POST", `${ideaPath(id)}/shape`, { projectId }, taskSchema);
+export function shapeIdea(id: string, shaping: IdeaShaping): Promise<Task> {
+  return sendToApi("POST", `${ideaPath(id)}/shape`, shaping, taskSchema);
 }
 
 /**
@@ -497,6 +500,21 @@ export function createTask(newTask: NewTask): Promise<Task> {
 
 export function changePriority(id: string, priority: Priority): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/priority`, { priority }, taskSchema);
+}
+
+/** The Task's Kind, until it is Done or Dropped. */
+export function changeKind(id: string, kind: TaskKind): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/kind`, { kind }, taskSchema);
+}
+
+/** The Task whose work caused this Bug; null for none. */
+export function changeCausedBy(id: string, causedBy: string | null): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/caused-by`, { causedBy }, taskSchema);
+}
+
+/** The version the Bug was found in, free text; null for none. */
+export function changeFoundInVersion(id: string, foundInVersion: string | null): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/found-in-version`, { foundInVersion }, taskSchema);
 }
 
 /** Sets the Task's Tags as given; the service keeps each lower-case, once. */
@@ -662,8 +680,8 @@ export function moveTask(id: string, projectId: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/move`, { projectId }, taskSchema);
 }
 
-export function dropTask(id: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/drop`, {}, taskSchema);
+export function dropTask(id: string, reason?: DropReason): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/drop`, reason ? { reason } : {}, taskSchema);
 }
 
 /** Archive: a Done or Dropped Task leaves the board, its state as it was. */
@@ -793,6 +811,8 @@ export const workEventInvalidations: Readonly<
   "task.restored": () => [TASKS],
   "task.priority-changed": () => [TASKS],
   "task.title-changed": () => [TASKS],
+  "task.kind-changed": () => [TASKS],
+  "task.bug-details-changed": () => [TASKS],
   "task.description-changed": () => [TASKS],
   "task.commit-message-changed": () => [TASKS],
   "task.pull-request-end-changed": () => [TASKS],

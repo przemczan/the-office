@@ -1,6 +1,6 @@
 # Archived tab
 
-Covers: the Archived tab of Work, archived Tasks, archived Initiatives (search, state filter, months, pages), Restore, the Archived badge, the Archive period hint.
+Covers: the Archived tab of Work, archived Tasks (their Kind and Drop reason), archived Initiatives (search, state filter, months, pages), Restore, the Archived badge, the Archive period hint.
 
 ## Where it is
 
@@ -23,7 +23,8 @@ Covers: the Archived tab of Work, archived Tasks, archived Initiatives (search, 
 ## Archived Tasks
 
 - A table of the archived Tasks the Project filter shows, the one archived last on top.
-- Columns: **Task** (its title, linking to the Task page, [task-page.md](task-page.md)), **Project** (chip), **State** (its state badge), **Archived** (the day), and **Restore** at the right.
+- Columns: **Task** (its Kind mark, [work-board.md](work-board.md#marks), and its title, linking to the Task page, [task-page.md](task-page.md)), **Project** (chip), **State** (its state badge), **Archived** (the day), and **Restore** at the right.
+- A Dropped Task's State cell shows its Drop reason under the badge, muted: "Won't fix", "Can't reproduce", the Other words, or "Duplicate of <Task>" ([2.1.3](../2.1.3-tasks.md#drop-reason)); none with no reason.
 - The note "<n> more archived Tasks in other Projects" with **Show all projects** counts those the filter hides.
 - Empty: "No archived Tasks. Archive a Done or Dropped Task from its More menu."
 

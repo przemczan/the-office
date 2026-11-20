@@ -1,5 +1,6 @@
 import type { EngineId } from "../../engine/index.js";
 import type { ArchivedBy, Author } from "./author.js";
+import type { DropReason } from "./drop-reason.js";
 import type { EngineStandIn } from "./stand-ins-at-start.js";
 import type { PullRequestEnd } from "./task-pull-request.js";
 import { normalizedTags, tagsProblems } from "./task-tags.js";
@@ -51,6 +52,10 @@ export type TaskHolder = (typeof TASK_HOLDERS)[number];
 export function isPublishingTask(task: Pick<Task, "madeFor">): boolean {
   return task.madeFor === "publishing";
 }
+
+/** A Task's Kind (spec §2.1); a new Task is a Feature unless told otherwise. */
+export const TASK_KINDS = ["feature", "bug", "chore"] as const;
+export type TaskKind = (typeof TASK_KINDS)[number];
 
 /** Highest first: the board shows each column by priority, then by manual order. */
 export const PRIORITIES = ["high", "normal", "low"] as const;
@@ -206,6 +211,22 @@ export interface Task {
    * pull request is open again.
    */
   readonly pullRequestEnd: PullRequestEnd | undefined;
+  /** Feature, Bug or Chore (spec §2.1): its default Pipeline and its commit type follow it. */
+  readonly kind: TaskKind;
+  /** The Task whose work caused this Bug, in any Project; undefined for none. */
+  readonly causedBy: string | undefined;
+  /** The version the Bug was found in, free text; undefined for none. */
+  readonly foundInVersion: string | undefined;
+  /** The Task whose Pipeline found this Bug, set at creation only; undefined otherwise. */
+  readonly foundWhileWorkingOn: string | undefined;
+  /** Why it was Dropped, when a reason was given; undefined otherwise (drop-reason.ts). */
+  readonly dropReason: DropReason | undefined;
+  /**
+   * Whether The Office created it by itself (a Task it made, or an issue it auto-imported):
+   * `createdBy` still names an Author, which the previous release reads, and the read model names
+   * The Office.
+   */
+  readonly createdByTheOffice: boolean;
 }
 
 /** A Task's Move from one Project to another, kept for its record. */
@@ -234,11 +255,11 @@ export interface ProposedPipeline {
 
 /** What creating a Task takes from whoever asks; The Office sets the rest. */
 export type NewTask = Pick<Task, "title" | "projectId" | "priority"> &
-  Partial<Pick<Task, "description" | "tags">>;
+  Partial<Pick<Task, "description" | "tags" | "kind">>;
 
 /**
  * A new Task as given, trimmed, with its Tags normalized: no Description and no Tags when none
- * were given.
+ * were given, and a Feature when no Kind was.
  */
 export function trimmedNewTask(task: NewTask): Required<NewTask> {
   return {
@@ -247,6 +268,7 @@ export function trimmedNewTask(task: NewTask): Required<NewTask> {
     projectId: task.projectId,
     priority: task.priority,
     tags: normalizedTags(task.tags ?? []),
+    kind: task.kind ?? "feature",
   };
 }
 

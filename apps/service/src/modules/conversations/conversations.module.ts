@@ -26,6 +26,7 @@ import {
   THREAD_IMAGE_UPLOAD_ROUTE,
   ThreadsController,
 } from "./adapters/http/threads.controller.js";
+import { BugTaskOfficeTools } from "./adapters/office-tools/bug-task-office-tools.js";
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
@@ -49,6 +50,7 @@ import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
 import { Consultations } from "./application/consultations.js";
 import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
+import { BugTaskDecisions } from "./application/bug-task-decisions.js";
 import { DecisionService } from "./application/decision-service.js";
 import { ApprovalHolds } from "./application/approval-holds.js";
 import { HeldCalls } from "./application/held-calls.js";
@@ -185,6 +187,7 @@ export class ConversationsModule implements NestModule {
         ThreadRunner,
         InterruptedAnswers,
         DecisionService,
+        BugTaskDecisions,
         Consultations,
         FireAlarmInThreads,
         FireAlarmLifts,
@@ -205,6 +208,7 @@ export class ConversationsModule implements NestModule {
         DutyProposals,
         PromptTemplateProposals,
         DecisionOfficeTools,
+        BugTaskOfficeTools,
         RoleOfficeTools,
         ProposalOfficeTools,
         PromptTemplateOfficeTools,

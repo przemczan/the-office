@@ -309,12 +309,52 @@ export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
  */
 export const ANSWER_DECISION_TOOL = "answer_decision";
 
+/**
+ * The Office tool an Agent in a Stage proposes a Bug Task with: it opens a bug-task Decision on the
+ * Agent's own Task, so its tool activity line is hidden in the web, as the Decision's card shows it.
+ */
+export const PROPOSE_BUG_TASK_TOOL = "propose_bug_task";
+
 /** The Office tools whose calls the Decision card shows, so the web hides their activity lines. */
 export const DECISION_TOOLS: readonly string[] = [
   OPEN_DECISION_TOOL,
   CONSULT_TOOL,
   ANSWER_CONSULTATION_TOOL,
+  PROPOSE_BUG_TASK_TOOL,
 ];
+
+/**
+ * A bug-task Decision's one choice, by its index in its options: "Create the Bug Task", sent with
+ * the form's fields as edited, or "Don't create it".
+ */
+export const BUG_TASK_CREATE_OPTION = 0;
+export const BUG_TASK_DONT_CREATE_OPTION = 1;
+
+/**
+ * The Bug Task an Agent proposes in a bug-task Decision, as the card's form starts from: its title,
+ * Description, why it is a Task of its own, its Project (the Agent's Task's unless the Agent named
+ * another) and the Task whose work caused it, null for none.
+ */
+export const proposedBugTaskSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  why: z.string(),
+  projectId: z.string(),
+  causedBy: z.string().nullable(),
+});
+export type ProposedBugTask = z.infer<typeof proposedBugTaskSchema>;
+
+/**
+ * The Bug Task's fields as "Create the Bug Task" sends them, edited on the card: the whole form;
+ * `causedBy` null or left out for none. Left out of the answer, the proposal is created as it is.
+ */
+export const bugTaskFieldsSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  projectId: z.string(),
+  causedBy: z.string().nullable().optional(),
+});
+export type BugTaskFields = z.infer<typeof bugTaskFieldsSchema>;
 
 /**
  * One question of a Decision's form (spec §2.4): a choice, its options with the recommended one, by
@@ -356,6 +396,13 @@ export const decisionFormAnswerSchema = z.discriminatedUnion("kind", [
     kind: z.literal("submitted"),
     answers: z.array(questionAnswerSchema),
     generalComment: z.string().optional(),
+    /**
+     * A bug-task Decision's form, with "Create the Bug Task": the fields as edited; as answered, the
+     * fields the Task was created with.
+     */
+    bugTask: bugTaskFieldsSchema.optional(),
+    /** As answered, the Bug Task "Create the Bug Task" created; ignored in a request. */
+    createdTaskId: z.string().optional(),
   }),
   z.object({ kind: z.literal("asked-again"), generalComment: z.string().optional() }),
   z.object({ kind: z.literal("dismissed"), generalComment: z.string().optional() }),
@@ -376,9 +423,12 @@ export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
 
 /**
  * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
- * Hard switch, or a request, asking a person to do something: a form of one open question.
+ * Hard switch, a request, asking a person to do something: a form of one open question, or a Bug
+ * Task an Agent proposes in a Stage, whose `bugTask` the card's form edits: one choice, "Create the
+ * Bug Task" (`BUG_TASK_CREATE_OPTION`, sent with the form's `bugTask`) or "Don't create it", or Ask
+ * me again; never Dismiss.
  */
-export const decisionKindSchema = z.enum(["form", "approval", "request"]);
+export const decisionKindSchema = z.enum(["form", "approval", "request", "bug-task"]);
 export type DecisionKind = z.infer<typeof decisionKindSchema>;
 
 /** Why a Decision was closed unanswered: its Task was dropped, or its Initiative ended. */
@@ -405,8 +455,10 @@ export const decisionSchema = z.object({
   taskId: z.string().nullable(),
   /** Who asked, by the key of the Role they fill; null when The Office asked. */
   roleKey: z.string().nullable(),
-  /** What the user needs to know to decide, as the Agent found it. */
+  /** What the user needs to know to decide, as the Agent found it; a bug-task's, the Agent's why. */
   context: z.string(),
+  /** The Bug Task a bug-task Decision proposes, as proposed; absent on every other kind. */
+  bugTask: proposedBugTaskSchema.optional(),
   /** One or more, in the order asked. */
   questions: z.array(decisionQuestionSchema),
   /**

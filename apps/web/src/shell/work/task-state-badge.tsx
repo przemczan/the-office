@@ -1,7 +1,9 @@
-import type { Priority, TaskState } from "@the-office/contracts";
+import type { Priority, TaskKind, TaskState } from "@the-office/contracts";
 import { Badge, type BadgeProps, Icon, PlainMark } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
+  KIND_ICONS,
+  KIND_NAMES,
   PRIORITY_ICONS,
   PRIORITY_NAMES,
   TASK_STATE_TONES,
@@ -51,6 +53,33 @@ export function PriorityGlyph({
   return (
     <span className={`priority-icon priority-${priority}`} aria-hidden="true">
       <Icon name={PRIORITY_ICONS[priority]} size={size} />
+    </span>
+  );
+}
+
+/**
+ * The Kind's mark, as a card shows it after its Project's: its icon in a small box, Bug's tinted,
+ * named on hover.
+ */
+export function KindMark({ kind }: { readonly kind: TaskKind }): ReactNode {
+  return (
+    <PlainMark words={KIND_NAMES[kind]} className={`kind-mark kind-${kind}`}>
+      <Icon name={KIND_ICONS[kind]} size={13} />
+    </PlainMark>
+  );
+}
+
+/** The Kind's icon alone, Bug's in its colour, where words beside it name it. */
+export function KindGlyph({
+  kind,
+  size,
+}: {
+  readonly kind: TaskKind;
+  readonly size: number;
+}): ReactNode {
+  return (
+    <span className={`kind-icon kind-${kind}`} aria-hidden="true">
+      <Icon name={KIND_ICONS[kind]} size={size} />
     </span>
   );
 }

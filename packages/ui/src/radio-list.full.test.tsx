@@ -60,4 +60,23 @@ describe("RadioList", () => {
 
     expect(onChange).toHaveBeenCalledWith("1");
   });
+
+  it("clears the pick when the picked one is pressed again, if clearable", () => {
+    const onChange = vi.fn<(value: string) => void>();
+    act(() =>
+      root.render(
+        <RadioList
+          label="Reason"
+          name="reason"
+          options={OPTIONS}
+          value="1"
+          onChange={onChange}
+          clearable
+        />,
+      ),
+    );
+
+    act(() => page.querySelectorAll<HTMLInputElement>("input[type=radio]")[1]?.click());
+    expect(onChange).toHaveBeenCalledWith("");
+  });
 });

@@ -54,6 +54,11 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     archivedAt: null,
     endedAt: null,
     pullRequestEnd: null,
+    kind: "feature",
+    causedBy: null,
+    foundInVersion: null,
+    foundWhileWorkingOn: null,
+    dropReason: null,
     ...fields,
   };
 }

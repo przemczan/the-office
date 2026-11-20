@@ -66,10 +66,11 @@ export function useBoardGrouping(): BoardGroupingSwitch {
       groupingStore.remember(grouped);
       void navigate({
         to: "/work",
-        search: ({ group: _group, ...previous }) => ({
-          ...previous,
-          ...(grouped && { group: "initiative" as const }),
-        }),
+        // Read as a plain record: the Archive's `kind` and the board's Kind filter share a name.
+        search: (previous: Record<string, unknown>) => {
+          const { group: _group, ...rest } = previous;
+          return { ...rest, ...(grouped && { group: "initiative" as const }) };
+        },
         replace: true,
       });
     },

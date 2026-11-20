@@ -141,6 +141,49 @@ export abstract class CodeHost {
 
   /** Starts a Workflow by hand; the host refuses, such as for an input its file doesn't declare. */
   abstract startWorkflow(remoteUrl: string, start: WorkflowStartRequest): Promise<void>;
+
+  /** The repository's open issues as `listing` asks, pull requests left out. */
+  abstract openIssues(remoteUrl: string, listing: IssueListing): Promise<readonly IssueOnHost[]>;
+
+  /**
+   * Issue `number` with where it stands now; undefined when the host has no such issue, or it is
+   * a pull request.
+   */
+  abstract issue(remoteUrl: string, number: number): Promise<FoundIssueOnHost | undefined>;
+
+  /** Comments on issue `number`, in Markdown. */
+  abstract commentOnIssue(remoteUrl: string, number: number, body: string): Promise<void>;
+
+  /** Closes issue `number` as not planned; one already closed stays so. */
+  abstract closeIssue(remoteUrl: string, number: number): Promise<void>;
+}
+
+/** Which open issues to list: with a label (any case), in the order they were opened, how many at most. */
+export interface IssueListing {
+  readonly label?: string | undefined;
+  readonly order: "oldest-first" | "newest-first";
+  readonly most: number;
+}
+
+/** An open issue as the code host lists it, in words no host owns. */
+export interface IssueOnHost {
+  readonly number: number;
+  readonly title: string;
+  /** Markdown; empty when it has none. */
+  readonly body: string;
+  readonly url: string;
+  readonly author: { readonly login: string; readonly url: string };
+  readonly labels: readonly string[];
+  readonly openedAt: Date;
+}
+
+/** Where an issue stands on the code host. */
+export type IssueStateOnHost =
+  { readonly state: "open" } | { readonly state: "closed"; readonly closedAt: Date };
+
+/** An issue read on its own, with where it stands. */
+export interface FoundIssueOnHost extends IssueOnHost {
+  readonly state: IssueStateOnHost;
 }
 
 /** The branches and tags of a repository, by name. */

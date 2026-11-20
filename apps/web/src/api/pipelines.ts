@@ -15,6 +15,7 @@ import {
   stageTemplateListSchema,
   stageTemplateSchema,
   taskStagesSchema,
+  type DropReason,
   type Pipeline,
   type PipelineCheckRequest,
   type PipelineEdit,
@@ -227,8 +228,8 @@ export function sendBackFromGate(taskId: string, sendBack: SendBack): Promise<Ta
   return sendToApi("POST", `${gatePath(taskId)}/send-back`, sendBack, taskStagesSchema);
 }
 
-export function dropAtGate(taskId: string): Promise<TaskStages> {
-  return sendToApi("POST", `${gatePath(taskId)}/drop`, {}, taskStagesSchema);
+export function dropAtGate(taskId: string, reason?: DropReason): Promise<TaskStages> {
+  return sendToApi("POST", `${gatePath(taskId)}/drop`, reason ? { reason } : {}, taskStagesSchema);
 }
 
 /** Moves the held runs to a Stand-in Engine now, each Task on its own; answers each run's result. */

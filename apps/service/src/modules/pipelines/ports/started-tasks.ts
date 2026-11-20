@@ -1,3 +1,5 @@
+import type { GateDropReason } from "../domain/stage-run.js";
+
 /** The states the walk reads a Task in and moves it between. */
 export type WalkTaskState = "in-progress" | "waiting-on-you" | "done" | "dropped";
 
@@ -85,7 +87,11 @@ export abstract class StartedTasks {
    * The Task as it is after the move. A Paused Task stays Paused: the user holds it, and only
    * Resume moves it on.
    */
-  abstract changeState(taskId: string, state: WalkTaskState): Promise<StartedTask>;
+  abstract changeState(
+    taskId: string,
+    state: WalkTaskState,
+    dropReason?: GateDropReason,
+  ): Promise<StartedTask>;
 
   /**
    * Holds the Task Paused as the user's Pause does, for a reason the walk can't go on with; its

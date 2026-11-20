@@ -5,6 +5,8 @@ import { PlanningService, type MarkedPlanned } from "../../application/planning-
 import { TaskService } from "../../application/task-service.js";
 import type { Author } from "../../domain/author.js";
 import { rewritingProblems } from "../../domain/initiative-planning.js";
+import { TASK_KINDS, type Task } from "../../domain/task.js";
+import { TASK_KIND_NAMES } from "../../domain/task-kind-words.js";
 import {
   SessionInitiatives,
   type SessionInitiativeThread,
@@ -19,6 +21,8 @@ export const WRITE_DEFINITION_OF_DONE = "write_definition_of_done";
 export const PROPOSE_PIPELINE = "propose_pipeline";
 export const WRITE_TAGS = "write_tags";
 export const MARK_PLANNED = "mark_planned";
+export const WRITE_KIND = "write_kind";
+export const WRITE_BUG_DETAILS = "write_bug_details";
 
 const PROPOSED =
   "It shows on the Task as not confirmed until the user confirms it; end your turn when you want them to look at it.";
@@ -71,6 +75,8 @@ export class PlanningOfficeTools implements OnModuleInit {
     this.registerWriteDefinitionOfDone();
     this.registerProposePipeline();
     this.registerWriteTags();
+    this.registerWriteKind();
+    this.registerWriteBugDetails();
     this.registerMarkPlanned();
   }
 
@@ -206,6 +212,61 @@ export class PlanningOfficeTools implements OnModuleInit {
     });
   }
 
+  private registerWriteKind(): void {
+    this.registry.register({
+      name: WRITE_KIND,
+      description:
+        "Changes the Task's Kind when it isn't what the Task is: feature (something new or changed on purpose), bug (something that works wrong) or chore (upkeep that changes nothing for the user). It applies at once and never moves the Task, Ready ones included. Refused once the Task is Done or Dropped.",
+      input: z.object({
+        taskId: TASK_ID,
+        kind: z.enum(TASK_KINDS).describe("The Task's Kind."),
+      }),
+      run: ({ taskId, kind }, { sessionId }) =>
+        answered(async () => {
+          const { taskId: target } = await this.planningTaskOf(sessionId, taskId);
+          const task = await this.tasks.changeKind(target, kind);
+          return `The Task is a ${TASK_KIND_NAMES[task.kind]} now.`;
+        }),
+    });
+  }
+
+  private registerWriteBugDetails(): void {
+    this.registry.register({
+      name: WRITE_BUG_DETAILS,
+      description:
+        "Sets a Bug's details: the Task whose work caused it, and the version it was found in. A field left out stays as it is; null clears it. They apply at once and never move the Task. Refused once the Task is Done or Dropped.",
+      input: z.object({
+        taskId: TASK_ID,
+        causedBy: z
+          .uuid()
+          .nullable()
+          .optional()
+          .describe(
+            "The id of the Task whose work caused the Bug, in any Project, never this Task; null for none.",
+          ),
+        foundInVersion: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "The version the Bug was found in, such as v1.14.2, 1 to 64 characters; null for none.",
+          ),
+      }),
+      run: ({ taskId, causedBy, foundInVersion }, { sessionId }) =>
+        answered(async () => {
+          const { taskId: target } = await this.planningTaskOf(sessionId, taskId);
+          let task = await this.tasks.read(target);
+          if (causedBy !== undefined) {
+            task = await this.tasks.changeCausedBy(target, causedBy ?? undefined);
+          }
+          if (foundInVersion !== undefined) {
+            task = await this.tasks.changeFoundInVersion(target, foundInVersion ?? undefined);
+          }
+          return bugDetailsWords(task);
+        }),
+    });
+  }
+
   private registerMarkPlanned(): void {
     this.registry.register({
       name: MARK_PLANNED,
@@ -272,6 +333,13 @@ export class PlanningOfficeTools implements OnModuleInit {
     }
     return { kind: "person", roleKey };
   }
+}
+
+/** What a Bug's details are now, as write_bug_details answers. */
+function bugDetailsWords(task: Task): string {
+  const causedBy = task.causedBy === undefined ? "none" : `Task ${task.causedBy}`;
+  const foundIn = task.foundInVersion ?? "none";
+  return `The Task's bug details are now: Caused by ${causedBy}; Found in version ${foundIn}.`;
 }
 
 function markedPlannedWords(

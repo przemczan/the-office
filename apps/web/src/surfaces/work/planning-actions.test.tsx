@@ -57,6 +57,11 @@ const TASK: Task = {
   archivedAt: null,
   endedAt: null,
   pullRequestEnd: null,
+  kind: "feature",
+  causedBy: null,
+  foundInVersion: null,
+  foundWhileWorkingOn: null,
+  dropReason: null,
 };
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;

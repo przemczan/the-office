@@ -94,7 +94,7 @@ describe("readStageResult", () => {
     ).toEqual({
       valid: false,
       problems:
-        'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.',
+        'status "needs_decision" means you opened a Decision with open_decision, consult or propose_bug_task, and you opened none. Open it with one of them first, then end your turn with needs_decision again.',
     });
   });
 

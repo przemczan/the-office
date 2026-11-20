@@ -13,12 +13,50 @@ export interface Recommendation {
   readonly reason: string;
 }
 
+/** Whether the Decision proposes a Bug Task, which "Create the Bug Task" creates. */
+export function isBugTask(
+  decision: Pick<Decision, "kind" | "bugTask">,
+): decision is Pick<Decision, "kind"> & { readonly bugTask: ProposedBugTask } {
+  return decision.kind === "bug-task" && decision.bugTask !== undefined;
+}
+
 /**
  * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
- * Hard switch (one choice, Allow once or Deny), or a request, a call asking someone to do something:
- * a form of one open question, answered in their own words.
+ * Hard switch (one choice, Allow once or Deny), a request, a call asking someone to do something:
+ * a form of one open question, answered in their own words, or a Bug Task an Agent proposes from a
+ * Stage, one choice of Create the Bug Task or Don't create it, with the Task's fields to edit.
  */
-export type DecisionKind = "form" | "approval" | "request";
+export type DecisionKind = "form" | "approval" | "request" | "bug-task";
+
+/**
+ * A Bug Task an Agent proposes (`propose_bug_task`): an issue it found that is too big for its Task
+ * or outside its scope. `why` is the Decision's context; `projectId` the Agent's Task's Project
+ * unless it named another; `causedBy` the Task whose work caused it, if known.
+ */
+export interface ProposedBugTask {
+  readonly title: string;
+  readonly description: string;
+  readonly why: string;
+  readonly projectId: string;
+  readonly causedBy?: string | undefined;
+}
+
+/**
+ * The Bug Task's fields as Create the Bug Task sends them, edited on the card; `causedBy` null or
+ * left out for none.
+ */
+export interface BugTaskFields {
+  readonly title: string;
+  readonly description: string;
+  readonly projectId: string;
+  readonly causedBy?: string | null | undefined;
+}
+
+/** A bug-task Decision's options, in order: the first creates the Task. */
+export const BUG_TASK_OPTIONS = ["Create the Bug Task", "Don't create it"] as const;
+
+/** The option of a bug-task Decision that creates the Bug Task. */
+export const CREATE_THE_BUG_TASK = 0;
 
 /** A question answered by picking one of its options, the Agent's recommended one preselected. */
 export interface ChoiceQuestion {
@@ -49,6 +87,56 @@ export interface DecisionDraft {
   readonly questions: readonly DecisionQuestion[];
   /** The Task's Attachments it is about, of any kind, by their ids. */
   readonly attachmentIds?: readonly string[] | undefined;
+  /** The Bug Task a bug-task Decision proposes; undefined for every other kind. */
+  readonly bugTask?: ProposedBugTask | undefined;
+}
+
+/** What the Agent proposes with `propose_bug_task`, its Project filled in. */
+export function bugTaskDraft(proposed: ProposedBugTask): DecisionDraft {
+  return {
+    kind: "bug-task",
+    context: proposed.why,
+    questions: [
+      {
+        kind: "choice",
+        question: `Create the Bug Task "${proposed.title.trim()}"?`,
+        options: BUG_TASK_OPTIONS,
+        recommendation: { option: CREATE_THE_BUG_TASK, reason: proposed.why },
+      },
+    ],
+    bugTask: proposed,
+  };
+}
+
+/** What's wrong with a Bug Task as an Agent proposes it, before its Project and links are checked. */
+export function proposedBugTaskProblems({
+  title,
+  why,
+}: Pick<ProposedBugTask, "title" | "why">): string[] {
+  return [
+    ...(title.trim() === "" ? ["Give the Bug Task a title."] : []),
+    ...(why.trim() === ""
+      ? ["Say in why what the issue is and why it isn't fixed within this Task."]
+      : []),
+  ];
+}
+
+/**
+ * The fields the Bug Task is created with: those sent with Create the Bug Task, the proposal's when
+ * none were, trimmed; a blank Caused by is none.
+ */
+export function bugTaskToCreate(
+  proposed: ProposedBugTask,
+  edited: BugTaskFields | undefined,
+): BugTaskFields {
+  const { title, description, projectId, causedBy } = edited ?? proposed;
+  const cause = causedBy?.trim();
+  return {
+    title: title.trim(),
+    description: description.trim(),
+    projectId,
+    ...(cause ? { causedBy: cause } : {}),
+  };
 }
 
 /**
@@ -70,6 +158,13 @@ export type DecisionAnswer =
       readonly kind: "submitted";
       readonly answers: readonly QuestionAnswer[];
       readonly generalComment?: string | undefined;
+      /**
+       * A bug-task Decision's Create the Bug Task: the fields as edited; as recorded, the fields the
+       * Task was created with.
+       */
+      readonly bugTask?: BugTaskFields | undefined;
+      /** As recorded, the Bug Task Create the Bug Task created; never taken from whoever answers. */
+      readonly createdTaskId?: string | undefined;
     }
   | { readonly kind: "asked-again"; readonly generalComment?: string | undefined }
   | { readonly kind: "dismissed"; readonly generalComment?: string | undefined };
@@ -242,6 +337,9 @@ export function decisionSummary({ questions }: Pick<DecisionDraft, "questions">)
 
 /** Every problem with what the Agent asks, in words it can act on, naming the question. */
 export function decisionProblems(draft: DecisionDraft): string[] {
+  if ((draft.kind === "bug-task") !== (draft.bugTask !== undefined)) {
+    return ["Propose a Bug Task with propose_bug_task."];
+  }
   return draft.kind === "request" ? requestProblems(draft) : formProblems(draft);
 }
 
@@ -313,6 +411,13 @@ export function answerProblems(
   if (decision.closedAt) return [closedDecisionRefusal(decision)];
   if (answer.kind === "asked-again") return byTheOffice ? [] : askAgainProblems(decision);
   if (isApproval(decision)) return approvalAnswerProblems(decision, answer);
+  if (isBugTask(decision)) {
+    const problems = bugTaskAnswerProblems(decision, answer);
+    if (problems.length > 0) return problems;
+    return createsTheBugTask(answer) && answer.createdTaskId === undefined
+      ? ["Create the Bug Task on its Decision's card."]
+      : [];
+  }
   const { questions } = decision;
   if (answer.answers.length !== questions.length) {
     return [
@@ -326,6 +431,37 @@ export function answerProblems(
       numbered(questions.length, index, problem),
     ),
   );
+}
+
+/** Whether the answer is Create the Bug Task. */
+export function createsTheBugTask(answer: DecisionAnswer): boolean {
+  return answer.kind === "submitted" && chosenOption(answer) === CREATE_THE_BUG_TASK;
+}
+
+function chosenOption(answer: Extract<DecisionAnswer, { kind: "submitted" }>): number | undefined {
+  const [given, ...others] = answer.answers;
+  return given?.kind === "option" && others.length === 0 ? given.option : undefined;
+}
+
+/**
+ * What's wrong with a bug-task Decision's answer, before the Task is created: one of its two
+ * options, and with Create the Bug Task a title and a Project. Each answer takes the general
+ * comment alone.
+ */
+export function bugTaskAnswerProblems(
+  decision: Pick<Decision, "kind" | "bugTask">,
+  answer: Extract<DecisionAnswer, { kind: "submitted" }>,
+): string[] {
+  const option = chosenOption(answer);
+  if (option === undefined || BUG_TASK_OPTIONS[option] === undefined) {
+    return ["Choose Create the Bug Task or Don't create it."];
+  }
+  if (option !== CREATE_THE_BUG_TASK || !isBugTask(decision)) return [];
+  const { title, projectId } = bugTaskToCreate(decision.bugTask, answer.bugTask);
+  return [
+    ...(title === "" ? ["Give the Bug Task a title."] : []),
+    ...(projectId.trim() === "" ? ["Choose the Bug Task's Project."] : []),
+  ];
 }
 
 function askAgainProblems(decision: Decision): string[] {
@@ -351,6 +487,9 @@ export function dismissProblems(decision: Decision): string[] {
   }
   if (isTheOfficesOwn(decision)) {
     return ["The Office's own Decisions can't be dismissed: its Task waits on the answer."];
+  }
+  if (isBugTask(decision)) {
+    return ["A proposed Bug Task can't be dismissed: create it or not, or ask again."];
   }
   if (decision.inStageThread) {
     return ["A Decision in a Stage Thread can't be dismissed: its Stage waits on the answer."];
@@ -428,6 +567,11 @@ export function answerForUserProblems(decision: Decision, caller: Thread): strin
       "This Decision asks the user's approval of a call: only the user gives it, on its card. Tell them where it waits.",
     ];
   }
+  if (isBugTask(decision)) {
+    return [
+      "This Decision proposes a Bug Task: the user creates it or not on its card, where they can edit it. Tell them where it waits.",
+    ];
+  }
   if (decision.threadId === caller.id) {
     return [
       "This Decision is open in your own Thread: the user answers it on its card here, not through you.",
@@ -448,7 +592,7 @@ export function questionAnswerWords(question: DecisionQuestion, answer: Question
  * again or dismissed, the general comment alone. An approval's is the option picked.
  */
 export function formAnswerWords(
-  decision: Pick<Decision, "kind" | "questions">,
+  decision: Pick<Decision, "kind" | "questions"> & Partial<Pick<Decision, "bugTask">>,
   answer: DecisionAnswer,
 ): string {
   if (answer.kind === "asked-again") {
@@ -463,11 +607,30 @@ export function formAnswerWords(
   if (isApproval(decision) && first !== undefined && answer.answers[0] !== undefined) {
     return questionAnswerWords(first, answer.answers[0]);
   }
+  if (decision.kind === "bug-task") return bugTaskAnswerWords(decision, answer);
   const lines = decision.questions.map((question, index) =>
     questionWithAnswer(index, question, answer.answers[index]),
   );
   const general = answer.generalComment?.trim();
   return [lines.join("\n"), ...(general ? [`General comment: ${general}`] : [])].join("\n\n");
+}
+
+/**
+ * A bug-task Decision's answer as the Agent reads it: the Task created, as a link with its id, or
+ * that none was, then the general comment.
+ */
+function bugTaskAnswerWords(
+  { bugTask }: Partial<Pick<Decision, "bugTask">>,
+  answer: Extract<DecisionAnswer, { kind: "submitted" }>,
+): string {
+  const title = (answer.bugTask?.title ?? bugTask?.title ?? "").trim();
+  const id = answer.createdTaskId;
+  const outcome =
+    createsTheBugTask(answer) && id !== undefined
+      ? `Created the Bug Task [${title.replace(/[[\]\\]/g, "\\$&")}](/tasks/${id}) (Task ${id}), in Backlog, found while working on this Task.`
+      : `Didn't create the Bug Task "${title}".`;
+  const general = answer.generalComment?.trim();
+  return [outcome, ...(general ? [`General comment: ${general}`] : [])].join("\n\n");
 }
 
 function questionWithAnswer(
@@ -530,9 +693,12 @@ export function formFromOne(
   return { kind: kind === "question" ? "form" : kind, questions: [asked] };
 }
 
-/** The kind as recorded before the form, which the previous release reads. */
+/**
+ * The kind as recorded before the form, which the previous release reads: a proposed Bug Task is a
+ * question there, its one choice Create the Bug Task or Don't create it.
+ */
 export function oneQuestionKind(kind: DecisionKind): OneQuestionKind {
-  return kind === "form" ? "question" : kind;
+  return kind === "form" || kind === "bug-task" ? "question" : kind;
 }
 
 /** An answer as given before the form: an option, by its index, or words. */

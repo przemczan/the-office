@@ -101,6 +101,30 @@ _Avoid_: Release Task, merge Task, final Task
 One unit of work in a Project, done when its Definition of Done is met: a published change, an Attachment, or both.
 _Avoid_: Job, ticket, issue
 
+**Task kind**:
+What a Task is: **Feature**, new or changed behaviour; **Bug**, something that doesn't work as it should; **Chore**, upkeep such as an update or a clean-up. It shows as "Kind" on a Task. New Tasks are Features. The Tasks The Office adds on its own (Onboard, run environment set-up, Publishing, Conflict resolution) are Chores.
+_Avoid_: Type, Issue type, Category, Issue (as an entity)
+
+**Drop reason**:
+Why a Task was Dropped, optional: Won't fix, Duplicate (of another Task), Can't reproduce, or Other (with words).
+_Avoid_: Resolution, Close reason
+
+**Caused by**:
+The Task whose change brought a Bug in. The other Task lists it under "Caused bugs".
+_Avoid_: Regression of, Introduced by
+
+**Found in version**:
+The release a Bug was seen in: one of the Project's `v*` tags, or free text.
+_Avoid_: Affected version
+
+**Found while working on**:
+The Task whose Agent found a Bug and proposed the Bug Task.
+_Avoid_: Parent, Origin task
+
+**GitHub issue**:
+An issue in a Project's GitHub repository. Importing one makes a Task from it, once only, and the Task lists it in its linked records.
+_Avoid_: Ticket, External issue
+
 **Shaping** (a Task state):
 The first state of a Task added to an Initiative still being shaped: off the Work board, and it can't be planned or started until Confirm moves it to Backlog. Dropping the Initiative drops it too.
 _Avoid_: Draft, on hold, pending
@@ -260,6 +284,10 @@ _Avoid_: Plain-text file, source file, text document
 **Decision**:
 A form an Agent puts to the user, or to a Consultant, and waits on before continuing: one or more questions in order, its context, a general comment, and two ways to send it, Submit or Ask me again; the asking session gets it all back together as its next message. Waiting on the user it shows under Needs you, except in a chat, where it shows inline. Asked in an Initiative's planning Thread, it names one of the Initiative's Tasks or none; asked in its shaping Thread, none. A person the user asks to may answer one waiting on the user for them; it then reads "answered by <person> at your request" (`atUsersRequest` in code). Dropping its Task closes one still open: it leaves Needs you unanswered, and its card says the Task was dropped. Approval of a call past a Hard switch is never one of its questions: it stays a card of its own. The one exception is The Office's own Decision on Stages waiting for a Stand-in Engine: Office-wide, in no Thread, answered Stage by Stage and closed on its own when none is left.
 _Avoid_: Approval (its own card), prompt, questionnaire, survey, question (one part of it)
+
+**Bug Task Decision**:
+A Decision an Agent opens with `propose_bug_task` on its own Task, for a big issue outside its scope. "Create the Bug Task" makes a Bug Task in Backlog from the form as edited. It isn't a Proposal: it waits on the user as a Decision does.
+_Avoid_: Bug report, Bug Task proposal
 
 **Question**:
 One part of a Decision's form: a choice or an open question, with an optional comment. A Decision recorded before the form reads as a form of one question.

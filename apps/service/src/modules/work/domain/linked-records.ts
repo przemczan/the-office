@@ -17,6 +17,16 @@ export interface TaskLinks {
   readonly resolvesConflictsOf?: Task | undefined;
   /** The Conflict resolution Tasks of its pull request, newest first; none by default. */
   readonly conflictsResolvedBy?: readonly Task[];
+  /** The Task whose work caused this Bug; none by default. */
+  readonly causedBy?: Task | undefined;
+  /** The Bugs naming it as their Caused by; none by default. */
+  readonly causedBugs?: readonly Task[];
+  /** The Task it was dropped as a duplicate of; none by default. */
+  readonly duplicateOf?: Task | undefined;
+  /** The Tasks dropped as duplicates of it; none by default. */
+  readonly duplicates?: readonly Task[];
+  /** The Task whose Pipeline found this Bug; none by default. */
+  readonly foundWhileWorkingOn?: Task | undefined;
 }
 
 /**
@@ -45,6 +55,13 @@ export function linkedRecordLines(links: TaskLinks): string[] {
     ...(links.conflictsResolvedBy ?? []).map(
       (task) => `- Conflicts resolved by: ${linkedTaskWords(task)}`,
     ),
+    ...(links.causedBy ? [`- Caused by: ${linkedTaskWords(links.causedBy)}`] : []),
+    ...(links.causedBugs ?? []).map((task) => `- Caused the Bug: ${linkedTaskWords(task)}`),
+    ...(links.duplicateOf ? [`- Duplicate of: ${linkedTaskWords(links.duplicateOf)}`] : []),
+    ...(links.duplicates ?? []).map((task) => `- Duplicated by: ${linkedTaskWords(task)}`),
+    ...(links.foundWhileWorkingOn
+      ? [`- Found while working on: ${linkedTaskWords(links.foundWhileWorkingOn)}`]
+      : []),
   ];
 }
 

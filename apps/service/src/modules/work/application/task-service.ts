@@ -6,13 +6,23 @@ import { TaskLocks } from "../../../platform/locks/task-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
-import type { StateChange } from "../domain/state-change.js";
-import { newTaskProblems, type NewTask, type Priority, type Task } from "../domain/task.js";
+import { BY_THE_PIPELINE, type StateChange } from "../domain/state-change.js";
+import type { DropReason } from "../domain/drop-reason.js";
 import {
+  newTaskProblems,
+  type NewTask,
+  type Priority,
+  type Task,
+  type TaskKind,
+} from "../domain/task.js";
+import {
+  changeCausedBy,
+  changeFoundInVersion,
+  changeKind,
   changePriority,
   changeStartedTaskState,
-  changeTaskState,
   createTask,
+  dropTask,
   pauseTask,
   pauseTaskForAlarm,
   pauseTaskForUsageWindow,
@@ -22,6 +32,7 @@ import {
   resumeTaskFreedByUsageWindow,
   stopTask,
   taskWentOnOnStandIn,
+  type NewTaskOrigin,
   type TaskChange,
 } from "../domain/task-changes.js";
 import type { EngineStandIn } from "../domain/stand-ins-at-start.js";
@@ -57,7 +68,10 @@ import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/tas
 import { publishDependencyChanges } from "./dependency-events.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 
-/** The Tasks a Task is linked to on the board: by waiting, and by resolving a pull request's conflicts. */
+/**
+ * The Tasks a Task is linked to on the board: by waiting, by resolving a pull request's conflicts,
+ * and by its Kind's links (Caused by, Duplicate of, Found while working on, and their other ends).
+ */
 export interface TaskDependencyLinks {
   readonly waitsFor: readonly Task[];
   readonly waitingForIt: readonly Task[];
@@ -65,6 +79,16 @@ export interface TaskDependencyLinks {
   readonly resolvesConflictsOf: Task | undefined;
   /** Its Conflict resolution Tasks, newest first. */
   readonly conflictsResolvedBy: readonly Task[];
+  /** The Task whose work caused this Bug. */
+  readonly causedBy: Task | undefined;
+  /** The Bugs naming it as their Caused by, in the board's order. */
+  readonly causedBugs: readonly Task[];
+  /** The Task it was dropped as a duplicate of. */
+  readonly duplicateOf: Task | undefined;
+  /** The Tasks dropped as duplicates of it, in the board's order. */
+  readonly duplicates: readonly Task[];
+  /** The Task whose Pipeline found this Bug. */
+  readonly foundWhileWorkingOn: Task | undefined;
 }
 
 /** The Tasks use cases. Each change is saved first and its event published after. */
@@ -84,22 +108,28 @@ export class TaskService {
 
   /**
    * A new Task in Backlog, with no Pipeline yet, last on the board, with a Plan and a Definition of
-   * Done, unconfirmed, when its creator writes both.
+   * Done, unconfirmed, when its creator writes both, and where it comes from, when The Office made
+   * it or it is a Bug linked as it is created.
    */
   async create(
     given: NewTask,
     createdBy: Author,
     written?: WrittenPlanAndDefinitionOfDone,
+    origin: NewTaskOrigin = {},
   ): Promise<Task> {
     if (!(await this.projects.find(given.projectId))) {
       const problems = [...newTaskProblems(given), ...writtenParts(written).problems];
       throw new TaskRefused([...problems, `There is no Project "${given.projectId}".`]);
+    }
+    for (const linked of [origin.causedBy, origin.foundWhileWorkingOn]) {
+      if (linked !== undefined) await this.refuseUnknown(linked);
     }
     const { task, event } = await this.repository.create((takenOrders) =>
       createTask(
         randomUUID(),
         given,
         {
+          ...origin,
           order: orderAfter(takenOrders),
           originIdeaId: undefined,
           initiativeId: undefined,
@@ -163,6 +193,8 @@ export class TaskService {
   async dependenciesOf(task: Task): Promise<TaskDependencyLinks> {
     const board = await this.repository.list();
     const byId = new Map(board.map((each) => [each.id, each]));
+    const linked = (id: string | undefined) => (id === undefined ? undefined : byId.get(id));
+    const { dropReason } = task;
     return {
       waitsFor: task.blockedBy.flatMap((id) => byId.get(id) ?? []),
       waitingForIt: board.filter((each) => each.blockedBy.includes(task.id)).toSorted(boardOrder),
@@ -171,6 +203,15 @@ export class TaskService {
       conflictsResolvedBy: board
         .filter((each) => each.madeFor === "resolve-conflicts" && each.resolvesTaskId === task.id)
         .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+      causedBy: linked(task.causedBy),
+      causedBugs: board.filter((each) => each.causedBy === task.id).toSorted(boardOrder),
+      duplicateOf: linked(dropReason?.kind === "duplicate" ? dropReason.taskId : undefined),
+      duplicates: board
+        .filter(
+          ({ dropReason: reason }) => reason?.kind === "duplicate" && reason.taskId === task.id,
+        )
+        .toSorted(boardOrder),
+      foundWhileWorkingOn: linked(task.foundWhileWorkingOn),
     };
   }
 
@@ -181,6 +222,25 @@ export class TaskService {
   /** The title, in any state but Done and Dropped. */
   async changeTitle(id: string, title: string): Promise<Task> {
     return this.update(id, (task) => changeTitle(task, title));
+  }
+
+  /** Feature, Bug or Chore, in any state but Done and Dropped; the Task never moves for it. */
+  async changeKind(id: string, kind: TaskKind): Promise<Task> {
+    return this.update(id, (task) => changeKind(task, kind));
+  }
+
+  /**
+   * The Task whose work caused this Bug, another Task in any Project and state, archived ones too,
+   * or undefined for none; in any state but Done and Dropped.
+   */
+  async changeCausedBy(id: string, causedBy: string | undefined): Promise<Task> {
+    if (causedBy !== undefined && causedBy !== id) await this.refuseUnknown(causedBy);
+    return this.update(id, (task) => changeCausedBy(task, causedBy));
+  }
+
+  /** The version the Bug was found in, free text, or undefined for none. */
+  async changeFoundInVersion(id: string, foundInVersion: string | undefined): Promise<Task> {
+    return this.update(id, (task) => changeFoundInVersion(task, foundInVersion));
   }
 
   /** The user's Description, until the Task starts. */
@@ -324,9 +384,14 @@ export class TaskService {
     return task.projectId === projectId;
   }
 
-  /** Drops the Task, by the user: on its page, or by their answer to a Decision. */
-  async drop(id: string, by: Author): Promise<Task> {
-    return this.update(id, (task) => changeTaskState(task, "dropped", by));
+  /**
+   * Drops the Task, by the user: on its page, or by their answer to a Decision, with the reason
+   * they gave, if any, kept with the move.
+   */
+  async drop(id: string, by: Author, reason?: DropReason): Promise<Task> {
+    if (reason?.kind === "duplicate" && reason.taskId !== id)
+      await this.refuseUnknown(reason.taskId);
+    return this.update(id, (task) => dropTask(task, by, reason));
   }
 
   /** Takes a Done or Dropped Task off the board into the Archive, its state as it was. */
@@ -459,9 +524,26 @@ export class TaskService {
     return true;
   }
 
-  /** Moves a started Task along its Pipeline: Pipelines' interpreter calls it, Start never does. */
-  async changeState(id: string, state: Task["state"]): Promise<Task> {
-    return this.update(id, (task) => changeStartedTaskState(task, state));
+  /**
+   * Moves a started Task along its Pipeline: Pipelines' interpreter calls it, Start never does. A
+   * drop at a Gate brings the reason the user gave there, if any, kept with the move.
+   */
+  async changeState(id: string, state: Task["state"], dropReason?: DropReason): Promise<Task> {
+    if (dropReason?.kind === "duplicate" && dropReason.taskId !== id) {
+      await this.refuseUnknown(dropReason.taskId);
+    }
+    return this.update(id, (task) => {
+      const change = changeStartedTaskState(task, state);
+      if (!change || state !== "dropped" || !dropReason) return change;
+      return dropTask(task, BY_THE_PIPELINE, dropReason);
+    });
+  }
+
+  /** Refuses a link to a Task there is none of. */
+  private async refuseUnknown(taskId: string): Promise<void> {
+    if (!(await this.repository.find(taskId))) {
+      throw new TaskRefused([`There is no Task ${taskId}.`]);
+    }
   }
 
   private async moveGrounds(

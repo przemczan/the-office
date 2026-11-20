@@ -26,6 +26,7 @@ import { Git, GitCommandFailed, type GitVariables } from "../ports/git.js";
 import { CodeHostRefused } from "../ports/code-host.js";
 import { PullRequestRepository } from "../ports/pull-request-repository.js";
 import { CodeHosts } from "./code-hosts.js";
+import { IssueFixes } from "./issue-fixes.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { TaskBases } from "./task-bases.js";
 import { Worktrees, type BaseBranch } from "./worktrees.js";
@@ -59,7 +60,10 @@ interface PublishContext {
  * Task publishes that branch itself into the base branch by the publishing mode, carrying those
  * commits unchanged (`publishPublishingTask`). A Conflict resolution Task pushes the branch of the
  * pull request it resolves only, whatever the target, so the same pull request takes its merge of
- * the base; the pull request watch then reads it again (`PullRequestBranchPushed`).
+ * the base; the pull request watch then reads it again (`PullRequestBranchPushed`). What lands by
+ * the publishing mode carries a `Fixes #n` line for each issue the Task was imported from, in the
+ * commit message and the pull request's body (`IssueFixes`), and a merge keeps the commit it landed
+ * as (`Worktrees.landedRefOf`), which the issue's Done comment names.
  */
 @Injectable()
 export class Publishing {
@@ -73,15 +77,21 @@ export class Publishing {
     private readonly taskBases: TaskBases,
     private readonly pullRequests: PullRequestRepository,
     private readonly events: EventBus,
+    private readonly issueFixes: IssueFixes,
   ) {}
 
   async publish(
     project: Project,
     taskId: string,
-    message: CommitMessage,
+    given: CommitMessage,
     target: PublishTarget,
   ): Promise<Publication> {
     const taskBase = await this.taskBases.of(project, taskId);
+    // What lands closes the Task's issues (`Fixes #n`); a branch pushed alone lands nothing.
+    const message =
+      target === "publishing-mode" && taskBase.kind !== "pull-request"
+        ? await this.issueFixes.of(project, taskId, taskBase, given)
+        : given;
     if (taskBase.kind === "publishing-task") {
       return this.publishPublishingTask(project, taskId, taskBase.branch, message, target);
     }
@@ -194,6 +204,7 @@ export class Publishing {
           variables,
         );
         await this.moveInitiativeBranch(project, context, initiative, commit, holder);
+        await this.git.setRef(project.path, this.worktrees.landedRefOf(taskId), commit);
         await this.git.setRef(
           project.path,
           this.worktrees.publishedFromRefOf(taskId),
@@ -347,6 +358,7 @@ export class Publishing {
     await this.push(project, context, { remote: base.remote, branch });
     await this.push(project, context, base);
     const commit = await this.git.commitOf(project.path, ref);
+    await this.git.setRef(project.path, this.worktrees.landedRefOf(context.taskId), commit);
     await this.moveLocalBase(project, commit);
     await this.recordPublished(project, context);
     return { kind: "merged", branch, into: base, commit, head: commit, baseTakenIn };
@@ -604,6 +616,7 @@ export class Publishing {
     await this.git.pushCommit(project.path, commit, base, variables).catch((error: unknown) => {
       throw failure(error, (said) => pushFailure(branch, base, said));
     });
+    await this.git.setRef(project.path, this.worktrees.landedRefOf(context.taskId), commit);
     await this.recordPublished(project, context);
     return {
       kind: "merged",

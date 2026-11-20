@@ -242,6 +242,7 @@ describe("/api/github", () => {
           { name: "checks", level: "read" },
           { name: "statuses", level: "read" },
           { name: "actions", level: "write" },
+          { name: "issues", level: "write" },
         ],
         appPermissionsUrl: `${github.urls.web}/settings/apps/the-office-fake-1/permissions`,
         installations: [
@@ -254,6 +255,7 @@ describe("/api/github", () => {
       checks: "read",
       statuses: "read",
       actions: "write",
+      issues: "write",
     });
     published = [];
     const checked = await office("/api/github/permissions/check", { method: "POST" });

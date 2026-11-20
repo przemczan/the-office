@@ -4,8 +4,16 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Idea, Initiative, Project, Role, Task } from "@the-office/contracts";
-import { Alert, Button, Icon, IconButton, Menu } from "@the-office/ui";
+import {
+  TASK_KINDS,
+  type Idea,
+  type Initiative,
+  type Project,
+  type Role,
+  type Task,
+  type TaskKind,
+} from "@the-office/contracts";
+import { Alert, Button, Icon, IconButton, Menu, SplitButton } from "@the-office/ui";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { roleQueries } from "../../api/people.ts";
@@ -30,7 +38,8 @@ import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useSignedInUserId } from "../../shell/use-user-name.ts";
 import { EditIdeaDialog } from "../../shell/work/edit-idea-dialog.tsx";
-import { ShapeIdeaDialog } from "../../shell/work/shape-idea-dialog.tsx";
+import { ShapeIdeaDialog, type IdeaShapeChoice } from "../../shell/work/shape-idea-dialog.tsx";
+import { KindGlyph } from "../../shell/work/task-state-badge.tsx";
 import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
 import { useShaper } from "../../shell/work/use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
@@ -132,9 +141,16 @@ type IdeaAction = "shape" | "plan";
 interface IdeaActionWords {
   readonly label: string;
   readonly icon: string;
-  /** Takes the Project's id. */
-  readonly mutation: UseMutationResult<Task, Error, string>;
+  /** Takes the Project's id, and for shaping the Kind. */
+  readonly mutation: UseMutationResult<Task, Error, IdeaShapeChoice>;
 }
+
+/** The Kinds the Shape split button's menu offers, each shaping a Task of that Kind. */
+const SHAPE_INTO_WORDS: Readonly<Record<TaskKind, string>> = {
+  feature: "Shape into a Feature Task",
+  bug: "Shape into a Bug Task",
+  chore: "Shape into a Chore Task",
+};
 
 function IdeaCard({
   idea,
@@ -155,6 +171,8 @@ function IdeaCard({
   const [editing, setEditing] = useState(false);
   /** The button whose Project the user is choosing, for an Office-wide Idea. */
   const [choosingFor, setChoosingFor] = useState<IdeaAction>();
+  /** The Kind the Idea is being shaped as while its Project is chosen. */
+  const [shapingKind, setShapingKind] = useState<TaskKind>("feature");
   const queryClient = useQueryClient();
   const showToast = useToast();
   const planner = usePlanner();
@@ -179,18 +197,46 @@ function IdeaCard({
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(ideaQueries.list()),
   });
+  const choose = (action: IdeaAction, kind?: TaskKind): void => {
+    const { mutation } = actions[action];
+    setShapingKind(kind ?? "feature");
+    if (idea.projectId === null) setChoosingFor(action);
+    else {
+      mutation.mutate(
+        { projectId: idea.projectId, ...(kind && { kind }) },
+        { onError: (error) => showToast(error.message) },
+      );
+    }
+  };
   const options: RecordAction[] = [
-    ...offered.map((action) => {
+    ...offered.map((action): RecordAction => {
       const { label, icon, mutation } = actions[action];
       return {
         key: action,
         label,
         icon,
         pending: mutation.isPending,
-        onSelect: () => {
-          if (idea.projectId === null) setChoosingFor(action);
-          else mutation.mutate(idea.projectId, { onError: (error) => showToast(error.message) });
-        },
+        onSelect: () => choose(action, action === "shape" ? "feature" : undefined),
+        // One click still shapes a Feature; the arrow offers every Kind.
+        ...(action === "shape" && {
+          control: (
+            <SplitButton
+              size="sm"
+              iconLeft={<Icon name={icon} size={14} />}
+              loading={mutation.isPending}
+              onClick={() => choose("shape", "feature")}
+              menuLabel="Shape into a Task of another Kind"
+              menuWidth={220}
+              items={TASK_KINDS.map((kind) => ({
+                label: SHAPE_INTO_WORDS[kind],
+                icon: <KindGlyph kind={kind} size={14} />,
+                onSelect: () => choose("shape", kind),
+              }))}
+            >
+              {label}
+            </SplitButton>
+          ),
+        }),
       };
     }),
     {
@@ -271,6 +317,7 @@ function IdeaCard({
         <ShapeIdeaDialog
           idea={idea}
           shaping={actions[choosingFor].mutation}
+          {...(choosingFor === "shape" && { kind: shapingKind })}
           actionLabel={actions[choosingFor].label}
           onClose={() => setChoosingFor(undefined)}
         />

@@ -10,7 +10,8 @@ import { InOtherProjectsNote } from "../../shell/project-filter/in-other-project
 import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { dayOf } from "../../shell/time.ts";
-import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { dropReasonWords } from "../../shell/work/drop-reason-field.tsx";
+import { KindMark, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import type { Archived } from "../../shell/work/work-words.ts";
 import { RestoreButton } from "./archive-parts.tsx";
 import { archivedTasks } from "./archive-words.ts";
@@ -32,7 +33,7 @@ export function ArchivedTasks(): ReactNode {
     <div className="archived-tasks">
       <InOtherProjectsNote count={elsewhere} one="archived Task" many="archived Tasks" />
       <DataTable
-        columns={columnsFor(projects.data)}
+        columns={columnsFor(projects.data, tasks.data)}
         rows={[...shown]}
         empty="No archived Tasks. Archive a Done or Dropped Task from its More menu."
       />
@@ -40,16 +41,22 @@ export function ArchivedTasks(): ReactNode {
   );
 }
 
-function columnsFor(projects: readonly Project[] | undefined): DataTableColumn<Task & Archived>[] {
+function columnsFor(
+  projects: readonly Project[] | undefined,
+  tasks: readonly Task[],
+): DataTableColumn<Task & Archived>[] {
   return [
     {
       key: "task",
       header: "Task",
       wrap: true,
       render: (task) => (
-        <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="archived-task-title">
-          {task.title}
-        </Link>
+        <span className="archived-task">
+          <KindMark kind={task.kind} />
+          <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="archived-task-title">
+            {task.title}
+          </Link>
+        </span>
       ),
     },
     {
@@ -57,7 +64,27 @@ function columnsFor(projects: readonly Project[] | undefined): DataTableColumn<T
       header: "Project",
       render: (task) => <ProjectChip projectId={task.projectId} projects={projects} />,
     },
-    { key: "state", header: "State", render: (task) => <TaskStateBadge state={task.state} /> },
+    {
+      key: "state",
+      header: "State",
+      // The Drop reason sits under the badge, so no column stays empty for Done Tasks.
+      render: (task) => (
+        <span className="archived-task-state">
+          <TaskStateBadge state={task.state} />
+          {task.state === "dropped" && task.dropReason !== null && (
+            <span className="archived-drop-reason">
+              {dropReasonWords(
+                task.dropReason,
+                tasks.find(
+                  ({ id }) =>
+                    task.dropReason?.kind === "duplicate" && id === task.dropReason.taskId,
+                ),
+              )}
+            </span>
+          )}
+        </span>
+      ),
+    },
     {
       key: "archivedAt",
       header: "Archived",

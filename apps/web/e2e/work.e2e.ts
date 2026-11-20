@@ -416,7 +416,8 @@ test("the user captures an Idea from Now in a few keystrokes", async ({ page }) 
 
   await page.getByRole("button", { name: "Create", exact: true }).click();
   const create = page.getByRole("dialog", { name: "New Task" });
-  await expect(create.getByRole("tab")).toHaveText(["Task", "Idea"]);
+  // The switch between a Task and an Idea heads the window; the Task's Kind has tabs of its own.
+  await expect(create.getByRole("tablist").first().getByRole("tab")).toHaveText(["Task", "Idea"]);
   await expect(create.getByRole("tab", { name: "Task" })).toHaveAttribute("aria-selected", "true");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-create.png") });
   await page.keyboard.press("Escape");

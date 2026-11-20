@@ -69,11 +69,27 @@ const TASK: Task = {
   archivedAt: null,
   endedAt: null,
   pullRequestEnd: null,
+  kind: "feature",
+  causedBy: null,
+  foundInVersion: null,
+  foundWhileWorkingOn: null,
+  dropReason: null,
+};
+
+const IMPLEMENT = {
+  kind: "agent",
+  key: "implement",
+  name: "Implement",
+  optional: false,
+  role: "developer",
+  brief: "Implement the Plan.",
+  session: "fresh",
+  budget: 100000,
 };
 
 const LIBRARY = [
-  { id: "full", name: "Full", description: "", stages: [{ name: "Implement" }] },
-  { id: "quick-fix", name: "Quick fix", description: "", stages: [{ name: "Implement" }] },
+  { id: "full", name: "Full", description: "", stages: [IMPLEMENT] },
+  { id: "quick-fix", name: "Quick fix", description: "", stages: [IMPLEMENT] },
 ] as unknown as OfficeWidePipeline[];
 
 /** The Task's Project's own Pipelines, one Broken, and another Project's, which is never offered. */
@@ -84,16 +100,7 @@ const PROJECT_PIPELINES = [
     name: "Full with sort check",
     basePipeline: { id: "full", name: "Full" },
     stages: [
-      {
-        kind: "agent",
-        key: "implement",
-        name: "Implement",
-        optional: false,
-        role: "developer",
-        brief: "Implement the Plan.",
-        session: "fresh",
-        budget: 100000,
-      },
+      IMPLEMENT,
       {
         kind: "script",
         key: "sort-check",
@@ -135,8 +142,17 @@ const NO_STAGES_OF_ITS_OWN: TaskStages = {
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
 
+const PROJECT = {
+  id: "admin-panel",
+  name: "Admin panel",
+  defaultPipeline: "quick-fix",
+  kindDefaultPipelines: { feature: null, bug: "full", chore: null },
+  defaultPipelineOfKind: { feature: "quick-fix", bug: "full", chore: "quick-fix" },
+  commands: [],
+} as unknown as Project;
+
 /** Renders `content` with the library, the Planner and the Task's Project read already. */
-function rendered(content: ReactNode): HTMLElement {
+function rendered(content: ReactNode, project: Project = PROJECT): HTMLElement {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
@@ -150,12 +166,7 @@ function rendered(content: ReactNode): HTMLElement {
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
   queryClient.setQueryData(dutyQueries.list().queryKey, []);
   queryClient.setQueryData(roleCardQueries.options().queryKey, {} as RoleCardOptions);
-  queryClient.setQueryData(projectQueries.one(TASK.projectId).queryKey, {
-    id: TASK.projectId,
-    name: "Admin panel",
-    defaultPipeline: "quick-fix",
-    commands: [],
-  } as unknown as Project);
+  queryClient.setQueryData(projectQueries.one(TASK.projectId).queryKey, project);
   const page = document.createElement("div");
   document.body.append(page);
   act(() =>
@@ -168,7 +179,7 @@ function rendered(content: ReactNode): HTMLElement {
   return page;
 }
 
-function rail(task: Task): HTMLElement {
+function rail(task: Task, project?: Project): HTMLElement {
   return rendered(
     <PipelineRail
       task={task}
@@ -177,6 +188,7 @@ function rail(task: Task): HTMLElement {
       onSelect={() => undefined}
       onCloseHistory={() => undefined}
     />,
+    project,
   );
 }
 
@@ -241,11 +253,33 @@ describe("a Task with no Pipeline yet", () => {
       ["Admin panel's Pipelines", ["Full with sort check", "Spec change"]],
       ["Office-wide Pipelines", ["Quick fix", "Full"]],
     ]);
+    // Features have no default of their own, so they follow the Project's.
     expect(optionNamed("Quick fix")?.textContent).toContain("Project default");
   });
 
+  it("opens on its Kind's default, listed first and badged, so one press chooses it", () => {
+    rail({ ...TASK, kind: "bug" });
+
+    act(() => buttonNamed("Choose a Pipeline")?.click());
+    expect(document.querySelector('[role="combobox"]')?.textContent).toBe("Full");
+    expect(buttonNamed("Save for this Task")?.disabled).toBe(false);
+    act(() => document.querySelector<HTMLElement>('[role="combobox"]')?.click());
+
+    const officeWide = [...document.querySelectorAll('[role="listbox"] [role="group"]')][1];
+    expect([...(officeWide?.querySelectorAll('[role="option"]') ?? [])].map(labelOf)).toEqual([
+      "Full",
+      "Quick fix",
+    ]);
+    expect(optionNamed("Full")?.textContent).toContain("Default for Bugs");
+  });
+
   it("lists a Broken Project Pipeline with why, and doesn't choose it", () => {
-    rail(TASK);
+    // A Broken default isn't opened on, so nothing is chosen at first.
+    rail(TASK, {
+      ...PROJECT,
+      defaultPipeline: "spec-change",
+      defaultPipelineOfKind: { feature: "spec-change", bug: "spec-change", chore: "spec-change" },
+    });
     act(() => buttonNamed("Choose a Pipeline")?.click());
     act(() => document.querySelector<HTMLElement>('[role="combobox"]')?.click());
 

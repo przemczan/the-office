@@ -155,7 +155,7 @@ describe("AgentStageRunner", () => {
     const taskId = await walkStages(pipelines, [implement]);
 
     const error =
-      "The Stage's result still didn't match its schema after one correction: status \"needs_decision\" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.";
+      "The Stage's result still didn't match its schema after one correction: status \"needs_decision\" means you opened a Decision with open_decision, consult or propose_bug_task, and you opened none. Open it with one of them first, then end your turn with needs_decision again.";
     expect(await outcomesOf(taskId)).toEqual([{ status: "failed", error }]);
     expect(pipelines.stageThreads.sent).toHaveLength(1);
     expect(pipelines.stageThreads.ended[0]).toMatchObject({
@@ -214,7 +214,7 @@ describe("AgentStageRunner", () => {
       { status: "needs-decision", ...draft, handoverNote: "Waiting on the user." },
     ]);
     expect(pipelines.stageThreads.sent[0]?.text).toContain(
-      'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none.',
+      'status "needs_decision" means you opened a Decision with open_decision, consult or propose_bug_task, and you opened none.',
     );
   });
 

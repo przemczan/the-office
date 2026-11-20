@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Pipeline, Project, ProjectPipeline, Role } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { dutyQueries, roleQueries } from "../../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../../api/pipelines.ts";
 import { aDuty } from "../../../shell/duties.fixtures.ts";
@@ -53,11 +53,15 @@ const PROJECT = {
   baseBranch: "main",
   publishingMode: "merge",
   defaultPipeline: "linux-check",
+  kindDefaultPipelines: { feature: null, bug: "full", chore: null },
 } as unknown as Project;
 
 const PLANNER = { key: "planner", letGoAt: null, card: { name: "Angela" } } as unknown as Role;
 
-afterEach(() => document.body.replaceChildren());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  document.body.replaceChildren();
+});
 
 function block(project: Project): HTMLElement {
   const queryClient = new QueryClient({
@@ -134,5 +138,37 @@ describe("the Default Pipeline block", () => {
     expect(page.textContent).toContain(
       "Changes Produce, which Full no longer has. New Tasks can't follow it, and Angela proposes from the others, until it is fixed or another default is chosen.",
     );
+  });
+
+  it("gives each Kind a row, Same as every Task where it has none, and saves a change at once", async () => {
+    const fetched = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        ...PROJECT,
+        kindDefaultPipelines: { feature: null, bug: null, chore: null },
+      }),
+    );
+    vi.stubGlobal("fetch", fetched);
+    const page = block(PROJECT);
+    const picker = (kind: string): HTMLElement | null =>
+      page.querySelector<HTMLElement>(`[aria-label="Default Pipeline for ${kind}"]`);
+
+    expect(page.textContent).toContain("By Kind");
+    expect(picker("Features")?.textContent).toBe("Same as every Task");
+    expect(picker("Bugs")?.textContent).toBe("Full");
+    expect(picker("Chores")?.textContent).toBe("Same as every Task");
+
+    act(() => picker("Bugs")?.click());
+    const same = [
+      ...document.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]'),
+    ].find((option) => labelOf(option) === "Same as every Task");
+    await act(async () => {
+      same?.click();
+      await Promise.resolve();
+    });
+
+    const [url, request] = fetched.mock.calls[0] ?? [];
+    expect(url).toBe("/api/projects/the-office/kind-default-pipeline");
+    expect(request?.method).toBe("PUT");
+    expect(request?.body).toBe(JSON.stringify({ kind: "bug", pipelineId: null }));
   });
 });

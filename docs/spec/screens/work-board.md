@@ -1,6 +1,6 @@
 # Work page and board
 
-Covers: the Work page and its tabs, the Task board (filters, Saved views, search, columns, Group by Initiative, Initiative blocks, cards and their marks, dragging), Waiting on you and Needs you, Start Ready Tasks, the queue for Start.
+Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Import issues, Saved views, search, columns, Group by Initiative, Initiative blocks, cards and their marks, dragging), Waiting on you and Needs you, Start Ready Tasks, the queue for Start.
 
 ## Where it is
 
@@ -9,7 +9,7 @@ Covers: the Work page and its tabs, the Task board (filters, Saved views, search
 - The page title is "Work"; its crumb is the open tab's: "Tasks by state", "Ideas", "Initiatives", "Pull requests", "CI runs", "Archived".
 - Its tabs are the routes `/work`, `/work/ideas`, `/work/initiatives`, `/work/pull-requests`, `/work/ci` and `/work/archived`.
 - The Project filter in the top bar narrows every Work tab ([shell.md](shell.md)).
-- Work has no "+ Task" button: a Task is made from the top bar's Create ([shell.md](shell.md)).
+- Work has no "+ Task" button: a Task is made from the top bar's Create ([shell.md](shell.md)), or from GitHub issues with the filter bar's **Import issues…**.
 
 ## Layout
 
@@ -32,13 +32,15 @@ Covers: the Work page and its tabs, the Task board (filters, Saved views, search
 ## Filter bar
 
 - It is a search landmark named "Filter the board".
-- First row, left to right: the search box, the Priority chips, the Initiative select, the **Blocked** chip, **Clear** (only while a filter is set) and, at the end, the Layout group.
+- First row, left to right: the search box, the Priority chips, the Kind chips, the Initiative select, the **Blocked** chip, **Clear** (only while a filter is set), **Import issues…** and, at the end, the Layout group.
 - Search box: label "Search Tasks", placeholder "Search Tasks, Plans and Definitions of Done". The service matches the words, as the top bar's search does. A blank search is the same as none.
 - Priority chips: **High**, **Normal**, **Low**, each with its priority glyph; pressing the chip on turns it off, so one priority at most is set.
+- Kind chips, a group named "Kind": **Feature**, **Bug**, **Chore**, each with its Kind's glyph; one at most is on, and pressing the one on turns it off ([2.1.6](../2.1.6-board-and-search.md#the-kind-filter)).
 - Initiative select: named "Initiative", label hidden, placeholder "Any Initiative", "No Initiative matches" when typing finds none, clear button "Clear the Initiative filter". Typed in, it lists at most 10 Initiatives, best matches first. It offers the Initiatives in the Projects the Project filter shows, and the chosen one wherever it is.
 - **Blocked** chip (lock icon): keeps the Tasks that still have a blocker.
 - **Clear** drops every filter at once. It keeps Group by Initiative.
-- The filters are kept in the address (`query`, `priority`, `initiative`, `blocked`), so a reload or a link reopens the same board; a filter left empty isn't in the address.
+- **Import issues…** (secondary, github icon): opens the Import issues window ([project-page.md](project-page.md#import-issues-window)) on the first Project on GitHub the Project filter shows; its Project picker changes it. It shows only while the filter shows a Project on GitHub.
+- The filters are kept in the address (`query`, `priority`, `kind`, `initiative`, `blocked`), so a reload or a link reopens the same board; a filter left empty isn't in the address.
 - Changing a filter replaces the address entry rather than adding one, and keeps whatever opens over the page.
 - The filters narrow the cards, the column counts, and the Initiatives, Ideas and counts shown elsewhere on the bar only as stated here: blockers and drag placement still read every Task.
 
@@ -50,7 +52,8 @@ Covers: the Work page and its tabs, the Task board (filters, Saved views, search
 - Each chip has a remove button (hover "Remove the view", label "Remove the view <name>"); a refusal shows as a toast.
 - **Save view…** (bookmark-plus icon) shows while a filter is set and no view matches.
 - Its window "Save the view": the field "Name" (placeholder "Firmware bugs", hint "A view saves the filters, not the Project filter: it follows the top bar like everything else."), the button **Save view**, and the alert "The view can't be saved" with the service's reason when it is refused.
-- A view saves the search, priority, Initiative and Blocked filters, never Group by Initiative or the Project filter.
+- A view saves the search, priority, Kind, Initiative and Blocked filters, never Group by Initiative or the Project filter.
+- A view saved before Kinds has no Kind filter, and applies as it did.
 
 ## Group by Initiative
 
@@ -118,6 +121,7 @@ Covers: the Work page and its tabs, the Task board (filters, Saved views, search
 
 ### Marks
 
+- **Kind** (right after the Project's mark, on every card): the Kind's glyph in a 20px box, sparkles for Feature, bug for Bug, wrench for Chore; only Bug is coloured (danger tone), the others muted; hover names it ("Feature", "Bug" or "Chore").
 - **Waiting on you** (hand icon, warning): the state is Waiting on you, or the Task is in Planning or Paused with a Decision open.
 - **Paused** (pause icon, warning): the state is Paused; its hover words follow the Task's Paused words. A Paused Task with a Decision open shows Waiting on you and Paused.
 - **Dropped** (circle-x icon): the state is Dropped.
@@ -132,7 +136,7 @@ Covers: the Work page and its tabs, the Task board (filters, Saved views, search
 - The queue's place shows only in the clock's popover, never on the card.
 - There is no Failed mark.
 - The working mark never gets narrower than its live dot, avatars and "+N", and keeps the right end of the row, also when a full row wraps.
-- A Done card shows no marks beyond its Project's.
+- A Done card shows no marks beyond its Project's and its Kind's.
 - A Task's lock counts blockers from every Task, in any Project.
 
 ### Card More menu
@@ -140,6 +144,7 @@ Covers: the Work page and its tabs, the Task board (filters, Saved views, search
 - Label "More for <title>".
 - First its planning actions: **Plan with <name>** while in Backlog, and **Mark Ready** where offered ([task-page.md](task-page.md)).
 - For a Task that hasn't started: a "Priority" heading with **High**, **Normal**, **Low** (the current one ticked); a change toasts "<title> is now <priority> priority."
+- Until the Task has ended: a "Kind" heading with **Feature**, **Bug**, **Chore** (the current one ticked); a change toasts "<title> is now a <Kind>."
 - **Archive** on a Done or Dropped Task.
 - Until the Task has ended: **Edit Stages for this Task** (not in Shaping), **Move to another Project…** and, after a divider, **Drop…**.
 

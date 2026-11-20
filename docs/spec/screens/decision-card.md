@@ -1,6 +1,6 @@
 # Decision card
 
-Covers: the Decision card and its forms (the form in place, the compact card, the approval card, the answered card), the details window, Submit, Accept, Ask me again, Dismiss, comments, progress, drafts, where a card shows.
+Covers: the Decision card and its forms (the form in place, the compact card, the approval card, the Bug Task card, the answered card), the details window, Submit, Accept, Ask me again, Dismiss, comments, progress, drafts, where a card shows.
 
 ## Where it is
 
@@ -21,6 +21,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 - Answered, asked again or closed: the answered card.
 - An approval (`kind` approval): the approval card, never a form.
+- A Bug Task Decision (`kind` bug-task): the Bug Task card, compact in the shared feed.
 - In the shared feed (Now and the Needs you panel), with 2 or more questions or any Attachment: the compact card.
 - On the Task page's Needs you card and in Threads, past 3 questions or with any Attachment, outside an inline chat card: the compact card.
 - Otherwise: the form in place. An inline chat card is always the whole form in place.
@@ -85,6 +86,18 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 - For a call past a Hard switch ([6](../6-permissions-and-safety.md)): the question as Markdown, the context, the Consultation note, "<asker> recommends “<option>”: <reason>", and a group named "Options" with one button per option, the recommended one primary (such as **Allow once** and **Deny**).
 - One click sends the answer; there is no comment, no Ask me again, no words.
 - Disabled while the asker answers (title says why) or an answer is sending; a refusal shows "The answer wasn't sent".
+
+## The Bug Task card
+
+- For a Bug Task Decision ([2.4.2](../2.4.2-decisions.md#the-bug-task-decision)): under the top line, "<asker> proposes a Bug Task", then the Agent's why as the context.
+- The proposed Task's fields, editable: **Title** (required), **Description**, **Project** (the Agent's Task's at first) and **Caused by** ("Optional.", a Task picker, "Find a Task by its title").
+- The **General comment** ("Optional.", placeholder "Anything about the form as a whole").
+- Actions: **Create the Bug Task** (waits with "Write a title first." while the title is empty), **Don't create it** and **Ask me again**, with the hint "It goes to Backlog as a Bug, found while working on this Task."
+- Ask me again is a step asking "What should <asker> explain or change?", as on any form.
+- No Dismiss, as on any Stage Thread's Decision.
+- A Create that is refused keeps the card open with its refusal shown.
+- In the shared feed (Now, the Needs you panel): the context's first line, "Bug Task: <title>" and **Open details**, which opens a Large window "<asker> proposes a Bug Task" with the same form and the three actions in its bar.
+- Answered: "Created the Bug Task <Task>", linked with its state, or "Didn't create the Bug Task", then the outcome line and "General comment: …".
 
 ## The details window (Open details)
 

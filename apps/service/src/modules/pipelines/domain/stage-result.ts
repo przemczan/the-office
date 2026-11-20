@@ -11,7 +11,7 @@ const stageResult = z.object({
   status: z
     .enum(["done", "needs_decision", "failed"])
     .describe(
-      "done when the Stage's work is finished; needs_decision once you opened a Decision with open_decision or consult and wait for the answer; failed when you can't finish it.",
+      "done when the Stage's work is finished; needs_decision once you opened a Decision with open_decision, consult or propose_bug_task and wait for the answer; failed when you can't finish it.",
     ),
   summary: z.string().min(1).describe("One or two sentences: what you did, or why you stopped."),
   handoverNote: z
@@ -195,7 +195,7 @@ function outcomeOf({
 }
 
 const NO_DECISION_OPENED =
-  'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.';
+  'status "needs_decision" means you opened a Decision with open_decision, consult or propose_bug_task, and you opened none. Open it with one of them first, then end your turn with needs_decision again.';
 
 function askedOutcome(asked: StageDecision, output: unknown): StageOutcome {
   const handoverNote = stageResult.safeParse(output).data?.handoverNote;

@@ -16,6 +16,7 @@ import { isPublishingTask, type Task } from "./task.js";
 import { commitMessageOf } from "./task-commit-message.js";
 import { NO_DESCRIPTION } from "./task-description.js";
 import { pullRequestEndWords } from "./task-pull-request.js";
+import { TASK_KIND_NAMES } from "./task-kind-words.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 import { confirmationWords } from "./written-parts.js";
 
@@ -63,7 +64,7 @@ function pipelineWords({ pipelineId }: Task): string {
 
 /**
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
- * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, its Moves to another
+ * Kind, priority, Tags and Pipeline, the version a Bug was found in, its Plan, Definition of Done and Attachments, its Moves to another
  * Project, its linked records (one line each, never their own links), its Decisions waiting on the
  * user with their numbered options, its Stage results with every Handover note, and its kept state
  * changes with who or what made each.
@@ -74,7 +75,8 @@ export function taskRecordText(
 ): string {
   return [
     `${task.title} (Task ${task.id})`,
-    `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; ${pipelineWords(task)}`,
+    `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${TASK_KIND_NAMES[task.kind]}; ${task.priority} priority; ${pipelineWords(task)}`,
+    ...(task.foundInVersion === undefined ? [] : [`- Found in version ${task.foundInVersion}`]),
     ...(task.state === "planning" && task.autoMode ? ["- Planning in auto mode"] : []),
     ...publishingTaskLines(task, links),
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),

@@ -433,6 +433,23 @@ async function stubEngines(
     const now = (await (await route.fetch()).json()) as Now;
     await route.fulfill({ json: { ...now, usageWindows } });
   });
+  // Now also comes whole in each `now.changed`, which another test's work can send at any time.
+  await page.routeWebSocket(/\/api\/events$/, (stream) => {
+    const service = stream.connectToServer();
+    service.onMessage((message) => {
+      stream.send(typeof message === "string" ? withUsageWindows(message, usageWindows) : message);
+    });
+  });
+}
+
+/** An event stream message, with its `now.changed`'s Now given these usage windows. */
+function withUsageWindows(message: string, usageWindows: Now["usageWindows"]): string {
+  const sent = JSON.parse(message) as { type?: string; event?: { type?: string; now?: Now } };
+  if (sent.type !== "event" || sent.event?.type !== "now.changed" || !sent.event.now) {
+    return message;
+  }
+  const now = { ...sent.event.now, usageWindows };
+  return JSON.stringify({ ...sent, event: { ...sent.event, now } });
 }
 
 test.describe("the usage figure", { tag: "@full" }, () => {

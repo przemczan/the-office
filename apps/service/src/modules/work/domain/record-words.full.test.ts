@@ -45,11 +45,21 @@ function part(record: string, heading: string): string[] {
 describe("taskRecordText", () => {
   it("names the Task's Pipeline, or says it has none yet", () => {
     expect(taskRecordText(aTask(), NOTHING).split("\n")[1]).toBe(
-      "- Project admin-panel; Backlog; normal priority; Pipeline full",
+      "- Project admin-panel; Backlog; Feature; normal priority; Pipeline full",
     );
     expect(taskRecordText(aTask({ pipelineId: undefined }), NOTHING).split("\n")[1]).toBe(
-      "- Project admin-panel; Backlog; normal priority; no Pipeline yet",
+      "- Project admin-panel; Backlog; Feature; normal priority; no Pipeline yet",
     );
+  });
+
+  it("names a Bug's Kind and the version it was found in", () => {
+    const lines = taskRecordText(aTask({ kind: "bug", foundInVersion: "v1.14.2" }), NOTHING).split(
+      "\n",
+    );
+    expect(lines.slice(1, 3)).toEqual([
+      "- Project admin-panel; Backlog; Bug; normal priority; Pipeline full",
+      "- Found in version v1.14.2",
+    ]);
   });
 
   it("names each Move to another Project, oldest first", () => {

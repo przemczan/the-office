@@ -7,6 +7,8 @@ import type {
   PublishingMode,
   RunEnvironmentSetting,
 } from "./project.js";
+import type { IssueSettings } from "./issue-settings.js";
+import type { TaskKind } from "./kind-default-pipeline.js";
 import type { ShownEnvironment } from "./project-environment.js";
 import type { ProjectImage, ProjectImageKey, ProjectImagePalette } from "./project-image.js";
 
@@ -149,6 +151,27 @@ export class ProjectDefaultPipelineChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly defaultPipeline: string,
+  ) {
+    super();
+  }
+}
+
+/** A Kind's own default Pipeline in the Project; null follows the Project's default Pipeline. */
+export class ProjectKindDefaultPipelineChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly kind: TaskKind,
+    readonly pipelineId: string | null,
+  ) {
+    super();
+  }
+}
+
+/** The Project's GitHub issue switches changed. */
+export class ProjectIssueSettingsChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly issueSettings: IssueSettings,
   ) {
     super();
   }

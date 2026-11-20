@@ -18,6 +18,7 @@ import type {
   OneQuestionAnswer,
   OneQuestionKind,
   PassedOn,
+  ProposedBugTask,
   Recommendation,
 } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
@@ -189,6 +190,11 @@ export const decisions = pgTable(
     closedAt: timestamp("closed_at", { withTimezone: true }),
     /** When an approval this answer gave a held call let it through; null while it is unused. */
     approvalSpentAt: timestamp("approval_spent_at", { withTimezone: true }),
+    /**
+     * The Bug Task a bug-task Decision proposes, which makes it one: `kind` keeps it a question for
+     * the release before, its one choice Create the Bug Task or Don't create it. Null otherwise.
+     */
+    bugTask: jsonb("bug_task").$type<ProposedBugTask>(),
   },
   (table) => [
     uniqueIndex("decisions_open_on_task_in_thread")

@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline, Project Pipelines), Run environment, Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -13,6 +13,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
   - **Commands**: `/projects/$projectId/commands`.
   - **Environment**: `/projects/$projectId/environment`.
   - **Pipelines**: `/projects/$projectId/pipelines`, and an open Project Pipeline at `/projects/$projectId/pipelines/$projectPipelineId`.
+  - **GitHub issues**: `/projects/$projectId/issues`.
   - **Run environment**: `/projects/$projectId/run-environment`.
   - **Engine**: `/projects/$projectId/engine`.
   - **Skills**: `/projects/$projectId/skills`.
@@ -145,10 +146,12 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 
 ### Default Pipeline
 
-- Card **Default Pipeline** (route icon): a Pipeline picker (hidden label "Default Pipeline"), saved at once, with the groups "<Project>'s Pipelines" then "Office-wide Pipelines"; each Pipeline shows its Stages line (a Project Pipeline adds "· built from <base>"), the current default first; a Broken Pipeline is listed with why and can't be chosen.
+- Card **Default Pipeline** (route icon): a row **Every Task**, "What <planner> proposes first, unless the Task's Kind has its own below.", with a Pipeline picker (hidden label "Default Pipeline"), saved at once, with the groups "<Project>'s Pipelines" then "Office-wide Pipelines"; each Pipeline shows its Stages line (a Project Pipeline adds "· built from <base>"), the current default first; a Broken Pipeline is listed with why and can't be chosen.
 - Toast "<Project>'s default Pipeline is <name> now."
 - A Broken default shows the danger alert "<name>, the default, is Broken": the reasons, then "New Tasks can't follow it, and <planner> proposes from the others, until it is fixed or another default is chosen."
 - A sound default shows its line and "A new Task has no Pipeline until <planner> proposes one at planning, starting from this one, or you choose one." (<planner> is whoever holds Plans, or "whoever holds Plans" while nobody does).
+- Under it, **By Kind**: a row each for **Features**, **Bugs** and **Chores** with its Kind's glyph, a Pipeline picker (hidden label "Default Pipeline for <Kind>s") whose first group, "Every Task's", holds **Same as every Task** with the default's name, then the same groups ([2.1.1](../2.1.1-projects.md#project-settings), "Default Pipeline per Kind").
+- Each row saves at once; toasts "<Project>'s Bugs follow <name> now." or, for Same as every Task, "<Project>'s Bugs follow its default Pipeline again."; a refusal shows under the row.
 
 ### Project Pipelines list
 
@@ -183,6 +186,38 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - Each Project Pipeline starts its own draft.
 - Nothing open: "Open one of <Project>'s Pipelines to see the Stages it gets and edit it."; an id the Project lacks: "<Project> has no such Pipeline: it may have been removed."
 - With `?proposal=<id>` naming an open Proposal of the Pipeline's routes, the flow shows read-only under the Proposal's banner instead of the form ([pipeline-flow-editor.md](pipeline-flow-editor.md#proposal-on-the-flow)).
+
+## GitHub issues
+
+- Route `/projects/$projectId/issues`, after Pipelines in the section menu (circle-dot icon). Rules: [2.1.1](../2.1.1-projects.md#github-issues).
+- Card **GitHub issues** (circle-dot icon) with **Import issues…** (secondary, github icon) in its head.
+- When the repository isn't on GitHub, the card holds only an empty state with the service's words: "GitHub issues need a repository on GitHub. This Project's is at <host>."
+- When the GitHub App lacks the Issues permission, the permissions prompt shows at the card's top ([pull-requests.md](pull-requests.md#github-app-permissions-prompt)).
+- A row **Repository**: "<owner>/<repo> · <n> open issues not yet imported" ("Reading its open issues…" while read, "Its issues can't be read now." on a refusal), and at its right "Signed in with GitHub", or, signed out, "Sign in with GitHub in Settings › Office identity to import issues." with a link there; the switches can still be set.
+- A refusal to read them shows as "The open issues can't be read".
+- A row **Auto-import issues with a label**: "Open issues with this label become Tasks in Backlog. Checked every 5 minutes while The Office is signed in with GitHub.", a **Label** field (tag icon, up to 50 characters) and a switch.
+  - Turning it on with no label says "Name the label first."; turning it off stores no label, and the field keeps the words while the page is open.
+  - A change of the label while on saves as the field is left or on Enter.
+  - Toasts: "Open issues labelled <label> become Tasks in <Project>." or "<Project> no longer imports issues by label."
+- **Write back to GitHub**: a switch row each, saved at once:
+  - **Close the issue when the Task is Done**: "Puts "Fixes #n" in the commit message and the pull request. GitHub closes the issue when the change reaches the default branch.";
+  - **Comment when the Task starts and when it is Done**: "The Done comment links the pull request, or names the commit when publishing merges.";
+  - **Close the issue when the Task is Dropped**: "Closes it as not planned, with a comment giving the Drop reason."
+- A refused save shows under the card.
+
+### Import issues window
+
+- Opened by **Import issues…** here (on this Project) and on the Work board's filter bar ([work-board.md](work-board.md#filter-bar)).
+- Medium, "Import issues", kept at one height while the list changes; picked rows are unsaved input, so closing asks first.
+- At the top, with more than one Project on GitHub, a hidden-label **Project** select listing only those, which clears the picks; then a search box ("Search by title, number, label or author") over the issues already read, which isn't unsaved input.
+- The list "Open issues": the repository's open issues not yet imported, newest first, pull requests left out, up to 500; past that a last row "Showing the newest 500." with a link to search on GitHub.
+- Each row is one press target toggling its checkbox: "#<n>", the title, its labels and "opened by <login>, <when>", and at its right the Kind its Task gets (Bug with a `bug` label, any case, else Feature).
+- The head's checkbox ("Pick every issue shown") picks or unpicks every row shown, up to 50; once 50 are picked the other rows are disabled with "Import these 50 first: at most 50 at a time."
+- The bar: **Import <n> issues** (**Import issues** with none picked, waiting with "Pick the issues to import first."), and "Each becomes a Task in Backlog with Normal priority."
+- After Import the window closes and toasts "<n> Tasks added to Backlog.", naming each skipped issue ("#<n> was already imported.").
+- Loading: the shared loader "Loading the open issues…". Empty: "No open issue is left to import." with "Every open issue is already imported, or the repository has none. An issue opened on GitHub shows here."
+- The permissions prompt shows at the top while the App lacks the Issues permission.
+- In place of the list: signed out, "Sign in with GitHub in Settings › Office identity to import issues." with **Open Settings › Office identity**; a repository not on GitHub, the service's words; another refusal, "The open issues can't be read". A refused import shows "The issues weren't imported".
 
 ## Run environment
 
@@ -267,6 +302,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - Onboarding: [2.1.1](../2.1.1-projects.md#onboarding-a-project).
 - Project Pipelines and a Broken Project Pipeline: [2.3.5](../2.3.5-library.md#project-pipelines), [2.3.5](../2.3.5-library.md#a-broken-project-pipeline).
 - Which Pipeline a Task follows: [2.3.5](../2.3.5-library.md#which-pipeline-a-task-follows).
+- GitHub issues: [2.1.1](../2.1.1-projects.md#github-issues).
 - Publishing, Publish's before and after lines: [2.3.4](../2.3.4-publish.md#publishs-before-and-after-lines).
 - Project skills: [2.6](../2.6-skills.md#project-skills), [2.6](../2.6-skills.md#project-skills-turn-off-one-by-one).
 - The engine cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).

@@ -72,6 +72,13 @@ export class PullRequestRepositoryForTests extends PullRequestRepository {
       .toSorted((one, other) => other.openedAt.getTime() - one.openedAt.getTime());
   }
 
+  async ofTask(taskId: string): Promise<PullRequest | undefined> {
+    this.failIfAsked();
+    return [...this.kept.values()]
+      .filter((one) => one.taskId === taskId)
+      .toSorted((one, other) => other.openedAt.getTime() - one.openedAt.getTime())[0];
+  }
+
   async find(remoteUrl: string, number: number): Promise<PullRequest | undefined> {
     this.failIfAsked();
     return [...this.kept.values()].find(

@@ -86,6 +86,14 @@ function toRow(project: Project): ProjectRow {
     runEnvironmentSetUpProblems: [...project.runEnvironmentSetUpProblems],
     projectLimit: project.projectLimit,
     addedAt: project.addedAt,
+    featureDefaultPipeline: project.kindDefaultPipelines.feature,
+    bugDefaultPipeline: project.kindDefaultPipelines.bug,
+    choreDefaultPipeline: project.kindDefaultPipelines.chore,
+    issueImportLabel: project.issueSettings.autoImportLabel,
+    issueImportLabelSetBy: project.issueSettings.autoImportLabelSetBy,
+    closeIssueOnDone: project.issueSettings.closeOnDone,
+    commentOnIssue: project.issueSettings.commentOnStartAndDone,
+    closeIssueOnDrop: project.issueSettings.closeOnDrop,
   };
 }
 
@@ -116,6 +124,18 @@ function toProject(row: ProjectRow): Project {
     runEnvironmentSetUpProblems: row.runEnvironmentSetUpProblems,
     projectLimit: row.projectLimit,
     addedAt: row.addedAt,
+    kindDefaultPipelines: {
+      feature: row.featureDefaultPipeline,
+      bug: row.bugDefaultPipeline,
+      chore: row.choreDefaultPipeline,
+    },
+    issueSettings: {
+      autoImportLabel: row.issueImportLabel,
+      autoImportLabelSetBy: row.issueImportLabelSetBy,
+      closeOnDone: row.closeIssueOnDone,
+      commentOnStartAndDone: row.commentOnIssue,
+      closeOnDrop: row.closeIssueOnDrop,
+    },
   };
 }
 

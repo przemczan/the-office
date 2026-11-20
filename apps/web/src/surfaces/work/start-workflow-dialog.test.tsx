@@ -53,6 +53,15 @@ function aProject(id: string, name: string): Project {
     runEnvironment: "not-decided",
     projectLimit: 1,
     addedAt: "2026-11-01T10:00:00.000Z",
+    codeHost: null,
+    kindDefaultPipelines: { feature: null, bug: null, chore: null },
+    defaultPipelineOfKind: { feature: "full", bug: "full", chore: "full" },
+    issueSettings: {
+      autoImportLabel: null,
+      closeOnDone: true,
+      commentOnStartAndDone: false,
+      closeOnDrop: false,
+    },
   };
 }
 

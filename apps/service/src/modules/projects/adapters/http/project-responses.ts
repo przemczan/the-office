@@ -3,6 +3,7 @@ import type {
   Project as ProjectResponse,
   ProjectImageVersions as ProjectImageVersionsResponse,
 } from "@the-office/contracts";
+import { defaultPipelineOfKind } from "../../domain/kind-default-pipeline.js";
 import type { Project } from "../../domain/project.js";
 import type { ProjectImageVersions } from "../../domain/project-image.js";
 import { shownEnvironment, type ProjectEnvironment } from "../../domain/project-environment.js";
@@ -14,7 +15,8 @@ function toImageVersionsResponse({
   return { light: light && { ...light }, dark: dark && { ...dark } };
 }
 
-export function toProjectResponse(project: Project): ProjectResponse {
+/** `codeHost` is the name of the code host holding the base branch's remote, null when none does. */
+export function toProjectResponse(project: Project, codeHost: string | null): ProjectResponse {
   return {
     id: project.id,
     name: project.name,
@@ -49,6 +51,15 @@ export function toProjectResponse(project: Project): ProjectResponse {
     runEnvironment: project.runEnvironment,
     projectLimit: project.projectLimit,
     addedAt: project.addedAt.toISOString(),
+    codeHost,
+    kindDefaultPipelines: { ...project.kindDefaultPipelines },
+    defaultPipelineOfKind: defaultPipelineOfKind(project),
+    issueSettings: {
+      autoImportLabel: project.issueSettings.autoImportLabel,
+      closeOnDone: project.issueSettings.closeOnDone,
+      commentOnStartAndDone: project.issueSettings.commentOnStartAndDone,
+      closeOnDrop: project.issueSettings.closeOnDrop,
+    },
   };
 }
 

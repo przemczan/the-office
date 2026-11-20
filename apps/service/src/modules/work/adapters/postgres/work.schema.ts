@@ -16,6 +16,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AttachmentKind } from "../../domain/attachment.js";
 import type { ArchivedBy, Author } from "../../domain/author.js";
+import type { DropReasonKind } from "../../domain/drop-reason.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
 import type { EngineStandIn } from "../../domain/stand-ins-at-start.js";
@@ -24,6 +25,7 @@ import type {
   Priority,
   ProposedPipeline,
   TaskHolder,
+  TaskKind,
   TaskMadeFor,
   TaskState,
 } from "../../domain/task.js";
@@ -239,10 +241,35 @@ export const tasks = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }),
     /** Null while its pull request hasn't ended, or is open again. */
     pullRequestEnd: jsonb("pull_request_end").$type<PullRequestEndRow>(),
+    /** Feature, Bug or Chore; a row from before Kinds is a Feature, or a Chore when The Office made it. */
+    kind: text("kind").$type<TaskKind>().notNull().default("feature"),
+    /** Null unless it was Dropped with a reason. */
+    dropReason: text("drop_reason").$type<DropReasonKind>(),
+    /** The words of an Other drop reason; null for any other. */
+    dropReasonText: text("drop_reason_text"),
+    /** The Task a Duplicate drop reason names; null for any other. */
+    duplicateOfTaskId: uuid("duplicate_of_task_id").references((): AnyPgColumn => tasks.id),
+    /** The Task whose work caused this Bug; null for none. */
+    causedByTaskId: uuid("caused_by_task_id").references((): AnyPgColumn => tasks.id),
+    /** Free text; null for none. */
+    foundInVersion: text("found_in_version"),
+    /** The Task whose Pipeline found this Bug; null otherwise. */
+    foundWhileWorkingOnTaskId: uuid("found_while_working_on_task_id").references(
+      (): AnyPgColumn => tasks.id,
+    ),
+    /**
+     * Whether The Office created it by itself; `created_by` still names an Author, which the
+     * previous release reads.
+     */
+    createdByTheOffice: boolean("created_by_the_office").notNull().default(false),
   },
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),
     index("tasks_initiative").on(table.initiativeId),
+    index("tasks_kind_idx").on(table.kind),
+    index("tasks_caused_by_idx")
+      .on(table.causedByTaskId)
+      .where(sql`${table.causedByTaskId} IS NOT NULL`),
     // A Project has one Onboard Task at most: its onboarding is read from it alone.
     uniqueIndex("tasks_onboard_task_per_project")
       .on(table.projectId)

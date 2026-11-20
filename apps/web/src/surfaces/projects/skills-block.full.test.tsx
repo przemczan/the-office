@@ -41,6 +41,15 @@ const PROJECT: Project = {
   runEnvironment: "not-decided",
   projectLimit: 1,
   addedAt: "2026-11-01T10:00:00.000Z",
+  codeHost: null,
+  kindDefaultPipelines: { feature: null, bug: null, chore: null },
+  defaultPipelineOfKind: { feature: "full", bug: "full", chore: "full" },
+  issueSettings: {
+    autoImportLabel: null,
+    closeOnDone: true,
+    commentOnStartAndDone: false,
+    closeOnDrop: false,
+  },
 };
 
 function aProjectSkill(key: string, path: string, usesInLast7Days: number): ProjectSkill {

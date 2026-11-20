@@ -10,10 +10,18 @@ import {
 } from "../../conversations/index.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
 import { DUTIES, MemoryTaskTitles } from "../../people/index.js";
-import { TaskBases, type NewProject, type TaskBaseLookup } from "../../projects/index.js";
+import {
+  IssueTasks,
+  IssueWriteBack,
+  TaskBases,
+  type IssueDropReason,
+  type NewProject,
+  type TaskBaseLookup,
+} from "../../projects/index.js";
 import type { AccountWindowsReading, UsedUpWindowReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
 import type { AllStageResults, DecisionWaitingOnTheUser } from "../domain/record-words.js";
+import type { TaskKind } from "../domain/task.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import {
@@ -104,6 +112,14 @@ export class KnownProjectsForTests extends KnownProjects {
       projectLimit: 12,
       publishingMode: this.publishingModes.get(id) ?? "merge",
     };
+  }
+
+  /** A Kind's default Pipeline a test gives a Project, by the Project's id and the Kind. */
+  readonly kindDefaultPipelines = new Map<string, Partial<Record<TaskKind, string>>>();
+
+  async defaultPipelineFor(projectId: string, kind: TaskKind): Promise<string | undefined> {
+    const project = await this.find(projectId);
+    return project && (this.kindDefaultPipelines.get(projectId)?.[kind] ?? project.defaultPipeline);
   }
 }
 
@@ -712,6 +728,27 @@ export class TaskBasesForTests {
   }
 }
 
+/** Projects' issue write-back, recording what Work tells it, in order. */
+@Injectable()
+export class IssueWriteBackForTests extends IssueWriteBack {
+  readonly told: (
+    | { readonly what: "started" | "done"; readonly taskId: string }
+    | { readonly what: "dropped"; readonly taskId: string; readonly reason: IssueDropReason | null }
+  )[] = [];
+
+  async taskStarted(taskId: string): Promise<void> {
+    this.told.push({ what: "started", taskId });
+  }
+
+  async taskDone(taskId: string): Promise<void> {
+    this.told.push({ what: "done", taskId });
+  }
+
+  async taskDropped(taskId: string, reason: IssueDropReason | null): Promise<void> {
+    this.told.push({ what: "dropped", taskId, reason });
+  }
+}
+
 const PORTS = [
   UsageHistoryForTests,
   ModelPricesForTests,
@@ -745,6 +782,9 @@ const PORTS = [
   FireAlarmInThreads,
   TaskBasesForTests,
   { provide: TaskBases, useExisting: TaskBasesForTests },
+  IssueTasks,
+  IssueWriteBackForTests,
+  { provide: IssueWriteBack, useExisting: IssueWriteBackForTests },
 ];
 
 /** Provides them all, for `WorkModule.register({ imports: [this module] })`. */

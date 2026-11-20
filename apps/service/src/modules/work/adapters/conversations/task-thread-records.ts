@@ -40,6 +40,7 @@ import {
 } from "../../domain/work-prompt-templates.js";
 import { KnownPeople } from "../../ports/known-people.js";
 import { WRITE_COMMIT_MESSAGE } from "../office-tools/commit-message-office-tools.js";
+import { WRITE_BUG_DETAILS, WRITE_KIND } from "../office-tools/planning-office-tools.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects, type KnownProject } from "../../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../../ports/project-worktrees.js";
@@ -49,8 +50,8 @@ import { initiativeBranchReads } from "./initiative-branch-reads.js";
 
 /**
  * The Office tools of a planning session: it reads every record and Attachment, writes the Plan and
- * the Definition of Done onto its own Task, proposes a Pipeline, sets Tags, opens Decisions and
- * answers one for the user when they ask.
+ * the Definition of Done onto its own Task, proposes a Pipeline, sets Tags, the Kind and a Bug's
+ * details, opens Decisions and answers one for the user when they ask.
  */
 export const PLANNING_OFFICE_TOOLS = [
   ...READING_OFFICE_TOOLS,
@@ -58,6 +59,8 @@ export const PLANNING_OFFICE_TOOLS = [
   "write_definition_of_done",
   "propose_pipeline",
   "write_tags",
+  WRITE_KIND,
+  WRITE_BUG_DETAILS,
   WRITE_COMMIT_MESSAGE,
   "mark_planned",
   OPEN_DECISION_TOOL,
@@ -221,7 +224,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
     task: Task,
     project: KnownProject,
   ): Promise<TaskThreadSetup> {
-    const [worktree, made, links, attachments, pipelines, initiative, stateChanges] =
+    const [worktree, made, links, attachments, pipelines, initiative, stateChanges, kindPipeline] =
       await Promise.all([
         this.worktrees.find(task.projectId, task.id),
         this.worktrees.exists(task.projectId, task.id),
@@ -230,6 +233,7 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
         this.pipelines.listFor(task.projectId),
         task.initiativeId === undefined ? undefined : this.initiatives.record(task.initiativeId),
         this.tasks.stateChangesOf(task.id),
+        this.projects.defaultPipelineFor(task.projectId, task.kind),
       ]);
     return {
       projectId: task.projectId,
@@ -252,7 +256,8 @@ export class TaskThreadRecords implements TaskThreadSource, OnModuleInit {
       brief: planningBrief(prompts, {
         task,
         stateChanges,
-        project,
+        // The Brief names the Pipeline the Project gives the Task's Kind as the one to propose.
+        project: { ...project, defaultPipeline: kindPipeline ?? project.defaultPipeline },
         worktree: made ? worktree : undefined,
         links,
         attachments,

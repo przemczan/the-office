@@ -95,6 +95,12 @@ export function aTask(fields: Partial<Task> = {}): Task {
     restoredBy: undefined,
     endedAt: undefined,
     pullRequestEnd: undefined,
+    kind: "feature",
+    causedBy: undefined,
+    foundInVersion: undefined,
+    foundWhileWorkingOn: undefined,
+    dropReason: undefined,
+    createdByTheOffice: false,
     ...fields,
   };
 }

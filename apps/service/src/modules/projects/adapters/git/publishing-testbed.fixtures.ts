@@ -16,12 +16,17 @@ import { ShellCommandRunner } from "../shell/shell-command-runner.js";
 import type { Project, PublishingMode } from "../../domain/project.js";
 import { aProject } from "../../domain/project.fixtures.js";
 import type { CommitMessage } from "../../domain/publication.js";
+import { IssueFixes } from "../../application/issue-fixes.js";
+import { IssueTasks } from "../../application/issue-tasks.js";
+import { IssueLinkRepositoryForTests } from "../../ports/issue-link-repository.fixtures.js";
 import type { ManualWorkflow } from "../../domain/manual-workflow.js";
 import type { PullRequestStatus } from "../../domain/pull-request.js";
 import {
   CodeHost,
   CodeHostRefused,
   type CiRunOnHost,
+  type IssueOnHost,
+  type FoundIssueOnHost,
   type MergedOnHost,
   type MergeMethodsOnHost,
   type OpenedPullRequest,
@@ -109,6 +114,22 @@ export class CodeHostForTests extends CodeHost {
     return Promise.reject(new CodeHostRefused("Publishing starts no Workflow."));
   }
 
+  openIssues(): Promise<readonly IssueOnHost[]> {
+    return Promise.resolve([]);
+  }
+
+  issue(): Promise<FoundIssueOnHost | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  commentOnIssue(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  closeIssue(): Promise<void> {
+    return Promise.resolve();
+  }
+
   mergeMethods(): Promise<MergeMethodsOnHost> {
     return Promise.reject(new CodeHostRefused("Publishing merges no pull request."));
   }
@@ -149,6 +170,10 @@ export class PublishingTestbed {
     readonly records: PullRequestRepositoryForTests,
     /** Every event Publishing published, in order. */
     readonly published: DomainEvent[],
+    /** The issues the Tasks were imported from, which Publish names with `Fixes #n`. */
+    readonly issueLinks: IssueLinkRepositoryForTests,
+    /** Where a Publishing Task's Initiative's Tasks are looked up: register a lookup to name them. */
+    readonly issueTasks: IssueTasks,
   ) {}
 
   static async create(): Promise<PublishingTestbed> {
@@ -170,6 +195,8 @@ export class PublishingTestbed {
     const events = new EventBus();
     const published: DomainEvent[] = [];
     events.subscribeToEveryEvent((event) => void published.push(event));
+    const issueLinks = new IssueLinkRepositoryForTests();
+    const issueTasks = new IssueTasks();
     const publishing = new Publishing(
       git,
       new CodeHosts([pullRequests]),
@@ -178,6 +205,7 @@ export class PublishingTestbed {
       taskBases,
       records,
       events,
+      new IssueFixes(issueLinks, git, issueTasks),
     );
     return new PublishingTestbed(
       repository,
@@ -188,6 +216,8 @@ export class PublishingTestbed {
       taskBases,
       records,
       published,
+      issueLinks,
+      issueTasks,
     );
   }
 

@@ -84,7 +84,7 @@ export function DependenciesSection({ task }: { readonly task: Task }): ReactNod
 }
 
 /** Tasks under an overline, each linking to its page with its Project and state. */
-function TaskList({
+export function TaskList({
   label,
   tasks,
   projects,
@@ -131,25 +131,70 @@ function AddDependencyDialog({
   readonly projects: readonly Project[] | undefined;
   readonly onClose: () => void;
 }): ReactNode {
+  const adding = useRecordChange(task, (blockerId: string) => addDependency(task.id, blockerId));
+  return (
+    <TaskPickerDialog
+      title="What must be Done first?"
+      text={`${task.title} can't start until the Task chosen here is Done. It can be in any Project.`}
+      candidates={candidates}
+      projects={projects}
+      noCandidates="No other Task can hold it back: the rest are Done, Dropped, or already wait for it."
+      refusalTitle="It can't wait for that Task"
+      pending={adding.isPending}
+      error={adding.error}
+      onPick={(blockerId) => adding.mutate(blockerId, { onSuccess: onClose })}
+      onClose={onClose}
+    />
+  );
+}
+
+/**
+ * A window to pick one Task of `candidates`, in any Project, found by its title: Dependencies'
+ * Add, and a Bug's Caused by. `onPick` takes the Task's id, and closes the window once it is done.
+ */
+export function TaskPickerDialog({
+  title,
+  text,
+  candidates,
+  projects,
+  noCandidates,
+  refusalTitle,
+  pending,
+  error,
+  onPick,
+  onClose,
+}: {
+  readonly title: string;
+  readonly text: string;
+  readonly candidates: readonly Task[];
+  readonly projects: readonly Project[] | undefined;
+  /** What the window says when no Task can be picked. */
+  readonly noCandidates: string;
+  readonly refusalTitle: string;
+  readonly pending: boolean;
+  /** Why the pick was refused, if it was. */
+  readonly error: Error | null;
+  readonly onPick: (taskId: string) => void;
+  readonly onClose: () => void;
+}): ReactNode {
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState<string>();
-  const adding = useRecordChange(task, (blockerId: string) => addDependency(task.id, blockerId));
   const words = search.trim().toLowerCase();
-  const found = candidates.filter(({ title }) => title.toLowerCase().includes(words));
+  const found = candidates.filter(({ title: each }) => each.toLowerCase().includes(words));
   // A choice the search hides is no longer what the user sees chosen.
-  const blockerId = found.some(({ id }) => id === chosen) ? chosen : undefined;
+  const chosenId = found.some(({ id }) => id === chosen) ? chosen : undefined;
   return (
     <Dialog
       size="medium"
-      title="What must be Done first?"
-      unsavedChanges={blockerId !== undefined}
+      title={title}
+      unsavedChanges={chosenId !== undefined}
       onClose={onClose}
       actions={
         <Button
-          loading={adding.isPending}
-          disabled={blockerId === undefined}
+          loading={pending}
+          disabled={chosenId === undefined}
           onClick={() => {
-            if (blockerId !== undefined) adding.mutate(blockerId, { onSuccess: onClose });
+            if (chosenId !== undefined) onPick(chosenId);
           }}
         >
           Add
@@ -157,14 +202,10 @@ function AddDependencyDialog({
       }
     >
       <div className="dialog-stack">
-        <p className="dialog-text">
-          {task.title} can't start until the Task chosen here is Done. It can be in any Project.
-        </p>
-        {adding.error && <RefusalAlert title="It can't wait for that Task" error={adding.error} />}
+        <p className="dialog-text">{text}</p>
+        {error && <RefusalAlert title={refusalTitle} error={error} />}
         {candidates.length === 0 ? (
-          <p className="task-quiet">
-            No other Task can hold it back: the rest are Done, Dropped, or already wait for it.
-          </p>
+          <p className="task-quiet">{noCandidates}</p>
         ) : (
           <>
             <Input
@@ -187,7 +228,7 @@ function AddDependencyDialog({
                     </span>
                   ),
                 }))}
-                value={blockerId}
+                value={chosenId}
                 onChange={setChosen}
               />
             )}

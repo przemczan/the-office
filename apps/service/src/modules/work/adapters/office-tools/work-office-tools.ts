@@ -19,7 +19,7 @@ import {
 } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
 import { whereOf } from "../../domain/linked-records.js";
-import { PRIORITIES, type Task } from "../../domain/task.js";
+import { PRIORITIES, TASK_KINDS, type Task } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import {
@@ -316,6 +316,12 @@ export class WorkOfficeTools implements OnModuleInit {
           ),
         projectId: z.string().describe("The Project's id, as list_projects gives it."),
         priority: z.enum(PRIORITIES).optional().describe("Normal unless the user says otherwise."),
+        kind: z
+          .enum(TASK_KINDS)
+          .optional()
+          .describe(
+            "feature (something new or changed on purpose), bug (something that works wrong) or chore (upkeep that changes nothing for the user); feature when left out.",
+          ),
         plan: z
           .string()
           .optional()
@@ -343,10 +349,16 @@ export class WorkOfficeTools implements OnModuleInit {
             "What must be true when the Task is done, one plain-language statement each that can be checked. Only with a Plan.",
           ),
       }),
-      run: ({ title, description, projectId, priority, ...parts }, { sessionId }) =>
+      run: ({ title, description, projectId, priority, kind, ...parts }, { sessionId }) =>
         answered(async () => {
           const task = await this.tasks.create(
-            { title, description, projectId, priority: priority ?? "normal" },
+            {
+              title,
+              description,
+              projectId,
+              priority: priority ?? "normal",
+              kind: kind ?? "feature",
+            },
             await personInSession(this.sessionPeople, sessionId),
             writtenPartsGiven(parts),
           );

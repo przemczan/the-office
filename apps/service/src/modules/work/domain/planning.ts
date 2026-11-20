@@ -9,6 +9,8 @@ import { renderedText } from "./rendered-text.js";
 import type { StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
 import { descriptionWords } from "./task-description.js";
+import { COMMIT_TYPES, TASK_KIND_NAMES, TASK_KIND_PLURALS } from "./task-kind-words.js";
+import { TASK_STATE_NAMES } from "./task-states.js";
 import { taskWhoAsked } from "./who-asked.js";
 import {
   MAKE_A_PLAN_OPENING,
@@ -49,7 +51,10 @@ export function planningAfterRestartOpening(prompts: PromptTexts): string {
 export interface PlanningProject extends ProjectCommandsInBrief {
   readonly name: string;
   readonly baseBranch: string;
-  /** The Pipeline the Project's Tasks usually follow, named in the Brief of a Task with none. */
+  /**
+   * The Pipeline the Project gives the Task's Kind (its Kind's default, else the Project's), named
+   * in the Brief as the one to propose; a Project's default where no Task is named.
+   */
   readonly defaultPipeline: string;
 }
 
@@ -147,6 +152,8 @@ export function planningBrief(
     createdBy: whoAsked.createdBy,
     movedToPlanningBy: whoAsked.movedBy,
     ready: task.state === "ready",
+    ...kindValues(task),
+    bugDetails: bugDetailsWords(task, links.causedBy),
     ...worktreeValues(worktree),
     startsFrom: startsFrom?.branch ?? project.baseBranch,
     ...originValues(links.idea, task.description),
@@ -161,6 +168,40 @@ export function planningBrief(
     autoMode: task.autoMode,
     ...planValues(task),
   });
+}
+
+/** The Task's Kind as a Brief names it, with the commit type it suggests. */
+export function kindValues(task: Pick<Task, "kind">): {
+  kind: string;
+  kindPlural: string;
+  commitType: string;
+} {
+  return {
+    kind: TASK_KIND_NAMES[task.kind],
+    kindPlural: TASK_KIND_PLURALS[task.kind],
+    commitType: COMMIT_TYPES[task.kind],
+  };
+}
+
+/**
+ * A Bug's details as a Brief gives them, when set: the Task whose work caused it, by title, id and
+ * state when read, by id otherwise, and the version it was found in; empty when neither is set.
+ */
+export function bugDetailsWords(
+  { causedBy, foundInVersion }: Pick<Task, "causedBy" | "foundInVersion">,
+  cause?: Task | undefined,
+): string {
+  const parts = [
+    ...(causedBy === undefined
+      ? []
+      : [
+          cause?.id === causedBy
+            ? `Caused by: ${cause.title} (Task ${cause.id}, ${TASK_STATE_NAMES[cause.state]}).`
+            : `Caused by: Task ${causedBy}.`,
+        ]),
+    ...(foundInVersion === undefined ? [] : [`Found in version: ${foundInVersion}.`]),
+  ];
+  return parts.join(" ");
 }
 
 /** Where a Task's session reads, as a Brief's values: its worktree, when it has one. */
@@ -209,6 +250,7 @@ function pipelineValues(
   hasPipeline: boolean;
   pipelineName: string;
   defaultPipeline: string;
+  defaultPipelineBroken: boolean;
   pipelineLibrary: string;
   proposedPipeline: string;
   proposalReason: string;
@@ -221,6 +263,8 @@ function pipelineValues(
     hasPipeline: task.pipelineId !== undefined,
     pipelineName: task.pipelineId === undefined ? "" : nameOf(task.pipelineId),
     defaultPipeline: defaultPipelineWords(pipelines, project.defaultPipeline),
+    defaultPipelineBroken:
+      (pipelines.find(({ id }) => id === project.defaultPipeline)?.broken ?? []).length > 0,
     pipelineLibrary: pipelineGroups(
       [{ project, own: pipelines.filter(({ projectId }) => projectId !== undefined) }],
       pipelines.filter(({ projectId }) => projectId === undefined),

@@ -45,6 +45,7 @@ import {
   ProjectAppearanceSection,
   ProjectCommandsSection,
   ProjectEnvironmentSection,
+  ProjectIssuesSection,
   ProjectRunEnvironmentSection,
   ProjectEngineSection,
   ProjectOverviewSection,
@@ -540,6 +541,13 @@ const projectPipelineRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const projectIssuesRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "issues",
+  component: ProjectIssuesSection,
+  staticData: { title: "Projects" },
+});
+
 const projectRunEnvironmentRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "run-environment",
@@ -821,6 +829,7 @@ export const router = createRouter({
       projectEnvironmentRoute,
       projectPipelinesRoute,
       projectPipelineRoute,
+      projectIssuesRoute,
       projectRunEnvironmentRoute,
       projectEngineRoute,
       projectSkillsRoute,

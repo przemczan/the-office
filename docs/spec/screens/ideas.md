@@ -39,7 +39,9 @@ Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a
 
 ### Idea actions
 
-- **Shape into a Task** (list-checks icon): makes a Task in Backlog in the Idea's Project; toast "<title> is a Task in Backlog."
+- **Shape into a Task** (list-checks icon): makes a Feature Task in Backlog in the Idea's Project; toast "<title> is a Task in Backlog."
+  - It is a split button: its arrow, "Shape into a Task of another Kind", offers **Shape into a Feature Task**, **Shape into a Bug Task** and **Shape into a Chore Task**, each with its Kind's glyph ([2.1.2](../2.1.2-ideas-and-attachments.md#idea)).
+  - Shaping a Bug from an Idea with no notes gives the Task the Bug outline as its Description ([shell.md](shell.md#create)); an Idea with notes keeps its notes, whatever the Kind.
 - **Plan as a Task with <name>** (map icon), "whoever holds Plans" when nobody holds it; offered only while someone holds Plans. It makes the Task and sends it to Planning at once; toast "<title> is in Planning: message <name> to start, or write the Plan yourself." and the Task page opens ([task-page.md](task-page.md)).
 - **Shape into an Initiative with <name>** (flag icon), "Shape into an Initiative" when nobody holds shaping; makes an Initiative in Shaping and opens its page ([initiative-page.md](initiative-page.md)).
 - A refusal shows as a toast with the service's reason.
@@ -49,6 +51,7 @@ Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a
 
 - A window that opens when the Idea is Office-wide and **Shape into a Task** or **Plan as a Task** is pressed: "<Idea> is Office-wide. A Task belongs to one Project."
 - A choice of Project, one radio per Project (the first chosen), and the confirming button named as the action that opened it.
+- For Shape into a Task, a **Kind** row as in New Task, on the Kind chosen from the split button (Feature for its main part).
 - The alert "The Idea can't be shaped" shows the service's reason.
 
 ### More menu

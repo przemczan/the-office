@@ -41,9 +41,18 @@ export interface SearchableSelectProps {
   /** Names the field for assistive technology alone, as a placeholder that says it all does. */
   readonly labelHidden?: boolean;
   readonly size?: "sm" | "md";
+  /**
+   * Lets the words typed be the value, as the list's last row "Use “<words>”" offers while they
+   * aren't an option's name, at most `maxLength` characters: the value then needn't be an
+   * option's, and the box shows it as written.
+   */
+  readonly ownValue?: { readonly maxLength?: number };
 }
 
 const DEFAULT_LIMIT = 10;
+
+/** The "Use “<words>”" row's key among the options', which no option's value is. */
+const OWN_VALUE_ROW = ":own-value:";
 
 export function SearchableSelect({
   label,
@@ -57,9 +66,12 @@ export function SearchableSelect({
   limit = DEFAULT_LIMIT,
   labelHidden = false,
   size = "md",
+  ownValue,
 }: SearchableSelectProps): ReactNode {
   const id = useId();
   const chosen = options.find((option) => option.value === value);
+  // A value of the user's own words, which no option holds.
+  const ownChosen = ownValue !== undefined && value !== "" && chosen === undefined;
   // Undefined while the user isn't typing, so the box shows the choice.
   const [typed, setTyped] = useState<string | undefined>(undefined);
   const [open, setOpen] = useState(false);
@@ -67,7 +79,18 @@ export function SearchableSelect({
   const field = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
-  const matches = bestMatches(options, typed ?? "", limit);
+  const ownRowOf = (text: string): SearchableSelectOption | undefined => {
+    const words = text.trim();
+    if (ownValue === undefined || words === "") return undefined;
+    if (options.some((option) => option.label === words)) return undefined;
+    return { value: OWN_VALUE_ROW, label: `Use “${words}”` };
+  };
+  const rowsOf = (text: string): readonly SearchableSelectOption[] => {
+    const ownRow = ownRowOf(text);
+    const found = bestMatches(options, text, limit);
+    return ownRow ? [...found, ownRow] : found;
+  };
+  const matches = rowsOf(typed ?? "");
   // One for the field's life, as the list's placing and listeners depend on it.
   const closeQuietly = useCallback(() => {
     setOpen(false);
@@ -83,7 +106,7 @@ export function SearchableSelect({
     setOpen(true);
   };
   const choose = (option: SearchableSelectOption): void => {
-    onChange(option.value);
+    onChange(option.value === OWN_VALUE_ROW ? (typed ?? "").trim() : option.value);
     closeQuietly();
   };
   const clear = (): void => {
@@ -102,7 +125,7 @@ export function SearchableSelect({
   const onType = (event: ChangeEvent<HTMLInputElement>): void => {
     const text = event.target.value;
     setTyped(text);
-    setActive(bestMatches(options, text, limit)[0]?.value);
+    setActive(rowsOf(text)[0]?.value);
     setOpen(true);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -139,7 +162,8 @@ export function SearchableSelect({
         autoComplete="off"
         spellCheck={false}
         placeholder={placeholder}
-        value={typed ?? chosen?.label ?? ""}
+        value={typed ?? chosen?.label ?? (ownChosen ? value : "")}
+        maxLength={ownValue?.maxLength}
         onChange={onType}
         onKeyDown={onKeyDown}
         onClick={() => {
@@ -148,7 +172,7 @@ export function SearchableSelect({
         // A press in the list keeps the focus here, so a blur is a press outside or Tab.
         onBlur={closeQuietly}
       />
-      {chosen && (
+      {(chosen || ownChosen) && (
         <button
           type="button"
           className="searchable-select-clear"
@@ -192,7 +216,7 @@ export function SearchableSelect({
                 onMouseEnter={() => setActive(option.value)}
               >
                 <span className="grouped-select-tick" aria-hidden="true">
-                  {option.value === value && (
+                  {option.value === value && option.value !== OWN_VALUE_ROW && (
                     <svg width="13" height="13" viewBox="0 0 24 24">
                       <path d="M20 6 9 17l-5-5" />
                     </svg>

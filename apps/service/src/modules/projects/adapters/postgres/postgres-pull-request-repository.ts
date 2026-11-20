@@ -81,6 +81,16 @@ export class PostgresPullRequestRepository extends PullRequestRepository {
     return rows.map(toPullRequest);
   }
 
+  async ofTask(taskId: string): Promise<PullRequest | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(pullRequests)
+      .where(eq(pullRequests.taskId, taskId))
+      .orderBy(desc(pullRequests.openedAt), desc(pullRequests.number))
+      .limit(1);
+    return row && toPullRequest(row);
+  }
+
   async find(remoteUrl: string, number: number): Promise<PullRequest | undefined> {
     const [row] = await this.database
       .select()

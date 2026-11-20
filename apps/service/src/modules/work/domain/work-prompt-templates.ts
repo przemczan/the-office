@@ -235,6 +235,20 @@ export const PLANNING_BRIEF = promptTemplate({
     "The Brief of a Task's planning Thread: the Task, who asked, where it is worked and where it came from, its records, the Project's commands, the Pipelines and the parts written so far.",
   variables: {
     ...TASK_VARIABLES,
+    kind: { kind: "text", description: "The Task's Kind: Feature, Bug or Chore." },
+    kindPlural: {
+      kind: "text",
+      description: "Tasks of its Kind, as the Pipeline line names them: Features, Bugs or Chores.",
+    },
+    commitType: {
+      kind: "text",
+      description: "The commit type its Kind suggests: feat, fix or chore.",
+    },
+    bugDetails: {
+      kind: "text",
+      description:
+        "Its Caused by and Found in version, when set, such as Caused by: Passkeys (Task …, Done). Found in version: v1.14.2.; empty when neither is.",
+    },
     createdBy: { kind: "text", description: "Who created the Task, such as the user Ann Lee." },
     movedToPlanningBy: {
       kind: "text",
@@ -285,7 +299,11 @@ export const PLANNING_BRIEF = promptTemplate({
     defaultPipeline: {
       kind: "text",
       description:
-        "The Project's default Pipeline, by name and id, with why it is Broken if it is.",
+        "The Pipeline the Project gives the Task's Kind (its Kind's default, else the Project's), by name and id, with why it is Broken if it is.",
+    },
+    defaultPipelineBroken: {
+      kind: "flag",
+      description: "That Pipeline is Broken, so it can't be proposed.",
     },
     ...PIPELINE_LIBRARY_VARIABLE,
     proposedPipeline: {
@@ -301,6 +319,12 @@ export const PLANNING_BRIEF = promptTemplate({
 ## The Task
 
 {{taskTitle}} (Task {{taskId}}), in the Project {{projectName}}.
+
+Kind: {{kind}}. Its commit type is {{commitType}} (Bug → fix, Feature → feat, Chore → chore).
+{{#bugDetails}}
+{{bugDetails}}
+{{/bugDetails}}
+If the Task isn't what its Kind says, change it with write_kind; set Caused by and Found in version with write_bug_details.
 
 ## Who asked
 
@@ -362,7 +386,7 @@ ${ATTACHMENTS_SECTION}
 
 ## The Pipelines
 
-{{#hasPipeline}}The Task follows {{pipelineName}} until the user confirms another.{{/hasPipeline}}{{^hasPipeline}}The Task has no Pipeline yet; the Project's default is {{defaultPipeline}}.{{/hasPipeline}} Propose the one its Definition of Done needs with propose_pipeline:
+{{#hasPipeline}}The Task follows {{pipelineName}} until the user confirms another.{{/hasPipeline}}{{^hasPipeline}}The Task has no Pipeline yet.{{/hasPipeline}} The Pipeline {{projectName}} gives {{kindPlural}} is {{defaultPipeline}}{{^defaultPipelineBroken}}; propose it with propose_pipeline unless the work needs another{{/defaultPipelineBroken}}{{#defaultPipelineBroken}}. Propose the one its Definition of Done needs with propose_pipeline{{/defaultPipelineBroken}}:
 
 {{pipelineLibrary}}
 {{#proposedPipeline}}
@@ -533,6 +557,12 @@ export const INITIATIVE_PLANNING_BRIEF = promptTemplate({
         id: "The Task's id.",
         projectName: "The name of its Project.",
         waitsFor: "The Tasks it waits for, by title, id and state; empty when none.",
+        kind: "Its Kind: Feature, Bug or Chore.",
+        kindPlural: "Tasks of its Kind: Features, Bugs or Chores.",
+        commitType: "The commit type its Kind suggests: feat, fix or chore.",
+        bugDetails: "Its Caused by and Found in version, when set; empty when neither is.",
+        defaultPipeline:
+          "The Pipeline its Project gives its Kind, by name and id, with why it is Broken if it is.",
       },
     },
     hasBeingPlanned: {
@@ -600,7 +630,7 @@ None of its Tasks is in Backlog now.
 Its Tasks in Backlog, each with the Tasks inside the Initiative it waits for:
 
 {{#tasksToPlan}}
-- "{{title}}" (Task {{id}}), in the Project {{projectName}}: {{#waitsFor}}waits for {{waitsFor}}{{/waitsFor}}{{^waitsFor}}waits for no Task in the Initiative{{/waitsFor}}.
+- "{{title}}" (Task {{id}}), a {{kind}} in the Project {{projectName}}: {{#waitsFor}}waits for {{waitsFor}}{{/waitsFor}}{{^waitsFor}}waits for no Task in the Initiative{{/waitsFor}}. Its commit type is {{commitType}}.{{#bugDetails}} {{bugDetails}}{{/bugDetails}}{{#defaultPipeline}} The Pipeline {{projectName}} gives {{kindPlural}} is {{defaultPipeline}}.{{/defaultPipeline}}
 {{/tasksToPlan}}
 {{/hasTasksToPlan}}
 {{#hasBeingPlanned}}
@@ -642,7 +672,9 @@ Base branch {{baseBranch}}, checked out where The Projects below say; its defaul
 
 ## The Pipelines
 
-A Task has no Pipeline until one is chosen. Propose the one each Task's Definition of Done needs with propose_pipeline; a Project Pipeline only for its own Project's Tasks:
+A Task's Kind gives its commit type (Bug → fix, Feature → feat, Chore → chore) and the Pipeline its Project gives it, named with the Task above. If a Task isn't what its Kind says, change it with write_kind; set a Bug's Caused by and Found in version with write_bug_details.
+
+A Task has no Pipeline until one is chosen. Propose for each Task the Pipeline its Project gives its Kind with propose_pipeline, unless its Definition of Done needs another; a Project Pipeline only for its own Project's Tasks:
 
 {{pipelineLibrary}}
 

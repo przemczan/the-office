@@ -40,6 +40,11 @@ function aTask(id: string, archivedAt: string | null): Task {
     archivedAt,
     endedAt: null,
     pullRequestEnd: null,
+    kind: "feature",
+    causedBy: null,
+    foundInVersion: null,
+    foundWhileWorkingOn: null,
+    dropReason: null,
   };
 }
 

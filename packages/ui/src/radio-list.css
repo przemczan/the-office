@@ -45,3 +45,11 @@
   flex: 1;
   min-width: 0;
 }
+
+/* What the picked option asks further, indented under its label. */
+.radio-list-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-5);
+}

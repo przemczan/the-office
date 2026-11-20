@@ -1,12 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "@the-office/contracts";
 import { Button, Dialog } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { dropTask, taskQueries } from "../../api/work.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
+import {
+  DropReasonField,
+  dropReasonOf,
+  NO_DROP_REASON,
+  type DropReasonDraft,
+} from "./drop-reason-field.tsx";
 
-/** Dropping is the Task's exit: it can't come back. */
+/**
+ * Dropping is the Task's exit: it can't come back. A small window still, with the optional reason:
+ * picking one is unsaved input.
+ */
 export function DropTaskDialog({
   task,
   onClose,
@@ -14,22 +23,49 @@ export function DropTaskDialog({
   readonly task: Task;
   readonly onClose: () => void;
 }): ReactNode {
-  const dropping = useDroppingTask(() => dropTask(task.id), onClose);
+  const [reason, setReason] = useState<DropReasonDraft>(NO_DROP_REASON);
+  const sent = dropReasonOf(reason);
+  const dropping = useDroppingTask(
+    () => dropTask(task.id, "reason" in sent ? sent.reason : undefined),
+    onClose,
+  );
   return (
     <Dialog
       size="small"
       title={`Drop ${task.title}?`}
+      unsavedChanges={reason.kind !== ""}
       onClose={onClose}
-      actions={
-        <Button variant="danger" loading={dropping.isPending} onClick={() => dropping.mutate()}>
-          Drop the Task
-        </Button>
-      }
+      actions={<DropButton label="Drop the Task" sent={sent} dropping={dropping} />}
     >
       <div className="dialog-stack">
         <WhatDroppingDoes error={dropping.error} />
+        <DropReasonField task={task} draft={reason} onChange={setReason} />
       </div>
     </Dialog>
+  );
+}
+
+/** Drop's button, disabled while the reason picked lacks what it needs, saying so on hover. */
+export function DropButton({
+  label,
+  sent,
+  dropping,
+}: {
+  readonly label: string;
+  readonly sent: ReturnType<typeof dropReasonOf>;
+  readonly dropping: ReturnType<typeof useDroppingTask>;
+}): ReactNode {
+  const missing = "missing" in sent ? sent.missing : undefined;
+  return (
+    <Button
+      variant="danger"
+      loading={dropping.isPending}
+      disabled={missing !== undefined}
+      title={missing}
+      onClick={() => dropping.mutate()}
+    >
+      {label}
+    </Button>
   );
 }
 

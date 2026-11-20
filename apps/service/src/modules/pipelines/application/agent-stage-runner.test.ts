@@ -28,6 +28,7 @@ import { PromptTemplates } from "../../prompt-templates/index.js";
 import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
 import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { STAGE_BRIEF, STAGE_MESSAGE } from "../domain/agent-stage-brief-templates.js";
+import { AGENT_STAGE_OFFICE_TOOLS } from "./agent-stage-runner.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import { implement, corrected } from "../agent-stage-runner.fixtures.js";
@@ -79,6 +80,7 @@ describe("AgentStageRunner", () => {
           "write_commit_message",
           "update_branch",
           "run_project_command",
+          "propose_bug_task",
         ],
         outputSchema: STAGE_RESULT_SCHEMA,
       },
@@ -285,6 +287,13 @@ describe("AgentStageRunner", () => {
     expect(request?.work).toBe(
       "Now: Implement. Implement the Plan until the Definition of Done is met.",
     );
+  });
+});
+
+describe("An Agent Stage's Office tools", () => {
+  it("propose a Bug Task, and never create a Task", () => {
+    expect(AGENT_STAGE_OFFICE_TOOLS).toContain("propose_bug_task");
+    expect(AGENT_STAGE_OFFICE_TOOLS).not.toContain("create_task");
   });
 });
 

@@ -30,8 +30,8 @@ export interface MadeTaskWords {
 }
 
 /**
- * A Task The Office makes for a Project: Ready on its Pipeline, its Plan and Definition of Done
- * written by The Office and confirmed, waiting for the user's Start like any Task.
+ * A Task The Office makes for a Project: a Chore, Ready on its Pipeline, its Plan and Definition of
+ * Done written by The Office and confirmed, waiting for the user's Start like any Task.
  */
 export function createTaskMadeFor(
   id: string,
@@ -46,6 +46,7 @@ export function createTaskMadeFor(
       title: words.title,
       projectId,
       priority: "normal",
+      kind: "chore",
       ...(words.description === undefined ? {} : { description: words.description }),
     },
     {

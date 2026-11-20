@@ -34,6 +34,7 @@ const PUBLISHED_FROM_PREFIX = "refs/office/published-from/";
 const PUBLISHED_FROM_BASE_PREFIX = "refs/office/published-from-base/";
 const PUBLISHED_PREFIX = "refs/office/published/";
 const MOVED_TO_PREFIX = "refs/office/moved-to/";
+const LANDED_PREFIX = "refs/office/landed/";
 /** A throwaway worktree's folder starts with it, which no Task id does. */
 const THROWAWAY_PREFIX = "_";
 const INSTALL_RECORD = "office-install";
@@ -193,6 +194,19 @@ export class Worktrees {
    */
   movedToRefOf(taskId: string): string {
     return `${MOVED_TO_PREFIX}${taskId}`;
+  }
+
+  /**
+   * The commit a Publish by merge landed the Task as, on the base branch or its Initiative's
+   * branch, which its issue's Done comment names.
+   */
+  landedRefOf(taskId: string): string {
+    return `${LANDED_PREFIX}${taskId}`;
+  }
+
+  /** The commit a Publish by merge landed the Task as; undefined when none did. */
+  landedOf(project: Project, taskId: string): Promise<string | undefined> {
+    return this.git.findCommit(project.path, this.landedRefOf(taskId));
   }
 
   /** Where a fix Task's Publish moved a Publishing Task's worktree to; undefined for any other. */

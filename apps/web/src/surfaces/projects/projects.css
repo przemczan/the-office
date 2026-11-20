@@ -676,10 +676,87 @@ button.github-repository.selected:hover:not(:disabled) {
   color: var(--fg-3);
 }
 
-.pipeline-choice {
+/*
+ * A setting's row (docs/design/issues-as-tasks.html, "prow"): its name and line, the control at its
+ * end; the rows of the Default Pipeline's Kinds and the GitHub issues block.
+ */
+.project-setting {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 8px 16px;
+  padding: 10px 0;
+}
+
+.project-setting + .project-setting {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.project-setting:first-child {
+  padding-top: 0;
+}
+
+/* The words take the room, the control keeps about 260px beside them, and below them when the
+   card is too narrow for both, where it takes the whole row. */
+.project-setting-words {
+  display: flex;
+  flex: 999 1 260px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A Kind's row: its name is short, so it keeps its control beside it in a narrow card. */
+.project-setting.by-kind .project-setting-words {
+  flex: 0 0 88px;
+}
+
+.project-setting.by-kind .project-setting-control {
+  flex-basis: 180px;
+}
+
+.project-setting-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-label);
+  color: var(--fg-1);
+}
+
+.project-setting-line {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.project-setting-control {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+
+.project-setting-control.inline {
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
   gap: 10px;
+}
+
+.project-setting-control.inline .project-block-error {
+  margin: 0;
+}
+
+.project-group-label {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
 }
 
 /* ---- the engine cascade's Project levels */
@@ -1435,4 +1512,9 @@ button.github-repository.selected:hover:not(:disabled) {
 
 .run-environment-actions .project-block-note {
   margin: 0;
+}
+
+/* ---- GitHub issues: the label's field beside its switch */
+.issue-label-input {
+  width: 140px;
 }

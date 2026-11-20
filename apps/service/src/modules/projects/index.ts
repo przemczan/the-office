@@ -30,6 +30,10 @@ export { OutputMask } from "./domain/output-mask.js";
 export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
 export type { BranchCheckout } from "./application/worktrees.js";
 export { TaskBases, type TaskBaseLookup } from "./application/task-bases.js";
+export { IssueTasks, type IssueTaskCreator, type NewIssueTask } from "./application/issue-tasks.js";
+export { IssueWriteBack } from "./application/issue-write-back.js";
+export type { IssueDropReason } from "./domain/issue-link.js";
+export type { IssueUser } from "./domain/issue-settings.js";
 export type { TaskBase } from "./domain/task-base.js";
 export type { PublishingBranchPush } from "./domain/publication.js";
 export {

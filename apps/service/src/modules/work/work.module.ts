@@ -1,3 +1,5 @@
+import { IssueWriteBackForwarding } from "./adapters/projects/issue-write-back-forwarding.js";
+import { ProjectsIssueTaskRegistration } from "./adapters/projects/projects-issue-task-registration.js";
 import { ProjectsTaskBaseRegistration } from "./adapters/projects/projects-task-base-registration.js";
 import {
   Logger,
@@ -36,6 +38,7 @@ import { UsageEstimatesController } from "./adapters/http/usage-estimates.contro
 import { UsageSettingsController } from "./adapters/http/usage-settings.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
 import { FireAlarmForThreads } from "./adapters/conversations/fire-alarm-for-threads.js";
+import { BugTaskProposals } from "./adapters/conversations/bug-task-proposals.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { ThreadMessageImages } from "./adapters/conversations/thread-message-images.js";
@@ -147,7 +150,9 @@ export interface WorkModuleOptions {
    * InitiativeThreadSetups, WorkRecords, MessageImages and ProposalAppliers, where Work sets up the sessions of
    * Threads on its Tasks and Initiatives, gives the records mentioned in a chat and applies
    * Proposals of the Office-wide limit, of Initiatives and of Projects to onboard, and Projects'
-   * TaskBases, where Work tells what each Task's branch starts from.
+   * TaskBases, where Work tells what each Task's branch starts from, IssueTasks, where it creates
+   * the Task of an imported issue, and IssueWriteBack, which it tells of those Tasks' starts and
+   * ends.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjects: Type<KnownProjects>;
@@ -329,8 +334,11 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         OfficeLimitProposals,
         InitiativeProposals,
         ProjectProposals,
+        BugTaskProposals,
         FireAlarmForThreads,
         ProjectsTaskBaseRegistration,
+        ProjectsIssueTaskRegistration,
+        IssueWriteBackForwarding,
         WorkEarlierRecords,
       ],
       exports: [

@@ -16,6 +16,7 @@ import type { ConditionCommandTest } from "./stage-command-run.js";
 import type {
   BudgetReached,
   CarriedFailure,
+  GateDropReason,
   SentBack,
   StageRun,
   StageRunDecision,
@@ -94,8 +95,8 @@ export type NextMove =
   | { readonly move: "ask"; readonly run: StageRun; readonly question: WalkQuestion }
   /** The walk followed a route to End, with the Definition of Done reported met or called Done. */
   | { readonly move: "complete" }
-  /** The user dropped the Task in a Decision or at a Gate. */
-  | { readonly move: "drop" }
+  /** The user dropped the Task in a Decision or at a Gate, with the reason given at a Gate, if any. */
+  | { readonly move: "drop"; readonly reason?: GateDropReason }
   /**
    * Run the Project command a condition of the routes out of `stage` names, for the test
    * `condition`, recording its result on `run`, the Stage's ended run, before the walk goes on
@@ -290,7 +291,7 @@ function afterGate(walk: Walk, run: StageRun, gate: Stage): StoppingMove | undef
       if (gateChecksDefinitionOfDone(walk.stages, gateIndex)) walk.calledMet = true;
       return advance(walk, run, gate);
     case "drop":
-      return { move: "drop" };
+      return action.reason ? { move: "drop", reason: action.reason } : { move: "drop" };
     case "send-back": {
       const index = walk.stages.findIndex(({ key }) => key === action.stageKey);
       // The Gate refuses a Stage that isn't earlier (gateActionProblems), so this is a fault.

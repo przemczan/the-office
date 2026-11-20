@@ -3,6 +3,7 @@ import type { Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
+import type { DropReason } from "../../domain/drop-reason.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
@@ -335,7 +336,43 @@ export function toTaskRow(task: Task): TaskRow {
     restoredBy: task.restoredBy ?? null,
     endedAt: task.endedAt ?? null,
     pullRequestEnd: task.pullRequestEnd ? toPullRequestEndRow(task.pullRequestEnd) : null,
+    kind: task.kind,
+    ...dropReasonColumns(task.dropReason),
+    causedByTaskId: task.causedBy ?? null,
+    foundInVersion: task.foundInVersion ?? null,
+    foundWhileWorkingOnTaskId: task.foundWhileWorkingOn ?? null,
+    createdByTheOffice: task.createdByTheOffice,
   };
+}
+
+/** A drop reason as its three columns keep it: its kind, Other's words and Duplicate's Task. */
+function dropReasonColumns(
+  reason: DropReason | undefined,
+): Pick<TaskRow, "dropReason" | "dropReasonText" | "duplicateOfTaskId"> {
+  return {
+    dropReason: reason?.kind ?? null,
+    dropReasonText: reason?.kind === "other" ? reason.text : null,
+    duplicateOfTaskId: reason?.kind === "duplicate" ? reason.taskId : null,
+  };
+}
+
+/** The drop reason its three columns keep; undefined for none, or one whose parts are missing. */
+function dropReasonOf(
+  row: Pick<TaskRow, "dropReason" | "dropReasonText" | "duplicateOfTaskId">,
+): DropReason | undefined {
+  switch (row.dropReason) {
+    case "wont-fix":
+    case "cant-reproduce":
+      return { kind: row.dropReason };
+    case "duplicate":
+      return row.duplicateOfTaskId
+        ? { kind: "duplicate", taskId: row.duplicateOfTaskId }
+        : undefined;
+    case "other":
+      return row.dropReasonText ? { kind: "other", text: row.dropReasonText } : undefined;
+    default:
+      return undefined;
+  }
 }
 
 function toPullRequestEndRow(end: PullRequestEnd): PullRequestEndRow {
@@ -399,6 +436,12 @@ export function toTask(row: TaskRow): Task {
     restoredBy: row.restoredBy ? authorOf(row.restoredBy) : undefined,
     endedAt: row.endedAt ?? undefined,
     pullRequestEnd: row.pullRequestEnd ? pullRequestEndOf(row.pullRequestEnd) : undefined,
+    kind: row.kind,
+    causedBy: row.causedByTaskId ?? undefined,
+    foundInVersion: row.foundInVersion ?? undefined,
+    foundWhileWorkingOn: row.foundWhileWorkingOnTaskId ?? undefined,
+    dropReason: dropReasonOf(row),
+    createdByTheOffice: row.createdByTheOffice,
   };
 }
 
