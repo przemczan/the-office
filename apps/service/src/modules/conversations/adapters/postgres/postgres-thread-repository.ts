@@ -19,6 +19,7 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import {
+  type DecisionAnswer,
   formAnswerFromOne,
   formFromOne,
   oneAnswerView,
@@ -51,6 +52,7 @@ import {
   proposals,
   threadMessages,
   threads,
+  type SavedFormAnswer,
   type SavedMessage,
   type ThreadSessionRow,
 } from "./threads.schema.js";
@@ -259,23 +261,29 @@ export class PostgresThreadRepository extends ThreadRepository {
   }
 
   async decision(id: string): Promise<Decision | undefined> {
-    const [row] = await this.database.select().from(decisions).where(eq(decisions.id, id));
+    const [row] = await this.database
+      .select(DECISION_READ)
+      .from(decisions)
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
+      .where(eq(decisions.id, id));
     return row && toDecision(row);
   }
 
   async decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]> {
     if (ids.length === 0) return [];
     const rows = await this.database
-      .select()
+      .select(DECISION_READ)
       .from(decisions)
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
       .where(inArray(decisions.id, [...ids]));
     return rows.map(toDecision);
   }
 
   async decisionsIn(threadId: string): Promise<readonly Decision[]> {
     const rows = await this.database
-      .select()
+      .select(DECISION_READ)
       .from(decisions)
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
       .where(eq(decisions.threadId, threadId))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
@@ -283,8 +291,9 @@ export class PostgresThreadRepository extends ThreadRepository {
 
   async answeredOn(taskId: string): Promise<readonly Decision[]> {
     const rows = await this.database
-      .select()
+      .select(DECISION_READ)
       .from(decisions)
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
       .where(
         and(
           eq(decisions.taskId, taskId),
@@ -307,7 +316,7 @@ export class PostgresThreadRepository extends ThreadRepository {
 
   async openDecisions(): Promise<readonly Decision[]> {
     const rows = await this.database
-      .select({ decision: decisions })
+      .select(DECISION_READ)
       .from(decisions)
       .innerJoin(threads, eq(threads.id, decisions.threadId))
       .where(
@@ -320,14 +329,14 @@ export class PostgresThreadRepository extends ThreadRepository {
         ),
       )
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
-    return rows.map(({ decision }) => toDecision(decision));
+    return rows.map(toDecision);
   }
 
   async openInInitiativeThreads(): Promise<
     readonly (Decision & { readonly initiativeId: string })[]
   > {
     const rows = await this.database
-      .select({ decision: decisions, initiativeId: threads.homeId })
+      .select({ ...DECISION_READ, initiativeId: threads.homeId })
       .from(decisions)
       .innerJoin(threads, eq(threads.id, decisions.threadId))
       .where(
@@ -339,7 +348,7 @@ export class PostgresThreadRepository extends ThreadRepository {
         ),
       )
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
-    return rows.map(({ decision, initiativeId }) => ({ ...toDecision(decision), initiativeId }));
+    return rows.map(({ initiativeId, ...read }) => ({ ...toDecision(read), initiativeId }));
   }
 
   async unansweredOn(taskId: string): Promise<readonly Decision[]> {
@@ -352,8 +361,9 @@ export class PostgresThreadRepository extends ThreadRepository {
 
   private async unansweredWhere(where: SQL): Promise<readonly Decision[]> {
     const rows = await this.database
-      .select()
+      .select(DECISION_READ)
       .from(decisions)
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
       .where(and(where, unanswered))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
@@ -420,9 +430,11 @@ async function withOpenDecisions(reader: Reader, rows: readonly ThreadRow[]): Pr
       ),
     )
     .orderBy(asc(decisions.askedAt), asc(decisions.id));
-  const decisionsOf = (threadId: string): Decision[] =>
-    open.filter((row) => row.threadId === threadId).map(toDecision);
-  return rows.map((row) => toThread(row, decisionsOf(row.id)));
+  const decisionsOf = (thread: ThreadRow): Decision[] =>
+    open
+      .filter((row) => row.threadId === thread.id)
+      .map((decision) => toDecision({ decision, inStageThread: thread.stageThread }));
+  return rows.map((row) => toThread(row, decisionsOf(row)));
 }
 
 function homeColumns(home: Home): { readonly kind: Home["kind"]; readonly id: string } {
@@ -544,8 +556,22 @@ function toMessageRow(
     id,
     threadId,
     at,
-    body: { ...line, answer: oneAnswerView(decision, answer), formAnswer: answer },
+    body: {
+      ...line,
+      answer: oneAnswerView(decision, answer),
+      formAnswer: toSavedFormAnswer(answer),
+    },
   };
+}
+
+function toSavedFormAnswer(answer: DecisionAnswer): SavedFormAnswer {
+  return answer.kind === "dismissed" ? { ...answer, kind: "asked-again", dismissed: true } : answer;
+}
+
+function fromSavedFormAnswer(saved: SavedFormAnswer): DecisionAnswer {
+  if (!("dismissed" in saved)) return saved;
+  const { dismissed: _dismissed, ...answer } = saved;
+  return { ...answer, kind: "dismissed" };
 }
 
 /** A Decision not among those at hand, read as a form of no questions: its answer reads alone. */
@@ -559,7 +585,10 @@ function toMessage({ body, id, threadId, at }: MessageRow): Message {
 function toMessageDraft(body: SavedMessage): MessageDraft {
   if (body.kind !== "decision-answer") return body;
   const { answer, formAnswer, ...line } = body;
-  return { ...line, answer: formAnswer ?? formAnswerFromOne(answer) };
+  return {
+    ...line,
+    answer: formAnswer ? fromSavedFormAnswer(formAnswer) : formAnswerFromOne(answer),
+  };
 }
 
 /** What a Decision is saved as; the approval it gave a held call is spent apart from it. */
@@ -578,6 +607,7 @@ function toDecisionRow({
   closedAt,
   kind,
   questions,
+  inStageThread: _inStageThread,
   ...fields
 }: Decision): SavedDecision {
   const decision = {
@@ -605,31 +635,46 @@ function toDecisionRow({
   return {
     ...decision,
     answer: { ...oneAnswerView({ kind, questions }, formAnswer), ...givenBy },
-    formAnswer,
+    formAnswer: toSavedFormAnswer(formAnswer),
     answeredAt,
   };
 }
 
+/**
+ * A Decision as read: its row, and whether its Thread is a Stage Thread, which no column of its own
+ * keeps (spec: migrations keep the previous release working).
+ */
+const DECISION_READ = { decision: decisions, inStageThread: threads.stageThread };
+
+interface DecisionRead {
+  readonly decision: DecisionRow;
+  readonly inStageThread: boolean;
+}
+
 function toDecision({
-  answer,
-  answeredAt,
-  taskId,
-  roleKey,
-  putTo,
-  passedOn,
-  closedAt,
-  approvalSpentAt: _approvalSpentAt,
-  kind,
-  question,
-  options,
-  recommendation,
-  questions,
-  formAnswer,
-  ...row
-}: DecisionRow): Decision {
+  decision: {
+    answer,
+    answeredAt,
+    taskId,
+    roleKey,
+    putTo,
+    passedOn,
+    closedAt,
+    approvalSpentAt: _approvalSpentAt,
+    kind,
+    question,
+    options,
+    recommendation,
+    questions,
+    formAnswer,
+    ...row
+  },
+  inStageThread,
+}: DecisionRead): Decision {
   const asked = formFromOne(kind, { question, options, recommendation });
   return {
     ...row,
+    inStageThread,
     kind: asked.kind,
     questions: questions ?? asked.questions,
     ...(closedAt === null ? {} : { closedAt }),
@@ -654,7 +699,7 @@ function toGivenAnswer(
   answeredAt: Date,
 ): GivenAnswer {
   return {
-    ...(formAnswer ?? formAnswerFromOne(one)),
+    ...(formAnswer ? fromSavedFormAnswer(formAnswer) : formAnswerFromOne(one)),
     ...(user === undefined ? {} : { user }),
     ...(answeredBy === undefined ? {} : { answeredBy }),
     ...(atUsersRequest === undefined ? {} : { atUsersRequest }),

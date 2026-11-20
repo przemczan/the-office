@@ -13,7 +13,10 @@ import {
   closedDecisionRefusal,
   decisionProblems,
   decisionSummary,
+  dismissProblems,
+  formAnswerWords,
   isOpen,
+  oneAnswerView,
   oneOptionAnswer,
   oneWordsAnswer,
   type Decision,
@@ -23,6 +26,7 @@ import {
   answerDecision,
   closeDecision,
   deliverWaitingAnswers,
+  dismissDecision,
   keepAnswerForTurnEnd,
   openDecision,
   recordDecisionAnswer,
@@ -38,6 +42,7 @@ import {
   WARM,
   refusalOf,
 } from "./decision.fixtures.js";
+import { dismissalNote } from "./session-instructions.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "./user.fixtures.js";
 
 describe("opening a Decision", () => {
@@ -57,6 +62,7 @@ describe("opening a Decision", () => {
       attachmentIds: [],
       passedOn: [],
       answer: undefined,
+      inStageThread: false,
     };
     expect(opened.decision).toEqual(decision);
     expect(opened.thread).toEqual({ ...thread, openDecisions: [decision] });
@@ -730,5 +736,95 @@ describe("answering a form", () => {
     expect(
       answerProblems(APPROVAL, submitted([{ kind: "option", option: 0, comment: " " }], "")),
     ).toEqual([]);
+  });
+});
+
+describe("dismissing a Decision", () => {
+  const open = aDecision({ id: "decision-1" });
+  const dismissal = { kind: "dismissed", generalComment: "We dropped the export." } as const;
+  const recording = {
+    decisionId: "decision-1",
+    answer: dismissal,
+    messageId: "line-1",
+    answeredAt: AT,
+    user: ANN_LEE,
+  } as const;
+
+  it("closes it as the user's answer at once, its line waiting for their next message", () => {
+    const answering = aThread({
+      home: TASK_HOME,
+      session: SESSION,
+      state: "answering",
+      openDecisions: [open],
+    });
+
+    const dismissed = dismissDecision(answering, recording);
+
+    expect(dismissed.thread).toEqual({ ...answering, openDecisions: [] });
+    expect(dismissed.decision?.answer).toEqual({ ...dismissal, answeredAt: AT, user: ANN_LEE });
+    expect(dismissed.logged).toEqual([
+      {
+        kind: "decision-answer",
+        id: "line-1",
+        threadId: answering.id,
+        at: AT,
+        decisionId: "decision-1",
+        answer: dismissal,
+        delivery: "waiting",
+      },
+    ]);
+    expect(dismissed.marked).toBeUndefined();
+    expect(dismissed.event).toBeInstanceOf(DecisionAnswered);
+  });
+
+  it("is refused where something waits on the answer, and once it is answered or closed", () => {
+    expect(dismissProblems(open)).toEqual([]);
+    expect(dismissProblems(APPROVAL)).toEqual([
+      "An approval can't be dismissed: answer Allow once or Deny.",
+    ]);
+    expect(dismissProblems(aDecision({ roleKey: undefined }))).toEqual([
+      "The Office's own Decisions can't be dismissed: its Task waits on the answer.",
+    ]);
+    expect(dismissProblems(aDecision({ inStageThread: true }))).toEqual([
+      "A Decision in a Stage Thread can't be dismissed: its Stage waits on the answer.",
+    ]);
+    expect(dismissProblems(aDecision({ putTo: "reviewer" }))).toEqual([
+      "This Decision is put to the person in the Role reviewer, who answers it in a Consultation: it can't be dismissed.",
+    ]);
+    expect(
+      dismissProblems(aDecision({ answer: { ...oneOptionAnswer(0), answeredAt: AT } })),
+    ).toEqual(["This Decision is answered already."]);
+    expect(dismissProblems(aDecision({ closedAt: AT }))).toEqual([
+      "This Decision was closed: its Task was dropped.",
+    ]);
+  });
+
+  it("is refused through answerProblems alike, The Office too", () => {
+    expect(answerProblems(open, dismissal)).toEqual([]);
+    expect(answerProblems(APPROVAL, dismissal, { byTheOffice: true })).toEqual([
+      "An approval can't be dismissed: answer Allow once or Deny.",
+    ]);
+    const inStage = aThread({
+      home: TASK_HOME,
+      openDecisions: [aDecision({ id: "decision-1", inStageThread: true })],
+    });
+    expect(refusalOf(() => dismissDecision(inStage, recording))).toEqual([
+      "A Decision in a Stage Thread can't be dismissed: its Stage waits on the answer.",
+    ]);
+  });
+
+  it("is told in words, kept as the comment for the release before, and noted for the asker", () => {
+    expect(formAnswerWords(open, dismissal)).toBe("Dismissed: We dropped the export.");
+    expect(formAnswerWords(open, { kind: "dismissed" })).toBe("Dismissed, with no comment.");
+    expect(oneAnswerView(open, dismissal)).toEqual({
+      kind: "free-answer",
+      text: "We dropped the export.",
+    });
+    expect(dismissalNote(open, dismissal)).toBe(
+      `You dismissed the Decision “${decisionSummary(open)}”: We dropped the export. Its questions no longer apply; don't ask them again.`,
+    );
+    expect(dismissalNote(open, { generalComment: " " })).toBe(
+      `You dismissed the Decision “${decisionSummary(open)}”. Its questions no longer apply; don't ask them again.`,
+    );
   });
 });

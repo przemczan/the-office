@@ -23,6 +23,7 @@ Covers: the Task page's head and actions, Start and the queue, planning actions,
 ## Head
 
 - Left: the Project chip, then the title (`h2`) with its badges, then a line of facts.
+- A pencil icon button "Edit the title" beside the title turns it into a text field; Enter or the check button saves, Esc or the cancel button cancels; a refusal shows its reason. Hidden on a Done or Dropped Task ([2.1.3](../2.1.3-tasks.md#title)).
 - Badges: the Task's state ([2.1.3](../2.1.3-tasks.md#task-states)); "Waiting on you" when a Decision or Gate waits on the user; **Archived <day>** once archived; the Stand-in mark.
 - A Task Stopped at its current Stage shows the state "Stopped" while the Task itself stays Paused; a Paused Task shown without its Stages reads "Paused".
 - Stand-in mark: while a started Task's run works on Stand-in Engines, an info badge "On a Stand-in Engine: <stand-in> for <engine>" (several joined), the reasons on hover; a Stage's switch mid-run refreshes it.

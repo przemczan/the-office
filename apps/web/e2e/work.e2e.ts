@@ -3000,6 +3000,80 @@ test(
   },
 );
 
+test(
+  "a Decision of two questions folds in Now, stays in place on its Task, and is dismissed with a comment",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Folded Decision forms", "FD");
+    const task = await createdTask(page, project, "Plan the refund export");
+    const seeded = await seedDecision(task, [
+      aChoice("Which refunds go in the export?", ["Paid ones", "Every one"], 0, "Books close."),
+      aChoice("Zip large refund exports?", ["Zip them", "Leave them plain"], 0, "They are big."),
+    ]);
+    const answers = await catchAnswers(page, seeded);
+    const name = "Decision: Which refunds go in the export? (and 1 more question)";
+
+    // On the Task page, two questions are answered in place.
+    await page.goto(`/tasks/${task.id}`);
+    const onTask = page.getByRole("region", { name: "Needs you" }).getByRole("region", { name });
+    await expect(onTask.getByRole("radiogroup")).toHaveCount(2);
+    await expect(onTask.getByRole("button", { name: "Open details" })).toHaveCount(0);
+
+    // In Now, the same form folds, its window behind Open details.
+    await page.goto("/now");
+    const card = page.getByRole("region", { name: "Needs you" }).getByRole("region", { name });
+    await expect(card.getByRole("radio")).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Open details" })).toBeVisible();
+    await screenshotScenario(page, "decision-feed-compact", { inView: card });
+    await card.getByRole("button", { name: "Open details" }).click();
+    const window = page.getByRole("dialog", { name: /^Decision/ });
+    await expect(window.getByRole("navigation", { name: "Questions" })).toBeVisible();
+    await window.getByRole("button", { name: "Close", exact: true }).click();
+
+    // Dismiss is a step with an optional comment, which Cancel leaves.
+    await card.getByRole("button", { name: "Dismiss" }).click();
+    const step = card.getByRole("region", { name: "Dismiss" });
+    await expect(step).toContainText("Closes the Decision unanswered.");
+    await screenshotScenario(page, "decision-dismiss-step", { inView: step });
+    await step.getByRole("button", { name: "Cancel" }).click();
+    await expect(step).toHaveCount(0);
+    await card.getByRole("button", { name: "Dismiss" }).click();
+    await step.getByRole("textbox").fill("We export by month now.");
+    await step.getByRole("button", { name: "Dismiss" }).click();
+    await expect
+      .poll(() => answers)
+      .toEqual([{ kind: "dismissed", generalComment: "We export by month now." }]);
+  },
+);
+
+test(
+  "the user edits a Task's title in place on its page, Esc cancelling",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Titles in place", "TP");
+    const task = await createdTask(page, project, "Export the refunds");
+    await page.goto(`/tasks/${task.id}`);
+    const heading = page.getByRole("heading", { level: 2, name: "Export the refunds" });
+    await expect(heading).toBeVisible();
+
+    await page.getByRole("button", { name: "Edit the title" }).click();
+    const field = page.getByRole("textbox", { name: "Task title" });
+    await field.fill("Export the refunds by month");
+    await screenshotScenario(page, "task-title-edit");
+    await page.keyboard.press("Escape");
+    await expect(field).toHaveCount(0);
+    await expect(heading).toBeVisible();
+
+    await page.getByRole("button", { name: "Edit the title" }).click();
+    await field.fill("Export the refunds by month");
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Export the refunds by month" }),
+    ).toBeVisible();
+    await expect(field).toHaveCount(0);
+  },
+);
+
 // Reads a Thread, which shows once the Planner is hired: run alone, after people.e2e.ts's hiring.
 test(
   "a sent Decision form reads in its Thread: each answer with its comment, the general comment, and who answered",

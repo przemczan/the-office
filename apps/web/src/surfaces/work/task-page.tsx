@@ -39,6 +39,7 @@ import { ChangesTab } from "./task-changes.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
+import { TaskTitle } from "./task-title.tsx";
 import { TaskTags } from "./task-tags.tsx";
 import { TokenCount, TokenMeter } from "../../shell/token-count.tsx";
 import { WorkTabs } from "./work-tabs.tsx";
@@ -211,7 +212,7 @@ function TaskHead({
           <ProjectChip projectId={task.projectId} projects={projects} />
         </div>
         <div className="task-head-title">
-          <h2>{task.title}</h2>
+          <TaskTitle task={task} />
           <TaskStateBadge
             state={task.state}
             pausedBy={task.pausedBy}

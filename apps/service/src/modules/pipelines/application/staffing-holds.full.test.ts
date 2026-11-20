@@ -85,6 +85,7 @@ async function answering(
         attachmentIds: [],
         askedAt: new Date(),
         passedOn: [],
+        inStageThread: false,
         answer: {
           kind: "submitted",
           answers: [{ kind: "option", option }],

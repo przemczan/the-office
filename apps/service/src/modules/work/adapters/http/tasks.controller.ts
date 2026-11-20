@@ -23,12 +23,14 @@ import {
   priorityChangeSchema,
   searchQuerySchema,
   tagsChangeSchema,
+  titleChangeSchema,
   taskMoveCheckQuerySchema,
   taskMoveSchema,
   taskPlacementSchema,
   type CommitMessageChange,
   type DefinitionOfDoneChange,
   type DescriptionChange,
+  type TitleChange,
   type MakeAPlan,
   type MarkReadyRequest,
   type NewTask,
@@ -99,6 +101,15 @@ export class TasksController {
     @Body(new ContractPipe(priorityChangeSchema)) { priority }: PriorityChange,
   ): Promise<TaskResponse> {
     return toTaskResponse(await this.tasks.changePriority(id, priority));
+  }
+
+  /** The user's new title, in any state but Done and Dropped. */
+  @Put(":id/title")
+  async changeTitle(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(titleChangeSchema)) { title }: TitleChange,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.changeTitle(id, title));
   }
 
   /** The user's Description, until the Task starts. */

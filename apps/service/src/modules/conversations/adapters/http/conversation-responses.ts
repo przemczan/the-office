@@ -464,9 +464,9 @@ export function toDecisionResponse({
 }
 
 function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerResponse {
-  if (answer.kind === "asked-again") {
+  if (answer.kind === "asked-again" || answer.kind === "dismissed") {
     return {
-      kind: "asked-again",
+      kind: answer.kind,
       ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
     };
   }

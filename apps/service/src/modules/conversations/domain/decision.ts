@@ -61,7 +61,9 @@ export type QuestionAnswer =
 
 /**
  * How a Decision is sent (spec §2.4): Submit, with an answer to every question in order and an
- * optional general comment, or Ask me again, with the general comment alone.
+ * optional general comment; Ask me again, with the general comment alone; or Dismiss, closing it as
+ * the user's with the general comment alone, which its asker learns of with the user's next message
+ * in the Thread, never by a turn of its own.
  */
 export type DecisionAnswer =
   | {
@@ -69,7 +71,15 @@ export type DecisionAnswer =
       readonly answers: readonly QuestionAnswer[];
       readonly generalComment?: string | undefined;
     }
-  | { readonly kind: "asked-again"; readonly generalComment?: string | undefined };
+  | { readonly kind: "asked-again"; readonly generalComment?: string | undefined }
+  | { readonly kind: "dismissed"; readonly generalComment?: string | undefined };
+
+/** Whether the answer is a dismissal: nothing for the asker to act on until the user writes. */
+export function isDismissal(
+  answer: Pick<DecisionAnswer, "kind"> | undefined,
+): answer is Extract<DecisionAnswer, { kind: "dismissed" }> {
+  return answer?.kind === "dismissed";
+}
 
 /** The answer that picks `option` of a Decision's one choice. */
 export function oneOptionAnswer(option: number): DecisionAnswer {
@@ -183,6 +193,8 @@ export interface Decision extends DecisionDraft {
    * Thread, as the Initiative ended; undefined otherwise.
    */
   readonly closedAt?: Date | undefined;
+  /** Whether it was asked in a Stage Thread, where the Pipeline waits on its answer. */
+  readonly inStageThread: boolean;
 }
 
 /**
@@ -297,6 +309,7 @@ export function answerProblems(
   answer: DecisionAnswer,
   { byTheOffice = false }: Pick<AnswerGivenBy, "byTheOffice"> = {},
 ): string[] {
+  if (answer.kind === "dismissed") return dismissProblems(decision);
   if (decision.closedAt) return [closedDecisionRefusal(decision)];
   if (answer.kind === "asked-again") return byTheOffice ? [] : askAgainProblems(decision);
   if (isApproval(decision)) return approvalAnswerProblems(decision, answer);
@@ -321,6 +334,31 @@ function askAgainProblems(decision: Decision): string[] {
   }
   if (isTheOfficesOwn(decision)) {
     return ["The Office's own Decisions have no Ask me again: nobody is there to ask again."];
+  }
+  return [];
+}
+
+/**
+ * What keeps the user from dismissing the Decision (spec §2.4): an approval is answered Allow once
+ * or Deny; nobody is there to tell of The Office's own; a Pipeline waits on one in a Stage Thread;
+ * one put to a Consultant waits on them; and one answered or closed is no longer open.
+ */
+export function dismissProblems(decision: Decision): string[] {
+  if (decision.answer) return ["This Decision is answered already."];
+  if (decision.closedAt) return [closedDecisionRefusal(decision)];
+  if (isApproval(decision)) {
+    return ["An approval can't be dismissed: answer Allow once or Deny."];
+  }
+  if (isTheOfficesOwn(decision)) {
+    return ["The Office's own Decisions can't be dismissed: its Task waits on the answer."];
+  }
+  if (decision.inStageThread) {
+    return ["A Decision in a Stage Thread can't be dismissed: its Stage waits on the answer."];
+  }
+  if (decision.putTo !== undefined) {
+    return [
+      `This Decision is put to the person in the Role ${decision.putTo}, who answers it in a Consultation: it can't be dismissed.`,
+    ];
   }
   return [];
 }
@@ -407,7 +445,7 @@ export function questionAnswerWords(question: DecisionQuestion, answer: Question
 /**
  * The whole answer in words, as the asking session, Consultations, briefs and the Threads' history
  * give it: each question in order with its answer and comment, then the general comment; asked
- * again, the general comment alone. An approval's is the option picked.
+ * again or dismissed, the general comment alone. An approval's is the option picked.
  */
 export function formAnswerWords(
   decision: Pick<Decision, "kind" | "questions">,
@@ -416,6 +454,10 @@ export function formAnswerWords(
   if (answer.kind === "asked-again") {
     const comment = answer.generalComment?.trim();
     return comment ? `Asked again: ${comment}` : "Asked again, with no comment.";
+  }
+  if (answer.kind === "dismissed") {
+    const comment = answer.generalComment?.trim();
+    return comment ? `Dismissed: ${comment}` : "Dismissed, with no comment.";
   }
   const [first] = decision.questions;
   if (isApproval(decision) && first !== undefined && answer.answers[0] !== undefined) {
@@ -506,7 +548,7 @@ export function oneAnswerView(
   decision: Pick<Decision, "kind" | "questions">,
   answer: DecisionAnswer,
 ): OneQuestionAnswer {
-  if (answer.kind === "asked-again") {
+  if (answer.kind === "asked-again" || answer.kind === "dismissed") {
     return { kind: "free-answer", text: answer.generalComment?.trim() ?? "" };
   }
   const [given, ...others] = answer.answers;

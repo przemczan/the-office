@@ -165,6 +165,7 @@ function AskedDecision({
     <DecisionOnTask
       decision={decision}
       {...card}
+      where="feed"
       place={<span className="needs-you-time">{clockOf(decision.askedAt)}</span>}
     />
   );

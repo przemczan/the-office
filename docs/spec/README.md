@@ -60,6 +60,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Density**: [4 Densities](4-ux-direction.md#densities); [4 Density](4-ux-direction.md#density)
 - **Description**: [2.1.3 Description](2.1.3-tasks.md#description)
 - **Details**: [2.9.3 The details](2.9.3-streaming-and-ui.md#the-details); screen: [Decision card › The details window](screens/decision-card.md#the-details-window-open-details)
+- **Dismiss, Dismissed**: [2.4.2 Dismiss](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Dismiss](screens/decision-card.md#dismiss)
 - **Duty**: [2.2 Duty](2.2-people.md#duty); [2.2 Duties](2.2-people.md#duties); screen: [Settings › Duties](screens/settings.md#duties)
 
 ### E

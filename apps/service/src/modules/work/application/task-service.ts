@@ -43,7 +43,7 @@ import {
 import { isInitiativePaused } from "../domain/initiative-pause.js";
 import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js";
 import { changeCommitMessage, publishCommitMessage } from "../domain/task-commit-message.js";
-import { changeDescription } from "../domain/task-description.js";
+import { changeDescription, changeTitle } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
@@ -176,6 +176,11 @@ export class TaskService {
 
   async changePriority(id: string, priority: Priority): Promise<Task> {
     return this.update(id, (task) => changePriority(task, priority));
+  }
+
+  /** The title, in any state but Done and Dropped. */
+  async changeTitle(id: string, title: string): Promise<Task> {
+    return this.update(id, (task) => changeTitle(task, title));
   }
 
   /** The user's Description, until the Task starts. */

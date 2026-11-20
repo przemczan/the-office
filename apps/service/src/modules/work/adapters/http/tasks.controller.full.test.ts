@@ -191,6 +191,35 @@ describe("PUT /api/tasks/:id/description", () => {
   });
 });
 
+describe("PUT /api/tasks/:id/title", () => {
+  it("rewrites the title, trimmed, and announces it", async () => {
+    const task = await create({ title: "Remember the sort" });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/title`, {
+      title: " Remember the sort and filters ",
+    });
+
+    expect(taskSchema.parse(await response.json()).title).toBe("Remember the sort and filters");
+    expect(webEventsOf(work)).toEqual([{ type: "task.title-changed", taskId: task.id }]);
+  });
+
+  it("refuses once the Task is Dropped, keeping the title it had", async () => {
+    const task = await create({ title: "Remember the sort" });
+    await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/title`, {
+      title: "Something else",
+    });
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "A Task keeps its title once it is Done or Dropped.",
+    ]);
+    expect((await readTask(task.id)).title).toBe("Remember the sort");
+  });
+});
+
 describe("PUT /api/tasks/:id/tags", () => {
   it("sets the Tags, normalized, and announces them", async () => {
     const task = await create({ tags: ["ui"] });

@@ -18,6 +18,8 @@ import { useDecisionDraft, useTakeOver, type DecisionDraftHandle } from "./decis
 import {
   answeredCount,
   askedAgainAnswer,
+  canBeDismissed,
+  dismissedAnswer,
   draftAnswerWords,
   isAnswered,
   missingAnswer,
@@ -43,9 +45,9 @@ import {
 /**
  * The Decision form (spec §2.4, the Decision form card's design): each question, a choice picked
  * from its options with the recommended one picked at first, or an open question answered in
- * words, each with its comment; the general comment; then Submit, or Ask me again. In place it is
- * the card's body; in a window (Open details), the questions listed beside the picked one, with
- * Submit and Ask me again in the bar. Its draft is the Decision's, wherever it shows.
+ * words, each with its comment; the general comment; then Submit, Ask me again, or Dismiss. In place
+ * it is the card's body; in a window (Open details), the questions listed beside the picked one,
+ * with Submit, Ask me again and Dismiss in the bar. Its draft is the Decision's, wherever it shows.
  */
 export type DecisionFormProps = DecisionAnsweringProps &
   (
@@ -89,6 +91,58 @@ interface DecisionFormState {
   setAskingAgain(asking: boolean): void;
   submit(onSent?: () => void): void;
   askAgain(onSent?: () => void): void;
+  readonly dismissal: Dismissal;
+}
+
+/**
+ * Dismiss (spec §2.4): shown only on a Decision the user can close unanswered; its step asks for
+ * the general comment, sent with the user's next message in the Thread.
+ */
+export interface Dismissal {
+  readonly can: boolean;
+  /** The step is open. */
+  readonly open: boolean;
+  /** Why Dismiss can't be pressed yet; undefined when it can. */
+  readonly blocked: string | undefined;
+  readonly disabled: boolean;
+  readonly asker: string;
+  readonly handle: DecisionDraftHandle;
+  readonly error: Error | null;
+  setOpen(open: boolean): void;
+  dismiss(onSent?: () => void): void;
+}
+
+/** Dismiss's state for a card: sent through the card's own answering, its comment the draft's. */
+export function useDismissal({
+  decision,
+  asker,
+  handle,
+  sending,
+}: {
+  readonly decision: Decision;
+  readonly asker: string;
+  readonly handle: DecisionDraftHandle;
+  readonly sending: ReturnType<typeof useAnswering>;
+}): Dismissal {
+  const [open, setOpen] = useState(false);
+  return {
+    can: canBeDismissed(decision),
+    open,
+    // No turn starts, so the person may still be answering.
+    blocked: sending.isPending ? "Sending your answer…" : undefined,
+    disabled: sending.isPending,
+    asker,
+    handle,
+    error: sending.error,
+    setOpen,
+    dismiss: (onSent) =>
+      sending.mutate(dismissedAnswer(handle.draft.generalComment), {
+        onSuccess: () => {
+          setOpen(false);
+          onSent?.();
+        },
+      }),
+  };
 }
 
 function useDecisionForm({
@@ -102,6 +156,7 @@ function useDecisionForm({
   const { locked } = useTakeOver(decision);
   const [askingAgain, setAskingAgain] = useState(false);
   const asker = askerName(decision, personName);
+  const dismissal = useDismissal({ decision, asker, handle, sending });
   const pending = sending.isPending ? "Sending your answer…" : undefined;
   const waits = locked ? TAKE_IT_OVER_FIRST : pending;
   return {
@@ -126,6 +181,7 @@ function useDecisionForm({
           onSent?.();
         },
       }),
+    dismissal,
   };
 }
 
@@ -160,6 +216,8 @@ function FormInPlace({
       ))}
       {form.askingAgain ? (
         <AskAgainStep form={form} />
+      ) : form.dismissal.open ? (
+        <DismissStep dismissal={form.dismissal} />
       ) : (
         <>
           <div className="decision-general">
@@ -169,6 +227,7 @@ function FormInPlace({
           <div className="decision-actions">
             <SubmitButton form={form} />
             {form.canAskAgain && <AskMeAgainButton form={form} />}
+            {form.dismissal.can && <DismissButton dismissal={form.dismissal} />}
             {several && <ProgressLine decision={decision} draft={draft} onJump={jump} />}
           </div>
         </>
@@ -240,6 +299,7 @@ function FormWindow({
         <>
           <SubmitButton form={form} onSent={onClose} />
           {form.canAskAgain && <AskMeAgainButton form={form} />}
+          {form.dismissal.can && <DismissButton dismissal={form.dismissal} />}
         </>
       }
       step={
@@ -249,7 +309,13 @@ function FormWindow({
               actions: <ConfirmAskAgainButton form={form} onSent={onClose} />,
               onCancel: () => form.setAskingAgain(false),
             }
-          : undefined
+          : form.dismissal.open
+            ? {
+                content: <DismissField dismissal={form.dismissal} autoFocus />,
+                actions: <ConfirmDismissButton dismissal={form.dismissal} onSent={onClose} />,
+                onCancel: () => form.dismissal.setOpen(false),
+              }
+            : undefined
       }
     >
       <div className={`decision-window${count > 1 ? " several" : ""}`}>
@@ -330,7 +396,8 @@ function FormWindow({
                   </Button>
                 ) : (
                   // The last question sends from where the user is, as the bar's Submit does.
-                  !form.askingAgain && <SubmitButton form={form} onSent={onClose} />
+                  !form.askingAgain &&
+                  !form.dismissal.open && <SubmitButton form={form} onSent={onClose} />
                 )}
               </div>
             </div>
@@ -349,7 +416,7 @@ function FormWindow({
           </div>
         )}
         <div className="decision-window-foot">
-          {!form.askingAgain && <GeneralComment form={form} />}
+          {!form.askingAgain && !form.dismissal.open && <GeneralComment form={form} />}
           {form.sending.error && <AnswerRefused error={form.sending.error} />}
           <AnsweringHints
             personName={form.asker}
@@ -667,6 +734,84 @@ function AskAgainStep({ form }: { readonly form: DecisionFormState }): ReactNode
       <div className="decision-actions">
         <ConfirmAskAgainButton form={form} />
         <Button variant="secondary" onClick={() => form.setAskingAgain(false)}>
+          Cancel
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** Opens the step that asks why; nothing is sent yet. */
+export function DismissButton({ dismissal }: { readonly dismissal: Dismissal }): ReactNode {
+  return (
+    <Button
+      variant="secondary"
+      iconLeft={<Icon name="circle-x" size={13} />}
+      disabled={dismissal.blocked !== undefined}
+      title={dismissal.blocked}
+      onClick={() => dismissal.setOpen(true)}
+    >
+      Dismiss
+    </Button>
+  );
+}
+
+function ConfirmDismissButton({
+  dismissal,
+  onSent,
+}: {
+  readonly dismissal: Dismissal;
+  readonly onSent?: () => void;
+}): ReactNode {
+  return (
+    <Button
+      iconLeft={<Icon name="circle-x" size={13} />}
+      disabled={dismissal.blocked !== undefined}
+      title={dismissal.blocked}
+      onClick={() => dismissal.dismiss(onSent)}
+    >
+      Dismiss
+    </Button>
+  );
+}
+
+/** Dismiss's words: the general comment, sent with the user's next message in the Thread. */
+function DismissField({
+  dismissal,
+  autoFocus = false,
+}: {
+  readonly dismissal: Dismissal;
+  readonly autoFocus?: boolean;
+}): ReactNode {
+  return (
+    <div className="decision-ask-again-field">
+      <Textarea
+        label="Why dismiss it?"
+        hint="Optional."
+        rows={2}
+        placeholder="Your general comment, sent with your next message"
+        value={dismissal.handle.draft.generalComment}
+        disabled={dismissal.disabled}
+        autoFocus={autoFocus}
+        onChange={(event) => dismissal.handle.setGeneralComment(event.target.value)}
+      />
+      <p className="decision-hint">
+        Closes the Decision unanswered. {dismissal.asker} learns of it with your next message in the
+        Thread.
+      </p>
+    </div>
+  );
+}
+
+/** The step before Dismiss, in place of the card's actions (spec 4.1). */
+export function DismissStep({ dismissal }: { readonly dismissal: Dismissal }): ReactNode {
+  return (
+    <section className="decision-ask-again" aria-label="Dismiss">
+      <DismissField dismissal={dismissal} autoFocus />
+      {dismissal.error && <AnswerRefused error={dismissal.error} />}
+      <div className="decision-actions">
+        <ConfirmDismissButton dismissal={dismissal} />
+        <Button variant="secondary" onClick={() => dismissal.setOpen(false)}>
           Cancel
         </Button>
       </div>

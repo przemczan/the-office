@@ -24,6 +24,7 @@ export function aDecision(fields: Partial<Decision> = {}): Decision {
     attachmentIds: [],
     passedOn: [],
     answer: undefined,
+    inStageThread: false,
     ...fields,
   };
 }

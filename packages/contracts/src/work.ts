@@ -499,6 +499,10 @@ export type MakeAPlan = z.infer<typeof makeAPlanSchema>;
 export const descriptionChangeSchema = z.object({ description: z.string() });
 export type DescriptionChange = z.infer<typeof descriptionChangeSchema>;
 
+/** PUT /tasks/:id/title: the Task's new title, until it is Done or Dropped. */
+export const titleChangeSchema = z.object({ title: z.string() });
+export type TitleChange = z.infer<typeof titleChangeSchema>;
+
 /** PUT /tasks/:id/commit-message: the Task's commit message; empty takes the default again. */
 export const commitMessageChangeSchema = z.object({ message: z.string() });
 export type CommitMessageChange = z.infer<typeof commitMessageChangeSchema>;

@@ -6,7 +6,9 @@ import {
   answeredCount,
   answeredLines,
   askedAgainAnswer,
+  canBeDismissed,
   decisionSummary,
+  dismissedAnswer,
   draftAnswerWords,
   draftChanges,
   draftKeptWords,
@@ -167,6 +169,32 @@ describe("the Decision in short", () => {
     expect(isCompact({ questions: [STORE], attachmentIds: ["a"] })).toBe(true);
   });
 
+  it("is compact in the feed from 2 questions, or with any Attachment", () => {
+    expect(isCompact({ questions: [STORE], attachmentIds: [] }, "feed")).toBe(false);
+    expect(isCompact({ questions: [STORE, NAME], attachmentIds: [] }, "feed")).toBe(true);
+    expect(isCompact({ questions: [STORE, NAME], attachmentIds: [] })).toBe(false);
+    expect(isCompact({ questions: [STORE], attachmentIds: ["a"] }, "feed")).toBe(true);
+  });
+
+  it("lets the user dismiss only an open Decision a person asked them in their own Thread", () => {
+    const open = {
+      kind: "form",
+      roleKey: "planner",
+      inStageThread: false,
+      putTo: null,
+      formAnswer: null,
+      closedAt: null,
+    } as const;
+    expect(canBeDismissed(open)).toBe(true);
+    expect(canBeDismissed({ ...open, kind: "request" })).toBe(true);
+    expect(canBeDismissed({ ...open, kind: "approval" })).toBe(false);
+    expect(canBeDismissed({ ...open, roleKey: null })).toBe(false);
+    expect(canBeDismissed({ ...open, inStageThread: true })).toBe(false);
+    expect(canBeDismissed({ ...open, putTo: "reviewer" })).toBe(false);
+    expect(canBeDismissed({ ...open, formAnswer: { kind: "dismissed" } })).toBe(false);
+    expect(canBeDismissed({ ...open, closedAt: "2026-11-15T09:00:00.000Z" })).toBe(false);
+  });
+
   it("says how many more questions the compact card holds, and how many are open", () => {
     expect(moreQuestionsWords({ questions: [STORE] })).toBeUndefined();
     expect(moreQuestionsWords({ questions: [STORE, KEEP] })).toBe("1 more question");
@@ -263,5 +291,7 @@ describe("an answered form", () => {
       "Asked again: Why?",
     );
     expect(formAnswerWords(MIXED, { kind: "asked-again" })).toBe("Asked again, with no comment.");
+    expect(formAnswerWords(MIXED, dismissedAnswer(" Not needed "))).toBe("Dismissed: Not needed");
+    expect(formAnswerWords(MIXED, dismissedAnswer(""))).toBe("Dismissed, with no comment.");
   });
 });
