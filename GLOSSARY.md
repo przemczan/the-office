@@ -293,6 +293,14 @@ _Avoid_: Reject, decline, skip, cancel
 The state of a Decision closed by Ask me again: no longer waiting, never reopened, its general comment kept; the Agent's new form follows it in the Thread.
 _Avoid_: Rejected, declined, cancelled, reopened
 
+**Dismiss**:
+Closing a Decision unanswered, with an optional general comment, only for an open Decision from a person the user talks to; the asker learns of it with the user's next message in the Thread. Approvals, The Office's own Decisions, Stage Threads' and Consultants' Decisions have none.
+_Avoid_: Reject, delete, skip, cancel
+
+**Dismissed**:
+The state of a Decision closed by Dismiss: no longer waiting, never reopened, its questions not answered, its general comment kept.
+_Avoid_: Rejected, deleted, skipped, cancelled
+
 **Thread**:
 One continuous exchange within a conversation on a Task, an Initiative or a person's chat; a fresh Thread starts without the previous one's context. On a Task, each person has one Thread of their own, in their tab, and each Stage run has its Stage Thread, shown in the Stage history.
 _Avoid_: Session, chat (for the record), channel

@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { OpenPage, Thread } from "@the-office/contracts";
-import { Button, Icon, IconButton, Input } from "@the-office/ui";
+import { Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { homeThreadsKey, renameThread, threadQueries } from "../../api/conversations.ts";
 import { BlockLoaderOrProblem, type BlockRead } from "../block-loader.tsx";
-import { RefusalAlert } from "../refusal-alert.tsx";
+import { InlineTitleEdit } from "../inline-title-edit.tsx";
 import { AllowChangesBar } from "./allow-changes.tsx";
 import { ContextBar } from "./context-bar.tsx";
 import { useDetails } from "./details-store.ts";
@@ -134,10 +134,9 @@ export function ThreadTitle({
   readonly children?: ReactNode;
 }): ReactNode {
   const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(thread.title ?? "");
   const queryClient = useQueryClient();
   const renaming = useMutation({
-    mutationFn: () => renameThread(thread.id, title),
+    mutationFn: (title: string) => renameThread(thread.id, title),
     onSuccess: async (renamed) => {
       queryClient.setQueryData(threadQueries.one(renamed.id).queryKey, renamed);
       await queryClient.invalidateQueries({ queryKey: homeThreadsKey(renamed.home) });
@@ -155,7 +154,6 @@ export function ThreadTitle({
               label="Rename the Thread"
               size="sm"
               onClick={() => {
-                setTitle(thread.title ?? "");
                 setEditing(true);
               }}
             />
@@ -165,27 +163,14 @@ export function ThreadTitle({
     );
   }
   return (
-    <form
+    <InlineTitleEdit
       className="thread-title"
-      onSubmit={(event) => {
-        event.preventDefault();
-        renaming.mutate();
-      }}
-    >
-      <Input
-        aria-label="Thread title"
-        size="sm"
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        autoFocus
-      />
-      <Button size="sm" type="submit" loading={renaming.isPending}>
-        Save
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-        Cancel
-      </Button>
-      {renaming.error && <RefusalAlert title="The title wasn't saved" error={renaming.error} />}
-    </form>
+      label="Thread title"
+      initial={thread.title ?? ""}
+      saving={renaming.isPending}
+      error={renaming.error}
+      onSave={(given) => renaming.mutate(given)}
+      onCancel={() => setEditing(false)}
+    />
   );
 }

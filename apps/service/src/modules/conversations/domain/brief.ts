@@ -309,7 +309,7 @@ function answeredDecisionsPart(prompts: PromptTexts, decisions: readonly Decisio
  */
 function answeredEntry(decision: Decision, answer: DecisionAnswer): string {
   const [only, ...others] = decision.questions;
-  if (only === undefined || others.length > 0 || answer.kind === "asked-again") {
+  if (only === undefined || others.length > 0 || answer.kind !== "submitted") {
     return `- ${decisionSummary(decision)}\n${indented(formAnswerWords(decision, answer))}`;
   }
   const lines: string[] = [];

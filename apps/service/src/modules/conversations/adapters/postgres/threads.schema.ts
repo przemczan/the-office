@@ -47,8 +47,21 @@ export type SavedDecisionAnswerLine = Omit<
   "answer"
 > & {
   readonly answer: OneQuestionAnswer;
-  readonly formAnswer?: DecisionAnswer;
+  readonly formAnswer?: SavedFormAnswer;
 };
+
+/**
+ * A form's answer as kept: a dismissal is kept as Ask me again marked `dismissed`, since the release
+ * before reads every kind but `asked-again` as submitted (spec: migrations keep the previous
+ * release working); it shows there as asked again.
+ */
+export type SavedFormAnswer =
+  | Exclude<DecisionAnswer, { readonly kind: "dismissed" }>
+  | {
+      readonly kind: "asked-again";
+      readonly generalComment?: string | undefined;
+      readonly dismissed: true;
+    };
 
 /** The engine session behind a Thread now, as kept. */
 export interface ThreadSessionRow {
@@ -170,7 +183,7 @@ export const decisions = pgTable(
     /** The answer as one, for the release before, with who gave it. */
     answer: jsonb("answer").$type<OneQuestionAnswer & AnswerGivenBy>(),
     /** The form's answer; null while unanswered, and on a Decision answered before the form. */
-    formAnswer: jsonb("form_answer").$type<DecisionAnswer>(),
+    formAnswer: jsonb("form_answer").$type<SavedFormAnswer>(),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
     /** When it was closed unanswered, as its Task was dropped; null otherwise. */
     closedAt: timestamp("closed_at", { withTimezone: true }),

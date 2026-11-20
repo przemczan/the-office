@@ -26,23 +26,23 @@ describe("changeDescription", () => {
     expect(changeDescription(task, "Land where I came from. ")).toBeUndefined();
   });
 
-  it.each([...STARTED_STATES, "done", "dropped"] as const)(
-    "refuses once the Task has started: %s",
-    (state) => {
-      expect(() => changeDescription(aTask({ state }), "Something else.")).toThrow(
-        new TaskRefused(["A Task keeps its Description once it has started."]),
-      );
-    },
-  );
+  it.each(["done", "dropped"] as const)("refuses once the Task is Done or Dropped: %s", (state) => {
+    expect(() => changeDescription(aTask({ state }), "Something else.")).toThrow(
+      new TaskRefused(["A Task keeps its Description once it has started."]),
+    );
+  });
 });
 
 describe("changeTitle", () => {
-  it.each(NOT_STARTED_STATES)("rewrites the title, trimmed, of a Task in %s", (state) => {
-    const change = changeTitle(aTask({ state }), "  Land where I came from. ");
+  it.each([...NOT_STARTED_STATES, ...STARTED_STATES])(
+    "rewrites the title, trimmed, of a Task in %s",
+    (state) => {
+      const change = changeTitle(aTask({ state }), "  Land where I came from. ");
 
-    expect(change?.task.title).toBe("Land where I came from.");
-    expect(change?.event).toBeInstanceOf(TaskTitleChanged);
-  });
+      expect(change?.task.title).toBe("Land where I came from.");
+      expect(change?.event).toBeInstanceOf(TaskTitleChanged);
+    },
+  );
 
   it("changes nothing when the title already reads so", () => {
     const task = aTask({ title: "Land where I came from." });
@@ -58,12 +58,9 @@ describe("changeTitle", () => {
     expect(() => changeTitle(aTask(), title)).toThrow(new TaskRefused([reason]));
   });
 
-  it.each([...STARTED_STATES, "done", "dropped"] as const)(
-    "refuses once the Task has started: %s",
-    (state) => {
-      expect(() => changeTitle(aTask({ state }), "Something else.")).toThrow(
-        new TaskRefused(["A Task keeps its title once it has started."]),
-      );
-    },
-  );
+  it.each(["done", "dropped"] as const)("refuses once the Task is Done or Dropped: %s", (state) => {
+    expect(() => changeTitle(aTask({ state }), "Something else.")).toThrow(
+      new TaskRefused(["A Task keeps its title once it is Done or Dropped."]),
+    );
+  });
 });

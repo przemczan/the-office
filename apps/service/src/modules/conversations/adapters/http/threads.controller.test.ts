@@ -844,6 +844,7 @@ describe("a Decision", () => {
   /** A planning Thread on a Task, of its own unless `taskId` names one, whose session opened a Decision. */
   async function opened(
     taskId: string = randomUUID(),
+    stageThread = false,
   ): Promise<{ readonly thread: Thread; readonly decision: Decision }> {
     const roleKey = aPerson("Jan", false);
     const sessionId = randomUUID();
@@ -852,6 +853,7 @@ describe("a Decision", () => {
       home: { kind: "task", taskId },
       roleKey,
       title: "Planning",
+      stageThread,
       session: {
         id: sessionId,
         roleKey,
@@ -885,6 +887,7 @@ describe("a Decision", () => {
       questions: [question],
       id: decision.id,
       threadId: thread.id,
+      inStageThread: false,
       taskId: decision.taskId,
       roleKey: thread.roleKey,
       attachmentIds: [],
@@ -990,6 +993,41 @@ describe("a Decision", () => {
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
     expect(open.map(({ id }) => id)).not.toContain(decision.id);
+  });
+
+  it("is dismissed with a general comment, closing it, its answer shown in the log", async () => {
+    const { thread, decision } = await opened();
+
+    const dismissed = await send("POST", `/decisions/${decision.id}/answer`, {
+      kind: "dismissed",
+      generalComment: "We dropped the export.",
+    });
+    const messages = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages`)).json(),
+    );
+
+    expect(dismissed.status).toBe(202);
+    const formAnswer = { kind: "dismissed", generalComment: "We dropped the export." };
+    expect(messages.map((message) => message.kind)).toEqual(["decision", "decision-answer"]);
+    expect(messages[1]).toMatchObject({
+      formAnswer,
+      decision: { formAnswer, inStageThread: false, answeredByUser: expect.anything() },
+    });
+    const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
+    expect(open.map(({ id }) => id)).not.toContain(decision.id);
+  });
+
+  it("refuses a dismissal of one in a Stage Thread, and says it is in one", async () => {
+    const { decision } = await opened(randomUUID(), true);
+
+    const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
+    const refused = await send("POST", `/decisions/${decision.id}/answer`, { kind: "dismissed" });
+
+    expect(open.find(({ id }) => id === decision.id)?.inStageThread).toBe(true);
+    expect(refused.status).toBe(422);
+    expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "A Decision in a Stage Thread can't be dismissed: its Stage waits on the answer.",
+    ]);
   });
 });
 

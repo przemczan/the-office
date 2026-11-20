@@ -19,6 +19,7 @@ import { latestWriter } from "../domain/message.js";
 import type { Home, Thread } from "../domain/thread.js";
 import {
   closeDecision,
+  dismissDecision,
   openDecision,
   openDecisionOf,
   recordDecisionAnswer,
@@ -131,13 +132,16 @@ export class DecisionService {
    * The answer to The Office's Decision, or to one in a Stage Thread, goes to the Task's Pipeline
    * instead, which runs on from it, even when given while the asking Stage still runs: the
    * Pipeline reads it as the Stage ends. Refused once it is answered, and while the person is
-   * still answering, and once it is closed.
+   * still answering, and once it is closed. The user's dismissal closes it as answered at once, so
+   * it leaves Needs you, but the person learns of it only with the user's next message in the
+   * Thread; it is refused where something waits on the answer (`dismissProblems`).
    */
   async answer(id: string, answer: DecisionAnswer, answerer: Answerer): Promise<Thread> {
     const decision = await this.repository.decision(id);
     if (!decision) throw new DecisionNotFound(id);
     if (decision.answer) throw new ThreadRefused(["This Decision is answered already."]);
     if (decision.closedAt) throw new ThreadRefused([closedDecisionRefusal(decision)]);
+    if (answer.kind === "dismissed") return this.dismiss(decision, answer, answerer);
     const thread = await this.repository.find(decision.threadId);
     if (!thread) throw new Error(`Decision ${id}'s Thread is gone.`);
     if (decision.roleKey !== undefined && !thread.stageThread) {
@@ -154,6 +158,34 @@ export class DecisionService {
     );
     if (event) await this.events.publish(event);
     return answered;
+  }
+
+  /**
+   * The user dismisses the Decision (spec §2.4): it is answered at once, whether the person answers
+   * or not, so it leaves Needs you and its Notification clears (`DecisionAnswered`), and no turn
+   * starts: its line waits for the user's next message in the Thread, which carries its note
+   * (`ThreadRunner.send`), or, in an Initiative's Thread, for the waiting answers' hand-over.
+   * Only the user dismisses, and only where nothing waits on the answer (`dismissProblems`).
+   */
+  private async dismiss(
+    decision: Decision,
+    answer: Extract<DecisionAnswer, { kind: "dismissed" }>,
+    answerer: Answerer,
+  ): Promise<Thread> {
+    if (answerer.kind !== "user") {
+      throw new ThreadRefused(["Only the user dismisses a Decision, on its card."]);
+    }
+    const { thread, event } = await this.repository.update(decision.threadId, (latest) =>
+      dismissDecision(latest, {
+        decisionId: decision.id,
+        answer,
+        messageId: randomUUID(),
+        answeredAt: new Date(),
+        ...answerGivenBy(answerer),
+      }),
+    );
+    if (event) await this.events.publish(event);
+    return thread;
   }
 
   /**

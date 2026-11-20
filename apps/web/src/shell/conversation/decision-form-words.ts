@@ -25,6 +25,9 @@ export interface DecisionDraft {
 /** Past this many questions, or with any Attachment, a form shows as the compact card. */
 export const COMPACT_QUESTIONS = 3;
 
+/** In the feed of Now and the Needs you panel, from this many questions a form is the compact card. */
+export const FEED_COMPACT_QUESTIONS = 2;
+
 /** The Decision in one line (spec §2.2): its first question, and how many more it asks. */
 export function decisionSummary({ questions }: Pick<Decision, "questions">): string {
   const first = questions[0]?.question ?? "";
@@ -102,12 +105,39 @@ export function allChoices({ questions }: Pick<Decision, "questions">): boolean 
   return questions.every((question) => question.kind === "choice");
 }
 
-/** Whether the form shows as the compact card: more than 3 questions, or any Attachment. */
-export function isCompact({
-  questions,
-  attachmentIds,
-}: Pick<Decision, "questions" | "attachmentIds">): boolean {
-  return questions.length > COMPACT_QUESTIONS || attachmentIds.length > 0;
+/**
+ * Whether the form shows as the compact card: any Attachment, or in the feed of Now and the Needs
+ * you panel 2 questions or more, elsewhere more than 3.
+ */
+export function isCompact(
+  { questions, attachmentIds }: Pick<Decision, "questions" | "attachmentIds">,
+  where: "feed" | "elsewhere" = "elsewhere",
+): boolean {
+  if (attachmentIds.length > 0) return true;
+  return where === "feed"
+    ? questions.length >= FEED_COMPACT_QUESTIONS
+    : questions.length > COMPACT_QUESTIONS;
+}
+
+/**
+ * Whether the user can dismiss the Decision, closing it unanswered: an open form or request a
+ * person asked the user in their own Thread. Never an approval, The Office's own, one in a Stage
+ * Thread, one put to a Consultant, or one already answered or closed.
+ */
+export function canBeDismissed(
+  decision: Pick<
+    Decision,
+    "kind" | "roleKey" | "inStageThread" | "putTo" | "formAnswer" | "closedAt"
+  >,
+): boolean {
+  return (
+    decision.kind !== "approval" &&
+    decision.roleKey !== null &&
+    !decision.inStageThread &&
+    decision.putTo === null &&
+    decision.formAnswer === null &&
+    decision.closedAt === null
+  );
 }
 
 /** How many questions the draft changed from the fresh one, the general comment counting as one. */
@@ -198,6 +228,11 @@ export function askedAgainAnswer(generalComment: string): DecisionFormAnswer {
   return { kind: "asked-again", ...optionalGeneralComment(generalComment) };
 }
 
+/** Dismiss: the general comment alone, when written; the Decision closes unanswered. */
+export function dismissedAnswer(generalComment: string): DecisionFormAnswer {
+  return { kind: "dismissed", ...optionalGeneralComment(generalComment) };
+}
+
 /** One question of an answered form, as the Thread keeps it. */
 export interface AnsweredLine {
   readonly number: number;
@@ -239,7 +274,7 @@ export function answeredLines(
 /**
  * The answer in words, as the Thread's answer line shows it: one question's answer alone, with its
  * comment; several, each question with its answer and comment; then the general comment. Asked
- * again, the general comment.
+ * again or dismissed, the general comment.
  */
 export function formAnswerWords(
   decision: Pick<Decision, "questions">,
@@ -248,6 +283,9 @@ export function formAnswerWords(
   const general = answer.generalComment?.trim();
   if (answer.kind === "asked-again") {
     return general ? `Asked again: ${general}` : "Asked again, with no comment.";
+  }
+  if (answer.kind === "dismissed") {
+    return general ? `Dismissed: ${general}` : "Dismissed, with no comment.";
   }
   const lines = answeredLines(decision, answer);
   const [only] = lines;

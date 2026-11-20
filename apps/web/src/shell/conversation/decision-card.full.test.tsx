@@ -483,6 +483,17 @@ function outcome(page: HTMLElement): HTMLElement {
   return line;
 }
 
+/** A two-question Decision the user dismissed. */
+function dismissed(fields: Partial<Decision>): Decision {
+  return aDecision({
+    questions: [FORMAT, FILE_NAME],
+    formAnswer: { kind: "dismissed" },
+    answeredAt: "2026-11-10T14:30:00.000Z",
+    answeredByUser: BY_YOU,
+    ...fields,
+  });
+}
+
 describe("an answered Decision", () => {
   it("shows each question with its answer, its comment, and the general comment, without the amber", async () => {
     const page = await rendered(inThread(answered({ answeredByUser: BY_YOU })));
@@ -583,6 +594,123 @@ describe("an answered Decision", () => {
       [...page.querySelectorAll(".decision-answer-words")].map(({ textContent }) => textContent),
     ).toEqual(["Not answered", "Not answered"]);
     expect(outcome(page).textContent).toBe("Asked again by you: Why not Parquet?");
+  });
+
+  it("shows the questions unanswered once dismissed, with who dismissed it and why", async () => {
+    const page = await rendered(inThread(dismissed({})));
+
+    expect(
+      [...page.querySelectorAll(".decision-answer-words")].map(({ textContent }) => textContent),
+    ).toEqual(["Not answered", "Not answered"]);
+    expect(outcome(page).textContent).toBe("Dismissed by you");
+    document.body.replaceChildren();
+
+    const byAnn = await rendered(
+      card(
+        dismissed({
+          formAnswer: { kind: "dismissed", generalComment: "Done another way." },
+          answeredByUser: BY_ANN,
+        }),
+      ),
+    );
+    expect(outcome(byAnn).textContent).toBe("Dismissed by Ann Lee: Done another way.");
+  });
+});
+
+describe("Dismiss", () => {
+  it("asks why first, then sends the general comment as dismissed", async () => {
+    const page = await rendered(card(MIXED));
+
+    await click(buttonNamed("Dismiss"));
+    expect(answerDecision).not.toHaveBeenCalled();
+    const step = page.querySelector<HTMLElement>("section[aria-label='Dismiss']");
+    expect(step?.textContent).toContain(
+      "Closes the Decision unanswered. Angela learns of it with your next message in the Thread.",
+    );
+    expect(buttonsNamed("Submit")).toHaveLength(0);
+    const why = fieldLabelled("Why dismiss it?");
+    expect(why.placeholder).toBe("Your general comment, sent with your next message");
+    type(why, "We dropped the export.");
+    await click(buttonNamed("Dismiss", step!));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "dismissed",
+      generalComment: "We dropped the export.",
+    });
+  });
+
+  it("lets Cancel leave the step, sending nothing", async () => {
+    await rendered(card(aDecision()));
+
+    await click(buttonNamed("Dismiss"));
+    await click(buttonNamed("Cancel"));
+    expect(buttonsNamed("Submit")).toHaveLength(1);
+    expect(answerDecision).not.toHaveBeenCalled();
+  });
+
+  it("is offered on the compact card too", async () => {
+    const page = await rendered(
+      card(aDecision({ questions: [FORMAT, FILE_NAME, COLUMNS, FORMAT] })),
+    );
+
+    expect(buttonsNamed("Open details")).toHaveLength(1);
+    await click(buttonNamed("Dismiss"));
+    await click(buttonNamed("Dismiss", page.querySelector("section[aria-label='Dismiss']")!));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, { kind: "dismissed" });
+  });
+
+  it.each([
+    ["in a Stage Thread", aDecision({ inStageThread: true })],
+    ["on The Office's own", aDecision({ roleKey: null })],
+    [
+      "on an approval",
+      aDecision({
+        kind: "approval",
+        questions: [
+          {
+            kind: "choice",
+            question: "Run `rm -rf dist`?",
+            options: ["Allow once", "Deny"],
+            recommendation: { option: 0, reason: "It is the build's output." },
+          },
+        ],
+      }),
+    ],
+    ["on one put to a Consultant", aDecision({ putTo: "reviewer" })],
+  ])("is not offered %s", async (_where, decision) => {
+    await rendered(card(decision));
+
+    expect(buttonsNamed("Dismiss")).toHaveLength(0);
+  });
+});
+
+describe("in the feed of Now and the Needs you panel", () => {
+  it("folds a form of 2 questions into the compact card, Open details opening the window", async () => {
+    await rendered(card(aDecision({ questions: [FORMAT, FILE_NAME] }), { where: "feed" }));
+
+    expect(fieldsLabelled("Your answer")).toHaveLength(0);
+    await click(buttonNamed("Open details"));
+    expect(document.body.querySelector("[role='dialog']")).not.toBeNull();
+    expect(document.body.querySelector("nav[aria-label='Questions']")?.textContent).toContain(
+      "What is the file called?",
+    );
+  });
+
+  it("keeps one question in place", async () => {
+    await rendered(card(aDecision(), { where: "feed" }));
+
+    expect(buttonsNamed("Open details")).toHaveLength(0);
+    expect(buttonsNamed("Submit")).toHaveLength(1);
+  });
+
+  it("keeps a form of 2 questions in place on the Task's Needs you", async () => {
+    await rendered(card(aDecision({ questions: [FORMAT, FILE_NAME] }), { where: "needs-you" }));
+
+    expect(buttonsNamed("Open details")).toHaveLength(0);
+    expect(fieldsLabelled("Your answer")).toHaveLength(1);
   });
 });
 

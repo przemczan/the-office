@@ -19,12 +19,12 @@ export function descriptionWords(description: string): string {
 }
 
 /**
- * The title, trimmed, judged as a new Task's is. Like the Description, it changes until the Task
- * starts; undefined when it already reads so.
+ * The title, trimmed, judged as a new Task's is. It changes in any state but Done and Dropped;
+ * undefined when it already reads so.
  */
 export function changeTitle(task: Task, given: string): TaskChange<TaskTitleChanged> | undefined {
-  if (!NOT_STARTED_STATES.includes(task.state)) {
-    throw new TaskRefused(["A Task keeps its title once it has started."]);
+  if (task.state === "done" || task.state === "dropped") {
+    throw new TaskRefused(["A Task keeps its title once it is Done or Dropped."]);
   }
   const problem = titleProblem(given, "Task");
   if (problem) throw new TaskRefused([problem]);

@@ -49,7 +49,8 @@ export class DecisionsController {
 
   /**
    * The signed-in user's answer, to any Decision, as every user shares them; the person who asked
-   * takes it in its Thread, which this answers with: the form submitted, or Ask me again.
+   * takes it in its Thread, which this answers with: the form submitted, or Ask me again; or
+   * Dismiss, which closes it and reaches the person only with the user's next message there.
    */
   @Post("decisions/:id/answer")
   @HttpCode(HttpStatus.ACCEPTED)

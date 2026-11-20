@@ -22,7 +22,8 @@ const SHOWN_AT_FIRST = 3;
 /**
  * A Decision once nothing waits on it, read-only where it was asked (the Decision form card's
  * design): each question with its answer and comment, the general comment, and who answered;
- * asked again, the questions unanswered and the general comment; closed, that its Task was dropped.
+ * asked again or dismissed, the questions unanswered and the general comment; closed, that its Task
+ * was dropped.
  */
 export function DecisionAnswered({ decision }: { readonly decision: Decision }): ReactNode {
   const [showingAll, setShowingAll] = useState(false);
@@ -93,7 +94,7 @@ interface UnansweredLine {
   readonly unanswered: true;
 }
 
-/** What became of it: who answered, asked again with the general comment, or closed. */
+/** What became of it: who answered, asked again or dismissed with the general comment, or closed. */
 function Outcome({ decision }: { readonly decision: Decision }): ReactNode {
   const signedInUserId = useSignedInUserId();
   const { formAnswer } = decision;
@@ -127,6 +128,25 @@ function Outcome({ decision }: { readonly decision: Decision }): ReactNode {
             </>
           ) : (
             ", with no comment"
+          )}
+        </span>
+      </p>
+    );
+  }
+  if (formAnswer.kind === "dismissed") {
+    const who =
+      decision.answeredByUser === null
+        ? "Dismissed"
+        : `Dismissed by ${userName(decision.answeredByUser, signedInUserId, "you")}`;
+    return (
+      <p className="decision-answered decision-asked-again">
+        <Icon name="circle-x" size={12} />
+        <span>
+          {who}
+          {general && (
+            <>
+              : <span className="decision-outcome-words">{general}</span>
+            </>
           )}
         </span>
       </p>

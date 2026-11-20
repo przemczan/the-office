@@ -347,7 +347,9 @@ export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
 /**
  * How a Decision is sent, the body of POST /decisions/:id/answer: Submit, an answer to every
- * question in order with an optional general comment, or Ask me again, the general comment alone.
+ * question in order with an optional general comment; Ask me again, the general comment alone; or
+ * Dismiss, closing it unanswered with the general comment alone, which its asker learns of with the
+ * user's next message in the Thread.
  */
 export const decisionFormAnswerSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -356,6 +358,7 @@ export const decisionFormAnswerSchema = z.discriminatedUnion("kind", [
     generalComment: z.string().optional(),
   }),
   z.object({ kind: z.literal("asked-again"), generalComment: z.string().optional() }),
+  z.object({ kind: z.literal("dismissed"), generalComment: z.string().optional() }),
 ]);
 export type DecisionFormAnswer = z.infer<typeof decisionFormAnswerSchema>;
 
@@ -392,6 +395,8 @@ export type DecisionClosedBecause = z.infer<typeof decisionClosedBecauseSchema>;
 export const decisionSchema = z.object({
   id: z.uuid(),
   threadId: z.uuid(),
+  /** Whether it was asked in a Stage Thread, where the Pipeline waits on its answer: no Dismiss. */
+  inStageThread: z.boolean(),
   kind: decisionKindSchema,
   /**
    * Null for a call made from a chat, and for one about an Initiative as a whole in its shaping

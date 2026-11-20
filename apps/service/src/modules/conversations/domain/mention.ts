@@ -107,6 +107,10 @@ function standing(decision: Decision): string {
         ? userWords(answer.user ?? null)
         : `the person in the Role ${answer.answeredBy}`;
     const when = answer.answeredAt.toISOString();
+    if (answer.kind === "dismissed") {
+      const comment = answer.generalComment?.trim();
+      return `Dismissed by ${by} on ${when}, answering none of its questions: ${comment ? `General comment: ${comment}` : "they gave no comment."}`;
+    }
     if (answer.kind === "asked-again") {
       const comment = answer.generalComment?.trim();
       return `Asked again by ${by} on ${when}, answering none of its questions: ${comment ? `General comment: ${comment}` : "they gave no comment."}`;

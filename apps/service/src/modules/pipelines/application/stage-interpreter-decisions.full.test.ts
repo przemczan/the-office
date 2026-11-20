@@ -277,6 +277,7 @@ describe("StageInterpreter's Decisions", () => {
           attachmentIds: [],
           askedAt: new Date(),
           passedOn: [],
+          inStageThread: true,
           answer: {
             kind: "submitted",
             answers: [{ kind: "option", option: 0 }],

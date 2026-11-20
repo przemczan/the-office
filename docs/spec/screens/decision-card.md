@@ -1,6 +1,6 @@
 # Decision card
 
-Covers: the Decision card and its forms (the form in place, the compact card, the approval card, the answered card), the details window, Submit, Accept, Ask me again, comments, progress, drafts, where a card shows.
+Covers: the Decision card and its forms (the form in place, the compact card, the approval card, the answered card), the details window, Submit, Accept, Ask me again, Dismiss, comments, progress, drafts, where a card shows.
 
 ## Where it is
 
@@ -21,7 +21,8 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 - Answered, asked again or closed: the answered card.
 - An approval (`kind` approval): the approval card, never a form.
-- Past 3 questions, or with any Attachment, outside an inline chat card: the compact card.
+- In the shared feed (Now and the Needs you panel), with 2 or more questions or any Attachment: the compact card.
+- On the Task page's Needs you card and in Threads, past 3 questions or with any Attachment, outside an inline chat card: the compact card.
 - Otherwise: the form in place. An inline chat card is always the whole form in place.
 - Where a card shows is in [2.4.2](../2.4.2-decisions.md#where-a-decision-shows).
 
@@ -37,7 +38,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 - In a Consultation: "Waiting on <name> in a Consultation. Take it over to answer here." with **Take it over** (secondary). The form is locked until it is pressed: options, comments, Submit, Ask me again, Accept and an approval's options wait, with "Take it over first." as the reason.
 - **Take it over** only unlocks the form, wherever the Decision shows on the page; the line then reads "Waiting on <name> in a Consultation. Your answer here takes it over.", and the answer takes the Decision from the Consultant.
 - After the questions: the **General comment** box ("Optional.", placeholder "Anything about the form as a whole").
-- Actions: **Submit** (primary), **Ask me again** (secondary, rotate icon) and, with several questions, the progress line.
+- Actions: **Submit** (primary), **Ask me again** (secondary, rotate icon), **Dismiss** (secondary, circle-x icon, where [allowed](#dismiss)) and, with several questions, the progress line.
 - Under the actions: why the form waits, the hints below, and the follow-up hint.
 
 ### Submit
@@ -54,6 +55,12 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 - It sends the general comment alone; the picks stay in the draft.
 - Disabled while the asker is still answering ("<name> is still answering. Ask again once they finish.") or an answer is sending.
 
+### Dismiss
+
+- Closes the Decision unanswered; shown beside Ask me again on the form in place, the compact card and the details window, only where the service allows it ([2.4.2](../2.4.2-decisions.md#sending-a-decision)): never on an approval, The Office's own Decisions, a Stage Thread's, one put to a Consultant, or one settled.
+- Pressing it replaces the actions with a step (section "Dismiss"): a box "Why dismiss it?" ("Optional.", placeholder "Your general comment, sent with your next message"), the text "Closes the Decision unanswered. <asker> learns of it with your next message in the Thread.", then **Dismiss** and **Cancel**.
+- Disabled while an answer is sending.
+
 ### Progress line
 
 - "5 of 8 answered" with a bar, an untouched recommendation counting as answered; then "Ready to submit" or the link "Question N needs an answer", which jumps to (and focuses) the first unanswered question.
@@ -68,7 +75,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 - For a long form or one with Attachments: the context's first line; "Question 1 of N" (or "The question" for one), the question, the recommended option with a **Recommended** badge and "<asker> recommends it: <reason>" (or "Answered in words." for an open question).
 - Notes: "N more questions, M of them open questions" and "N Attachments to look at in Open details" joined by " · ".
-- Actions: **Accept** (check icon), **Open details**, the badge "Draft kept · N changes" once the draft differs from the recommendations (a general comment counts as one), and the progress line (several questions).
+- Actions: **Accept** (check icon), **Open details**, **Dismiss** (where allowed), the badge "Draft kept · N changes" once the draft differs from the recommendations (a general comment counts as one), and the progress line (several questions).
 - **Accept** shows only while every question is a choice and the draft is untouched; it sends every recommended option with no comments. It waits while the asker answers.
 - **Open details** (primary when Accept isn't shown) opens the window; it is disabled with "Reading the Attachments…" while they load. The progress line's "Question N needs an answer" opens the window at that question.
 - The hints and the follow-up hint show under the actions.
@@ -81,7 +88,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 ## The details window (Open details)
 
-- A Large window, kept at one height when there are several questions, titled with the Decision badge, who asks and "· N questions". Its bar: **Submit** (closes the window once sent) and **Ask me again**; Ask me again is a step: the field, **Ask me again** and **Cancel**.
+- A Large window, kept at one height when there are several questions, titled with the Decision badge, who asks and "· N questions". Its bar: **Submit** (closes the window once sent), **Ask me again** and, where allowed, **Dismiss**; each of the two is a step: the field, the button and **Cancel**.
 - Closing keeps the draft and asks nothing first.
 - With several questions: the progress line on top; the list "Questions" on the left, each row its number (check once answered), the question and its answer so far ("IndexedDB (recommended)", "In words: …", "Needs an answer in words", "Needs an answer"); on the right the context and Attachments, "Question N of M", the question, and **Previous** / **Next**; the last question shows **Submit** in Next's place (not while asking again). Under 900px the list is a row of numbers ("Questions by number", each "Question N", answered or missing) above the question.
 - The fold at the top of the details reads **Context** or "Context and N Attachments", open at first, with the context, the passed-on lines, the Consultation note and the Attachment gallery (images open the viewer).
@@ -93,7 +100,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 - Read-only, where it was asked: the context's first line, then each question (numbered when several) with its answer (with "(recommended)" after the recommended option), "Comment: …", and "General comment: …".
 - Past 3 questions it shows the first 3 and **Show all N**.
-- The outcome line: "Answered" or "Answered by you" / "Answered by <user>"; "Answered by <person> at your request" (or "at <user>'s request") with a link to the Thread asked in; "Answered by <Consultant> in a Consultation" with **Open the Consultation**; "Answered by The Office[: <comment>]"; "Asked again[ by …]: <comment>" or "Asked again, with no comment" (its questions read "Not answered"); or the closed line.
+- The outcome line: "Answered" or "Answered by you" / "Answered by <user>"; "Answered by <person> at your request" (or "at <user>'s request") with a link to the Thread asked in; "Answered by <Consultant> in a Consultation" with **Open the Consultation**; "Answered by The Office[: <comment>]"; "Asked again[ by …]: <comment>" or "Asked again, with no comment" (its questions read "Not answered"); "Dismissed by you" / "Dismissed by you: <comment>" (or "by <user name>" for another user; its questions read "Not answered"); or the closed line. A Thread's short form shows the same.
 - Closed: "Closed: the Task was dropped." or "Closed: the Initiative ended."
 - A request reads "Asked <you|name> to: …" and no question list until answered.
 

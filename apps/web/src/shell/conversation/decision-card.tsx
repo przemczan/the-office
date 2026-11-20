@@ -22,7 +22,7 @@ import {
 import "./conversation.css";
 
 /** Where the card shows, which decides whether a long form is shown compact. */
-export type DecisionCardPlace = "needs-you" | "thread" | "inline";
+export type DecisionCardPlace = "needs-you" | "feed" | "thread" | "inline";
 
 /** What every form of an open Decision the user answers is given. */
 export interface DecisionCardProps extends DecisionAnsweringProps {
@@ -31,9 +31,10 @@ export interface DecisionCardProps extends DecisionAnsweringProps {
   /** The card a link to the Decision lands on: the page's, not the panel's open over it. */
   readonly landing?: boolean;
   /**
-   * Where the card shows: a Task's Needs you (and Now and the Needs you panel), a Thread that
-   * answers it in place, or inline in a chat, which is always the whole form in place. In the
-   * first two a long form, or one with Attachments, is the compact card.
+   * Where the card shows: a Task's Needs you, the feed of Now and the Needs you panel, a Thread
+   * that answers it in place, or inline in a chat, which is always the whole form in place. In the
+   * first three a long form, or one with Attachments, is the compact card; in the feed a form of 2
+   * questions or more already is.
    */
   readonly where?: DecisionCardPlace;
   /** A line under the card's first, such as what in an Initiative it is on. */
@@ -69,7 +70,7 @@ export function DecisionCard({
         <DecisionAnswered decision={decision} />
       ) : decision.kind === "approval" ? (
         <ApprovalCard {...answering} />
-      ) : where !== "inline" && isCompact(decision) ? (
+      ) : where !== "inline" && isCompact(decision, where === "feed" ? "feed" : "elsewhere") ? (
         <CompactDecision {...answering} />
       ) : (
         <DecisionForm

@@ -85,6 +85,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `GET /tasks`: TasksController.list
 - `GET /tasks/:id`: TasksController.read
 - `PUT /tasks/:id/priority`: TasksController.changePriority
+- `PUT /tasks/:id/title`: TasksController.changeTitle
 - `PUT /tasks/:id/description`: TasksController.changeDescription
 - `PUT /tasks/:id/commit-message`: TasksController.changeCommitMessage
 - `PUT /tasks/:id/tags`: TasksController.changeTags

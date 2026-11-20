@@ -73,6 +73,7 @@ function aDecision(id: string, question: string): Decision {
     answeredBy: null,
     atUsersRequest: null,
     answeredByTheOffice: false,
+    inStageThread: false,
     closedAt: null,
     closedBecause: null,
   };

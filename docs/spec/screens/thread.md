@@ -18,7 +18,7 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 
 - The place's way back first (in the chat drawer **Threads** and the new-Thread button, see [shell.md](shell.md#a-persons-chat)).
 - The Thread's title as `h3`: a chat Thread's title or "New thread"; a Task's or Initiative's Thread "With <name>" or "<title> · <name>"; a Consultation's own title.
-- A pencil icon button, "Rename the Thread", shows once the Thread has a title; it turns the title into a field "Thread title" with **Save** and **Cancel**; a refusal shows "The title wasn't saved".
+- A pencil icon button, "Rename the Thread", shows once the Thread has a title; it turns the title into a field "Thread title" with **Save** and **Cancel** (Enter saves, Esc cancels); a refusal shows "The title wasn't saved".
 - The **Details** switch (group "Details", title "Tool activity and context lines"): on shows tool activity and the context lines in every Thread's log; one browser setting for all Threads.
 
 ## Context bar

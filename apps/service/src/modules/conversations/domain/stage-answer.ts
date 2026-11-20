@@ -1,4 +1,4 @@
-import { formAnswerWords, isTheOfficesOwn, type Decision } from "./decision.js";
+import { formAnswerWords, isDismissal, isTheOfficesOwn, type Decision } from "./decision.js";
 
 /**
  * A Decision's answer as a Task's Pipeline takes it: the option picked, with the comments as a
@@ -13,11 +13,12 @@ export type StageAnswer = (
  * The answer to a Decision opened in a Task's Pipeline, undefined while it waits (spec §2.3). For
  * The Office's own one-choice form: the option picked, its comment and the general comment its
  * guidance; or the answer's words, the comment and the general comment, joined. An Agent's own
- * form, answered or asked again, is given in words, as its session gets them.
+ * form, answered or asked again, is given in words, as its session gets them. A dismissal is none:
+ * no Pipeline waits on a Decision that can be dismissed, and nothing is there to act on.
  */
 export function stageAnswerOf(decision: Decision): StageAnswer | undefined {
   const { answer } = decision;
-  if (!answer) return undefined;
+  if (!answer || isDismissal(answer)) return undefined;
   const answeredBy = answer.answeredBy === undefined ? {} : { answeredBy: answer.answeredBy };
   const [given] = answer.kind === "submitted" ? answer.answers : [];
   if (!isTheOfficesOwn(decision) || given === undefined) {

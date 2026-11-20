@@ -2363,6 +2363,7 @@ describe("a Decision", () => {
       askedAt: expect.any(Date),
       passedOn: [],
       answer: undefined,
+      inStageThread: false,
     };
     expect(thread.openDecisions[0]).toEqual(decision);
     expect(exchanges(log)).toEqual([
@@ -2416,6 +2417,54 @@ describe("a Decision", () => {
     await expect(
       decisions.answer(open.id, oneOptionAnswer(1), ANSWERED_BY_ANN_LEE),
     ).rejects.toThrow("This Decision is answered already.");
+  });
+
+  it("dismissed, starts no turn, and its note goes ahead of the user's next message", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+        sent("next"),
+        ...aTurn("next", "Then the import."),
+      ),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+
+    await decisions.answer(
+      open.id,
+      { kind: "dismissed", generalComment: "We dropped the export" },
+      ANSWERED_BY_ANN_LEE,
+    );
+
+    const [session] = engine.sessions;
+    const sends = () => session?.received.filter(({ step }) => step === "send") ?? [];
+    const thread = await threads.read(opened.id);
+    expect(thread).toMatchObject({ state: "waiting", openDecisions: [] });
+    expect(sends()).toEqual([]);
+    await expect(decisions.listOpen()).resolves.not.toContainEqual(
+      expect.objectContaining({ id: open.id }),
+    );
+    const dismissal = () =>
+      threads
+        .messages(opened.id)
+        .then((log) => log.find((line) => line.kind === "decision-answer"));
+    await expect(dismissal()).resolves.toMatchObject({
+      decisionId: open.id,
+      answer: { kind: "dismissed", generalComment: "We dropped the export" },
+      delivery: "waiting",
+    });
+
+    await runner.send(opened.id, "Plan the import instead.", ANN_LEE);
+    await answered(opened.id, 8);
+
+    const [next] = sends();
+    expect(next?.step === "send" && next.message.text).toBe(
+      `You dismissed the Decision “${EXPORT_QUESTION}”: We dropped the export. Its questions no longer apply; don't ask them again.\n\nPlan the import instead.`,
+    );
+    await expect(dismissal()).resolves.toMatchObject({ delivery: "delivered" });
   });
 
   it("takes a free answer after a follow-up, in a fresh session briefed with the Task's answered Decisions", async () => {
@@ -2870,6 +2919,71 @@ describe("Decisions in an Initiative's planning Thread", () => {
     );
     await answered(opened.id, 1);
     expect((await threads.read(opened.id)).openDecisions).toEqual([]);
+  });
+
+  it("dismissed while the Planner works, starts no turn as it ends, and goes ahead of the user's next message", async () => {
+    const initiativeId = randomUUID();
+    const taskA = randomUUID();
+    initiativeTasks.set(taskA, { initiativeId, title: "Export API" });
+    initiativeOfficeTools = ["read_task", OPEN_DECISION_TOOL, HOLD_TURN];
+    await startWith(
+      started(
+        ...opensDecisionOn("c-1", taskA, "Which format?"),
+        ...holdsTheTurn("c-2"),
+        ...aTurn("brief", "The Task waits for an answer."),
+        sent("next"),
+        ...aTurn("next", "Planned it anew."),
+      ),
+    );
+    const turn: { letGo?: () => void } = {};
+    const held = new Promise<void>((resolve) => {
+      turn.letGo = resolve;
+    });
+    app.get(OfficeToolRegistry).register({
+      name: HOLD_TURN,
+      description: "Holds the turn.",
+      input: z.object({}),
+      run: async () => {
+        await held;
+        return { text: "Done.", isError: false };
+      },
+    });
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Planning the Initiative",
+      opening: "Plan the Initiative's Tasks.",
+    });
+    const onA = await vi.waitFor(
+      async () => {
+        const [open] = (await threads.read(opened.id)).openDecisions;
+        if (!open) throw new Error("Not opened yet.");
+        return open;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+
+    await decisions.answer(onA.id, { kind: "dismissed" }, ANSWERED_BY_ANN_LEE);
+    turn.letGo?.();
+    await answered(opened.id, 1);
+
+    const [session] = engine.sessions;
+    const sends = () => session?.received.filter(({ step }) => step === "send") ?? [];
+    expect((await threads.read(opened.id)).state).toBe("waiting");
+    expect(sends()).toEqual([]);
+
+    const before = (await threads.messages(opened.id)).length;
+    await runner.send(opened.id, "Plan it without the export.", ANN_LEE);
+    await answered(opened.id, before + 2);
+
+    const [next] = sends();
+    expect(next?.step === "send" && next.message.text).toBe(
+      `You dismissed the Decision “Which format?”. Its questions no longer apply; don't ask them again.\n\n## The message from the user Ann Lee\n\nPlan it without the export.`,
+    );
+    const line = (await threads.messages(opened.id)).find(
+      (logged) => logged.kind === "decision-answer",
+    );
+    expect(line).toMatchObject({ decisionId: onA.id, delivery: "delivered" });
   });
 });
 

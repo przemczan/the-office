@@ -544,6 +544,7 @@ export function decisionAnswerMessage(
   answer: DecisionAnswer,
   answerer: Answerer,
 ): string {
+  if (answer.kind === "dismissed") return dismissalNote(decision, answer);
   if (answer.kind === "asked-again") {
     const comment = answer.generalComment?.trim();
     if (answerer.kind === "the-office") {
@@ -562,6 +563,21 @@ export function decisionAnswerMessage(
   }
   const asked = decision.kind === "request" ? "your request" : "your Decision";
   return `${answeredWords(answerer, asked)}:\n\n${formAnswerWords(decision, answer)}`;
+}
+
+/**
+ * What the asking session is told of a Decision the user dismissed (spec §2.4), ahead of the user's
+ * next message in the Thread, or among the answers an Initiative's Thread hands over.
+ */
+export function dismissalNote(
+  decision: Pick<Decision, "questions">,
+  { generalComment }: { readonly generalComment?: string | undefined },
+): string {
+  const comment = generalComment?.trim();
+  const dismissed = `You dismissed the Decision “${decisionSummary(decision)}”${comment ? `: ${comment}` : ""}`;
+  // A comment ending its own sentence takes no second full stop.
+  const ended = /[.!?…]$/.test(dismissed) ? dismissed : `${dismissed}.`;
+  return `${ended} Its questions no longer apply; don't ask them again.`;
 }
 
 function askedAgainWords(answerer: Answerer): string {

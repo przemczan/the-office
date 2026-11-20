@@ -502,6 +502,27 @@ describe("PostgresThreadRepository's Decision forms", () => {
     });
   });
 
+  it("keeps a dismissed form as Ask me again marked dismissed, which the release before reads", async () => {
+    const { thread, opened } = await waitingOn(TWO_QUESTIONS);
+    const dismissed: DecisionAnswer = { kind: "dismissed", generalComment: "We changed course." };
+
+    await answer(thread.id, opened.id, dismissed);
+
+    await expect(repository.decision(opened.id)).resolves.toEqual({
+      ...opened,
+      answer: { ...dismissed, user: BEN_ITO, answeredAt: AT },
+    });
+    expect(
+      (await repository.messages(thread.id)).find((message) => message.kind === "decision-answer"),
+    ).toMatchObject({ answer: dismissed });
+    await expect(keptAnswerLine(thread.id)).resolves.toMatchObject({
+      formAnswer: { kind: "asked-again", generalComment: "We changed course.", dismissed: true },
+    });
+    await expect(oneQuestionColumns(opened.id)).resolves.toMatchObject({
+      answer: { kind: "free-answer", text: "We changed course.", user: BEN_ITO },
+    });
+  });
+
   it("keeps a form of one choice as one question, its option as picked, for the release before", async () => {
     const [choice] = TWO_QUESTIONS;
     if (!choice) throw new Error("No question.");

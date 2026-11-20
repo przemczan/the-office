@@ -509,6 +509,11 @@ export function placeTask(id: string, placement: TaskPlacement): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/place`, placement, taskSchema);
 }
 
+/** The Task's title, in any state but Done and Dropped. */
+export function changeTitle(id: string, title: string): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/title`, { title }, taskSchema);
+}
+
 /** The user's Description, until the Task starts; empty leaves none. */
 export function changeDescription(id: string, description: string): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/description`, { description }, taskSchema);

@@ -6,7 +6,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { RoleCards } from "../../people/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { DecisionClosed } from "../domain/conversation-events.js";
+import { DecisionAnswered, DecisionClosed } from "../domain/conversation-events.js";
 import { oneOptionAnswer } from "../domain/decision.js";
 import { DRAFT, SESSION } from "../domain/decision.fixtures.js";
 import type { Thread } from "../domain/thread.js";
@@ -22,6 +22,7 @@ let app: INestApplication;
 let repository: PostgresThreadRepository;
 let decisions: DecisionService;
 const closed: DecisionClosed[] = [];
+const answered: DecisionAnswered[] = [];
 /** The Initiatives' planning Threads, by their ids; every other Thread on one is a shaping Thread. */
 const planningThreads = new Set<string>();
 /** Each Initiative's own Attachments, by its id. */
@@ -55,6 +56,9 @@ beforeAll(async () => {
   app.get(EventBus).subscribe(DecisionClosed, (event) => {
     closed.push(event);
   });
+  app.get(EventBus).subscribe(DecisionAnswered, (event) => {
+    answered.push(event);
+  });
 });
 
 afterAll(async () => {
@@ -65,12 +69,17 @@ afterAll(async () => {
  * A Stage Thread on the Task waiting on a Decision, on the user or put to `putTo`: its answer goes
  * to the Pipeline, not into a session, so no ThreadRunner is needed to answer it.
  */
-async function waitingOn(taskId: string, putTo?: string): Promise<Thread> {
+async function waitingOn(
+  taskId: string,
+  putTo?: string,
+  { stageThread = true, state = "waiting" }: Partial<Pick<Thread, "stageThread" | "state">> = {},
+): Promise<Thread> {
   const thread = aThread({
     id: randomUUID(),
     home: { kind: "task", taskId },
     roleKey: "developer",
-    stageThread: true,
+    stageThread,
+    state,
   });
   await repository.add(thread);
   const { thread: waiting } = await repository.update(thread.id, (latest) =>
@@ -141,12 +150,12 @@ describe("closing the Decisions of a dropped Task", () => {
     const waiting = await waitingOn(taskId);
     const id = decisionOf(waiting);
     await decisions.answer(id, oneOptionAnswer(1), { kind: "user", user: null });
-    const answered = await repository.decision(id);
+    const answeredDecision = await repository.decision(id);
 
     await decisions.closeOnDroppedTask(taskId);
 
-    expect(await repository.decision(id)).toEqual(answered);
-    expect(answered?.closedAt).toBeUndefined();
+    expect(await repository.decision(id)).toEqual(answeredDecision);
+    expect(answeredDecision?.closedAt).toBeUndefined();
   });
 });
 
@@ -259,5 +268,63 @@ describe("Decisions on an Initiative as a whole", () => {
     await expect(
       decisions.answer(onShaping.decision.id, oneOptionAnswer(0), { kind: "user", user: null }),
     ).rejects.toMatchObject({ reasons: ["This Decision was closed: its Initiative ended."] });
+  });
+});
+
+/** A person's Thread on a Task waiting on a Decision, its person still answering. */
+const inPersonsThread = (taskId: string, putTo?: string) =>
+  waitingOn(taskId, putTo, { stageThread: false, state: "answering" });
+
+describe("dismissing a Decision", () => {
+  it("closes it as the user's answer, raising DecisionAnswered, and starts no turn", async () => {
+    // No ThreadRunner is there: a dismissal never reaches a session.
+    const taskId = randomUUID();
+    const waiting = await inPersonsThread(taskId);
+    const id = decisionOf(waiting);
+
+    const thread = await decisions.answer(
+      id,
+      { kind: "dismissed", generalComment: "Not needed now." },
+      { kind: "user", user: null },
+    );
+
+    expect(thread).toMatchObject({ state: "answering", openDecisions: [] });
+    expect(await repository.decision(id)).toMatchObject({
+      inStageThread: false,
+      answer: { kind: "dismissed", generalComment: "Not needed now.", user: null },
+    });
+    expect(answered.map(({ decision }) => decision.id)).toContain(id);
+    expect(await decisions.openOn(taskId)).toBe(0);
+    const [line] = (await repository.messages(waiting.id)).filter(
+      (message) => message.kind === "decision-answer",
+    );
+    expect(line).toMatchObject({
+      decisionId: id,
+      answer: { kind: "dismissed", generalComment: "Not needed now." },
+      delivery: "waiting",
+    });
+  });
+
+  it("is refused in a Stage Thread, put to a Consultant, by anyone but the user, and once answered", async () => {
+    const dismissal = { kind: "dismissed" } as const;
+    const user = { kind: "user", user: null } as const;
+    const inStage = decisionOf(await waitingOn(randomUUID()));
+    await expect(decisions.answer(inStage, dismissal, user)).rejects.toMatchObject({
+      reasons: ["A Decision in a Stage Thread can't be dismissed: its Stage waits on the answer."],
+    });
+    const consulted = decisionOf(await inPersonsThread(randomUUID(), "cto"));
+    await expect(decisions.answer(consulted, dismissal, user)).rejects.toMatchObject({
+      reasons: [
+        "This Decision is put to the person in the Role cto, who answers it in a Consultation: it can't be dismissed.",
+      ],
+    });
+    const open = decisionOf(await inPersonsThread(randomUUID()));
+    await expect(decisions.answer(open, dismissal, { kind: "the-office" })).rejects.toMatchObject({
+      reasons: ["Only the user dismisses a Decision, on its card."],
+    });
+    await decisions.answer(open, dismissal, user);
+    await expect(decisions.answer(open, dismissal, user)).rejects.toMatchObject({
+      reasons: ["This Decision is answered already."],
+    });
   });
 });

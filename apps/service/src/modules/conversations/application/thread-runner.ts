@@ -28,12 +28,14 @@ import {
   type Decision,
   type DecisionAnswer,
   type GivenAnswer,
+  isDismissal,
 } from "../domain/decision.js";
 import {
   briefBeforeSkillCommand,
   briefedMessage,
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
+  dismissalNote,
   messageFromUser,
   openingMessage,
   sessionOfficeTools,
@@ -212,6 +214,11 @@ interface Taken {
   readonly skillCommandAmong?: SentWith["skillCommandAmong"];
   /** The images the user's message carries, which never go with a skill command. */
   readonly images?: readonly MessageImage[];
+  /**
+   * What goes to the session ahead of the user's message, never with a skill command: the notes of
+   * the Decisions the user dismissed since the person last heard from them.
+   */
+  readonly ahead?: string;
 }
 
 const NO_RECORDS: GivenRecords = {
@@ -343,6 +350,8 @@ export class ThreadRunner implements OnModuleDestroy {
       ...(images.length > 0 && { images }),
     };
     const ofBrief = openPageToGive({ openPage, mentions, log: [], newSession: true });
+    const dismissals = await this.waitingDismissals(thread);
+    const dismissed = dismissals.map(({ lineId }) => lineId);
     const given: GivenRecords = {
       mentioned: await this.mentionedRecords.read(mentions),
       openPage: ofBrief && (await this.mentionedRecords.openPage(ofBrief)),
@@ -351,12 +360,24 @@ export class ThreadRunner implements OnModuleDestroy {
     return this.take(
       thread,
       current,
-      { id: said.id, text, writtenBy, skillCommandAmong: sent.skillCommandAmong, images },
-      (latest, opening, command) =>
-        beginAnswer(latest, {
+      {
+        id: said.id,
+        text,
+        writtenBy,
+        skillCommandAmong: sent.skillCommandAmong,
+        images,
+        ...(dismissals.length > 0 && { ahead: dismissals.map(({ note }) => note).join("\n\n") }),
+      },
+      (latest, opening, command) => {
+        const begun = beginAnswer(latest, {
           ...opening,
           said: command ? { ...said, skillCommand: { skill: command.name } } : said,
-        }),
+        });
+        // A skill command goes alone: the dismissals wait for the next message.
+        return command || dismissed.length === 0
+          ? begun
+          : { ...begun, marked: { messageIds: dismissed, delivery: "delivered" } };
+      },
       [],
       given,
     );
@@ -440,12 +461,43 @@ export class ThreadRunner implements OnModuleDestroy {
   }
 
   /**
+   * The Decisions the user dismissed in the Thread that the person hasn't heard of yet, each with
+   * its note and the line that waits to be marked delivered once the note goes.
+   */
+  private async waitingDismissals(
+    thread: Thread,
+  ): Promise<readonly { readonly lineId: string; readonly note: string }[]> {
+    const lines = (await this.repository.messages(thread.id)).filter(
+      (line) =>
+        line.kind === "decision-answer" &&
+        line.delivery === "waiting" &&
+        line.answer.kind === "dismissed",
+    );
+    if (lines.length === 0) return [];
+    const found = new Map(
+      (
+        await this.repository.decisionsWithIds(
+          lines.flatMap((line) => (line.kind === "decision-answer" ? [line.decisionId] : [])),
+        )
+      ).map((decision) => [decision.id, decision]),
+    );
+    return lines.flatMap((line) => {
+      if (line.kind !== "decision-answer" || line.answer.kind !== "dismissed") return [];
+      const decision = found.get(line.decisionId);
+      return decision ? [{ lineId: line.id, note: dismissalNote(decision, line.answer) }] : [];
+    });
+  }
+
+  /**
    * Answers one of the Thread's open Decisions and has the person take the answer, with its
    * question, as their next message, under the Context policy as any message is, together with any
    * answers that waited for it. In an Initiative's planning Thread an answer given while the person
    * is answering is kept for their turn's end instead (spec §2.4). `answerer` is who answered: a
    * user, a Consultant or a person at the user's request. Refused once it is answered, with an
-   * answer that isn't one, and in a Thread on a Task while the person is still answering.
+   * answer that isn't one, and in a Thread on a Task while the person is still answering. Never a
+   * dismissal, which starts no turn (`DecisionService.answer` records it); its note goes ahead of
+   * the user's next message in the Thread (`send`), or, in an Initiative's Thread, with the
+   * waiting answers handed over.
    */
   async answerDecision(
     threadId: string,
@@ -456,6 +508,9 @@ export class ThreadRunner implements OnModuleDestroy {
     const thread = await this.threadOf(threadId);
     const open = openDecisionOf(thread, decisionId);
     if (!open) throw new ThreadRefused(["This Decision is answered already."]);
+    if (answer.kind === "dismissed") {
+      throw new Error("A dismissal starts no turn: DecisionService records it.");
+    }
     const problems = answerProblems(open, answer, answerGivenBy(answerer));
     if (problems.length > 0) throw new ThreadRefused(problems);
     const current = await this.personOf(thread);
@@ -506,13 +561,14 @@ export class ThreadRunner implements OnModuleDestroy {
   /**
    * Hands the person the answers kept for their turn's end in an Initiative's planning Thread, all
    * in one message: nothing when there are none, or when the person answers again already, as the
-   * end of that turn hands them over.
+   * end of that turn hands them over. Dismissals alone start no turn: they wait for the user's next
+   * message, or go along with an answer.
    */
   private async deliverWaitingAnswers(threadId: string): Promise<void> {
     const thread = await this.threadOf(threadId);
     if (thread.home.kind !== "initiative" || thread.state !== "waiting") return;
     const waiting = await this.waitingAnswers(thread);
-    if (waiting.length === 0) return;
+    if (waiting.every(({ decision }) => isDismissal(decision.answer))) return;
     const current = await this.personOf(thread);
     const decisions = waiting.map(({ decision }) => decision);
     const said = {
@@ -717,8 +773,12 @@ export class ThreadRunner implements OnModuleDestroy {
     );
     this.bargeIns.set(thread.id, bargeIns);
     this.answerInBackground(answering, {
-      said: { id: said.id, text: newSession ? said.text : withRecords, ...images },
-      briefed: briefedMessage(place.brief.text, said.text, said.writtenBy),
+      said: {
+        id: said.id,
+        text: newSession ? said.text : inOrder(said.ahead, withRecords),
+        ...images,
+      },
+      briefed: briefedMessage(inOrder(place.brief.text, said.ahead), said.text, said.writtenBy),
       ...move,
       replaced: newSession ? thread.session : undefined,
       place,
@@ -1679,4 +1739,9 @@ function isAgentsOwnTurnEvent(event: SessionEvent): boolean {
     default:
       return false;
   }
+}
+
+/** The texts given, in order, a blank line between them. */
+function inOrder(...parts: readonly (string | undefined)[]): string {
+  return parts.filter((part): part is string => part !== undefined).join("\n\n");
 }

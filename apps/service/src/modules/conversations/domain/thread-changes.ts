@@ -476,6 +476,7 @@ export function openDecision(
     putTo,
     passedOn: [],
     answer: undefined,
+    inStageThread: thread.stageThread,
   };
   const card: Message = {
     kind: "decision",
@@ -710,6 +711,29 @@ export function keepAnswerForTurnEnd(
     logged: [answerLine(thread, recording, "waiting")],
     decision,
     event: new DecisionAnswered(without, decision, answeredAt),
+  };
+}
+
+/**
+ * The user dismisses one of the Thread's open Decisions (spec §2.4): it is closed as the user's
+ * answer at once, so it leaves Needs you, whether the person answers or not, and its line is logged
+ * waiting: the person learns of it with the user's next message in the Thread (or, in an
+ * Initiative's Thread, with the waiting answers handed over), never by a turn of its own. Refused
+ * as `dismissProblems` says.
+ */
+export function dismissDecision(
+  thread: Thread,
+  recording: DecisionRecording,
+): ThreadChange<DecisionAnswered> {
+  if (recording.answer.kind !== "dismissed") throw new Error("Not a dismissal.");
+  const open = answerableDecision(thread, recording);
+  const decision = answered(open, recording);
+  const without = withoutDecision(thread, recording.decisionId);
+  return {
+    thread: without,
+    logged: [answerLine(thread, recording, "waiting")],
+    decision,
+    event: new DecisionAnswered(without, decision, recording.answeredAt),
   };
 }
 

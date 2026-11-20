@@ -1006,6 +1006,17 @@
   align-items: center;
 }
 
+.task-title-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.task-title-edit .refusal-reasons {
+  flex-basis: 100%;
+}
+
 .task-head h2 {
   margin: 0;
   font: 600 var(--text-2xl) / 1.3 var(--font-sans);

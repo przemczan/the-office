@@ -148,7 +148,7 @@ function speakerAndText(
 function decisionWords(decision: Decision | undefined): string {
   if (decision === undefined) return "Opened a Decision.";
   const asked = `Decision: ${decisionSummary(decision)}`;
-  if (decision.answer?.kind === "asked-again") {
+  if (decision.answer?.kind === "asked-again" || decision.answer?.kind === "dismissed") {
     return `${asked} ${formAnswerWords(decision, decision.answer)}`;
   }
   if (decision.answer) {
@@ -159,9 +159,13 @@ function decisionWords(decision: Decision | undefined): string {
     : `${asked} Not answered yet.`;
 }
 
-/** An answer line in words: each question's answer, or that they asked again. */
+/** An answer line in words: each question's answer, or that they asked again or dismissed it. */
 function decisionAnswerWords(decision: Decision, answer: DecisionAnswer): string {
   const named = `the Decision "${decisionSummary(decision)}"`;
+  if (answer.kind === "dismissed") {
+    const comment = answer.generalComment?.trim();
+    return comment ? `Dismissed ${named}: ${comment}` : `Dismissed ${named}, with no comment.`;
+  }
   if (answer.kind === "asked-again") {
     const comment = answer.generalComment?.trim();
     return comment
